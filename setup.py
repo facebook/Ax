@@ -8,7 +8,7 @@ from setuptools.extension import Extension
 
 EXTENSIONS = [Extension("ae.utils.stats.sobol", ["ae/utils/stats/sobol.pyx"])]
 
-REQUIRED = [
+REQUIRES = [
     "botorch",
     "GPy==1.9.6",  # will be removed prior to release
     "jinja2",  # also a Plotly dep
@@ -20,7 +20,10 @@ REQUIRED = [
     "plotly == 2.4.1",
 ]
 
-EXTRAS = ["SQLAlchemy>=1.1.13"]
+DEV_REQUIRES = ["pytest", "pytest-cov"]
+
+MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
+
 
 setup(
     name="ae",
@@ -36,7 +39,7 @@ setup(
     ],
     python_requires=">=3.6",
     setup_requires=["cython", "numpy"],
-    install_requires=REQUIRED,
+    install_requires=REQUIRES,
     include_dirs=[numpy.get_include()],
     packages=find_packages(),
     ext_modules=cythonize(EXTENSIONS),
@@ -44,4 +47,5 @@ setup(
         # include all js, css, and html files in the package
         "": ["*.js", "*.css", "*.html"]
     },
+    extras_require={"dev": DEV_REQUIRES, "mysql": MYSQL_REQUIRES},
 )
