@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+
+from typing import TYPE_CHECKING, Any, Iterable, Optional
+
+from ae.lazarus.ae.core.base import Base
+from ae.lazarus.ae.core.data import Data
+
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ae.lazarus.ae.core.base_trial import BaseTrial  # noqa
+    from ae.lazarus.ae.core.experiment import Experiment  # noqa
+
+
+class Metric(Base):
+    """Base class for representing metrics.
+
+    Attributes:
+        lower_is_better: Flag for metrics which should be minimized.
+    """
+
+    def __init__(self, name: str, lower_is_better: Optional[bool] = None) -> None:
+        """Inits Metric.
+
+        Args:
+            name: Name of metric.
+            lower_is_better: Flag for metrics which should be minimized.
+        """
+        self._name = name
+        self.lower_is_better = lower_is_better
+
+    @property
+    def name(self) -> str:
+        """Get name of metric."""
+        return self._name
+
+    def fetch_trial_data(self, trial: "BaseTrial", **kwargs: Any) -> Data:
+        """Fetch data for one trial."""
+        raise NotImplementedError  # pragma: no cover
+
+    def fetch_experiment_data(self, experiment: "Experiment", **kwargs: Any) -> Data:
+        """Fetch this metric's data for an experiment.
+
+        Default behavior is to fetch data from all trials expecting data
+        and concatenate the results.
+        """
+        return Data.from_multiple_data(
+            [
+                self.fetch_trial_data(trial, **kwargs)
+                if trial.status.expecting_data
+                else Data()
+                for trial in experiment.trials.values()
+            ]
+        )
+
+    @classmethod
+    def fetch_trial_data_multi(
+        cls, trial: "BaseTrial", metrics: Iterable["Metric"], **kwargs: Any
+    ) -> Data:
+        """Fetch multiple metrics data for one trial.
+
+        Default behavior calls `fetch_trial_data` for each metric.
+        Subclasses should override this to trial data computation for multiple metrics.
+        """
+        return Data.from_multiple_data(
+            [
+                metric.fetch_trial_data(trial, **kwargs)
+                if trial.status.expecting_data
+                else Data()
+                for metric in metrics
+            ]
+        )
+
+    @classmethod
+    def fetch_experiment_data_multi(
+        cls, experiment: "Experiment", metrics: Iterable["Metric"], **kwargs: Any
+    ) -> Data:
+        """Fetch multiple metrics data for an experiment.
+
+        Default behavior calls `fetch_experiment_data` for each metric.
+        Subclasses should override this to batch data computation for multiple metrics.
+        """
+        return Data.from_multiple_data(
+            [metric.fetch_experiment_data(experiment, **kwargs) for metric in metrics]
+        )
+
+    def clone(self) -> "Metric":
+        """Create a copy of this Metric."""
+        return Metric(name=self.name, lower_is_better=self.lower_is_better)
+
+    def __repr__(self) -> str:
+        return "{class_name}('{metric_name}')".format(
+            class_name=self.__class__.__name__, metric_name=self.name
+        )

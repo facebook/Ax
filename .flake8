@@ -1,0 +1,12 @@
+[flake8]
+
+# E704: the linter doesn't parse types properly (T26253308)
+# T499, T484: We don't need to run pyre and mypy
+# W503: black and flake8 disagree on how to place operators (T33788470)
+ignore = T484, T499, W503, E704
+# Black really wants lines to be 88 chars....
+max-line-length = 88
+
+[flake8:local-plugins]
+extension =
+  A = ae.utils.flake8_plugins.docstring_checker:DocstringChecker

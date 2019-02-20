@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+
+import numpy
+from Cython.Build import cythonize
+from setuptools import find_packages, setup
+from setuptools.extension import Extension
+
+
+EXTENSIONS = [Extension("ae.utils.stats.sobol", ["ae/utils/stats/sobol.pyx"])]
+
+REQUIRED = [
+    "botorch",
+    "GPy==1.9.6",  # will be removed prior to release
+    "jinja2",  # also a Plotly dep
+    "matplotlib",  # will be removed prior to release (needed for GPy)
+    "pandas",
+    "scipy",
+    "simplejson",
+    "sklearn",
+    "plotly == 2.4.1",
+]
+
+EXTRAS = ["SQLAlchemy>=1.1.13"]
+
+setup(
+    name="ae",
+    version="pre-alpha",
+    description="Adaptive Experimentation",
+    author="Facebook, Inc.",
+    license="MIT",
+    url="https://github.com/facebook/Adaptive-Experiment",
+    keywords=["Experimentation", "Optimization"],
+    classifiers=[
+        "Development Status :: 2 - Pre-Alpha",
+        "Programming Language :: Python :: 3",
+    ],
+    python_requires=">=3.6",
+    setup_requires=["cython", "numpy"],
+    install_requires=REQUIRED,
+    include_dirs=[numpy.get_include()],
+    packages=find_packages(),
+    ext_modules=cythonize(EXTENSIONS),
+    package_data={
+        # include all js, css, and html files in the package
+        "": ["*.js", "*.css", "*.html"]
+    },
+)
