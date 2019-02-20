@@ -328,7 +328,7 @@ class GPyModelTest(TestCase):
                 -np.array([[1.0, 0.0], [0.0, 4.0]]),
             )
         )
-        self.assertEqual(minimize_mock.mock_calls[1][2]["args"][0], [True, False, True])
+        self.assertEqual(minimize_mock.mock_calls[1][2]["args"][0], [0, 2])
 
         x, fun = optimize_from_x0(
             x0=x0,
@@ -353,7 +353,7 @@ class GPyModelTest(TestCase):
     def testObjectiveAndGrad(self, nei_mock):
         f, grad = objective_and_grad(
             x=np.array([1.0, 3.0]),
-            tunable_slice=[True, False, True],
+            tunable_slice=[0, 2],
             fixed_features={1: 2.0},
             fantasy_models={},
             obj_idx=0,

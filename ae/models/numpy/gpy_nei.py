@@ -7,6 +7,7 @@ from typing import Dict, Generator as GeneratorType, List, Optional, Tuple
 
 import GPy
 import numpy as np
+from ae.lazarus.ae.models.model_utils import add_fixed_features
 from ae.lazarus.ae.utils.stats.sobol import SobolEngine  # pyre-ignore
 from scipy.optimize import minimize
 from scipy.stats import norm
@@ -437,8 +438,8 @@ def optimize_from_x0(
     Returns: x that optimizes NEI, and NEI at that x.
     """
     # Restrict optimization problem to tunable features
-    tunable_slice = [i not in fixed_features for i, _ in enumerate(bounds)]
-    bounds_opt = [b for i, b in enumerate(bounds) if tunable_slice[i]]
+    tunable_slice = [i for i, _ in enumerate(bounds) if i not in fixed_features]
+    bounds_opt = [bounds[i] for i in tunable_slice]
     x0_opt = x0[tunable_slice]
 
     args = (
@@ -490,14 +491,21 @@ def optimize_from_x0(
             callback=nan_cb,
             constraints=constraints,
         )
+        # Add fixed features back in
+        x = add_fixed_features(
+            tunable_points=np.array([res.x]),
+            d=len(x0),
+            fixed_features=fixed_features,
+            tunable_feature_indices=np.array(tunable_slice),
+        )[0]
+        return x, res.fun
     except StopIteration:
         return x0, np.Inf
-    return res.x, res.fun
 
 
 def objective_and_grad(
     x: np.ndarray,
-    tunable_slice: List[bool],
+    tunable_slice: List[int],
     fixed_features: Dict[int, float],
     fantasy_models: Dict[int, List[GPy.core.gp.GP]],
     obj_idx: int,
@@ -526,7 +534,7 @@ def objective_and_grad(
 
     Returns: NEI at x and its gradient.
     """
-    x_full = np.zeros(len(tunable_slice))
+    x_full = np.zeros(len(tunable_slice) + len(fixed_features))
     x_full[tunable_slice] = x
     for k, v in fixed_features.items():
         x_full[k] = v
