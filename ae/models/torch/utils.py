@@ -9,6 +9,7 @@ from botorch.acquisition.batch_modules import BatchAcquisitionFunction
 from botorch.exceptions import BadInitialCandidatesWarning
 from botorch.gen import gen_candidates_scipy, get_best_candidates
 from botorch.models import Model, MultiOutputGP
+from botorch.models.constant_noise import ConstantNoiseGP
 from botorch.models.gp_regression import HeteroskedasticSingleTaskGP, SingleTaskGP
 from botorch.optim.initializers import (
     get_similarity_measure,
@@ -34,13 +35,19 @@ def is_noiseless(model: Model) -> bool:
     return model.__class__ in NOISELESS_MODELS
 
 
-def _get_model(X: Tensor, Y: Tensor, Yvar: Optional[Tensor] = None) -> Model:
-    zero_noise = Yvar == 0.0
-    if torch.all(zero_noise):
-        model = SingleTaskGP(train_X=X, train_Y=Y.view(-1))
+def _get_model(X: Tensor, Y: Tensor, Yvar: Tensor) -> Model:
+    """Instantiate a model of type depending on the input data"""
+    Yvar = Yvar.view(-1)  # last dimension is not needed for botorch
+    # Determine if we want to treat the noise as constant
+    mean_var = Yvar.mean().clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
+    # Look at relative variance in noise level
+    Yvar_std = Yvar.std() if Yvar.nelement() > 1 else torch.tensor(0).type_as(Yvar)
+    if Yvar_std / mean_var < 0.1:
+        model = ConstantNoiseGP(
+            train_X=X, train_Y=Y.view(-1), train_Y_se=mean_var.sqrt()
+        )
     else:
-        if torch.any(zero_noise):
-            Yvar = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)
+        Yvar = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)
         model = HeteroskedasticSingleTaskGP(
             train_X=X, train_Y=Y.view(-1), train_Y_se=Yvar.view(-1).sqrt()
         )

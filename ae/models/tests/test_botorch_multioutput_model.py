@@ -8,7 +8,7 @@ from ae.lazarus.ae.models.torch.botorch_multioutput import BotorchMultiOutputMod
 from ae.lazarus.ae.models.torch.utils import MIN_OBSERVED_NOISE_LEVEL
 from ae.lazarus.ae.utils.common.testutils import TestCase
 from botorch.models import MultiOutputGP
-from gpytorch.likelihoods import GaussianLikelihood, _GaussianLikelihoodBase
+from gpytorch.likelihoods import _GaussianLikelihoodBase
 
 from .utils import _get_torch_test_data
 
@@ -51,8 +51,8 @@ class BotorchMultiOutputModelTest(TestCase):
         self.assertTrue(torch.equal(model_list[1].train_inputs[0], Xs2[0]))
         self.assertTrue(torch.equal(model_list[0].train_targets, Ys1[0].view(-1)))
         self.assertTrue(torch.equal(model_list[1].train_targets, Ys2[0].view(-1)))
-        self.assertIsInstance(model_list[0].likelihood, GaussianLikelihood)
-        self.assertIsInstance(model_list[1].likelihood, GaussianLikelihood)
+        self.assertIsInstance(model_list[0].likelihood, _GaussianLikelihoodBase)
+        self.assertIsInstance(model_list[1].likelihood, _GaussianLikelihoodBase)
 
         # Check prediction
         device = torch.device("cuda") if cuda else torch.device("cpu")

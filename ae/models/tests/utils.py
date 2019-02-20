@@ -20,9 +20,8 @@ def _get_model_test_state_dict_noiseless(dtype=torch.float, cuda=False):
     device = torch.device("cuda") if cuda else torch.device("cpu")
     tkwargs = {"device": device, "dtype": dtype}
     cm = "covar_module."
-    np = "likelihood.noise_covar.noise_prior"
     state_dict = {
-        "likelihood.noise_covar.raw_noise": torch.tensor([[1.0]], **tkwargs),
+        "likelihood.noise_covar._noise_levels": torch.tensor([1.0], **tkwargs),
         "mean_module.constant": torch.tensor([[2.0]], **tkwargs),
         f"{cm}raw_outputscale": torch.tensor([1.0], **tkwargs),
         f"{cm}base_kernel.raw_lengthscale": torch.tensor(
@@ -34,8 +33,6 @@ def _get_model_test_state_dict_noiseless(dtype=torch.float, cuda=False):
         f"{cm}base_kernel.lengthscale_prior.rate": torch.tensor(2.0, **tkwargs),
         f"{cm}outputscale_prior.concentration": torch.tensor(3.0, **tkwargs),
         f"{cm}outputscale_prior.rate": torch.tensor(4.0, **tkwargs),
-        f"{np}.concentration": torch.tensor(0.1, **tkwargs),
-        f"{np}.rate": torch.tensor(0.01, **tkwargs),
     }
     return state_dict
 

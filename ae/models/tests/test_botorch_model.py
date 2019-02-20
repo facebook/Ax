@@ -51,7 +51,7 @@ class BotorchModelTest(TestCase):
         # Check fitting
         self.assertTrue(torch.equal(model.models[0].train_inputs[0], Xs[0]))
         self.assertTrue(torch.equal(model.models[0].train_targets, Ys[0].view(-1)))
-        self.assertIsInstance(model.models[0].likelihood, GaussianLikelihood)
+        self.assertIsInstance(model.models[0].likelihood, _GaussianLikelihoodBase)
 
         # Check prediction
         device = torch.device("cuda") if cuda else torch.device("cpu")
