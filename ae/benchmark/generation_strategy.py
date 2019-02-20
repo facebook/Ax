@@ -170,7 +170,7 @@ class GenerationStrategy:
             idx += 1
         # Is this generator the same as the one that would've been returned for
         # the previous trial:
-        same_generator = sum(self._conditions_per_generator[:idx]) <= conditions_ran
+        same_generator = sum(self._conditions_per_generator[:idx]) < conditions_ran
 
         factory = self._generator_factories[idx]
 
