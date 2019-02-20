@@ -44,12 +44,11 @@ class TrialTest(TestCase):
         self.assertIsNotNone(self.trial.time_created)
         self.assertEqual(self.trial.conditions_by_name["0_0"], self.trial.condition)
         self.assertEqual(self.trial.conditions, [self.condition])
+        self.assertEqual(self.trial.abandoned_conditions, [])
 
         # Test empty conditions
         with self.assertRaises(AttributeError):
             self.experiment.new_trial().condition_weights
-        with self.assertRaises(AttributeError):
-            self.experiment.new_trial().abandoned_conditions
 
     def test_adding_new_trials(self):
         new_condition = get_conditions()[1]

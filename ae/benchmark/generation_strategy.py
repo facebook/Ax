@@ -120,6 +120,7 @@ class GenerationStrategy:
         experiment: Experiment,
         data: Optional[Data] = None,
         search_space: Optional[SearchSpace] = None,
+        exclude_abandoned: bool = False,
         **kwargs: Any,
     ) -> Generator:
         """Obtains a generator from the factory corresponding to the current
@@ -137,11 +138,22 @@ class GenerationStrategy:
             data (Data, optional): data, on which to train the generator, defaults
                 to None.
             search_space (SearchSpace, optional): search space for this experiment.
+            exclude_abandoned (bool): whether we should exclude abandoned
+                conditions in the experiment when determining which generator
+                to return (e.g., if this generator strategy uses generator A for
+                first 5 conditions, and then generator B, if one of the first 5
+                conditions is abandoned, generator A will be returned from this
+                function if exclude_abandoned is True and generator B if its
+                False). Defaults to False.
             **kwargs: any other arguments to be passed into the generator (e.g.,
                 'min_weight' for Thompson Sampler).
         """
         # Determine how many conditions are already attached to this experiment.
-        conditions_ran = experiment.sum_trial_sizes
+        conditions_ran = (
+            experiment.sum_trial_sizes - experiment.num_abandoned_conditions
+            if exclude_abandoned
+            else experiment.sum_trial_sizes
+        )
 
         if conditions_ran >= sum(self._conditions_per_generator):
             raise ValueError(
@@ -158,7 +170,7 @@ class GenerationStrategy:
             idx += 1
         # Is this generator the same as the one that would've been returned for
         # the previous trial:
-        same_generator = sum(self._conditions_per_generator[:idx]) <= conditions_ran - 1
+        same_generator = sum(self._conditions_per_generator[:idx]) <= conditions_ran
 
         factory = self._generator_factories[idx]
 

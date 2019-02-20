@@ -28,6 +28,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.name, "test")
         self.assertIsNotNone(self.experiment.time_created)
         self.assertEqual(self.experiment.experiment_type, None)
+        self.assertEqual(self.experiment.num_abandoned_conditions, 0)
 
     def testEq(self):
         experiment2 = get_experiment()
@@ -266,6 +267,9 @@ class ExperimentTest(TestCase):
     def testNumConditionsNoDeduplication(self):
         exp = Experiment(name="test_experiment", search_space=get_search_space())
         exp.new_batch_trial().add_condition(Condition(params={}))
-        exp.new_batch_trial().add_condition(Condition(params={}))
+        condition = Condition(params={})
+        trial = exp.new_batch_trial().add_condition(condition)
         self.assertEqual(exp.sum_trial_sizes, 2)
         self.assertEqual(len(exp.conditions_by_name), 1)
+        trial.mark_condition_abandoned(condition)
+        self.assertEqual(exp.num_abandoned_conditions, 1)

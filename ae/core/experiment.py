@@ -198,6 +198,15 @@ class Experiment(Base):
         )
 
     @property
+    def num_abandoned_conditions(self) -> int:
+        """How many conditions attached to this experiment are abandoned."""
+        abandoned = set()
+        for trial in self.trials.values():
+            for x in trial.abandoned_conditions:
+                abandoned.add(x)
+        return len(abandoned)
+
+    @property
     def optimization_config(self) -> Optional[OptimizationConfig]:
         """The experiment's optimization config."""
         return self._optimization_config

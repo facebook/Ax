@@ -244,6 +244,11 @@ class BaseTrial(ABC, Base):
     def __repr__(self) -> str:
         pass  # pragma: no cover
 
+    @abstractproperty
+    def abandoned_conditions(self) -> List[Condition]:
+        """All abandoned conditions, associated with this trial."""
+        pass  # pragma: no cover
+
     # --- Batch lifecycle management functions ---
 
     @property

@@ -113,6 +113,17 @@ class Trial(BaseTrial):
         )
 
     @property
+    def abandoned_conditions(self) -> List[Condition]:
+        """Abandoned conditions attached to this trial."""
+        return (
+            [self.condition]
+            if self.generator_run is not None
+            and self.condition is not None
+            and self.is_abandoned
+            else []
+        )
+
+    @property
     def objective_mean(self) -> Optional[float]:
         """Objective mean for the condition attached to this trial."""
         # For SimpleExperiment, fetch_trial_data just executes eval_trial.
