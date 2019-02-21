@@ -23,4 +23,6 @@ def _load_experiment(experiment_name: str, decoder: Decoder) -> Experiment:
         .filter_by(name=experiment_name)
         .one_or_none()
     )
+    if sqa_experiment is None:
+        raise ValueError(f"Experiment `{experiment_name}` not found.")
     return decoder.experiment_from_sqa(sqa_experiment)
