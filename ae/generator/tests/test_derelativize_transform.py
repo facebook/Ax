@@ -22,11 +22,12 @@ from ae.lazarus.ae.generator.transforms.derelativize import Derelativize
 from ae.lazarus.ae.utils.common.testutils import TestCase
 
 
-# Test with the abstract class
-Generator.__abstractmethods__ = frozenset()
-
-
 class DerelativizeTransformTest(TestCase):
+    def setUp(self):
+        m = mock.patch.object(Generator, "__abstractmethods__", frozenset())
+        self.addCleanup(m.stop)
+        m.start()
+
     @mock.patch(
         "ae.lazarus.ae.generator.base.observations_from_data",
         autospec=True,

@@ -24,10 +24,6 @@ from ae.lazarus.ae.generator.transforms.base import Transform
 from ae.lazarus.ae.utils.common.testutils import TestCase
 
 
-# Test the abstract class
-Generator.__abstractmethods__ = frozenset()
-
-
 def search_space_for_value(val: float = 3.0) -> SearchSpace:
     return SearchSpace([FixedParameter("x", ParameterType.FLOAT, val)])
 
@@ -168,6 +164,11 @@ class t2(Transform):
 
 
 class BaseGeneratorTest(TestCase):
+    def setUp(self):
+        m = mock.patch.object(Generator, "__abstractmethods__", frozenset())
+        self.addCleanup(m.stop)
+        m.start()
+
     @mock.patch(
         "ae.lazarus.ae.generator.base.observations_from_data",
         autospec=True,
