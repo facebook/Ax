@@ -173,6 +173,26 @@ class BotorchMultiOutputModelTest(TestCase):
         if torch.cuda.is_available():
             self.test_BotorchMultiOutputModelNoiseless(dtype=torch.double, cuda=True)
 
+    def test_BotorchMultiOutputModelOneOutcome(self):
+        Xs1, Ys1, Yvars1, bounds, task_features, feature_names = _get_torch_test_data(
+            dtype=torch.float, cuda=False, noiseless=True
+        )
+        model = BotorchMultiOutputModel()
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1,
+                Ys=Ys1,
+                Yvars=Yvars1,
+                bounds=bounds,
+                task_features=task_features,
+                feature_names=feature_names,
+            )
+            _mock_fit_model.assert_called_once()
+        X = torch.rand(2, 3, dtype=torch.float)
+        f_mean, f_cov = model.predict(X)
+        self.assertTrue(f_mean.shape == torch.Size([2, 1]))
+        self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
+
     def test_BotorchMultiOutputModel(self, dtype=torch.float, cuda=False):
         Xs1, Ys1, Yvars1, bounds, task_features, feature_names = _get_torch_test_data(
             dtype=dtype, cuda=cuda, noiseless=False
