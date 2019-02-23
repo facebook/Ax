@@ -1,11 +1,19 @@
 language: python
 
 python:
-  - "3.7"
+  - 3.6
 
 install:
   - pip install git+ssh://git@github.com/facebookexternal/botorch.git
   - pip install -q -e .[dev,mysql,notebook]
+
+# Enable Python 3.7 w/o without globally enabling sudo and xenial dist
+# See https://github.com/travis-ci/travis-ci/issues/9815
+matrix:
+  include:
+    - python: 3.7
+      dist: xenial
+      sudo: true
 
 script:
   - black --check --diff .
