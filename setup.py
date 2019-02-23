@@ -20,9 +20,11 @@ REQUIRES = [
     "plotly == 2.4.1",
 ]
 
-DEV_REQUIRES = ["pytest", "pytest-cov"]
+DEV_REQUIRES = ["black", "flake8", "pytest", "pytest-cov"]
 
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
+
+NOTEBOOK_REQUIRES = ["jupyter"]
 
 
 setup(
@@ -47,5 +49,9 @@ setup(
         # include all js, css, and html files in the package
         "": ["*.js", "*.css", "*.html"]
     },
-    extras_require={"dev": DEV_REQUIRES, "mysql": MYSQL_REQUIRES},
+    extras_require={
+        "dev": DEV_REQUIRES,
+        "mysql": MYSQL_REQUIRES,
+        "notebook": NOTEBOOK_REQUIRES,
+    },
 )
