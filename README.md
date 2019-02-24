@@ -1,5 +1,7 @@
-# AE
-Adaptive Experiment (AE) is a platform for optimizing expensive-to-evaluate configurations using machine learning and experimentation.
+# Adaptive Experiment (AE)
+[![Build Status](https://travis-ci.com/facebook/Adaptive-Experiment.svg?token=m8nxq4QpA9U383aZWDyF&branch=master)](https://travis-ci.com/facebook/Adaptive-Experiment)
+
+AE is a platform for optimizing expensive-to-evaluate configurations using machine learning and experimentation.
 
 ## Installation
 
