@@ -3,13 +3,9 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base_trial import TrialStatus
-from ae.lazarus.ae.core.batch_trial import (
-    AbandonedCondition,
-    BatchTrial,
-    GeneratorRunStruct,
-)
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.core.runner import Runner
 from ae.lazarus.ae.core.trial import Trial
@@ -34,9 +30,9 @@ def batch_trial_from_json(
     run_metadata: Optional[Dict[str, Any]],
     generator_run_structs: List[GeneratorRunStruct],
     runner: Optional[Runner],
-    abandoned_conditions_metadata: Dict[str, AbandonedCondition],
-    num_conditions_created: int,
-    status_quo: Optional[Condition],
+    abandoned_arms_metadata: Dict[str, AbandonedArm],
+    num_arms_created: int,
+    status_quo: Optional[Arm],
     status_quo_weight: float,
 ) -> BatchTrial:
     """Load AE BatchTrial from JSON.
@@ -58,8 +54,8 @@ def batch_trial_from_json(
     batch._run_metadata = run_metadata or {}
     batch._generator_run_structs = generator_run_structs
     batch._runner = runner
-    batch._abandoned_conditions_metadata = abandoned_conditions_metadata
-    batch._num_conditions_created = num_conditions_created
+    batch._abandoned_arms_metadata = abandoned_arms_metadata
+    batch._num_arms_created = num_arms_created
     batch._status_quo = status_quo
     batch._status_quo_weight = status_quo_weight
     return batch
@@ -78,7 +74,7 @@ def trial_from_json(
     run_metadata: Optional[Dict[str, Any]],
     generator_run: GeneratorRun,
     runner: Optional[Runner],
-    num_conditions_created: int,
+    num_arms_created: int,
 ) -> Trial:
     """Load AE trial from JSON.
 
@@ -98,5 +94,5 @@ def trial_from_json(
     trial._abandoned_reason = abandoned_reason
     trial._run_metadata = run_metadata or {}
     trial._runner = runner
-    trial._num_conditions_created = num_conditions_created
+    trial._num_arms_created = num_arms_created
     return trial

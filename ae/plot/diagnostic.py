@@ -12,7 +12,7 @@ from ae.lazarus.ae.plot.base import (
     AEPlotConfig,
     AEPlotTypes,
     PlotData,
-    PlotInSampleCondition,
+    PlotInSampleArm,
     PlotMetric,
     Z,
 )
@@ -97,39 +97,39 @@ def _obs_vs_pred_dropdown_plot(
                 "This plot does not support both context and relativization at "
                 "the same time."
             )
-        status_quo_condition = data.in_sample[data.status_quo_name]
+        status_quo_arm = data.in_sample[data.status_quo_name]
     else:
-        status_quo_condition = None
+        status_quo_arm = None
 
     for i, metric in enumerate(data.metrics):
         y_raw, se_raw, y_hat, se_hat = _error_scatter_data(
-            # Expected `List[typing.Union[PlotInSampleCondition,
-            # ae.lazarus.ae.plot.base.PlotOutOfSampleCondition]]` for 1st anonymous
+            # Expected `List[typing.Union[PlotInSampleArm,
+            # ae.lazarus.ae.plot.base.PlotOutOfSampleArm]]` for 1st anonymous
             # parameter to call `ae.lazarus.ae.plot.scatter._error_scatter_data` but got
-            # `List[PlotInSampleCondition]`.
+            # `List[PlotInSampleArm]`.
             # pyre-fixme[6]:
             list(data.in_sample.values()),
             y_axis_var=PlotMetric(metric, True),
             x_axis_var=PlotMetric(metric, False),
             rel=rel,
-            status_quo_condition=status_quo_condition,
+            status_quo_arm=status_quo_arm,
         )
         min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw or [], se_hat)
         traces.append(_diagonal_trace(min_, max_, visible=(i == 0)))
         traces.append(
             _error_scatter_trace(
-                # Expected `List[typing.Union[PlotInSampleCondition,
-                # ae.lazarus.ae.plot.base.PlotOutOfSampleCondition]]` for 1st parameter
-                # `conditions` to call `ae.lazarus.ae.plot.scatter._error_scatter_trace`
-                # but got `List[PlotInSampleCondition]`.
+                # Expected `List[typing.Union[PlotInSampleArm,
+                # ae.lazarus.ae.plot.base.PlotOutOfSampleArm]]` for 1st parameter
+                # `arms` to call `ae.lazarus.ae.plot.scatter._error_scatter_trace`
+                # but got `List[PlotInSampleArm]`.
                 # pyre-fixme[6]:
-                conditions=list(data.in_sample.values()),
+                arms=list(data.in_sample.values()),
                 hoverinfo="text",
                 rel=rel,
-                show_condition_details_on_hover=True,
+                show_arm_details_on_hover=True,
                 show_CI=True,
                 show_context=show_context,
-                status_quo_condition=status_quo_condition,
+                status_quo_arm=status_quo_arm,
                 visible=(i == 0),
                 x_axis_label=xlabel,
                 x_axis_var=PlotMetric(metric, False),
@@ -241,8 +241,8 @@ def _get_batch_comparison_plot_data(
         observations (List[Observation]): List of observations.
         batch_x (int): Batch for x-axis.
         batch_y (int): Batch for y-axis.
-        rel (bool): Whether to relativize data against status_quo condition.
-        status_quo_name (bool): Name of the status_quo condition.
+        rel (bool): Whether to relativize data against status_quo arm.
+        status_quo_name (bool): Name of the status_quo arm.
 
     Returns:
         PlotData: a plot data object.
@@ -250,27 +250,27 @@ def _get_batch_comparison_plot_data(
     if rel and status_quo_name is None:
         raise ValueError("Experiment status quo must be set for rel=True")
     x_observations = {
-        observation.condition_name: observation
+        observation.arm_name: observation
         for observation in observations
         if observation.features.trial_index == batch_x
     }
     y_observations = {
-        observation.condition_name: observation
+        observation.arm_name: observation
         for observation in observations
         if observation.features.trial_index == batch_y
     }
 
     # Assume input is well formed and metric_names are consistent across observations
     metric_names = observations[0].data.metric_names
-    insample_data: Dict[str, PlotInSampleCondition] = {}
-    for condition_name, x_observation in x_observations.items():
-        # Restrict to conditions present in both trials
-        if condition_name not in y_observations:
+    insample_data: Dict[str, PlotInSampleArm] = {}
+    for arm_name, x_observation in x_observations.items():
+        # Restrict to arms present in both trials
+        if arm_name not in y_observations:
             continue
 
-        y_observation = y_observations[condition_name]
-        condition_data = {
-            "name": condition_name,
+        y_observation = y_observations[arm_name]
+        arm_data = {
+            "name": arm_name,
             "y": {},
             "se": {},
             "params": x_observation.features.parameters,
@@ -279,17 +279,15 @@ def _get_batch_comparison_plot_data(
             "context_stratum": None,
         }
         for i, mname in enumerate(x_observation.data.metric_names):
-            condition_data["y"][mname] = x_observation.data.means[i]
-            condition_data["se"][mname] = np.sqrt(x_observation.data.covariance[i][i])
+            arm_data["y"][mname] = x_observation.data.means[i]
+            arm_data["se"][mname] = np.sqrt(x_observation.data.covariance[i][i])
         for i, mname in enumerate(y_observation.data.metric_names):
-            condition_data["y_hat"][mname] = y_observation.data.means[i]
-            condition_data["se_hat"][mname] = np.sqrt(
-                y_observation.data.covariance[i][i]
-            )
+            arm_data["y_hat"][mname] = y_observation.data.means[i]
+            arm_data["se_hat"][mname] = np.sqrt(y_observation.data.covariance[i][i])
         # Expected `str` for 2nd anonymous parameter to call `dict.__setitem__` but got
         # `Optional[str]`.
         # pyre-fixme[6]:
-        insample_data[condition_name] = PlotInSampleCondition(**condition_data)
+        insample_data[arm_name] = PlotInSampleArm(**arm_data)
 
     return PlotData(
         metrics=metric_names,
@@ -305,16 +303,16 @@ def _get_cv_plot_data(cv_results: List[CVResult]) -> PlotData:
             metrics=[], in_sample={}, out_of_sample=None, status_quo_name=None
         )
 
-    # condition_name -> Condition data
-    insample_data: Dict[str, PlotInSampleCondition] = {}
+    # arm_name -> Arm data
+    insample_data: Dict[str, PlotInSampleArm] = {}
 
     # Assume input is well formed and this is consistent
     metric_names = cv_results[0].observed.data.metric_names
 
     for cv_result in cv_results:
-        condition_name = cv_result.observed.condition_name
-        condition_data = {
-            "name": cv_result.observed.condition_name,
+        arm_name = cv_result.observed.arm_name
+        arm_data = {
+            "name": cv_result.observed.arm_name,
             "y": {},
             "se": {},
             "params": cv_result.observed.features.parameters,
@@ -323,20 +321,16 @@ def _get_cv_plot_data(cv_results: List[CVResult]) -> PlotData:
             "context_stratum": None,
         }
         for i, mname in enumerate(cv_result.observed.data.metric_names):
-            condition_data["y"][mname] = cv_result.observed.data.means[i]
-            condition_data["se"][mname] = np.sqrt(
-                cv_result.observed.data.covariance[i][i]
-            )
+            arm_data["y"][mname] = cv_result.observed.data.means[i]
+            arm_data["se"][mname] = np.sqrt(cv_result.observed.data.covariance[i][i])
         for i, mname in enumerate(cv_result.predicted.metric_names):
-            condition_data["y_hat"][mname] = cv_result.predicted.means[i]
-            condition_data["se_hat"][mname] = np.sqrt(
-                cv_result.predicted.covariance[i][i]
-            )
+            arm_data["y_hat"][mname] = cv_result.predicted.means[i]
+            arm_data["se_hat"][mname] = np.sqrt(cv_result.predicted.covariance[i][i])
 
         # Expected `str` for 2nd anonymous parameter to call `dict.__setitem__` but got
         # `Optional[str]`.
         # pyre-fixme[6]:
-        insample_data[condition_name] = PlotInSampleCondition(**condition_data)
+        insample_data[arm_name] = PlotInSampleArm(**arm_data)
     return PlotData(
         metrics=metric_names,
         in_sample=insample_data,
@@ -346,7 +340,7 @@ def _get_cv_plot_data(cv_results: List[CVResult]) -> PlotData:
 
 
 def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AEPlotConfig:
-    """Compare the model predictions for the batch conditions against observed data.
+    """Compare the model predictions for the batch arms against observed data.
 
     Relies on the model predictions stored on the generator_runs of batch.
 
@@ -356,36 +350,34 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AEPlot
     Returns:
         AEPlotConfig for the plot.
     """
-    insample_data: Dict[str, PlotInSampleCondition] = {}
+    insample_data: Dict[str, PlotInSampleArm] = {}
     metric_names = list(data.df["metric_name"].unique())
     for struct in batch.generator_run_structs:
         generator_run = struct.generator_run
         if generator_run.model_predictions is None:
             continue
-        for i, condition in enumerate(generator_run.conditions):
-            condition_data = {
-                "name": condition.name_or_short_signature,
+        for i, arm in enumerate(generator_run.arms):
+            arm_data = {
+                "name": arm.name_or_short_signature,
                 "y": {},
                 "se": {},
-                "params": condition.params,
+                "params": arm.params,
                 "y_hat": {},
                 "se_hat": {},
                 "context_stratum": None,
             }
             predictions = generator_run.model_predictions
             for _, row in data.df[
-                data.df["condition_name"] == condition.name_or_short_signature
+                data.df["arm_name"] == arm.name_or_short_signature
             ].iterrows():
                 metric_name = row["metric_name"]
-                condition_data["y"][metric_name] = row["mean"]
-                condition_data["se"][metric_name] = row["sem"]
-                condition_data["y_hat"][metric_name] = predictions[0][metric_name][i]
-                condition_data["se_hat"][metric_name] = predictions[1][metric_name][
+                arm_data["y"][metric_name] = row["mean"]
+                arm_data["se"][metric_name] = row["sem"]
+                arm_data["y_hat"][metric_name] = predictions[0][metric_name][i]
+                arm_data["se_hat"][metric_name] = predictions[1][metric_name][
                     metric_name
                 ][i]
-            insample_data[condition.name_or_short_signature] = PlotInSampleCondition(
-                **condition_data
-            )
+            insample_data[arm.name_or_short_signature] = PlotInSampleArm(**arm_data)
     plot_data = PlotData(
         metrics=metric_names,
         in_sample=insample_data,
@@ -419,7 +411,7 @@ def interact_cross_validation(
 
 def tile_cross_validation(
     cv_results: List[CVResult],
-    show_condition_details_on_hover: bool = True,
+    show_arm_details_on_hover: bool = True,
     show_context: bool = True,
 ) -> AEPlotConfig:
     """Tile version of CV plots; sorted by 'best fitting' outcomes.
@@ -431,8 +423,8 @@ def tile_cross_validation(
         cv_results (List[CVResult]): cross-validation results.
         include_measurement_error (bool, optional): if True, include
             measurement_error metrics in plot.
-        show_condition_details_on_hover (bool, optional): if True, display
-            parameterizations of conditions on hover. Default is True.
+        show_arm_details_on_hover (bool, optional): if True, display
+            parameterizations of arms on hover. Default is True.
         show_context (bool, optional): if True (default), display context on
             hover.
 
@@ -457,21 +449,21 @@ def tile_cross_validation(
         se_hat = []
         y_raw = []
         se_raw = []
-        for condition in data.in_sample.values():
-            y_hat.append(condition.y_hat[metric])
-            se_hat.append(condition.se_hat[metric])
-            y_raw.append(condition.y[metric])
-            se_raw.append(condition.se[metric])
+        for arm in data.in_sample.values():
+            y_hat.append(arm.y_hat[metric])
+            se_hat.append(arm.se_hat[metric])
+            y_raw.append(arm.y[metric])
+            se_raw.append(arm.se[metric])
         min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw, se_hat)
         fig.append_trace(
             _diagonal_trace(min_, max_), int(np.floor(i / 2)) + 1, i % 2 + 1
         )
         fig.append_trace(
             _error_scatter_trace(
-                # Expected `List[typing.Union[PlotInSampleCondition,
-                # ae.lazarus.ae.plot.base.PlotOutOfSampleCondition]]` for 1st anonymous
+                # Expected `List[typing.Union[PlotInSampleArm,
+                # ae.lazarus.ae.plot.base.PlotOutOfSampleArm]]` for 1st anonymous
                 # parameter to call `ae.lazarus.ae.plot.scatter._error_scatter_trace` but
-                # got `List[PlotInSampleCondition]`.
+                # got `List[PlotInSampleArm]`.
                 # pyre-fixme[6]:
                 list(data.in_sample.values()),
                 y_axis_var=PlotMetric(metric, True),
@@ -479,7 +471,7 @@ def tile_cross_validation(
                 y_axis_label="Predicted",
                 x_axis_label="Actual",
                 hoverinfo="text",
-                show_condition_details_on_hover=show_condition_details_on_hover,
+                show_arm_details_on_hover=show_arm_details_on_hover,
                 show_context=show_context,
             ),
             int(np.floor(i / 2)) + 1,
@@ -522,14 +514,14 @@ def interact_batch_comparison(
     rel: bool = False,
     status_quo_name: Optional[str] = None,
 ) -> AEPlotConfig:
-    """Compare repeated conditions from two trials; select metric via dropdown.
+    """Compare repeated arms from two trials; select metric via dropdown.
 
     Args:
         observations: List of observations to compute comparison.
         batch_x: Index of batch for x-axis.
         batch_y: Index of bach for y-axis.
-        rel: Whether to relativize data against status_quo condition.
-        status_quo_name: Name of the status_quo condition.
+        rel: Whether to relativize data against status_quo arm.
+        status_quo_name: Name of the status_quo arm.
     """
     plot_data = _get_batch_comparison_plot_data(
         observations, batch_x, batch_y, rel=rel, status_quo_name=status_quo_name
@@ -540,5 +532,5 @@ def interact_batch_comparison(
         xlabel="Batch {}".format(batch_x),
         ylabel="Batch {}".format(batch_y),
     )
-    fig["layout"]["title"] = "Repeated conditions across trials"
+    fig["layout"]["title"] = "Repeated arms across trials"
     return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)

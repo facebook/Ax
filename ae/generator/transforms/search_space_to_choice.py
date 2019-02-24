@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.observation import ObservationData, ObservationFeatures
 from ae.lazarus.ae.core.parameter import ChoiceParameter, Parameter, ParameterType
 from ae.lazarus.ae.core.search_space import SearchSpace
@@ -12,7 +12,7 @@ from ae.lazarus.ae.generator.transforms.base import Transform
 
 class SearchSpaceToChoice(Transform):
     """Replaces the search space with a single choice parameter, whose values
-    are the signatures of the conditions observed in the data.
+    are the signatures of the arms observed in the data.
 
     This transform is meant to be used with ThompsonSampler.
 
@@ -26,9 +26,9 @@ class SearchSpaceToChoice(Transform):
         observation_data: List[ObservationData],
         config: Optional[TConfig] = None,
     ) -> None:
-        self.choice_parameter_name = "conditions"
+        self.choice_parameter_name = "arms"
         self.signature_to_parameterization = {
-            Condition(params=obsf.parameters).signature: obsf.parameters
+            Arm(params=obsf.parameters).signature: obsf.parameters
             for obsf in observation_features
         }
 
@@ -47,7 +47,7 @@ class SearchSpaceToChoice(Transform):
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
             obsf.parameters = {
-                self.choice_parameter_name: Condition(params=obsf.parameters).signature
+                self.choice_parameter_name: Arm(params=obsf.parameters).signature
             }
         return observation_features
 

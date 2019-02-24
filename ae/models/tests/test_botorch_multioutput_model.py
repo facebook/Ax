@@ -99,8 +99,7 @@ class BotorchMultiOutputModelTest(TestCase):
             )
             es.enter_context(
                 mock.patch(
-                    GEN_MO_PATH_PREFIX + "_gen_batch_initial_conditions",
-                    return_value=X_dummy,
+                    GEN_MO_PATH_PREFIX + "_gen_batch_initial_arms", return_value=X_dummy
                 )
             )
             Xgen, wgen = model.gen(
@@ -280,8 +279,7 @@ class BotorchMultiOutputModelTest(TestCase):
             )
             es.enter_context(
                 mock.patch(
-                    GEN_MO_PATH_PREFIX + "_gen_batch_initial_conditions",
-                    return_value=X_dummy,
+                    GEN_MO_PATH_PREFIX + "_gen_batch_initial_arms", return_value=X_dummy
                 )
             )
             Xgen, wgen = model.gen(

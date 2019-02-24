@@ -4,7 +4,7 @@ from unittest.mock import Mock, PropertyMock
 
 import numpy as np
 import pandas as pd
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.observation import (
     Observation,
@@ -43,10 +43,10 @@ class ObservationsTest(TestCase):
         self.assertNotEqual(obsf, obsf3)
         self.assertFalse(obsf == 1)
 
-    def testObservationFeaturesFromCondition(self):
-        condition = Condition({"x": 0, "y": "a"})
-        obsf = ObservationFeatures.from_condition(condition, trial_index=3)
-        self.assertEqual(obsf.parameters, condition.params)
+    def testObservationFeaturesFromArm(self):
+        arm = Arm({"x": 0, "y": "a"})
+        obsf = ObservationFeatures.from_arm(arm, trial_index=3)
+        self.assertEqual(obsf.parameters, arm.params)
         self.assertEqual(obsf.trial_index, 3)
 
     def testObservationData(self):
@@ -103,7 +103,7 @@ class ObservationsTest(TestCase):
             data=ObservationData(
                 means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
             ),
-            condition_name="0_0",
+            arm_name="0_0",
         )
         self.assertEqual(obs.features, ObservationFeatures(parameters={"x": 20}))
         self.assertEqual(
@@ -112,13 +112,13 @@ class ObservationsTest(TestCase):
                 means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
             ),
         )
-        self.assertEqual(obs.condition_name, "0_0")
+        self.assertEqual(obs.arm_name, "0_0")
         obs2 = Observation(
             features=ObservationFeatures(parameters={"x": 20}),
             data=ObservationData(
                 means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
             ),
-            condition_name="0_0",
+            arm_name="0_0",
         )
         self.assertEqual(obs, obs2)
         obs3 = Observation(
@@ -126,7 +126,7 @@ class ObservationsTest(TestCase):
             data=ObservationData(
                 means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
             ),
-            condition_name="0_0",
+            arm_name="0_0",
         )
         self.assertNotEqual(obs, obs3)
         self.assertNotEqual(obs, 1)
@@ -134,7 +134,7 @@ class ObservationsTest(TestCase):
     def testObservationsFromData(self):
         truth = [
             {
-                "condition_name": "0_0",
+                "arm_name": "0_0",
                 "parameters": {"x": 0, "y": "a"},
                 "mean": 2.0,
                 "sem": 2.0,
@@ -142,7 +142,7 @@ class ObservationsTest(TestCase):
                 "metric_name": "a",
             },
             {
-                "condition_name": "0_1",
+                "arm_name": "0_1",
                 "parameters": {"x": 1, "y": "b"},
                 "mean": 3.0,
                 "sem": 3.0,
@@ -150,7 +150,7 @@ class ObservationsTest(TestCase):
                 "metric_name": "a",
             },
             {
-                "condition_name": "0_0",
+                "arm_name": "0_0",
                 "parameters": {"x": 0, "y": "a"},
                 "mean": 4.0,
                 "sem": 4.0,
@@ -158,14 +158,12 @@ class ObservationsTest(TestCase):
                 "metric_name": "b",
             },
         ]
-        conditions = {
-            obs["condition_name"]: Condition(params=obs["parameters"]) for obs in truth
-        }
+        arms = {obs["arm_name"]: Arm(params=obs["parameters"]) for obs in truth}
         experiment = Mock()
-        type(experiment).conditions_by_name = PropertyMock(return_value=conditions)
+        type(experiment).arms_by_name = PropertyMock(return_value=arms)
 
         df = pd.DataFrame(truth)[
-            ["condition_name", "trial_index", "mean", "sem", "metric_name"]
+            ["arm_name", "trial_index", "mean", "sem", "metric_name"]
         ]
         data = Data(df=df)
         observations = observations_from_data(experiment, data)
@@ -190,4 +188,4 @@ class ObservationsTest(TestCase):
             self.assertTrue(
                 np.array_equal(obs.data.covariance, obsd_truth["covariance"][i])
             )
-            self.assertEqual(obs.condition_name, cname_truth[i])
+            self.assertEqual(obs.arm_name, cname_truth[i])

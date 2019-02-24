@@ -4,13 +4,13 @@ from ae.lazarus.ae.storage.sqa_store.base_decoder import Decoder
 from ae.lazarus.ae.storage.sqa_store.base_encoder import Encoder
 from ae.lazarus.ae.storage.utils import EncodeDecodeFieldsMap
 from ae.lazarus.ae.tests.fake import (
-    get_abandoned_condition,
+    get_abandoned_arm,
+    get_arm,
     get_batch_trial,
     get_branin_metric,
     get_branin_objective,
     get_branin_outcome_constraint,
     get_choice_parameter,
-    get_condition,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_batch_trial,
     get_fixed_parameter,
@@ -31,10 +31,10 @@ from ae.lazarus.ae.tests.fake import (
 
 TEST_CASES = [
     (
-        "AbandonedCondition",
-        get_abandoned_condition,
-        Encoder.abandoned_condition_to_sqa,
-        Decoder.abandoned_condition_from_sqa,
+        "AbandonedArm",
+        get_abandoned_arm,
+        Encoder.abandoned_arm_to_sqa,
+        Decoder.abandoned_arm_from_sqa,
     ),
     ("BatchTrial", get_batch_trial, Encoder.trial_to_sqa, Decoder.trial_from_sqa),
     ("BraninMetric", get_branin_metric, Encoder.metric_to_sqa, Decoder.metric_from_sqa),
@@ -56,7 +56,7 @@ TEST_CASES = [
         Encoder.parameter_to_sqa,
         Decoder.parameter_from_sqa,
     ),
-    ("Condition", get_condition, Encoder.condition_to_sqa, Decoder.condition_from_sqa),
+    ("Arm", get_arm, Encoder.arm_to_sqa, Decoder.arm_from_sqa),
     (
         "Experiment",
         get_experiment_with_batch_trial,
@@ -138,14 +138,14 @@ TEST_CASES = [
 # This map records discrepancies between Python and SQA representations,
 # so that we can validate that the SQA representation is complete
 ENCODE_DECODE_FIELD_MAPS = {
-    "AbandonedCondition": EncodeDecodeFieldsMap(
+    "AbandonedArm": EncodeDecodeFieldsMap(
         python_to_encoded={"reason": "abandoned_reason", "time": "time_abandoned"}
     ),
     "BatchTrial": EncodeDecodeFieldsMap(
         python_to_encoded={
             "generator_run_structs": "generator_runs",
-            "abandoned_conditions_metadata": "abandoned_arms",
-            "num_conditions_created": "num_arms_created",
+            "abandoned_arms_metadata": "abandoned_arms",
+            "num_arms_created": "num_arms_created",
         },
         python_only=["experiment", "status_quo", "status_quo_weight"],
         encoded_only=["is_batch", "status_quo_name"],
@@ -186,7 +186,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "minimize",
         ],
     ),
-    "Condition": EncodeDecodeFieldsMap(
+    "Arm": EncodeDecodeFieldsMap(
         encoded_only=["weight"], python_to_encoded={"params": "parameters"}
     ),
     "ChoiceParameter": EncodeDecodeFieldsMap(
@@ -230,7 +230,7 @@ ENCODE_DECODE_FIELD_MAPS = {
     ),
     "GeneratorRun": EncodeDecodeFieldsMap(
         encoded_only=[
-            "conditions",
+            "arms",
             "metrics",
             "parameters",
             "parameter_constraints",
@@ -240,10 +240,10 @@ ENCODE_DECODE_FIELD_MAPS = {
             "best_arm_predictions",
         ],
         python_only=[
-            "condition_weight_table",
+            "arm_weight_table",
             "optimization_config",
             "search_space",
-            "best_condition_predictions",  # TODO[drfreund, lilidworkin] T38936022
+            "best_arm_predictions",  # TODO[drfreund, lilidworkin] T38936022
         ],
     ),
     "Metric": EncodeDecodeFieldsMap(
@@ -304,7 +304,7 @@ ENCODE_DECODE_FIELD_MAPS = {
     "Trial": EncodeDecodeFieldsMap(
         python_to_encoded={
             "generator_run": "generator_runs",
-            "num_conditions_created": "num_arms_created",
+            "num_arms_created": "num_arms_created",
         },
         python_only=["experiment"],
         encoded_only=["is_batch", "abandoned_arms", "status_quo_name"],

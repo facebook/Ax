@@ -11,19 +11,19 @@ const exposure_traces = []
 
 if (!aggregated) {
   // need to transpose arrays so that each nested array corresponds to
-  // cumulative exposures per condition over ds
+  // cumulative exposures per arm over ds
   const exposure_data = exposures['data'][0].map(function(col, i) {
     return exposures['data'].map(function(row) {
       return row[i];
     });
   });
 
-  exposures['columns'].forEach((condition_name, i) => {
+  exposures['columns'].forEach((arm_name, i) => {
     exposure_traces.push({
       x: exposures['index'].map(ds => new Date(ds)),
       y: exposure_data[i],
       hoverinfo: 'x+y+text+name',
-      name: condition_name,
+      name: arm_name,
       xaxis: 'x',
       yaxis: 'y',
       mode: 'lines+markers',

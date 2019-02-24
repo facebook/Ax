@@ -22,8 +22,8 @@ def cross_validate(
     Splits the generator's training data into train/test folds and makes
     out-of-sample predictions on the test folds.
 
-    Train/test splits are made based on condition names, so that repeated
-    observations of a condition will always be in the train or test set
+    Train/test splits are made based on arm names, so that repeated
+    observations of a arm will always be in the train or test set
     together.
 
     The test set can be limited to a specific set of observations by passing in
@@ -48,31 +48,29 @@ def cross_validate(
         for i, obs in enumerate(generator.get_training_data())
         if generator.training_in_design[i]
     ]
-    condition_names = {obs.condition_name for obs in training_data}
-    n = len(condition_names)
+    arm_names = {obs.arm_name for obs in training_data}
+    n = len(arm_names)
     if folds > n:
-        raise ValueError(
-            f"Training data only has {n} conditions, which is less than folds"
-        )
+        raise ValueError(f"Training data only has {n} arms, which is less than folds")
     elif folds < 2 and folds != -1:
         raise ValueError("Folds must be -1 for LOO, or > 1.")
     elif folds == -1:
         folds = n
 
-    condition_names_rnd = np.array(list(condition_names))
-    np.random.shuffle(condition_names_rnd)
+    arm_names_rnd = np.array(list(arm_names))
+    np.random.shuffle(arm_names_rnd)
     result = []
     for train_names, test_names in _gen_train_test_split(
-        folds=folds, condition_names=condition_names_rnd
+        folds=folds, arm_names=arm_names_rnd
     ):
         # Construct train/test data
         cv_training_data = []
         cv_test_data = []
         cv_test_points = []
         for obs in training_data:
-            if obs.condition_name in train_names:
+            if obs.arm_name in train_names:
                 cv_training_data.append(obs)
-            elif obs.condition_name in test_names and (
+            elif obs.arm_name in test_names and (
                 test_selector is None or test_selector(obs)
             ):
                 cv_test_points.append(obs.features)
@@ -155,25 +153,25 @@ def compute_diagnostics(result: List[CVResult]) -> Dict[str, Dict[str, float]]:
 
 
 def _gen_train_test_split(
-    folds: int, condition_names: np.ndarray
+    folds: int, arm_names: np.ndarray
 ) -> Iterable[Tuple[Set[str], Set[str]]]:
-    """Return train/test splits of condition names.
+    """Return train/test splits of arm names.
 
     Args:
         folds: Number of folds to return
-        condition_names: Array of condition names
+        arm_names: Array of arm names
 
-    Returns: Yields (train, test) tuple of condition names.
+    Returns: Yields (train, test) tuple of arm names.
     """
-    n = len(condition_names)
+    n = len(arm_names)
     test_size = n // folds  # The size of all test sets but the last
     final_size = test_size + (n - folds * test_size)  # Grab the leftovers
     for fold in range(folds):
         # We will take the test set from the back of the array.
-        # Roll the list of condition names to get a fresh test set
-        condition_names = np.roll(condition_names, test_size)
+        # Roll the list of arm names to get a fresh test set
+        arm_names = np.roll(arm_names, test_size)
         n_test = test_size if fold < folds - 1 else final_size
-        yield set(condition_names[:-n_test]), set(condition_names[-n_test:])
+        yield set(arm_names[:-n_test]), set(arm_names[-n_test:])
 
 
 def _mean_prediction_ci(

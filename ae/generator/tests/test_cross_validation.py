@@ -26,7 +26,7 @@ class CrossValidationTest(TestCase):
                     covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
                     metric_names=["a", "b"],
                 ),
-                condition_name="1_1",
+                arm_name="1_1",
             ),
             Observation(
                 features=ObservationFeatures(parameters={"x": 2.0}, trial_index=1),
@@ -37,7 +37,7 @@ class CrossValidationTest(TestCase):
                     ),
                     metric_names=["a", "b", "a"],
                 ),
-                condition_name="1_1",
+                arm_name="1_1",
             ),
             Observation(
                 features=ObservationFeatures(parameters={"x": 3.0}),
@@ -46,7 +46,7 @@ class CrossValidationTest(TestCase):
                     covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
                     metric_names=["a", "b"],
                 ),
-                condition_name="1_2",
+                arm_name="1_2",
             ),
             Observation(
                 features=ObservationFeatures(parameters={"x": 4.0}),
@@ -55,7 +55,7 @@ class CrossValidationTest(TestCase):
                     covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
                     metric_names=["a", "b"],
                 ),
-                condition_name="1_3",
+                arm_name="1_3",
             ),
         ]
         self.observation_data = [

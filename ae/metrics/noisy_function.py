@@ -25,7 +25,7 @@ class NoisyFunctionMetric(Metric):
         Metric is computed by evaluating a deterministic function, implemented
         in f.
 
-        f will expect an array x, which is constructed from the condition
+        f will expect an array x, which is constructed from the arm
         parameters by extracting the values of the parameter names given in
         param_names, in that order.
 
@@ -52,15 +52,15 @@ class NoisyFunctionMetric(Metric):
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
     ) -> Data:
         noise_sd = self.noise_sd if noisy else 0.0
-        condition_name = []
+        arm_name = []
         mean = []
-        for name, condition in trial.conditions_by_name.items():
-            condition_name.append(name)
-            x = np.array([condition.params[p] for p in self.param_names])
+        for name, arm in trial.arms_by_name.items():
+            arm_name.append(name)
+            x = np.array([arm.params[p] for p in self.param_names])
             mean.append(self.f(x) + np.random.randn() * noise_sd)
         df = pd.DataFrame(
             {
-                "condition_name": condition_name,
+                "arm_name": arm_name,
                 "metric_name": self.name,
                 "mean": mean,
                 "sem": noise_sd,

@@ -15,17 +15,17 @@ function axis_range(grid, is_log) {
     [Math.min(...grid), Math.max(...grid)];
 }
 
-function relativize_data(f, sd, rel, condition_data, metric) {
+function relativize_data(f, sd, rel, arm_data, metric) {
   // if relative, extract status quo & compute ratio
   const f_final = rel === true ? [] : f;
   const sd_final = rel === true ? []: sd;
 
   if (rel === true) {
     const f_sq = (
-      condition_data['in_sample'][condition_data['status_quo_name']]['y'][metric]
+      arm_data['in_sample'][arm_data['status_quo_name']]['y'][metric]
     );
     const sd_sq = (
-      condition_data['in_sample'][condition_data['status_quo_name']]['se'][metric]
+      arm_data['in_sample'][arm_data['status_quo_name']]['se'][metric]
     );
 
     for (let i = 0; i < f.length; i++) {

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # flake8: noqa F401
 from ae.lazarus.ae.core.alias import (
+    Arm,
     BatchTrial,
     ChoiceParameter,
     ComparisonOp,
-    Condition,
     Data,
     Experiment,
     FixedParameter,

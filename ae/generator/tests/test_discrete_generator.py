@@ -54,7 +54,7 @@ class DiscreteGeneratorTest(TestCase):
             Observation(
                 features=self.observation_features[i],
                 data=self.observation_data[i],
-                condition_name=str(i),
+                arm_name=str(i),
             )
             for i in range(3)
         ]
@@ -69,9 +69,7 @@ class DiscreteGeneratorTest(TestCase):
     def testFit(self, mock_init):
         sq_feat = ObservationFeatures({})
         sq_data = self.observation_data[0]
-        sq_obs = Observation(
-            features=sq_feat, data=sq_data, condition_name="status_quo"
-        )
+        sq_obs = Observation(features=sq_feat, data=sq_data, arm_name="status_quo")
         ma = DiscreteGenerator()
         ma._training_data = self.observations + [sq_obs]
         model = mock.create_autospec(DiscreteModel, instance=True)

@@ -2,8 +2,8 @@
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base_trial import BaseTrial, immutable_once_run
-from ae.lazarus.ae.core.condition import Condition
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.utils.common.typeutils import not_none
 
@@ -15,13 +15,13 @@ if TYPE_CHECKING:
 
 
 class Trial(BaseTrial):
-    """Trial that only has one attached condition and no condition weights.
+    """Trial that only has one attached arm and no arm weights.
 
     Args:
         experiment (Experiment): experiment, to which this trial is attached
         generator_run (GeneratorRun, optional): generator_run associated with
-            this trial. Trial has only one generator run (and thus condition)
-            attached to it. This can also be set later through `add_condition`
+            this trial. Trial has only one generator run (and thus arm)
+            attached to it. This can also be set later through `add_arm`
             or `add_generator_run`, but a trial's associated genetor run is
             immutable once set.
     """
@@ -40,28 +40,24 @@ class Trial(BaseTrial):
         return self._generator_run
 
     @property
-    def condition(self) -> Optional[Condition]:
-        """The condition associated with this batch."""
-        if self.generator_run is not None and len(self.generator_run.conditions) > 1:
+    def arm(self) -> Optional[Arm]:
+        """The arm associated with this batch."""
+        if self.generator_run is not None and len(self.generator_run.arms) > 1:
             raise ValueError(  # pragma: no cover
                 "Generator run associated with this trial included multiple "
-                "conditions, but trial expects only one."
+                "arms, but trial expects only one."
             )
-        return (
-            self.generator_run.conditions[0] if self.generator_run is not None else None
-        )
+        return self.generator_run.arms[0] if self.generator_run is not None else None
 
     @immutable_once_run
-    def add_condition(self, condition: Condition) -> "Trial":
-        """Add condition to the trial.
+    def add_arm(self, arm: Arm) -> "Trial":
+        """Add arm to the trial.
 
         Returns:
             The trial instance.
         """
 
-        return self.add_generator_run(
-            generator_run=GeneratorRun(conditions=[condition])
-        )
+        return self.add_generator_run(generator_run=GeneratorRun(arms=[arm]))
 
     @immutable_once_run
     def add_generator_run(
@@ -69,63 +65,61 @@ class Trial(BaseTrial):
     ) -> "Trial":
         """Add a generator run to the trial.
 
-        Note: since trial includes only one condition, this will raise a ValueError if
-        the generator run includes multiple conditions.
+        Note: since trial includes only one arm, this will raise a ValueError if
+        the generator run includes multiple arms.
 
         Returns:
             The trial instance.
         """
 
-        if len(generator_run.conditions) > 1:
+        if len(generator_run.arms) > 1:
             raise ValueError(
-                "Trial includes only one condition, but this generator run "
+                "Trial includes only one arm, but this generator run "
                 "included multiple."
             )
 
-        self._check_existing_and_name_condition(generator_run.conditions[0])
+        self._check_existing_and_name_arm(generator_run.arms[0])
 
-        # TODO validate that conditions belong to search space
+        # TODO validate that arms belong to search space
         self._generator_run = generator_run
         return self
 
     @property
-    def conditions(self) -> List[Condition]:
-        """All conditions attached to this trial.
+    def arms(self) -> List[Arm]:
+        """All arms attached to this trial.
 
         Returns:
-            conditions (List[Condition], optional): list of a single condition
+            arms (List[Arm], optional): list of a single arm
                 attached to this trial if there is one, else None.
         """
-        return [self.condition] if self.condition is not None else []
+        return [self.arm] if self.arm is not None else []
 
     @property
-    def conditions_by_name(self) -> Dict[str, Condition]:
-        """Dictionary of all conditions attached to this trial with their names
+    def arms_by_name(self) -> Dict[str, Arm]:
+        """Dictionary of all arms attached to this trial with their names
         as keys.
 
         Returns:
-            conditions (Dict[Condition], optional): dictionary of a single
-                condition name to condition if one is attached to this trial,
+            arms (Dict[Arm], optional): dictionary of a single
+                arm name to arm if one is attached to this trial,
                 else None.
         """
-        return (
-            {self.condition.name: self.condition} if self.condition is not None else {}
-        )
+        return {self.arm.name: self.arm} if self.arm is not None else {}
 
     @property
-    def abandoned_conditions(self) -> List[Condition]:
-        """Abandoned conditions attached to this trial."""
+    def abandoned_arms(self) -> List[Arm]:
+        """Abandoned arms attached to this trial."""
         return (
-            [self.condition]
+            [self.arm]
             if self.generator_run is not None
-            and self.condition is not None
+            and self.arm is not None
             and self.is_abandoned
             else []
         )
 
     @property
     def objective_mean(self) -> Optional[float]:
-        """Objective mean for the condition attached to this trial."""
+        """Objective mean for the arm attached to this trial."""
         # For SimpleExperiment, fetch_trial_data just executes eval_trial.
         df = self.experiment.fetch_trial_data(trial_index=self.index).df
         if df.empty or self.experiment.optimization_config is None:

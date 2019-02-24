@@ -3,13 +3,9 @@
 from enum import EnumMeta
 from typing import List, Optional, Tuple, Union
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base_trial import BaseTrial
-from ae.lazarus.ae.core.batch_trial import (
-    AbandonedCondition,
-    BatchTrial,
-    GeneratorRunStruct,
-)
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun, GeneratorRunType
 from ae.lazarus.ae.core.metric import Metric
@@ -112,7 +108,7 @@ class Decoder:
             else None
         )
         status_quo = (
-            Condition(
+            Arm(
                 params=experiment_sqa.status_quo_parameters,
                 name=experiment_sqa.status_quo_name,
             )
@@ -317,32 +313,30 @@ class Decoder:
         )
 
     @classmethod
-    def condition_from_sqa(cls, condition_sqa: SQAArm) -> Condition:
-        """Convert SQLAlchemy Condition to AE Condition."""
-        return Condition(params=condition_sqa.parameters, name=condition_sqa.name)
+    def arm_from_sqa(cls, arm_sqa: SQAArm) -> Arm:
+        """Convert SQLAlchemy Arm to AE Arm."""
+        return Arm(params=arm_sqa.parameters, name=arm_sqa.name)
 
     @classmethod
-    def abandoned_condition_from_sqa(
-        cls, abandoned_condition_sqa: SQAAbandonedArm
-    ) -> AbandonedCondition:
-        """Convert SQLAlchemy AbandonedCondition to AE AbandonedCondition."""
-        return AbandonedCondition(
-            name=abandoned_condition_sqa.name,
-            reason=abandoned_condition_sqa.abandoned_reason,
-            time=abandoned_condition_sqa.time_abandoned,
+    def abandoned_arm_from_sqa(cls, abandoned_arm_sqa: SQAAbandonedArm) -> AbandonedArm:
+        """Convert SQLAlchemy AbandonedArm to AE AbandonedArm."""
+        return AbandonedArm(
+            name=abandoned_arm_sqa.name,
+            reason=abandoned_arm_sqa.abandoned_reason,
+            time=abandoned_arm_sqa.time_abandoned,
         )
 
     @classmethod
     def generator_run_from_sqa(cls, generator_run_sqa: SQAGeneratorRun) -> GeneratorRun:
         """Convert SQLAlchemy GeneratorRun to AE GeneratorRun."""
-        conditions = []
+        arms = []
         weights = []
         optimization_config = None
         search_space = None
 
-        for condition_sqa in generator_run_sqa.conditions:
-            conditions.append(cls.condition_from_sqa(condition_sqa=condition_sqa))
-            weights.append(condition_sqa.weight)
+        for arm_sqa in generator_run_sqa.arms:
+            arms.append(cls.arm_from_sqa(arm_sqa=arm_sqa))
+            weights.append(arm_sqa.weight)
 
         optimization_config, tracking_metrics = cls.optimization_config_and_tracking_metrics_from_sqa(
             metrics_sqa=generator_run_sqa.metrics
@@ -357,18 +351,18 @@ class Decoder:
             parameter_constraints_sqa=generator_run_sqa.parameter_constraints,
         )
 
-        best_condition_predictions = None
+        best_arm_predictions = None
         model_predictions = None
         if (
             generator_run_sqa.best_arm_parameters is not None
             and generator_run_sqa.best_arm_predictions is not None
         ):
-            best_condition = Condition(
+            best_arm = Arm(
                 name=generator_run_sqa.best_arm_name,
                 params=generator_run_sqa.best_arm_parameters,
             )
-            best_condition_predictions = (
-                best_condition,
+            best_arm_predictions = (
+                best_arm,
                 tuple(generator_run_sqa.best_arm_predictions),
             )
         model_predictions = (
@@ -378,13 +372,13 @@ class Decoder:
         )
 
         generator_run = GeneratorRun(
-            conditions=conditions,
+            arms=arms,
             weights=weights,
             optimization_config=optimization_config,
             search_space=search_space,
             fit_time=generator_run_sqa.fit_time,
             gen_time=generator_run_sqa.gen_time,
-            best_condition_predictions=best_condition_predictions,
+            best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
         )
         generator_run._time_created = generator_run_sqa.time_created
@@ -427,15 +421,15 @@ class Decoder:
                         struct.generator_run.generator_run_type
                         == GeneratorRunType.STATUS_QUO.name
                     ):
-                        trial._status_quo = struct.generator_run.conditions[0]
+                        trial._status_quo = struct.generator_run.arms[0]
                         trial._status_quo_weight = struct.generator_run.weights[0]
                     else:
                         new_generator_run_structs.append(struct)
                 generator_run_structs = new_generator_run_structs
             trial._generator_run_structs = generator_run_structs
-            trial._abandoned_conditions_metadata = {
-                abandoned_arm_sqa.name: cls.abandoned_condition_from_sqa(
-                    abandoned_condition_sqa=abandoned_arm_sqa
+            trial._abandoned_arms_metadata = {
+                abandoned_arm_sqa.name: cls.abandoned_arm_from_sqa(
+                    abandoned_arm_sqa=abandoned_arm_sqa
                 )
                 for abandoned_arm_sqa in trial_sqa.abandoned_arms
             }
@@ -461,7 +455,7 @@ class Decoder:
         trial._run_metadata = (
             dict(trial_sqa.run_metadata) if trial_sqa.run_metadata is not None else None
         )
-        trial._num_conditions_created = trial_sqa.num_arms_created
+        trial._num_arms_created = trial_sqa.num_arms_created
         trial._runner = (
             cls.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None
         )

@@ -10,10 +10,10 @@ from ae.lazarus.ae.storage.json_store.load import load_experiment
 from ae.lazarus.ae.storage.json_store.save import save_experiment
 from ae.lazarus.ae.storage.utils import EncodeDecodeFieldsMap, remove_prefix
 from ae.lazarus.ae.tests.fake import (
+    get_arm,
     get_batch_trial,
     get_branin_metric,
     get_choice_parameter,
-    get_condition,
     get_experiment_with_batch_and_single_trial,
     get_fixed_parameter,
     get_generator_run,
@@ -36,7 +36,7 @@ TEST_CASES = [
     ("BatchTrial", get_batch_trial),
     ("BraninMetric", get_branin_metric),
     ("ChoiceParameter", get_choice_parameter),
-    ("Condition", get_condition),
+    ("Arm", get_arm),
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("FixedParameter", get_fixed_parameter),
     ("GeneratorRun", get_generator_run),
@@ -66,8 +66,8 @@ ENCODE_DECODE_FIELD_MAPS = {
         python_only=["data_by_trial"], python_to_encoded={"metrics": "tracking_metrics"}
     ),
     "GeneratorRun": EncodeDecodeFieldsMap(
-        encoded_only=["conditions", "weights"],
-        python_only=["condition_weight_table", "model_predictions"],
+        encoded_only=["arms", "weights"],
+        python_only=["arm_weight_table", "model_predictions"],
     ),
     "OrderConstraint": EncodeDecodeFieldsMap(python_only=["bound"]),
     "SumConstraint": EncodeDecodeFieldsMap(python_only=["constraint_dict"]),

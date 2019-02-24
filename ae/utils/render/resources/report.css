@@ -188,16 +188,16 @@ tr:hover {background-color: #f5f5f5}
     visibility: visible;
 }
 
-table.tooltip-condition {
+table.tooltip-arm {
   border: 0px;
   color: #fff;
   font-size: 12px;
 }
 
-.tooltip-condition th, .tooltip-condition td{
+.tooltip-arm th, .tooltip-arm td{
   border: 0px;
 }
 
-.tooltip-condition tr:hover {
+.tooltip-arm tr:hover {
   background-color: #4B4F56
 }

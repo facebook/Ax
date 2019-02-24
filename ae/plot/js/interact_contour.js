@@ -1,4 +1,4 @@
-const condition_data = {{condition_data}};
+const arm_data = {{arm_data}};
 const density = {{density}};
 const grid_dict = {{grid_dict}};
 const f_dict = {{f_dict}};
@@ -38,7 +38,7 @@ if (rel === true) {
 } else {
   f_scale = GREEN_SCALE;
 }
-let insample_condition_text = Object.keys(condition_data['in_sample']);
+let insample_arm_text = Object.keys(arm_data['in_sample']);
 
 let f_contour_trace_base = {
   colorbar: {
@@ -98,9 +98,9 @@ let sd_contour_trace_base = {
 let insample_param_values = {};
 param_names.forEach(param_name => {
     insample_param_values[param_name] = [];
-    Object.keys(condition_data['in_sample']).forEach(condition_name => {
+    Object.keys(arm_data['in_sample']).forEach(arm_name => {
         insample_param_values[param_name].push(
-            condition_data['in_sample'][condition_name]['params'][param_name]
+            arm_data['in_sample'][arm_name]['params'][param_name]
         );
     });
 });
@@ -108,26 +108,26 @@ param_names.forEach(param_name => {
 let out_of_sample_param_values = {};
 param_names.forEach(param_name => {
   out_of_sample_param_values[param_name] = {};
-  Object.keys(condition_data['out_of_sample']).forEach(generator_run_name => {
+  Object.keys(arm_data['out_of_sample']).forEach(generator_run_name => {
     out_of_sample_param_values[param_name][generator_run_name] = [];
-    Object.keys(condition_data['out_of_sample'][generator_run_name]).forEach(condition_name => {
+    Object.keys(arm_data['out_of_sample'][generator_run_name]).forEach(arm_name => {
       out_of_sample_param_values[param_name][generator_run_name].push(
-        condition_data['out_of_sample'][generator_run_name][condition_name]['params'][param_name]
+        arm_data['out_of_sample'][generator_run_name][arm_name]['params'][param_name]
       );
     });
   });
 });
 
-let out_of_sample_condition_text = {};
-Object.keys(condition_data['out_of_sample']).forEach(generator_run_name => {
-  out_of_sample_condition_text[generator_run_name] =
-    Object.keys(condition_data['out_of_sample'][generator_run_name]).map(
-      condition_name => '<em>Candidate ' + condition_name + '</em>'
+let out_of_sample_arm_text = {};
+Object.keys(arm_data['out_of_sample']).forEach(generator_run_name => {
+  out_of_sample_arm_text[generator_run_name] =
+    Object.keys(arm_data['out_of_sample'][generator_run_name]).map(
+      arm_name => '<em>Candidate ' + arm_name + '</em>'
     );
 });
 
 // Number of traces for each pair of params
-let trace_cnt = 4 + (Object.keys(condition_data['out_of_sample']).length * 2);
+let trace_cnt = 4 + (Object.keys(arm_data['out_of_sample']).length * 2);
 
 let xbuttons = [];
 let ybuttons = [];
@@ -142,7 +142,7 @@ for (var xvar_idx in param_names) {
   for (var yvar_idx in param_names) {
     let yvar = param_names[yvar_idx];
     const res = relativize_data(
-      f_dict[xvar][yvar], sd_dict[xvar][yvar], rel, condition_data, metric
+      f_dict[xvar][yvar], sd_dict[xvar][yvar], rel, arm_data, metric
     );
     const f_final = res[0];
     const sd_final = res[1];
@@ -229,7 +229,7 @@ for (var y_idx = 1; y_idx < param_names.length; y_idx++) {
 
 traces = [];
 let xvar = param_names[0];
-let base_in_sample_condition_config;
+let base_in_sample_arm_config;
 
 // start symbol at 2 for out-of-sample candidate markers
 let i = 2;
@@ -268,49 +268,49 @@ for (var yvar_idx in param_names) {
       sd_trace[key] = sd_contour_trace_base[key];
     });
 
-    const f_in_sample_condition_trace = {
+    const f_in_sample_arm_trace = {
       xaxis: 'x',
       yaxis: 'y',
     };
 
-    const sd_in_sample_condition_trace = {
+    const sd_in_sample_arm_trace = {
       showlegend: false,
       xaxis: 'x2',
       yaxis: 'y2',
     };
-    base_in_sample_condition_config = {
+    base_in_sample_arm_config = {
       hoverinfo: 'text',
       legendgroup: 'In-sample',
       marker: {color: 'black', symbol: 1, opacity: 0.5},
       mode: 'markers',
       name: 'In-sample',
-      text: insample_condition_text,
+      text: insample_arm_text,
       type: 'scatter',
       visible: cur_visible,
       x: insample_param_values[xvar],
       y: insample_param_values[yvar],
     };
 
-    Object.keys(base_in_sample_condition_config).forEach(key => {
-      f_in_sample_condition_trace[key] = base_in_sample_condition_config[key];
-      sd_in_sample_condition_trace[key] = base_in_sample_condition_config[key];
+    Object.keys(base_in_sample_arm_config).forEach(key => {
+      f_in_sample_arm_trace[key] = base_in_sample_arm_config[key];
+      sd_in_sample_arm_trace[key] = base_in_sample_arm_config[key];
     });
     traces = traces.concat([
       f_trace,
       sd_trace,
-      f_in_sample_condition_trace,
-      sd_in_sample_condition_trace,
+      f_in_sample_arm_trace,
+      sd_in_sample_arm_trace,
     ]);
-    // iterate over out-of-sample conditions
+    // iterate over out-of-sample arms
 
-    Object.keys(condition_data['out_of_sample']).forEach(generator_run_name => {
+    Object.keys(arm_data['out_of_sample']).forEach(generator_run_name => {
       traces.push({
         hoverinfo: 'text',
         legendgroup: generator_run_name,
         marker: {color: 'black', symbol: i, opacity: 0.5},
         mode: 'markers',
         name: generator_run_name,
-        text: out_of_sample_condition_text[generator_run_name],
+        text: out_of_sample_arm_text[generator_run_name],
         type: 'scatter',
         xaxis: 'x',
         x: out_of_sample_param_values[xvar][generator_run_name],
@@ -325,7 +325,7 @@ for (var yvar_idx in param_names) {
         mode: 'markers',
         name: 'In-sample',
         showlegend: false,
-        text: out_of_sample_condition_text[generator_run_name],
+        text: out_of_sample_arm_text[generator_run_name],
         type: 'scatter',
         x: out_of_sample_param_values[xvar][generator_run_name],
         xaxis: 'x2',

@@ -11,7 +11,7 @@ from ae.lazarus.ae.core.base import Base
 TPdTimestamp = pd.Timestamp  # pyre-ignore[16]: Pyre doesn't recognize this type
 # TODO: support contexts.
 COLUMN_DATA_TYPES = {
-    "condition_name": str,
+    "arm_name": str,
     "metric_name": str,
     "trial_index": np.int64,
     "n": np.int64,
@@ -22,7 +22,7 @@ COLUMN_DATA_TYPES = {
     "start_time": TPdTimestamp,
     "end_time": TPdTimestamp,
 }
-REQUIRED_COLUMNS = {"condition_name", "metric_name", "mean", "sem"}
+REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
 
 
 class Data(Base):

@@ -1,5 +1,5 @@
-const condition_data = {{condition_data}};
-const condition_name_to_params = {{condition_name_to_params}};
+const arm_data = {{arm_data}};
+const arm_name_to_params = {{arm_name_to_params}};
 const f = {{f}};
 const fit_data = {{fit_data}};
 const grid = {{grid}};
@@ -11,7 +11,7 @@ const sd = {{sd}};
 const is_log = {{is_log}};
 
 // format data
-const res = relativize_data(f, sd, rel, condition_data, metric);
+const res = relativize_data(f, sd, rel, arm_data, metric);
 const f_final = res[0];
 const sd_final = res[1];
 
@@ -27,12 +27,12 @@ const sd_lower_rev = copy_and_reverse(sd_lower);
 const sd_x = grid.concat(grid_rev);
 const sd_y = sd_upper.concat(sd_lower_rev);
 
-// get data for observed conditions and error bars
-const condition_x = [];
-const condition_y = [];
-const condition_sem = [];
+// get data for observed arms and error bars
+const arm_x = [];
+const arm_y = [];
+const arm_sem = [];
 fit_data.forEach(row => {
-    params = condition_name_to_params[row["condition_name"]];
+    params = arm_name_to_params[row["arm_name"]];
     plot = true;
     Object.keys(setx).forEach(p => {
       if (p !== param && params[p] !== setx[p]) {
@@ -40,17 +40,17 @@ fit_data.forEach(row => {
       }
     });
     if (plot === true) {
-        condition_x.push(params[param]);
-        condition_y.push(row["mean"]);
-        condition_sem.push(row["sem"]);
+        arm_x.push(params[param]);
+        arm_y.push(row["mean"]);
+        arm_sem.push(row["sem"]);
     }
 });
 
-const condition_res = relativize_data(
-  condition_y, condition_sem, rel, condition_data, metric
+const arm_res = relativize_data(
+  arm_y, arm_sem, rel, arm_data, metric
 );
-const condition_y_final = condition_res[0];
-const condition_sem_final = condition_res[1];
+const arm_y_final = arm_res[0];
+const arm_sem_final = arm_res[1];
 
 // create traces
 const f_trace = {
@@ -63,13 +63,13 @@ const f_trace = {
   },
 };
 
-const conditions_trace = {
-  x: condition_x,
-  y: condition_y_final,
+const arms_trace = {
+  x: arm_x,
+  y: arm_y_final,
   mode: 'markers',
   error_y: {
     type: 'data',
-    array: condition_sem_final,
+    array: arm_sem_final,
     visible: true,
     color: 'black',
   },
@@ -95,20 +95,20 @@ const sd_trace = {
 traces = [
   sd_trace,
   f_trace,
-  conditions_trace,
+  arms_trace,
 ];
 
-// iterate over out-of-sample conditions
+// iterate over out-of-sample arms
 let i = 1;
-Object.keys(condition_data['out_of_sample']).forEach(generator_run_name => {
+Object.keys(arm_data['out_of_sample']).forEach(generator_run_name => {
   const ax = [];
   const ay = [];
   const asem = [];
   const atext = [];
 
-  Object.keys(condition_data['out_of_sample'][generator_run_name]).forEach(condition_name => {
-    const params = condition_data[
-      'out_of_sample'][generator_run_name][condition_name]['params'];
+  Object.keys(arm_data['out_of_sample'][generator_run_name]).forEach(arm_name => {
+    const params = arm_data[
+      'out_of_sample'][generator_run_name][arm_name]['params'];
     plot = true;
     Object.keys(setx).forEach(p => {
       if (p !== param && params[p] !== setx[p]) {
@@ -118,20 +118,20 @@ Object.keys(condition_data['out_of_sample']).forEach(generator_run_name => {
     if (plot === true) {
       ax.push(params[param]);
       ay.push(
-        condition_data['out_of_sample'][generator_run_name][condition_name]['y_hat'][metric]
+        arm_data['out_of_sample'][generator_run_name][arm_name]['y_hat'][metric]
       );
       asem.push(
-        condition_data['out_of_sample'][generator_run_name][condition_name]['se_hat'][metric]
+        arm_data['out_of_sample'][generator_run_name][arm_name]['se_hat'][metric]
       );
-      atext.push('<em>Candidate ' + condition_name + '</em>');
+      atext.push('<em>Candidate ' + arm_name + '</em>');
     }
   });
 
-  const out_of_sample_condition_res = relativize_data(
-    ay, asem, rel, condition_data, metric
+  const out_of_sample_arm_res = relativize_data(
+    ay, asem, rel, arm_data, metric
   );
-  const ay_final = out_of_sample_condition_res[0];
-  const asem_final = out_of_sample_condition_res[1].map(x => x * 2);
+  const ay_final = out_of_sample_arm_res[0];
+  const asem_final = out_of_sample_arm_res[1].map(x => x * 2);
 
   traces.push({
     hoverinfo: 'text',

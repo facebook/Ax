@@ -6,10 +6,10 @@ from collections import OrderedDict
 from copy import deepcopy
 from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
 
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
-from ae.lazarus.ae.core.generator_run import GeneratorRun, extract_condition_predictions
+from ae.lazarus.ae.core.generator_run import GeneratorRun, extract_arm_predictions
 from ae.lazarus.ae.core.observation import (
     Observation,
     ObservationData,
@@ -34,7 +34,7 @@ class Generator(ABC):
             and not inside an optimization loop.
         - gen: Use the model to generate new candidates.
 
-    Generator converts AE types like Data and Condition to types that are
+    Generator converts AE types like Data and Arm to types that are
     meant to be consumed by the models. The data sent to the model will depend
     on the implementation of the subclass, which will specify the actual API
     for external model.
@@ -63,7 +63,7 @@ class Generator(ABC):
         Applies transforms and fits model.
 
         Args:
-            experiment: Is used to get condition parameters. Is not mutated.
+            experiment: Is used to get arm parameters. Is not mutated.
             search_space: Search space for fitting the model. Constraints need
                 not be the same ones used in gen.
             data: AE Data.
@@ -74,9 +74,9 @@ class Generator(ABC):
                 the reverse order.
             transform_configs: A dictionary from transform name to the
                 transform config dictionary.
-            status_quo_name: Name of the status quo condition. Can only be used if
+            status_quo_name: Name of the status quo arm. Can only be used if
                 Data has a single set of ObservationFeatures corresponding to
-                that condition.
+                that arm.
             status_quo_features: ObservationFeatures to use as status quo.
                 Either this or status_quo_name should be specified, not both.
         """
@@ -86,13 +86,13 @@ class Generator(ABC):
         self._optimization_config: Optional[OptimizationConfig] = None
         self._training_in_design: List[bool] = []
         self._status_quo: Optional[Observation] = None
-        self._conditions_by_signature: Optional[Dict[str, Condition]] = None
+        self._arms_by_signature: Optional[Dict[str, Arm]] = None
         self.transforms: MutableMapping[str, Transform] = OrderedDict()
 
         self._model_space = search_space.clone()
         if experiment is not None:
             self._optimization_config = experiment.optimization_config
-            self._conditions_by_signature = experiment.conditions_by_signature
+            self._arms_by_signature = experiment.arms_by_signature
 
         # Get observation features and data
         obs_feats: List[ObservationFeatures] = []
@@ -175,7 +175,7 @@ class Generator(ABC):
 
         Args:
             experiment: Experiment that will be checked for status quo.
-            status_quo_name: Name of status quo condition.
+            status_quo_name: Name of status quo arm.
             status_quo_features: Features for status quo.
         """
         self._status_quo: Optional[Observation] = None
@@ -194,9 +194,7 @@ class Generator(ABC):
                     "Specify either status_quo_name or status_quo_features, not both."
                 )
             sq_obs = [
-                obs
-                for obs in self._training_data
-                if obs.condition_name == status_quo_name
+                obs for obs in self._training_data if obs.arm_name == status_quo_name
             ]
             if len(sq_obs) == 0:
                 logger.warning(f"Status quo {status_quo_name} not present in data")
@@ -254,16 +252,14 @@ class Generator(ABC):
     def training_in_design(self, training_in_design: List[bool]) -> None:
         if len(training_in_design) != len(self._training_data):
             raise ValueError("In-design indicators not same length as training data")
-        # Identify out-of-design conditions
+        # Identify out-of-design arms
         if sum(training_in_design) < len(training_in_design):
             ood_names = []
             for i, obs in enumerate(self._training_data):
-                if not training_in_design[i] and obs.condition_name is not None:
-                    ood_names.append(obs.condition_name)
+                if not training_in_design[i] and obs.arm_name is not None:
+                    ood_names.append(obs.arm_name)
             ood_str = ", ".join(set(ood_names))
-            logger.info(
-                f"Leaving out out-of-design observations for conditions: {ood_str}"
-            )
+            logger.info(f"Leaving out out-of-design observations for arms: {ood_str}")
         self._training_in_design = training_in_design
 
     @abstractmethod
@@ -405,33 +401,33 @@ class Generator(ABC):
         try:
             model_predictions = self.predict(observation_features)
             if best_obsf is not None:
-                best_point_predictions = extract_condition_predictions(
-                    model_predictions=self.predict([best_obsf]), condition_idx=0
+                best_point_predictions = extract_arm_predictions(
+                    model_predictions=self.predict([best_obsf]), arm_idx=0
                 )
         except NotImplementedError:  # pragma: no cover
             model_predictions = None
 
-        best_condition = (
+        best_arm = (
             None
             if best_obsf is None
-            else gen_conditions(
+            else gen_arms(
                 observation_features=[best_obsf],
-                conditions_by_signature=self._conditions_by_signature,
+                arms_by_signature=self._arms_by_signature,
             )[0]
         )
 
         return GeneratorRun(
-            conditions=gen_conditions(
+            arms=gen_arms(
                 observation_features=observation_features,
-                conditions_by_signature=self._conditions_by_signature,
+                arms_by_signature=self._arms_by_signature,
             ),
             weights=weights,
             optimization_config=optimization_config,
             search_space=search_space,
             model_predictions=model_predictions,
-            best_condition_predictions=None
-            if best_condition is None
-            else (best_condition, best_point_predictions),
+            best_arm_predictions=None
+            if best_arm is None
+            else (best_arm, best_point_predictions),
             fit_time=self.fit_time,
             gen_time=time.time() - t_gen_start,
         )
@@ -522,22 +518,17 @@ def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPr
     return f, cov
 
 
-def gen_conditions(
+def gen_arms(
     observation_features: List[ObservationFeatures],
-    conditions_by_signature: Optional[Dict[str, Condition]] = None,
-) -> List[Condition]:
-    """Converts observation features to conditions."""
+    arms_by_signature: Optional[Dict[str, Arm]] = None,
+) -> List[Arm]:
+    """Converts observation features to arms."""
     # TODO(T34225939): handle static context (which is stored on observation_features)
-    conditions = []
+    arms = []
     for of in observation_features:
-        condition = Condition(params=of.parameters)
-        if (
-            conditions_by_signature is not None
-            and condition.signature in conditions_by_signature
-        ):
-            existing_condition = conditions_by_signature[condition.signature]
-            condition = Condition(
-                name=existing_condition.name, params=existing_condition.params
-            )
-        conditions.append(condition)
-    return conditions
+        arm = Arm(params=of.parameters)
+        if arms_by_signature is not None and arm.signature in arms_by_signature:
+            existing_arm = arms_by_signature[arm.signature]
+            arm = Arm(name=existing_arm.name, params=existing_arm.params)
+        arms.append(arm)
+    return arms

@@ -2,8 +2,8 @@
 
 from typing import Any, Dict
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.batch_trial import BatchTrial
-from ae.lazarus.ae.core.condition import Condition
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.core.metric import Metric
@@ -57,8 +57,8 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
         "run_metadata": batch.run_metadata,
         "generator_run_structs": batch.generator_run_structs,
         "runner": batch.runner,
-        "abandoned_conditions_metadata": batch._abandoned_conditions_metadata,
-        "num_conditions_created": batch._num_conditions_created,
+        "abandoned_arms_metadata": batch._abandoned_arms_metadata,
+        "num_arms_created": batch._num_arms_created,
     }
 
 
@@ -77,7 +77,7 @@ def trial_to_dict(trial: Trial) -> Dict[str, Any]:
         "run_metadata": trial.run_metadata,
         "generator_run": trial.generator_run,
         "runner": trial.runner,
-        "num_conditions_created": trial._num_conditions_created,
+        "num_arms_created": trial._num_arms_created,
     }
 
 
@@ -152,13 +152,9 @@ def parameter_constraint_to_dict(
     }
 
 
-def condition_to_dict(condition: Condition) -> Dict[str, Any]:
-    """Convert AE condition to a dictionary."""
-    return {
-        "__type": condition.__class__.__name__,
-        "params": condition.params,
-        "name": condition._name,
-    }
+def arm_to_dict(arm: Arm) -> Dict[str, Any]:
+    """Convert AE arm to a dictionary."""
+    return {"__type": arm.__class__.__name__, "params": arm.params, "name": arm._name}
 
 
 def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:
@@ -214,13 +210,13 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
     """Convert AE generator run to a dictionary."""
     return {
         "__type": generator_run.__class__.__name__,
-        "conditions": generator_run.conditions,
+        "arms": generator_run.arms,
         "weights": generator_run.weights,
         "optimization_config": generator_run.optimization_config,
         "search_space": generator_run.search_space,
         "time_created": generator_run.time_created,
         "model_predictions": generator_run.model_predictions,
-        "best_condition_predictions": generator_run.best_condition_predictions,
+        "best_arm_predictions": generator_run.best_arm_predictions,
         "generator_run_type": generator_run.generator_run_type,
         "index": generator_run.index,
         "fit_time": generator_run.fit_time,

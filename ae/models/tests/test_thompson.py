@@ -28,10 +28,10 @@ class ThompsonSamplerTest(TestCase):
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
         )
-        conditions, weights = generator.gen(
+        arms, weights = generator.gen(
             n=3, parameter_values=self.parameter_values, objective_weights=np.ones(1)
         )
-        self.assertEqual(conditions, [[4, 4], [3, 3], [2, 2]])
+        self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
         for weight, expected_weight in zip(weights, [0.725, 0.225, 0.05]):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
@@ -76,10 +76,10 @@ class ThompsonSamplerTest(TestCase):
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
         )
-        conditions, weights = generator.gen(
+        arms, weights = generator.gen(
             n=5, parameter_values=self.parameter_values, objective_weights=np.ones(1)
         )
-        self.assertEqual(conditions, [[4, 4], [3, 3], [2, 2]])
+        self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
         for weight, expected_weight in zip(weights, [0.725, 0.225, 0.05]):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
@@ -91,10 +91,10 @@ class ThompsonSamplerTest(TestCase):
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
         )
-        conditions, weights = generator.gen(
+        arms, weights = generator.gen(
             n=3, parameter_values=self.parameter_values, objective_weights=np.ones(1)
         )
-        self.assertEqual(conditions, [[4, 4], [3, 3], [2, 2]])
+        self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
         for weight, expected_weight in zip(weights, [0.33, 0.33, 0.33]):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
@@ -121,7 +121,7 @@ class ThompsonSamplerTest(TestCase):
             Yvars=self.multiple_metrics_Yvars,
             parameter_values=self.parameter_values,
         )
-        conditions, weights = generator.gen(
+        arms, weights = generator.gen(
             n=4,
             parameter_values=self.parameter_values,
             objective_weights=np.array([1, 0]),
@@ -132,7 +132,7 @@ class ThompsonSamplerTest(TestCase):
                 np.array([[1], [1], [1]]),
             ),
         )
-        self.assertEqual(conditions, [[3, 3], [4, 4], [2, 2], [1, 1]])
+        self.assertEqual(arms, [[3, 3], [4, 4], [2, 2], [1, 1]])
         for weight, expected_weight in zip(weights, [0.4, 0.4, 0.15, 0.05]):
             self.assertAlmostEqual(weight, expected_weight, 1)
 

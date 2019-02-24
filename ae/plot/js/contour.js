@@ -1,4 +1,4 @@
-const condition_data = {{condition_data}};
+const arm_data = {{arm_data}};
 const density = {{density}};
 const grid_x = {{grid_x}};
 const grid_y = {{grid_y}};
@@ -17,7 +17,7 @@ const GREEN_PINK_SCALE = {{green_pink_scale}};
 const BLUE_SCALE = {{blue_scale}};
 
 // format data
-const res = relativize_data(f, sd, rel, condition_data, metric);
+const res = relativize_data(f, sd, rel, arm_data, metric);
 const f_final = res[0];
 const sd_final = res[1];
 
@@ -98,70 +98,70 @@ Object.keys(CONTOUR_CONFIG).forEach(key => {
   sd_trace[key] = CONTOUR_CONFIG[key];
 });
 
-// get in-sample conditions
-const condition_x = [];
-const condition_y = [];
-const condition_text = [];
+// get in-sample arms
+const arm_x = [];
+const arm_y = [];
+const arm_text = [];
 
-Object.keys(condition_data['in_sample']).forEach(condition_name => {
-  condition_x.push(condition_data['in_sample'][condition_name]['params'][xvar]);
-  condition_y.push(condition_data['in_sample'][condition_name]['params'][yvar]);
-  condition_text.push(condition_name);
+Object.keys(arm_data['in_sample']).forEach(arm_name => {
+  arm_x.push(arm_data['in_sample'][arm_name]['params'][xvar]);
+  arm_y.push(arm_data['in_sample'][arm_name]['params'][yvar]);
+  arm_text.push(arm_name);
 });
 
-// configs for in-sample conditions
-const base_in_sample_condition_config = {
+// configs for in-sample arms
+const base_in_sample_arm_config = {
   hoverinfo: 'text',
   legendgroup: 'In-sample',
   marker: {color: 'black', symbol: 1, opacity: 0.5},
   mode: 'markers',
   name: 'In-sample',
-  text: condition_text,
+  text: arm_text,
   type: 'scatter',
-  x: condition_x,
-  y: condition_y,
+  x: arm_x,
+  y: arm_y,
 };
 
-const f_in_sample_condition_trace = {
+const f_in_sample_arm_trace = {
   xaxis: 'x',
   yaxis: 'y',
 };
 
-const sd_in_sample_condition_trace = {
+const sd_in_sample_arm_trace = {
   showlegend: false,
   xaxis: 'x2',
   yaxis: 'y2',
 };
 
-Object.keys(base_in_sample_condition_config).forEach(key => {
-  f_in_sample_condition_trace[key] = base_in_sample_condition_config[key];
-  sd_in_sample_condition_trace[key] = base_in_sample_condition_config[key];
+Object.keys(base_in_sample_arm_config).forEach(key => {
+  f_in_sample_arm_trace[key] = base_in_sample_arm_config[key];
+  sd_in_sample_arm_trace[key] = base_in_sample_arm_config[key];
 });
 
 const traces = [
   f_trace,
   sd_trace,
-  f_in_sample_condition_trace,
-  sd_in_sample_condition_trace,
+  f_in_sample_arm_trace,
+  sd_in_sample_arm_trace,
 ];
 
 // start symbol at 2 for candidate markers
 let i = 2;
 
-// iterate over out-of-sample conditions
-Object.keys(condition_data['out_of_sample']).forEach(generator_run_name => {
+// iterate over out-of-sample arms
+Object.keys(arm_data['out_of_sample']).forEach(generator_run_name => {
   const ax = [];
   const ay = [];
   const atext = [];
 
-  Object.keys(condition_data['out_of_sample'][generator_run_name]).forEach(condition_name => {
+  Object.keys(arm_data['out_of_sample'][generator_run_name]).forEach(arm_name => {
     ax.push(
-      condition_data['out_of_sample'][generator_run_name][condition_name]['params'][xvar]
+      arm_data['out_of_sample'][generator_run_name][arm_name]['params'][xvar]
     );
     ay.push(
-      condition_data['out_of_sample'][generator_run_name][condition_name]['params'][yvar]
+      arm_data['out_of_sample'][generator_run_name][arm_name]['params'][yvar]
     );
-    atext.push('<em>Candidate ' + condition_name + '</em>');
+    atext.push('<em>Candidate ' + arm_name + '</em>');
   });
 
   traces.push({

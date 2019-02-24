@@ -12,11 +12,11 @@ from ae.lazarus.ae.utils.common.testutils import TestCase
 
 class DataTest(TestCase):
     def setUp(self):
-        self.df_hash = "6b886b3776caefc02c3d847250b0653a"
+        self.df_hash = "43144a18d49fbeb499fdfb68033e7caa"
         self.df = pd.DataFrame(
             [
                 {
-                    "condition_name": "0_0",
+                    "arm_name": "0_0",
                     "mean": 2.0,
                     "sem": 0.2,
                     "trial_index": 1,
@@ -25,7 +25,7 @@ class DataTest(TestCase):
                     "end_time": "2018-01-02",
                 },
                 {
-                    "condition_name": "0_0",
+                    "arm_name": "0_0",
                     "mean": 1.8,
                     "sem": 0.3,
                     "trial_index": 1,
@@ -34,7 +34,7 @@ class DataTest(TestCase):
                     "end_time": "2018-01-02",
                 },
                 {
-                    "condition_name": "0_1",
+                    "arm_name": "0_1",
                     "mean": 4.0,
                     "sem": 0.6,
                     "trial_index": 1,
@@ -43,7 +43,7 @@ class DataTest(TestCase):
                     "end_time": "2018-01-02",
                 },
                 {
-                    "condition_name": "0_1",
+                    "arm_name": "0_1",
                     "mean": 3.7,
                     "sem": 0.5,
                     "trial_index": 1,
@@ -60,12 +60,10 @@ class DataTest(TestCase):
 
         df = data.df
         self.assertEqual(
-            float(df[df["condition_name"] == "0_0"][df["metric_name"] == "a"]["mean"]),
-            2.0,
+            float(df[df["arm_name"] == "0_0"][df["metric_name"] == "a"]["mean"]), 2.0
         )
         self.assertEqual(
-            float(df[df["condition_name"] == "0_1"][df["metric_name"] == "b"]["sem"]),
-            0.5,
+            float(df[df["arm_name"] == "0_1"][df["metric_name"] == "b"]["sem"]), 0.5
         )
 
     def testBadData(self):
@@ -86,7 +84,7 @@ class DataTest(TestCase):
 
         data = Data(
             df=pd.DataFrame(
-                [{"condition_name": "0_1", "mean": 3.7, "sem": 0.5, "metric_name": "b"}]
+                [{"arm_name": "0_1", "mean": 3.7, "sem": 0.5, "metric_name": "b"}]
             )
         )
         merged_data = set_single_trial(data)
@@ -98,7 +96,7 @@ class DataTest(TestCase):
             required_columns={"metadata"},
         )
         data_entry = {
-            "condition_name": "0_1",
+            "arm_name": "0_1",
             "mean": 3.7,
             "sem": 0.5,
             "metric_name": "b",
@@ -109,7 +107,7 @@ class DataTest(TestCase):
         self.assertTrue(isinstance(data.df.iloc[0]["created_time"], pd.Timestamp))
 
         data_entry2 = {
-            "condition_name": "0_1",
+            "arm_name": "0_1",
             "mean": 3.7,
             "sem": 0.5,
             "metric_name": "b",

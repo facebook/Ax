@@ -30,9 +30,9 @@ class FactorialMetric(Metric):
             coefficients (Dict[str, Dict[TParamValue, float]]): a dictionary mapping
                 factors to levels to main effects.
             batch_size (int, optional): the sample size for one batch, distributed
-                between conditions proportionally to the design.
+                between arms proportionally to the design.
             noise_var (float, optional): used in calculating the probability of
-                each condition.
+                each arm.
         """
         super(FactorialMetric, self).__init__(name)
 
@@ -52,11 +52,11 @@ class FactorialMetric(Metric):
             raise ValueError("Can only fetch data if trial is expecting data.")
 
         data = []
-        normalized_condition_weights = trial.normalized_condition_weights()
-        for name, condition in trial.conditions_by_name.items():
-            weight = normalized_condition_weights[condition]
+        normalized_arm_weights = trial.normalized_arm_weights()
+        for name, arm in trial.arms_by_name.items():
+            weight = normalized_arm_weights[arm]
             mean, sem = evaluation_function(
-                parameterization=condition.params,
+                parameterization=arm.params,
                 weight=weight,
                 coefficients=self.coefficients,
                 batch_size=self.batch_size,
@@ -64,7 +64,7 @@ class FactorialMetric(Metric):
             )
             data.append(
                 {
-                    "condition_name": name,
+                    "arm_name": name,
                     "metric_name": self.name,
                     "mean": mean,
                     "sem": sem,

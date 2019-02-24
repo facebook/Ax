@@ -59,7 +59,7 @@ class NumpyGeneratorTest(TestCase):
             Observation(
                 features=self.observation_features[i],
                 data=self.observation_data[i],
-                condition_name=str(i),
+                arm_name=str(i),
             )
             for i in range(3)
         ]
@@ -77,7 +77,7 @@ class NumpyGeneratorTest(TestCase):
         sq_obs = Observation(
             features=ObservationFeatures({}),
             data=self.observation_data[2],
-            condition_name="status_quo",
+            arm_name="status_quo",
         )
         ma = NumpyGenerator()
         ma._training_data = self.observations + [sq_obs]

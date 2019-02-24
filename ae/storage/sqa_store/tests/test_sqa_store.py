@@ -3,8 +3,8 @@
 from collections import OrderedDict
 from unittest.mock import MagicMock, Mock
 
-from ae.lazarus.ae.core.batch_trial import AbandonedCondition
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.arm import Arm
+from ae.lazarus.ae.core.batch_trial import AbandonedArm
 from ae.lazarus.ae.core.metric import Metric
 from ae.lazarus.ae.core.objective import Objective
 from ae.lazarus.ae.core.outcome_constraint import OutcomeConstraint
@@ -49,10 +49,10 @@ from ae.lazarus.ae.storage.utils import (
     remove_prefix,
 )
 from ae.lazarus.ae.tests.fake import (
+    get_arm,
     get_batch_trial,
     get_branin_metric,
     get_choice_parameter,
-    get_condition,
     get_experiment_with_batch_trial,
     get_fixed_parameter,
     get_generator_run,
@@ -170,7 +170,7 @@ class SQAStoreTest(TestCase):
             original_object = fake_func()
             sqa_object = encode_func(original_object)
             if isinstance(
-                original_object, AbandonedCondition
+                original_object, AbandonedArm
             ):  # handle NamedTuple differently
                 object_keys = original_object._asdict().keys()
             else:
@@ -213,7 +213,7 @@ class SQAStoreTest(TestCase):
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
 
-        experiment.status_quo = Condition(
+        experiment.status_quo = Arm(
             params={"w": 0.0, "x": 1, "y": "y", "z": True}, name="new_status_quo"
         )
         save_experiment(experiment)
@@ -488,11 +488,11 @@ class SQAStoreTest(TestCase):
     def testExperimentAbandonedArmUpdates(self):
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
-        # one condition is already abandoned
+        # one arm is already abandoned
         self.assertEqual(get_session().query(SQAAbandonedArm).count(), 1)
 
         trial = experiment.trials[0]
-        trial.mark_condition_abandoned(trial.conditions[1])
+        trial.mark_arm_abandoned(trial.arms[1])
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAAbandonedArm).count(), 2)
 
@@ -505,12 +505,12 @@ class SQAStoreTest(TestCase):
         # one main generator run, one for the status quo
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 2)
 
-        # add a condition
+        # add a arm
         # this will create one wrapper generator run
         # this will also replace the status quo generator run,
         # since the weight of the status quo will have changed
         trial = experiment.trials[0]
-        trial.add_condition(get_condition())
+        trial.add_arm(get_arm())
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 3)
 
@@ -552,17 +552,13 @@ class SQAStoreTest(TestCase):
         )
 
         # try to edit a generator run's arms (not allowed)
-        old_condition_weight_table = (
-            generator_run_struct.generator_run._condition_weight_table
-        )
-        generator_run_struct.generator_run._condition_weight_table = OrderedDict()
+        old_arm_weight_table = generator_run_struct.generator_run._arm_weight_table
+        generator_run_struct.generator_run._arm_weight_table = OrderedDict()
         with self.assertRaises(ImmutabilityError):
             save_experiment(experiment)
 
         # undo change so that equality test below passes
-        generator_run_struct.generator_run._condition_weight_table = (
-            old_condition_weight_table
-        )
+        generator_run_struct.generator_run._arm_weight_table = old_arm_weight_table
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)

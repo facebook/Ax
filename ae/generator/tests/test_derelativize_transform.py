@@ -42,7 +42,7 @@ class DerelativizeTransformTest(TestCase):
                         ),
                         metric_names=["a", "b", "b"],
                     ),
-                    condition_name="1_1",
+                    arm_name="1_1",
                 ),
                 Observation(
                     features=ObservationFeatures(parameters={"x": None, "y": None}),
@@ -53,7 +53,7 @@ class DerelativizeTransformTest(TestCase):
                         ),
                         metric_names=["a", "b", "b"],
                     ),
-                    condition_name="1_2",
+                    arm_name="1_2",
                 ),
             ]
         ),

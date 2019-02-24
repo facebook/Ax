@@ -3,15 +3,15 @@
 from unittest.mock import PropertyMock, patch
 
 import numpy as np
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base_trial import TrialStatus
-from ae.lazarus.ae.core.condition import Condition
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
 from ae.lazarus.ae.tests.fake import (
-    get_abandoned_condition,
-    get_condition,
-    get_condition_weights,
-    get_conditions,
+    get_abandoned_arm,
+    get_arm,
+    get_arm_weights,
+    get_arms,
     get_experiment,
     get_weights,
 )
@@ -23,38 +23,36 @@ class BatchTrialTest(TestCase):
         self.experiment = get_experiment()
         self.experiment.status_quo = None
         self.batch = self.experiment.new_batch_trial()
-        conditions = get_conditions()
+        arms = get_arms()
         weights = get_weights()
-        self.status_quo = conditions[0]
+        self.status_quo = arms[0]
         self.sq_weight = weights[0]
-        self.conditions = conditions[1:]
+        self.arms = arms[1:]
         self.weights = weights[1:]
-        self.batch.add_conditions_and_weights(
-            conditions=self.conditions, weights=self.weights
-        )
+        self.batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
 
     def testEq(self):
         new_batch_trial = self.experiment.new_batch_trial()
         self.assertNotEqual(self.batch, new_batch_trial)
 
-        abandoned_condition = get_abandoned_condition()
-        abandoned_condition_2 = get_abandoned_condition()
-        self.assertEqual(abandoned_condition, abandoned_condition_2)
+        abandoned_arm = get_abandoned_arm()
+        abandoned_arm_2 = get_abandoned_arm()
+        self.assertEqual(abandoned_arm, abandoned_arm_2)
 
     def testBasicProperties(self):
         self.assertEqual(self.experiment, self.batch.experiment)
         self.assertEqual(self.batch.index, 0)
         self.assertEqual(self.batch.status, TrialStatus.CANDIDATE)
         self.assertIsNotNone(self.batch.time_created)
-        self.assertEqual(self.batch.conditions_by_name["0_0"], self.batch.conditions[0])
-        self.assertEqual(self.batch.conditions_by_name["0_1"], self.batch.conditions[1])
+        self.assertEqual(self.batch.arms_by_name["0_0"], self.batch.arms[0])
+        self.assertEqual(self.batch.arms_by_name["0_1"], self.batch.arms[1])
 
-        # Test empty conditions
-        self.assertEqual(len(self.experiment.new_batch_trial().abandoned_conditions), 0)
+        # Test empty arms
+        self.assertEqual(len(self.experiment.new_batch_trial().abandoned_arms), 0)
 
     def testUndefinedSetters(self):
         with self.assertRaises(NotImplementedError):
-            self.batch.condition_weights = get_condition_weights()
+            self.batch.arm_weights = get_arm_weights()
 
         with self.assertRaises(NotImplementedError):
             self.batch.status = TrialStatus.RUNNING
@@ -70,73 +68,72 @@ class BatchTrialTest(TestCase):
         with self.assertRaises(ValueError):
             self.batch.trial_type = ""
 
-    def testAddCondition(self):
-        self.assertEqual(len(self.batch.conditions), len(self.conditions))
+    def testAddArm(self):
+        self.assertEqual(len(self.batch.arms), len(self.arms))
         self.assertEqual(len(self.batch.generator_run_structs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
 
-        condition_params = get_condition().params
-        condition_params["w"] = 5.0
-        self.batch.add_condition(Condition(condition_params), 3)
+        arm_params = get_arm().params
+        arm_params["w"] = 5.0
+        self.batch.add_arm(Arm(arm_params), 3)
 
-        self.assertEqual(self.batch.conditions_by_name["0_2"], self.batch.conditions[2])
-        self.assertEqual(len(self.batch.conditions), len(self.conditions) + 1)
+        self.assertEqual(self.batch.arms_by_name["0_2"], self.batch.arms[2])
+        self.assertEqual(len(self.batch.arms), len(self.arms) + 1)
         self.assertEqual(len(self.batch.generator_run_structs), 2)
         self.assertEqual(sum(self.batch.weights), sum(self.weights) + 3)
 
     def testAddGeneratorRun(self):
-        self.assertEqual(len(self.batch.conditions), len(self.conditions))
+        self.assertEqual(len(self.batch.arms), len(self.arms))
         self.assertEqual(len(self.batch.generator_run_structs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
 
-        # one of these conditions already exists on the BatchTrial,
+        # one of these arms already exists on the BatchTrial,
         # so we should just update its weight
-        new_conditions = [
-            Condition(params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
-            Condition(params={"w": 1.4, "x": 5, "y": "bar", "z": False}),
+        new_arms = [
+            Arm(params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+            Arm(params={"w": 1.4, "x": 5, "y": "bar", "z": False}),
         ]
         new_weights = [0.75, 0.25]
-        gr = GeneratorRun(conditions=new_conditions, weights=new_weights)
+        gr = GeneratorRun(arms=new_arms, weights=new_weights)
         self.batch.add_generator_run(gr, 2.0)
 
-        self.assertEqual(len(self.batch.conditions), len(self.conditions) + 1)
+        self.assertEqual(len(self.batch.arms), len(self.arms) + 1)
         self.assertEqual(len(self.batch.generator_run_structs), 2)
         self.assertEqual(sum(self.batch.weights), sum(self.weights) + 2)
 
     def testStatusQuoOverlap(self):
         tot_weight = sum(self.batch.weights)
-        new_sq = Condition(params={"w": 0.95, "x": 1, "y": "foo", "z": True})
+        new_sq = Arm(params={"w": 0.95, "x": 1, "y": "foo", "z": True})
 
-        # Set status quo to existing condition
-        self.batch.set_status_quo(self.conditions[0], self.sq_weight)
-        self.assertTrue(self.batch.status_quo == self.conditions[0])
-        self.assertEqual(self.batch.status_quo.name, self.conditions[0].name)
+        # Set status quo to existing arm
+        self.batch.set_status_quo(self.arms[0], self.sq_weight)
+        self.assertTrue(self.batch.status_quo == self.arms[0])
+        self.assertEqual(self.batch.status_quo.name, self.arms[0].name)
         self.assertEqual(
-            self.batch.condition_weights[self.conditions[0]],
-            self.weights[0] + self.sq_weight,
+            self.batch.arm_weights[self.arms[0]], self.weights[0] + self.sq_weight
         )
         self.assertEqual(sum(self.batch.weights), tot_weight + self.sq_weight)
 
-        # Set status quo to new condition, add it
+        # Set status quo to new arm, add it
         self.batch.set_status_quo(new_sq, self.sq_weight)
         self.assertEqual(self.batch.status_quo.name, "status_quo_0")
-        self.batch.add_conditions_and_weights([new_sq])
+        self.batch.add_arms_and_weights([new_sq])
         self.assertEqual(
-            self.batch.generator_run_structs[1].generator_run.conditions[0].name,
+            self.batch.generator_run_structs[1].generator_run.arms[0].name,
             "status_quo_0",
         )
 
     def testStatusQuo(self):
         tot_weight = sum(self.batch.weights)
-        num_conditions = len(self.batch.conditions)
-        avg_weight = float(tot_weight) / num_conditions
-        new_sq = Condition(params={"w": 0.95, "x": 1, "y": "foo", "z": True})
+        num_arms = len(self.batch.arms)
+        avg_weight = float(tot_weight) / num_arms
+        new_sq = Arm(params={"w": 0.95, "x": 1, "y": "foo", "z": True})
 
         # Test negative weight
         with self.assertRaises(ValueError):
             self.batch.set_status_quo(new_sq, -1)
 
-        # Set status quo to new condition
+        # Set status quo to new arm
         self.batch.set_status_quo(new_sq, self.sq_weight)
         self.assertTrue(self.batch.status_quo == new_sq)
         self.assertEqual(self.batch.status_quo.name, "status_quo_0")
@@ -153,9 +150,7 @@ class BatchTrialTest(TestCase):
 
         # Try setting sq to existing arm with different name
         with self.assertRaises(ValueError):
-            self.batch.set_status_quo(
-                Condition(self.conditions[0].params, name="new_name")
-            )
+            self.batch.set_status_quo(Arm(self.arms[0].params, name="new_name"))
 
     def testBatchLifecycle(self):
         self.batch.runner = SyntheticRunner()
@@ -165,11 +160,9 @@ class BatchTrialTest(TestCase):
         self.assertTrue(self.batch.status.is_deployed)
         self.assertTrue(self.batch.status.expecting_data)
 
-        # Cannot change conditions or runner once run
+        # Cannot change arms or runner once run
         with self.assertRaises(ValueError):
-            self.batch.add_conditions_and_weights(
-                conditions=self.conditions, weights=self.weights
-            )
+            self.batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
 
         with self.assertRaises(ValueError):
             self.batch.runner = None
@@ -216,28 +209,26 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.status, TrialStatus.FAILED)
         self.assertIsNotNone(self.batch.time_completed)
 
-    def testAbandonCondition(self):
-        condition = self.batch.conditions[0]
-        reason = "Bad condition"
-        self.batch.mark_condition_abandoned(condition, reason)
-        self.assertEqual(len(self.batch.abandoned_conditions), 1)
-        self.assertEqual(self.batch.abandoned_conditions[0], condition)
+    def testAbandonArm(self):
+        arm = self.batch.arms[0]
+        reason = "Bad arm"
+        self.batch.mark_arm_abandoned(arm, reason)
+        self.assertEqual(len(self.batch.abandoned_arms), 1)
+        self.assertEqual(self.batch.abandoned_arms[0], arm)
 
-        self.assertEqual(len(self.batch.abandoned_conditions_metadata), 1)
-        metadata = self.batch.abandoned_conditions_metadata[0]
+        self.assertEqual(len(self.batch.abandoned_arms_metadata), 1)
+        metadata = self.batch.abandoned_arms_metadata[0]
         self.assertEqual(metadata.reason, reason)
-        self.assertEqual(metadata.name, condition.name)
+        self.assertEqual(metadata.name, arm.name)
 
-        # Fail to abandon condition not in BatchTrial
+        # Fail to abandon arm not in BatchTrial
         with self.assertRaises(ValueError):
-            self.batch.mark_condition_abandoned(
-                Condition(params={"x": 3, "y": "fooz", "z": False})
-            )
+            self.batch.mark_arm_abandoned(Arm(params={"x": 3, "y": "fooz", "z": False}))
 
     def testClone(self):
         new_batch_trial = self.batch.clone()
         self.assertEqual(len(new_batch_trial.generator_run_structs), 1)
-        self.assertEqual(len(new_batch_trial.conditions), 2)
+        self.assertEqual(len(new_batch_trial.arms), 2)
         self.assertEqual(new_batch_trial.runner, self.batch.runner)
         self.assertEqual(new_batch_trial.trial_type, self.batch.trial_type)
 
@@ -273,59 +264,51 @@ class BatchTrialTest(TestCase):
         self.assertFalse(self.batch.is_factorial)
 
         new_batch_trial = self.experiment.new_batch_trial()
-        new_batch_trial.add_conditions_and_weights(
-            conditions=[Condition(params={"x": 1})]
-        )
+        new_batch_trial.add_arms_and_weights(arms=[Arm(params={"x": 1})])
         self.assertFalse(new_batch_trial.is_factorial)
 
         new_batch_trial = self.experiment.new_batch_trial()
-        new_batch_trial.add_conditions_and_weights(
-            conditions=[
-                Condition(params={"x": 1, "y": 1}),
-                Condition(params={"x": 2, "y": 2}),
-                Condition(params={"x": 1, "y": 2}),
-                Condition(params={"x": 2, "y": 1}),
+        new_batch_trial.add_arms_and_weights(
+            arms=[
+                Arm(params={"x": 1, "y": 1}),
+                Arm(params={"x": 2, "y": 2}),
+                Arm(params={"x": 1, "y": 2}),
+                Arm(params={"x": 2, "y": 1}),
             ]
         )
         self.assertTrue(new_batch_trial.is_factorial)
 
-    def testNormalizedConditionWeights(self):
+    def testNormalizedArmWeights(self):
         new_batch_trial = self.experiment.new_batch_trial()
         parameterizations = [
             {"y": 0.25, "x": 0.75, "z": 75},
             {"y": 0.375, "x": 0.375, "z": 63},
         ]
-        conditions = [Condition(params=p) for i, p in enumerate(parameterizations)]
-        new_batch_trial.add_conditions_and_weights(
-            conditions=conditions, weights=[2, 1]
-        )
+        arms = [Arm(params=p) for i, p in enumerate(parameterizations)]
+        new_batch_trial.add_arms_and_weights(arms=arms, weights=[2, 1])
 
         # test normalizing to 1
-        condition_weights = new_batch_trial.normalized_condition_weights()
-        self.assertEqual(list(condition_weights.keys()), conditions)
-        self.assertTrue(np.allclose(list(condition_weights.values()), [2 / 3, 1 / 3]))
+        arm_weights = new_batch_trial.normalized_arm_weights()
+        self.assertEqual(list(arm_weights.keys()), arms)
+        self.assertTrue(np.allclose(list(arm_weights.values()), [2 / 3, 1 / 3]))
 
         # test normalizing to 100
-        condition_weights = new_batch_trial.normalized_condition_weights(total=100)
-        self.assertEqual(list(condition_weights.keys()), conditions)
-        self.assertTrue(
-            np.allclose(list(condition_weights.values()), [200 / 3, 100 / 3])
-        )
+        arm_weights = new_batch_trial.normalized_arm_weights(total=100)
+        self.assertEqual(list(arm_weights.keys()), arms)
+        self.assertTrue(np.allclose(list(arm_weights.values()), [200 / 3, 100 / 3]))
 
         # test normalizing with truncation
-        condition_weights = new_batch_trial.normalized_condition_weights(
-            total=1, trunc_digits=2
-        )
-        self.assertEqual(list(condition_weights.keys()), conditions)
-        self.assertTrue(np.allclose(list(condition_weights.values()), [0.67, 0.33]))
+        arm_weights = new_batch_trial.normalized_arm_weights(total=1, trunc_digits=2)
+        self.assertEqual(list(arm_weights.keys()), arms)
+        self.assertTrue(np.allclose(list(arm_weights.values()), [0.67, 0.33]))
 
     def testAddGeneratorRunValidation(self):
         new_batch_trial = self.experiment.new_batch_trial()
-        new_conditions = [
-            Condition(name="0_1", params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
-            Condition(name="0_2", params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+        new_arms = [
+            Arm(name="0_1", params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+            Arm(name="0_2", params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
         ]
-        gr = GeneratorRun(conditions=new_conditions)
+        gr = GeneratorRun(arms=new_arms)
         with self.assertRaises(ValueError):
             new_batch_trial.add_generator_run(gr)
 

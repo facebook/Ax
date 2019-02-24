@@ -12,9 +12,9 @@ from ae.lazarus.ae.plot.base import (
     DECIMALS,
     AEPlotConfig,
     AEPlotTypes,
-    PlotInSampleCondition,
+    PlotInSampleArm,
     PlotMetric,
-    PlotOutOfSampleCondition,
+    PlotOutOfSampleArm,
     Z,
 )
 from ae.lazarus.ae.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
@@ -23,7 +23,7 @@ from ae.lazarus.ae.plot.helper import (
     _format_CI,
     _format_dict,
     _wrap_metric,
-    condition_name_to_tuple,
+    arm_name_to_tuple,
     get_plot_data,
     resize_subtitles,
 )
@@ -36,56 +36,50 @@ Traces = List[Dict[str, Any]]
 
 
 def _error_scatter_data(
-    conditions: List[Union[PlotInSampleCondition, PlotOutOfSampleCondition]],
+    arms: List[Union[PlotInSampleArm, PlotOutOfSampleArm]],
     y_axis_var: PlotMetric,
     x_axis_var: Optional[PlotMetric] = None,
     rel: bool = False,
-    status_quo_condition: Optional[PlotInSampleCondition] = None,
+    status_quo_arm: Optional[PlotInSampleArm] = None,
 ) -> Tuple[List[float], Optional[List[float]], List[float], List[float]]:
     y_metric_key = "y_hat" if y_axis_var.pred else "y"
     y_sd_key = "se_hat" if y_axis_var.pred else "se"
 
-    condition_names = [a.name for a in conditions]
-    y = [getattr(a, y_metric_key).get(y_axis_var.metric, np.nan) for a in conditions]
-    y_se = [getattr(a, y_sd_key).get(y_axis_var.metric, np.nan) for a in conditions]
+    arm_names = [a.name for a in arms]
+    y = [getattr(a, y_metric_key).get(y_axis_var.metric, np.nan) for a in arms]
+    y_se = [getattr(a, y_sd_key).get(y_axis_var.metric, np.nan) for a in arms]
 
-    # Delta method if relative to status quo condition
+    # Delta method if relative to status quo arm
     if rel:
-        if status_quo_condition is None:
-            raise ValueError(
-                "`status_quo_condition` cannot be None for relative effects."
-            )
+        if status_quo_arm is None:
+            raise ValueError("`status_quo_arm` cannot be None for relative effects.")
         y_rel, y_se_rel = relativize(
             means_t=y,
             sems_t=y_se,
-            mean_c=getattr(status_quo_condition, y_metric_key).get(y_axis_var.metric),
-            sem_c=getattr(status_quo_condition, y_sd_key).get(y_axis_var.metric),
+            mean_c=getattr(status_quo_arm, y_metric_key).get(y_axis_var.metric),
+            sem_c=getattr(status_quo_arm, y_sd_key).get(y_axis_var.metric),
             as_percent=True,
         )
         y = y_rel.tolist()
         y_se = y_se_rel.tolist()
 
-    # x can be metric for a metric or condition names
+    # x can be metric for a metric or arm names
     if x_axis_var is None:
-        x = condition_names
+        x = arm_names
         x_se = None
     else:
         x_metric_key = "y_hat" if x_axis_var.pred else "y"
         x_sd_key = "se_hat" if x_axis_var.pred else "se"
-        x = [
-            getattr(a, x_metric_key).get(x_axis_var.metric, np.nan) for a in conditions
-        ]
-        x_se = [getattr(a, x_sd_key).get(x_axis_var.metric, np.nan) for a in conditions]
+        x = [getattr(a, x_metric_key).get(x_axis_var.metric, np.nan) for a in arms]
+        x_se = [getattr(a, x_sd_key).get(x_axis_var.metric, np.nan) for a in arms]
 
         if rel:
-            # Delta method if relative to status quo condition
+            # Delta method if relative to status quo arm
             x_rel, x_se_rel = relativize(
                 means_t=x,
                 sems_t=x_se,
-                mean_c=getattr(status_quo_condition, x_metric_key).get(
-                    x_axis_var.metric
-                ),
-                sem_c=getattr(status_quo_condition, x_sd_key).get(x_axis_var.metric),
+                mean_c=getattr(status_quo_arm, x_metric_key).get(x_axis_var.metric),
+                sem_c=getattr(status_quo_arm, x_sd_key).get(x_axis_var.metric),
                 as_percent=True,
             )
             x = x_rel.tolist()
@@ -94,13 +88,13 @@ def _error_scatter_data(
 
 
 def _error_scatter_trace(
-    conditions: List[Union[PlotInSampleCondition, PlotOutOfSampleCondition]],
+    arms: List[Union[PlotInSampleArm, PlotOutOfSampleArm]],
     y_axis_var: PlotMetric,
     x_axis_var: Optional[PlotMetric] = None,
     y_axis_label: Optional[str] = None,
     x_axis_label: Optional[str] = None,
     rel: bool = False,
-    status_quo_condition: Optional[PlotInSampleCondition] = None,
+    status_quo_arm: Optional[PlotInSampleArm] = None,
     show_CI: bool = True,
     name: str = "In-sample",
     color: Tuple[int] = COLORS.STEELBLUE.value,
@@ -108,31 +102,31 @@ def _error_scatter_trace(
     legendgroup: Optional[str] = None,
     showlegend: bool = True,
     hoverinfo: str = "text",
-    show_condition_details_on_hover: bool = True,
+    show_arm_details_on_hover: bool = True,
     show_context: bool = False,
 ) -> Dict[str, Any]:
     """Plot scatterplot with error bars.
 
     Args:
-        conditions (List[Union[PlotInSampleCondition, PlotOutOfSampleCondition]]):
-            a list of in-sample or out-of-sample conditions.
-            In-sample conditions have observed data, while out-of-sample conditions
+        arms (List[Union[PlotInSampleArm, PlotOutOfSampleArm]]):
+            a list of in-sample or out-of-sample arms.
+            In-sample arms have observed data, while out-of-sample arms
             just have predicted data. As a result,
-            when passing out-of-sample conditions, pred must be True.
+            when passing out-of-sample arms, pred must be True.
         y_axis_var (PlotMetric): name of metric for y-axis, along with whether
             it is observed or predicted.
         x_axis_var (Optional[PlotMetric], optional): name of metric for x-axis,
-            along with whether it is observed or predicted. If None, condition names
+            along with whether it is observed or predicted. If None, arm names
             are automatically used.
         y_axis_label (Optional[str], optional): custom label to use for y axis.
             If None, use metric name from `y_axis_var`.
         x_axis_label (Optional[str], optional): custom label to use for x axis.
             If None, use metric name from `x_axis_var` if that is not None.
         rel (bool, optional): if True, points are treated as relative to status
-            quo and '%' is appended to labels. If rel=True, `status_quo_condition`
+            quo and '%' is appended to labels. If rel=True, `status_quo_arm`
             must be set.
-        status_quo_condition (Optional[PlotInSampleCondition], optional): the status quo
-            condition. Necessary for relative metrics.
+        status_quo_arm (Optional[PlotInSampleArm], optional): the status quo
+            arm. Necessary for relative metrics.
         show_CI (bool, optional): if True, plot confidence intervals.
         name (string): name of trace. Default is "In-sample".
         color (Tuple[int], optional): color as rgb tuple. Default is
@@ -142,23 +136,23 @@ def _error_scatter_trace(
         showlegend (bool, optional): if True, legend if rendered.
         hoverinfo (string, optional): information to show on hover. Default is
             custom text.
-        show_condition_details_on_hover (bool, optional): if True, display
-            parameterizations of conditions on hover. Default is True.
-        show_context (bool, optional): if True and show_condition_details_on_hover,
+        show_arm_details_on_hover (bool, optional): if True, display
+            parameterizations of arms on hover. Default is True.
+        show_context (bool, optional): if True and show_arm_details_on_hover,
             context will be included in the hover.
     """
     x, x_se, y, y_se = _error_scatter_data(
-        conditions=conditions,
+        arms=arms,
         y_axis_var=y_axis_var,
         x_axis_var=x_axis_var,
         rel=rel,
-        status_quo_condition=status_quo_condition,
+        status_quo_arm=status_quo_arm,
     )
     labels = []
 
-    condition_names = [a.name for a in conditions]
-    for i in range(len(condition_names)):
-        heading = "<b>Condition {}</b><br>".format(condition_names[i])
+    arm_names = [a.name for a in arms]
+    for i in range(len(arm_names)):
+        heading = "<b>Arm {}</b><br>".format(arm_names[i])
         x_lab = (
             "{name}: {estimate}{perc} {ci}<br>".format(
                 name=x_axis_var.metric if x_axis_label is None else x_axis_label,
@@ -181,8 +175,8 @@ def _error_scatter_trace(
         )
 
         parameterization = (
-            _format_dict(conditions[i].params, "Parameterization")
-            if show_condition_details_on_hover
+            _format_dict(arms[i].params, "Parameterization")
+            if show_arm_details_on_hover
             else ""
         )
 
@@ -191,16 +185,16 @@ def _error_scatter_trace(
             # parameter to call `ae.lazarus.ae.plot.helper._format_dict` but got
             # `Optional[Dict[str, Union[float, str]]]`.
             # pyre-fixme[6]:
-            _format_dict(conditions[i].context_stratum, "Context")
-            if show_condition_details_on_hover
+            _format_dict(arms[i].context_stratum, "Context")
+            if show_arm_details_on_hover
             and show_context  # noqa W503
-            and conditions[i].context_stratum  # noqa W503
+            and arms[i].context_stratum  # noqa W503
             else ""
         )
 
         labels.append(
-            "{condition_name}<br>{xlab}{ylab}{param_blob}{context}".format(
-                condition_name=heading,
+            "{arm_name}<br>{xlab}{ylab}{param_blob}{context}".format(
+                arm_name=heading,
                 xlab=x_lab,
                 ylab=y_lab,
                 param_blob=parameterization,
@@ -268,7 +262,7 @@ def _multiple_metric_traces(
         {metric_x, metric_y},
     )
 
-    status_quo_condition = (
+    status_quo_arm = (
         None
         if plot_data.status_quo_name is None
         else plot_data.in_sample.get(plot_data.status_quo_name)
@@ -276,48 +270,48 @@ def _multiple_metric_traces(
 
     traces = [
         _error_scatter_trace(
-            # Expected `List[Union[PlotInSampleCondition, PlotOutOfSampleCondition]]`
+            # Expected `List[Union[PlotInSampleArm, PlotOutOfSampleArm]]`
             # for 1st anonymous parameter to call
             # `ae.lazarus.ae.plot.scatter._error_scatter_trace` but got
-            # `List[PlotInSampleCondition]`.
+            # `List[PlotInSampleArm]`.
             # pyre-fixme[6]:
             list(plot_data.in_sample.values()),
             x_axis_var=PlotMetric(metric_x, pred=False),
             y_axis_var=PlotMetric(metric_y, pred=False),
             rel=rel,
-            status_quo_condition=status_quo_condition,
+            status_quo_arm=status_quo_arm,
             visible=False,
         ),
         _error_scatter_trace(
-            # Expected `List[Union[PlotInSampleCondition, PlotOutOfSampleCondition]]`
+            # Expected `List[Union[PlotInSampleArm, PlotOutOfSampleArm]]`
             # for 1st anonymous parameter to call
             # `ae.lazarus.ae.plot.scatter._error_scatter_trace` but got
-            # `List[PlotInSampleCondition]`.
+            # `List[PlotInSampleArm]`.
             # pyre-fixme[6]:
             list(plot_data.in_sample.values()),
             x_axis_var=PlotMetric(metric_x, pred=True),
             y_axis_var=PlotMetric(metric_y, pred=True),
             rel=rel,
-            status_quo_condition=status_quo_condition,
+            status_quo_arm=status_quo_arm,
             visible=True,
         ),
     ]
 
-    for i, (generator_run_name, cand_conditions) in enumerate(
+    for i, (generator_run_name, cand_arms) in enumerate(
         (plot_data.out_of_sample or {}).items(), start=1
     ):
         traces.append(
             _error_scatter_trace(
-                # pyre: Expected `List[Union[PlotInSampleCondition,
-                # pyre: PlotOutOfSampleCondition]]` for 1st anonymous
+                # pyre: Expected `List[Union[PlotInSampleArm,
+                # pyre: PlotOutOfSampleArm]]` for 1st anonymous
                 # pyre: parameter to call `ae.lazarus.ae.plot.scatter.
                 # pyre: _error_scatter_trace` but got
-                # pyre-fixme[6]: `List[PlotOutOfSampleCondition]`.
-                list(cand_conditions.values()),
+                # pyre-fixme[6]: `List[PlotOutOfSampleArm]`.
+                list(cand_arms.values()),
                 x_axis_var=PlotMetric(metric_x, pred=True),
                 y_axis_var=PlotMetric(metric_y, pred=True),
                 rel=rel,
-                status_quo_condition=status_quo_condition,
+                status_quo_arm=status_quo_arm,
                 name=generator_run_name,
                 color=DISCRETE_COLOR_SCALE[i],
             )
@@ -332,10 +326,10 @@ def plot_multiple_metrics(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
 ) -> AEPlotConfig:
-    """Plot raw values or predictions of two metrics for conditions.
+    """Plot raw values or predictions of two metrics for arms.
 
-    All conditions used in the generator are included in the plot. Additional
-    conditions can be passed through the `generator_runs_dict` argument.
+    All arms used in the generator are included in the plot. Additional
+    arms can be passed through the `generator_runs_dict` argument.
 
     Args:
         generator (Generator): generator to draw predictions from.
@@ -462,8 +456,8 @@ def plot_objective_vs_constraints(
 ) -> AEPlotConfig:
     """Plot the tradeoff between an objetive and all other metrics in a generator.
 
-    All conditions used in the generator are included in the plot. Additional
-    conditions can be passed through via the `generator_runs_dict` argument.
+    All arms used in the generator are included in the plot. Additional
+    arms can be passed through via the `generator_runs_dict` argument.
 
     Args:
         generator (Generator): generator to draw predictions from.
@@ -629,17 +623,17 @@ def lattice_multiple_metrics(
     generator: Generator,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
-    show_condition_details_on_hover: bool = False,
+    show_arm_details_on_hover: bool = False,
 ) -> AEPlotConfig:
-    """Plot raw values or predictions of combinations of two metrics for conditions.
+    """Plot raw values or predictions of combinations of two metrics for arms.
 
     Args:
         generator (Generator): generator to draw predictions from.
         generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
             generator run name to generator run.
         rel (bool, optional): if True, use relative effects. Default is True.
-        show_condition_details_on_hover (bool, optional): if True, display
-            parameterizations of conditions on hover. Default is False.
+        show_arm_details_on_hover (bool, optional): if True, display
+            parameterizations of arms on hover. Default is False.
 
     """
     metrics = generator.metric_names
@@ -656,7 +650,7 @@ def lattice_multiple_metrics(
         generator_runs_dict if generator_runs_dict is not None else {},
         metrics,
     )
-    status_quo_condition = (
+    status_quo_arm = (
         None
         if plot_data.status_quo_name is None
         else plot_data.in_sample.get(plot_data.status_quo_name)
@@ -668,62 +662,62 @@ def lattice_multiple_metrics(
             if o1 != o2:
                 # in-sample observed and predicted
                 obs_insample_trace = _error_scatter_trace(
-                    # Expected `List[Union[PlotInSampleCondition,
-                    # PlotOutOfSampleCondition]]` for 1st anonymous parameter to call
+                    # Expected `List[Union[PlotInSampleArm,
+                    # PlotOutOfSampleArm]]` for 1st anonymous parameter to call
                     # `ae.lazarus.ae.plot.scatter._error_scatter_trace` but got
-                    # `List[PlotInSampleCondition]`.
+                    # `List[PlotInSampleArm]`.
                     # pyre-fixme[6]:
                     list(plot_data.in_sample.values()),
                     x_axis_var=PlotMetric(o1, pred=False),
                     y_axis_var=PlotMetric(o2, pred=False),
                     rel=rel,
-                    status_quo_condition=status_quo_condition,
+                    status_quo_arm=status_quo_arm,
                     showlegend=(i is 1 and j is 2),
                     legendgroup="In-sample",
                     visible=False,
-                    show_condition_details_on_hover=show_condition_details_on_hover,
+                    show_arm_details_on_hover=show_arm_details_on_hover,
                 )
                 predicted_insample_trace = _error_scatter_trace(
-                    # Expected `List[Union[PlotInSampleCondition,
-                    # PlotOutOfSampleCondition]]` for 1st anonymous parameter to call
+                    # Expected `List[Union[PlotInSampleArm,
+                    # PlotOutOfSampleArm]]` for 1st anonymous parameter to call
                     # `ae.lazarus.ae.plot.scatter._error_scatter_trace` but got
-                    # `List[PlotInSampleCondition]`.
+                    # `List[PlotInSampleArm]`.
                     # pyre-fixme[6]:
                     list(plot_data.in_sample.values()),
                     x_axis_var=PlotMetric(o1, pred=True),
                     y_axis_var=PlotMetric(o2, pred=True),
                     rel=rel,
-                    status_quo_condition=status_quo_condition,
+                    status_quo_arm=status_quo_arm,
                     legendgroup="In-sample",
                     showlegend=(i is 1 and j is 2),
                     visible=True,
-                    show_condition_details_on_hover=show_condition_details_on_hover,
+                    show_arm_details_on_hover=show_arm_details_on_hover,
                 )
                 fig.append_trace(obs_insample_trace, j, i)
                 fig.append_trace(predicted_insample_trace, j, i)
 
                 # iterate over generators here
-                for k, (generator_run_name, cand_conditions) in enumerate(
+                for k, (generator_run_name, cand_arms) in enumerate(
                     (plot_data.out_of_sample or {}).items(), start=1
                 ):
                     fig.append_trace(
                         _error_scatter_trace(
                             # pyre: Expected
-                            # pyre: `List[Union[PlotInSampleCondition,
-                            # pyre: PlotOutOfSampleCondition]]` for 1st
+                            # pyre: `List[Union[PlotInSampleArm,
+                            # pyre: PlotOutOfSampleArm]]` for 1st
                             # pyre: anonymous parameter to call `ae.lazarus.ae.
                             # pyre: plot.scatter._error_scatter_trace` but got
-                            # pyre-fixme[6]: `List[PlotOutOfSampleCondition]`.
-                            list(cand_conditions.values()),
+                            # pyre-fixme[6]: `List[PlotOutOfSampleArm]`.
+                            list(cand_arms.values()),
                             x_axis_var=PlotMetric(o1, pred=True),
                             y_axis_var=PlotMetric(o2, pred=True),
                             rel=rel,
-                            status_quo_condition=status_quo_condition,
+                            status_quo_arm=status_quo_arm,
                             name=generator_run_name,
                             color=DISCRETE_COLOR_SCALE[k],
                             showlegend=(i is 1 and j is 2),
                             legendgroup=generator_run_name,
-                            show_condition_details_on_hover=show_condition_details_on_hover,
+                            show_arm_details_on_hover=show_arm_details_on_hover,
                         ),
                         j,
                         i,
@@ -732,10 +726,7 @@ def lattice_multiple_metrics(
                 # if diagonal is set to True, add box plots
                 fig.append_trace(
                     go.Box(  # pyre-ignore[16]
-                        y=[
-                            condition.y[o1]
-                            for condition in plot_data.in_sample.values()
-                        ],
+                        y=[arm.y[o1] for arm in plot_data.in_sample.values()],
                         name=None,
                         marker={"color": rgba(COLORS.STEELBLUE.value)},
                         showlegend=False,
@@ -748,10 +739,7 @@ def lattice_multiple_metrics(
                 )
                 fig.append_trace(
                     go.Box(  # pyre-ignore[16]
-                        y=[
-                            condition.y_hat[o1]
-                            for condition in plot_data.in_sample.values()
-                        ],
+                        y=[arm.y_hat[o1] for arm in plot_data.in_sample.values()],
                         name=None,
                         marker={"color": rgba(COLORS.STEELBLUE.value)},
                         showlegend=False,
@@ -762,15 +750,12 @@ def lattice_multiple_metrics(
                     i,
                 )
 
-                for k, (generator_run_name, cand_conditions) in enumerate(
+                for k, (generator_run_name, cand_arms) in enumerate(
                     (plot_data.out_of_sample or {}).items(), start=1
                 ):
                     fig.append_trace(
                         go.Box(  # pyre-ignore[16]
-                            y=[
-                                condition.y_hat[o1]
-                                for condition in cand_conditions.values()
-                            ],
+                            y=[arm.y_hat[o1] for arm in cand_arms.values()],
                             name=None,
                             marker={"color": rgba(DISCRETE_COLOR_SCALE[k])},
                             showlegend=False,
@@ -925,13 +910,13 @@ def _single_metric_traces(
     metric: str,
     generator_runs_dict: TNullableGeneratorRunsDict,
     rel: bool,
-    show_condition_details_on_hover: bool = True,
+    show_arm_details_on_hover: bool = True,
     showlegend: bool = True,
     show_CI: bool = True,
 ) -> Traces:
     """Plot scatterplots with errors for a single metric (y-axis).
 
-    Conditions are plotted on the x-axis.
+    Arms are plotted on the x-axis.
 
     Args:
         generator (Generator): generator to draw predictions from.
@@ -939,15 +924,15 @@ def _single_metric_traces(
         generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
             generator run name to generator run.
         rel (bool): if True, plot relative predictions.
-        show_condition_details_on_hover (bool, optional): if True, display
-            parameterizations of conditions on hover. Default is True.
+        show_arm_details_on_hover (bool, optional): if True, display
+            parameterizations of arms on hover. Default is True.
         show_legend (bool, optional): if True, show legend for trace.
         show_CI (bool, optional): if True, render confidence intervals.
 
     """
     plot_data, _, _ = get_plot_data(generator, generator_runs_dict or {}, {metric})
 
-    status_quo_condition = (
+    status_quo_arm = (
         None
         if plot_data.status_quo_name is None
         else plot_data.in_sample.get(plot_data.status_quo_name)
@@ -955,44 +940,44 @@ def _single_metric_traces(
 
     traces = [
         _error_scatter_trace(
-            # Expected `List[Union[PlotInSampleCondition, PlotOutOfSampleCondition]]`
+            # Expected `List[Union[PlotInSampleArm, PlotOutOfSampleArm]]`
             # for 1st anonymous parameter to call
             # `ae.lazarus.ae.plot.scatter._error_scatter_trace` but got
-            # `List[PlotInSampleCondition]`.
+            # `List[PlotInSampleArm]`.
             # pyre-fixme[6]:
             list(plot_data.in_sample.values()),
             x_axis_var=None,
             y_axis_var=PlotMetric(metric, pred=True),
             rel=rel,
-            status_quo_condition=status_quo_condition,
+            status_quo_arm=status_quo_arm,
             legendgroup="In-sample",
             showlegend=showlegend,
-            show_condition_details_on_hover=show_condition_details_on_hover,
+            show_arm_details_on_hover=show_arm_details_on_hover,
             show_CI=show_CI,
         )
     ]
 
     # Candidates
-    for i, (generator_run_name, cand_conditions) in enumerate(
+    for i, (generator_run_name, cand_arms) in enumerate(
         (plot_data.out_of_sample or {}).items(), start=1
     ):
         traces.append(
             _error_scatter_trace(
-                # pyre: Expected `List[Union[PlotInSampleCondition,
-                # pyre: PlotOutOfSampleCondition]]` for 1st anonymous
+                # pyre: Expected `List[Union[PlotInSampleArm,
+                # pyre: PlotOutOfSampleArm]]` for 1st anonymous
                 # pyre: parameter to call `ae.lazarus.ae.plot.scatter.
                 # pyre: _error_scatter_trace` but got
-                # pyre-fixme[6]: `List[PlotOutOfSampleCondition]`.
-                list(cand_conditions.values()),
+                # pyre-fixme[6]: `List[PlotOutOfSampleArm]`.
+                list(cand_arms.values()),
                 x_axis_var=None,
                 y_axis_var=PlotMetric(metric, pred=True),
                 rel=rel,
-                status_quo_condition=status_quo_condition,
+                status_quo_arm=status_quo_arm,
                 name=generator_run_name,
                 color=DISCRETE_COLOR_SCALE[i],
                 legendgroup=generator_run_name,
                 showlegend=showlegend,
-                show_condition_details_on_hover=show_condition_details_on_hover,
+                show_arm_details_on_hover=show_arm_details_on_hover,
                 show_CI=show_CI,
             )
         )
@@ -1004,8 +989,8 @@ def plot_fitted(
     metric: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
-    custom_condition_order: Optional[List[str]] = None,
-    custom_condition_order_name: str = "Custom",
+    custom_arm_order: Optional[List[str]] = None,
+    custom_arm_order_name: str = "Custom",
     show_CI: bool = True,
 ) -> AEPlotConfig:
     """Plot fitted metrics.
@@ -1016,10 +1001,10 @@ def plot_fitted(
         generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
             generator run name to generator run.
         rel (bool, optional): if True, use relative effects. Default is True.
-        custom_condition_order (List[str], optional): a list of condition names in the
+        custom_arm_order (List[str], optional): a list of arm names in the
             order corresponding to how they should be plotted on the x-axis.
             If not None, this is the default ordering.
-        custom_condition_order_name (str, optional): name for custom ordering to
+        custom_arm_order_name (str, optional): name for custom ordering to
             show in the ordering dropdown. Default is 'Custom'.
         show_CI (bool, optional): if True, render confidence intervals.
 
@@ -1028,13 +1013,13 @@ def plot_fitted(
         generator, metric, generator_runs_dict, rel, show_CI=show_CI
     )
 
-    # order condition name sorting condition numbers within batch
-    names_by_condition = sorted(
+    # order arm name sorting arm numbers within batch
+    names_by_arm = sorted(
         np.unique(np.concatenate([d["x"] for d in traces])),
-        key=lambda x: condition_name_to_tuple(x),
+        key=lambda x: arm_name_to_tuple(x),
     )
 
-    # get condition names sorted by effect size
+    # get arm names sorted by effect size
     names_by_effect = list(
         OrderedDict.fromkeys(
             np.concatenate([d["x"] for d in traces])
@@ -1043,17 +1028,14 @@ def plot_fitted(
         )
     )
 
-    # options for ordering conditions (x-axis)
+    # options for ordering arms (x-axis)
     xaxis_categoryorder = "array"
-    xaxis_categoryarray = names_by_condition
+    xaxis_categoryarray = names_by_arm
 
     order_options = [
         {
             "args": [
-                {
-                    "xaxis.categoryorder": "array",
-                    "xaxis.categoryarray": names_by_condition,
-                }
+                {"xaxis.categoryorder": "array", "xaxis.categoryarray": names_by_arm}
             ],
             "label": "Name",
             "method": "relayout",
@@ -1068,18 +1050,18 @@ def plot_fitted(
     ]
 
     # if a custom order has been passed, default to that
-    if custom_condition_order is not None:
+    if custom_arm_order is not None:
         xaxis_categoryorder = "array"
-        xaxis_categoryarray = custom_condition_order
+        xaxis_categoryarray = custom_arm_order
         order_options = [
             {
                 "args": [
                     {
                         "xaxis.categoryorder": "array",
-                        "xaxis.categoryarray": custom_condition_order,
+                        "xaxis.categoryarray": custom_arm_order,
                     }
                 ],
-                "label": custom_condition_order_name,
+                "label": custom_arm_order_name,
                 "method": "relayout",
             }
         ] + order_options
@@ -1127,7 +1109,7 @@ def tile_fitted(
     generator: Generator,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
-    show_condition_details_on_hover: bool = False,
+    show_arm_details_on_hover: bool = False,
     show_CI: bool = True,
 ) -> AEPlotConfig:
     """Tile version of fitted outcome plots.
@@ -1137,8 +1119,8 @@ def tile_fitted(
         generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
             generator run name to generator run.
         rel (bool, optional): if True, use relative effects. Default is True.
-        show_condition_details_on_hover (bool, optional): if True, display
-            parameterizations of conditions on hover. Default is False.
+        show_arm_details_on_hover (bool, optional): if True, display
+            parameterizations of arms on hover. Default is False.
         show_CI (bool, optional): if True, render confidence intervals.
 
     """
@@ -1169,17 +1151,17 @@ def tile_fitted(
             generator_runs_dict,
             rel,
             showlegend=i == 0,
-            show_condition_details_on_hover=show_condition_details_on_hover,
+            show_arm_details_on_hover=show_arm_details_on_hover,
             show_CI=show_CI,
         )
 
-        # order condition name sorting condition numbers within batch
-        names_by_condition = sorted(
+        # order arm name sorting arm numbers within batch
+        names_by_arm = sorted(
             np.unique(np.concatenate([d["x"] for d in data])),
-            key=lambda x: condition_name_to_tuple(x),
+            key=lambda x: arm_name_to_tuple(x),
         )
 
-        # get condition names sorted by effect size
+        # get arm names sorted by effect size
         names_by_effect = list(
             OrderedDict.fromkeys(
                 np.concatenate([d["x"] for d in data])
@@ -1188,7 +1170,7 @@ def tile_fitted(
             )
         )
 
-        # options for ordering conditions (x-axis)
+        # options for ordering arms (x-axis)
         # Note that xaxes need to be references as xaxis, xaxis2, xaxis3, etc.
         # for the purposes of updatemenus argument (dropdown) in layout.
         # However, when setting the initial ordering layout, the keys should be
@@ -1196,12 +1178,12 @@ def tile_fitted(
         # axis.
         label = "" if i == 0 else i + 1
         name_order_args["xaxis{}.categoryorder".format(label)] = "array"
-        name_order_args["xaxis{}.categoryarray".format(label)] = names_by_condition
+        name_order_args["xaxis{}.categoryarray".format(label)] = names_by_arm
         effect_order_args["xaxis{}.categoryorder".format(label)] = "array"
         effect_order_args["xaxis{}.categoryarray".format(label)] = names_by_effect
         name_order_axes["xaxis{}".format(i + 1)] = {
             "categoryorder": "array",
-            "categoryarray": names_by_condition,
+            "categoryarray": names_by_arm,
         }
         name_order_axes["yaxis{}".format(i + 1)] = {
             "ticksuffix": "%" if rel else "",
@@ -1280,10 +1262,10 @@ def interact_fitted(
     generator: Generator,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
-    show_condition_details_on_hover: bool = True,
+    show_arm_details_on_hover: bool = True,
     show_CI: bool = True,
 ) -> AEPlotConfig:
-    """Interactive fitted outcome plots for each condition used in fitting the generator.
+    """Interactive fitted outcome plots for each arm used in fitting the generator.
 
     Choose the outcome to plot using a dropdown.
 
@@ -1292,8 +1274,8 @@ def interact_fitted(
         generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
             generator run name to generator run.
         rel (bool, optional): if True, use relative effects. Default is True.
-        show_condition_details_on_hover (bool, optional): if True, display
-            parameterizations of conditions on hover. Default is True.
+        show_arm_details_on_hover (bool, optional): if True, display
+            parameterizations of arms on hover. Default is True.
         show_CI (bool, optional): if True, render confidence intervals.
 
     """
@@ -1312,7 +1294,7 @@ def interact_fitted(
             generator_runs_dict,
             rel,
             showlegend=i == 0,
-            show_condition_details_on_hover=show_condition_details_on_hover,
+            show_arm_details_on_hover=show_arm_details_on_hover,
             show_CI=show_CI,
         )
 
@@ -1332,7 +1314,7 @@ def interact_fitted(
         )
 
     layout = go.Layout(  # pyre-ignore[16]
-        xaxis={"title": "Condition", "zeroline": False},
+        xaxis={"title": "Arm", "zeroline": False},
         yaxis={
             "ticksuffix": "%" if rel else "",
             "title": ("Relative " if rel else "") + "Effect",
@@ -1377,7 +1359,7 @@ def interact_fitted(
             {
                 "font": {"size": 12},
                 "showarrow": False,
-                "text": "Condition Source",
+                "text": "Arm Source",
                 "x": 0.05,
                 "xanchor": "right",
                 "xref": "paper",

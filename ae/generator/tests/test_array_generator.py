@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 import numpy as np
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.generator.array import ArrayGenerator
 from ae.lazarus.ae.generator.base import Generator
@@ -105,9 +105,7 @@ class ArrayGeneratorTest(TestCase):
         return_value=(2, 2),
     )
     @patch(
-        f"{Generator.__module__}.gen_conditions",
-        autospec=True,
-        return_value=[Condition(params={})],
+        f"{Generator.__module__}.gen_arms", autospec=True, return_value=[Arm(params={})]
     )
     @patch(
         f"{Generator.__module__}.Generator.predict",
@@ -131,7 +129,7 @@ class ArrayGeneratorTest(TestCase):
         _mock_best_point,
         _mock_fit,
         _mock_predict,
-        _mock_gen_conditions,
+        _mock_gen_arms,
         _mock_unwrap,
         _mock_obs_from_data,
     ):
@@ -141,7 +139,7 @@ class ArrayGeneratorTest(TestCase):
         )
         self.assertEqual(list(generator.transforms.keys()), ["t1", "t2"])
         run = generator.gen(1)
-        condition, predictions = run.best_condition_predictions
-        self.assertEqual(condition.params, {})
+        arm, predictions = run.best_arm_predictions
+        self.assertEqual(arm.params, {})
         self.assertEqual(predictions[0], {"m": 1.0})
         self.assertEqual(predictions[1], {"m": {"m": 2.0}})

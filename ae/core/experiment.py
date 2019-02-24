@@ -7,10 +7,10 @@ from datetime import datetime
 from functools import reduce
 from typing import Any, Dict, List, Optional, Type
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base import Base
 from ae.lazarus.ae.core.base_trial import BaseTrial
 from ae.lazarus.ae.core.batch_trial import BatchTrial
-from ae.lazarus.ae.core.condition import Condition
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.core.metric import Metric
@@ -41,7 +41,7 @@ class Experiment(Base):
         optimization_config: Optional[OptimizationConfig] = None,
         tracking_metrics: Optional[List[Metric]] = None,
         runner: Optional[Runner] = None,
-        status_quo: Optional[Condition] = None,
+        status_quo: Optional[Arm] = None,
         description: Optional[str] = None,
         is_test: bool = False,
     ) -> None:
@@ -53,13 +53,13 @@ class Experiment(Base):
             optimization_config: Optimization config of the experiment.
             tracking_metrics: Additional tracking metrics not used for optimization.
             runner: Default runner used for trials on this experiment.
-            status_quo: Condition representing existing "control" condition.
+            status_quo: Arm representing existing "control" arm.
             description: Description of the experiment.
             is_test: Convenience metadata tracker for the user to mark test experiments.
         """
         # appease pyre
         self._search_space: SearchSpace
-        self._status_quo: Optional[Condition]
+        self._status_quo: Optional[Arm]
 
         self.name = name
         self.description = description
@@ -137,12 +137,12 @@ class Experiment(Base):
         self._search_space = search_space
 
     @property
-    def status_quo(self) -> Optional[Condition]:
-        """The existing condition that new conditions will be compared against."""
+    def status_quo(self) -> Optional[Arm]:
+        """The existing arm that new arms will be compared against."""
         return self._status_quo
 
     @status_quo.setter
-    def status_quo(self, status_quo: Optional[Condition]) -> None:
+    def status_quo(self, status_quo: Optional[Arm]) -> None:
         if status_quo is None:
             self._status_quo = None
             return
@@ -175,34 +175,29 @@ class Experiment(Base):
         return self.search_space.parameters
 
     @property
-    def conditions_by_name(self) -> Dict[str, Condition]:
-        """The conditions belonging to this experiment, by their name."""
-        conditions_by_name = {}
+    def arms_by_name(self) -> Dict[str, Arm]:
+        """The arms belonging to this experiment, by their name."""
+        arms_by_name = {}
         for trial in self._trials.values():
-            conditions_by_name.update(trial.conditions_by_name)
-        return conditions_by_name
+            arms_by_name.update(trial.arms_by_name)
+        return arms_by_name
 
     @property
-    def conditions_by_signature(self) -> Dict[str, Condition]:
-        """The conditions belonging to this experiment, by their signature."""
-        return {
-            condition.signature: condition
-            for condition in self.conditions_by_name.values()
-        }
+    def arms_by_signature(self) -> Dict[str, Arm]:
+        """The arms belonging to this experiment, by their signature."""
+        return {arm.signature: arm for arm in self.arms_by_name.values()}
 
     @property
     def sum_trial_sizes(self) -> int:
-        """Sum of numbers of conditions attached to each trial in this experiment."""
-        return reduce(
-            lambda a, b: a + len(b.conditions_by_name), self._trials.values(), 0
-        )
+        """Sum of numbers of arms attached to each trial in this experiment."""
+        return reduce(lambda a, b: a + len(b.arms_by_name), self._trials.values(), 0)
 
     @property
-    def num_abandoned_conditions(self) -> int:
-        """How many conditions attached to this experiment are abandoned."""
+    def num_abandoned_arms(self) -> int:
+        """How many arms attached to this experiment are abandoned."""
         abandoned = set()
         for trial in self.trials.values():
-            for x in trial.abandoned_conditions:
+            for x in trial.abandoned_arms:
                 abandoned.add(x)
         return len(abandoned)
 

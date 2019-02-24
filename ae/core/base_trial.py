@@ -5,8 +5,8 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base import Base
-from ae.lazarus.ae.core.condition import Condition
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.runner import Runner
 
@@ -86,9 +86,9 @@ def immutable_once_run(func: Callable) -> Callable:
 class BaseTrial(ABC, Base):
     """Base class for representing trials.
 
-    Trials are containers for conditions that are deployed together. There are
-    two types of trials: reguler Trial, which only contains a single condition,
-    and BatchTrial, which contains an arbitrary number of conditions.
+    Trials are containers for arms that are deployed together. There are
+    two types of trials: reguler Trial, which only contains a single arm,
+    and BatchTrial, which contains an arbitrary number of arms.
     """
 
     def __init__(self, experiment: "Experiment") -> None:
@@ -114,8 +114,8 @@ class BaseTrial(ABC, Base):
 
         self._runner: Optional[Runner] = None
 
-        # Counter to maintain how many conditions have been named by this BatchTrial
-        self._num_conditions_created = 0
+        # Counter to maintain how many arms have been named by this BatchTrial
+        self._num_arms_created = 0
 
     @property
     def experiment(self) -> "Experiment":
@@ -210,34 +210,32 @@ class BaseTrial(ABC, Base):
         """Fetch data for this trial for all metrics on experiment."""
         return self.experiment.fetch_trial_data(self.index)
 
-    def _check_existing_and_name_condition(self, condition: Condition) -> None:
-        """Sets name for given condition; if this condition is already in the
-        experiment, uses the existing condition name.
+    def _check_existing_and_name_arm(self, arm: Arm) -> None:
+        """Sets name for given arm; if this arm is already in the
+        experiment, uses the existing arm name.
         """
-        existing_condition = self._experiment.conditions_by_signature.get(
-            condition.signature
-        )
-        if existing_condition is not None:
-            if condition.has_name:
-                # if the new condition has a name set, make sure it matches
+        existing_arm = self._experiment.arms_by_signature.get(arm.signature)
+        if existing_arm is not None:
+            if arm.has_name:
+                # if the new arm has a name set, make sure it matches
                 # the existing one
-                if condition.name != existing_condition.name:
+                if arm.name != existing_arm.name:
                     raise ValueError(
-                        "One of the conditions being added is the same as "
-                        "an existing condition, but has a different name."
+                        "One of the arms being added is the same as "
+                        "an existing arm, but has a different name."
                     )
             else:
-                condition.name = existing_condition.name
+                arm.name = existing_arm.name
         else:
-            condition.name = f"{self.index}_{self._num_conditions_created}"
-            self._num_conditions_created += 1
+            arm.name = f"{self.index}_{self._num_arms_created}"
+            self._num_arms_created += 1
 
     @abstractproperty
-    def conditions(self) -> List[Condition]:
+    def arms(self) -> List[Arm]:
         pass  # pragma: no cover
 
     @abstractproperty
-    def conditions_by_name(self) -> Dict[str, Condition]:
+    def arms_by_name(self) -> Dict[str, Arm]:
         pass  # pragma: no cover
 
     @abstractmethod
@@ -245,8 +243,8 @@ class BaseTrial(ABC, Base):
         pass  # pragma: no cover
 
     @abstractproperty
-    def abandoned_conditions(self) -> List[Condition]:
-        """All abandoned conditions, associated with this trial."""
+    def abandoned_arms(self) -> List[Arm]:
+        """All abandoned arms, associated with this trial."""
         pass  # pragma: no cover
 
     # --- Batch lifecycle management functions ---

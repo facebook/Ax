@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # flake8: noqa F401
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.batch_trial import BatchTrial
-from ae.lazarus.ae.core.condition import Condition
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun

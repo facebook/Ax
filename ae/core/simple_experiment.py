@@ -2,9 +2,9 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base_trial import BaseTrial
 from ae.lazarus.ae.core.batch_trial import BatchTrial
-from ae.lazarus.ae.core.condition import Condition
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.metric import Metric
@@ -42,7 +42,7 @@ class SimpleExperiment(Experiment):
             defaults to False
         outcome_constraints (List[OutcomeConstraint]): constraints on the outcome,
             if any
-        status_quo: Condition representing existing "control" condition
+        status_quo: Arm representing existing "control" arm
     """
 
     evaluation_function: TEvaluationFunction
@@ -55,7 +55,7 @@ class SimpleExperiment(Experiment):
         objective_name: str,
         minimize: bool = False,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
-        status_quo: Optional[Condition] = None,
+        status_quo: Optional[Arm] = None,
     ) -> None:
         optimization_config = OptimizationConfig(
             objective=Objective(metric=Metric(name=objective_name), minimize=minimize),
@@ -72,11 +72,11 @@ class SimpleExperiment(Experiment):
 
     def eval_trial(self, trial: BaseTrial) -> Data:
         """
-        Evaluate trial conditions with the evaluation function of this
+        Evaluate trial arms with the evaluation function of this
         experiment.
 
         Args:
-            trial (BatchTrial): trial, whose conditions to evaluate.
+            trial (BatchTrial): trial, whose arms to evaluate.
         """
         cached_data = self.lookup_data_for_trial(trial.index)
         if not cached_data.df.empty:
@@ -84,25 +84,23 @@ class SimpleExperiment(Experiment):
 
         evaluations = {}
         if isinstance(trial, Trial):
-            if trial.condition is None:
+            if trial.arm is None:
                 return Data()
             trial.run()
-            evaluations[trial.condition.name] = self.evaluation_function(
-                trial.condition.params, None
+            evaluations[trial.arm.name] = self.evaluation_function(
+                trial.arm.params, None
             )
         elif isinstance(trial, BatchTrial):
             trial.run()
-            for condition, weight in trial.normalized_condition_weights().items():
-                condition_params: TParameterization = condition.params
-                evaluations[condition.name] = self.evaluation_function(
-                    condition_params, weight
-                )
+            for arm, weight in trial.normalized_arm_weights().items():
+                arm_params: TParameterization = arm.params
+                evaluations[arm.name] = self.evaluation_function(arm_params, weight)
 
         data = Data(
             df=pd.DataFrame(
                 [
                     {
-                        "condition_name": name,
+                        "arm_name": name,
                         "metric_name": metric_name,
                         "mean": evaluation[metric_name][0],
                         "sem": evaluation[metric_name][1],
@@ -119,7 +117,7 @@ class SimpleExperiment(Experiment):
 
     def eval(self) -> Data:
         """
-        Evaluate all conditions in the experiment with the evaluation
+        Evaluate all arms in the experiment with the evaluation
         function passed as argument to this SimpleExperiment.
         """
 

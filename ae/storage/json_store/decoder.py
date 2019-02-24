@@ -54,9 +54,9 @@ def object_from_json(object_json: Any) -> Any:
             index_json = object_json.pop("index")
             # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun, ae.
             # pyre: lazarus.core.base_trial.TrialStatus, ae.lazarus.ae.core.
-            # pyre: batch_trial.AbandonedCondition, ae.lazarus.ae.core.
+            # pyre: batch_trial.AbandonedArm, ae.lazarus.ae.core.
             # pyre: batch_trial.BatchTrial, ae.lazarus.ae.core.batch_trial.
-            # pyre: GeneratorRunStruct, ae.lazarus.ae.core.condition.Condition,
+            # pyre: GeneratorRunStruct, ae.lazarus.ae.core.arm.Arm,
             # pyre: ae.lazarus.ae.core.metric.Metric, ae.lazarus.ae.core.objective.
             # pyre: Objective, ae.lazarus.ae.core.optimization_config.
             # pyre: OptimizationConfig, ae.lazarus.ae.core.outcome_constraint.
@@ -83,9 +83,9 @@ def object_from_json(object_json: Any) -> Any:
             experiment_type_json = object_json.pop("experiment_type")
             # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun, ae.
             # pyre: lazarus.core.base_trial.TrialStatus, ae.lazarus.ae.core.
-            # pyre: batch_trial.AbandonedCondition, ae.lazarus.ae.core.
+            # pyre: batch_trial.AbandonedArm, ae.lazarus.ae.core.
             # pyre: batch_trial.BatchTrial, ae.lazarus.ae.core.batch_trial.
-            # pyre: GeneratorRunStruct, ae.lazarus.ae.core.condition.Condition,
+            # pyre: GeneratorRunStruct, ae.lazarus.ae.core.arm.Arm,
             # pyre: ae.lazarus.ae.core.metric.Metric, ae.lazarus.ae.core.objective.
             # pyre: Objective, ae.lazarus.ae.core.optimization_config.
             # pyre: OptimizationConfig, ae.lazarus.ae.core.outcome_constraint.
@@ -123,9 +123,9 @@ def object_from_json(object_json: Any) -> Any:
 
         # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun, ae.
         # pyre: lazarus.core.base_trial.TrialStatus, ae.lazarus.ae.core.
-        # pyre: batch_trial.AbandonedCondition, ae.lazarus.ae.core.batch_trial.
+        # pyre: batch_trial.AbandonedArm, ae.lazarus.ae.core.batch_trial.
         # pyre: BatchTrial, ae.lazarus.ae.core.batch_trial.GeneratorRunStruct,
-        # pyre: ae.lazarus.ae.core.condition.Condition, ae.lazarus.ae.core.metric.
+        # pyre: ae.lazarus.ae.core.arm.Arm, ae.lazarus.ae.core.metric.
         # pyre: Metric, ae.lazarus.ae.core.objective.Objective, ae.lazarus.ae.core.
         # pyre: optimization_config.OptimizationConfig, ae.lazarus.ae.core.
         # pyre: outcome_constraint.OutcomeConstraint, ae.lazarus.ae.core.

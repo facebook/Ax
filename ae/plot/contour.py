@@ -89,7 +89,7 @@ def plot_contour(
         slice_values=slice_values,
     )
     config = {
-        "condition_data": data,
+        "arm_data": data,
         "blue_scale": BLUE_SCALE,
         "density": density,
         "f": f_plt,
@@ -156,7 +156,7 @@ def interact_contour(
             sd_dict[param1][param2] = sd_plt
 
     config = {
-        "condition_data": plot_data,
+        "arm_data": plot_data,
         "blue_scale": BLUE_SCALE,
         "density": density,
         "f_dict": f_dict,

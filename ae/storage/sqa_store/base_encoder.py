@@ -4,10 +4,10 @@ import inspect
 from enum import EnumMeta
 from typing import Any, Dict, List, Optional, Tuple
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base import Base
 from ae.lazarus.ae.core.base_trial import BaseTrial
-from ae.lazarus.ae.core.batch_trial import AbandonedCondition, BatchTrial
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.batch_trial import AbandonedArm, BatchTrial
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun, GeneratorRunType
 from ae.lazarus.ae.core.metric import Metric
@@ -325,22 +325,18 @@ class Encoder:
         return [objective_sqa] + outcome_constraints_sqa
 
     @classmethod
-    def condition_to_sqa(
-        cls, condition: Condition, weight: Optional[float] = 1.0
-    ) -> SQAArm:
-        """Convert AE Condition to SQLAlchemy."""
+    def arm_to_sqa(cls, arm: Arm, weight: Optional[float] = 1.0) -> SQAArm:
+        """Convert AE Arm to SQLAlchemy."""
         # Unexpected keyword argument `parameters` to call `object.__init__`.
-        return SQAArm(parameters=condition.params, name=condition._name, weight=weight)
+        return SQAArm(parameters=arm.params, name=arm._name, weight=weight)
 
     @classmethod
-    def abandoned_condition_to_sqa(
-        cls, abandoned_condition: AbandonedCondition
-    ) -> SQAAbandonedArm:
-        """Convert AE AbandonedCondition to SQLAlchemy."""
+    def abandoned_arm_to_sqa(cls, abandoned_arm: AbandonedArm) -> SQAAbandonedArm:
+        """Convert AE AbandonedArm to SQLAlchemy."""
         return SQAAbandonedArm(
-            name=abandoned_condition.name,
-            abandoned_reason=abandoned_condition.reason,
-            time_abandoned=abandoned_condition.time,
+            name=abandoned_arm.name,
+            abandoned_reason=abandoned_arm.reason,
+            time_abandoned=abandoned_arm.time,
         )
 
     @classmethod
@@ -350,12 +346,12 @@ class Encoder:
         """Convert AE GeneratorRun to SQLAlchemy.
 
         In addition to creating and storing a new GeneratorRun object, we need to
-        create and store copies of the Conditions, Metrics, Parameters, and
+        create and store copies of the Arms, Metrics, Parameters, and
         ParameterConstraints owned by this GeneratorRun.
         """
-        conditions = [
-            cls.condition_to_sqa(condition=condition, weight=weight)
-            for (condition, weight) in generator_run.condition_weights.items()
+        arms = [
+            cls.arm_to_sqa(arm=arm, weight=weight)
+            for (arm, weight) in generator_run.arm_weights.items()
         ]
 
         metrics = cls.optimization_config_to_sqa(generator_run.optimization_config)
@@ -366,9 +362,9 @@ class Encoder:
         best_arm_name = None
         best_arm_parameters = None
         best_arm_predictions = None
-        if generator_run.best_condition_predictions is not None:
-            best_arm = generator_run.best_condition_predictions[0]
-            best_arm_predictions = list(generator_run.best_condition_predictions[1])
+        if generator_run.best_arm_predictions is not None:
+            best_arm = generator_run.best_arm_predictions[0]
+            best_arm_predictions = list(generator_run.best_arm_predictions[1])
             best_arm_name = best_arm._name
             best_arm_parameters = best_arm.params
         model_predictions = (
@@ -382,7 +378,7 @@ class Encoder:
         )
 
         return SQAGeneratorRun(
-            conditions=conditions,
+            arms=arms,
             metrics=metrics,
             parameters=parameters,
             parameter_constraints=parameter_constraints,
@@ -418,13 +414,13 @@ class Encoder:
         create and store the GeneratorRuns and Runner that it owns.
         """
         runner = cls.runner_to_sqa(runner=trial.runner) if trial.runner else None
-        abandoned_conditions = []
+        abandoned_arms = []
         generator_runs = []
         status_quo_name = None
         if isinstance(trial, BatchTrial):
-            abandoned_conditions = [
-                cls.abandoned_condition_to_sqa(abandoned_condition=abandoned_condition)
-                for abandoned_condition in trial.abandoned_conditions_metadata
+            abandoned_arms = [
+                cls.abandoned_arm_to_sqa(abandoned_arm=abandoned_arm)
+                for abandoned_arm in trial.abandoned_arms_metadata
             ]
             generator_runs = [
                 cls.generator_run_to_sqa(
@@ -434,7 +430,7 @@ class Encoder:
             ]
             if trial.status_quo is not None:
                 status_quo_generator_run = GeneratorRun(
-                    conditions=[trial.status_quo],
+                    arms=[trial.status_quo],
                     weights=[trial._status_quo_weight],
                     type=GeneratorRunType.STATUS_QUO.name,
                 )
@@ -455,7 +451,7 @@ class Encoder:
             abandoned_reason=trial.abandoned_reason,
             index=trial.index,
             is_batch=isinstance(trial, BatchTrial),
-            num_arms_created=trial._num_conditions_created,
+            num_arms_created=trial._num_arms_created,
             run_metadata=trial.run_metadata,
             status=trial.status,
             status_quo_name=status_quo_name,
@@ -464,7 +460,7 @@ class Encoder:
             time_staged=trial.time_staged,
             time_run_started=trial.time_run_started,
             trial_type=trial.trial_type,
-            abandoned_arms=abandoned_conditions,
+            abandoned_arms=abandoned_arms,
             generator_runs=generator_runs,
             runner=runner,
         )

@@ -31,7 +31,7 @@ def plot_slice(
         param_name: Name of parameter that will be sliced
         metric_name: Name of metric to plot
         generator_runs_dict: A dictionary {name: generator run} of generator runs
-            whose conditions will be plotted, if they lie in the slice.
+            whose arms will be plotted, if they lie in the slice.
         relative: Predictions relative to status quo
         density: Number of points along slice to evaluate predictions.
         slice_values: A dictionary {name: val} for the fixed values of the
@@ -66,8 +66,8 @@ def plot_slice(
     sd_plt = np.sqrt(cov[metric_name][metric_name])
 
     config = {
-        "condition_data": plot_data,
-        "condition_name_to_params": cond_name_to_params,
+        "arm_data": plot_data,
+        "arm_name_to_params": cond_name_to_params,
         "f": f_plt,
         "fit_data": raw_data,
         "grid": grid,

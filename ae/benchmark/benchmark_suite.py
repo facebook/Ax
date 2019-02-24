@@ -36,7 +36,7 @@ from ae.lazarus.ae.utils.render.render import (
 
 BOMethods: List[TGeneratorFactory] = [
     get_sobol,
-    # Generation strategy to use Sobol for first 5 conditions and GP+EI for next 30:
+    # Generation strategy to use Sobol for first 5 arms and GP+EI for next 30:
     GenerationStrategy([get_sobol, get_GPyGPEI], [5, 30]).get_generator,
 ]
 

@@ -5,8 +5,8 @@ from datetime import datetime
 from typing import Dict, List, MutableMapping
 
 import numpy as np
-from ae.lazarus.ae.core.batch_trial import AbandonedCondition, BatchTrial
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.arm import Arm
+from ae.lazarus.ae.core.batch_trial import AbandonedArm, BatchTrial
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.core.metric import Metric
@@ -31,7 +31,7 @@ from ae.lazarus.ae.core.types.types import (
     TModelCov,
     TModelMean,
     TModelPredict,
-    TModelPredictCondition,
+    TModelPredictArm,
     TParameterization,
 )
 from ae.lazarus.ae.metrics.branin import BraninMetric
@@ -162,22 +162,20 @@ def get_factorial_search_space() -> SearchSpace:
 def get_batch_trial() -> BatchTrial:
     experiment = get_experiment()
     batch = experiment.new_batch_trial()
-    conditions = get_conditions()
+    arms = get_arms()
     weights = get_weights()
-    batch.add_conditions_and_weights(
-        conditions=conditions, weights=weights, multiplier=0.75
-    )
-    batch.mark_condition_abandoned(batch.conditions[0], "abandoned reason")
+    batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=0.75)
+    batch.mark_arm_abandoned(batch.arms[0], "abandoned reason")
     batch.runner = SyntheticRunner()
-    batch.set_status_quo(status_quo=conditions[0], weight=0.5)
+    batch.set_status_quo(status_quo=arms[0], weight=0.5)
     return batch
 
 
 def get_trial() -> Trial:
     experiment = get_experiment()
     trial = experiment.new_trial()
-    condition = get_conditions()[0]
-    trial.add_condition(condition)
+    arm = get_arms()[0]
+    trial.add_arm(arm)
     trial.runner = SyntheticRunner()
     return trial
 
@@ -189,9 +187,7 @@ def get_experiment_with_batch_trial() -> Experiment:
 
 def get_experiment_with_batch_and_single_trial() -> Experiment:
     batch_trial = get_batch_trial()
-    batch_trial.experiment.new_trial(
-        generator_run=GeneratorRun(conditions=[get_condition()])
-    )
+    batch_trial.experiment.new_trial(generator_run=GeneratorRun(arms=[get_arm()]))
     return batch_trial.experiment
 
 
@@ -303,27 +299,27 @@ def get_branin_outcome_constraint() -> OutcomeConstraint:
     return OutcomeConstraint(metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0)
 
 
-# Conditions
+# Arms
 
 
-def get_condition() -> Condition:
+def get_arm() -> Arm:
     # Expected `Dict[str, typing.Optional[typing.Union[bool, float, str]]]` for 2nd
-    # parameter `params` to call `ae.lazarus.ae.core.condition.Condition.__init__` but got
+    # parameter `params` to call `ae.lazarus.ae.core.arm.Arm.__init__` but got
     # `Dict[str, typing.Union[float, str]]`.
-    return Condition(params={"w": 0.75, "x": 1, "y": "foo", "z": True})
+    return Arm(params={"w": 0.75, "x": 1, "y": "foo", "z": True})
 
 
-def get_status_quo() -> Condition:
-    return Condition(
+def get_status_quo() -> Arm:
+    return Arm(
         # Expected `Dict[str, typing.Optional[typing.Union[bool, float, str]]]` for 2nd
-        # parameter `params` to call `ae.lazarus.ae.core.condition.Condition.__init__`
+        # parameter `params` to call `ae.lazarus.ae.core.arm.Arm.__init__`
         # but got `Dict[str, typing.Union[float, str]]`.
         params={"w": 0.2, "x": 1, "y": "bar", "z": False},
         name="status_quo",
     )
 
 
-def get_condition_weights() -> MutableMapping[Condition, float]:
+def get_arm_weights() -> MutableMapping[Arm, float]:
     # pyre: params_dicts is declared to have type `List[Dict[str, typing.
     # pyre: Optional[typing.Union[bool, float, str]]]]` but is used as type
     # pyre-fixme[9]: `List[Dict[str, typing.Union[float, str]]]`.
@@ -332,62 +328,58 @@ def get_condition_weights() -> MutableMapping[Condition, float]:
         {"w": 0.75, "x": 1, "y": "foo", "z": True},
         {"w": 1.4, "x": 2, "y": "bar", "z": True},
     ]
-    conditions = [Condition(param_dict) for param_dict in params_dicts]
+    arms = [Arm(param_dict) for param_dict in params_dicts]
     weights = [0.25, 0.5, 0.25]
-    return OrderedDict(zip(conditions, weights))
+    return OrderedDict(zip(arms, weights))
 
 
-def get_conditions() -> List[Condition]:
-    return list(get_condition_weights().keys())
+def get_arms() -> List[Arm]:
+    return list(get_arm_weights().keys())
 
 
 def get_weights() -> List[float]:
-    return list(get_condition_weights().values())
+    return list(get_arm_weights().values())
 
 
-def get_branin_conditions(n: int, seed: int) -> List[Condition]:
+def get_branin_arms(n: int, seed: int) -> List[Arm]:
     # TODO replace with sobol
     np.random.seed(seed)
     x1_raw = np.random.rand(n)
     x2_raw = np.random.rand(n)
     return [
-        Condition(params={"x1": -5 + x1_raw[i] * 15, "x2": x2_raw[i] * 15})
-        for i in range(n)
+        Arm(params={"x1": -5 + x1_raw[i] * 15, "x2": x2_raw[i] * 15}) for i in range(n)
     ]
 
 
-def get_abandoned_condition() -> AbandonedCondition:
-    return AbandonedCondition(name="0_0", reason="foobar", time=datetime.now())
+def get_abandoned_arm() -> AbandonedArm:
+    return AbandonedArm(name="0_0", reason="foobar", time=datetime.now())
 
 
 # Generator Runs
 
 
 def get_generator_run() -> GeneratorRun:
-    conditions = get_conditions()
+    arms = get_arms()
     weights = get_weights()
     optimization_config = get_optimization_config()
     search_space = get_search_space()
-    condition_predictions = get_model_predictions_per_condition()
+    arm_predictions = get_model_predictions_per_arm()
     return GeneratorRun(
-        conditions=conditions,
+        arms=arms,
         weights=weights,
         optimization_config=optimization_config,
         search_space=search_space,
         model_predictions=get_model_predictions(),
-        best_condition_predictions=(
-            conditions[0],
-            condition_predictions[conditions[0].signature],
-        ),
+        best_arm_predictions=(arms[0], arm_predictions[arms[0].signature]),
         fit_time=10.0,
         gen_time=5.0,
     )
 
 
 def get_generator_run2() -> GeneratorRun:
-    conditions = get_conditions()
+    arms = get_arms()
     weights = get_weights()
-    return GeneratorRun(conditions=conditions, weights=weights)
+    return GeneratorRun(arms=arms, weights=weights)
 
 
 # Runners
@@ -423,19 +415,19 @@ def get_model_predictions() -> TModelPredict:
     return model_predictions
 
 
-def get_model_predictions_per_condition() -> Dict[str, TModelPredictCondition]:
-    conditions = list(get_condition_weights().keys())
+def get_model_predictions_per_arm() -> Dict[str, TModelPredictArm]:
+    arms = list(get_arm_weights().keys())
     means = get_model_mean()
     covariances = get_model_covariance()
     metric_names = list(means.keys())
     m_1, m_2 = metric_names[0], metric_names[1]
     return {
-        conditions[i].signature: (
+        arms[i].signature: (
             {m_1: means[m_1][i], m_2: means[m_2][i]},
             {
                 m_1: {m_1: covariances[m_1][m_1][i], m_2: covariances[m_1][m_2][i]},
                 m_2: {m_1: covariances[m_2][m_1][i], m_2: covariances[m_2][m_2][i]},
             },
         )
-        for i in range(len(conditions))
+        for i in range(len(arms))
     }

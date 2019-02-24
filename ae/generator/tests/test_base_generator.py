@@ -3,7 +3,7 @@
 from unittest import mock
 
 import numpy as np
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.metric import Metric
 from ae.lazarus.ae.core.objective import Objective, ScalarizedObjective
@@ -15,11 +15,7 @@ from ae.lazarus.ae.core.observation import (
 from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ae.lazarus.ae.core.search_space import SearchSpace
-from ae.lazarus.ae.generator.base import (
-    Generator,
-    gen_conditions,
-    unwrap_observation_data,
-)
+from ae.lazarus.ae.generator.base import Generator, gen_arms, unwrap_observation_data
 from ae.lazarus.ae.generator.transforms.base import Transform
 from ae.lazarus.ae.utils.common.testutils import TestCase
 
@@ -48,7 +44,7 @@ def observation1() -> Observation:
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
             metric_names=["a", "b"],
         ),
-        condition_name="1_1",
+        arm_name="1_1",
     )
 
 
@@ -60,7 +56,7 @@ def observation1trans() -> Observation:
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
             metric_names=["a", "b"],
         ),
-        condition_name="1_1",
+        arm_name="1_1",
     )
 
 
@@ -72,7 +68,7 @@ def observation2() -> Observation:
             covariance=np.array([[2.0, 3.0], [4.0, 5.0]]),
             metric_names=["a", "b"],
         ),
-        condition_name="1_1",
+        arm_name="1_1",
     )
 
 
@@ -84,7 +80,7 @@ def observation2trans() -> Observation:
             covariance=np.array([[2.0, 3.0], [4.0, 5.0]]),
             metric_names=["a", "b"],
         ),
-        condition_name="1_1",
+        arm_name="1_1",
     )
 
 
@@ -180,15 +176,15 @@ class BaseGeneratorTest(TestCase):
         return_value=(2, 2),
     )
     @mock.patch(
-        "ae.lazarus.ae.generator.base.gen_conditions",
+        "ae.lazarus.ae.generator.base.gen_arms",
         autospec=True,
-        return_value=[Condition(params={})],
+        return_value=[Arm(params={})],
     )
     @mock.patch("ae.lazarus.ae.generator.base.Generator._fit", autospec=True)
     def testGenerator(
         self,
         mock_fit,
-        mock_gen_conditions,
+        mock_gen_arms,
         mock_unwrap_observation_data,
         mock_observations_from_data,
     ):
@@ -244,8 +240,8 @@ class BaseGeneratorTest(TestCase):
             fixed_features=ObservationFeatures({"x": 36}),
             model_gen_options=None,
         )
-        mock_gen_conditions.assert_called_with(
-            conditions_by_signature={}, observation_features=[observation1().features]
+        mock_gen_arms.assert_called_with(
+            arms_by_signature={}, observation_features=[observation1().features]
         )
 
         # Gen with no pending observations and no fixed features
@@ -333,11 +329,11 @@ class BaseGeneratorTest(TestCase):
         self.assertEqual(generator.status_quo, observation1())
 
         # Alternatively, we can specify on experiment
-        # Put a dummy condition with SQ name 1_1 on the dummy experiment.
+        # Put a dummy arm with SQ name 1_1 on the dummy experiment.
         exp = get_experiment()
-        sq = Condition(name="1_1", params={"x": 3.0})
+        sq = Arm(name="1_1", params={"x": 3.0})
         exp._status_quo = sq
-        # Check that we set SQ to condition 1_1
+        # Check that we set SQ to arm 1_1
         generator = Generator(search_space_for_value(), 0, [], exp, 0)
         self.assertEqual(generator.status_quo, observation1())
 
@@ -378,7 +374,7 @@ class BaseGeneratorTest(TestCase):
         generator = Generator(
             search_space_for_value(), 0, [], get_experiment(), 0, status_quo_name="1_1"
         )
-        # SQ not set if multiple feature sets for SQ condition.
+        # SQ not set if multiple feature sets for SQ arm.
         self.assertIsNone(generator.status_quo)
 
     @mock.patch(
@@ -415,23 +411,23 @@ class BaseGeneratorTest(TestCase):
         with self.assertRaises(ValueError):
             unwrap_observation_data(observation_data + [od3])
 
-    def testGenConditions(self):
+    def testGenArms(self):
         p1 = {"x": 0, "y": 1}
         p2 = {"x": 4, "y": 8}
         observation_features = [
             ObservationFeatures(parameters=p1),
             ObservationFeatures(parameters=p2),
         ]
-        conditions = gen_conditions(observation_features=observation_features)
-        self.assertEqual(conditions[0].params, p1)
+        arms = gen_arms(observation_features=observation_features)
+        self.assertEqual(arms[0].params, p1)
 
-        condition = Condition(name="1_1", params=p1)
-        conditions_by_signature = {condition.signature: condition}
-        conditions = gen_conditions(
+        arm = Arm(name="1_1", params=p1)
+        arms_by_signature = {arm.signature: arm}
+        arms = gen_arms(
             observation_features=observation_features,
-            conditions_by_signature=conditions_by_signature,
+            arms_by_signature=arms_by_signature,
         )
-        self.assertEqual(conditions[0].name, "1_1")
+        self.assertEqual(arms[0].name, "1_1")
 
     @mock.patch(
         "ae.lazarus.ae.generator.base.Generator._gen",

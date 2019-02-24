@@ -7,7 +7,7 @@ from ae.lazarus.ae.core.base_trial import TrialStatus
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun
-from ae.lazarus.ae.tests.fake import get_conditions, get_experiment, get_objective
+from ae.lazarus.ae.tests.fake import get_arms, get_experiment, get_objective
 from ae.lazarus.ae.utils.common.testutils import TestCase
 
 
@@ -15,7 +15,7 @@ TEST_DATA = Data(
     df=pd.DataFrame(
         [
             {
-                "condition_name": "0_0",
+                "arm_name": "0_0",
                 "metric_name": get_objective().metric.name,
                 "mean": 1.0,
                 "sem": 2.0,
@@ -30,8 +30,8 @@ class TrialTest(TestCase):
     def setUp(self):
         self.experiment = get_experiment()
         self.trial = self.experiment.new_trial()
-        self.condition = get_conditions()[0]
-        self.trial.add_condition(self.condition)
+        self.arm = get_arms()[0]
+        self.trial.add_arm(self.arm)
 
     def test_eq(self):
         new_trial = self.experiment.new_trial()
@@ -42,47 +42,43 @@ class TrialTest(TestCase):
         self.assertEqual(self.trial.index, 0)
         self.assertEqual(self.trial.status, TrialStatus.CANDIDATE)
         self.assertIsNotNone(self.trial.time_created)
-        self.assertEqual(self.trial.conditions_by_name["0_0"], self.trial.condition)
-        self.assertEqual(self.trial.conditions, [self.condition])
-        self.assertEqual(self.trial.abandoned_conditions, [])
+        self.assertEqual(self.trial.arms_by_name["0_0"], self.trial.arm)
+        self.assertEqual(self.trial.arms, [self.arm])
+        self.assertEqual(self.trial.abandoned_arms, [])
 
-        # Test empty conditions
+        # Test empty arms
         with self.assertRaises(AttributeError):
-            self.experiment.new_trial().condition_weights
+            self.experiment.new_trial().arm_weights
 
     def test_adding_new_trials(self):
-        new_condition = get_conditions()[1]
+        new_arm = get_arms()[1]
         new_trial = self.experiment.new_trial(
-            generator_run=GeneratorRun(conditions=[new_condition])
+            generator_run=GeneratorRun(arms=[new_arm])
         )
         with self.assertRaises(ValueError):
-            self.experiment.new_trial(
-                generator_run=GeneratorRun(conditions=get_conditions())
-            )
-        self.assertEqual(new_trial.conditions_by_name["1_0"], new_condition)
+            self.experiment.new_trial(generator_run=GeneratorRun(arms=get_arms()))
+        self.assertEqual(new_trial.arms_by_name["1_0"], new_arm)
         with self.assertRaises(KeyError):
-            self.trial.conditions_by_name["1_0"]
+            self.trial.arms_by_name["1_0"]
 
-    def test_add_trial_same_condition(self):
-        # Check that adding new condition w/out name works correctly.
+    def test_add_trial_same_arm(self):
+        # Check that adding new arm w/out name works correctly.
         new_trial1 = self.experiment.new_trial(
-            generator_run=GeneratorRun(
-                conditions=[self.condition.clone(clear_name=True)]
-            )
+            generator_run=GeneratorRun(arms=[self.arm.clone(clear_name=True)])
         )
-        self.assertEqual(new_trial1.condition.name, self.trial.condition.name)
-        self.assertFalse(new_trial1.condition is self.trial.condition)
-        # Check that adding new condition with name works correctly.
+        self.assertEqual(new_trial1.arm.name, self.trial.arm.name)
+        self.assertFalse(new_trial1.arm is self.trial.arm)
+        # Check that adding new arm with name works correctly.
         new_trial2 = self.experiment.new_trial(
-            generator_run=GeneratorRun(conditions=[self.condition.clone()])
+            generator_run=GeneratorRun(arms=[self.arm.clone()])
         )
-        self.assertEqual(new_trial2.condition.name, self.trial.condition.name)
-        self.assertFalse(new_trial2.condition is self.trial.condition)
-        condition_wrong_name = self.condition.clone(clear_name=True)
-        condition_wrong_name.name = "wrong_name"
+        self.assertEqual(new_trial2.arm.name, self.trial.arm.name)
+        self.assertFalse(new_trial2.arm is self.trial.arm)
+        arm_wrong_name = self.arm.clone(clear_name=True)
+        arm_wrong_name.name = "wrong_name"
         with self.assertRaises(ValueError):
             new_trial2 = self.experiment.new_trial(
-                generator_run=GeneratorRun(conditions=[condition_wrong_name])
+                generator_run=GeneratorRun(arms=[arm_wrong_name])
             )
 
     def test_abandonment(self):

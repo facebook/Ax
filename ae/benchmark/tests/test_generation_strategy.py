@@ -2,7 +2,7 @@
 from unittest import mock
 
 from ae.lazarus.ae.benchmark.generation_strategy import GenerationStrategy
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.generator.discrete import DiscreteGenerator
 from ae.lazarus.ae.generator.factory import (
     get_factorial,
@@ -23,27 +23,24 @@ class TestGenerationStrategy(TestCase):
     def test_validation(self):
         # GenerationStrategy should require > 1 generator factory.
         with self.assertRaises(ValueError):
-            GenerationStrategy(
-                generator_factories=[get_sobol], conditions_per_generator=[5]
-            )
+            GenerationStrategy(generator_factories=[get_sobol], arms_per_generator=[5])
 
-        # GenerationStrategy should require as many conditions_per_generator
+        # GenerationStrategy should require as many arms_per_generator
         # as generator_factories.
         with self.assertRaises(ValueError):
             GenerationStrategy(
                 generator_factories=[get_sobol, get_sobol, get_sobol],
-                conditions_per_generator=[5],
+                arms_per_generator=[5],
             )
 
         # GenerationStrategy should require that there be no more
-        # conditions_per_generator than there are generator factories.
+        # arms_per_generator than there are generator factories.
         with self.assertRaises(ValueError):
             GenerationStrategy(
-                generator_factories=[get_sobol, get_sobol],
-                conditions_per_generator=[5, 5, 5],
+                generator_factories=[get_sobol, get_sobol], arms_per_generator=[5, 5, 5]
             )
 
-        # Must specify conditions_per_generator
+        # Must specify arms_per_generator
         with self.assertRaises(ValueError):
             GenerationStrategy(generator_factories=[get_sobol, get_sobol])
 
@@ -60,7 +57,7 @@ class TestGenerationStrategy(TestCase):
     def test_sobol_GPEI_strategy(self, mock_sobol, mock_GPEI):
         exp = get_branin_experiment()
         sobol_GPEI_generation_strategy = GenerationStrategy(
-            generator_factories=[get_sobol, get_GPEI], conditions_per_generator=[5, 2]
+            generator_factories=[get_sobol, get_GPEI], arms_per_generator=[5, 2]
         )
         prev_g, g = None, None
         for i in range(7):
@@ -68,7 +65,7 @@ class TestGenerationStrategy(TestCase):
             g = sobol_GPEI_generation_strategy.get_generator(
                 exp, exp.fetch_data(), exp.search_space
             )
-            exp.new_batch_trial().add_condition(Condition(params={"x": i}))
+            exp.new_batch_trial().add_arm(Arm(params={"x": i}))
             if i > 0 and i < 5:
                 self.assertTrue(g is prev_g)
             else:
@@ -91,14 +88,13 @@ class TestGenerationStrategy(TestCase):
     def test_factorial_thompson_strategy(self, mock_discrete):
         exp = get_branin_experiment()
         factorial_thompson_generation_strategy = GenerationStrategy(
-            generator_factories=[get_factorial, get_thompson],
-            conditions_per_generator=[1, 2],
+            generator_factories=[get_factorial, get_thompson], arms_per_generator=[1, 2]
         )
         for i in range(3):
             factorial_thompson_generation_strategy.get_generator(
                 exp, exp.fetch_data(), exp.search_space
             )
-            exp.new_batch_trial().add_condition(Condition(params={"x": i}))
+            exp.new_batch_trial().add_arm(Arm(params={"x": i}))
             if i < 1:
                 mock_discrete.assert_called()
                 args, kwargs = mock_discrete.call_args

@@ -13,8 +13,8 @@ from ae.lazarus.ae.generator.transforms.ivw import IVW
 from ae.lazarus.ae.plot.base import (
     DECIMALS,
     PlotData,
-    PlotInSampleCondition,
-    PlotOutOfSampleCondition,
+    PlotInSampleArm,
+    PlotOutOfSampleArm,
     Z,
 )
 from ae.lazarus.ae.utils.common.logger import get_logger
@@ -81,8 +81,8 @@ def _format_CI(estimate: float, sd: float, relative: bool, zval: float = Z) -> s
     )
 
 
-def condition_name_to_tuple(condition_name: str) -> Union[Tuple[int, int], Tuple[int]]:
-    tup = condition_name.split("_")
+def arm_name_to_tuple(arm_name: str) -> Union[Tuple[int, int], Tuple[int]]:
+    tup = arm_name.split("_")
     if len(tup) == 2:
         try:
             return (int(tup[0]), int(tup[1]))
@@ -104,13 +104,13 @@ def _filter_dict(
     return {k: v for k, v in param_dict.items() if k in subset_keys}
 
 
-def _get_in_sample_conditions(
+def _get_in_sample_arms(
     generator: Generator, metric_names: Set[str]
-) -> Tuple[Dict[str, PlotInSampleCondition], RawData, Dict[str, TParameterization]]:
-    """Get in-sample conditions from a generator with observed and predicted values
+) -> Tuple[Dict[str, PlotInSampleArm], RawData, Dict[str, TParameterization]]:
+    """Get in-sample arms from a generator with observed and predicted values
     for specified metrics.
 
-    Returns a PlotInSampleCondition object in which repeated observations are merged
+    Returns a PlotInSampleArm object in which repeated observations are merged
     with IVW, and a RawData object in which every observation is listed.
 
     Args:
@@ -119,31 +119,31 @@ def _get_in_sample_conditions(
             metrics in the generator.
 
     Returns:
-        in_sample_plot: A map from condition name to PlotInSampleCondition
+        in_sample_plot: A map from arm name to PlotInSampleArm
         raw_data: A list of the data for each observation like
-            {'metric_name': 'likes', 'condition_name': '0_0', 'mean': 1., 'sem': 0.1}.
-        cond_name_to_params: A mapping from condition name to parameters
+            {'metric_name': 'likes', 'arm_name': '0_0', 'mean': 1., 'sem': 0.1}.
+        cond_name_to_params: A mapping from arm name to parameters
     """
     observations = generator.get_training_data()
     # Calculate raw data
     raw_data = []
     cond_name_to_params = {}
     for obs in observations:
-        cond_name_to_params[obs.condition_name] = obs.features.parameters
+        cond_name_to_params[obs.arm_name] = obs.features.parameters
         for j, metric_name in enumerate(obs.data.metric_names):
             raw_data.append(
                 {
                     "metric_name": metric_name,
-                    "condition_name": obs.condition_name,
+                    "arm_name": obs.arm_name,
                     "mean": obs.data.means[j],
                     "sem": np.sqrt(obs.data.covariance[j, j]),
                 }
             )
-    # Check that we have one ObservationFeatures per condition name since we
-    # key by condition name.
+    # Check that we have one ObservationFeatures per arm name since we
+    # key by arm name.
     if len(cond_name_to_params) != len(observations):
         logger.error(
-            "Have observations of conditions with different features but same"
+            "Have observations of arms with different features but same"
             " name. Arbitrary one will be plotted."
         )
     # Merge multiple measurements within each Observation with IVW to get
@@ -151,10 +151,10 @@ def _get_in_sample_conditions(
     t = IVW(None, [], [])
     obs_data = t.transform_observation_data([obs.data for obs in observations], [])
     # Start filling in plot data
-    in_sample_plot: Dict[str, PlotInSampleCondition] = {}
+    in_sample_plot: Dict[str, PlotInSampleArm] = {}
     for i, obs in enumerate(observations):
-        if obs.condition_name is None:
-            raise ValueError("Observation must have condition name for plotting.")
+        if obs.arm_name is None:
+            raise ValueError("Observation must have arm name for plotting.")
 
         # Extract raw measurement
         obs_y = {}
@@ -171,8 +171,8 @@ def _get_in_sample_conditions(
             # Use raw data for out-of-design points
             pred_y = obs_y
             pred_se = obs_se
-        in_sample_plot[obs.condition_name] = PlotInSampleCondition(
-            name=obs.condition_name,
+        in_sample_plot[obs.arm_name] = PlotInSampleArm(
+            name=obs.arm_name,
             y=obs_y,
             se=obs_se,
             params=obs.features.parameters,
@@ -180,10 +180,10 @@ def _get_in_sample_conditions(
             se_hat=pred_se,
             context_stratum=None,
         )
-    # pyre: Expected `typing.Tuple[Dict[str, PlotInSampleCondition],
+    # pyre: Expected `typing.Tuple[Dict[str, PlotInSampleArm],
     # pyre: List[Dict[str, Union[float, str]]], Dict[str, Dict[str,
     # pyre: Optional[Union[bool, float, str]]]]]` but got `typing.
-    # pyre: Tuple[Dict[str, PlotInSampleCondition], List[],
+    # pyre: Tuple[Dict[str, PlotInSampleArm], List[],
     # pyre: Dict[Optional[str], Dict[str, Optional[Union[bool, float,
     # pyre-fixme[7]: str]]]]]`.
     return in_sample_plot, raw_data, cond_name_to_params
@@ -215,11 +215,11 @@ def _predict_at_point(
     return y_hat, se_hat
 
 
-def _get_out_of_sample_conditions(
+def _get_out_of_sample_arms(
     generator: Generator,
     generator_runs_dict: Dict[str, GeneratorRun],
     metric_names: Set[str],
-) -> Dict[str, Dict[str, PlotOutOfSampleCondition]]:
+) -> Dict[str, Dict[str, PlotOutOfSampleArm]]:
     """Get out-of-sample predictions from a generator given a dict of generator runs.
 
     Args:
@@ -228,31 +228,29 @@ def _get_out_of_sample_conditions(
         metric_names: metrics to include in the plot.
 
     Returns:
-        A mapping from name to a mapping from condition name to plot.
+        A mapping from name to a mapping from arm name to plot.
 
     """
-    out_of_sample_plot: Dict[str, Dict[str, PlotOutOfSampleCondition]] = {}
+    out_of_sample_plot: Dict[str, Dict[str, PlotOutOfSampleArm]] = {}
     for generator_run_name, generator_run in generator_runs_dict.items():
         out_of_sample_plot[generator_run_name] = {}
-        for condition in generator_run.conditions:
+        for arm in generator_run.arms:
             # This assumes context is None
-            obsf = ObservationFeatures.from_condition(condition)
+            obsf = ObservationFeatures.from_arm(arm)
             # Make a prediction
             try:
                 pred_y, pred_se = _predict_at_point(generator, obsf, metric_names)
             except Exception:
-                # Check if it is an out-of-design condition.
+                # Check if it is an out-of-design arm.
                 if not generator.model_space.validate(obsf.parameters):
                     # Skip this point
                     continue
                 else:
                     # It should have worked
                     raise
-            condition_name = condition.name_or_short_signature
-            out_of_sample_plot[generator_run_name][
-                condition_name
-            ] = PlotOutOfSampleCondition(
-                name=condition_name,
+            arm_name = arm.name_or_short_signature
+            out_of_sample_plot[generator_run_name][arm_name] = PlotOutOfSampleArm(
+                name=arm_name,
                 params=obsf.parameters,
                 y_hat=pred_y,
                 se_hat=pred_se,
@@ -267,15 +265,15 @@ def get_plot_data(
     metric_names: Optional[Set[str]] = None,
 ) -> Tuple[PlotData, RawData, Dict[str, TParameterization]]:
     """Format data object with metrics for in-sample and out-of-sample
-    conditions.
+    arms.
 
-    Calculate both observed and predicted metrics for in-sample conditions.
-    Calculate predicted metrics for out-of-sample conditions passed via the
+    Calculate both observed and predicted metrics for in-sample arms.
+    Calculate predicted metrics for out-of-sample arms passed via the
     `generator_runs_dict` argument.
 
     In PlotData, in-sample observations are merged with IVW. In RawData, they
     are left un-merged and given as a list of dictionaries, one for each
-    observation and having keys 'condition_name', 'mean', and 'sem'.
+    observation and having keys 'arm_name', 'mean', and 'sem'.
 
     Args:
         generator: The generator.
@@ -287,20 +285,20 @@ def get_plot_data(
         plot_data: a PlotData object with in-sample and out-of-sample
             predictions.
         raw_data: A list of observations like
-            {'metric_name': 'likes', 'condition_name': '0_1', 'mean': 1., 'sem': 0.1}.
-        cond_name_to_params: A mapping from condition name to parameters.
+            {'metric_name': 'likes', 'arm_name': '0_1', 'mean': 1., 'sem': 0.1}.
+        cond_name_to_params: A mapping from arm name to parameters.
     """
     metrics_plot = generator.metric_names if metric_names is None else metric_names
-    in_sample_plot, raw_data, cond_name_to_params = _get_in_sample_conditions(
+    in_sample_plot, raw_data, cond_name_to_params = _get_in_sample_arms(
         generator=generator, metric_names=metrics_plot
     )
-    out_of_sample_plot = _get_out_of_sample_conditions(
+    out_of_sample_plot = _get_out_of_sample_arms(
         generator=generator,
         generator_runs_dict=generator_runs_dict,
         metric_names=metrics_plot,
     )
     status_quo_name = (
-        None if generator.status_quo is None else generator.status_quo.condition_name
+        None if generator.status_quo is None else generator.status_quo.arm_name
     )
     plot_data = PlotData(
         metrics=list(metrics_plot),

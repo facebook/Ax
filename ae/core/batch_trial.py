@@ -14,8 +14,8 @@ from typing import (
 )
 
 import numpy as np
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base_trial import BaseTrial
-from ae.lazarus.ae.core.condition import Condition
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.core.trial import immutable_once_run
 from ae.lazarus.ae.utils.common.equality import datetime_equals, equality_typechecker
@@ -28,8 +28,8 @@ if TYPE_CHECKING:
     )  # noqa F401  # pragma: no cover
 
 
-class AbandonedCondition(NamedTuple):
-    """Tuple storing metadata of condition that has been abandoned within
+class AbandonedArm(NamedTuple):
+    """Tuple storing metadata of arm that has been abandoned within
     a BatchTrial.
     """
 
@@ -38,7 +38,7 @@ class AbandonedCondition(NamedTuple):
     reason: Optional[str] = None
 
     @equality_typechecker
-    def __eq__(self, other: "AbandonedCondition") -> bool:
+    def __eq__(self, other: "AbandonedArm") -> bool:
         return (
             self.name == other.name
             and self.reason == other.reason
@@ -57,8 +57,8 @@ class BatchTrial(BaseTrial):
     def __init__(self, experiment: "Experiment") -> None:
         super().__init__(experiment=experiment)
         self._generator_run_structs: List[GeneratorRunStruct] = []
-        self._abandoned_conditions_metadata: Dict[str, AbandonedCondition] = {}
-        self._status_quo: Optional[Condition] = None
+        self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
+        self._status_quo: Optional[Arm] = None
         self._status_quo_weight: float = 0.0
         self.set_status_quo(experiment.status_quo)
 
@@ -81,62 +81,60 @@ class BatchTrial(BaseTrial):
         return self._generator_run_structs
 
     @property
-    def condition_weights(self) -> Optional[MutableMapping[Condition, float]]:
-        """The set of conditions and associated weights for the trial.
+    def arm_weights(self) -> Optional[MutableMapping[Arm, float]]:
+        """The set of arms and associated weights for the trial.
 
-        These are constructed by merging the conditions and weights from
+        These are constructed by merging the arms and weights from
         each generator run that is attached to the trial.
         """
         if len(self._generator_run_structs) == 0 and self.status_quo is None:
             return None
-        condition_weights = OrderedDict()
+        arm_weights = OrderedDict()
         for struct in self._generator_run_structs:
             multiplier = struct.weight
-            for condition, weight in struct.generator_run.condition_weights.items():
+            for arm, weight in struct.generator_run.arm_weights.items():
                 scaled_weight = weight * multiplier
-                if condition in condition_weights:
-                    condition_weights[condition] += scaled_weight
+                if arm in arm_weights:
+                    arm_weights[arm] += scaled_weight
                 else:
-                    condition_weights[condition] = scaled_weight
+                    arm_weights[arm] = scaled_weight
         if self.status_quo is not None:
-            condition_weights[
-                self.status_quo
-            ] = self._status_quo_weight + condition_weights.get(self.status_quo, 0.0)
-        return condition_weights
+            arm_weights[self.status_quo] = self._status_quo_weight + arm_weights.get(
+                self.status_quo, 0.0
+            )
+        return arm_weights
 
-    @condition_weights.setter
-    def condition_weights(
-        self, condition_weights: MutableMapping[Condition, float]
-    ) -> None:
-        raise NotImplementedError("Use `trial.add_conditions_and_weights`")
+    @arm_weights.setter
+    def arm_weights(self, arm_weights: MutableMapping[Arm, float]) -> None:
+        raise NotImplementedError("Use `trial.add_arms_and_weights`")
 
     @immutable_once_run
-    def add_condition(self, condition: Condition, weight: float = 1.0) -> "BatchTrial":
-        """Add a condition to the trial.
+    def add_arm(self, arm: Arm, weight: float = 1.0) -> "BatchTrial":
+        """Add a arm to the trial.
 
         Args:
-            condition: The condition to be added.
-            weight: The weight with which this condition should be added.
+            arm: The arm to be added.
+            weight: The weight with which this arm should be added.
 
         Returns:
             The trial instance.
         """
-        return self.add_conditions_and_weights(conditions=[condition], weights=[weight])
+        return self.add_arms_and_weights(arms=[arm], weights=[weight])
 
     @immutable_once_run
-    def add_conditions_and_weights(
+    def add_arms_and_weights(
         self,
-        conditions: List[Condition],
+        arms: List[Arm],
         weights: Optional[List[float]] = None,
         multiplier: float = 1.0,
     ) -> "BatchTrial":
-        """Add conditions and weights to the trial.
+        """Add arms and weights to the trial.
 
         Args:
-            conditions: The conditions to be added.
-            weights: The weights associated with the conditions.
+            arms: The arms to be added.
+            weights: The weights associated with the arms.
             multiplier: The multiplier applied to input weights before merging with
-                the current set of conditions and weights.
+                the current set of arms and weights.
 
         Returns:
             The trial instance.
@@ -145,7 +143,7 @@ class BatchTrial(BaseTrial):
         # TODO: Somehow denote on the generator run that it was manually created.
         # Currently no generator info is stored on generator run
         return self.add_generator_run(
-            generator_run=GeneratorRun(conditions=conditions, weights=weights),
+            generator_run=GeneratorRun(arms=arms, weights=weights),
             multiplier=multiplier,
         )
 
@@ -155,62 +153,60 @@ class BatchTrial(BaseTrial):
     ) -> "BatchTrial":
         """Add a generator run to the trial.
 
-        The conditions and weights from the generator run will be merged with
-        the existing conditions and weights on the trial, and the generator run
+        The arms and weights from the generator run will be merged with
+        the existing arms and weights on the trial, and the generator run
         object will be linked to the trial for tracking.
 
         Args:
             generator_run: The generator run to be added.
             multiplier: The multiplier applied to input weights before merging with
-                the current set of conditions and weights.
+                the current set of arms and weights.
 
         Returns:
             The trial instance.
         """
 
-        # Add names to conditions
+        # Add names to arms
         # For those not yet added to this experiment, create a new name
-        # Else, use the name of the existing condition
-        for condition in generator_run.conditions:
-            self._check_existing_and_name_condition(condition)
+        # Else, use the name of the existing arm
+        for arm in generator_run.arms:
+            self._check_existing_and_name_arm(arm)
 
-        # TODO validate that conditions belong to search space
+        # TODO validate that arms belong to search space
         self._generator_run_structs.append(
             GeneratorRunStruct(generator_run=generator_run, weight=multiplier)
         )
         generator_run.index = len(self._generator_run_structs) - 1
 
-        # Resize status_quo based on new conditions
+        # Resize status_quo based on new arms
         self.set_status_quo(self.status_quo)
         return self
 
     @property
-    def status_quo(self) -> Optional[Condition]:
-        """The control condition for this batch."""
+    def status_quo(self) -> Optional[Arm]:
+        """The control arm for this batch."""
         return self._status_quo
 
     @immutable_once_run
     def set_status_quo(
-        self, status_quo: Optional[Condition], weight: Optional[float] = None
+        self, status_quo: Optional[Arm], weight: Optional[float] = None
     ) -> "BatchTrial":
-        """Sets status quo condition.
+        """Sets status quo arm.
 
         Defaults weight to average of existing weights or 1.0 if no weights exist.
         """
-        # Assign a name to this condition if none exists
+        # Assign a name to this arm if none exists
         if weight is not None and weight <= 0.0:
             raise ValueError("Status quo weight must be positive.")
 
         if status_quo is not None:
-            # If status_quo is identical to an existing condition, set to that
+            # If status_quo is identical to an existing arm, set to that
             # so that the names match.
-            if status_quo.signature in self.experiment.conditions_by_signature:
-                new_status_quo = self.experiment.conditions_by_signature[
-                    status_quo.signature
-                ]
+            if status_quo.signature in self.experiment.arms_by_signature:
+                new_status_quo = self.experiment.arms_by_signature[status_quo.signature]
                 if status_quo.name != new_status_quo.name:
                     raise ValueError(
-                        f"Condition already exists with name {new_status_quo.name}."
+                        f"Arm already exists with name {new_status_quo.name}."
                     )
                 status_quo = new_status_quo
             elif not status_quo.has_name:
@@ -230,52 +226,50 @@ class BatchTrial(BaseTrial):
         return self
 
     @property
-    def conditions(self) -> List[Condition]:
-        """All conditions contained in the trial."""
-        condition_weights = self.condition_weights
-        return [] if condition_weights is None else list(condition_weights.keys())
+    def arms(self) -> List[Arm]:
+        """All arms contained in the trial."""
+        arm_weights = self.arm_weights
+        return [] if arm_weights is None else list(arm_weights.keys())
 
     @property
     def weights(self) -> List[float]:
-        """Weights corresponding to conditions contained in the trial."""
-        condition_weights = self.condition_weights
-        return [] if condition_weights is None else list(condition_weights.values())
+        """Weights corresponding to arms contained in the trial."""
+        arm_weights = self.arm_weights
+        return [] if arm_weights is None else list(arm_weights.values())
 
     @property
-    def conditions_by_name(self) -> Dict[str, Condition]:
-        """Map from condition name to object for all conditions in trial."""
-        conditions_by_name = {}
-        for condition in self.conditions:
-            if not condition.has_name:
+    def arms_by_name(self) -> Dict[str, Arm]:
+        """Map from arm name to object for all arms in trial."""
+        arms_by_name = {}
+        for arm in self.arms:
+            if not arm.has_name:
                 raise ValueError(  # pragma: no cover
-                    "Conditions attached to a trial must have a name."
+                    "Arms attached to a trial must have a name."
                 )
-            conditions_by_name[condition.name] = condition
-        return conditions_by_name
+            arms_by_name[arm.name] = arm
+        return arms_by_name
 
     @property
-    def abandoned_conditions(self) -> List[Condition]:
-        """List of conditions that have been abandoned within this trial"""
+    def abandoned_arms(self) -> List[Arm]:
+        """List of arms that have been abandoned within this trial"""
         return [
-            self.conditions_by_name[condition.name]
-            for condition in self._abandoned_conditions_metadata.values()
+            self.arms_by_name[arm.name]
+            for arm in self._abandoned_arms_metadata.values()
         ]
 
     @property
-    def abandoned_conditions_metadata(self) -> List[AbandonedCondition]:
-        return list(self._abandoned_conditions_metadata.values())
+    def abandoned_arms_metadata(self) -> List[AbandonedArm]:
+        return list(self._abandoned_arms_metadata.values())
 
     @property
     def is_factorial(self) -> bool:
-        """Return true if the trial's conditions are a factorial design with
+        """Return true if the trial's arms are a factorial design with
         no linked factors.
         """
         # To match the model behavior, this should probably actually be pulled
         # from exp.params. However, that seems rather ugly when this function
-        # intuitively should just depend on the conditions.
-        sufficient_factors = all(
-            len(condition.params or []) >= 2 for condition in self.conditions
-        )
+        # intuitively should just depend on the arms.
+        sufficient_factors = all(len(arm.params or []) >= 2 for arm in self.arms)
         if not sufficient_factors:
             return False
         # pyre: param_levels is declared to have type `DefaultDict[str,
@@ -284,8 +278,8 @@ class BatchTrial(BaseTrial):
         param_levels: DefaultDict[str, Dict[Union[str, float], int]] = (
             defaultdict(dict)
         )
-        for condition in self.conditions:
-            for param_name, param_value in condition.params.items():
+        for arm in self.arms:
+            for param_name, param_value in arm.params.items():
                 # Expected `Union[float, str]` for 2nd anonymous parameter to call
                 # `dict.__setitem__` but got `Optional[Union[bool, float, str]]`.
                 # pyre-fixme[6]:
@@ -293,15 +287,15 @@ class BatchTrial(BaseTrial):
         param_cardinality = 1
         for param_values in param_levels.values():
             param_cardinality *= len(param_values)
-        return len(self.conditions) == param_cardinality
+        return len(self.arms) == param_cardinality
 
     def run(self) -> "BatchTrial":
         return checked_cast(BatchTrial, super().run())
 
-    def normalized_condition_weights(
+    def normalized_arm_weights(
         self, total: float = 1, trunc_digits: Optional[int] = None
-    ) -> MutableMapping[Condition, float]:
-        """Returns conditions with a new set of weights normalized
+    ) -> MutableMapping[Arm, float]:
+        """Returns arms with a new set of weights normalized
         to the given total.
 
         This method is useful for many runners where we need to normalize weights
@@ -309,7 +303,7 @@ class BatchTrial(BaseTrial):
 
         Args:
             total: The total weight to which to normalize.
-                Default is 1, in which case condition weights
+                Default is 1, in which case arm weights
                 can be interpreted as probabilities.
             trunc_digits: The number of digits to keep. If the
                 resulting total weight is not equal to `total`, re-allocate
@@ -317,7 +311,7 @@ class BatchTrial(BaseTrial):
                 possible.
 
         Returns:
-            Mapping from conditions to the new set of weights.
+            Mapping from arms to the new set of weights.
 
         """
         weights = np.array(self.weights)
@@ -331,32 +325,30 @@ class BatchTrial(BaseTrial):
             weights = int_weights * atomic_weight
         else:
             weights = weights * (total / np.sum(weights))
-        return OrderedDict(zip(self.conditions, weights))
+        return OrderedDict(zip(self.arms, weights))
 
-    def mark_condition_abandoned(
-        self, condition: Condition, reason: Optional[str] = None
+    def mark_arm_abandoned(
+        self, arm: Arm, reason: Optional[str] = None
     ) -> "BatchTrial":
-        """Mark a condition abandoned.
+        """Mark a arm abandoned.
 
-        Usually done after deployment when one condition causes issues but
-        user wants to continue running other conditions in the batch.
+        Usually done after deployment when one arm causes issues but
+        user wants to continue running other arms in the batch.
 
         Args:
-            condition: The condition object to abandon.
-            reason: The reason for abandoning the condition.
+            arm: The arm object to abandon.
+            reason: The reason for abandoning the arm.
 
         Returns:
             The batch instance.
         """
-        if condition not in self.conditions:
-            raise ValueError("Condition must be contained in batch.")
-        if not condition.has_name:  # pragma: nocover
-            raise ValueError("Condition must have a name.")
+        if arm not in self.arms:
+            raise ValueError("Arm must be contained in batch.")
+        if not arm.has_name:  # pragma: nocover
+            raise ValueError("Arm must have a name.")
 
-        abandoned_condition = AbandonedCondition(
-            name=condition.name, time=datetime.now(), reason=reason
-        )
-        self._abandoned_conditions_metadata[condition.name] = abandoned_condition
+        abandoned_arm = AbandonedArm(name=arm.name, time=datetime.now(), reason=reason)
+        self._abandoned_arms_metadata[arm.name] = abandoned_arm
         return self
 
     def clone(self) -> "BatchTrial":

@@ -357,7 +357,7 @@ def optimize(
     """Optimize NEI with restarts at x0s.
 
     Args:
-        x0s: Initial conditions for optimization restarts.
+        x0s: Initial arms for optimization restarts.
         bounds: Bounds on parameters.
         fixed_features: Features that must remain fixed at a particular value.
         fantasy_models: Dictionary of fantasy models.
@@ -424,7 +424,7 @@ def optimize_from_x0(
     """Optimize NEI with restarts at x0s.
 
     Args:
-        x0s: Initial conditions for optimization restarts.
+        x0s: Initial arms for optimization restarts.
         bounds: Bounds on parameters.
         fixed_features: Features that are fixed at a value.
         fantasy_models: Dictionary of fantasy models.

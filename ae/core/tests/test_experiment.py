@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.metric import Metric
 from ae.lazarus.ae.core.parameter import FixedParameter, ParameterType
@@ -8,9 +8,9 @@ from ae.lazarus.ae.core.search_space import SearchSpace
 from ae.lazarus.ae.metrics.branin import BraninMetric
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
 from ae.lazarus.ae.tests.fake import (
-    get_branin_conditions,
+    get_arm,
+    get_branin_arms,
     get_branin_search_space,
-    get_condition,
     get_experiment,
     get_optimization_config,
     get_search_space,
@@ -28,7 +28,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.name, "test")
         self.assertIsNotNone(self.experiment.time_created)
         self.assertEqual(self.experiment.experiment_type, None)
-        self.assertEqual(self.experiment.num_abandoned_conditions, 0)
+        self.assertEqual(self.experiment.num_abandoned_arms, 0)
 
     def testEq(self):
         experiment2 = get_experiment()
@@ -38,7 +38,7 @@ class ExperimentTest(TestCase):
             name="test2",
             search_space=get_search_space(),
             optimization_config=get_optimization_config(),
-            status_quo=get_condition(),
+            status_quo=get_arm(),
             description="test description",
         )
         self.assertNotEqual(self.experiment, experiment3)
@@ -73,9 +73,7 @@ class ExperimentTest(TestCase):
 
     def testBasicProperties(self):
         # TODO: Add equals methods to all classes to allow proper comparison here
-        self.assertEqual(
-            len(self.experiment.status_quo.params), len(get_condition().params)
-        )
+        self.assertEqual(len(self.experiment.status_quo.params), len(get_arm().params))
         self.assertEqual(
             len(get_search_space().parameters), len(self.experiment.parameters)
         )
@@ -158,29 +156,29 @@ class ExperimentTest(TestCase):
 
         # Verify normal update
         sq_params["w"] = 3.5
-        self.experiment.status_quo = Condition(sq_params)
+        self.experiment.status_quo = Arm(sq_params)
         self.assertEqual(self.experiment.status_quo.params["w"], 3.5)
         self.assertEqual(self.experiment.status_quo.name, "status_quo")
 
         # Verify all None values
-        self.experiment.status_quo = Condition({n: None for n in sq_params.keys()})
+        self.experiment.status_quo = Arm({n: None for n in sq_params.keys()})
         self.assertIsNone(self.experiment.status_quo.params["w"])
 
         # Try extra param
         sq_params["a"] = 4
         with self.assertRaises(ValueError):
-            self.experiment.status_quo = Condition(sq_params)
+            self.experiment.status_quo = Arm(sq_params)
 
         # Try wrong type
         sq_params.pop("a")
         sq_params["w"] = "hello"
         with self.assertRaises(ValueError):
-            self.experiment.status_quo = Condition(sq_params)
+            self.experiment.status_quo = Arm(sq_params)
 
         # Try missing param
         sq_params.pop("w")
         with self.assertRaises(ValueError):
-            self.experiment.status_quo = Condition(sq_params)
+            self.experiment.status_quo = Arm(sq_params)
 
         # Actually name the status quo.
         exp = Experiment(
@@ -190,10 +188,10 @@ class ExperimentTest(TestCase):
             runner=SyntheticRunner(),
         )
         batch = exp.new_batch_trial()
-        conditions = get_branin_conditions(n=1, seed=0)
-        batch.add_conditions_and_weights(conditions=conditions)
+        arms = get_branin_arms(n=1, seed=0)
+        batch.add_arms_and_weights(arms=arms)
         self.assertIsNone(exp.status_quo)
-        exp.status_quo = conditions[0]
+        exp.status_quo = arms[0]
         self.assertEqual(exp.status_quo.name, "0_0")
 
     def _setupBraninExperiment(self, n: int) -> Experiment:
@@ -204,14 +202,12 @@ class ExperimentTest(TestCase):
             runner=SyntheticRunner(),
         )
         batch = exp.new_batch_trial()
-        batch.add_conditions_and_weights(conditions=get_branin_conditions(n=n, seed=0))
+        batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
         batch.run()
 
         (
             exp.new_batch_trial()
-            .add_conditions_and_weights(
-                conditions=get_branin_conditions(n=3 * n, seed=1)
-            )
+            .add_arms_and_weights(arms=get_branin_arms(n=3 * n, seed=1))
             .run()
         )
         return exp
@@ -227,7 +223,7 @@ class ExperimentTest(TestCase):
 
         exp_data = exp.fetch_data()
         self.assertEqual(len(exp_data.df), 4 * n)
-        self.assertEqual(len(exp.conditions_by_name), 4 * n)
+        self.assertEqual(len(exp.arms_by_name), 4 * n)
 
         # Test local storage
         t1 = exp.attach_data(batch_data)
@@ -264,12 +260,12 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             empty_experiment.fetch_trial_data(batch)
 
-    def testNumConditionsNoDeduplication(self):
+    def testNumArmsNoDeduplication(self):
         exp = Experiment(name="test_experiment", search_space=get_search_space())
-        exp.new_batch_trial().add_condition(Condition(params={}))
-        condition = Condition(params={})
-        trial = exp.new_batch_trial().add_condition(condition)
+        exp.new_batch_trial().add_arm(Arm(params={}))
+        arm = Arm(params={})
+        trial = exp.new_batch_trial().add_arm(arm)
         self.assertEqual(exp.sum_trial_sizes, 2)
-        self.assertEqual(len(exp.conditions_by_name), 1)
-        trial.mark_condition_abandoned(condition)
-        self.assertEqual(exp.num_abandoned_conditions, 1)
+        self.assertEqual(len(exp.arms_by_name), 1)
+        trial.mark_arm_abandoned(arm)
+        self.assertEqual(exp.num_abandoned_arms, 1)

@@ -12,10 +12,10 @@ def estimate_largest_z(
 ):
     mn_sq = [mn for i, mn in enumerate(means) if names[i] == status_quo_name][0]
     sem_sq = [sm for i, sm in enumerate(sems) if names[i] == status_quo_name][0]
-    condition_mns = [mn for i, mn in enumerate(means) if names[i] != status_quo_name]
-    condition_sems = [sm for i, sm in enumerate(sems) if names[i] != status_quo_name]
-    effects = [mn - mn_sq for mn in condition_mns]
-    effect_sems = [np.sqrt(sem ** 2 + sem_sq ** 2) for sem in condition_sems]
+    arm_mns = [mn for i, mn in enumerate(means) if names[i] != status_quo_name]
+    arm_sems = [sm for i, sm in enumerate(sems) if names[i] != status_quo_name]
+    effects = [mn - mn_sq for mn in arm_mns]
+    effect_sems = [np.sqrt(sem ** 2 + sem_sq ** 2) for sem in arm_sems]
     return np.max(np.abs(effects) / effect_sems)
 
 
@@ -47,9 +47,9 @@ def ri_test_of_no_effect(
         b_mns = np.random.normal(loc=mn, scale=np.sqrt(vr / ns), size=K)
         b_sems = np.random.normal(loc=np.sqrt(vr), scale=np.sqrt(vr / (2 * ns)), size=K)
         b_sems /= np.sqrt(ns)
-        ri_conditions = np.random.choice(names, K, replace=False)
+        ri_arms = np.random.choice(names, K, replace=False)
         new_z = estimate_largest_z(
-            b_mns, b_sems, ri_conditions, status_quo_name=status_quo_name
+            b_mns, b_sems, ri_arms, status_quo_name=status_quo_name
         )
         z_stats.append(new_z)
         if new_z >= actual_z:

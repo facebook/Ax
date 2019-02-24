@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base_trial import TrialStatus
-from ae.lazarus.ae.core.batch_trial import (
-    AbandonedCondition,
-    BatchTrial,
-    GeneratorRunStruct,
-)
-from ae.lazarus.ae.core.condition import Condition
+from ae.lazarus.ae.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.core.metric import Metric
@@ -30,10 +26,10 @@ from ae.lazarus.ae.core.types.types import ComparisonOp
 from ae.lazarus.ae.metrics.branin import BraninMetric
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
 from ae.lazarus.ae.storage.json_store.encoders import (
+    arm_to_dict,
     batch_to_dict,
     branin_metric_to_dict,
     choice_parameter_to_dict,
-    condition_to_dict,
     experiment_to_dict,
     fixed_parameter_to_dict,
     generator_run_to_dict,
@@ -56,7 +52,7 @@ ENCODER_REGISTRY = {
     BatchTrial: batch_to_dict,
     BraninMetric: branin_metric_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
-    Condition: condition_to_dict,
+    Arm: arm_to_dict,
     Experiment: experiment_to_dict,
     FixedParameter: fixed_parameter_to_dict,
     GeneratorRun: generator_run_to_dict,
@@ -74,13 +70,13 @@ ENCODER_REGISTRY = {
 }
 
 DECODER_REGISTRY = {
-    "AbandonedCondition": AbandonedCondition,
+    "AbandonedArm": AbandonedArm,
     "BatchTrial": BatchTrial,
     "TrialStatus": TrialStatus,
     "BraninMetric": BraninMetric,
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
-    "Condition": Condition,
+    "Arm": Arm,
     "DomainType": DomainType,
     "Experiment": Experiment,
     "FixedParameter": FixedParameter,

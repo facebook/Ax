@@ -16,9 +16,9 @@ TBounds = Optional[Tuple[np.ndarray, np.ndarray]]
 TModelMean = Dict[str, List[float]]
 TModelCov = Dict[str, Dict[str, List[float]]]
 TModelPredict = Tuple[TModelMean, TModelCov]
-# Model predictions for a single condition:
+# Model predictions for a single arm:
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
-TModelPredictCondition = Tuple[Dict[str, float], Dict[str, Dict[str, float]]]
+TModelPredictArm = Tuple[Dict[str, float], Dict[str, Dict[str, float]]]
 
 TConfig = Dict[str, Union[int, float, str]]
 TBucket = List[Dict[str, List[str]]]

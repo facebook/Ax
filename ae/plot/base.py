@@ -51,7 +51,7 @@ class AEPlotConfig(_AEPlotConfigBase):
 
 
 # Structs for plot data
-class PlotInSampleCondition(NamedTuple):
+class PlotInSampleArm(NamedTuple):
     """Struct for in-sample arms (both observed and predicted data)"""
 
     name: str
@@ -63,7 +63,7 @@ class PlotInSampleCondition(NamedTuple):
     context_stratum: Optional[Dict[str, Union[str, float]]]
 
 
-class PlotOutOfSampleCondition(NamedTuple):
+class PlotOutOfSampleArm(NamedTuple):
     """Struct for out-of-sample arms (only predicted data)"""
 
     name: str
@@ -77,8 +77,8 @@ class PlotData(NamedTuple):
     """Struct for plot data, including both in-sample and out-of-sample arms"""
 
     metrics: List[str]
-    in_sample: Dict[str, PlotInSampleCondition]
-    out_of_sample: Optional[Dict[str, Dict[str, PlotOutOfSampleCondition]]]
+    in_sample: Dict[str, PlotInSampleArm]
+    out_of_sample: Optional[Dict[str, Dict[str, PlotOutOfSampleArm]]]
     status_quo_name: Optional[str]
 
 

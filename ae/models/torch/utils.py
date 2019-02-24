@@ -149,7 +149,7 @@ def _joint_optimize(
     Returns:
         The set of generated candidates
     """
-    batch_initial_conditions = _gen_batch_initial_conditions(
+    batch_initial_arms = _gen_batch_initial_arms(
         acq_function=acq_function,
         bounds=bounds,
         n=n,
@@ -160,7 +160,7 @@ def _joint_optimize(
     )
     # optimize using random restart optimization
     batch_candidates, batch_acq_values = gen_candidates_scipy(
-        initial_candidates=batch_initial_conditions,
+        initial_candidates=batch_initial_arms,
         acquisition_function=acq_function,
         lower_bounds=bounds[0],
         upper_bounds=bounds[1],
@@ -172,7 +172,7 @@ def _joint_optimize(
     )
 
 
-def _gen_batch_initial_conditions(
+def _gen_batch_initial_arms(
     acq_function: Module,
     bounds: Tensor,
     n: int,
@@ -182,7 +182,7 @@ def _gen_batch_initial_conditions(
     options: Dict[str, Union[bool, float, int]],
 ) -> Tensor:
     seed = options.get("seed")
-    batch_initial_conditions: Tensor
+    batch_initial_arms: Tensor
     factor, max_factor = 1, 5
     while factor < max_factor:
         with warnings.catch_warnings(record=True) as ws:
@@ -192,12 +192,12 @@ def _gen_batch_initial_conditions(
             with torch.no_grad():
                 Y_rnd = acq_function(X_rnd)
             if options.get("simple_init", True):
-                batch_initial_conditions = initialize_q_batch_simple(
+                batch_initial_arms = initialize_q_batch_simple(
                     X=X_rnd, Y=Y_rnd, n=num_restarts, options=options
                 )
             else:
                 sim_measure = get_similarity_measure(model=model)
-                batch_initial_conditions = initialize_q_batch(
+                batch_initial_arms = initialize_q_batch(
                     X=X_rnd,
                     Y=Y_rnd,
                     n=num_restarts,
@@ -209,12 +209,12 @@ def _gen_batch_initial_conditions(
                 issubclass(w.category, BadInitialCandidatesWarning)  # pyre-ignore: [16]
                 for w in ws  # pyre-ignore: [16]
             ):
-                return batch_initial_conditions
+                return batch_initial_arms
             if factor < max_factor:
                 factor += 1
     warnings.warn(
-        "Unable to find non-zero acquistion function values - initial conditions"
+        "Unable to find non-zero acquistion function values - initial arms"
         "are being selected randomly.",
         BadInitialCandidatesWarning,  # pyre-ignore: [16]
     )
-    return batch_initial_conditions
+    return batch_initial_arms

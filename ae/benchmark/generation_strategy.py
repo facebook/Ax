@@ -31,28 +31,28 @@ class GenerationStrategy:
     throughout the optimization process. For instance, it allows to use one
     generator for the initialization trials, and another one for all subsequent
     trials. In the general case, this allows to automate use of an arbitrary
-    number of generators to generate an arbitrary numbers of conditions
-    described in the `conditions_per_generator` argument.
+    number of generators to generate an arbitrary numbers of arms
+    described in the `arms_per_generator` argument.
 
     Note: if generator returned from `GenerationStrategy.get_generator` is
-    used to generate more than one condition, it is possible that a generator
-    actually generating the N-th condition using `GenerationStrategy` is not
+    used to generate more than one arm, it is possible that a generator
+    actually generating the N-th arm using `GenerationStrategy` is not
     the one designated in the strategy. This is because each generator is created
     during the execution of `get_generator` and not changed until `get_generator`
     is executed again. For instance:
 
     >>  strategy = GenerationStrategy(
     ...     generator_factories=[get_sobol, get_GPEI],
-    ...     conditions_per_generator=[1, 25]
+    ...     arms_per_generator=[1, 25]
     ... )
     ... exp = make_my_experiment()  # Some function that creates an Experiment.
     ... sobol = strategy.get_generator(experiment=exp)
-    ... # All 5 conditions generated in line below will be generated through
+    ... # All 5 arms generated in line below will be generated through
     ... # Sobol, even though GenerationStrategy designates Sobol generator only
-    ... # for the 1st condition in the experiment.
+    ... # for the 1st arm in the experiment.
     ... generator_run = sobol.gen(5)
     ... exp.new_batch_trial().add_generator_run(generator_run=generator_run)
-    ... # Now that the experiment includes at least one condition, `get_generator`
+    ... # Now that the experiment includes at least one arm, `get_generator`
     ... # returns the next generator in the strategy after Sobol, GP+EI generator.
     ... gpei = strategy.get_generator(experiment=exp, data=exp.fetch_data())
 
@@ -62,19 +62,19 @@ class GenerationStrategy:
             correspond to the ordering of generators in a ``GenerationStrategy``.
             This list is expected to have more than one generator factory function.
 
-        conditions_per_generator (List[int]): number of conditions for each
+        arms_per_generator (List[int]): number of arms for each
             of the generators in ``generator_factories`` to generate.
     """
 
     _generator_factories: List[TGeneratorFactory]
-    _conditions_per_generator: List[int]
+    _arms_per_generator: List[int]
     _generator_changes: List[int] = None
     _last_used_generator: Optional[Generator] = None
 
     def __init__(
         self,
         generator_factories: List[TGeneratorFactory],
-        conditions_per_generator: Optional[List[int]] = None,
+        arms_per_generator: Optional[List[int]] = None,
     ) -> None:
         if len(generator_factories) < 2:
             raise ValueError(
@@ -82,18 +82,18 @@ class GenerationStrategy:
                 f"this GenerationStrategy only has {len(generator_factories)}."
                 "You can instantiate the generator directly if you only need one."
             )
-        if conditions_per_generator is None:
-            raise ValueError("Must specify number of conditions per generator")
-        if len(conditions_per_generator) != len(generator_factories):
+        if arms_per_generator is None:
+            raise ValueError("Must specify number of arms per generator")
+        if len(arms_per_generator) != len(generator_factories):
             raise ValueError(
                 "GenerationStrategy expects to include as many designated "
-                "number of conditions per generator as generators. "
+                "number of arms per generator as generators. "
             )
         self._generator_factories = generator_factories
-        self._conditions_per_generator = conditions_per_generator
+        self._arms_per_generator = arms_per_generator
         # Record at what iteration in the experiment generators changed
         # (used to indicate generator changes in plotting).
-        gen_changes = self._conditions_per_generator
+        gen_changes = self._arms_per_generator
         self._generator_changes = [
             sum(gen_changes[: i + 1]) for i in range(len(gen_changes))
         ][:-1]
@@ -129,48 +129,48 @@ class GenerationStrategy:
         for this trial.
 
         Note: if the experiment passed as argument has 0 trials, number of
-        conditions generated in this strategy resets to 0, which means that the
+        arms generated in this strategy resets to 0, which means that the
         strategy starts with the first provided generator.
 
         Args:
             experiment (Experiment): experiment, for which this generation
-                strategy will be generating conditions.
+                strategy will be generating arms.
             data (Data, optional): data, on which to train the generator, defaults
                 to None.
             search_space (SearchSpace, optional): search space for this experiment.
             exclude_abandoned (bool): whether we should exclude abandoned
-                conditions in the experiment when determining which generator
+                arms in the experiment when determining which generator
                 to return (e.g., if this generator strategy uses generator A for
-                first 5 conditions, and then generator B, if one of the first 5
-                conditions is abandoned, generator A will be returned from this
+                first 5 arms, and then generator B, if one of the first 5
+                arms is abandoned, generator A will be returned from this
                 function if exclude_abandoned is True and generator B if its
                 False). Defaults to False.
             **kwargs: any other arguments to be passed into the generator (e.g.,
                 'min_weight' for Thompson Sampler).
         """
-        # Determine how many conditions are already attached to this experiment.
-        conditions_ran = (
-            experiment.sum_trial_sizes - experiment.num_abandoned_conditions
+        # Determine how many arms are already attached to this experiment.
+        arms_ran = (
+            experiment.sum_trial_sizes - experiment.num_abandoned_arms
             if exclude_abandoned
             else experiment.sum_trial_sizes
         )
 
-        if conditions_ran >= sum(self._conditions_per_generator):
+        if arms_ran >= sum(self._arms_per_generator):
             raise ValueError(
                 "This generation strategy expected to generate only "
-                f"{sum(self._conditions_per_generator)} conditions, "
-                f"but experiment includes {conditions_ran} conditions already."
+                f"{sum(self._arms_per_generator)} arms, "
+                f"but experiment includes {arms_ran} arms already."
             )
 
         # Find index of generator to use for this trial.
         idx = 0
-        while sum(
-            self._conditions_per_generator[: idx + 1]
-        ) <= conditions_ran and idx + 1 < len(self._generator_factories):
+        while sum(self._arms_per_generator[: idx + 1]) <= arms_ran and idx + 1 < len(
+            self._generator_factories
+        ):
             idx += 1
         # Is this generator the same as the one that would've been returned for
         # the previous trial:
-        same_generator = sum(self._conditions_per_generator[:idx]) < conditions_ran
+        same_generator = sum(self._arms_per_generator[:idx]) < arms_ran
 
         factory = self._generator_factories[idx]
 

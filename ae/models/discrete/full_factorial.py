@@ -19,11 +19,11 @@ logger: logging.Logger = get_logger(__name__)
 class FullFactorialGenerator(DiscreteModel):
     """Generator for full factorial designs.
 
-    Generates conditions for all possible combinations of parameter values,
+    Generates arms for all possible combinations of parameter values,
     each with weight 1.
 
     The value of n supplied to `gen` will be ignored, as the number
-    of conditions generated is determined by the list of parameter values.
+    of arms generated is determined by the list of parameter values.
     To suppress this warning, use n = -1.
     """
 
@@ -32,9 +32,9 @@ class FullFactorialGenerator(DiscreteModel):
     ) -> None:
         """
         Args:
-            max_cardinality (int, optional): maximum number of conditions allowed if
+            max_cardinality (int, optional): maximum number of arms allowed if
                 check_cardinality == True. Default is 100.
-            check_cardinality (bool, optional): if True, throw if number of conditions
+            check_cardinality (bool, optional): if True, throw if number of arms
                 exceeds max_cardinality.
         """
         super().__init__()
@@ -55,7 +55,7 @@ class FullFactorialGenerator(DiscreteModel):
         if n != -1:
             raise ValueError(
                 "FullFactorialGenerator will ignore the specified value of n. "
-                "The generator automatically determines how many conditions to "
+                "The generator automatically determines how many arms to "
                 "generate."
             )
 
@@ -63,11 +63,11 @@ class FullFactorialGenerator(DiscreteModel):
             for fixed_feature_index, fixed_feature_value in fixed_features.items():
                 parameter_values[fixed_feature_index] = [fixed_feature_value]
 
-        num_conditions = reduce(mul, [len(values) for values in parameter_values], 1)
-        if self.check_cardinality and num_conditions > self.max_cardinality:
+        num_arms = reduce(mul, [len(values) for values in parameter_values], 1)
+        if self.check_cardinality and num_arms > self.max_cardinality:
             raise ValueError(
-                f"FullFactorialGenerator generated {num_conditions} conditions, "
-                f"but the maximum number of conditions allowed is "
+                f"FullFactorialGenerator generated {num_arms} arms, "
+                f"but the maximum number of arms allowed is "
                 f"{self.max_cardinality}."
             )
 

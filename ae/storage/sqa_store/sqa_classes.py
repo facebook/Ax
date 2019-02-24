@@ -8,7 +8,7 @@ from ae.lazarus.ae.core.parameter import ParameterType
 from ae.lazarus.ae.core.types.types import (
     ComparisonOp,
     TModelPredict,
-    TModelPredictCondition,
+    TModelPredictArm,
     TParameterization,
     TParamValue,
 )
@@ -146,7 +146,7 @@ class SQAGeneratorRun(Base):
     analysis_run_id: Optional[int] = Column(Integer)
     best_arm_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     best_arm_parameters: Optional[TParameterization] = Column(JSONEncodedTextDict)
-    best_arm_predictions: Optional[TModelPredictCondition] = Column(JSONEncodedList)
+    best_arm_predictions: Optional[TModelPredictArm] = Column(JSONEncodedList)
     generator_run_type: Optional[int] = Column(Integer)
     id: int = Column(Integer, primary_key=True)
     index: Optional[int] = Column(Integer)
@@ -158,7 +158,7 @@ class SQAGeneratorRun(Base):
     gen_time: Optional[float] = Column(Float)
 
     # relationships
-    conditions: List[SQAArm] = relationship("SQAArm")
+    arms: List[SQAArm] = relationship("SQAArm")
     metrics: List[SQAMetric] = relationship("SQAMetric")
     parameters: List[SQAParameter] = relationship("SQAParameter")
     parameter_constraints: List[SQAParameterConstraint] = relationship(
@@ -166,7 +166,7 @@ class SQAGeneratorRun(Base):
     )
 
     immutable_fields = [
-        "conditions",
+        "arms",
         "metrics",
         "parameters",
         "parameter_constraints",

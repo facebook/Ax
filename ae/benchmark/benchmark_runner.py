@@ -206,7 +206,7 @@ class BenchmarkRunner:
             # Extract iterations for this pmr
             names = []
             for trial in setup.trials.values():
-                names.extend([c.name for c in trial.conditions])
+                names.extend([c.name for c in trial.arms])
             # Make sure every run has the same number of iterations, so we can safely
             # stack them in a matrix.
             if (p, m) in n_iters:
@@ -217,14 +217,14 @@ class BenchmarkRunner:
             else:
                 n_iters[(p, m)] = len(names)
             # Get true values for every outcome for each iteration
-            iters_df = pd.DataFrame({"condition_name": names})
+            iters_df = pd.DataFrame({"arm_name": names})
             data_df = setup.fetch_data(noisy=False).df
             metrics = data_df["metric_name"].unique()
             true_values = {}
             for metric in metrics:
                 df_m = data_df[data_df["metric_name"] == metric]
                 assert df_m.shape[0] == iters_df.shape[0]
-                df_b = pd.merge(iters_df, df_m, how="left", on="condition_name")
+                df_b = pd.merge(iters_df, df_m, how="left", on="arm_name")
                 true_values[metric] = df_b["mean"].values
             # Compute the things we care about
             # 1. True best objective value.

@@ -5,7 +5,7 @@ from ae.lazarus.ae.core.objective import Objective
 from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.metrics.branin import BraninMetric
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
-from ae.lazarus.ae.tests.fake import get_branin_conditions, get_branin_search_space
+from ae.lazarus.ae.tests.fake import get_branin_arms, get_branin_search_space
 from ae.lazarus.ae.utils.common.testutils import TestCase
 
 
@@ -29,10 +29,10 @@ class MultiTypeExperimentTest(TestCase):
         self.assertFalse(self.experiment.supports_trial_type(None))
 
         n = 10
-        conditions = get_branin_conditions(n=n, seed=0)
+        arms = get_branin_arms(n=n, seed=0)
 
         b1 = self.experiment.new_batch_trial()
-        b1.add_conditions_and_weights(conditions=conditions)
+        b1.add_arms_and_weights(arms=arms)
         self.assertEqual(b1.trial_type, "type1")
         b1.run()
         self.assertEqual(b1.run_metadata["dummy_metadata"], "dummy1")
@@ -40,7 +40,7 @@ class MultiTypeExperimentTest(TestCase):
         self.experiment.update_runner("type2", SyntheticRunner(dummy_metadata="dummy3"))
         b2 = self.experiment.new_batch_trial()
         b2.trial_type = "type2"
-        b2.add_conditions_and_weights(conditions=conditions)
+        b2.add_arms_and_weights(arms=arms)
         self.assertEqual(b2.trial_type, "type2")
         b2.run()
         self.assertEqual(b2.run_metadata["dummy_metadata"], "dummy3")
@@ -55,10 +55,10 @@ class MultiTypeExperimentTest(TestCase):
                 row["metric_name"], "m1" if row["trial_index"] == 0 else "m2"
             )
 
-        condition_0_slice = df.loc[df["condition_name"] == "0_0"]
+        arm_0_slice = df.loc[df["arm_name"] == "0_0"]
         self.assertNotEqual(
-            float(condition_0_slice[df["trial_index"] == 0]["mean"]),
-            float(condition_0_slice[df["trial_index"] == 1]["mean"]),
+            float(arm_0_slice[df["trial_index"] == 0]["mean"]),
+            float(arm_0_slice[df["trial_index"] == 1]["mean"]),
         )
         self.assertEqual(len(df), 2 * n)
 
@@ -67,10 +67,10 @@ class MultiTypeExperimentTest(TestCase):
             BraninMetric("m2", ["x1", "x2"]), trial_type="type2"
         )
         df = self.experiment.fetch_data().df
-        condition_0_slice = df.loc[df["condition_name"] == "0_0"]
+        arm_0_slice = df.loc[df["arm_name"] == "0_0"]
         self.assertAlmostEqual(
-            float(condition_0_slice[df["trial_index"] == 0]["mean"]),
-            float(condition_0_slice[df["trial_index"] == 1]["mean"]),
+            float(arm_0_slice[df["trial_index"] == 0]["mean"]),
+            float(arm_0_slice[df["trial_index"] == 1]["mean"]),
             places=10,
         )
 

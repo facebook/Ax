@@ -3,8 +3,8 @@
 import logging
 from typing import Any, Dict, Optional
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base_trial import BaseTrial
-from ae.lazarus.ae.core.condition import Condition
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.metric import Metric
@@ -34,7 +34,7 @@ class MultiTypeExperiment(Experiment):
         default_trial_type: str,
         default_runner: Runner,
         optimization_config: Optional[OptimizationConfig] = None,
-        status_quo: Optional[Condition] = None,
+        status_quo: Optional[Arm] = None,
         description: Optional[str] = None,
     ) -> None:
         """Inits Experiment.
@@ -47,7 +47,7 @@ class MultiTypeExperiment(Experiment):
             optimization_config: Optimization config of the experiment.
             tracking_metrics: Additional tracking metrics not used for optimization.
             runner: Default runner used for trials on this experiment.
-            status_quo: Condition representing existing "control" condition.
+            status_quo: Arm representing existing "control" arm.
             description: Description of the experiment.
         """
 
