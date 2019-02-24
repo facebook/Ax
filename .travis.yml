@@ -11,6 +11,8 @@ before_install:
   - ssh-add botorch_key
 
 install:
+  # install cython and numpy first as they are needed for botorch / ae setup.py files
+  - pip install cython numpy
   - pip install git+ssh://git@github.com/facebookexternal/botorch.git
   - pip install -q -e .[dev,mysql,notebook]
 
@@ -18,9 +20,11 @@ install:
 # See https://github.com/travis-ci/travis-ci/issues/9815
 matrix:
   include:
-    - python: 3.7
-      dist: xenial
-      sudo: true
+    # Cannot build on 3.7 because of GPy; see https://github.com/SheffieldML/GPy/issues/649
+    # - python: 3.7
+    #   dist: xenial
+    #   sudo: true
+    - python: 3.6
 
 script:
   - black --check --diff .

@@ -17,10 +17,11 @@ REQUIRES = [
     "scipy",
     "simplejson",
     "sklearn",
-    "plotly == 2.4.1",
+    "plotly==2.4.1",
 ]
 
-DEV_REQUIRES = ["black", "flake8", "pytest", "pytest-cov"]
+# pytest-cov requires pytest >= 3.6
+DEV_REQUIRES = ["black", "flake8", "pytest>=3.6", "pytest-cov"]
 
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 

@@ -17,7 +17,6 @@ from typing import (
     Dict,
     Generator,
     List,
-    NoReturn,
     Optional,
     Tuple,
     Type,
@@ -100,13 +99,13 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
 def _deprecate(original_func: Callable) -> Callable:
     # pyre: Parameter `**kwargs` must have a type that does not contain `Any`.
     # pyre-fixme[2]: Parameter `*args` must have a type that does not contain `Any`.
-    def deprecated_func(*args: List[Any], **kwargs: Dict[str, Any]) -> NoReturn:
+    def _deprecated_func(*args: List[Any], **kwargs: Dict[str, Any]) -> None:
         raise RuntimeError(
             f"This function is deprecated please use {original_func.__name__} "
             "instead."
         )
 
-    return deprecated_func
+    return _deprecated_func
 
 
 class TestCase(unittest.TestCase):
