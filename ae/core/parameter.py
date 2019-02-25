@@ -41,9 +41,8 @@ PARAMETER_PYTHON_TYPE_MAP: Dict[ParameterType, TParameterType] = {
 
 class Parameter(Base, metaclass=ABCMeta):
     def _cast(self, value: TParamValue) -> TParamValue:
-        # pyre: Expected `Union[bytes, str, typing.SupportsFloat]` for 1st
-        # pyre: anonymous parameter to call `float.__init__` but got
-        # pyre-fixme[6]: `Optional[Union[bool, float, str]]`.
+        if value is None:
+            return None
         return self.python_type(value)
 
     @abstractmethod

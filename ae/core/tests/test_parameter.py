@@ -236,6 +236,11 @@ class FixedParameterTest(TestCase):
         param_clone._value = False
         self.assertNotEqual(self.param1.value, param_clone.value)
 
+    def testCast(self):
+        self.assertEqual(self.param1._cast(1), True)
+        self.assertEqual(self.param1._cast(False), False)
+        self.assertEqual(self.param1._cast(None), None)
+
 
 class ParameterEqualityTest(TestCase):
     def setUp(self):
