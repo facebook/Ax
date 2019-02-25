@@ -51,6 +51,8 @@ class BotorchModel(TorchModel):
             refit_on_cv: Re-fit hyperparameters during cross validation
         """
         self.acquisition_function_name = acquisition_function_name
+        if acquisition_function_args is None:
+            acquisition_function_args = {"mc_samples": 500, "qmc": True}
         self.acquisition_function_args = acquisition_function_args
         self.models = []
         self.Xs = []

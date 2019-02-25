@@ -109,8 +109,6 @@ def get_GPEI(
     """Instantiates a GP+EI generator."""
     if search_space is None:
         search_space = experiment.search_space
-    if "acquisition_function_args" not in kwargs:
-        kwargs["acquisition_function_args"] = {"mc_samples": 500, "qmc": True}
     return TorchGenerator(
         experiment=experiment,
         search_space=search_space,
