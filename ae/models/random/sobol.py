@@ -65,11 +65,8 @@ class SobolGenerator(RandomModel):
         self,
         n: int,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[np.ndarray],
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[np.ndarray]] = None,
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -78,18 +75,11 @@ class SobolGenerator(RandomModel):
         Args:
             n: Number of candidates to generate.
             bounds: A list of (lower, upper) tuples for each column of X.
-            objective_weights: The objective is to maximize a weighted sum of
-                the columns of f(x). These are the weights.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints
-                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                    A f(x) <= b.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
                     A x <= b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
-            pending_observations:  A list of m (k_i x d) feature arrays X
-                for m outcomes and k_i pending observations for outcome i.
             rounding_func: A function that rounds an optimization result
                 appropriately (e.g., according to `round-trip` transformations)
                 but *unused here*.
@@ -106,11 +96,8 @@ class SobolGenerator(RandomModel):
         points, weights = super().gen(
             n=n,
             bounds=bounds,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
-            pending_observations=pending_observations,
             model_gen_options=model_gen_options,
         )
         if self.engine:

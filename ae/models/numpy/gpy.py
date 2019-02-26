@@ -172,7 +172,7 @@ class GPyGP(NumpyModel):
         self,
         n: int,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[np.ndarray],
+        objective_weights: np.ndarray,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
@@ -291,7 +291,7 @@ class GPyGP(NumpyModel):
     def best_point(
         self,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[np.ndarray],
+        objective_weights: np.ndarray,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
@@ -669,7 +669,7 @@ def _validate_tasks(
 
 
 def _parse_gen_inputs(
-    objective_weights: Optional[np.ndarray],
+    objective_weights: np.ndarray,
     outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
 ) -> Tuple[int, float, List[Tuple[int, float, float]]]:
     """Convert gen inputs to the formats we'll want for optimizing NEI.
@@ -683,17 +683,14 @@ def _parse_gen_inputs(
         obj_sign: Sign of the weight on the objective.
         con_list: List of (outcome_index, weight, ub) for each constraint.
     """
-    # Parse objective
-    if objective_weights is not None:
-        Z = np.nonzero(objective_weights)[0]
-        if len(Z) != 1:
-            raise ValueError(
-                f"Require a single objective outcome. Got {objective_weights}."
-            )
-        obj_idx = Z[0]
-        obj_sign = float(np.sign(objective_weights[obj_idx]))
-    else:
-        raise ValueError("Objective must be specified.")
+    Z = np.nonzero(objective_weights)[0]
+    if len(Z) != 1:
+        raise ValueError(
+            f"Require a single objective outcome. Got {objective_weights}."
+        )
+    obj_idx = Z[0]
+    obj_sign = float(np.sign(objective_weights[obj_idx]))
+
     # Parse outcome constraints
     if outcome_constraints is not None:
         A, b = outcome_constraints

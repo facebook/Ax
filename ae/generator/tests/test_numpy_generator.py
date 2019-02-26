@@ -15,7 +15,7 @@ from ae.lazarus.ae.core.outcome_constraint import ComparisonOp, OutcomeConstrain
 from ae.lazarus.ae.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ae.lazarus.ae.core.parameter_constraint import OrderConstraint, SumConstraint
 from ae.lazarus.ae.core.search_space import SearchSpace
-from ae.lazarus.ae.generator.array import _get_bounds_and_task
+from ae.lazarus.ae.generator.generator_utils import get_bounds_and_task
 from ae.lazarus.ae.generator.numpy import NumpyGenerator
 from ae.lazarus.ae.models.numpy_base import NumpyModel
 from ae.lazarus.ae.utils.common.testutils import TestCase
@@ -203,7 +203,7 @@ class NumpyGeneratorTest(TestCase):
         self.assertEqual(
             observation_features[1].parameters, {"x": 3.0, "y": 4.0, "z": 3.0}
         )
-        self.assertEqual(weights, [1.0, 2.0])
+        self.assertTrue(np.array_equal(weights, np.array([1.0, 2.0])))
 
         # Test with multiple objectives.
         oc2 = OptimizationConfig(
@@ -307,7 +307,7 @@ class NumpyGeneratorTest(TestCase):
             self.assertEqual(od, self.observation_data[i])
 
     def testGetBoundsAndTask(self):
-        bounds, task_features = _get_bounds_and_task(self.search_space, ["x", "y", "z"])
+        bounds, task_features = get_bounds_and_task(self.search_space, ["x", "y", "z"])
         self.assertEqual(bounds, [(0.0, 1.0), (1.0, 2.0), (0.0, 5.0)])
         self.assertEqual(task_features, [])
         # Test that Int param is treated as task feature
@@ -315,16 +315,16 @@ class NumpyGeneratorTest(TestCase):
         search_space._parameters["x"] = RangeParameter(
             "x", ParameterType.INT, lower=1, upper=4
         )
-        bounds, task_features = _get_bounds_and_task(search_space, ["x", "y", "z"])
+        bounds, task_features = get_bounds_and_task(search_space, ["x", "y", "z"])
         self.assertEqual(task_features, [0])
         # Test validation
         search_space._parameters["x"] = ChoiceParameter(
             "x", ParameterType.FLOAT, [0.1, 0.4]
         )
         with self.assertRaises(ValueError):
-            _get_bounds_and_task(search_space, ["x", "y", "z"])
+            get_bounds_and_task(search_space, ["x", "y", "z"])
         search_space._parameters["x"] = RangeParameter(
             "x", ParameterType.FLOAT, lower=1.0, upper=4.0, log_scale=True
         )
         with self.assertRaises(ValueError):
-            _get_bounds_and_task(search_space, ["x", "y", "z"])
+            get_bounds_and_task(search_space, ["x", "y", "z"])

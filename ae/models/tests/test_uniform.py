@@ -19,9 +19,7 @@ class UniformGeneratorTest(TestCase):
     def testUniformGeneratorAllTunable(self):
         generator = UniformGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=3, n_fixed=0)
-        generated_points, weights = generator.gen(
-            n=3, bounds=bounds, objective_weights=np.ones(1)
-        )
+        generated_points, weights = generator.gen(n=3, bounds=bounds)
 
         expected_points = np.array(
             [
@@ -39,10 +37,7 @@ class UniformGeneratorTest(TestCase):
         bounds = self._create_bounds(n_tunable=0, n_fixed=2)
         n = 3
         generated_points, _ = generator.gen(
-            n=3,
-            bounds=bounds,
-            objective_weights=np.ones(1),
-            fixed_features={0: 1, 1: 2},
+            n=3, bounds=bounds, fixed_features={0: 1, 1: 2}
         )
         expected_points = np.tile(np.array([[1, 2]]), (n, 1))
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
@@ -65,10 +60,7 @@ class UniformGeneratorTest(TestCase):
         )
         for i in range(n):
             generated_points, weights = generator.gen(
-                n=1,
-                bounds=bounds,
-                objective_weights=np.ones(1),
-                fixed_features={fixed_param_index: 1},
+                n=1, bounds=bounds, fixed_features={fixed_param_index: 1}
             )
             self.assertEqual(weights, [1])
             self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
@@ -90,10 +82,7 @@ class UniformGeneratorTest(TestCase):
         )
         for i in range(n):
             generated_points, weights = generator.gen(
-                n=1,
-                bounds=bounds,
-                objective_weights=np.ones(1),
-                fixed_features={fixed_param_index: 1},
+                n=1, bounds=bounds, fixed_features={fixed_param_index: 1}
             )
             self.assertEqual(weights, [1])
             self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
@@ -107,7 +96,6 @@ class UniformGeneratorTest(TestCase):
         generated_points, weights = generator.gen(
             n=3,
             bounds=bounds,
-            objective_weights=np.ones(1),
             linear_constraints=(
                 np.array([[1, -1, 0, 0], [0, 1, -1, 0], [0, 0, 1, -1]]),
                 np.array([0, 0, 0]),
@@ -134,7 +122,6 @@ class UniformGeneratorTest(TestCase):
         generated_points, weights = generator.gen(
             n=3,
             bounds=bounds,
-            objective_weights=np.ones(1),
             linear_constraints=(
                 np.array([[1, 1, 0, 0], [0, 1, 1, 0]]),
                 np.array([1, 1]),
@@ -154,6 +141,4 @@ class UniformGeneratorTest(TestCase):
     def testUniformGeneratorBadBounds(self):
         generator = UniformGenerator()
         with self.assertRaises(ValueError):
-            generated_points, weights = generator.gen(
-                n=1, bounds=[(-1, 1)], objective_weights=np.ones(1)
-            )
+            generated_points, weights = generator.gen(n=1, bounds=[(-1, 1)])

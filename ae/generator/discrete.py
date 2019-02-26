@@ -2,7 +2,6 @@
 
 from typing import Dict, List, Optional, Set, Tuple
 
-import numpy as np
 from ae.lazarus.ae.core.observation import ObservationData, ObservationFeatures
 from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.core.parameter import ChoiceParameter
@@ -98,7 +97,7 @@ class DiscreteGenerator(Generator):
             objective_weights = None
             outcome_constraints = None
         else:
-            validate_optimization_config(optimization_config)
+            validate_optimization_config(optimization_config, self.outcomes)
             objective_weights = extract_objective_weights(
                 objective=optimization_config.objective, outcomes=self.outcomes
             )

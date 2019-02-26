@@ -83,7 +83,7 @@ class BotorchMultiOutputModel(TorchModel):
         self,
         n: int,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[Tensor],
+        objective_weights: Tensor,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
@@ -128,8 +128,6 @@ class BotorchMultiOutputModel(TorchModel):
                 )
         else:
             X_pending = None
-        if objective_weights is None:
-            raise ValueError("This model requires objective weights.")
         objective_transform = get_objective_weights_transform(objective_weights)
         outcome_constraint_transforms = get_outcome_constraint_transforms(
             outcome_constraints=outcome_constraints
@@ -186,7 +184,7 @@ class BotorchMultiOutputModel(TorchModel):
     def best_point(
         self,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[Tensor],
+        objective_weights: Tensor,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,

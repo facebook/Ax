@@ -128,9 +128,6 @@ class BotorchMultiOutputModelTest(TestCase):
         )
         self.assertIsNone(xbest)
 
-        # Test errors for unsupported features
-        with self.assertRaises(ValueError):
-            model.gen(n, bounds, objective_weights=None)
         objective_weights = torch.tensor([1.0, 0.0], dtype=dtype, device=device)
         pending_observations = [
             torch.tensor([[1.0, 3.0, 4.0]], dtype=dtype, device=device),

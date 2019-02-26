@@ -107,18 +107,16 @@ class TorchGenerator(ArrayGenerator):
 
     def _validate_and_convert_to_tensors(
         self,
-        objective_weights: Optional[np.ndarray],
+        objective_weights: np.ndarray,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         pending_observations: Optional[List[np.ndarray]],
     ) -> Tuple[
-        Optional[Tensor],
+        Tensor,
         Optional[Tuple[Tensor, Tensor]],
         Optional[Tuple[Tensor, Tensor]],
         Optional[List[Tensor]],
     ]:
-        if objective_weights is None:  # pragma: no cover
-            raise ValueError("Torch models require objective weights.")
         objective_weights: Tensor = self._array_to_tensor(objective_weights)
         if outcome_constraints is not None:  # pragma: no cover
             outcome_constraints = (
@@ -143,7 +141,7 @@ class TorchGenerator(ArrayGenerator):
         self,
         n: int,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[np.ndarray],
+        objective_weights: np.ndarray,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         fixed_features: Optional[Dict[int, float]],
@@ -176,7 +174,7 @@ class TorchGenerator(ArrayGenerator):
     def _model_best_point(
         self,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[np.ndarray],
+        objective_weights: np.ndarray,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         fixed_features: Optional[Dict[int, float]],

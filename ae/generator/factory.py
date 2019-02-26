@@ -7,6 +7,7 @@ from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.search_space import SearchSpace
 from ae.lazarus.ae.generator.discrete import DiscreteGenerator
 from ae.lazarus.ae.generator.numpy import NumpyGenerator
+from ae.lazarus.ae.generator.random import RandomGenerator
 from ae.lazarus.ae.generator.torch import TorchGenerator
 from ae.lazarus.ae.generator.transforms.base import Transform
 from ae.lazarus.ae.generator.transforms.derelativize import Derelativize
@@ -61,7 +62,7 @@ TS_trans: List[Type[Transform]] = Discrete_X_trans + Y_trans + [SearchSpaceToCho
 DEFAULT_TORCH_DEVICE = torch.device("cpu")
 
 
-def get_sobol(search_space: SearchSpace, **kwargs: Union[int, bool]) -> NumpyGenerator:
+def get_sobol(search_space: SearchSpace, **kwargs: Union[int, bool]) -> RandomGenerator:
     """Instantiates a Sobol sequence quasi-random generator.
 
     Args:
@@ -69,9 +70,9 @@ def get_sobol(search_space: SearchSpace, **kwargs: Union[int, bool]) -> NumpyGen
         kwargs: Custom args for sobol generator.
 
     Returns:
-        NumpyGenerator, with SobolGenerator as model.
+        RandomGenerator, with SobolGenerator as model.
     """
-    return NumpyGenerator(
+    return RandomGenerator(
         search_space=search_space,
         # pyre-ignore[6]: expected `bool` for the 1st anon. param., got `int`
         model=SobolGenerator(**kwargs),
@@ -81,7 +82,7 @@ def get_sobol(search_space: SearchSpace, **kwargs: Union[int, bool]) -> NumpyGen
 
 def get_uniform(
     search_space: SearchSpace, **kwargs: Union[int, bool]
-) -> NumpyGenerator:
+) -> RandomGenerator:
     """Instantiate uniform generator.
 
     Args:
@@ -89,9 +90,9 @@ def get_uniform(
         kwargs: Custom args for uniform generator.
 
     Returns:
-        NumpyGenerator, with UniformGenerator as model.
+        RandomGenerator, with UniformGenerator as model.
     """
-    return NumpyGenerator(
+    return RandomGenerator(
         search_space=search_space,
         model=UniformGenerator(**kwargs),
         transforms=Cont_X_trans,

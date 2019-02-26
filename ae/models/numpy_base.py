@@ -54,7 +54,7 @@ class NumpyModel:
         self,
         n: int,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[np.ndarray],
+        objective_weights: np.ndarray,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
@@ -94,7 +94,7 @@ class NumpyModel:
     def best_point(
         self,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[np.ndarray],
+        objective_weights: np.ndarray,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         fixed_features: Optional[Dict[int, float]] = None,

@@ -10,7 +10,7 @@ from ae.lazarus.ae.generator.factory import (
     get_sobol,
     get_thompson,
 )
-from ae.lazarus.ae.generator.numpy import NumpyGenerator
+from ae.lazarus.ae.generator.random import RandomGenerator
 from ae.lazarus.ae.generator.torch import TorchGenerator
 from ae.lazarus.ae.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ae.lazarus.ae.models.discrete.full_factorial import FullFactorialGenerator
@@ -50,7 +50,7 @@ class TestGenerationStrategy(TestCase):
         return_value=None,
     )
     @mock.patch(
-        f"{NumpyGenerator.__module__}.NumpyGenerator.__init__",
+        f"{RandomGenerator.__module__}.RandomGenerator.__init__",
         autospec=True,
         return_value=None,
     )

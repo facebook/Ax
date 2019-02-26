@@ -7,11 +7,16 @@ from ae.lazarus.ae.core.objective import Objective, ScalarizedObjective
 from ae.lazarus.ae.core.observation import ObservationData, ObservationFeatures
 from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.core.outcome_constraint import ComparisonOp, OutcomeConstraint
-from ae.lazarus.ae.core.parameter import ParameterType, RangeParameter
 from ae.lazarus.ae.core.search_space import SearchSpace
 from ae.lazarus.ae.core.types.types import TBounds, TConfig
 from ae.lazarus.ae.generator.base import Generator
-from ae.lazarus.ae.utils.common.typeutils import checked_cast
+from ae.lazarus.ae.generator.generator_utils import (
+    extract_parameter_constraints,
+    get_bounds_and_task,
+    get_fixed_features,
+    get_pending_observations,
+    parse_observation_features,
+)
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
@@ -53,7 +58,7 @@ class ArrayGenerator(Generator):
         )
         self.training_in_design = in_design
         # Extract bounds and task features
-        bounds, task_features = _get_bounds_and_task(search_space, self.params)
+        bounds, task_features = get_bounds_and_task(search_space, self.params)
 
         # Fit
         self._model_fit(
@@ -122,51 +127,29 @@ class ArrayGenerator(Generator):
         if not self.params:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
         # Extract bounds
-        bounds, _ = _get_bounds_and_task(search_space, self.params)
-        # Extract objective
-        if (
-            self.outcomes is None
-            or len(self.outcomes) == 0
-            or optimization_config is None
-        ):
-            objective_weights, outcome_constraints = None, None
-        else:
-            validate_optimization_config(optimization_config)
-            objective_weights = extract_objective_weights(
-                objective=optimization_config.objective, outcomes=self.outcomes
+        bounds, _ = get_bounds_and_task(search_space, self.params)
+        if optimization_config is None:
+            raise ValueError(
+                "ArrayGenerator requires an OptimizationConfig to be specified"
             )
-            outcome_constraints = extract_outcome_constraints(
-                outcome_constraints=optimization_config.outcome_constraints,
-                outcomes=self.outcomes,
-            )
-        # Extract parameter constraints
-        if len(search_space.parameter_constraints) > 0:
-            A = np.zeros((len(search_space.parameter_constraints), len(self.params)))
-            b = np.zeros((len(search_space.parameter_constraints), 1))
-            for i, c in enumerate(search_space.parameter_constraints):
-                b[i, 0] = c.bound
-                for name, val in c.constraint_dict.items():
-                    A[i, self.params.index(name)] = val
-            linear_constraints: TBounds = (A, b)
-        else:
-            linear_constraints = None
-        # Get fixed features
-        fixed_features_dict = {
-            self.params.index(p_name): float(checked_cast((int, float), val))
-            for p_name, val in fixed_features.parameters.items()
-        }
-        fixed_features_dict = (
-            fixed_features_dict if len(fixed_features_dict) > 0 else None
+        if self.outcomes is None or len(self.outcomes) == 0:  # pragma: no cover
+            raise ValueError("No outcomes found during model fit--data are missing.")
+
+        validate_optimization_config(optimization_config, self.outcomes)
+        objective_weights = extract_objective_weights(
+            objective=optimization_config.objective, outcomes=self.outcomes
         )
-        # Pending observations
-        if len(pending_observations) == 0:
-            pending_array: Optional[List[np.ndarray]] = None
-        else:
-            pending_array = [np.array([]) for _ in self.outcomes]
-            for metric_name, po_list in pending_observations.items():
-                pending_array[self.outcomes.index(metric_name)] = np.array(
-                    [[po.parameters[p] for p in self.params] for po in po_list]
-                )
+        outcome_constraints = extract_outcome_constraints(
+            outcome_constraints=optimization_config.outcome_constraints,
+            outcomes=self.outcomes,
+        )
+        linear_constraints = extract_parameter_constraints(
+            search_space.parameter_constraints, self.params
+        )
+        fixed_features_dict = get_fixed_features(fixed_features, self.params)
+        pending_array = get_pending_observations(
+            pending_observations, self.outcomes, self.params
+        )
         # Generate the candidates
         X, w = self._model_gen(
             n=n,
@@ -180,17 +163,7 @@ class ArrayGenerator(Generator):
             rounding_func=self._transform_callback,
         )
         # Transform array to observations
-        observation_features = []
-        for x in X:
-            observation_features.append(
-                ObservationFeatures(
-                    # Expected `Dict[str, Optional[typing.Union[bool, float, str]]]` for
-                    # 2nd parameter `parameters` to call
-                    # `ae.lazarus.ae.core.observation.ObservationFeatures.__init__` but got
-                    # `Dict[str, float]`.
-                    parameters={p: float(x[i]) for i, p in enumerate(self.params)}
-                )
-            )
+        observation_features = parse_observation_features(X, self.params)
         xbest = self._model_best_point(
             bounds=bounds,
             objective_weights=objective_weights,
@@ -212,7 +185,7 @@ class ArrayGenerator(Generator):
         self,
         n: int,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[np.ndarray],
+        objective_weights: np.ndarray,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         fixed_features: Optional[Dict[int, float]],
@@ -235,7 +208,7 @@ class ArrayGenerator(Generator):
     def _model_best_point(
         self,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[np.ndarray],
+        objective_weights: np.ndarray,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         fixed_features: Optional[Dict[int, float]],
@@ -420,29 +393,30 @@ def extract_outcome_constraints(
     return outcome_constraint_bounds
 
 
-def validate_optimization_config(optimization_config: OptimizationConfig) -> None:
+def validate_optimization_config(
+    optimization_config: OptimizationConfig, outcomes: List[str]
+) -> None:
+    """Validate optimization config against model fitted outcomes.
+
+    Args:
+        optimization_config: Config to validate.
+        outcomes: List of metric names w/ valid model fits.
+
+    Raises:
+        ValueError if:
+            1. Relative constraints are found
+            2. Optimization metrics are not present in model fitted outcomes.
+    """
     for c in optimization_config.outcome_constraints:
         if c.relative:
             raise ValueError(f"{c} is a relative constraint.")
-
-
-def _get_bounds_and_task(
-    search_space: SearchSpace, param_names: List[str]
-) -> Tuple[List[Tuple[float, float]], List[int]]:
-    """Extract box bounds from a search space in the usual Scipy format.
-    Identify integer parameters as task features.
-    """
-    bounds: List[Tuple[float, float]] = []
-    task_features: List[int] = []
-    for i, p_name in enumerate(param_names):
-        p = search_space.parameters[p_name]
-        # Validation
-        if not isinstance(p, RangeParameter):
-            raise ValueError(f"{p} not RangeParameter")
-        elif p.log_scale:
-            raise ValueError(f"{p} is log scale")
-        # Set value
-        bounds.append((p.lower, p.upper))
-        if p.parameter_type == ParameterType.INT:
-            task_features.append(i)
-    return bounds, task_features
+        if c.metric.name not in outcomes:  # pragma: no cover
+            raise ValueError(
+                f"Outcome constraint metric {c.metric.name} not found in fitted data."
+            )
+    obj_metric_names = [m.name for m in optimization_config.objective.metrics]
+    for obj_metric_name in obj_metric_names:
+        if obj_metric_name not in outcomes:  # pragma: no cover
+            raise ValueError(
+                f"Objective metric {obj_metric_name} not found in fitted data."
+            )

@@ -5,6 +5,9 @@ from unittest.mock import patch
 import numpy as np
 from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.experiment import Experiment
+from ae.lazarus.ae.core.metric import Metric
+from ae.lazarus.ae.core.objective import Objective
+from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.generator.array import ArrayGenerator
 from ae.lazarus.ae.generator.base import Generator
 from ae.lazarus.ae.generator.tests.test_base_generator import (
@@ -138,7 +141,13 @@ class ArrayGeneratorTest(TestCase):
             search_space_for_range_value(), NumpyModel(), [t1, t2], exp, 0
         )
         self.assertEqual(list(generator.transforms.keys()), ["t1", "t2"])
-        run = generator.gen(1)
+        run = generator.gen(
+            n=1,
+            optimization_config=OptimizationConfig(
+                objective=Objective(metric=Metric("a"), minimize=False),
+                outcome_constraints=[],
+            ),
+        )
         arm, predictions = run.best_arm_predictions
         self.assertEqual(arm.params, {})
         self.assertEqual(predictions[0], {"m": 1.0})

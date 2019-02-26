@@ -10,10 +10,9 @@ from ae.lazarus.ae.models.model_utils import (
     tunable_feature_indices,
     validate_bounds,
 )
-from ae.lazarus.ae.models.numpy_base import NumpyModel
 
 
-class RandomModel(NumpyModel):
+class RandomModel:
     """This class specifies the basic skeleton for a random model.
 
     As random generators do not make use of models, they do not implement
@@ -35,11 +34,8 @@ class RandomModel(NumpyModel):
         self,
         n: int,
         bounds: List[Tuple[float, float]],
-        objective_weights: Optional[np.ndarray],
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[np.ndarray]] = None,
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -49,18 +45,11 @@ class RandomModel(NumpyModel):
             n: Number of candidates to generate.
             bounds: A list of (lower, upper) tuples for each column of X.
                 Defined on [0, 1]^d.
-            objective_weights: The objective is to maximize a weighted sum of
-                the columns of f(x). These are the weights.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints
-                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                    A f(x) <= b.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
                     A x <= b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
-            pending_observations: A list of m (k_i x d) feature arrays X
-                for m outcomes and k_i pending observations for outcome i.
             model_gen_options: A config dictionary that is passed along to the
                 model.
             rounding_func: A function that rounds an optimization result

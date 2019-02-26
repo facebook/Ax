@@ -11,6 +11,7 @@ from ae.lazarus.ae.generator.factory import (
     get_uniform,
 )
 from ae.lazarus.ae.generator.numpy import NumpyGenerator
+from ae.lazarus.ae.generator.random import RandomGenerator
 from ae.lazarus.ae.generator.torch import TorchGenerator
 from ae.lazarus.ae.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ae.lazarus.ae.models.discrete.thompson import ThompsonSampler
@@ -28,7 +29,7 @@ class GeneratorFactoryTest(TestCase):
         exp = get_branin_experiment()
         # Check that factory generates a valid sobol generator.
         sobol = get_sobol(search_space=exp.search_space)
-        self.assertIsInstance(sobol, NumpyGenerator)
+        self.assertIsInstance(sobol, RandomGenerator)
         for _ in range(5):
             sobol_run = sobol.gen(n=1)
             exp.new_batch_trial().add_generator_run(sobol_run).run()
@@ -51,7 +52,7 @@ class GeneratorFactoryTest(TestCase):
         sobol = get_sobol(
             search_space=exp.search_space, init_position=2, scramble=False, seed=239
         )
-        self.assertIsInstance(sobol, NumpyGenerator)
+        self.assertIsInstance(sobol, RandomGenerator)
         for _ in range(5):
             sobol_run = sobol.gen(1)
             exp.new_batch_trial().add_generator_run(sobol_run).run()
@@ -104,6 +105,6 @@ class GeneratorFactoryTest(TestCase):
     def test_uniform(self):
         exp = get_branin_experiment()
         uniform = get_uniform(exp.search_space)
-        self.assertIsInstance(uniform, NumpyGenerator)
+        self.assertIsInstance(uniform, RandomGenerator)
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)
