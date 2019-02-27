@@ -6,7 +6,6 @@ import torch
 from ae.lazarus.ae.core.types.types import TConfig
 from ae.lazarus.ae.models.model_utils import best_observed_point
 from ae.lazarus.ae.models.torch.utils import (
-    MIN_INFERRED_NOISE_LEVEL,
     _get_model,
     _joint_optimize,
     _sequential_optimize,
@@ -15,13 +14,12 @@ from ae.lazarus.ae.models.torch_base import TorchModel
 from ae.lazarus.ae.utils.common.docutils import copy_doc
 from botorch.acquisition.utils import get_acquisition_function
 from botorch.fit import fit_model
-from botorch.models import Model
-from botorch.models.gp_regression import HeteroskedasticSingleTaskGP
+from botorch.models import MultiOutputGP
 from botorch.utils import (
     get_objective_weights_transform,
     get_outcome_constraint_transforms,
 )
-from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from torch import Tensor
 
 
@@ -33,8 +31,10 @@ class BotorchModel(TorchModel):
 
     dtype: Optional[torch.dtype]
     device: Optional[torch.device]
-    models: List[Model]
-    train_X: List[Tensor]
+    model: MultiOutputGP
+    Xs: List[Tensor]
+    Ys: List[Tensor]
+    Yvars: List[Tensor]
 
     def __init__(
         self,
@@ -54,8 +54,10 @@ class BotorchModel(TorchModel):
         if acquisition_function_args is None:
             acquisition_function_args = {"mc_samples": 500, "qmc": True}
         self.acquisition_function_args = acquisition_function_args
-        self.models = []
+        self.model = None
         self.Xs = []
+        self.Ys = []
+        self.Yvars = []
         self.refit_on_cv = refit_on_cv
         self.dtype = None
         self.device = None
@@ -75,12 +77,13 @@ class BotorchModel(TorchModel):
         self.dtype = Xs[0].dtype
         self.device = Xs[0].device
         self.Xs = Xs
-        for X, Y, Yvar in zip(Xs, Ys, Yvars):
-            self.models.append(_get_and_fit_model(X=X, Y=Y, Yvar=Yvar))
+        self.Ys = Ys
+        self.Yvars = Yvars
+        self.model = _get_and_fit_model(Xs=Xs, Ys=Ys, Yvars=Yvars)
 
     @copy_doc(TorchModel.predict)
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
-        return _gp_predict(models=self.models, X=X)
+        return _model_predict(model=self.model, X=X)
 
     def gen(
         self,
@@ -127,34 +130,35 @@ class BotorchModel(TorchModel):
         options: TConfig = model_gen_options or {}
         if pending_observations is not None:
             X_pending = pending_observations[0]
-
-            if not all(torch.equal(p, X_pending) for p in pending_observations[1:]):
+            if not all(torch.allclose(p, X_pending) for p in pending_observations[1:]):
                 raise ValueError(
                     "Model requires pending observations to be the same "
                     "for all outcomes."
                 )
         else:
             X_pending = None
-        if len(torch.nonzero(objective_weights)) != 1:
-            raise ValueError("Objective must be a single outcome.")
-        objective_indx = int(torch.nonzero(objective_weights))
-        objective_transform = get_objective_weights_transform(
-            objective_weights=objective_weights
-        )
+        objective_transform = get_objective_weights_transform(objective_weights)
         outcome_constraint_transforms = get_outcome_constraint_transforms(
             outcome_constraints=outcome_constraints
         )
-        if linear_constraints is not None or outcome_constraints is not None:
-            raise ValueError("This model does not support constraints.")
+        if linear_constraints is not None:
+            raise ValueError(
+                "This model does not support linear parameter constraints."
+            )
 
         acquisition_function: Optional[torch.nn.Module] = options.get(
             "acquisition_function"
         )
         if acquisition_function is None:
+            # TODO: Figure out a way to support noisy estimates of the best
+            # function value for non-block designs
+            X_observed = self.Xs[0]
+            if not all(torch.allclose(X, X_observed) for X in self.Xs[1:]):
+                raise NotImplementedError("Currently, only block design is supported")
             acquisition_function = get_acquisition_function(
                 acquisition_function_name=self.acquisition_function_name,
-                model=self.models[objective_indx],
-                X_observed=self.Xs[objective_indx],
+                model=self.model,
+                X_observed=X_observed,
                 objective=objective_transform,
                 constraints=outcome_constraint_transforms,
                 X_pending=X_pending,
@@ -165,8 +169,7 @@ class BotorchModel(TorchModel):
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
 
-        # TODO: implement better heuristic
-
+        # TODO: implement better random restart heuristic
         opts: Dict[str, Union[bool, float, int]] = options
         num_restarts: int = options.get("num_restarts", 20)
         raw_samples: int = options.get(
@@ -180,7 +183,7 @@ class BotorchModel(TorchModel):
             n=n,
             num_restarts=num_restarts,
             raw_samples=raw_samples,
-            model=self.models[objective_indx],
+            model=self.model,
             options=opts,
             fixed_features=fixed_features,
             rounding_func=rounding_func,
@@ -219,63 +222,50 @@ class BotorchModel(TorchModel):
         Yvars_train: List[Tensor],
         X_test: Tensor,
     ) -> Tuple[Tensor, Tensor]:
-        cv_models: List[Model] = []
-        for i, m in enumerate(self.models):
-            state_dict = None if self.refit_on_cv else m.state_dict()
-            cv_models.append(
-                _get_and_fit_model(
-                    X=Xs_train[i],
-                    Y=Ys_train[i],
-                    Yvar=Yvars_train[i],
-                    state_dict=state_dict,
-                )
-            )
-        return _gp_predict(models=cv_models, X=X_test)
+        state_dict = None if self.refit_on_cv else self.model.state_dict()
+        model = _get_and_fit_model(
+            Xs=Xs_train, Ys=Ys_train, Yvars=Yvars_train, state_dict=state_dict
+        )
+        return _model_predict(model=model, X=X_test)
 
 
 def _get_and_fit_model(
-    X: Tensor, Y: Tensor, Yvar: Tensor, state_dict: Optional[Dict[str, Tensor]] = None
-) -> Model:
+    Xs: List[Tensor],
+    Ys: List[Tensor],
+    Yvars: Optional[List[Tensor]] = None,
+    state_dict: Optional[Dict[str, Tensor]] = None,
+) -> MultiOutputGP:
     """Instantiate a model with the given data.
 
     Args:
-        X: X data
-        Y: Y data
-        Yvar: Observed variance of Y. If all zero, assume noiseless data.
+        Xs: List of X data, one tensor per outcome
+        Ys: List of Y data, one tensor per outcome
+        Yvars: List of observed variance of Ys. If all zero, assume noiseless data.
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
 
-    Returns: A HeteroskedasticSingleTaskGP.
+    Returns: A MultiOutputGP.
     """
-    model = _get_model(X=X, Y=Y, Yvar=Yvar)
+    models = [_get_model(X=X, Y=Y, Yvar=Yvar) for X, Y, Yvar in zip(Xs, Ys, Yvars)]
+    model = MultiOutputGP(gp_models=models)  # pyre-ignore: [16]
+    model.to(dtype=Xs[0].dtype, device=Xs[0].device)
     if state_dict is None:
-        # get bound on noise level (avoid numerical issues in gpytorch)
-        if isinstance(model, HeteroskedasticSingleTaskGP):
-            # This is the only model with which we infer the noise level
-            noise_covar = (
-                model.likelihood.noise_covar.noise_model.likelihood.noise_covar
-            )
-            lb = noise_covar._inv_param_transform(
-                torch.tensor(MIN_INFERRED_NOISE_LEVEL)
-            ).item()
-            nc = "likelihood.noise_covar.noise_model.likelihood.noise_covar.raw_noise"
-            bounds = {nc: (lb, None)}
-        else:
-            bounds = {}
-        mll = ExactMarginalLogLikelihood(model.likelihood, model)  # pyre-ignore: [16]
+        # TODO: Add bounds for optimization stability - requires revamp upstream
+        bounds = {}
+        mll = SumMarginalLogLikelihood(model.likelihood, model)
         mll = fit_model(mll, bounds=bounds)
     else:
-        model.load_state_dict(state_dict)  # pyre-ignore: [16]
+        model.load_state_dict(state_dict)
     return model
 
 
-def _gp_predict(models: List[Model], X: Tensor) -> Tuple[Tensor, Tensor]:
-    n, t = X.shape[0], len(models)
-    mean = torch.zeros(n, t, dtype=X.dtype)
-    cov = torch.zeros(n, t, t, dtype=X.dtype)
-    for i, model in enumerate(models):
-        with torch.no_grad():
-            posterior = model.posterior(X)
-        mean[:, i].copy_(posterior.mean.cpu().detach())
-        cov[:, i, i].copy_(posterior.variance.cpu().detach())
+def _model_predict(model: MultiOutputGP, X: Tensor) -> Tuple[Tensor, Tensor]:
+    with torch.no_grad():
+        posterior = model.posterior(X)
+    mean = posterior.mean.cpu().detach()
+    variance = posterior.variance.cpu().detach()
+    if mean.ndimension() == 1:
+        mean = mean.unsqueeze(-1)
+        variance = variance.unsqueeze(-1)
+    cov = variance.unsqueeze(-1) * torch.eye(variance.shape[-1], dtype=variance.dtype)
     return mean, cov
