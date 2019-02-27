@@ -12,6 +12,7 @@ from ae.lazarus.ae.models.torch.utils import (
 )
 from ae.lazarus.ae.models.torch_base import TorchModel
 from ae.lazarus.ae.utils.common.docutils import copy_doc
+from botorch.acquisition.functional import get_infeasible_cost
 from botorch.acquisition.utils import get_acquisition_function
 from botorch.fit import fit_model
 from botorch.models import MultiOutputGP
@@ -155,12 +156,16 @@ class BotorchModel(TorchModel):
             X_observed = self.Xs[0]
             if not all(torch.allclose(X, X_observed) for X in self.Xs[1:]):
                 raise NotImplementedError("Currently, only block design is supported")
+            infeasible_cost = get_infeasible_cost(
+                X=X_observed, model=self.model, objective=objective_transform
+            )
             acquisition_function = get_acquisition_function(
                 acquisition_function_name=self.acquisition_function_name,
                 model=self.model,
                 X_observed=X_observed,
                 objective=objective_transform,
                 constraints=outcome_constraint_transforms,
+                infeasible_cost=infeasible_cost,
                 X_pending=X_pending,
                 acquisition_function_args=self.acquisition_function_args,
                 seed=torch.randint(1, 10000, (1,)).item(),

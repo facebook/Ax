@@ -7,7 +7,9 @@ import torch
 from ae.lazarus.ae.models.torch.botorch import BotorchModel, _get_and_fit_model
 from ae.lazarus.ae.models.torch.utils import MIN_OBSERVED_NOISE_LEVEL
 from ae.lazarus.ae.utils.common.testutils import TestCase
+from botorch.acquisition.functional import get_infeasible_cost
 from botorch.models import MultiOutputGP
+from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 
 
@@ -68,8 +70,25 @@ class BotorchModelTest(TestCase):
         self.assertIsInstance(model_list[0].likelihood, _GaussianLikelihoodBase)
         self.assertIsInstance(model_list[1].likelihood, _GaussianLikelihoodBase)
 
-        # Check prediction
+        # Check infeasible cost can be computed on the model
         device = torch.device("cuda") if cuda else torch.device("cpu")
+        objective_weights = torch.tensor([1.0, 0.0], dtype=dtype, device=device)
+        objective_transform = get_objective_weights_transform(objective_weights)
+        infeasible_cost = torch.tensor(
+            get_infeasible_cost(
+                X=Xs1[0], model=model.model, objective=objective_transform
+            )
+        )
+        expected_infeasible_cost = -1 * torch.min(
+            objective_transform(
+                model.model.posterior(Xs1[0]).mean
+                - 6 * model.model.posterior(Xs1[0]).variance.sqrt()
+            ).min(),
+            torch.tensor(0.0, dtype=dtype, device=device),
+        )
+        self.assertTrue(torch.abs(infeasible_cost - expected_infeasible_cost) < 1e-5)
+
+        # Check prediction
         X = torch.tensor([[6.0, 7.0, 8.0]], dtype=dtype, device=device)
         f_mean, f_cov = model.predict(X)
         self.assertTrue(f_mean.shape == torch.Size([1, 2]))
