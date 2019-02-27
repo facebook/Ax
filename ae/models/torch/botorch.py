@@ -264,8 +264,5 @@ def _model_predict(model: MultiOutputGP, X: Tensor) -> Tuple[Tensor, Tensor]:
         posterior = model.posterior(X)
     mean = posterior.mean.cpu().detach()
     variance = posterior.variance.cpu().detach()
-    if mean.ndimension() == 1:
-        mean = mean.unsqueeze(-1)
-        variance = variance.unsqueeze(-1)
     cov = variance.unsqueeze(-1) * torch.eye(variance.shape[-1], dtype=variance.dtype)
     return mean, cov
