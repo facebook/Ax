@@ -182,3 +182,29 @@ class SobolGeneratorTest(TestCase):
                 fixed_features={fixed_param_index: 1},
                 model_gen_options={"max_rs_draws": 0},
             )
+
+    def testSobolGeneratorDedupe(self):
+        generator = SobolGenerator(seed=0, deduplicate=True)
+        n_tunable = fixed_param_index = 3
+        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        generated_points, weights = generator.gen(
+            n=2,
+            bounds=bounds,
+            linear_constraints=(
+                np.array([[1, 1, 0, 0], [0, 1, 1, 0]]),
+                np.array([1, 1]),
+            ),
+            fixed_features={fixed_param_index: 1},
+            rounding_func=lambda x: x,
+        )
+        generated_points, weights = generator.gen(
+            n=1,
+            bounds=bounds,
+            linear_constraints=(
+                np.array([[1, 1, 0, 0], [0, 1, 1, 0]]),
+                np.array([1, 1]),
+            ),
+            fixed_features={fixed_param_index: 1},
+            rounding_func=lambda x: x,
+        )
+        self.assertEqual(len(generated_points), 1)

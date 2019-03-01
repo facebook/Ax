@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, MutableMapping, Optional, Tuple
 
 import numpy as np
 from ae.lazarus.ae.core.observation import ObservationFeatures
@@ -8,6 +8,7 @@ from ae.lazarus.ae.core.parameter import ParameterType, RangeParameter
 from ae.lazarus.ae.core.parameter_constraint import ParameterConstraint
 from ae.lazarus.ae.core.search_space import SearchSpace
 from ae.lazarus.ae.core.types.types import TBounds
+from ae.lazarus.ae.generator.transforms.base import Transform
 
 
 def extract_parameter_constraints(
@@ -107,3 +108,59 @@ def parse_observation_features(
             ObservationFeatures(parameters={p: x[i] for i, p in enumerate(param_names)})
         )
     return observation_features
+
+
+def transform_callback(
+    param_names: List[str], transforms: MutableMapping[str, Transform]
+) -> Callable[[np.ndarray], np.ndarray]:
+    """A closure for performing the `round trip` transformations.
+
+    The function round points by de-transforming points back into
+    the original space (done by applying transforms in reverse), and then
+    re-transforming them.
+    This function is specifically for points which are formatted as numpy
+    arrays. This function is passed to _model_gen.
+
+    Args:
+        param_names: Names of parameters to transform.
+        transforms: Ordered set of transforms which were applied to the points.
+
+    Returns:
+        a function with for performing the roundtrip transform.
+    """
+
+    def _roundtrip_transform(x: np.ndarray) -> np.ndarray:
+        """Inner function for performing aforementioned functionality.
+
+        Args:
+            x: points in the transformed space (e.g. all transforms have been applied
+                to them)
+
+        Returns:
+            points in the transformed space, but rounded via the original space.
+        """
+        # apply reverse terminal transform to turn array to ObservationFeatures
+        observation_features = [
+            ObservationFeatures(
+                parameters={p: float(x[i]) for i, p in enumerate(param_names)}
+            )
+        ]
+        # reverse loop through the transforms and do untransform
+        for t in reversed(transforms.values()):
+            observation_features = t.untransform_observation_features(
+                observation_features
+            )
+        # forward loop through the transforms and do transform
+        for t in transforms.values():
+            observation_features = t.transform_observation_features(
+                observation_features
+            )
+        # params are guaranteed to be float compatible here, but pyre doesn't know
+        new_x: List[float] = [
+            float(observation_features[0].parameters[p])  # pyre-ignore
+            for p in param_names
+        ]
+        # turn it back into an array
+        return np.array(new_x)
+
+    return _roundtrip_transform

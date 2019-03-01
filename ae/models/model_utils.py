@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import torch
@@ -26,13 +26,18 @@ DEFAULT_MAX_RS_DRAWS = 10000
 
 
 def rejection_sample(
-    model: "RandomModel",
+    gen_unconstrained: Callable[
+        [int, int, np.ndarray, Optional[Dict[int, float]]], np.ndarray
+    ],
     n: int,
     d: int,
     tunable_feature_indices: np.ndarray,
-    linear_constraints: Tuple[np.ndarray, np.ndarray],
+    linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+    deduplicate: bool = False,
     max_draws: Optional[int] = None,
     fixed_features: Optional[Dict[int, float]] = None,
+    rounding_func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+    existing_points: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, int]:
     """Rejection sample in parameter space.
 
@@ -40,38 +45,87 @@ def rejection_sample(
     rejection sampling via this utility.
 
     """
+    # We need to perform the round trip transformation on our generated point
+    # in order to deduplicate in the original search space.
+    # The transformation is applied above.
+    if deduplicate and rounding_func is None:
+        raise ValueError(
+            "Rounding function must be provided for deduplication."  # pragma: no cover
+        )
+
     failed_constraint_dict: TParamCounter = defaultdict(lambda: 0)  # pyre-ignore
     # Rejection sample with parameter constraints.
     points = np.zeros((n, d))
+
     attempted_draws = 0
     successful_draws = 0
     if max_draws is None:
         max_draws = DEFAULT_MAX_RS_DRAWS
 
-    while successful_draws < n:
+    while successful_draws < n and attempted_draws <= max_draws:
         # _gen_unconstrained returns points including fixed features.
-        point = model._gen_unconstrained(
+        # pyre-ignore: Anonymous function w/ named args.
+        point = gen_unconstrained(
             n=1,
             d=d,
             tunable_feature_indices=tunable_feature_indices,
             fixed_features=fixed_features,
-        )
-        attempted_draws += 1
-        all_satisfied, violators = check_param_constraints(
-            linear_constraints=linear_constraints, point=point
-        )
-        if all_satisfied:
-            points[successful_draws] = point
-            successful_draws += 1
-        else:
+        )[0]
+
+        # Note: this implementation may not be performant, if the feasible volume
+        # is small, since applying the rounding_func is relatively expensive.
+        # If sampling in spaces with low feasible volume is slow, this function
+        # could be applied after checking the linear constraints.
+        if rounding_func is not None:
+            point = rounding_func(point)
+
+        # Check parameter constraints, always in raw transformed space.
+        if linear_constraints is not None:
+            all_constraints_satisfied, violators = check_param_constraints(
+                linear_constraints=linear_constraints, point=point
+            )
             for violator in violators:
                 failed_constraint_dict[violator] += 1
-        if max_draws is not None and attempted_draws > max_draws:
-            raise ValueError(
-                f"Specified maximum draws ({max_draws}) exhausted, without "
-                "finding sufficiently many ({n}) candidates."
-            )
-    return (points, attempted_draws)
+        else:
+            all_constraints_satisfied = True
+            violators = np.array([])
+
+        # Deduplicate: don't add the same point twice.
+        duplicate = False
+        if deduplicate:
+            if existing_points is not None:
+                prev_points = np.vstack([points, existing_points])
+            else:
+                prev_points = points
+            duplicate = check_duplicate(point=point, points=prev_points)
+
+        # Add point if valid.
+        if all_constraints_satisfied and not duplicate:
+            points[successful_draws] = point
+            successful_draws += 1
+        attempted_draws += 1
+
+    if successful_draws < n:
+        # Only possible if attempted_draws >= max_draws.
+        raise ValueError(
+            f"Specified maximum draws ({max_draws}) exhausted, without "
+            f"finding sufficiently many ({n}) candidates."
+        )
+    else:
+        return (points, attempted_draws)
+
+
+def check_duplicate(point: np.ndarray, points: np.ndarray) -> bool:
+    """Check if a point exists in another array.
+
+    Args:
+        point: Newly generated point to check.
+        prev_points: Points previously generated.
+
+    Returns:
+        True if the point is contained in points, else False
+    """
+    return np.any(np.isin(points, point).all(axis=1))
 
 
 def add_fixed_features(

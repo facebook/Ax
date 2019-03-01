@@ -18,6 +18,8 @@ class SobolGenerator(RandomModel):
     the fit or predict methods.
 
     Attributes:
+        deduplicate: If true, a single instantiation of the generator will not
+            return the same point twice.
         init_position: The initial state of the Sobol generator.
             Starts at 0 by default.
         scramble: If True, permutes the parameter values among
@@ -29,9 +31,13 @@ class SobolGenerator(RandomModel):
     engine: Optional[SobolEngine] = None
 
     def __init__(
-        self, init_position: int = 0, scramble: bool = True, seed: Optional[int] = None
+        self,
+        seed: Optional[int] = None,
+        deduplicate: bool = False,
+        init_position: int = 0,
+        scramble: bool = True,
     ) -> None:
-        super().__init__(seed)
+        super().__init__(deduplicate=deduplicate, seed=seed)
         self.init_position = init_position
         self.scramble = scramble
         # Initialize engine on gen.
@@ -99,6 +105,7 @@ class SobolGenerator(RandomModel):
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
             model_gen_options=model_gen_options,
+            rounding_func=rounding_func,
         )
         if self.engine:
             self.init_position = self.engine.num_generated

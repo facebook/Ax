@@ -16,6 +16,7 @@ from ae.lazarus.ae.generator.generator_utils import (
     get_fixed_features,
     get_pending_observations,
     parse_observation_features,
+    transform_callback,
 )
 
 
@@ -160,7 +161,7 @@ class ArrayGenerator(Generator):
             fixed_features=fixed_features_dict,
             pending_observations=pending_array,
             model_gen_options=model_gen_options,
-            rounding_func=self._transform_callback,
+            rounding_func=transform_callback(self.params, self.transforms),
         )
         # Transform array to observations
         observation_features = parse_observation_features(X, self.params)

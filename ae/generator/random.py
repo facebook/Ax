@@ -12,6 +12,7 @@ from ae.lazarus.ae.generator.generator_utils import (
     get_bounds_and_task,
     get_fixed_features,
     parse_observation_features,
+    transform_callback,
 )
 from ae.lazarus.ae.models.random.base import RandomModel
 
@@ -69,6 +70,7 @@ class RandomGenerator(Generator):
             linear_constraints=linear_constraints,
             fixed_features=fixed_features_dict,
             model_gen_options=model_gen_options,
+            rounding_func=transform_callback(self.params, self.transforms),
         )
 
         observation_features = parse_observation_features(X, self.params)

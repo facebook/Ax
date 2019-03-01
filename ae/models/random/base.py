@@ -23,12 +23,23 @@ class RandomModel:
     To satisfy search space parameter constraints, these models can use
     rejection sampling. To enable rejection sampling for a subclass, only
     only `_gen_samples` needs to be implemented, or alternatively,
-    `_gen_unconstrained`/`gen` can be directly implemented
+    `_gen_unconstrained`/`gen` can be directly implemented.
+
+    Attributes:
+        deduplicate: If specified, a single instantiation of the model
+            will not return the same point twice. This flag is used in
+            rejection sampling.
+        scramble: If True, permutes the parameter values among
+            the elements of the Sobol sequence. Default is True.
+        seed: An optional seed value for scrambling.
     """
 
-    def __init__(self, seed: Optional[int] = None) -> None:
+    def __init__(self, deduplicate: bool = False, seed: Optional[int] = None) -> None:
         super().__init__()
+        self.deduplicate = deduplicate
         self.seed = seed
+        # Used for deduplication.
+        self.generated_points: Optional[np.ndarray] = None
 
     def gen(
         self,
@@ -70,30 +81,31 @@ class RandomModel:
 
         validate_bounds(bounds=bounds, fixed_feature_indices=fixed_feature_indices)
         attempted_draws = 0
-        if linear_constraints is None or len(linear_constraints) == 0:
-            points = self._gen_unconstrained(
-                n=n,
-                d=len(bounds),
-                fixed_features=fixed_features,
-                tunable_feature_indices=tf_indices,
-            )
-            attempted_draws = n
-        else:
-            max_draws = None
-            if model_gen_options:
-                max_draws = model_gen_options.get("max_rs_draws")
-                if max_draws is not None:
-                    max_draws: int = int(max_draws)
-            points, attempted_draws = rejection_sample(
-                model=self,
-                n=n,
-                d=len(bounds),
-                tunable_feature_indices=tf_indices,
-                linear_constraints=linear_constraints,
-                fixed_features=fixed_features,
-                max_draws=max_draws,
-            )
+        max_draws = None
+        if model_gen_options:
+            max_draws = model_gen_options.get("max_rs_draws")
+            if max_draws is not None:
+                max_draws: int = int(max_draws)
+        # Always rejection sample, but this only rejects if there are
+        # constraints or actual duplicates and deduplicate is specified.
+        points, attempted_draws = rejection_sample(
+            gen_unconstrained=self._gen_unconstrained,
+            n=n,
+            d=len(bounds),
+            tunable_feature_indices=tf_indices,
+            linear_constraints=linear_constraints,
+            deduplicate=self.deduplicate,
+            max_draws=max_draws,
+            fixed_features=fixed_features,
+            rounding_func=rounding_func,
+            existing_points=self.generated_points,
+        )
         self.attempted_draws = attempted_draws
+        if self.deduplicate:
+            if self.generated_points is None:
+                self.generated_points = points
+            else:
+                self.generated_points = np.vstack([self.generated_points, points])
         return (points, np.ones(len(points)))
 
     def _gen_unconstrained(

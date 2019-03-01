@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from collections import OrderedDict
 from unittest import mock
 
 import numpy as np
@@ -158,6 +159,7 @@ class NumpyGeneratorTest(TestCase):
         ma = NumpyGenerator()
         ma.params = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
+        ma.transforms = OrderedDict()
         observation_features, weights, best_obsf = ma._gen(
             n=3,
             search_space=self.search_space,

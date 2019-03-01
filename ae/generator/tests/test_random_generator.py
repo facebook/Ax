@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from collections import OrderedDict
 from unittest import mock
 
 import numpy as np
@@ -43,6 +44,7 @@ class RandomGeneratorTest(TestCase):
     )
     def testPredict(self, mock_init):
         generator = RandomGenerator()
+        generator.transforms = OrderedDict()
         generator.params = ["x", "y", "z"]
         with self.assertRaises(NotImplementedError):
             generator._predict([])
@@ -52,6 +54,7 @@ class RandomGeneratorTest(TestCase):
     )
     def testCrossValidate(self, mock_init):
         generator = RandomGenerator()
+        generator.transforms = OrderedDict()
         generator.params = ["x", "y", "z"]
         with self.assertRaises(NotImplementedError):
             generator._cross_validate([], [], [])
@@ -71,6 +74,7 @@ class RandomGeneratorTest(TestCase):
         # Test with constraints
         generator = RandomGenerator()
         generator.params = ["x", "y", "z"]
+        generator.transforms = OrderedDict()
         generator.model = RandomModel()
         observation_features, weights, best_obsf = generator._gen(
             n=3,

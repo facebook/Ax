@@ -94,6 +94,7 @@ def get_uniform(
     """
     return RandomGenerator(
         search_space=search_space,
+        # pyre-ignore[6]: expected `bool` for the 1st anon. param., got `int`
         model=UniformGenerator(**kwargs),
         transforms=Cont_X_trans,
     )

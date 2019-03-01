@@ -4,11 +4,11 @@ from itertools import product
 from unittest.mock import MagicMock
 
 import numpy as np
-from ae.lazarus.ae.models.model_utils import best_observed_point
+from ae.lazarus.ae.models.model_utils import best_observed_point, check_duplicate
 from ae.lazarus.ae.utils.common.testutils import TestCase
 
 
-class BestObservedPointTest(TestCase):
+class ModelUtilsTest(TestCase):
     def setUp(self):
         pass
 
@@ -117,3 +117,10 @@ class BestObservedPointTest(TestCase):
                 fixed_features={1: 100},
                 options={"method": "feasible_threshold"},
             )
+
+    def testCheckDuplicate(self):
+        duplicate_point = np.array([0, 1])
+        not_duplicate_point = np.array([9, 9])
+        points = np.array([[0, 1], [0, 2], [0, 1]])
+        self.assertTrue(check_duplicate(duplicate_point, points))
+        self.assertFalse(check_duplicate(not_duplicate_point, points))
