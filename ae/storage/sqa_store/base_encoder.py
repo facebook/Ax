@@ -169,8 +169,8 @@ class Encoder:
                 name=parameter.name,
                 domain_type=DomainType.RANGE,
                 parameter_type=parameter.parameter_type,
-                lower=parameter.lower,
-                upper=parameter.upper,
+                lower=float(parameter.lower),
+                upper=float(parameter.upper),
                 log_scale=parameter.log_scale,
                 digits=parameter.digits,
             )

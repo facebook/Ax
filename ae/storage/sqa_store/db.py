@@ -50,7 +50,12 @@ class SQABase(object):
         perform updates, etc.
         """
         mapper = inspect(self).mapper
-        return [c.key for c in mapper.column_attrs + mapper.relationships]
+        attrs = [c.key for c in mapper.column_attrs]
+
+        # exclude backref relationships; those will be accounted for on the
+        # backpopulated class
+        relationships = [c.key for c in mapper.relationships if not c.backref]
+        return attrs + relationships
 
     @staticmethod
     def list_equals(l1: List[T], l2: List[T]) -> bool:
@@ -150,10 +155,11 @@ class SQABase(object):
                             # in other ways, we can recursively update.
                             if equal:
                                 x.update(y)
-                elif isinstance(x, (int, float, str, bool, Enum)):
-                    # Right now, the only time we perform an update on a list
-                    # that isn't a list of SQABase children
-                    # is when we update the list of values of a ChoiceParameter.
+                elif isinstance(x, (int, float, str, bool, dict, Enum)):
+                    # Right now, the only times we perform an update on a list
+                    # that isn't a list of SQABase children is:
+                    # -- when we update the list of values of a ChoiceParameter.
+                    # -- when we update GeneratorRun model predictions
                     equal = x == y
                 else:
                     raise ValueError(
