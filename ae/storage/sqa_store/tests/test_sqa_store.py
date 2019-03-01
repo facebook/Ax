@@ -580,10 +580,6 @@ class SQAStoreTest(TestCase):
             sqa_parameter.generator_run_id = 0
             with session_scope() as session:
                 session.add(sqa_parameter)
-        with self.assertRaises(ValueError):
-            sqa_parameter.analysis_run_id = 0
-            with session_scope() as session:
-                session.add(sqa_parameter)
 
         sqa_parameter = SQAParameter(
             domain_type=DomainType.RANGE,
@@ -626,10 +622,6 @@ class SQAStoreTest(TestCase):
             session.add(sqa_parameter_constraint)
         with self.assertRaises(ValueError):
             sqa_parameter_constraint.generator_run_id = 0
-            with session_scope() as session:
-                session.add(sqa_parameter_constraint)
-        with self.assertRaises(ValueError):
-            sqa_parameter_constraint.analysis_run_id = 0
             with session_scope() as session:
                 session.add(sqa_parameter_constraint)
 
@@ -677,10 +669,6 @@ class SQAStoreTest(TestCase):
             sqa_metric.generator_run_id = 0
             with session_scope() as session:
                 session.add(sqa_metric)
-        with self.assertRaises(ValueError):
-            sqa_metric.analysis_run_id = 0
-            with session_scope() as session:
-                session.add(sqa_metric)
 
         sqa_metric = SQAMetric(
             name="foobar",
@@ -717,28 +705,6 @@ class SQAStoreTest(TestCase):
         sqa_metric.properties = {}
         with self.assertRaises(TypeError):
             Decoder.metric_from_sqa(sqa_metric)
-
-    def testGeneratorRunValidation(self):
-        sqa_generator_run = SQAGeneratorRun()
-        with self.assertRaises(ValueError):
-            with session_scope() as session:
-                session.add(sqa_generator_run)
-
-        sqa_generator_run.analysis_run_id = 0
-        with session_scope() as session:
-            session.add(sqa_generator_run)
-        with self.assertRaises(ValueError):
-            sqa_generator_run.trial_id = 0
-            with session_scope() as session:
-                session.add(sqa_generator_run)
-
-        sqa_generator_run = SQAGeneratorRun(trial_id=0)
-        with session_scope() as session:
-            session.add(sqa_generator_run)
-        with self.assertRaises(ValueError):
-            sqa_generator_run.analysis_run_id = 0
-            with session_scope() as session:
-                session.add(sqa_generator_run)
 
     def testRunnerDecodeFailure(self):
         runner = get_synthetic_runner()

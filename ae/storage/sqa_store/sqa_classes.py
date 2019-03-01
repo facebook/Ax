@@ -34,14 +34,12 @@ from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 
-ONLY_ONE_FIELDS = ["analysis_run_id", "experiment_id", "generator_run_id"]
+ONLY_ONE_FIELDS = ["experiment_id", "generator_run_id"]
 
 
 class SQAParameter(Base):
     __tablename__: str = "parameter_v2"
 
-    # TODO T39096344: Make foreign key once AnalysisRun table is added
-    analysis_run_id: Optional[int] = Column(Integer)
     domain_type: DomainType = Column(IntEnum(DomainType), nullable=False)
     experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
     id: int = Column(Integer, primary_key=True)
@@ -70,8 +68,6 @@ class SQAParameter(Base):
 class SQAParameterConstraint(Base):
     __tablename__: str = "parameter_constraint_v2"
 
-    # TODO T39096344: Make foreign key once AnalysisRun table is added
-    analysis_run_id: Optional[int] = Column(Integer)
     bound: float = Column(Float, nullable=False)
     constraint_dict: Dict[str, float] = Column(JSONEncodedDict, nullable=False)
     experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
@@ -88,8 +84,6 @@ class SQAParameterConstraint(Base):
 class SQAMetric(Base):
     __tablename__: str = "metric_v2"
 
-    # TODO T39096344: Make foreign key once AnalysisRun table is added
-    analysis_run_id: Optional[int] = Column(Integer)
     experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
     generator_run_id: Optional[int] = Column(Integer, ForeignKey("generator_run_v2.id"))
     id: int = Column(Integer, primary_key=True)
@@ -142,8 +136,6 @@ class SQAAbandonedArm(Base):
 class SQAGeneratorRun(Base):
     __tablename__: str = "generator_run_v2"
 
-    # TODO T39096344: Make foreign key once AnalysisRun table is added
-    analysis_run_id: Optional[int] = Column(Integer)
     best_arm_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     best_arm_parameters: Optional[TParameterization] = Column(JSONEncodedTextDict)
     best_arm_predictions: Optional[TModelPredictArm] = Column(JSONEncodedList)

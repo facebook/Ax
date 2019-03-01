@@ -5,7 +5,6 @@ from typing import Any, List
 from ae.lazarus.ae.storage.sqa_store.db import SQABase
 from ae.lazarus.ae.storage.sqa_store.sqa_classes import (
     ONLY_ONE_FIELDS,
-    SQAGeneratorRun,
     SQAMetric,
     SQAParameter,
     SQAParameterConstraint,
@@ -44,14 +43,6 @@ def validate_parameter_constraint(
 @event.listens_for(SQAMetric, "before_update")
 def validate_metric(mapper: Mapper, connection: Connection, target: SQABase) -> None:
     consistency_exactly_one(target, ONLY_ONE_FIELDS)
-
-
-@event.listens_for(SQAGeneratorRun, "before_insert")
-@event.listens_for(SQAGeneratorRun, "before_update")
-def validate_generator_run(
-    mapper: Mapper, connection: Connection, target: SQABase
-) -> None:
-    consistency_exactly_one(target, ["analysis_run_id", "trial_id"])
 
 
 @event.listens_for(SQARunner, "before_insert")
