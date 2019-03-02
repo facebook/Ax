@@ -89,7 +89,7 @@ def _sequential_optimize(
     candidates = None
     base_X_pending = acq_function.X_pending
     # Needed to clear base_samples
-    acq_function.set_X_pending(base_X_pending)
+    acq_function._set_X_pending(base_X_pending)
     for _ in range(n):
         candidate = _joint_optimize(
             acq_function=acq_function,
@@ -106,13 +106,13 @@ def _sequential_optimize(
             candidate = rounding_func(candidate.view(-1)).view(*candidate_shape)
         candidate_list.append(candidate)
         candidates = torch.cat(candidate_list, dim=-2)
-        acq_function.set_X_pending(
+        acq_function._set_X_pending(
             torch.cat([base_X_pending, candidates], dim=-2)
             if base_X_pending is not None
             else candidates
         )
     # Reset acq_func to previous X_pending state
-    acq_function.set_X_pending(base_X_pending)
+    acq_function._set_X_pending(base_X_pending)
     return candidates
 
 
