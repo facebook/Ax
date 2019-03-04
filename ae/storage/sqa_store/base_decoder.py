@@ -260,6 +260,7 @@ class Decoder:
                 f"is an invalid type."
             )
         properties = metric_sqa.properties or {}
+        # pyre-fixme[29]: `Type[Any]` is not a function.
         metric = metric_class(
             name=metric_sqa.name,
             lower_is_better=metric_sqa.lower_is_better,
@@ -398,6 +399,7 @@ class Decoder:
                 f"is an invalid type."
             )
         properties = runner_sqa.properties or {}
+        # pyre-fixme[29]: `Type[Any]` is not a function.
         return runner_class(**properties)
 
     @classmethod

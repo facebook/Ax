@@ -131,6 +131,7 @@ class GPyGP(NumpyModel):
                     ]
                 self.models = [future.result() for future in futures]
         else:
+            # pyre-fixme[6]: Expected `ndarray` for 1st param but got `Optional[Union...
             self.models = [_get_GP(**kwargs) for kwargs in fit_kwargs]
         # Store MAP parameters
         self.params = [m.optimizer_array.copy() for m in self.models]
@@ -387,6 +388,7 @@ class GPyGP(NumpyModel):
         # Outcomes used in optimization must be fantasized
         fantasy_models: Dict[int, List[GPy.core.gp.GP]] = {obj_idx: []}
         for idx, _, _ in con_list:
+            # pyre-fixme[35]: Target cannot be annotated.
             fantasy_models[idx]: List[GPy.core.gp.GP] = []
         # Args to _get_GP
         fit_kwargs = {

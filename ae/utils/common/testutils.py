@@ -39,6 +39,7 @@ def _get_tb_lines(tb: types.TracebackType) -> List[Tuple[str, int, str]]:
     return res
 
 
+# pyre-fixme[11]: Type `_AssertRaisesContext` is not defined.
 class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
     """
     Attributes:
@@ -62,7 +63,7 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
         )
         self.lineno = None
         self.filename = None
-        # pyre-ignore[19]: Call `object.__init__` expects -3 positional arguments
+        # pyre-fixme[28]: Unexpected keyword argument `expected`.
         super().__init__(
             expected=expected, test_case=test_case, expected_regex=expected_regex
         )
@@ -76,6 +77,7 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
         """This is called when the context closes. If an exception was raised
         `exc_type`, `exc_value` and `tb` will be set.
         """
+        # pyre-fixme[16]: `object` has no attribute `__exit__`.
         if not super().__exit__(exc_type, exc_value, tb):
             return False  # reraise
         # super().__exit__ will throw if exc_type is None
@@ -144,44 +146,17 @@ class TestCase(unittest.TestCase):
             sys.stderr = old_err
 
     # This list is taken from the python standard library
-    # pyre: Attribute `assertEquals` of class `ae.lazarus.ae.utils.testutils.
-    # pyre: TestCase` has no type specified. Attribute `failUnlessEqual` of
-    # pyre-fixme[4]: class `ae.lazarus.ae.utils.testutils.TestCase` has no type specified.
     failUnlessEqual = assertEquals = _deprecate(unittest.TestCase.assertEqual)
-    # pyre: Attribute `assertNotEquals` of class `ae.lazarus.ae.utils.testutils.
-    # pyre: TestCase` has no type specified. Attribute `failIfEqual` of class
-    # pyre-fixme[4]: `ae.lazarus.ae.utils.testutils.TestCase` has no type specified.
     failIfEqual = assertNotEquals = _deprecate(unittest.TestCase.assertNotEqual)
-    # pyre: Attribute `assertAlmostEquals` of class `ae.lazarus.ae.utils.
-    # pyre: testutils.TestCase` has no type specified. Attribute
-    # pyre: `failUnlessAlmostEqual` of class `ae.lazarus.ae.utils.testutils.
-    # pyre-fixme[4]: TestCase` has no type specified.
     failUnlessAlmostEqual = assertAlmostEquals = _deprecate(
         unittest.TestCase.assertAlmostEqual
     )
-    # pyre: Attribute `assertNotAlmostEquals` of class `ae.lazarus.ae.utils.
-    # pyre: testutils.TestCase` has no type specified. Attribute
-    # pyre: `failIfAlmostEqual` of class `ae.lazarus.ae.utils.testutils.TestCase`
-    # pyre-fixme[4]: has no type specified.
     failIfAlmostEqual = assertNotAlmostEquals = _deprecate(
         unittest.TestCase.assertNotAlmostEqual
     )
-    # pyre: Attribute `assert_` of class `ae.lazarus.ae.utils.testutils.TestCase`
-    # pyre: has no type specified. Attribute `failUnless` of class `ae.lazarus.ae.
-    # pyre-fixme[4]: utils.testutils.TestCase` has no type specified.
     failUnless = assert_ = _deprecate(unittest.TestCase.assertTrue)
-    # pyre: Attribute `failUnlessRaises` of class `ae.lazarus.ae.utils.testutils.
-    # pyre-fixme[4]: TestCase` has no type specified.
     failUnlessRaises = _deprecate(unittest.TestCase.assertRaises)
-    # pyre: Attribute `failIf` of class `ae.lazarus.ae.utils.testutils.TestCase`
-    # pyre-fixme[4]: has no type specified.
     failIf = _deprecate(unittest.TestCase.assertFalse)
-    # pyre: Attribute `assertRaisesRegexp` of class `ae.lazarus.ae.utils.
-    # pyre-fixme[4]: testutils.TestCase` has no type specified.
     assertRaisesRegexp = _deprecate(unittest.TestCase.assertRaisesRegex)
-    # pyre: Attribute `assertRegexpMatches` of class `ae.lazarus.ae.utils.
-    # pyre-fixme[4]: testutils.TestCase` has no type specified.
     assertRegexpMatches = _deprecate(unittest.TestCase.assertRegex)
-    # pyre: Attribute `assertNotRegexpMatches` of class `ae.lazarus.ae.utils.
-    # pyre-fixme[4]: testutils.TestCase` has no type specified.
     assertNotRegexpMatches = _deprecate(unittest.TestCase.assertNotRegex)

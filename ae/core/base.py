@@ -46,10 +46,8 @@ def _numpy_type_to_python_type(value: Any) -> Any:
     """If `value` is a numpy int or float, coerce to a python int or float.
     This is necessary because some of our transforms return numpy values.
     """
-    # pyre-fixme[20]: Call `object.__eq__` expects argument `o`.
     if type(value) == np.int64:
         value = int(value)  # pragma: nocover (covered by generator tests)
-    # pyre-fixme[20]: Call `object.__eq__` expects argument `o`.
     if type(value) == np.float64:
         value = float(value)  # pragma: nocover  (covered by generator tests)
     return value

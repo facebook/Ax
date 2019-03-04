@@ -42,4 +42,5 @@ def copy_doc(src: _T) -> _T:
         dst.__doc__ = src.__doc__
         return dst
 
+    # pyre-fixme[7]: Expected `_T` but got `Callable[[_T], _T]`.
     return copy_doc

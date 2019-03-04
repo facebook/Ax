@@ -132,6 +132,7 @@ class DiscreteGenerator(Generator):
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             fixed_features=fixed_features_dict,
+            # pyre-fixme[6]: Expected `Optional[List[List[List[Optional[Union[bool, f...
             pending_observations=pending_array,
             model_gen_options=model_gen_options,
         )

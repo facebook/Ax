@@ -299,6 +299,7 @@ class Generator(ABC):
         observation_data = self._predict(observation_features)
 
         # Apply reverse transforms, in reverse order
+        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(self.transforms.values()):  # noqa T484
             observation_features = t.untransform_observation_features(
                 observation_features
@@ -390,6 +391,7 @@ class Generator(ABC):
         )
 
         # Apply reverse transforms
+        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(self.transforms.values()):  # noqa T484
             observation_features = t.untransform_observation_features(
                 observation_features
@@ -474,6 +476,7 @@ class Generator(ABC):
             obs_feats=obs_feats, obs_data=obs_data, cv_test_points=cv_test_points
         )
         # Apply reverse transforms, in reverse order
+        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(self.transforms.values()):
             cv_test_points = t.untransform_observation_features(cv_test_points)
             cv_predictions = t.untransform_observation_data(

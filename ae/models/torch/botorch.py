@@ -55,6 +55,7 @@ class BotorchModel(TorchModel):
         if acquisition_function_args is None:
             acquisition_function_args = {"mc_samples": 500, "qmc": True}
         self.acquisition_function_args = acquisition_function_args
+        # pyre-fixme[8]: Attribute has type `MultiOutputGP`; used as `None`.
         self.model = None
         self.Xs = []
         self.Ys = []
@@ -147,6 +148,7 @@ class BotorchModel(TorchModel):
                 "This model does not support linear parameter constraints."
             )
 
+        # pyre-fixme[9]: acquisition_function has type `Optional[Module]`; used as `O...
         acquisition_function: Optional[torch.nn.Module] = options.get(
             "acquisition_function"
         )
@@ -156,6 +158,7 @@ class BotorchModel(TorchModel):
             X_observed = self.Xs[0]
             if not all(torch.allclose(X, X_observed) for X in self.Xs[1:]):
                 raise NotImplementedError("Currently, only block design is supported")
+            # pyre-fixme[16]: Module `functional` has no attribute `get_infeasible_co...
             infeasible_cost = get_infeasible_cost(
                 X=X_observed, model=self.model, objective=objective_transform
             )
@@ -168,6 +171,7 @@ class BotorchModel(TorchModel):
                 infeasible_cost=infeasible_cost,
                 X_pending=X_pending,
                 acquisition_function_args=self.acquisition_function_args,
+                # pyre-fixme[16]: `Tensor` has no attribute `item`.
                 seed=torch.randint(1, 10000, (1,)).item(),
             )
 
@@ -175,14 +179,19 @@ class BotorchModel(TorchModel):
         bounds_ = bounds_.transpose(0, 1)
 
         # TODO: implement better random restart heuristic
+        # pyre-fixme[9]: opts has type `Dict[str, Union[bool, float, int]]`; used as ...
         opts: Dict[str, Union[bool, float, int]] = options
+        # pyre-fixme[9]: num_restarts has type `int`; used as `Union[float, str]`.
         num_restarts: int = options.get("num_restarts", 20)
+        # pyre-fixme[9]: raw_samples has type `int`; used as `Union[float, str]`.
         raw_samples: int = options.get(
             "num_raw_samples", 1000 if self.device == torch.device("cpu") else 5000
         )
+        # pyre-fixme[9]: joint_optimization has type `bool`; used as `Union[float, st...
         joint_optimization: bool = options.get("joint_optimization", False)
         optimize = _joint_optimize if joint_optimization else _sequential_optimize
         candidates = optimize(
+            # pyre-fixme[6]: Expected `BatchAcquisitionFunction` for 1st param but go...
             acq_function=acquisition_function,
             bounds=bounds_,
             n=n,

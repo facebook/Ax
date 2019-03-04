@@ -274,6 +274,7 @@ class ArrayGenerator(Generator):
             )
         ]
         # reverse loop through the transforms and do untransform
+        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(self.transforms.values()):
             observation_features = t.untransform_observation_features(
                 observation_features

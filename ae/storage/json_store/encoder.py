@@ -59,7 +59,6 @@ def object_to_json(object: Any) -> Any:
 def _is_named_tuple(x: Any) -> bool:
     t = type(x)
     b = t.__bases__
-    # pyre-fixme[20]: Call `object.__eq__` expects argument `o`.
     if len(b) != 1 or b[0] != tuple:
         return False
     f = getattr(t, "_fields", None)

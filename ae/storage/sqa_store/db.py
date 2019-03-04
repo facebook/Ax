@@ -72,9 +72,11 @@ class SQABase(object):
             return False  # pragma: no cover
         for x in l1:
             for y in l2:
+                # pyre-fixme[20]: Argument `o` expected.
                 if type(x) != type(y):
                     equal = False
                 if isinstance(x, SQABase):
+                    # pyre-fixme[6]: Expected `SQABase` for 1st param but got `T`.
                     equal = x.equals(y)
                 elif isinstance(x, (int, float, str, bool, Enum)):
                     equal = x == y
@@ -124,6 +126,7 @@ class SQABase(object):
         new_list = []
         for y in l2:  # For each item in the new list
             for x in l1:  # Check if there is a matching item in the old list
+                # pyre-fixme[20]: Argument `o` expected.
                 if type(x) != type(y):
                     equal = False
                 elif isinstance(x, SQABase):
@@ -136,6 +139,7 @@ class SQABase(object):
                         # there is an exact match, and if there isn't, we
                         # throw away the old item and insert the new one.
                         # This will happen for ParameterConstraints
+                        # pyre-fixme[6]: Expected `SQABase` for 1st param but got `T`.
                         equal = x.equals(y)
                     else:
                         x_unique_value = getattr(x, unique_id)
@@ -147,6 +151,7 @@ class SQABase(object):
                             # and if not, we throw away the old item and insert
                             # the new one. This will happen for GeneratorRuns
                             # wrapped around Trial status quos.
+                            # pyre-fixme[6]: Expected `SQABase` for 1st param but got...
                             equal = x.equals(y)
                         else:
                             equal = x_unique_value == y_unique_value
@@ -154,6 +159,7 @@ class SQABase(object):
                             # i.e. have the same unique value but possibly differ
                             # in other ways, we can recursively update.
                             if equal:
+                                # pyre-fixme[6]: Expected `SQABase` for 1st param but...
                                 x.update(y)
                 elif isinstance(x, (int, float, str, bool, dict, Enum)):
                     # Right now, the only times we perform an update on a list
@@ -169,6 +175,7 @@ class SQABase(object):
                 if equal:
                     # If we found a matching item (and potentially updated it)
                     # we add it to our new list and stop looking for a match.
+                    # pyre-fixme[6]: Expected `T` for 1st param but got `Union[Dict[A...
                     new_list.append(x)
                     break
             else:
@@ -192,7 +199,6 @@ class SQABase(object):
                 continue
             self_val = getattr(self, field)
             other_val = getattr(other, field)
-            # pyre-fixme[20]: Call `object.__eq__` expects argument `o`.
             if type(self_val) != type(other_val):
                 return False
             if isinstance(self_val, list):
@@ -237,7 +243,6 @@ class SQABase(object):
         for field in immutable_fields:
             self_val = getattr(self, field)
             other_val = getattr(other, field)
-            # pyre-fixme[20]: Call `object.__eq__` expects argument `o`.
             if type(self_val) != type(other_val):
                 equal = False
             if isinstance(self_val, list):
@@ -379,7 +384,6 @@ def get_session() -> Session:
     if SESSION_FACTORY is None:
         init_engine_and_session_factory()  # pragma: no cover
     assert SESSION_FACTORY is not None
-    # pyre-fixme[29]: `sqlalchemy.orm.session.Session` is not a function.
     return SESSION_FACTORY()
 
 

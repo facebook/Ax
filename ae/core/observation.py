@@ -180,6 +180,7 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
             features["arm_name"]
         ].params.copy()
         for f in ["trial_index", "start_time", "end_time", "random_split"]:
+            # pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float, str]]]` ...
             obs_kwargs[f] = features.get(f, None)
         observations.append(
             Observation(

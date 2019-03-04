@@ -53,7 +53,7 @@ def rejection_sample(
             "Rounding function must be provided for deduplication."  # pragma: no cover
         )
 
-    failed_constraint_dict: TParamCounter = defaultdict(lambda: 0)  # pyre-ignore
+    failed_constraint_dict: TParamCounter = defaultdict(lambda: 0)
     # Rejection sample with parameter constraints.
     points = np.zeros((n, d))
 

@@ -115,6 +115,7 @@ class ThompsonSampler(DiscreteModel):
         f = np.zeros((n, m))  # array of outcome predictions
         cov = np.zeros((n, m, m))  # array of predictive covariances
         predictX = [self._hash_TParamValueList(x) for x in X]
+        # pyre-fixme[6]: Expected `Iterable[_T]` for 1st param but got `None`.
         for i, (X_to_Y_and_Yvar) in enumerate(self.X_to_Ys_and_Yvars):
             # iterate through outcomes
             for j, x in enumerate(predictX):
@@ -179,6 +180,7 @@ class ThompsonSampler(DiscreteModel):
             # pyre-fixme[6]: call `len` but got `typing.Type[None]`.
             (k, num_samples, len(self.Ys))
         )  # k x num_samples x m
+        # pyre-fixme[6]: Expected `Iterable[_T]` for 1st param but got `None`.
         for i, Y in enumerate(self.Ys):  # (k x 1)
             # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
             Yvar = self.Yvars[i]  # (k x 1)

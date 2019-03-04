@@ -67,7 +67,6 @@ class ParameterConstraint(Base):
         )
         # Expected `int` for 2nd anonymous parameter to call `int.__le__` but got
         # `float`.
-        # pyre-fixme[6]:
         return weighted_sum <= self._bound
 
     def clone(self) -> "ParameterConstraint":

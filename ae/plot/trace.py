@@ -171,6 +171,7 @@ def optimization_trace_single_method(
         AEPlotConfig: plot of the optimization trace with IQR
     """
     trace = mean_trace_scatter(y=y, trace_color=trace_color)
+    # pyre-fixme[23]: Unable to unpack single value, 2 were expected.
     lower, upper = sem_range_scatter(y=y, trace_color=trace_color)
 
     layout = go.Layout(  # pyre-ignore[16]: ...graph_objs` has no attr. `Layout`
@@ -243,6 +244,7 @@ def optimization_trace_all_methods(
         # If there are more traces than colors, start reusing colors.
         color = trace_colors[i % len(trace_colors)]
         trace = mean_trace_scatter(y=y, trace_color=color, legend_label=method)
+        # pyre-fixme[23]: Unable to unpack single value, 2 were expected.
         lower, upper = sem_range_scatter(y=y, trace_color=color, legend_label=method)
 
         data.extend([lower, trace, upper])

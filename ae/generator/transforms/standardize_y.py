@@ -33,8 +33,6 @@ class StandardizeY(Transform):
                 "StandardizeY transform requires non-empty observation data."
             )
         # Compute means and SDs
-        # pyre: Ys is declared to have type `DefaultDict[str, List[float]]`
-        # pyre-fixme[9]: but is used as type `defaultdict`.
         Ys: DefaultDict[str, List[float]] = defaultdict(list)
         for obsd in observation_data:
             for i, m in enumerate(obsd.metric_names):
@@ -43,7 +41,6 @@ class StandardizeY(Transform):
         # str]]]], List[float]]` for 1st anonymous parameter to call
         # `ae.lazarus.ae.generator.transforms.standardize_y.compute_standardization_params`
         # but got `DefaultDict[str, List[float]]`.
-        # pyre-fixme[6]:
         self.Ymean, self.Ystd = compute_standardization_params(Ys)
 
     def transform_observation_data(
@@ -62,6 +59,7 @@ class StandardizeY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
+        # pyre-fixme[11]: Type `Generator` is not defined.
         generator: Optional["Generator"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:

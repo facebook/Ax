@@ -23,6 +23,7 @@ def not_none(val: Optional[T]) -> T:
     return val
 
 
+# pyre-fixme[34]: `T` isn't present in the function's parameters.
 def checked_cast(typ: Type[V], val: V) -> T:
     """
     Cast a value to a type (with a runtime safety check).
@@ -47,6 +48,7 @@ def checked_cast(typ: Type[V], val: V) -> T:
     return val
 
 
+# pyre-fixme[34]: `T` isn't present in the function's parameters.
 def checked_cast_optional(typ: Type[V], val: Optional[V]) -> Optional[T]:
     """Calls checked_cast only if value is not None."""
     if val is None:
@@ -54,12 +56,11 @@ def checked_cast_optional(typ: Type[V], val: Optional[V]) -> Optional[T]:
     return checked_cast(typ, val)
 
 
+# pyre-fixme[34]: `T` isn't present in the function's parameters.
 def checked_cast_list(typ: Type[V], l: List[V]) -> List[T]:
     """Calls checked_cast on all items in a list."""
     new_l = []
     for val in l:
-        # pyre: Globally accessible variable `val` has type `undefined` but no
-        # pyre-fixme[5]: type is specified.
         val = checked_cast(typ, val)
         new_l.append(val)
     return l

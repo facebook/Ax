@@ -22,6 +22,7 @@ class Derelativize(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
+        # pyre-fixme[11]: Type `Generator` is not defined.
         generator: Optional["Generator"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
