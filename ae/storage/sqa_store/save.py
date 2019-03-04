@@ -3,7 +3,6 @@
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.storage.sqa_store.base_encoder import Encoder
 from ae.lazarus.ae.storage.sqa_store.db import session_scope
-from ae.lazarus.ae.storage.sqa_store.sqa_classes import SQAExperiment
 
 
 def save_experiment(experiment: Experiment) -> None:
@@ -24,8 +23,9 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
     """
     with session_scope() as session:
         new_sqa_experiment = encoder.experiment_to_sqa(experiment)
+        exp_sqa_class = encoder.class_to_sqa_class[Experiment]
         existing_sqa_experiment = (
-            session.query(SQAExperiment).filter_by(name=experiment.name).one_or_none()
+            session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
         )
         if existing_sqa_experiment is None:
             session.add(new_sqa_experiment)

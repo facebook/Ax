@@ -2,7 +2,7 @@
 
 import inspect
 from enum import EnumMeta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base import Base
@@ -72,7 +72,7 @@ class Encoder:
     -- generator_run_type_enum: Enum containing valid Generator Run types.
     """
 
-    class_to_sqa_class: Dict[Base, SQABase] = {
+    class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = {
         AbandonedArm: SQAAbandonedArm,
         Arm: SQAArm,
         Experiment: SQAExperiment,
@@ -205,7 +205,6 @@ class Encoder:
         """Convert AE ParameterConstraint to SQLAlchemy."""
         # pyre-fixme[9]: parameter_constraint_cl... used as type `SQABase`.
         parameter_constraint_class: SQAParameterConstraint = cls.class_to_sqa_class[
-            # pyre-fixme[6]: Expected `Base` for 1st...e[ParameterConstraint]`.
             ParameterConstraint
         ]
         if isinstance(parameter_constraint, OrderConstraint):
