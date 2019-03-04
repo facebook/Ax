@@ -29,7 +29,7 @@ class MockAcquisitionFunction:
     def __call__(self, X):
         return X[..., 0].max(dim=-1)[0]
 
-    def set_X_pending(self, X_pending):
+    def _set_X_pending(self, X_pending):
         self.X_pending = X_pending
 
 
