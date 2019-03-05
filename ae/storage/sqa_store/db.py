@@ -235,6 +235,11 @@ class SQABase(object):
             elif isinstance(self_val, SQABase) and isinstance(other_val, SQABase):
                 self_val.update(other_val)
                 other_val = self_val
+            elif isinstance(self_val, datetime) and isinstance(other_val, datetime):
+                if datetime_equals(self_val, other_val):
+                    continue
+            elif self_val == other_val:
+                continue
             setattr(self, field, other_val)
 
     def validate_update(self, other: "SQABase") -> None:

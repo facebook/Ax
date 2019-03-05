@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from collections import OrderedDict
+from datetime import datetime
 from unittest.mock import MagicMock, Mock
 
 from ae.lazarus.ae.core.arm import Arm
@@ -742,3 +743,10 @@ class SQAStoreTest(TestCase):
             sqa_runner.experiment_id = 0
             with session_scope() as session:
                 session.add(sqa_runner)
+
+    def testTimestampUpdate(self):
+        self.experiment.trials[0]._time_staged = datetime.now()
+        save_experiment(self.experiment)
+
+        # second save should not fail
+        save_experiment(self.experiment)
