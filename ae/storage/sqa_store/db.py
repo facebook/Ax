@@ -397,3 +397,5 @@ def session_scope() -> Generator[Session, None, None]:
     except Exception:  # pragma: no cover
         session.rollback()  # pragma: no cover
         raise  # pragma: no cover
+    finally:
+        session.close()
