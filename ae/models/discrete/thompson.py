@@ -26,11 +26,11 @@ class ThompsonSampler(DiscreteModel):
     ) -> None:
         """
         Args:
-            num_samples (int): The number of samples to draw from the posterior.
-            min_weight (float, Optional): The minimum weight a arm must be
+            num_samples: The number of samples to draw from the posterior.
+            min_weight: The minimum weight a arm must be
                 given in order for it to be returned from the gernerator. If not
                 specified, will be set to 2 / (number of arms).
-            uniform_weights (bool): If True, the arms returned from the
+            uniform_weights: If True, the arms returned from the
                 generator will each be given a weight of 1 / (number of arms).
         """
         self.num_samples = num_samples

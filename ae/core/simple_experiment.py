@@ -28,19 +28,19 @@ class SimpleExperiment(Experiment):
     Simplified experiment class with defaults.
 
     Args:
-        name (str): name of this experiment
-        search_space (SearchSpace): parameter space
-        evaluation_function (TEvaluationFunction): function that evaluates
+        name: name of this experiment
+        search_space: parameter space
+        evaluation_function: function that evaluates
             mean and standard error for a parameter configuration. This
             function should accept a dictionary of parameter names to parameter
             values (TParametrization) and an optional weight, and return a tuple
             of a dictionary of metric names to means and a dictionary of metric
             names to standard errors (TEvaluationOutcome)
-        objective_name (str): which of the metrics computed by the evaluation
+        objective_name: which of the metrics computed by the evaluation
             function is the objective
-        minimize (bool, optional): whether the objective should be minimized,
+        minimize: whether the objective should be minimized,
             defaults to False
-        outcome_constraints (List[OutcomeConstraint]): constraints on the outcome,
+        outcome_constraints: constraints on the outcome,
             if any
         status_quo: Arm representing existing "control" arm
     """
@@ -76,7 +76,7 @@ class SimpleExperiment(Experiment):
         experiment.
 
         Args:
-            trial (BatchTrial): trial, whose arms to evaluate.
+            trial: trial, whose arms to evaluate.
         """
         cached_data = self.lookup_data_for_trial(trial.index)
         if not cached_data.df.empty:

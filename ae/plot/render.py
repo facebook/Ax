@@ -60,7 +60,7 @@ def _js_requires(offline: bool = False) -> str:
     """Format JS requires for Plotly dependency.
 
     Args:
-        offline (bool): if True, inject entire Plotly library for offline use.
+        offline: if True, inject entire Plotly library for offline use.
 
     Returns:
         str: <script> block with Plotly dependency.
@@ -105,8 +105,8 @@ def _plot_js_to_html(js_script: str, plotdivid: str) -> str:
     div.
 
     Args:
-        js_script (str): JS for rendering plot.
-        plotdivid (str): unique string ID for div.
+        js_script: JS for rendering plot.
+        plotdivid: unique string ID for div.
 
     """
     plot_div = (

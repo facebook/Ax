@@ -19,26 +19,26 @@ def constraint_power(
         given a set of sufficient statistics.
 
     Arguments:
-        n (numeric): Total sample size to use in power calculation
-        mu_t (numeric): The assumed mean in treatment group.
-        mu_c (numeric): The assumed mean in control group.
-        v_t (numeric): The assumed variance in the treatment group (NOT the
+        n: Total sample size to use in power calculation
+        mu_t: The assumed mean in treatment group.
+        mu_c: The assumed mean in control group.
+        v_t: The assumed variance in the treatment group (NOT the
             variance of the estimate of the mean).
-        v_c (numeric): The assumed variance in the control group (NOT the
+        v_c: The assumed variance in the control group (NOT the
             variance of the estimate of the mean).
-        constraint (numeric): The relative constraint to test against. (e.g.
+        constraint: The relative constraint to test against. (e.g.
             0.05 means testing that the treatment group is at least 5% greater
             than the status_quo).
-        constraint_direction (string): One of 'GT' or 'LT'. The direction the
+        constraint_direction: One of 'GT' or 'LT'. The direction the
             constraint applies. GT implies that the treatment group must be
             greater than the status quo, LT vice versa.
-        n_sim (numeric): The number of simulations to run to estimate power.
-        alpha (numeric): The desired significance level.
-        prob (numeric): The probability of assignment to treatment (1 - prob is
+        n_sim: The number of simulations to run to estimate power.
+        alpha: The desired significance level.
+        prob: The probability of assignment to treatment (1 - prob is
             the assignment probability to control).
 
     Returns:
-        power (numeric): The realized power for the given parameters.
+        power: The realized power for the given parameters.
     """
     n_t = prob * n
     n_c = n - n_t
@@ -75,26 +75,26 @@ def constraint_sample_size(
     constraint using non-inferiority testing.
 
     Arguments:
-        mu_t (numeric): The assumed mean in the treatment group.
-        mu_c (numeric): The assumed mean in the control group.
-        v_t (numeric): The assumed variance in the treatment group (NOT the
+        mu_t: The assumed mean in the treatment group.
+        mu_c: The assumed mean in the control group.
+        v_t: The assumed variance in the treatment group (NOT the
             variance of the estimate of the mean).
-        v_c (numeric): The assumed variance in the control group (NOT the
+        v_c: The assumed variance in the control group (NOT the
             variance of the estimate of the mean).
-        constraint (numeric): The relative constraint to test against. (e.g.
+        constraint: The relative constraint to test against. (e.g.
             0.05 means testing that the treatment group is at least 5% greater
             than the status_quo).
-        constraint_direction (string): One of 'GT' or 'LT'. The direction the
+        constraint_direction: One of 'GT' or 'LT'. The direction the
             constraint applies. GT implies that the treatment group must be
             greater than the status quo, LT vice versa.
-        n_sim (numeric): The number of simulations to run to estimate power.
-        alpha (numeric): The desired significance level.
-        power (numeric): The desired power.
-        verbose (bool): If True log results of all individual sample
+        n_sim: The number of simulations to run to estimate power.
+        alpha: The desired significance level.
+        power: The desired power.
+        verbose: If True log results of all individual sample
             size calculcations.
 
     Returns:
-        n (numeric): The necessary sample size for the given arguments. Returns
+        n: The necessary sample size for the given arguments. Returns
             inf if required size is greater than 1e10.
     """
     power_fn = partial(
@@ -151,22 +151,22 @@ def feasible_constraint(
     specified level of power to detect a violation using non-inferiority testing.
 
     Arguments:
-        n (numeric): Sample size to use in power calculation.
-        mu_t (numeric): The assumed mean in the treatment group.
-        mu_c (numeric): The assumed mean in the control group.
-        v_t (numeric): The assumed variance in the treatment group (NOT the
+        n: Sample size to use in power calculation.
+        mu_t: The assumed mean in the treatment group.
+        mu_c: The assumed mean in the control group.
+        v_t: The assumed variance in the treatment group (NOT the
             variance of the estimate of the mean).
-        v_c (numeric): The assumed variance in the control group (NOT the
+        v_c: The assumed variance in the control group (NOT the
             variance of the estimate of the mean).
-        constraint (numeric): The relative constraint to test against. (e.g.
+        constraint: The relative constraint to test against. (e.g.
             0.05 means testing that the treatment group is at least 5% greater
             than the status_quo)
-        constraint_direction (string): One of 'GT' or 'LT'. The direction the
+        constraint_direction: One of 'GT' or 'LT'. The direction the
             constraint applies. GT implies that the treatment group must be
             greater than the status quo, LT vice versa.
-        n_sim (numeric): The number of simulations to run to estimate power.
-        alpha (numeric): The desired significance level.
-        verbose (bool): If True log results of all individual sample
+        n_sim: The number of simulations to run to estimate power.
+        alpha: The desired significance level.
+        verbose: If True log results of all individual sample
             size calculcations.
 
     Returns:

@@ -69,13 +69,13 @@ def render_report_elements(
         html = render_report_elements('My experiment', html_elements)
 
     Args:
-        experiment_name (str): the name of the experiment to use for title.
-        html_elements (List[str]): list of HTML strings to render in report
+        experiment_name: the name of the experiment to use for title.
+        html_elements: list of HTML strings to render in report
             body.
-        header (bool, optional): if True, render experiment title as a header.
+        header: if True, render experiment title as a header.
             Meant to be used for standalone reports (e.g. via email), as opposed
             to served on the front-end.
-        offline (bool, optional): if True, entire Plotly library is bundled
+        offline: if True, entire Plotly library is bundled
             with report.
 
     Returns:

@@ -32,9 +32,9 @@ class FullFactorialGenerator(DiscreteModel):
     ) -> None:
         """
         Args:
-            max_cardinality (int, optional): maximum number of arms allowed if
+            max_cardinality: maximum number of arms allowed if
                 check_cardinality == True. Default is 100.
-            check_cardinality (bool, optional): if True, throw if number of arms
+            check_cardinality: if True, throw if number of arms
                 exceeds max_cardinality.
         """
         super().__init__()

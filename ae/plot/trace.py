@@ -21,10 +21,10 @@ def mean_trace_scatter(
     runs.
 
     Args:
-        y (np.ndarray): (r x t) array with results from  r runs and t trials.
-        trace_color (Tuple[int]): tuple of 3 int values representing an RGB color.
+        y: (r x t) array with results from  r runs and t trials.
+        trace_color: tuple of 3 int values representing an RGB color.
             Defaults to blue.
-        legend_label (str, optional): label for this trace
+        legend_label: label for this trace
 
     Returns:
         go.Scatter: plotly graph object
@@ -49,8 +49,8 @@ def sem_range_scatter(
     """Creates a graph object for trace of mean +/- 2 SEMs for y, across runs.
 
     Args:
-        y (np.ndarray): (r x t) array with results from  r runs and t trials.
-        trace_color (Tuple[int]): tuple of 3 int values representing an RGB color.
+        y: (r x t) array with results from  r runs and t trials.
+        trace_color: tuple of 3 int values representing an RGB color.
             Defaults to blue.
         legend_label: Label for the legend group.
 
@@ -89,10 +89,10 @@ def optimum_objective_scatter(
     """Creates a graph object for the line representing optimal objective.
 
     Args:
-        optimum (float): value of the optimal objective
-        num_iterations (int): how many trials were in the optimization (used to
+        optimum: value of the optimal objective
+        num_iterations: how many trials were in the optimization (used to
             determine the width of the plot)
-        trace_color (Tuple[int]): tuple of 3 int values representing an RGB color.
+        trace_color: tuple of 3 int values representing an RGB color.
             Defaults to orange.
 
     Returns:
@@ -115,10 +115,10 @@ def generator_changes_scatter(
     """Creates a graph object for the line(s) representing generator changes.
 
     Args:
-        generator_changes (List[float]): iterations, before which generators
+        generator_changes: iterations, before which generators
             changed
-        y_range (List[float]): upper and lower values of the y-range of the plot
-        generator_change_color (Tuple[int]): tuple of 3 int values representing
+        y_range: upper and lower values of the y-range of the plot
+        generator_change_color: tuple of 3 int values representing
             an RGB color. Defaults to orange.
 
     Returns:
@@ -154,17 +154,17 @@ def optimization_trace_single_method(
     """Plots an optimization trace with mean and 2 SEMs
 
     Args:
-        y (np.ndarray): (r x t) array; result to plot, with r runs and t trials
-        optimum (float): value of the optimal objective
-        generator_changes (List[float]): iterations, before which generators
+        y: (r x t) array; result to plot, with r runs and t trials
+        optimum: value of the optimal objective
+        generator_changes: iterations, before which generators
             changed
-        title (str): title of this plot
+        title: title of this plot
         ylabel: Label for y axis
-        trace_color (Tuple[int]): tuple of 3 int values representing an RGB color.
+        trace_color: tuple of 3 int values representing an RGB color.
             Defaults to orange.
-        optimum_color (Tuple[int]): tuple of 3 int values representing an RGB color.
+        optimum_color: tuple of 3 int values representing an RGB color.
             Defaults to orange.
-        generator_change_color (Tuple[int]): tuple of 3 int values representing
+        generator_change_color: tuple of 3 int values representing
             an RGB color. Defaults to orange.
 
     Returns:
@@ -226,13 +226,13 @@ def optimization_trace_all_methods(
     Args:
         y: a mapping of method names to (r x t) arrays, where r is the number
             of runs in the test, and t is the number of trials.
-        optimum (float, optional): value of the optimal objective.
+        optimum: value of the optimal objective.
         title: Title for this plot.
         ylabel: Label for y axis
-        trace_colors (List[Tuple[int]]): tuples of 3 int values representing
+        trace_colors: tuples of 3 int values representing
             RGB colors to use for different methods shown in the combination plot.
             Defaults to AE discrete color scale.
-        optimum_color (Tuple[int]): tuple of 3 int values representing an RGB color.
+        optimum_color: tuple of 3 int values representing an RGB color.
             Defaults to orange.
 
     Returns:

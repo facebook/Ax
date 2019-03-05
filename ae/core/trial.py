@@ -18,8 +18,8 @@ class Trial(BaseTrial):
     """Trial that only has one attached arm and no arm weights.
 
     Args:
-        experiment (Experiment): experiment, to which this trial is attached
-        generator_run (GeneratorRun, optional): generator_run associated with
+        experiment: experiment, to which this trial is attached
+        generator_run: generator_run associated with
             this trial. Trial has only one generator run (and thus arm)
             attached to it. This can also be set later through `add_arm`
             or `add_generator_run`, but a trial's associated genetor run is
@@ -89,7 +89,7 @@ class Trial(BaseTrial):
         """All arms attached to this trial.
 
         Returns:
-            arms (List[Arm], optional): list of a single arm
+            arms: list of a single arm
                 attached to this trial if there is one, else None.
         """
         return [self.arm] if self.arm is not None else []
@@ -100,7 +100,7 @@ class Trial(BaseTrial):
         as keys.
 
         Returns:
-            arms (Dict[Arm], optional): dictionary of a single
+            arms: dictionary of a single
                 arm name to arm if one is attached to this trial,
                 else None.
         """

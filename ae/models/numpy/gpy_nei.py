@@ -175,7 +175,7 @@ def nei_vectorized(
     """Compute NEI at an array of points
 
     Args:
-        X (n x d array): n Points at which to evaluate NEI.
+        X: n Points at which to evaluate NEI.
         fantasy_models: Dictionary of fantasy models.
         obj_idx: Outcome index of objective.
         obj_sign: Sign of the objective weight.
@@ -217,7 +217,7 @@ def nei_and_grad(
     """Compute NEI and its gradient at a point.
 
     Args:
-        x (d array): Point at which to evaluate NEI.
+        x: Point at which to evaluate NEI.
         fantasy_models: Dictionary of fantasy models.
         obj_idx: Outcome index of objective.
         obj_sign: Sign of the objective weight.
@@ -280,8 +280,8 @@ def ei_and_grad(
         f: Model predicted mean.
         f_var: Model predicted variances.
         f_best: Current feasible best.
-        df (n, array): Gradient of mean, in n dimensional space.
-        dvar (n, array): Gradient of variances.
+        df: Gradient of mean, in n dimensional space.
+        dvar: Gradient of variances.
 
     Returns: ei and its gradient.
     """
@@ -299,12 +299,12 @@ def ei_vectorized(f: np.ndarray, f_var: np.ndarray, f_best: float) -> np.ndarray
     Compute EI.
 
     Args:
-        f (n x 1 array): Model predicted means at x, nsamp fantasies.
-        f_var (n x 1 array): Model predicted variances.
+        f: Model predicted means at x, nsamp fantasies.
+        f_var: Model predicted variances.
         f_best: Current feasible best.
 
     Returns:
-        ei (n array): The expected improvement at each point.
+        ei: The expected improvement at each point.
     """
     sd = np.sqrt(f_var)
     indx = sd < 1e-9
@@ -523,7 +523,7 @@ def objective_and_grad(
     fixed_features are added to compute NEI.
 
     Args:
-        x (d' array): Point at which to evaluate NEI, tunable features only.
+        x: Point at which to evaluate NEI, tunable features only.
         tunable_slice: Which features are tunable.
         fixed_features: Values for fixed features.
         fantasy_models: Dictionary of fantasy models.
@@ -558,7 +558,7 @@ def nan_cb(x: np.ndarray) -> None:
     return NaN. If this happens, terminate this run.
 
     Args:
-        x (n array): Current iteration.
+        x: Current iteration.
     """
     if np.isnan(sum(x)):
         raise StopIteration

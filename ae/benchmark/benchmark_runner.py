@@ -63,10 +63,10 @@ class BenchmarkSetup(Experiment):
     benchmarking method and problem combination, etc.
 
     Args:
-        problem (BenchmarkProblem): description of the benchmarking problem for
+        problem: description of the benchmarking problem for
             this setup
-        total_iterations (int): how many optimization iterations to run
-        batch_size (int, optional): if this benchmark requires batch trials,
+        total_iterations: how many optimization iterations to run
+        batch_size: if this benchmark requires batch trials,
             batch size for those. Defaults to None
     """
 
@@ -128,12 +128,12 @@ class BenchmarkRunner:
         A benchmark test consists of repeated full benchmark runs.
 
         Args:
-            setup (BenchmarkSetup): setup, runs on which to execute; includes
+            setup: setup, runs on which to execute; includes
                 a benchmarking problem, total number of iterations, etc.
-            generator_factory (TGeneratorFactory): factory function that returns
+            generator_factory: factory function that returns
                 an instantiated generator, thereby defining a benchmarking
                 method
-            num_runs (int): how many benchmark runs of given problem and method
+            num_runs: how many benchmark runs of given problem and method
                 combination to run with the given setup for one benchmark test
         """
         num_failures = 0

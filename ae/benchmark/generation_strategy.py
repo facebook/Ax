@@ -57,12 +57,12 @@ class GenerationStrategy:
     ... gpei = strategy.get_generator(experiment=exp, data=exp.fetch_data())
 
     Args:
-        generator_factories (List[TGeneratorFactory]): functions that return a
+        generator_factories: functions that return a
             single generator. Index of a factory function in this list will
             correspond to the ordering of generators in a ``GenerationStrategy``.
             This list is expected to have more than one generator factory function.
 
-        arms_per_generator (List[int]): number of arms for each
+        arms_per_generator: number of arms for each
             of the generators in ``generator_factories`` to generate.
     """
 
@@ -133,12 +133,12 @@ class GenerationStrategy:
         strategy starts with the first provided generator.
 
         Args:
-            experiment (Experiment): experiment, for which this generation
+            experiment: experiment, for which this generation
                 strategy will be generating arms.
-            data (Data, optional): data, on which to train the generator, defaults
+            data: data, on which to train the generator, defaults
                 to None.
-            search_space (SearchSpace, optional): search space for this experiment.
-            exclude_abandoned (bool): whether we should exclude abandoned
+            search_space: search space for this experiment.
+            exclude_abandoned: whether we should exclude abandoned
                 arms in the experiment when determining which generator
                 to return (e.g., if this generator strategy uses generator A for
                 first 5 arms, and then generator B, if one of the first 5

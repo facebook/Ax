@@ -23,10 +23,10 @@ class BenchmarkProblem(NamedTuple):
     its optimization configuration, and its search space.
 
     Args:
-        name (str): name of this problem
-        fbest (float): global optimum
-        optimization_config (OptimizationConfig): optimization configuration
-        search_space (SearchSpace): search space, on which this problem is defined
+        name: name of this problem
+        fbest: global optimum
+        optimization_config: optimization configuration
+        search_space: search space, on which this problem is defined
     """
 
     name: str

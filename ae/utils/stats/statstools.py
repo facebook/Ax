@@ -146,9 +146,9 @@ def inverse_variance_weight(
     """Perform inverse variance weighting.
 
     Args:
-        means (np.ndarray): The means of the observations.
-        variances (np.ndarray): The variances of the observations.
-        conflicting_noiseless (str, optional): How to handle the case of
+        means: The means of the observations.
+        variances: The variances of the observations.
+        conflicting_noiseless: How to handle the case of
             multiple observations with zero variance but different means.
             Options are "warn" (default), "ignore" or "raise".
 
@@ -231,11 +231,11 @@ def positive_part_james_stein(
     For more information, see https://fburl.com/empirical_bayes.
 
     Args:
-        means (Kx1 np.array): Means of each arm
-        sems (Kx1 np.array): Standard errors of each arm
+        means: Means of each arm
+        sems: Standard errors of each arm
     Returns:
-        mu_hat_i (Kx1 np.array): Empirical Bayes estimate of each arm's mean
-        sem_i (Kx1 np.array): Empirical Bayes estimate of each arm's sem
+        mu_hat_i: Empirical Bayes estimate of each arm's mean
+        sem_i: Empirical Bayes estimate of each arm's sem
     """
     if np.min(sems) < 0:
         raise ValueError("sems cannot be negative.")
@@ -309,17 +309,17 @@ def relativize(
     the square root of the total number of observations.
 
     Args:
-        means_t (numeric or Kx1 np.array): Sample means (test)
-        sems_t (numeric or Kx1 np.array): Sample standard errors of the means (test)
-        mean_c (numeric): Sample mean (control)
-        sem_c (numeric): Sample standard error of the mean (control)
-        cov_means (numeric or Kx1 np.array): Sample covariance between test and control
-        as_percent (bool, optional): If true, return results in percent (* 100)
+        means_t: Sample means (test)
+        sems_t: Sample standard errors of the means (test)
+        mean_c: Sample mean (control)
+        sem_c: Sample standard error of the mean (control)
+        cov_means: Sample covariance between test and control
+        as_percent: If true, return results in percent (* 100)
 
     Returns:
-        rel_hat (Kx1 np.array): Inferred means of the sampling distribution of
+        rel_hat: Inferred means of the sampling distribution of
             the relative change `(mean_t / mean_c) - 1`
-        sem_hat (Kx1 np.array): Inferred standard deviation of the sampling
+        sem_hat: Inferred standard deviation of the sampling
             distribution of rel_hat -- i.e. the standard error.
 
     """
@@ -356,9 +356,9 @@ def mean_from_nonnull(
     """Compute mean from non-null mean.
 
     Args:
-        mean_nonnull (Union[numeric, array_like]): Sample mean across non-null
+        mean_nonnull: Sample mean across non-null
             observations
-        frac_nonnull (Union[numeric, array_like]): Fraction of non-null
+        frac_nonnull: Fraction of non-null
             observations (must be numeric or of the same shape as mean_nonnull)
 
     Returns:
@@ -375,11 +375,11 @@ def var_from_nonnull(
     """Compute variance from non-null variance and mean.
 
     Args:
-        var_nonnull (Union[numeric, array_like]): Sample variance across
+        var_nonnull: Sample variance across
             non-null observations
-        mean_nonnull (Union[numeric, array_like]): Sample mean across non-null
+        mean_nonnull: Sample mean across non-null
             observations (must be of the same shape as mean_nonnull)
-        frac_nonnull (Union[numeric, array_like]): Fraction of non-null
+        frac_nonnull: Fraction of non-null
             observations (must be numeric or of the same shape as mean_nonnull)
 
     Returns:
@@ -396,12 +396,12 @@ def estimate_correlation_from_splits(
     """Compute metric correlation matrices for all arms from random splits.
 
     Args:
-        split_df (DataFrame): A data frame of the type returned by the .df
+        split_df: A data frame of the type returned by the .df
             attribute of a Data object with a 'random_split' column containing
             the ids of the splits.
 
     Returns:
-        correlations (Dict[str, DataFrame]): A dictionary keyed on arm names
+        correlations: A dictionary keyed on arm names
             whose values are pandas DataFrames indexed (both row and column) by
             metric names, represending the correlation matrix of metrics for the
             respective arm.
@@ -521,8 +521,8 @@ def benjamini_hochberg(p_values: List[float], alpha: float) -> List[int]:
     """Perform Benjamini-Hochberg correction of a list of p-values
 
     Args:
-        p_values (List[float]): The list of (uncorrected) p-values.
-        alpha (float): The false discovery rate.
+        p_values: The list of (uncorrected) p-values.
+        alpha: The false discovery rate.
 
     Returns:
         List[int]: The indices of the "discovered" p-valsues in the input list.
@@ -545,12 +545,12 @@ def relativize_rates_against_mean(
     that serves as the basis is, sum(ps * ns) / sum(ns).
 
     Args:
-        ps (Union[List[float], np.ndarray]): Rates to relativize
-        ns (Union[List[int], np.ndarray]): Sample size for each rate
+        ps: Rates to relativize
+        ns: Sample size for each rate
 
     Returns:
-        means (np.ndarray): Relative risk (relative to the overall mean)
-        sems (np.ndarray): Standard error of relative risk
+        means: Relative risk (relative to the overall mean)
+        sems: Standard error of relative risk
     """
     ps = np.array(ps)
     ns = np.array(ns)
@@ -592,17 +592,17 @@ def ancillary_james_stein(
     This estimates the (fixed) bias as the difference between the biased and
     unbiased means (weighted by the weights argument).
     Args:
-        means_unbiased (Union[List[float], np.ndarray, pd.Series]): Unbiased means
-        sems_unbiased (Union[List[float], np.ndarray, pd.Series]): SEMs for
+        means_unbiased: Unbiased means
+        sems_unbiased: SEMs for
             unbiased means
-        means_biased (Union[List[float], np.ndarray, pd.Series]): Biased means
-        sems_biased (Union[List[float], np.ndarray, pd.Series]): SEMs for biased means
-        ns (Union[List[float], np.ndarray, pd.Series]): weights for calculation of
+        means_biased: Biased means
+        sems_biased: SEMs for biased means
+        ns: weights for calculation of
             bias term
 
     Returns:
-        means (np.ndarray): Empirical bayes estimate of underlying mean
-        sems (np.ndarray): Standard error
+        means: Empirical bayes estimate of underlying mean
+        sems: Standard error
     """
     m_unbiased = np.array(means_unbiased)
     s_unbiased = np.array(sems_unbiased)
@@ -672,13 +672,13 @@ def estimate_aggregated_moments_normal(
     the underlying data were normally distributed for each observation.
 
     Args:
-        means (Union[List[float], np.ndarray, pd.Series]): Means
-        sems (Union[List[float], np.ndarray, pd.Series]): SEMs for means
-        ns (Union[List[float], np.ndarray, pd.Series]): Sample size
+        means: Means
+        sems: SEMs for means
+        ns: Sample size
 
     Returns:
-        mean (float): Aggregated mean (assuming normality of observations)
-        sems (float): Aggregated SEM (assuming normality of observations)
+        mean: Aggregated mean (assuming normality of observations)
+        sems: Aggregated SEM (assuming normality of observations)
     """
     # Cast all to numpy to please typechecker
     means = np.array(means)

@@ -31,14 +31,14 @@ def _get_min_max_with_errors(
     """Get min and max of a bivariate dataset (across variables).
 
     Args:
-        x (List[float]): point estimate of x variable.
-        y (List[float]): point estimate of y variable.
-        sd_x (List[float]): standard deviation of x variable.
-        sd_y (List[float]): standard deviation of y variable.
+        x: point estimate of x variable.
+        y: point estimate of y variable.
+        sd_x: standard deviation of x variable.
+        sd_y: standard deviation of y variable.
 
     Returns:
-        min_ (float): minimum of points, including uncertainty.
-        max_ (float): maximum of points, including uncertainty.
+        min_: minimum of points, including uncertainty.
+        max_: maximum of points, including uncertainty.
 
     """
     min_ = min(
@@ -54,9 +54,9 @@ def _diagonal_trace(min_: float, max_: float, visible: bool = True) -> Dict[str,
     """Diagonal line trace from (min_, min_) to (max_, max_).
 
     Args:
-        min_ (float): minimum to be used for starting point of line.
-        max_ (float): maximum to be used for ending point of line.
-        visible (bool): if True, trace is set to visible.
+        min_: minimum to be used for starting point of line.
+        max_: maximum to be used for ending point of line.
+        visible: if True, trace is set to visible.
 
     """
     return go.Scatter(  # pyre-ignore[16]
@@ -80,12 +80,12 @@ def _obs_vs_pred_dropdown_plot(
     """Plot a dropdown plot of observed vs. predicted values from a model.
 
     Args:
-        data (PlotData): a name tuple storing observed and predicted data
+        data: a name tuple storing observed and predicted data
             from a model.
-        rel (bool): if True, plot metrics relative to the status quo.
-        show_context (bool, optional): Show context on hover.
-        xlabel (str, optional): Label for x-axis.
-        ylabel (str, optional): Label for y-axis.
+        rel: if True, plot metrics relative to the status quo.
+        show_context: Show context on hover.
+        xlabel: Label for x-axis.
+        ylabel: Label for y-axis.
 
     """
     traces = []
@@ -238,11 +238,11 @@ def _get_batch_comparison_plot_data(
     """Compute PlotData for comparing repeated arms across trials.
 
     Args:
-        observations (List[Observation]): List of observations.
-        batch_x (int): Batch for x-axis.
-        batch_y (int): Batch for y-axis.
-        rel (bool): Whether to relativize data against status_quo arm.
-        status_quo_name (bool): Name of the status_quo arm.
+        observations: List of observations.
+        batch_x: Batch for x-axis.
+        batch_y: Batch for y-axis.
+        rel: Whether to relativize data against status_quo arm.
+        status_quo_name: Name of the status_quo arm.
 
     Returns:
         PlotData: a plot data object.
@@ -353,8 +353,8 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AEPlot
     Relies on the model predictions stored on the generator_runs of batch.
 
     Args:
-        batch (Batch): Batch on which to perform analysis.
-        data (Data): Observed data for the batch.
+        batch: Batch on which to perform analysis.
+        data: Observed data for the batch.
     Returns:
         AEPlotConfig for the plot.
     """
@@ -412,8 +412,8 @@ def interact_cross_validation(
     stored within the notebook).
 
     Args:
-        cv_results (List[CVResult]): cross-validation results.
-        show_context (bool, optional): if True, show context on hover.
+        cv_results: cross-validation results.
+        show_context: if True, show context on hover.
 
     """
     data = _get_cv_plot_data(cv_results)
@@ -433,12 +433,12 @@ def tile_cross_validation(
     test statistic.
 
     Args:
-        cv_results (List[CVResult]): cross-validation results.
-        include_measurement_error (bool, optional): if True, include
+        cv_results: cross-validation results.
+        include_measurement_error: if True, include
             measurement_error metrics in plot.
-        show_arm_details_on_hover (bool, optional): if True, display
+        show_arm_details_on_hover: if True, display
             parameterizations of arms on hover. Default is True.
-        show_context (bool, optional): if True (default), display context on
+        show_context: if True (default), display context on
             hover.
 
     """

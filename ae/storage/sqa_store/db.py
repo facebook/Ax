@@ -270,9 +270,9 @@ def create_mysql_engine_from_creator(
     """Create a SQLAlchemy engine with the MySQL dialect given a creator function.
 
     Args:
-        creator (Callable):  a callable which returns a DBAPI connection.
-        echo (bool, optional): if True, set engine to be verbose.
-        pool_recycle (int, optional): number of seconds after which to recycle
+        creator:  a callable which returns a DBAPI connection.
+        echo: if True, set engine to be verbose.
+        pool_recycle: number of seconds after which to recycle
             connections. -1 means no timeout. Default is 10 seconds.
         **kwargs: keyword args passed to `create_engine`
 
@@ -289,9 +289,9 @@ def create_test_engine(path: Optional[str] = None, echo: bool = True) -> Engine:
     """Creates a SQLAlchemy engine object for use in unit tests.
 
     Args:
-        path (Optional[str], optional): if None, use in-memory SQLite; else
+        path: if None, use in-memory SQLite; else
             attempt to create a SQLite DB in the path provided.
-        echo (bool, optional): if True, set engine to be verbose.
+        echo: if True, set engine to be verbose.
 
     Returns:
         Engine: an instance of SQLAlchemy engine.
@@ -320,12 +320,12 @@ def init_engine_and_session_factory(
     are doing.
 
     Args:
-        test (bool, optional): if True, use in-memory SQLite.
-        tier_or_path (Optional[str], optional): the name of the DB tier for
+        test: if True, use in-memory SQLite.
+        tier_or_path: the name of the DB tier for
             writing to a SQL database.
-        creator (Optional[Callable]):  a callable which returns a DBAPI connection.
-        echo (bool, optional): if True, logging for engine is enabled.
-        force_init (bool, optional): if True, allows re-initializing engine
+        creator:  a callable which returns a DBAPI connection.
+        echo: if True, logging for engine is enabled.
+        force_init: if True, allows re-initializing engine
             and session factory.
         **kwargs: keyword arguments passed to `create_mysql_engine_from_creator`
 
@@ -353,7 +353,7 @@ def create_all_tables(engine: Engine) -> None:
     """Create all tables that inherit from Base.
 
     Args:
-        engine (Engine): a SQLAlchemy engine with a connection to a MySQL
+        engine: a SQLAlchemy engine with a connection to a MySQL
             or SQLite DB.
 
     Note:

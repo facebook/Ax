@@ -26,12 +26,12 @@ class FactorialMetric(Metric):
     ) -> None:
         """
         Args:
-            name (str): name of the metric.
-            coefficients (Dict[str, Dict[TParamValue, float]]): a dictionary mapping
+            name: name of the metric.
+            coefficients: a dictionary mapping
                 factors to levels to main effects.
-            batch_size (int, optional): the sample size for one batch, distributed
+            batch_size: the sample size for one batch, distributed
                 between arms proportionally to the design.
-            noise_var (float, optional): used in calculating the probability of
+            noise_var: used in calculating the probability of
                 each arm.
         """
         super(FactorialMetric, self).__init__(name)

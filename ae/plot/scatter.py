@@ -113,32 +113,32 @@ def _error_scatter_trace(
             In-sample arms have observed data, while out-of-sample arms
             just have predicted data. As a result,
             when passing out-of-sample arms, pred must be True.
-        y_axis_var (PlotMetric): name of metric for y-axis, along with whether
+        y_axis_var: name of metric for y-axis, along with whether
             it is observed or predicted.
-        x_axis_var (Optional[PlotMetric], optional): name of metric for x-axis,
+        x_axis_var: name of metric for x-axis,
             along with whether it is observed or predicted. If None, arm names
             are automatically used.
-        y_axis_label (Optional[str], optional): custom label to use for y axis.
+        y_axis_label: custom label to use for y axis.
             If None, use metric name from `y_axis_var`.
-        x_axis_label (Optional[str], optional): custom label to use for x axis.
+        x_axis_label: custom label to use for x axis.
             If None, use metric name from `x_axis_var` if that is not None.
-        rel (bool, optional): if True, points are treated as relative to status
+        rel: if True, points are treated as relative to status
             quo and '%' is appended to labels. If rel=True, `status_quo_arm`
             must be set.
-        status_quo_arm (Optional[PlotInSampleArm], optional): the status quo
+        status_quo_arm: the status quo
             arm. Necessary for relative metrics.
-        show_CI (bool, optional): if True, plot confidence intervals.
-        name (string): name of trace. Default is "In-sample".
-        color (Tuple[int], optional): color as rgb tuple. Default is
+        show_CI: if True, plot confidence intervals.
+        name: name of trace. Default is "In-sample".
+        color: color as rgb tuple. Default is
             (128, 177, 211), which corresponds to COLORS.STEELBLUE.
-        visible (bool, optional): if True, trace is visible (default).
-        legendgroup (string, optional): group for legends.
-        showlegend (bool, optional): if True, legend if rendered.
-        hoverinfo (string, optional): information to show on hover. Default is
+        visible: if True, trace is visible (default).
+        legendgroup: group for legends.
+        showlegend: if True, legend if rendered.
+        hoverinfo: information to show on hover. Default is
             custom text.
-        show_arm_details_on_hover (bool, optional): if True, display
+        show_arm_details_on_hover: if True, display
             parameterizations of arms on hover. Default is True.
-        show_context (bool, optional): if True and show_arm_details_on_hover,
+        show_context: if True and show_arm_details_on_hover,
             context will be included in the hover.
     """
     x, x_se, y, y_se = _error_scatter_data(
@@ -248,12 +248,12 @@ def _multiple_metric_traces(
     """Plot traces for multiple metrics given a generator and metrics.
 
     Args:
-        generator (Generator): generator to draw predictions from.
-        metric_x (str): metric to plot on the x-axis.
-        metric_y (str): metric to plot on the y-axis.
-        generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
+        generator: generator to draw predictions from.
+        metric_x: metric to plot on the x-axis.
+        metric_y: metric to plot on the y-axis.
+        generator_runs_dict: a mapping from
             generator run name to generator run.
-        rel (bool): if True, use relative effects.
+        rel: if True, use relative effects.
 
     """
     plot_data, _, _ = get_plot_data(
@@ -332,12 +332,12 @@ def plot_multiple_metrics(
     arms can be passed through the `generator_runs_dict` argument.
 
     Args:
-        generator (Generator): generator to draw predictions from.
-        metric_x (str): metric to plot on the x-axis.
-        metric_y (str): metric to plot on the y-axis.
-        generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
+        generator: generator to draw predictions from.
+        metric_x: metric to plot on the x-axis.
+        metric_y: metric to plot on the y-axis.
+        generator_runs_dict: a mapping from
             generator run name to generator run.
-        rel (bool, optional): if True, use relative effects. Default is True.
+        rel: if True, use relative effects. Default is True.
 
     """
     traces = _multiple_metric_traces(
@@ -460,13 +460,13 @@ def plot_objective_vs_constraints(
     arms can be passed through via the `generator_runs_dict` argument.
 
     Args:
-        generator (Generator): generator to draw predictions from.
-        objective (str): metric to optimize. Plotted on the x-axis.
-        subset_metrics (List[str]): list of metrics to plot on the y-axes
+        generator: generator to draw predictions from.
+        objective: metric to optimize. Plotted on the x-axis.
+        subset_metrics: list of metrics to plot on the y-axes
             if need a subset of all metrics in the generator.
-        generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
+        generator_runs_dict: a mapping from
             generator run name to generator run.
-        rel (bool, optional): if True, use relative effects. Default is True.
+        rel: if True, use relative effects. Default is True.
 
     """
     if subset_metrics is not None:
@@ -628,11 +628,11 @@ def lattice_multiple_metrics(
     """Plot raw values or predictions of combinations of two metrics for arms.
 
     Args:
-        generator (Generator): generator to draw predictions from.
-        generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
+        generator: generator to draw predictions from.
+        generator_runs_dict: a mapping from
             generator run name to generator run.
-        rel (bool, optional): if True, use relative effects. Default is True.
-        show_arm_details_on_hover (bool, optional): if True, display
+        rel: if True, use relative effects. Default is True.
+        show_arm_details_on_hover: if True, display
             parameterizations of arms on hover. Default is False.
 
     """
@@ -919,15 +919,15 @@ def _single_metric_traces(
     Arms are plotted on the x-axis.
 
     Args:
-        generator (Generator): generator to draw predictions from.
-        metric (str): name of metric to plot.
-        generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
+        generator: generator to draw predictions from.
+        metric: name of metric to plot.
+        generator_runs_dict: a mapping from
             generator run name to generator run.
-        rel (bool): if True, plot relative predictions.
-        show_arm_details_on_hover (bool, optional): if True, display
+        rel: if True, plot relative predictions.
+        show_arm_details_on_hover: if True, display
             parameterizations of arms on hover. Default is True.
-        show_legend (bool, optional): if True, show legend for trace.
-        show_CI (bool, optional): if True, render confidence intervals.
+        show_legend: if True, show legend for trace.
+        show_CI: if True, render confidence intervals.
 
     """
     plot_data, _, _ = get_plot_data(generator, generator_runs_dict or {}, {metric})
@@ -996,17 +996,17 @@ def plot_fitted(
     """Plot fitted metrics.
 
     Args:
-        generator (Generator): generator to use for predictions.
-        metric (str): metric to plot predictions for.
-        generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
+        generator: generator to use for predictions.
+        metric: metric to plot predictions for.
+        generator_runs_dict: a mapping from
             generator run name to generator run.
-        rel (bool, optional): if True, use relative effects. Default is True.
-        custom_arm_order (List[str], optional): a list of arm names in the
+        rel: if True, use relative effects. Default is True.
+        custom_arm_order: a list of arm names in the
             order corresponding to how they should be plotted on the x-axis.
             If not None, this is the default ordering.
-        custom_arm_order_name (str, optional): name for custom ordering to
+        custom_arm_order_name: name for custom ordering to
             show in the ordering dropdown. Default is 'Custom'.
-        show_CI (bool, optional): if True, render confidence intervals.
+        show_CI: if True, render confidence intervals.
 
     """
     traces = _single_metric_traces(
@@ -1115,13 +1115,13 @@ def tile_fitted(
     """Tile version of fitted outcome plots.
 
     Args:
-        generator (Generator): generator to use for predictions.
-        generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
+        generator: generator to use for predictions.
+        generator_runs_dict: a mapping from
             generator run name to generator run.
-        rel (bool, optional): if True, use relative effects. Default is True.
-        show_arm_details_on_hover (bool, optional): if True, display
+        rel: if True, use relative effects. Default is True.
+        show_arm_details_on_hover: if True, display
             parameterizations of arms on hover. Default is False.
-        show_CI (bool, optional): if True, render confidence intervals.
+        show_CI: if True, render confidence intervals.
 
     """
     metrics = generator.metric_names
@@ -1270,13 +1270,13 @@ def interact_fitted(
     Choose the outcome to plot using a dropdown.
 
     Args:
-        generator (Generator): generator to use for predictions.
-        generator_runs_dict (Dict[str, GeneratorRun], optional): a mapping from
+        generator: generator to use for predictions.
+        generator_runs_dict: a mapping from
             generator run name to generator run.
-        rel (bool, optional): if True, use relative effects. Default is True.
-        show_arm_details_on_hover (bool, optional): if True, display
+        rel: if True, use relative effects. Default is True.
+        show_arm_details_on_hover: if True, display
             parameterizations of arms on hover. Default is True.
-        show_CI (bool, optional): if True, render confidence intervals.
+        show_CI: if True, render confidence intervals.
 
     """
     traces_per_metric = (

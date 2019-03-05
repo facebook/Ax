@@ -91,7 +91,7 @@ class Arm(Base):
         """Create a copy of this arm.
 
         Args:
-            clear_name (bool, optional): whether this cloned copy should set its
+            clear_name: whether this cloned copy should set its
                 name to None instead of the name of the arm being cloned.
                 Defaults to False.
         """

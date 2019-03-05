@@ -1275,7 +1275,7 @@ cdef int low_0_bit(const int x) nogil:
         4
 
     Args:
-        x (int): an integer.
+        x: an integer.
 
     Returns:
         int: position of the right-most 0 bit.
@@ -1312,9 +1312,9 @@ cdef int ibits(const int x, const int pos, const int length) nogil:
         12
 
     Args:
-        x (int): integer to convert to bit representation.
-        pos (int): starting position of sequence in bit representation of integer.
-        length (int): length of sequence (number of bits).
+        x: integer to convert to bit representation.
+        pos: starting position of sequence in bit representation of integer.
+        length: length of sequence (number of bits).
 
     Returns:
         int: integer value corresponding to bit sequence.
@@ -1460,9 +1460,9 @@ class SobolEngine:
     evaluation of integrals. Zh. Vychisl. Mat. i Mat. Phys., 7:784-802, 1967.
 
     Args:
-        dimen (int): dimensionality of the sequence. Max dimensionality is 1111.
-        scramble (bool, optional): if True, use Owen scrambling.
-        seed (int, optional): seed for reproducibility of scrambling.
+        dimen: dimensionality of the sequence. Max dimensionality is 1111.
+        scramble: if True, use Owen scrambling.
+        seed: seed for reproducibility of scrambling.
 
     """
 
@@ -1503,7 +1503,7 @@ class SobolEngine:
         """Draw next point(s) in the Sobol sequence.
 
         Args:
-            n (int, optional): number of points to return. Default is 1.
+            n: number of points to return. Default is 1.
 
         Returns:
             np.array: `n x D` array, where `n` is the number of points requested
@@ -1532,7 +1532,7 @@ class SobolEngine:
         """Fast-forward the sequence by n positions.
 
         Args:
-            n (int): number of points to skip in the sequence.
+            n: number of points to skip in the sequence.
 
         Returns:
             SobolEngine: the fast-forwarded engine.
@@ -1548,10 +1548,10 @@ def multinomial_qmc(n, pvals, seed=None):
     """Draw low-discreancy quasi-random samples from multinomial distribution.
 
     Args:
-        n (int): Number of experiments.
-        pvals (Iterable[float]): float vector of probabilities of size `p`.
+        n: Number of experiments.
+        pvals: float vector of probabilities of size `p`.
             Elements must be non-negative and sum to 1.
-        seed (int, optional): The seed for the random number generator.
+        seed: The seed for the random number generator.
 
     Returns:
         np.ndarray: int vector of size `p` summing to `n`.
@@ -1630,7 +1630,7 @@ def star_L2(draw):
     """Star L2-discrepancy.
 
     Args:
-        draw (np.ndarray): numpy array of draws.
+        draw: numpy array of draws.
 
     Returns:
         float: the star L2-discrepancy.
@@ -1657,7 +1657,7 @@ def centered_L2(draw):
     """Centered L2-discrepancy.
 
     Args:
-        draw (np.ndarray): numpy array of draws.
+        draw: numpy array of draws.
 
     Returns:
         float: the centered L2-discrepancy.

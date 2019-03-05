@@ -24,11 +24,11 @@ class ObservationFeatures(Base):
     ObservationData object that provides the observed outcomes.
 
     Attributes:
-        parameters (TParameterization): arm parameters
-        trial_index (int): trial index
-        start_time (np.datetime64): batch start time
-        end_time (np.datetime64): batch end time
-        random_split (np.int64): random split
+        parameters: arm parameters
+        trial_index: trial index
+        start_time: batch start time
+        end_time: batch end time
+        random_split: random split
 
     """
 
@@ -95,9 +95,9 @@ class ObservationData(Base):
     ObservationFeatures object.
 
     Attributes:
-        metric_names (List[str]): A list of k metric names that were observed
-        means (np.ndarray): a k-array of observed means
-        covariance (np.ndarray): a (k x k) array of observed covariances
+        metric_names: A list of k metric names that were observed
+        means: a k-array of observed means
+        covariance: a (k x k) array of observed covariances
     """
 
     def __init__(
