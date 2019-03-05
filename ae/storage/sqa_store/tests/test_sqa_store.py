@@ -69,13 +69,16 @@ from ae.lazarus.ae.utils.common.testutils import TestCase
 
 class SQAStoreTest(TestCase):
     def setUp(self):
-        init_engine_and_session_factory(test=True)
+        init_engine_and_session_factory(test=True, force_init=True)
         self.experiment = get_experiment_with_batch_trial()
 
     def testCreationOfTestDB(self):
         init_engine_and_session_factory(
             test=True, tier_or_path=":memory:", force_init=True
         )
+
+    def testDBConnectionWithoutForceInit(self):
+        init_engine_and_session_factory(test=True, tier_or_path=":memory:")
 
     def testConnectionToDBWithCreator(self):
         def MockDBAPI():
