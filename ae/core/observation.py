@@ -176,9 +176,15 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
     for g, d in data.df.groupby(by=feature_cols):
         features = dict(zip(feature_cols, g))
         obs_kwargs = {}
-        obs_kwargs["parameters"] = experiment.arms_by_name[
-            features["arm_name"]
-        ].params.copy()
+        obs_params = experiment.arms_by_name[features["arm_name"]].params.copy()
+        if obs_params:
+            # Wipe null values => arm is out of design.
+            obs_params = {
+                p_name: p_value
+                for p_name, p_value in obs_params.items()
+                if p_value is not None
+            }
+            obs_kwargs["parameters"] = obs_params
         for f in ["trial_index", "start_time", "end_time", "random_split"]:
             # pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float, str]]]` ...
             obs_kwargs[f] = features.get(f, None)
