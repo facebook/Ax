@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import inspect
 from enum import EnumMeta
 from typing import List, Optional, Tuple, Union
 
@@ -259,13 +260,13 @@ class Decoder:
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type."
             )
-        properties = metric_sqa.properties or {}
-        # pyre-fixme[29]: `Type[Any]` is not a function.
-        metric = metric_class(
-            name=metric_sqa.name,
-            lower_is_better=metric_sqa.lower_is_better,
-            **properties,
-        )
+        args = metric_sqa.properties or {}
+        for arg in inspect.getfullargspec(metric_class.__init__).args:
+            if arg == "self" or arg in args:
+                continue
+            args[arg] = getattr(metric_sqa, arg)
+        # pyre-fixme[29]: `typing.Type[typing.Any]` is not a function.
+        metric = metric_class(**args)
 
         if metric_sqa.intent == MetricIntent.TRACKING:
             return metric

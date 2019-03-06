@@ -85,7 +85,7 @@ class ExperimentTest(TestCase):
             len(get_optimization_config().metrics),
             len(self.experiment.optimization_config.metrics),
         )
-        self.assertEqual(self.experiment.is_test, False)
+        self.assertEqual(self.experiment.is_test, True)
 
     def testMetricSetters(self):
         # Establish current metrics size

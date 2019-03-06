@@ -707,7 +707,7 @@ class SQAStoreTest(TestCase):
 
         sqa_metric.intent = MetricIntent.TRACKING
         sqa_metric.properties = {}
-        with self.assertRaises(TypeError):
+        with self.assertRaises(AttributeError):
             Decoder.metric_from_sqa(sqa_metric)
 
     def testRunnerDecodeFailure(self):

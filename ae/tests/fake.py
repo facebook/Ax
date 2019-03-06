@@ -34,6 +34,7 @@ from ae.lazarus.ae.core.types.types import (
     TModelPredictArm,
     TParameterization,
 )
+from ae.lazarus.ae.generator.factory import get_factorial, get_sobol
 from ae.lazarus.ae.metrics.branin import BraninMetric
 from ae.lazarus.ae.metrics.factorial import FactorialMetric
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
@@ -50,37 +51,68 @@ def get_experiment() -> Experiment:
         status_quo=get_status_quo(),
         description="test description",
         tracking_metrics=[Metric(name="tracking")],
+        is_test=True,
     )
 
 
 def get_branin_optimization_config() -> OptimizationConfig:
-    return OptimizationConfig(
-        objective=Objective(metric=get_branin_metric(), minimize=True)
-    )
+    return OptimizationConfig(objective=get_branin_objective())
 
 
-def get_branin_experiment(has_optimization_config: bool = True) -> Experiment:
-    return Experiment(
+def get_branin_experiment(
+    has_optimization_config: bool = True,
+    with_batch: bool = False,
+    with_status_quo: bool = False,
+) -> Experiment:
+    exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(),
         optimization_config=get_branin_optimization_config()
         if has_optimization_config
         else None,
         runner=SyntheticRunner(),
+        is_test=True,
     )
 
+    if with_status_quo:
+        exp.status_quo = Arm(params={"x1": 0, "x2": 0})
 
-def get_factorial_experiment(has_optimization_config: bool = True) -> Experiment:
-    return Experiment(
+    if with_batch:
+        sobol_generator = get_sobol(search_space=exp.search_space)
+        sobol_run = sobol_generator.gen(n=15)
+        exp.new_batch_trial().add_generator_run(sobol_run)
+
+    return exp
+
+
+def get_factorial_experiment(
+    has_optimization_config: bool = True,
+    with_batch: bool = False,
+    with_status_quo: bool = False,
+) -> Experiment:
+    exp = Experiment(
         name="factorial_test_experiment",
         search_space=get_factorial_search_space(),
         optimization_config=OptimizationConfig(
-            objective=Objective(metric=get_factorial_metric(), minimize=True)
+            objective=Objective(metric=get_factorial_metric())
         )
         if has_optimization_config
         else None,
         runner=SyntheticRunner(),
+        is_test=True,
     )
+
+    if with_status_quo:
+        exp.status_quo = Arm(
+            params={"factor1": "level11", "factor2": "level21", "factor3": "level31"}
+        )
+
+    if with_batch:
+        factorial_generator = get_factorial(search_space=exp.search_space)
+        factorial_run = factorial_generator.gen(n=-1)
+        exp.new_batch_trial().add_generator_run(factorial_run)
+
+    return exp
 
 
 # Search Spaces
@@ -251,7 +283,7 @@ def get_metric() -> Metric:
 
 
 def get_branin_metric() -> BraninMetric:
-    return BraninMetric(name="branin", param_names=["x1", "x2"], noise_sd=0.0)
+    return BraninMetric(name="branin", param_names=["x1", "x2"], noise_sd=0.01)
 
 
 def get_factorial_metric() -> FactorialMetric:
@@ -292,7 +324,7 @@ def get_optimization_config() -> OptimizationConfig:
 
 
 def get_branin_objective() -> Objective:
-    return Objective(metric=get_branin_metric(), minimize=True)
+    return Objective(metric=get_branin_metric(), minimize=False)
 
 
 def get_branin_outcome_constraint() -> OutcomeConstraint:

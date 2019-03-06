@@ -62,6 +62,7 @@ class FactorialMetric(Metric):
                 batch_size=self.batch_size,
                 noise_var=self.noise_var,
             )
+            n = np.random.binomial(self.batch_size, weight)
             data.append(
                 {
                     "arm_name": name,
@@ -69,6 +70,8 @@ class FactorialMetric(Metric):
                     "mean": mean,
                     "sem": sem,
                     "trial_index": trial.index,
+                    "n": n,
+                    "frac_nonnull": mean,
                 }
             )
         return Data(df=pd.DataFrame(data))

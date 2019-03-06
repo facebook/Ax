@@ -65,6 +65,8 @@ class NoisyFunctionMetric(Metric):
                 "mean": mean,
                 "sem": noise_sd,
                 "trial_index": trial.index,
+                "n": 10000 / len(arm_name),
+                "frac_nonnull": mean,
             }
         )
         return Data(df=df)
