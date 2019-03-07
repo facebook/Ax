@@ -41,7 +41,10 @@ def _get_model(X: Tensor, Y: Tensor, Yvar: Tensor) -> Model:
     # Determine if we want to treat the noise as constant
     mean_var = Yvar.mean().clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
     # Look at relative variance in noise level
-    Yvar_std = Yvar.std() if Yvar.nelement() > 1 else torch.tensor(0).type_as(Yvar)
+    if Yvar.nelement() > 1:
+        Yvar_std = Yvar.std()
+    else:
+        Yvar_std = torch.tensor(0).to(device=Yvar.device, dtype=Yvar.dtype)
     if Yvar_std / mean_var < 0.1:
         model = ConstantNoiseGP(
             train_X=X, train_Y=Y.view(-1), train_Y_se=mean_var.sqrt()
