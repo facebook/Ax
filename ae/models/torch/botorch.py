@@ -4,7 +4,11 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from ae.lazarus.ae.core.types.types import TConfig
-from ae.lazarus.ae.models.model_utils import best_observed_point
+from ae.lazarus.ae.models.model_utils import (
+    best_observed_point,
+    filter_constraints_and_fixed_features,
+    get_observed,
+)
 from ae.lazarus.ae.models.torch.utils import (
     _get_model,
     _joint_optimize,
@@ -131,33 +135,48 @@ class BotorchModel(TorchModel):
         """
         options: TConfig = model_gen_options or {}
         if pending_observations is not None:
-            X_pending = pending_observations[0]
-            if not all(torch.allclose(p, X_pending) for p in pending_observations[1:]):
-                raise ValueError(
-                    "Model requires pending observations to be the same "
-                    "for all outcomes."
-                )
+            # Get points observed for all objective and constraint outcomes
+            X_pending = get_observed(
+                Xs=pending_observations,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+            )
+            # Filter to those that satisfy constraints.
+            X_pending = filter_constraints_and_fixed_features(
+                X=X_pending,
+                bounds=bounds,
+                linear_constraints=linear_constraints,
+                fixed_features=fixed_features,
+            )
+            if len(X_pending) == 0:
+                X_pending = None
         else:
             X_pending = None
         objective_transform = get_objective_weights_transform(objective_weights)
         outcome_constraint_transforms = get_outcome_constraint_transforms(
             outcome_constraints=outcome_constraints
         )
-        if linear_constraints is not None:
-            raise ValueError(
-                "This model does not support linear parameter constraints."
-            )
 
         # pyre-fixme[9]: acquisition_function has type `Optional[Module]`; used as `O...
         acquisition_function: Optional[torch.nn.Module] = options.get(
             "acquisition_function"
         )
         if acquisition_function is None:
-            # TODO: Figure out a way to support noisy estimates of the best
-            # function value for non-block designs
-            X_observed = self.Xs[0]
-            if not all(torch.allclose(X, X_observed) for X in self.Xs[1:]):
-                raise NotImplementedError("Currently, only block design is supported")
+            # Get points observed for all objective and constraint outcomes
+            X_observed = get_observed(
+                Xs=self.Xs,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+            )
+            # Filter to those that satisfy constraints.
+            X_observed = filter_constraints_and_fixed_features(
+                X=X_observed,
+                bounds=bounds,
+                linear_constraints=linear_constraints,
+                fixed_features=fixed_features,
+            )
+            if len(X_observed) == 0:
+                raise ValueError("There are no feasible observed points.")
             # pyre-fixme[16]: Module `functional` has no attribute `get_infeasible_co...
             infeasible_cost = get_infeasible_cost(
                 X=X_observed, model=self.model, objective=objective_transform
@@ -165,7 +184,7 @@ class BotorchModel(TorchModel):
             acquisition_function = get_acquisition_function(
                 acquisition_function_name=self.acquisition_function_name,
                 model=self.model,
-                X_observed=X_observed,
+                X_observed=X_observed,  # pyre-ignore
                 objective=objective_transform,
                 constraints=outcome_constraint_transforms,
                 infeasible_cost=infeasible_cost,

@@ -43,7 +43,6 @@ def rejection_sample(
 
     Models must implement a `gen_unconstrained` method in order to support
     rejection sampling via this utility.
-
     """
     # We need to perform the round trip transformation on our generated point
     # in order to deduplicate in the original search space.
@@ -145,7 +144,6 @@ def add_fixed_features(
 
     Returns:
         points: Points in the full d-dimensional space, defined by bounds.
-
     """
     n = np.shape(tunable_points)[0]
     points = np.zeros((n, d))
@@ -296,34 +294,21 @@ def best_observed_point(
     if objective_weights is None:
         return None  # pragma: no cover
     objective_weights_np = as_array(objective_weights)
-    used_outcomes: Set[int] = set(np.where(objective_weights_np != 0)[0])
-    if len(used_outcomes) == 0:
-        raise ValueError("At least one objective weight must be non-zero")
-    if outcome_constraints is not None:
-        used_outcomes = used_outcomes.union(
-            np.where(as_array(outcome_constraints)[0] != 0)[1]
-        )
-    outcome_list = list(used_outcomes)
-    X_obs_set = {tuple(float(x_i) for x_i in x) for x in model.Xs[outcome_list[0]]}
-    for _, idx in enumerate(outcome_list, start=1):
-        X_obs_set = X_obs_set.intersection(
-            {tuple(float(x_i) for x_i in x) for x in model.Xs[idx]}
-        )
-    X_obs = np.array(list(X_obs_set))  # (n x d)
+    X_obs = get_observed(
+        Xs=model.Xs,
+        objective_weights=objective_weights,
+        outcome_constraints=outcome_constraints,
+    )
     # Filter to those that satisfy constraints.
-    feas = np.ones(X_obs.shape[0], dtype=bool)  # (n)
-    for i, b in enumerate(bounds):
-        feas &= (X_obs[:, i] >= b[0]) & (X_obs[:, i] <= b[1])
-    if linear_constraints is not None:
-        A, b = as_array(linear_constraints)  # (m x d) and (m x 1)
-        feas &= (A @ X_obs.transpose() <= b).all(axis=0)
-    if fixed_features is not None:
-        for idx, val in fixed_features.items():
-            feas &= X_obs[:, idx] == val
-    if sum(feas) == 0:
+    X_obs = filter_constraints_and_fixed_features(
+        X=X_obs,
+        bounds=bounds,
+        linear_constraints=linear_constraints,
+        fixed_features=fixed_features,
+    )
+    if len(X_obs) == 0:
         # No feasible points
         return None
-    X_obs = X_obs[feas, :]
     # Predict objective and P(feas) at these points
     if isinstance(model, TorchModel):
         X_obs = torch.tensor(X_obs, device=model.device, dtype=model.dtype)
@@ -374,3 +359,85 @@ def as_array(
         raise ValueError(
             "Input to as_array must be numpy array or torch tensor"
         )  # pragma: no cover
+
+
+def get_observed(
+    Xs: Union[List[torch.Tensor], List[np.ndarray]],
+    objective_weights: Optional[Tensoray],
+    outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
+) -> Tensoray:
+    """Filter points to those that are observed for objective outcomes and outcomes
+    that show up in outcome_constraints (if there are any).
+
+    Args:
+        Xs: A list of m (k_i x d) feature matrices X. Number of rows k_i
+            can vary from i=1,...,m.
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+                A f(x) <= b.
+    Returns:
+        X_obs: Points observed for all objective outcomes and outcome constraints.
+    """
+    objective_weights_np = as_array(objective_weights)
+    used_outcomes: Set[int] = set(np.where(objective_weights_np != 0)[0])
+    if len(used_outcomes) == 0:
+        raise ValueError("At least one objective weight must be non-zero")
+    if outcome_constraints is not None:
+        used_outcomes = used_outcomes.union(
+            np.where(as_array(outcome_constraints)[0] != 0)[1]
+        )
+    outcome_list = list(used_outcomes)
+    X_obs_set = {tuple(float(x_i) for x_i in x) for x in Xs[outcome_list[0]]}
+    for _, idx in enumerate(outcome_list, start=1):
+        X_obs_set = X_obs_set.intersection(
+            {tuple(float(x_i) for x_i in x) for x in Xs[idx]}
+        )
+    if isinstance(Xs[0], np.ndarray):
+        return np.array(list(X_obs_set), dtype=Xs[0].dtype)  # (n x d)
+    if isinstance(Xs[0], torch.Tensor):
+        return torch.tensor(list(X_obs_set), device=Xs[0].device, dtype=Xs[0].dtype)
+
+
+def filter_constraints_and_fixed_features(
+    X: Tensoray,
+    bounds: List[Tuple[float, float]],
+    linear_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
+    fixed_features: Optional[Dict[int, float]] = None,
+) -> Tensoray:
+    """Filter points to those that satisfy bounds, linear_constraints, and
+    fixed_features.
+
+    Args:
+        X: An tensor or array of points.
+        bounds: A list of (lower, upper) tuples for each feature.
+        linear_constraints: A tuple of (A, b). For k linear constraints on
+            d-dimensional x, A is (k x d) and b is (k x 1) such that
+                A x <= b.
+        fixed_features: A map {feature_index: value} for features that
+            should be fixed to a particular value in the best point.
+    Returns:
+        X_feas: Feasible points.
+    """
+    if len(X) == 0:  # if there are no points, nothing to filter
+        return X
+    X_np = X
+    if isinstance(X, torch.Tensor):
+        X_np = X.numpy()
+    feas = np.ones(X_np.shape[0], dtype=bool)  # (n)
+    for i, b in enumerate(bounds):
+        feas &= (X_np[:, i] >= b[0]) & (X_np[:, i] <= b[1])
+    if linear_constraints is not None:
+        A, b = as_array(linear_constraints)  # (m x d) and (m x 1)
+        feas &= (A @ X_np.transpose() <= b).all(axis=0)
+    if fixed_features is not None:
+        for idx, val in fixed_features.items():
+            feas &= X_np[:, idx] == val
+    X_feas = X_np[feas, :]
+    if isinstance(X, torch.Tensor):
+        return torch.from_numpy(X_feas).to(
+            device=X.device, dtype=X.dtype  # pyre-ignore
+        )
+    else:
+        return X_feas

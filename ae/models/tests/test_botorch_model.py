@@ -115,13 +115,13 @@ class BotorchModelTest(TestCase):
         linear_constraints = None
         fixed_features = None
         pending_observations = [
-            torch.tensor([[1.0, 3.0, 4.0]], dtype=dtype, device=device)
+            torch.tensor([[1.0, 3.0, 4.0]], dtype=dtype, device=device),
+            torch.tensor([[2.0, 6.0, 8.0]], dtype=dtype, device=device),
         ]
         n = 3
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
         model_gen_options = {}
-
         # test sequential optimize
         with mock.patch(
             "ae.lazarus.ae.models.torch.botorch._sequential_optimize",
@@ -176,23 +176,6 @@ class BotorchModelTest(TestCase):
         )
         self.assertIsNone(xbest)
 
-        pending_observations = [
-            torch.tensor([[1.0, 3.0, 4.0]], dtype=dtype, device=device),
-            torch.tensor([[2.0, 3.0, 4.0]], dtype=dtype, device=device),
-        ]
-        with self.assertRaises(ValueError):
-            model.gen(
-                n, bounds, objective_weights, pending_observations=pending_observations
-            )
-        linear_constraints = (
-            torch.tensor([[0.0, 1.0, -1.0]], dtype=dtype, device=device),
-            torch.tensor([[2.0]], dtype=dtype, device=device),
-        )
-        with self.assertRaises(ValueError):
-            model.gen(
-                n, bounds, objective_weights, linear_constraints=linear_constraints
-            )
-
         # Test cross-validation
         mean, variance = model.cross_validate(
             Xs_train=Xs1 + Xs2,
@@ -204,11 +187,6 @@ class BotorchModelTest(TestCase):
         )
         self.assertTrue(mean.shape == torch.Size([2, 2]))
         self.assertTrue(variance.shape == torch.Size([2, 2, 2]))
-
-        # validate that generating errors out correctly if not a block design
-        model.Xs[0] += 1
-        with self.assertRaises(NotImplementedError):
-            model.gen(n, bounds, objective_weights)
 
         # Test loading state dict
         tkwargs = {"device": device, "dtype": dtype}
@@ -420,3 +398,32 @@ class BotorchModelTest(TestCase):
         f_mean, f_cov = model.predict(X)
         self.assertTrue(f_mean.shape == torch.Size([2, 1]))
         self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
+
+    def test_BotorchModelConstraints(self):
+        Xs1, Ys1, Yvars1, bounds, task_features, feature_names = _get_torch_test_data(
+            dtype=torch.float, cuda=False, constant_noise=True
+        )
+        Xs2, Ys2, Yvars2, _, _, _ = _get_torch_test_data(
+            dtype=torch.float, cuda=False, constant_noise=True
+        )
+        # make infeasible
+        Xs2[0] = -1 * Xs2[0]
+        objective_weights = torch.tensor(
+            [-1.0, 1.0], dtype=torch.float, device=torch.device("cpu")
+        )
+        n = 3
+        model = BotorchModel()
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1 + Xs2,
+                Ys=Ys1 + Ys2,
+                Yvars=Yvars1,
+                bounds=bounds,
+                task_features=task_features,
+                feature_names=feature_names,
+            )
+            _mock_fit_model.assert_called_once()
+
+        # because there are no feasible points:
+        with self.assertRaises(ValueError):
+            model.gen(n, bounds, objective_weights)
