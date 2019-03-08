@@ -44,7 +44,7 @@ class Derelativize(Transform):
             f, _ = generator.predict([generator.status_quo.features])
         except Exception:
             # Check if it is out-of-design.
-            if not generator.model_space.validate(
+            if not generator.model_space.check_membership(
                 generator.status_quo.features.parameters
             ):
                 # Out-of-design: use the raw observation

@@ -242,7 +242,7 @@ def _get_out_of_sample_arms(
                 pred_y, pred_se = _predict_at_point(generator, obsf, metric_names)
             except Exception:
                 # Check if it is an out-of-design arm.
-                if not generator.model_space.validate(obsf.parameters):
+                if not generator.model_space.check_membership(obsf.parameters):
                     # Skip this point
                     continue
                 else:
@@ -385,8 +385,8 @@ def get_fixed_values(
     Returns: Map from parameter name to fixed value.
     """
     # Check if status_quo is in design
-    if generator.status_quo is not None and generator.model_space.validate(
-        parameter_dict=generator.status_quo.features.parameters
+    if generator.status_quo is not None and generator.model_space.check_membership(
+        generator.status_quo.features.parameters
     ):
         setx = generator.status_quo.features.parameters
     else:

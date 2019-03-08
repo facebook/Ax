@@ -166,13 +166,16 @@ class BatchTrial(BaseTrial):
             The trial instance.
         """
 
+        # First validate generator run arms
+        for arm in generator_run.arms:
+            self.experiment.search_space.check_types(arm.params, raise_error=True)
+
         # Add names to arms
         # For those not yet added to this experiment, create a new name
         # Else, use the name of the existing arm
         for arm in generator_run.arms:
             self._check_existing_and_name_arm(arm)
 
-        # TODO validate that arms belong to search space
         self._generator_run_structs.append(
             GeneratorRunStruct(generator_run=generator_run, weight=multiplier)
         )
@@ -200,6 +203,9 @@ class BatchTrial(BaseTrial):
             raise ValueError("Status quo weight must be positive.")
 
         if status_quo is not None:
+            self.experiment.search_space.check_types(
+                status_quo.params, raise_error=True
+            )
             # If status_quo is identical to an existing arm, set to that
             # so that the names match.
             if status_quo.signature in self.experiment.arms_by_signature:

@@ -147,23 +147,7 @@ class Experiment(Base):
             self._status_quo = None
             return
 
-        # If status_quo is not null, make sure it's valid
-        if len(status_quo.params) < len(self.parameters):
-            raise ValueError(
-                "Status quo must contain all parameters defined on the experiment."
-            )
-        for param_name, param_value in status_quo.params.items():
-            if param_name not in self.parameters:
-                raise ValueError(f"{param_name} not defined on experiment.")
-            if param_value is None:  # Allow null param values for status_quo
-                continue
-
-            param_def = self.parameters[param_name]
-            if not param_def.is_valid_type(param_value):
-                raise ValueError(
-                    f"Parameter `{param_name}` must be of type "
-                    f"{param_def.python_type}, received {type(param_value)}."
-                )
+        self.search_space.check_types(status_quo.params, raise_error=True)
         if not status_quo.has_name:
             status_quo.name = "status_quo"
 

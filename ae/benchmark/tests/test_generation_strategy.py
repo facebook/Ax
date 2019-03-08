@@ -71,7 +71,7 @@ class TestGenerationStrategy(TestCase):
             g = sobol_GPEI_generation_strategy.get_generator(
                 exp, exp.fetch_data(), exp.search_space
             )
-            exp.new_batch_trial().add_arm(Arm(params={"x": i}))
+            exp.new_batch_trial().add_arm(Arm(params={"x1": i, "x2": i}))
             if i > 0 and i < 5:
                 self.assertTrue(g is prev_g)
             else:
@@ -100,7 +100,7 @@ class TestGenerationStrategy(TestCase):
             factorial_thompson_generation_strategy.get_generator(
                 exp, exp.fetch_data(), exp.search_space
             )
-            exp.new_batch_trial().add_arm(Arm(params={"x": i}))
+            exp.new_batch_trial().add_arm(Arm(params={"x1": i, "x2": i}))
             if i < 1:
                 mock_discrete.assert_called()
                 args, kwargs = mock_discrete.call_args

@@ -5,7 +5,10 @@ from unittest.mock import PropertyMock, patch
 import numpy as np
 from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base_trial import TrialStatus
+from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun
+from ae.lazarus.ae.core.parameter import FixedParameter, ParameterType
+from ae.lazarus.ae.core.search_space import SearchSpace
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
 from ae.lazarus.ae.tests.fake import (
     get_abandoned_arm,
@@ -263,17 +266,31 @@ class BatchTrialTest(TestCase):
     def testIsFactorial(self):
         self.assertFalse(self.batch.is_factorial)
 
+        # Insufficient factors
+        small_experiment = Experiment(
+            name="small_test",
+            search_space=SearchSpace([FixedParameter("a", ParameterType.INT, 4)]),
+        )
+        small_trial = small_experiment.new_batch_trial().add_arm(Arm({"a": 4}))
+        self.assertFalse(small_trial.is_factorial)
+
         new_batch_trial = self.experiment.new_batch_trial()
-        new_batch_trial.add_arms_and_weights(arms=[Arm(params={"x": 1})])
+        new_batch_trial.add_arms_and_weights(
+            arms=[
+                Arm(params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+                Arm(params={"w": 0.75, "x": 2, "y": "foo", "z": True}),
+                Arm(params={"w": 0.77, "x": 1, "y": "foo", "z": True}),
+            ]
+        )
         self.assertFalse(new_batch_trial.is_factorial)
 
         new_batch_trial = self.experiment.new_batch_trial()
         new_batch_trial.add_arms_and_weights(
             arms=[
-                Arm(params={"x": 1, "y": 1}),
-                Arm(params={"x": 2, "y": 2}),
-                Arm(params={"x": 1, "y": 2}),
-                Arm(params={"x": 2, "y": 1}),
+                Arm(params={"w": 0.77, "x": 1, "y": "foo", "z": True}),
+                Arm(params={"w": 0.77, "x": 2, "y": "foo", "z": True}),
+                Arm(params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+                Arm(params={"w": 0.75, "x": 2, "y": "foo", "z": True}),
             ]
         )
         self.assertTrue(new_batch_trial.is_factorial)
@@ -281,8 +298,8 @@ class BatchTrialTest(TestCase):
     def testNormalizedArmWeights(self):
         new_batch_trial = self.experiment.new_batch_trial()
         parameterizations = [
-            {"y": 0.25, "x": 0.75, "z": 75},
-            {"y": 0.375, "x": 0.375, "z": 63},
+            {"w": 0.75, "x": 1, "y": "foo", "z": True},
+            {"w": 0.77, "x": 2, "y": "foo", "z": True},
         ]
         arms = [Arm(params=p) for i, p in enumerate(parameterizations)]
         new_batch_trial.add_arms_and_weights(arms=arms, weights=[2, 1])

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -171,23 +172,78 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             self.ss1.update_parameter(new_p)
 
-    def testValidate(self):
+    def testCheckMembership(self):
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
         # Valid
-        self.assertTrue(self.ss2.validate(p_dict))
+        self.assertTrue(self.ss2.check_membership(p_dict))
 
         # Value out of range
         p_dict["a"] = 20.0
-        self.assertFalse(self.ss2.validate(p_dict))
+        self.assertFalse(self.ss2.check_membership(p_dict))
+        with self.assertRaises(ValueError):
+            self.ss2.check_membership(p_dict, raise_error=True)
 
         # Violate constraints
         p_dict["a"] = 5.3
-        self.assertFalse(self.ss2.validate(p_dict))
+        self.assertFalse(self.ss2.check_membership(p_dict))
+        with self.assertRaises(ValueError):
+            self.ss2.check_membership(p_dict, raise_error=True)
 
         # Incomplete param dict
         p_dict.pop("a")
-        self.assertFalse(self.ss2.validate(p_dict))
+        self.assertFalse(self.ss2.check_membership(p_dict))
+        with self.assertRaises(ValueError):
+            self.ss2.check_membership(p_dict, raise_error=True)
+
+        # Unknown parameter
+        p_dict["q"] = 40
+        self.assertFalse(self.ss2.check_membership(p_dict))
+        with self.assertRaises(ValueError):
+            self.ss2.check_membership(p_dict, raise_error=True)
+
+    def testCheckTypes(self):
+        p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
+
+        # Valid
+        self.assertTrue(self.ss2.check_membership(p_dict))
+
+        # Invalid type
+        p_dict["b"] = 5.2
+        self.assertFalse(self.ss2.check_types(p_dict))
+        with self.assertRaises(ValueError):
+            self.ss2.check_types(p_dict, raise_error=True)
+        p_dict["b"] = 5
+
+        # Incomplete param dict
+        p_dict.pop("a")
+        self.assertFalse(self.ss2.check_types(p_dict))
+        with self.assertRaises(ValueError):
+            self.ss2.check_types(p_dict, raise_error=True)
+
+        # Unknown parameter
+        p_dict["q"] = 40
+        self.assertFalse(self.ss2.check_types(p_dict))
+        with self.assertRaises(ValueError):
+            self.ss2.check_types(p_dict, raise_error=True)
+
+    def testCastArm(self):
+        p_dict = {"a": 1.0, "b": 5.0, "c": "foo", "d": True, "e": 0.2, "f": 5}
+
+        # Check "b" parameter goes from float to int
+        self.assertTrue(isinstance(p_dict["b"], float))
+        new_arm = self.ss2.cast_arm(Arm(p_dict))
+        self.assertTrue(isinstance(new_arm.params["b"], int))
+
+        # Incomplete param dict
+        p_dict.pop("a")
+        with self.assertRaises(ValueError):
+            self.ss2.cast_arm(Arm(p_dict))
+
+        # Unknown parameter
+        p_dict["q"] = 40
+        with self.assertRaises(ValueError):
+            self.ss2.cast_arm(Arm(p_dict))
 
     def testCopy(self):
         ss = SearchSpace(

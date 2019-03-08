@@ -262,8 +262,8 @@ class ExperimentTest(TestCase):
 
     def testNumArmsNoDeduplication(self):
         exp = Experiment(name="test_experiment", search_space=get_search_space())
-        exp.new_batch_trial().add_arm(Arm(params={}))
-        arm = Arm(params={})
+        arm = get_arm()
+        exp.new_batch_trial().add_arm(arm)
         trial = exp.new_batch_trial().add_arm(arm)
         self.assertEqual(exp.sum_trial_sizes, 2)
         self.assertEqual(len(exp.arms_by_name), 1)

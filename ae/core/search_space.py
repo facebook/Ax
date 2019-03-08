@@ -3,6 +3,7 @@
 
 from typing import Dict, List, Optional
 
+from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base import Base
 from ae.lazarus.ae.core.parameter import (
     ChoiceParameter,
@@ -11,7 +12,7 @@ from ae.lazarus.ae.core.parameter import (
     RangeParameter,
 )
 from ae.lazarus.ae.core.parameter_constraint import ParameterConstraint
-from ae.lazarus.ae.core.types.types import TParamValue
+from ae.lazarus.ae.core.types.types import TParameterization
 
 
 class SearchSpace(Base):
@@ -93,27 +94,131 @@ class SearchSpace(Base):
 
         self._parameters[parameter.name] = parameter
 
-    def validate(self, parameter_dict: Dict[str, TParamValue]) -> bool:
-        if len(parameter_dict) != len(self._parameters):
+    def check_membership(
+        self, parameterization: TParameterization, raise_error: bool = False
+    ) -> bool:
+        """Whether the given parameterization belongs in the search space.
+
+        Checks that the given parameter values have the same name/type as
+        search space parameters, are contained in the search space domain,
+        and satisfy the parameter constraints.
+
+        Args:
+            parameterization: Dict from parameter name to value to validate.
+            raise_error: If true parameterization does not belong, raises an error
+                with detailed explanation of why.
+
+        Returns:
+            Whether the parameterization is contained in the search space.
+        """
+        if len(parameterization) != len(self._parameters):
+            if raise_error:
+                raise ValueError(
+                    f"Parameterization has {len(parameterization)} parameters "
+                    f"but search space has {len(self._parameters)}."
+                )
             return False
 
-        for name, value in parameter_dict.items():
+        for name, value in parameterization.items():
+            if name not in self._parameters:
+                if raise_error:
+                    raise ValueError(f"Parameter {name} not defined in search space")
+                return False
+
             if not self._parameters[name].validate(value):
+                if raise_error:
+                    raise ValueError(
+                        f"{value} is not a valid value for "
+                        f"parameter {self._parameters[name]}"
+                    )
                 return False
 
         # parameter constraints only accept numeric parameters
         numerical_param_dict = {
             # pyre-fixme[6]: Expected `typing.Union[...oat]` but got `unknown`.
             name: float(value)
-            for name, value in parameter_dict.items()
+            for name, value in parameterization.items()
             if self._parameters[name].is_numeric
         }
 
         for constraint in self._parameter_constraints:
             if not constraint.check(numerical_param_dict):
+                if raise_error:
+                    raise ValueError(f"Parameter constraint {constraint} is violated.")
                 return False
 
         return True
+
+    def check_types(
+        self,
+        parameterization: TParameterization,
+        allow_none: bool = True,
+        raise_error: bool = False,
+    ) -> bool:
+        """Checks that the given parameterization's types match the search space.
+
+        Checks that the names of the parameterization match those specified in
+        the search space, and the given values are of the correct type.
+
+        Args:
+            parameterization: Dict from parameter name to value to validate.
+            allow_none: Whether None is a valid parameter value.
+            raise_error: If true and parameterization does not belong, raises an error
+                with detailed explanation of why.
+
+        Returns:
+            Whether the parameterization has valid types.
+        """
+        if len(parameterization) != len(self._parameters):
+            if raise_error:
+                raise ValueError(
+                    f"Parameterization has {len(parameterization)} parameters "
+                    f"but search space has {len(self._parameters)}."
+                )
+            return False
+
+        for name, value in parameterization.items():
+            if name not in self._parameters:
+                if raise_error:
+                    raise ValueError(f"Parameter {name} not defined in search space")
+                return False
+
+            if value is None and allow_none:
+                continue
+
+            if not self._parameters[name].is_valid_type(value):
+                if raise_error:
+                    raise ValueError(
+                        f"{value} is not a valid value for "
+                        f"parameter {self._parameters[name]}"
+                    )
+                return False
+
+        return True
+
+    def cast_arm(self, arm: Arm) -> Arm:
+        """Cast parameterization of given arm to the types in this SearchSpace.
+
+        For each parameter in given arm, cast it to the proper type specified
+        in this search space. Throws if there is a mismatch in parameter names. This is
+        mostly useful for int/float, which user can be sloppy with when hand written.
+
+        Args:
+            arm: Arm to cast.
+
+        Returns:
+            New casted arm.
+        """
+        new_params: TParameterization = {}
+        if len(arm.params) != len(self._parameters):
+            raise ValueError("Given arm does not have same parameters as search space.")
+
+        for name, value in arm.params.items():
+            if name not in self._parameters:
+                raise ValueError(f"Parameter {name} is not defined in search space.")
+            new_params[name] = self._parameters[name]._cast(value)
+
+        return Arm(new_params, arm.name if arm.has_name else None)
 
     def clone(self) -> "SearchSpace":
         return SearchSpace(
