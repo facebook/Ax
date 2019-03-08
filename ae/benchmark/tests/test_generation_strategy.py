@@ -33,6 +33,12 @@ class TestGenerationStrategy(TestCase):
                 arms_per_generator=[5],
             )
 
+        # arms_per_generator can't be negative.
+        with self.assertRaises(ValueError):
+            GenerationStrategy(
+                generator_factories=[get_sobol, get_GPEI], arms_per_generator=[5, -1]
+            )
+
         # GenerationStrategy should require that there be no more
         # arms_per_generator than there are generator factories.
         with self.assertRaises(ValueError):
@@ -41,7 +47,7 @@ class TestGenerationStrategy(TestCase):
             )
 
         # Must specify arms_per_generator
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             GenerationStrategy(generator_factories=[get_sobol, get_sobol])
 
     @mock.patch(

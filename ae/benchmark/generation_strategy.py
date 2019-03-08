@@ -74,7 +74,7 @@ class GenerationStrategy:
     def __init__(
         self,
         generator_factories: List[TGeneratorFactory],
-        arms_per_generator: Optional[List[int]] = None,
+        arms_per_generator: List[int],
     ) -> None:
         if len(generator_factories) < 2:
             raise ValueError(
@@ -82,13 +82,13 @@ class GenerationStrategy:
                 f"this GenerationStrategy only has {len(generator_factories)}."
                 "You can instantiate the generator directly if you only need one."
             )
-        if arms_per_generator is None:
-            raise ValueError("Must specify number of arms per generator")
         if len(arms_per_generator) != len(generator_factories):
             raise ValueError(
                 "GenerationStrategy expects to include as many designated "
                 "number of arms per generator as generators. "
             )
+        if min(arms_per_generator) <= 0:
+            raise ValueError("arms_per_generator must all be greater than 0.")
         self._generator_factories = generator_factories
         self._arms_per_generator = arms_per_generator
         # Record at what iteration in the experiment generators changed
