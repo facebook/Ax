@@ -32,13 +32,8 @@ class Winsorize(Transform):
         # we can just replace that limit(s) with 0.0, as in those cases the
         # percentile will just interpret them as 0-th or 100-th percentile,
         # leaving the data unclipped.
-        # pyre-fixme[23]: Unable to unpack `Union[float, str, Tuple[float, float]]` i...
-        lower, upper = (
-            config.get("winsorization_limits", (0.0, 0.0))
-            if config is not None
-            else (0.0, 0.0)
-        )
-        lower, upper = lower or 0.0, upper or 0.0
+        lower = 0.0 if config is None else float(config.get("winsorization_lower", 0.0))
+        upper = 0.0 if config is None else float(config.get("winsorization_upper", 0.0))
         metric_names = {x for obsd in observation_data for x in obsd.metric_names}
         metric_values = {metric_name: [] for metric_name in metric_names}
         for obsd in observation_data:

@@ -31,19 +31,19 @@ class WinsorizeTransformTest(TestCase):
             search_space=None,
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
-            config={"winsorization_limits": (None, 0.2)},
+            config={"winsorization_upper": 0.2},
         )
         self.t1 = Winsorize(
             search_space=None,
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
-            config={"winsorization_limits": (None, 0.8)},
+            config={"winsorization_upper": 0.8},
         )
         self.t2 = Winsorize(
             search_space=None,
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
-            config={"winsorization_limits": (0.2, None)},
+            config={"winsorization_lower": 0.2},
         )
 
     def testInit(self):
