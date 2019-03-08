@@ -568,10 +568,14 @@ def nan_cb(x: np.ndarray) -> None:
 def omp_max_threads(n: int) -> GeneratorType:
     """Temporarily changes the number of OpenMP threads. """
     # This works if Numpy is built against OpenMP
-    omplib = ctypes.cdll.LoadLibrary("libgomp.so.1")
-    old_n = omplib.omp_get_max_threads()
-    omplib.omp_set_num_threads(n)
     try:
+        omplib = ctypes.cdll.LoadLibrary("libgomp.so.1")
+        old_n = omplib.omp_get_max_threads()
+        omplib.omp_set_num_threads(n)
+        try:
+            yield
+        finally:
+            omplib.omp_set_num_threads(old_n)
+    except Exception:
+        # Do nothing; this is not a breaking issue.
         yield
-    finally:
-        omplib.omp_set_num_threads(old_n)
