@@ -21,10 +21,6 @@ from ae.lazarus.ae.utils.common.testutils import TestCase
 
 class TestGenerationStrategy(TestCase):
     def test_validation(self):
-        # GenerationStrategy should require > 1 generator factory.
-        with self.assertRaises(ValueError):
-            GenerationStrategy(generator_factories=[get_sobol], arms_per_generator=[5])
-
         # GenerationStrategy should require as many arms_per_generator
         # as generator_factories.
         with self.assertRaises(ValueError):

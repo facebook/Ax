@@ -76,12 +76,6 @@ class GenerationStrategy:
         generator_factories: List[TGeneratorFactory],
         arms_per_generator: List[int],
     ) -> None:
-        if len(generator_factories) < 2:
-            raise ValueError(
-                "GenerationStrategy is used to combine multiple generators, but "
-                f"this GenerationStrategy only has {len(generator_factories)}."
-                "You can instantiate the generator directly if you only need one."
-            )
         if len(arms_per_generator) != len(generator_factories):
             raise ValueError(
                 "GenerationStrategy expects to include as many designated "
