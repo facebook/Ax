@@ -1,0 +1,11 @@
+{
+  "about": {
+    "Introduction": ["why-ax"],
+    "Algorithms": ["algo-overview"]
+  },
+  "docs": {
+    "General": ["installation", "usage"],
+    "API": ["experiment", "runner", "data", "generator"],
+    "Examples": ["ab", "automl"]
+  }
+}

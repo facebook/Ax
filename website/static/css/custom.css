@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css?family=Montserrat');
+
+html body {
+  font-family: 'Montserrat', sans-serif;
+  overflow-x: hidden;
+}
+
+.headerTitle {
+  font-weight: 400
+}
+
+.homeContainer {
+  background: #353d47;
+  padding: 50px 0px;
+}
+
+.projectTitle {
+  color: #66FCF1;
+  font-variant: small-caps;
+  font-weight: 300;
+}
+
+.promoSection .button {
+  border: 1px solid #45A29E;
+  color: #66FCF1;
+}
+
+.promoSection .button:hover {
+  background: #45A29E;
+  border: 1px solid #C5C6C7;
+  color: #353d47;
+}
+
+.landingPage {
+    padding: 0px;
+}
+
+div.productShowcaseSection {
+  padding-top: 40px;
+}
+
+.productShowcaseSection > h2 {
+  font-variant: small-caps;
+  font-weight: 300;
+  margin: 0px;
+  padding: 0px;
+}
+
+.productShowcaseSection div.container {
+  padding: 40px 0px;
+}
+
+.productShowcaseSection div.blockImage  {
+  height: 80px;
+}
+
+.blockContent > h2 {
+  color: #45A29E;
+}
+
+.productShowcaseSection li {
+  padding: 10px 0;
+}
+
+.productShowcaseSection pre {
+  margin: 10px 0;
+}
+
+.productShowcaseSection code {
+  background: #fff;
+}
+
+div#quickstart  {
+  background: #f1f1f2;
+}
+
+div#quickstart ol {
+  margin-bottom: 0px;
+}
+
+@media only screen and (min-device-width: 360px) and (max-device-width: 736px) {
+}
+
+@media only screen and (min-width: 1024px) {
+}
+
+@media only screen and (max-width: 1023px) {
+}
+
+@media only screen and (min-width: 1400px) {
+}
+
+@media only screen and (min-width: 1500px) {
+}
