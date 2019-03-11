@@ -392,6 +392,22 @@ def get_session() -> Session:
     return SESSION_FACTORY()
 
 
+def get_engine() -> Engine:
+    """Fetch a SQLAlchemy engine, if already initialized.
+
+    If not initialized, need to either call `init_engine_and_session_factory` or
+    `get_session` explicitly.
+
+    Returns:
+        Engine: an instance of a SQLAlchemy engine with a connection to a DB.
+
+    """
+    global SESSION_FACTORY
+    if SESSION_FACTORY is None:
+        raise ValueError("Engine must be initialized first.")  # pragma: no cover
+    return SESSION_FACTORY.bind
+
+
 @contextmanager
 def session_scope() -> Generator[Session, None, None]:
     """Provide a transactional scope around a series of operations."""

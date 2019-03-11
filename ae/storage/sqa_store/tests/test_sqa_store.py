@@ -22,6 +22,7 @@ from ae.lazarus.ae.storage.sqa_store.base_decoder import Decoder
 from ae.lazarus.ae.storage.sqa_store.base_encoder import Encoder
 from ae.lazarus.ae.storage.sqa_store.db import (
     SQABase,
+    get_engine,
     get_session,
     init_engine_and_session_factory,
     session_scope,
@@ -77,6 +78,8 @@ class SQAStoreTest(TestCase):
         init_engine_and_session_factory(
             test=True, tier_or_path=":memory:", force_init=True
         )
+        engine = get_engine()
+        self.assertIsNotNone(engine)
 
     def testDBConnectionWithoutForceInit(self):
         init_engine_and_session_factory(test=True, tier_or_path=":memory:")
