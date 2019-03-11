@@ -50,11 +50,13 @@ class GPyGP(NumpyModel):
     """A single task GP via GPy.
 
     Fits a separate GP for each input. The kernel for that GP will depend on
-    the number of task features.
+    the number of task features:
+
     - 0 task features uses a Matern52 kernel
     - 1 task feature combines that with an ICM coregionalization kernel
     - 2 task features uses 2 coregionalization kernels, typically one of lower
         rank.
+
     See docstrings for _get_SGTP, _get_MTGP1, and _get_MTGP2 for more details.
 
     Args:
@@ -197,8 +199,8 @@ class GPyGP(NumpyModel):
                 the columns of f(x). Only one weight should be non-zero.
             outcome_constraints: A tuple of (A, b). For k outcome constraints
                 and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                    A f(x) <= b. Each outcome constraint should operate on
-                    exactly one outcome.
+                A f(x) <= b. Each outcome constraint should operate on
+                exactly one outcome.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
                 A x <= b.
@@ -210,8 +212,10 @@ class GPyGP(NumpyModel):
                 above.
 
         Returns:
-            X: An (n x d) array of generated points.
-            w: An n-array of weights for each point.
+            A tuple containing
+
+            - (n x d) array of generated points.
+            - n-array of weights for each point.
         """
         if model_gen_options is None:
             model_gen_options = {}
@@ -349,9 +353,11 @@ class GPyGP(NumpyModel):
             qmc: Use QMC.
 
         Returns:
-            fantasy_models: Dictionary from outcome index to a list of fantasy
+            Tuple containing
+
+            - fantasy_models: Dictionary from outcome index to a list of fantasy
                 models for that outcome.
-            cand_X_array: np.ndarray of potential best-feasible points.
+            - cand_X_array: np.ndarray of potential best-feasible points.
         """
         # Data for fantasy models begins with the observations
         fantasy_Xs = [X.copy() for X in self.Xs]

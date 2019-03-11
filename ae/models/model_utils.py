@@ -225,8 +225,7 @@ def best_observed_point(
     fixed_features: Optional[Dict[int, float]] = None,
     options: Optional[TConfig] = None,
 ) -> Optional[np.ndarray]:
-    """
-    Select the best point that has been observed.
+    """Select the best point that has been observed.
 
     Implements two approaches to selecting the best point.
 
@@ -246,6 +245,7 @@ def best_observed_point(
     probability p.
 
     The following quantities may be specified in the options dict:
+
     - best_point_method: 'max_utility' (default) or 'feasible_threshold'
         to select between the two approaches described above.
     - utility_baseline: Value for the baseline used in max_utility approach. If
@@ -267,16 +267,16 @@ def best_observed_point(
             the columns of f(x). These are the weights.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                A f(x) <= b.
+            A f(x) <= b.
         linear_constraints: A tuple of (A, b). For k linear constraints on
             d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b.
+            A x <= b.
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value in the best point.
         options: A config dictionary with settings described above.
 
-        Returns: A d-array of the best point, or None if no feasible point
-            exists.
+    Returns:
+        A d-array of the best point, or None if no feasible point exists.
     """
     # Parse options
     if options is None:

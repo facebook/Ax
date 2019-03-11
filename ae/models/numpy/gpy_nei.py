@@ -325,10 +325,12 @@ def _f_and_grad(
         w: Evaluation is weighted by this factor.
 
     Returns:
-       f: Mean prediction.
-       f_var: Variance prediction.
-       df: Gradient of f.
-       df_var: Gradient of f_var.
+        A tuple containing
+
+        - Mean prediction.
+        - Variance prediction.
+        - Gradient of f.
+        - Gradient of f_var.
     """
     f_arr, f_var_arr = m._raw_predict(np.array([x]), full_cov=False)
     f = w * f_arr[0, 0]

@@ -40,8 +40,10 @@ class DiscreteModel:
             X: List of the j parameterizations at which to make predictions.
 
         Returns:
-            f: (j x m) array of outcome predictions at X.
-            cov: (j x m x m) array of predictive covariances at X.
+            A tuple containing
+
+            - (j x m) array of outcome predictions at X.
+            - (j x m x m) array of predictive covariances at X.
                 cov[j, m1, m2] is Cov[m1@j, m2@j].
         """
         raise NotImplementedError
@@ -66,7 +68,7 @@ class DiscreteModel:
                 the columns of f(x). These are the weights.
             outcome_constraints: A tuple of (A, b). For k outcome constraints
                 and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                    A f(x) <= b.
+                A f(x) <= b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
             pending_observations:  A list of m lists of parameterizations
@@ -76,9 +78,11 @@ class DiscreteModel:
                 model-specific options.
 
         Returns:
-            X: A list of n generated points, where each point is represented
+            A tuple containing
+
+            - List of n generated points, where each point is represented
                 by a list of parameter values.
-            w: A list of weights for each of the n points.
+            - List of weights for each of the n points.
         """
         raise NotImplementedError
 
@@ -104,8 +108,10 @@ class DiscreteModel:
             X_test: List of the j parameterizations at which to make predictions.
 
         Returns:
-            f: (j x m) array of outcome predictions at X.
-            cov: (j x m x m) array of predictive covariances at X.
+            A tuple containing
+
+            - (j x m) array of outcome predictions at X.
+            - (j x m x m) array of predictive covariances at X.
                 cov[j, m1, m2] is Cov[m1@j, m2@j].
         """
         raise NotImplementedError
@@ -124,9 +130,8 @@ class DiscreteModel:
         prediction and its model predictions.
 
         Returns:
-            Optional[List[Optional[Union[str, bool, float]]]]:
-                (1 x d) parameter value list representing the point with the best
-                value according to the model prediction. None if this function
-                is not implemented for the given model.
+            (1 x d) parameter value list representing the point with the best
+            value according to the model prediction. None if this function
+            is not implemented for the given model.
         """
         return None  # pragma: no cover TODO[bletham, drfreund]

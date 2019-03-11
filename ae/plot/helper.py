@@ -119,10 +119,14 @@ def _get_in_sample_arms(
             metrics in the generator.
 
     Returns:
-        in_sample_plot: A map from arm name to PlotInSampleArm
-        raw_data: A list of the data for each observation like
-            {'metric_name': 'likes', 'arm_name': '0_0', 'mean': 1., 'sem': 0.1}.
-        cond_name_to_params: A mapping from arm name to parameters
+        A tuple containing
+
+        - Map from arm name to PlotInSampleArm.
+        - List of the data for each observation like::
+
+            {'metric_name': 'likes', 'arm_name': '0_0', 'mean': 1., 'sem': 0.1}
+
+        - Map from arm name to parameters
     """
     observations = generator.get_training_data()
     # Calculate raw data
@@ -201,9 +205,11 @@ def _predict_at_point(
         obsf: ObservationFeatures for which to predict
         metric_names: Limit predictions to these metrics.
 
-    Returns
-        y_hat: map from metric name to prediction
-        se_hat: map from metric name to standard error.
+    Returns:
+        A tuple containing
+
+        - Map from metric name to prediction.
+        - Map from metric name to standard error.
     """
     y_hat = {}
     se_hat = {}
@@ -223,7 +229,7 @@ def _get_out_of_sample_arms(
     """Get out-of-sample predictions from a generator given a dict of generator runs.
 
     Args:
-        generator: The generator.
+        generator: the generator.
         generator_runs_dict: a mapping from generator run name to generator run.
         metric_names: metrics to include in the plot.
 
@@ -276,17 +282,20 @@ def get_plot_data(
     observation and having keys 'arm_name', 'mean', and 'sem'.
 
     Args:
-        generator: The generator.
+        generator: the generator.
         generator_runs_dict: a mapping from generator run name to generator run.
         metric_names: Restrict predictions to this set. If None, all metrics
             in the generator will be returned.
 
     Returns:
-        plot_data: a PlotData object with in-sample and out-of-sample
-            predictions.
-        raw_data: A list of observations like
+        A tuple containing
+
+        - PlotData object with in-sample and out-of-sample predictions.
+        - List of observations like::
+
             {'metric_name': 'likes', 'arm_name': '0_1', 'mean': 1., 'sem': 0.1}.
-        cond_name_to_params: A mapping from arm name to parameters.
+
+        - Mapping from arm name to parameters.
     """
     metrics_plot = generator.metric_names if metric_names is None else metric_names
     in_sample_plot, raw_data, cond_name_to_params = _get_in_sample_arms(

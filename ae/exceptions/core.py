@@ -23,9 +23,10 @@ class UnsupportedError(AEError):
 
     UnsupportedError may seem similar to NotImplementedError (NIE).
     It differs in the following ways:
-      1. UnsupportedError is not used for abstract methods, which
+
+    1. UnsupportedError is not used for abstract methods, which
         is the official NIE use case.
-      2. UnsupportedError indicates an intentional and permanent lack of support.
+    2. UnsupportedError indicates an intentional and permanent lack of support.
         It should not be used for TODO (another common use case of NIE).
     """
 

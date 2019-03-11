@@ -20,11 +20,18 @@ def get_color(x, ci):
 
 
 def table_view_plot(experiment: Experiment, data: Data):
-    """ Render a table of the form:
-                  metric1      metric2
-    arms    mean +- CI   ...
-    0_0     ...
-    0_1
+    """ Table of means (and confidence intervals) from Empirical Bayes model.
+
+    Table is of the form:
+
+    +-------+------------+-----------+
+    |  arm  |  metric_1  |  metric_2 |
+    +=======+============+===========+
+    |  0_0  | mean +- CI |    ...    |
+    +-------+------------+-----------+
+    |  0_1  |    ...     |    ...    |
+    +-------+------------+-----------+
+
     """
     generator = get_empirical_bayes_thompson(experiment=experiment, data=data)
 

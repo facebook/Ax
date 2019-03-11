@@ -10,6 +10,8 @@ from scipy.stats import fisher_exact, pearsonr, spearmanr
 
 
 class CVResult(NamedTuple):
+    """Container for cross validation results."""
+
     observed: Observation
     predicted: ObservationData
 
@@ -108,14 +110,15 @@ def compute_diagnostics(result: List[CVResult]) -> Dict[str, Dict[str, float]]:
           that the model has some ability to identify good arms. A high p value
           indicates that the model cannot identify arms better than chance, or
           that the observations are too noisy to be able to tell.
+
     Each of these is returned as a dictionary from metric name to value for
     that metric.
 
     Args:
         result: Output of cross_validate
 
-    Returns: A dictionary keyed by diagnostic name with results as described
-        above.
+    Returns:
+        A dictionary keyed by diagnostic name with results as described above.
     """
     # Extract per-metric outcomes from CVResults.
     y_obs = defaultdict(list)
