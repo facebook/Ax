@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from ae.lazarus.ae.core.observation import ObservationFeatures
 from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.generator.base import unwrap_observation_data
 from ae.lazarus.ae.generator.transforms.base import Transform
 from ae.lazarus.ae.generator.transforms.ivw import ivw_metric_merge
+
+
+if TYPE_CHECKING:
+    # import as module to make sphinx-autodoc-typehints happy
+    from ae.lazarus.ae import (  # noqa F401  # pragma: no cover
+        generator as generator_module,
+    )
 
 
 class Derelativize(Transform):
@@ -22,8 +29,7 @@ class Derelativize(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        # pyre-fixme[11]: Type `Generator` is not defined.
-        generator: Optional["Generator"],
+        generator: Optional["generator_module.base.Generator"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         has_relative_constraint = any(

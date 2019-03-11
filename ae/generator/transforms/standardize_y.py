@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from collections import defaultdict
-from typing import DefaultDict, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, DefaultDict, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from ae.lazarus.ae.core.observation import ObservationData, ObservationFeatures
@@ -10,6 +10,13 @@ from ae.lazarus.ae.core.search_space import SearchSpace
 from ae.lazarus.ae.core.types.types import TConfig, TParamValue
 from ae.lazarus.ae.generator.transforms.base import Transform
 from ae.lazarus.ae.utils.common.logger import get_logger
+
+
+if TYPE_CHECKING:
+    # import as module to make sphinx-autodoc-typehints happy
+    from ae.lazarus.ae.generator import (  # noqa F401  # pragma: no cover
+        base as base_generator,
+    )
 
 
 logger = get_logger("StandardizeY")
@@ -59,8 +66,7 @@ class StandardizeY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        # pyre-fixme[11]: Type `Generator` is not defined.
-        generator: Optional["Generator"],
+        generator: Optional["base_generator.Generator"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         for c in optimization_config.outcome_constraints:

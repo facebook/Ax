@@ -23,9 +23,8 @@ from ae.lazarus.ae.utils.common.typeutils import checked_cast
 
 
 if TYPE_CHECKING:
-    from ae.lazarus.ae.core.experiment import (
-        Experiment,
-    )  # noqa F401  # pragma: no cover
+    # import as module to make sphinx-autodoc-typehints happy
+    from ae.lazarus.ae import core  # noqa F401  # pragma: no cover
 
 
 class AbandonedArm(NamedTuple):
@@ -54,7 +53,7 @@ class GeneratorRunStruct(NamedTuple):
 
 
 class BatchTrial(BaseTrial):
-    def __init__(self, experiment: "Experiment") -> None:
+    def __init__(self, experiment: "core.experiment.Experiment") -> None:
         super().__init__(experiment=experiment)
         self._generator_run_structs: List[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
@@ -63,7 +62,7 @@ class BatchTrial(BaseTrial):
         self.set_status_quo(experiment.status_quo)
 
     @property
-    def experiment(self) -> "Experiment":
+    def experiment(self) -> "core.experiment.Experiment":
         """The experiment this batch belongs to."""
         return self._experiment
 

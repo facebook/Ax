@@ -7,14 +7,15 @@ from ae.lazarus.ae.core.base import Base
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ae.lazarus.ae.core.base_trial import BaseTrial  # noqa
+    # import as module to make sphinx-autodoc-typehints happy
+    from ae.lazarus.ae import core  # noqa F401
 
 
 class Runner(Base, ABC):
     """Abstract base class for custom runner classes"""
 
     @abstractmethod
-    def run(self, trial: "BaseTrial") -> Dict[str, Any]:
+    def run(self, trial: "core.base_trial.BaseTrial") -> Dict[str, Any]:
         """Deploys a trial based on custom runner subclass implementation.
 
         Args:

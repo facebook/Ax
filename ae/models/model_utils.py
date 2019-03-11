@@ -10,13 +10,8 @@ from ae.lazarus.ae.models.torch_base import TorchModel
 
 
 if TYPE_CHECKING:
-    from ae.lazarus.ae.models.numpy.gpy import GPyGP  # noqa F401  # pragma: no cover
-    from ae.lazarus.ae.models.random.base import (  # noqa F401  # pragma: no cover
-        RandomModel,
-    )
-    from ae.lazarus.ae.models.torch.botorch import (  # noqa F401  # pragma: no cover
-        BotorchModel,
-    )
+    # import as module to make sphinx-autodoc-typehints happy
+    from ae.lazarus.ae import models  # noqa F401  # pragma: no cover
 
 
 Tensoray = Union[torch.Tensor, np.ndarray]
@@ -222,7 +217,7 @@ def validate_bounds(
 
 
 def best_observed_point(
-    model: Union["GPyGP", "BotorchModel"],
+    model: "Union[models.numpy.gpy.GPyGP, models.torch.botorch.BotorchModel]",
     bounds: List[Tuple[float, float]],
     objective_weights: Optional[Tensoray],
     outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,

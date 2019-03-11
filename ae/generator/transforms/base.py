@@ -9,7 +9,10 @@ from ae.lazarus.ae.core.types.types import TConfig
 
 
 if TYPE_CHECKING:
-    from ae.lazarus.ae.generator.base import Generator  # noqa F401  # pragma: no cover
+    # import as module to make sphinx-autodoc-typehints happy
+    from ae.lazarus.ae import (  # noqa F401  # pragma: no cover
+        generator as generator_module,
+    )
 
 
 class Transform:
@@ -51,7 +54,7 @@ class Transform:
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        generator: Optional["Generator"],
+        generator: Optional["generator_module.base.Generator"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         return optimization_config

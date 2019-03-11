@@ -12,13 +12,12 @@ from ae.lazarus.ae.core.trial import Trial
 
 
 if TYPE_CHECKING:
-    from ae.lazarus.ae.core.experiment import (
-        Experiment,
-    )  # noqa F401  # pragma: no cover
+    # import as module to make sphinx-autodoc-typehints happy
+    from ae.lazarus.ae import core  # noqa F401  # pragma: no cover
 
 
 def batch_trial_from_json(
-    experiment: "Experiment",
+    experiment: "core.experiment.Experiment",
     index: int,
     trial_type: Optional[str],
     status: TrialStatus,
@@ -62,7 +61,7 @@ def batch_trial_from_json(
 
 
 def trial_from_json(
-    experiment: "Experiment",
+    experiment: "core.experiment.Experiment",
     index: int,
     trial_type: Optional[str],
     status: TrialStatus,

@@ -12,9 +12,8 @@ from ae.lazarus.ae.core.runner import Runner
 
 
 if TYPE_CHECKING:
-    from ae.lazarus.ae.core.experiment import (
-        Experiment,
-    )  # noqa F401  # pragma: no cover
+    # import as module to make sphinx-autodoc-typehints happy
+    from ae.lazarus.ae import core  # noqa F401  # pragma: no cover
 
 
 class TrialStatus(Enum):
@@ -71,7 +70,8 @@ def immutable_once_run(func: Callable) -> Callable:
     trial is running or has ever run and immutable.
     """
 
-    def _immutable_once_run(self, *args: Any, **kwargs: Any) -> Any:
+    # no type annotation for now; breaks sphinx-autodoc-typehints
+    def _immutable_once_run(self, *args, **kwargs):
         if self._status != TrialStatus.CANDIDATE:
             raise ValueError(
                 "Cannot modify a trial that is running or has ever run.",
@@ -91,7 +91,7 @@ class BaseTrial(ABC, Base):
     and BatchTrial, which contains an arbitrary number of arms.
     """
 
-    def __init__(self, experiment: "Experiment") -> None:
+    def __init__(self, experiment: "core.experiment.Experiment") -> None:
         """Initialize trial.
 
         Args:
@@ -118,7 +118,7 @@ class BaseTrial(ABC, Base):
         self._num_arms_created = 0
 
     @property
-    def experiment(self) -> "Experiment":
+    def experiment(self) -> "core.experiment.Experiment":
         """The experiment this trial belongs to."""
         return self._experiment
 

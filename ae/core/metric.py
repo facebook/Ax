@@ -7,8 +7,8 @@ from ae.lazarus.ae.core.data import Data
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ae.lazarus.ae.core.base_trial import BaseTrial  # noqa
-    from ae.lazarus.ae.core.experiment import Experiment  # noqa
+    # import as module to make sphinx-autodoc-typehints happy
+    from ae.lazarus.ae import core  # noqa F401
 
 
 class Metric(Base):
@@ -33,11 +33,15 @@ class Metric(Base):
         """Get name of metric."""
         return self._name
 
-    def fetch_trial_data(self, trial: "BaseTrial", **kwargs: Any) -> Data:
+    def fetch_trial_data(
+        self, trial: "core.base_trial.BaseTrial", **kwargs: Any
+    ) -> Data:
         """Fetch data for one trial."""
         raise NotImplementedError  # pragma: no cover
 
-    def fetch_experiment_data(self, experiment: "Experiment", **kwargs: Any) -> Data:
+    def fetch_experiment_data(
+        self, experiment: "core.experiment.Experiment", **kwargs: Any
+    ) -> Data:
         """Fetch this metric's data for an experiment.
 
         Default behavior is to fetch data from all trials expecting data
@@ -54,7 +58,10 @@ class Metric(Base):
 
     @classmethod
     def fetch_trial_data_multi(
-        cls, trial: "BaseTrial", metrics: Iterable["Metric"], **kwargs: Any
+        cls,
+        trial: "core.base_trial.BaseTrial",
+        metrics: Iterable["Metric"],
+        **kwargs: Any
     ) -> Data:
         """Fetch multiple metrics data for one trial.
 
@@ -72,7 +79,10 @@ class Metric(Base):
 
     @classmethod
     def fetch_experiment_data_multi(
-        cls, experiment: "Experiment", metrics: Iterable["Metric"], **kwargs: Any
+        cls,
+        experiment: "core.experiment.Experiment",
+        metrics: Iterable["Metric"],
+        **kwargs: Any
     ) -> Data:
         """Fetch multiple metrics data for an experiment.
 

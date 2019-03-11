@@ -9,12 +9,13 @@ def equality_typechecker(eq_func: Callable) -> Callable:
     are of the right type.
     """
 
-    def type_safe_equals(self, other: Any):
+    # no type annotation for now; breaks sphinx-autodoc-typehints
+    def _type_safe_equals(self, other):
         if not isinstance(other, self.__class__):
             return False
         return eq_func(self, other)
 
-    return type_safe_equals
+    return _type_safe_equals
 
 
 def list_equals(list1: List[Any], list2: List[Any]) -> bool:

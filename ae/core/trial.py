@@ -9,9 +9,8 @@ from ae.lazarus.ae.utils.common.typeutils import not_none
 
 
 if TYPE_CHECKING:
-    from ae.lazarus.ae.core.experiment import (
-        Experiment,
-    )  # noqa F401  # pragma: no cover
+    # import as module to make sphinx-autodoc-typehints happy
+    from ae.lazarus.ae import core  # noqa F401  # pragma: no cover
 
 
 class Trial(BaseTrial):
@@ -27,7 +26,9 @@ class Trial(BaseTrial):
     """
 
     def __init__(
-        self, experiment: "Experiment", generator_run: Optional[GeneratorRun] = None
+        self,
+        experiment: "core.experiment.Experiment",
+        generator_run: Optional[GeneratorRun] = None,
     ) -> None:
         super().__init__(experiment)
         self._generator_run = None
