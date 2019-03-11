@@ -52,9 +52,9 @@ class SQABase(object):
         mapper = inspect(self).mapper
         attrs = [c.key for c in mapper.column_attrs]
 
-        # exclude backref relationships; those will be accounted for on the
-        # backpopulated class
-        relationships = [c.key for c in mapper.relationships if not c.backref]
+        # exclude backpopulated relationships; those will be accounted for on the
+        # owning class
+        relationships = [c.key for c in mapper.relationships if not c.back_populates]
         return attrs + relationships
 
     @staticmethod

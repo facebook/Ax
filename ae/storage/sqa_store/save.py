@@ -31,4 +31,3 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
             session.add(new_sqa_experiment)
         else:
             existing_sqa_experiment.update(new_sqa_experiment)
-            session.add(existing_sqa_experiment)
