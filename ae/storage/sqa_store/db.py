@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from abc import ABCMeta
 from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
@@ -11,7 +10,7 @@ from ae.lazarus.ae.storage.sqa_store.utils import is_foreign_key_field
 from ae.lazarus.ae.utils.common.equality import datetime_equals, equality_typechecker
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Engine
-from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
 
@@ -36,11 +35,7 @@ SESSION_FACTORY: Optional[Session] = None
 T = TypeVar("T")
 
 
-class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):
-    pass
-
-
-class SQABase(object):
+class SQABase:
     """Metaclass for SQLAlchemy classes corresponding to core AE classes."""
 
     @property
@@ -266,7 +261,7 @@ class SQABase(object):
                 )
 
 
-Base = declarative_base(metaclass=DeclarativeABCMeta, cls=SQABase)
+Base = declarative_base(cls=SQABase)
 
 
 def create_mysql_engine_from_creator(
