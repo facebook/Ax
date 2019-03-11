@@ -31,6 +31,7 @@ const siteConfig = {
   headerLinks: [
     {doc: 'why-ax', label: 'About'},
     {doc: 'installation', label: 'Docs'},
+    {href: 'api/index', label: 'API'},
     {blog: true, label: 'Blog'},
     // Search can be enabled when site is online
     // {search: true},
