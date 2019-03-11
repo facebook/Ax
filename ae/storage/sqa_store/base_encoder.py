@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import inspect
-from enum import EnumMeta
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ae.lazarus.ae.core.arm import Arm
@@ -85,12 +85,12 @@ class Encoder:
     }
     metric_registry: MetricRegistry = MetricRegistry()
     runner_registry: RunnerRegistry = RunnerRegistry()
-    experiment_type_enum: Optional[EnumMeta] = None
-    generator_run_type_enum: Optional[EnumMeta] = GeneratorRunType
+    experiment_type_enum: Optional[Enum] = None
+    generator_run_type_enum: Optional[Enum] = GeneratorRunType
 
     @classmethod
     def get_enum_value(
-        cls, value: Optional[str], enum: Optional[EnumMeta]
+        cls, value: Optional[str], enum: Optional[Enum]
     ) -> Optional[int]:
         """Given an enum name (string) and an enum (of ints), return the
         corresponding enum value. If the name is not present in the enum,
@@ -99,12 +99,10 @@ class Encoder:
         if value is None or enum is None:
             return None
 
-        for k, v in enum.__members__.items():
-            if k == value:
-                # pyre-fixme[16]: `EnumMeta` has no attribute `value`.
-                return v.value
-
-        raise SQAEncodeError(f"Value {value} is invalid for enum {enum}.")
+        try:
+            return enum[value].value  # pyre-ignore T29651755
+        except KeyError:
+            raise SQAEncodeError(f"Value {value} is invalid for enum {enum}.")
 
     @classmethod
     def experiment_to_sqa(cls, experiment: Experiment) -> SQAExperiment:
