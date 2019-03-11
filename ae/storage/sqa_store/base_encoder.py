@@ -58,18 +58,18 @@ class Encoder:
     functionality (e.g. special validation) for a given user-facing typeself.
     This class can then be passed into _save_experiment (defined in save.py).
 
-    Class attributes that can be overwritten by a subclass include:
-    -- class_to_sqa_class: Mapping of user-facing class to SQLAlchemy class
+    Attributes:
+        class_to_sqa_class: Mapping of user-facing class to SQLAlchemy class
             that it will be encoded to. This allows overwriting of the default
             classes to provide custom save functionality.
-    -- metric_registry: Maps Metric classes to an int constant representing
+        metric_registry: Maps Metric classes to an int constant representing
             their type. Ensures that when we store metric types, they will
             correspond to an existing Metric class.
-    -- runner_registry: Maps Runner classes to an int constaint representing
+        runner_registry: Maps Runner classes to an int constaint representing
             their type. Ensures that when we store runner types, they will
             correspond to an existing Runner class.
-    -- experiment_type_enum: Enum containing valid Experiment types.
-    -- generator_run_type_enum: Enum containing valid Generator Run types.
+        experiment_type_enum: Enum containing valid Experiment types.
+        generator_run_type_enum: Enum containing valid Generator Run types.
     """
 
     class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = {

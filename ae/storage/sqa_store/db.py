@@ -91,32 +91,34 @@ class SQABase:
         """Merge a new list (`l2`) into an existing list (`l1`).
 
         Assumptions:
-            -- The lists do not contain duplicates
+
+        - The lists do not contain duplicates
 
         For each item in the new list:
-        -- Check if there is a matching item in the old list.
-        -- If so, update and retain the existing item.
-        -- If not, add the item from the new list.
-        -- If there are any items in the old list that don't have a matching
-           item in the new list, remove them.
+
+        - Check if there is a matching item in the old list.
+        - If so, update and retain the existing item.
+        - If not, add the item from the new list.
+        - If there are any items in the old list that don't have a matching
+          item in the new list, remove them.
 
         Example:
-        1) You have an experiment with metrics [m1, m2]
-        2) You update the experiment to remove m1, change the properties of m2,
-           and add add m3. The new list of metrics is [m2(new), m3]
-        3) This will result in calling `list_update([m1, m2], [m2(new), m3])`
-        4) We start by looking at m2(new), and we find a matching object (m2)
-           in the original list, because the unique_id (name) of both objects
-           is the same. So we call m2.update(m2(new)) to update m2 in place,
-           and add it to our new list.
-        5) Now we look at m3. We don't find a matching object in the original list,
-           so we add m3 to our new list.
-        6) At the end, our new list contains the original m2 object with updates
-           applied, and the new m3 object.
-        7) SQL Alchemy will perform an update on m2, an insert of m3, and because
-           the new list does not contain m1, and because we have
-           cascade='all, delete-orphan' specified on the relationship between
-           xperiment and metrics, this child will be deleted.
+            1) You have an experiment with metrics [m1, m2]
+            2) You update the experiment to remove m1, change the properties of m2,
+               and add add m3. The new list of metrics is [m2(new), m3]
+            3) This will result in calling `list_update([m1, m2], [m2(new), m3])`
+            4) We start by looking at m2(new), and we find a matching object (m2)
+               in the original list, because the unique_id (name) of both objects
+               is the same. So we call m2.update(m2(new)) to update m2 in place,
+               and add it to our new list.
+            5) Now we look at m3. We don't find a matching object in the original list,
+               so we add m3 to our new list.
+            6) At the end, our new list contains the original m2 object with updates
+               applied, and the new m3 object.
+            7) SQLAlchemy will perform an update on m2, an insert of m3, and because
+               the new list does not contain m1, and because we have
+               cascade='all, delete-orphan' specified on the relationship between
+               experiment and metrics, this child will be deleted.
         """
         new_list = []
         for y in l2:  # For each item in the new list

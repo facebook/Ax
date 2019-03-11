@@ -55,15 +55,15 @@ class Decoder:
     functionality for a given user-facing type. This class can then be passed
     into _load_experiment (defined in load.py).
 
-    Class attributes that can be overwritten by a subclass include:
-    -- metric_registry: Maps int constants to corresponding Metric classes.
+    Attributes:
+        metric_registry: Maps int constants to corresponding Metric classes.
             Ensures that when we load metric types, they will correspond
             to an existing Metric class.
-    -- runner_registry: Maps int constants to corresponding Runner classes.
+        runner_registry: Maps int constants to corresponding Runner classes.
             Ensures that when we load runner types, they will correspond
             to an existing Runner class.
-    -- experiment_type_enum: Enum containing valid Experiment types.
-    -- generator_run_type_enum: Enum containing valid Generator Run types.
+        experiment_type_enum: Enum containing valid Experiment types.
+        generator_run_type_enum: Enum containing valid Generator Run types.
     """
 
     metric_registry: MetricRegistry = MetricRegistry()
