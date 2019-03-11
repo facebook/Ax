@@ -129,3 +129,12 @@ ae/utils/stats/sobol.c*
 
 # Sphinx documentation
 sphinx/build/
+
+# Docusaurus site
+website/yarn.lock
+website/build/
+website/i18n/
+website/node_modules/
+website/pages/api/
+website/static/js/
+website/static/_sphinx-sources/
