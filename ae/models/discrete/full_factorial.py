@@ -72,8 +72,4 @@ class FullFactorialGenerator(DiscreteModel):
             )
 
         points = [list(x) for x in itertools.product(*parameter_values)]
-        # Expected `typing.Tuple[List[List[Optional[typing.Union[bool, float, str]]]],
-        # List[float]]` but got `typing.Tuple[List[List[Optional[typing.Union[bool,
-        # float, str]]]], List[int]]`.
-        # pyre-fixme[7]:
-        return (points, [1 for _ in range(len(points))])
+        return (points, [1.0 for _ in range(len(points))])
