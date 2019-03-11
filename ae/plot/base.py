@@ -23,6 +23,7 @@ class AEPlotTypes(enum.Enum):
     GENERIC = 3
     SLICE = 4
     INTERACT_CONTOUR = 5
+    BANDIT_ROLLOUT = 6
 
 
 # Configuration for all plots

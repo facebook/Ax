@@ -190,7 +190,6 @@ class BotorchModel(TorchModel):
                 infeasible_cost=infeasible_cost,
                 X_pending=X_pending,
                 acquisition_function_args=self.acquisition_function_args,
-                # pyre-fixme[16]: `Tensor` has no attribute `item`.
                 seed=torch.randint(1, 10000, (1,)).item(),
             )
 

@@ -37,6 +37,7 @@ AE_PLOT_REGISTRY = {
     AEPlotTypes.GENERIC: "generic_plotly.js",
     AEPlotTypes.INTERACT_CONTOUR: "interact_contour.js",
     AEPlotTypes.SLICE: "slice.js",
+    AEPlotTypes.BANDIT_ROLLOUT: "bandit_rollout.js",
 }
 
 
