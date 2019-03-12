@@ -2,8 +2,6 @@
 
 from typing import Any
 
-from baldr.ttypes import Error as BaldrAPIError
-
 
 class DataProviderError(Exception):
     """Base Exception for AE DataProviders.
@@ -28,15 +26,4 @@ class DataProviderError(Exception):
             dp=self.data_provider,
             message=self.message,
             dp_error=self.data_provider_error,
-        )
-
-
-class BaldrError(DataProviderError):
-    "Raised when a error is thrown from the Baldr API."
-
-    def __init__(self, message: str, data_provider_error: BaldrAPIError) -> None:
-        super().__init__(
-            message=message,
-            data_provider="BALDR",
-            data_provider_error=data_provider_error,
         )
