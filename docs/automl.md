@@ -1,6 +1,6 @@
 ---
-id: automl
-title: AutoML
+id: hpo
+title: HPO
 ---
 
 ## Ax for scikit-learn

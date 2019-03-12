@@ -1,11 +1,9 @@
 {
-  "about": {
-    "Introduction": ["why-ax"],
-    "Algorithms": ["algo-overview"]
-  },
   "docs": {
-    "General": ["installation", "usage"],
-    "API": ["experiment", "runner", "data", "generator"],
-    "Examples": ["ab", "automl"]
+    "Introduction": ["why-ax"],
+    "Setup": ["installation", "usage"],
+    "Algorithms": ["algo-overview"],
+    "Components": ["experiment", "runner", "data", "generator"],
+    "Applications": ["ab", "hpo"]
   }
 }

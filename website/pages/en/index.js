@@ -67,7 +67,7 @@ class HomeSplash extends React.Component {
           <PromoSection>
             <Button href={docUrl('why-ax.html')}>Why Ax?</Button>
             <Button href={"#quickstart"}>Get Started</Button>
-            <Button href={docUrl('ab.html')}>Examples</Button>
+            <Button href={docUrl('ab.html')}>Applications</Button>
           </PromoSection>
         </div>
       </SplashContainer>
@@ -160,7 +160,7 @@ class Index extends React.Component {
             ),
             image: `${baseUrl}img/database-solid.svg`,
             imageAlign: 'top',
-            title: 'Enterprise-Grade',
+            title: 'Production-Ready',
           },
         ]}
       </Block>

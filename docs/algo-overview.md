@@ -1,6 +1,6 @@
 ---
 id: algo-overview
-title: Algorithm Overview
+title: Overview
 ---
 
 Ax supports:

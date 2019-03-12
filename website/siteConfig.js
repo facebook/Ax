@@ -29,10 +29,8 @@ const siteConfig = {
 
   // For no header links in the top nav bar -> headerLinks: [],
   headerLinks: [
-    {doc: 'why-ax', label: 'About'},
-    {doc: 'installation', label: 'Docs'},
-    {href: 'api/index', label: 'API'},
-    {blog: true, label: 'Blog'},
+    {doc: 'why-ax', label: 'Docs'},
+    {href: '/api/index', label: 'API'},
     // Search can be enabled when site is online
     // {search: true},
     {href: 'https://github.com/facebook/Adaptive-Experiment', label: "GitHub" }
@@ -49,7 +47,7 @@ const siteConfig = {
   /* Colors for website */
   colors: {
     primaryColor: '#1F2833',
-    secondaryColor: '#C5C6C7', // #45A29E  #66FCF1
+    secondaryColor: '#C5C6C7',
   },
 
   highlight: {
