@@ -14,11 +14,11 @@ from ae.lazarus.ae.benchmark.benchmark_runner import (
     BenchmarkSetup,
     BOBenchmarkRunner,
 )
-from ae.lazarus.ae.benchmark.generation_strategy import (
+from ae.lazarus.ae.generator.factory import get_GPyGPEI, get_sobol
+from ae.lazarus.ae.generator.generation_strategy import (
     GenerationStrategy,
     TGeneratorFactory,
 )
-from ae.lazarus.ae.generator.factory import get_GPyGPEI, get_sobol
 from ae.lazarus.ae.plot.base import AEPlotConfig
 from ae.lazarus.ae.plot.render import plot_config_to_html
 from ae.lazarus.ae.plot.trace import (

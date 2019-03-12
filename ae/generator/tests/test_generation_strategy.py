@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from unittest import mock
 
-from ae.lazarus.ae.benchmark.generation_strategy import GenerationStrategy
 from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.generator.discrete import DiscreteGenerator
 from ae.lazarus.ae.generator.factory import (
@@ -10,6 +9,7 @@ from ae.lazarus.ae.generator.factory import (
     get_sobol,
     get_thompson,
 )
+from ae.lazarus.ae.generator.generation_strategy import GenerationStrategy
 from ae.lazarus.ae.generator.random import RandomGenerator
 from ae.lazarus.ae.generator.torch import TorchGenerator
 from ae.lazarus.ae.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
@@ -61,6 +61,8 @@ class TestGenerationStrategy(TestCase):
         sobol_GPEI_generation_strategy = GenerationStrategy(
             generator_factories=[get_sobol, get_GPEI], arms_per_generator=[5, 2]
         )
+        self.assertEqual(sobol_GPEI_generation_strategy.name, "sobol+GPEI")
+        self.assertEqual(sobol_GPEI_generation_strategy.generator_changes, [5])
         prev_g, g = None, None
         for i in range(7):
             prev_g = g
@@ -92,6 +94,10 @@ class TestGenerationStrategy(TestCase):
         factorial_thompson_generation_strategy = GenerationStrategy(
             generator_factories=[get_factorial, get_thompson], arms_per_generator=[1, 2]
         )
+        self.assertEqual(
+            factorial_thompson_generation_strategy.name, "factorial+thompson"
+        )
+        self.assertEqual(factorial_thompson_generation_strategy.generator_changes, [1])
         for i in range(3):
             factorial_thompson_generation_strategy.get_generator(
                 exp, exp.fetch_data(), exp.search_space

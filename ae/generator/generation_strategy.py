@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 from functools import wraps
+from inspect import signature
 from typing import Any, Callable, List, Optional
 
-from ae.lazarus.ae.benchmark.utils import filter_kwargs
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.search_space import SearchSpace
@@ -23,6 +23,12 @@ def _from_generation_strategy(f: Callable) -> Callable:
 
     wrapped_get_generator.from_generation_strategy = True
     return wrapped_get_generator
+
+
+def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
+    """Filter out kwargs that are not applicable for a given function.
+    Return a copy of given kwargs dict with only the required kwargs."""
+    return {k: v for k, v in kwargs.items() if k in signature(function).parameters}
 
 
 class GenerationStrategy:
@@ -170,7 +176,7 @@ class GenerationStrategy:
 
         # Filter out kwargs that the specific chosen factory function does not
         # require.
-        factory_kwargs = filter_kwargs(
+        factory_kwargs = _filter_kwargs(
             factory,
             experiment=experiment,
             data=data if data is not None else Data(),

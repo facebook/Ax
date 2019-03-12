@@ -7,12 +7,12 @@ from ae.lazarus.ae.benchmark.benchmark_suite import (
     BOMethods,
     BOProblems,
 )
-from ae.lazarus.ae.benchmark.generation_strategy import GenerationStrategy
 from ae.lazarus.ae.core.objective import Objective
 from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.core.outcome_constraint import OutcomeConstraint
 from ae.lazarus.ae.core.types.types import ComparisonOp
 from ae.lazarus.ae.generator.factory import get_sobol
+from ae.lazarus.ae.generator.generation_strategy import GenerationStrategy
 from ae.lazarus.ae.metrics.branin import BraninConstraintMetric, BraninMetric
 from ae.lazarus.ae.tests.fake import get_branin_search_space
 from ae.lazarus.ae.utils.common.testutils import TestCase

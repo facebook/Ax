@@ -7,14 +7,16 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from ae.lazarus.ae.benchmark import utils
 from ae.lazarus.ae.benchmark.benchmark_problem import BenchmarkProblem
-from ae.lazarus.ae.benchmark.generation_strategy import TGeneratorFactory
 from ae.lazarus.ae.core.batch_trial import BatchTrial
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.core.trial import Trial
 from ae.lazarus.ae.core.types.types import ComparisonOp
+from ae.lazarus.ae.generator.generation_strategy import (
+    TGeneratorFactory,
+    _filter_kwargs,
+)
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
 from ae.lazarus.ae.utils.common.logger import get_logger
 
@@ -278,7 +280,7 @@ class BOBenchmarkRunner(BenchmarkRunner):
             # Instantiate the generator for the current trial; we filter kwargs
             # since diffent factory functions have different signatures.
             iter_generator = generator_factory(
-                **utils.filter_kwargs(
+                **_filter_kwargs(
                     generator_factory,
                     experiment=setup,
                     data=setup.fetch_data(),
