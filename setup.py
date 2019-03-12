@@ -21,7 +21,15 @@ REQUIRES = [
 ]
 
 # pytest-cov requires pytest >= 3.6
-DEV_REQUIRES = ["black", "flake8", "pytest>=3.6", "pytest-cov"]
+DEV_REQUIRES = [
+    "beautifulsoup4",
+    "black",
+    "flake8",
+    "pytest>=3.6",
+    "pytest-cov",
+    "sphinx",
+    "sphinx-autodoc-typehints",
+]
 
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 
