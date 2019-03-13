@@ -8,8 +8,8 @@ from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.core.observation import ObservationFeatures
 from ae.lazarus.ae.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ae.lazarus.ae.core.types.types import TParameterization
-from ae.lazarus.ae.generator.base import Generator
-from ae.lazarus.ae.generator.transforms.ivw import IVW
+from ae.lazarus.ae.modelbridge.base import ModelBridge
+from ae.lazarus.ae.modelbridge.transforms.ivw import IVW
 from ae.lazarus.ae.plot.base import (
     DECIMALS,
     PlotData,
@@ -105,18 +105,18 @@ def _filter_dict(
 
 
 def _get_in_sample_arms(
-    generator: Generator, metric_names: Set[str]
+    model: ModelBridge, metric_names: Set[str]
 ) -> Tuple[Dict[str, PlotInSampleArm], RawData, Dict[str, TParameterization]]:
-    """Get in-sample arms from a generator with observed and predicted values
+    """Get in-sample arms from a model with observed and predicted values
     for specified metrics.
 
     Returns a PlotInSampleArm object in which repeated observations are merged
     with IVW, and a RawData object in which every observation is listed.
 
     Args:
-        generator: An instance of the generator.
+        model: An instance of the model bridge.
         metric_names: Restrict predictions to these metrics. If None, uses all
-            metrics in the generator.
+            metrics in the model.
 
     Returns:
         A tuple containing
@@ -128,7 +128,7 @@ def _get_in_sample_arms(
 
         - Map from arm name to parameters
     """
-    observations = generator.get_training_data()
+    observations = model.get_training_data()
     # Calculate raw data
     raw_data = []
     cond_name_to_params = {}
@@ -169,8 +169,8 @@ def _get_in_sample_arms(
                 obs_y[metric_name] = obs_data[i].means[j]
                 obs_se[metric_name] = np.sqrt(obs_data[i].covariance[j, j])
         # Make a prediction.
-        if generator.training_in_design[i]:
-            pred_y, pred_se = _predict_at_point(generator, obs.features, metric_names)
+        if model.training_in_design[i]:
+            pred_y, pred_se = _predict_at_point(model, obs.features, metric_names)
         else:
             # Use raw data for out-of-design points
             pred_y = obs_y
@@ -194,14 +194,14 @@ def _get_in_sample_arms(
 
 
 def _predict_at_point(
-    generator: Generator, obsf: ObservationFeatures, metric_names: Set[str]
+    model: ModelBridge, obsf: ObservationFeatures, metric_names: Set[str]
 ) -> Tuple[Dict[str, float], Dict[str, float]]:
     """Make a prediction at a point.
 
     Returns mean and standard deviation in format expected by plotting.
 
     Args:
-        generator: Generator
+        model: ModelBridge
         obsf: ObservationFeatures for which to predict
         metric_names: Limit predictions to these metrics.
 
@@ -213,7 +213,7 @@ def _predict_at_point(
     """
     y_hat = {}
     se_hat = {}
-    f_pred, cov_pred = generator.predict([obsf])
+    f_pred, cov_pred = model.predict([obsf])
     for metric_name in f_pred:
         if metric_name in metric_names:
             y_hat[metric_name] = f_pred[metric_name][0]
@@ -222,14 +222,14 @@ def _predict_at_point(
 
 
 def _get_out_of_sample_arms(
-    generator: Generator,
+    model: ModelBridge,
     generator_runs_dict: Dict[str, GeneratorRun],
     metric_names: Set[str],
 ) -> Dict[str, Dict[str, PlotOutOfSampleArm]]:
-    """Get out-of-sample predictions from a generator given a dict of generator runs.
+    """Get out-of-sample predictions from a model given a dict of generator runs.
 
     Args:
-        generator: the generator.
+        model: The model.
         generator_runs_dict: a mapping from generator run name to generator run.
         metric_names: metrics to include in the plot.
 
@@ -245,10 +245,10 @@ def _get_out_of_sample_arms(
             obsf = ObservationFeatures.from_arm(arm)
             # Make a prediction
             try:
-                pred_y, pred_se = _predict_at_point(generator, obsf, metric_names)
+                pred_y, pred_se = _predict_at_point(model, obsf, metric_names)
             except Exception:
                 # Check if it is an out-of-design arm.
-                if not generator.model_space.check_membership(obsf.parameters):
+                if not model.model_space.check_membership(obsf.parameters):
                     # Skip this point
                     continue
                 else:
@@ -266,7 +266,7 @@ def _get_out_of_sample_arms(
 
 
 def get_plot_data(
-    generator: Generator,
+    model: ModelBridge,
     generator_runs_dict: Dict[str, GeneratorRun],
     metric_names: Optional[Set[str]] = None,
 ) -> Tuple[PlotData, RawData, Dict[str, TParameterization]]:
@@ -282,10 +282,10 @@ def get_plot_data(
     observation and having keys 'arm_name', 'mean', and 'sem'.
 
     Args:
-        generator: the generator.
+        model: The model.
         generator_runs_dict: a mapping from generator run name to generator run.
         metric_names: Restrict predictions to this set. If None, all metrics
-            in the generator will be returned.
+            in the model will be returned.
 
     Returns:
         A tuple containing
@@ -297,18 +297,14 @@ def get_plot_data(
 
         - Mapping from arm name to parameters.
     """
-    metrics_plot = generator.metric_names if metric_names is None else metric_names
+    metrics_plot = model.metric_names if metric_names is None else metric_names
     in_sample_plot, raw_data, cond_name_to_params = _get_in_sample_arms(
-        generator=generator, metric_names=metrics_plot
+        model=model, metric_names=metrics_plot
     )
     out_of_sample_plot = _get_out_of_sample_arms(
-        generator=generator,
-        generator_runs_dict=generator_runs_dict,
-        metric_names=metrics_plot,
+        model=model, generator_runs_dict=generator_runs_dict, metric_names=metrics_plot
     )
-    status_quo_name = (
-        None if generator.status_quo is None else generator.status_quo.arm_name
-    )
+    status_quo_name = None if model.status_quo is None else model.status_quo.arm_name
     plot_data = PlotData(
         metrics=list(metrics_plot),
         in_sample=in_sample_plot,
@@ -318,20 +314,20 @@ def get_plot_data(
     return plot_data, raw_data, cond_name_to_params
 
 
-def get_range_parameter(generator: Generator, param_name: str) -> RangeParameter:
+def get_range_parameter(model: ModelBridge, param_name: str) -> RangeParameter:
     """
-    Get the range parameter with the given name from the generator.
+    Get the range parameter with the given name from the model.
 
     Throws if parameter doesn't exist or is not a range parameter.
 
     Args:
-        generator: The generator.
+        model: The model.
         param_name: The name of the RangeParameter to be found.
 
     Returns: The RangeParameter named `param_name`.
     """
 
-    range_param = generator.model_space.parameters.get(param_name)
+    range_param = model.model_space.parameters.get(param_name)
     if range_param is None:
         raise ValueError(f"Parameter `{param_name}` does not exist.")
     if not isinstance(range_param, RangeParameter):
@@ -340,18 +336,18 @@ def get_range_parameter(generator: Generator, param_name: str) -> RangeParameter
     return range_param
 
 
-def get_range_parameters(generator: Generator) -> List[RangeParameter]:
+def get_range_parameters(model: ModelBridge) -> List[RangeParameter]:
     """
-    Get a list of range parameters from a generator.
+    Get a list of range parameters from a model.
 
     Args:
-        generator: The generator.
+        model: The model.
 
     Returns: List of RangeParameters.
     """
     return [
         parameter
-        for parameter in generator.model_space.parameters.values()
+        for parameter in model.model_space.parameters.values()
         if isinstance(parameter, RangeParameter)
     ]
 
@@ -377,7 +373,7 @@ def get_grid_for_parameter(parameter: RangeParameter, density: int) -> np.ndarra
 
 
 def get_fixed_values(
-    generator: Generator, slice_values: Optional[Dict[str, Any]] = None
+    model: ModelBridge, slice_values: Optional[Dict[str, Any]] = None
 ) -> TParameterization:
     """Get fixed values for parameters in a slice plot.
 
@@ -387,21 +383,21 @@ def get_fixed_values(
     Any value in slice_values will override the above.
 
     Args:
-        generator: Generator being used for plotting
+        model: ModelBridge being used for plotting
         slice_values: Map from parameter name to value at which is should be
             fixed.
 
     Returns: Map from parameter name to fixed value.
     """
     # Check if status_quo is in design
-    if generator.status_quo is not None and generator.model_space.check_membership(
-        generator.status_quo.features.parameters
+    if model.status_quo is not None and model.model_space.check_membership(
+        model.status_quo.features.parameters
     ):
-        setx = generator.status_quo.features.parameters
+        setx = model.status_quo.features.parameters
     else:
-        observations = generator.get_training_data()
+        observations = model.get_training_data()
         setx = {}
-        for p_name, parameter in generator.model_space.parameters.items():
+        for p_name, parameter in model.model_space.parameters.items():
             vals = [
                 obs.features.parameters[p_name]
                 for obs in observations

@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+from typing import List
+
+from ae.lazarus.ae.modelbridge.array import ArrayModelBridge
+from ae.lazarus.ae.models.numpy_base import NumpyModel
+
+
+class NumpyModelBridge(ArrayModelBridge):
+    """A model bridge for using numpy array-based models.
+
+    This model bridge interfaces with NumpyModel.
+
+    Requires that all parameters have been transformed to RangeParameters
+    or FixedParameters with float type and no log scale.
+    """
+
+    model: NumpyModel
+    outcomes: List[str]
+    params: List[str]

@@ -34,9 +34,9 @@ from ae.lazarus.ae.core.types.types import (
     TModelPredictArm,
     TParameterization,
 )
-from ae.lazarus.ae.generator.factory import get_factorial, get_sobol
 from ae.lazarus.ae.metrics.branin import BraninMetric
 from ae.lazarus.ae.metrics.factorial import FactorialMetric
+from ae.lazarus.ae.modelbridge.factory import get_factorial, get_sobol
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
 
 

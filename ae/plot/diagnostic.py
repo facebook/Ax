@@ -7,7 +7,7 @@ import plotly.graph_objs as go
 from ae.lazarus.ae.core.batch_trial import BatchTrial
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.observation import Observation
-from ae.lazarus.ae.generator.cross_validation import CVResult
+from ae.lazarus.ae.modelbridge.cross_validation import CVResult
 from ae.lazarus.ae.plot.base import (
     AEPlotConfig,
     AEPlotTypes,

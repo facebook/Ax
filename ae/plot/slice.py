@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 from ae.lazarus.ae.core.observation import ObservationFeatures
-from ae.lazarus.ae.generator.base import Generator
+from ae.lazarus.ae.modelbridge.base import ModelBridge
 from ae.lazarus.ae.plot.base import AEPlotConfig, AEPlotTypes
 from ae.lazarus.ae.plot.helper import (
     TNullableGeneratorRunsDict,
@@ -16,7 +16,7 @@ from ae.lazarus.ae.plot.helper import (
 
 
 def plot_slice(
-    generator: Generator,
+    model: ModelBridge,
     param_name: str,
     metric_name: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
@@ -27,7 +27,7 @@ def plot_slice(
     """Plot predictions for a 1-d slice of the parameter space.
 
     Args:
-        generator: Generator that contains model for predictions
+        model: ModelBridge that contains model for predictions
         param_name: Name of parameter that will be sliced
         metric_name: Name of metric to plot
         generator_runs_dict: A dictionary {name: generator run} of generator runs
@@ -42,16 +42,14 @@ def plot_slice(
     if generator_runs_dict is None:
         generator_runs_dict = {}
 
-    parameter = get_range_parameter(generator, param_name)
+    parameter = get_range_parameter(model, param_name)
     grid = get_grid_for_parameter(parameter, density)
 
     plot_data, raw_data, cond_name_to_params = get_plot_data(
-        generator=generator,
-        generator_runs_dict=generator_runs_dict,
-        metric_names={metric_name},
+        model=model, generator_runs_dict=generator_runs_dict, metric_names={metric_name}
     )
 
-    fixed_values = get_fixed_values(generator, slice_values)
+    fixed_values = get_fixed_values(model, slice_values)
 
     prediction_features = []
     for x in grid:
@@ -60,7 +58,7 @@ def plot_slice(
         # Here we assume context is None
         prediction_features.append(ObservationFeatures(parameters=params))
 
-    f, cov = generator.predict(prediction_features)
+    f, cov = model.predict(prediction_features)
 
     f_plt = f[metric_name]
     sd_plt = np.sqrt(cov[metric_name][metric_name])

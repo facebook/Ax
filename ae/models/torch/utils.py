@@ -89,7 +89,7 @@ def _sequential_optimize(
         The set of generated candidates
     """
     candidate_list = []
-    candidates = None
+    candidates = torch.tensor([])
     base_X_pending = acq_function.X_pending
     # Needed to clear base_samples
     acq_function._set_X_pending(base_X_pending)
@@ -184,7 +184,7 @@ def _gen_batch_initial_arms(
     model: Model,
     options: Dict[str, Union[bool, float, int]],
 ) -> Tensor:
-    seed = options.get("seed")
+    seed: Optional[int] = options.get("seed")  # pyre-ignore
     batch_initial_arms: Tensor
     factor, max_factor = 1, 5
     while factor < max_factor:

@@ -11,9 +11,9 @@ from ae.lazarus.ae.core.objective import Objective
 from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.core.outcome_constraint import OutcomeConstraint
 from ae.lazarus.ae.core.types.types import ComparisonOp
-from ae.lazarus.ae.generator.factory import get_sobol
-from ae.lazarus.ae.generator.generation_strategy import GenerationStrategy
 from ae.lazarus.ae.metrics.branin import BraninConstraintMetric, BraninMetric
+from ae.lazarus.ae.modelbridge.factory import get_sobol
+from ae.lazarus.ae.modelbridge.generation_strategy import GenerationStrategy
 from ae.lazarus.ae.tests.fake import get_branin_search_space
 from ae.lazarus.ae.utils.common.testutils import TestCase
 
@@ -77,7 +77,7 @@ class TestBOBenchmarkingSuite(TestCase):
     def test_generation_strategy(self):
         bo_methods = [
             get_sobol,
-            GenerationStrategy([get_sobol, get_sobol], [5, 30]).get_generator,
+            GenerationStrategy([get_sobol, get_sobol], [5, 30]).get_model,
         ]
         suite = BOBenchmarkingSuite()
         suite.run(

@@ -80,8 +80,8 @@ class BotorchModel(TorchModel):
     ) -> None:
         if len(task_features) > 0:
             raise ValueError("Task features not supported.")
-        self.dtype = Xs[0].dtype
-        self.device = Xs[0].device
+        self.dtype = Xs[0].dtype  # pyre-ignore
+        self.device = Xs[0].device  # pyre-ignore
         self.Xs = Xs
         self.Ys = Ys
         self.Yvars = Yvars
@@ -264,7 +264,7 @@ class BotorchModel(TorchModel):
 def _get_and_fit_model(
     Xs: List[Tensor],
     Ys: List[Tensor],
-    Yvars: Optional[List[Tensor]] = None,
+    Yvars: List[Tensor],
     state_dict: Optional[Dict[str, Tensor]] = None,
 ) -> MultiOutputGP:
     """Instantiate a model with the given data.
@@ -272,7 +272,7 @@ def _get_and_fit_model(
     Args:
         Xs: List of X data, one tensor per outcome
         Ys: List of Y data, one tensor per outcome
-        Yvars: List of observed variance of Ys. If all zero, assume noiseless data.
+        Yvars: List of observed variance of Ys.
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
 
@@ -280,7 +280,7 @@ def _get_and_fit_model(
     """
     models = [_get_model(X=X, Y=Y, Yvar=Yvar) for X, Y, Yvar in zip(Xs, Ys, Yvars)]
     model = MultiOutputGP(gp_models=models)  # pyre-ignore: [16]
-    model.to(dtype=Xs[0].dtype, device=Xs[0].device)
+    model.to(dtype=Xs[0].dtype, device=Xs[0].device)  # pyre-ignore
     if state_dict is None:
         # TODO: Add bounds for optimization stability - requires revamp upstream
         bounds = {}

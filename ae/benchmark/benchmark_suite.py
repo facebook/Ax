@@ -14,10 +14,10 @@ from ae.lazarus.ae.benchmark.benchmark_runner import (
     BenchmarkSetup,
     BOBenchmarkRunner,
 )
-from ae.lazarus.ae.generator.factory import get_GPyGPEI, get_sobol
-from ae.lazarus.ae.generator.generation_strategy import (
+from ae.lazarus.ae.modelbridge.factory import get_GPyGPEI, get_sobol
+from ae.lazarus.ae.modelbridge.generation_strategy import (
     GenerationStrategy,
-    TGeneratorFactory,
+    TModelFactory,
 )
 from ae.lazarus.ae.plot.base import AEPlotConfig
 from ae.lazarus.ae.plot.render import plot_config_to_html
@@ -34,10 +34,10 @@ from ae.lazarus.ae.utils.render.render import (
 )
 
 
-BOMethods: List[TGeneratorFactory] = [
+BOMethods: List[TModelFactory] = [
     get_sobol,
     # Generation strategy to use Sobol for first 5 arms and GP+EI for next 30:
-    GenerationStrategy([get_sobol, get_GPyGPEI], [5, 30]).get_generator,
+    GenerationStrategy([get_sobol, get_GPyGPEI], [5, 30]).get_model,
 ]
 
 BOProblems: List[BenchmarkProblem] = [constrained_branin, branin_max]
@@ -54,7 +54,7 @@ class BOBenchmarkingSuite:
         num_trials: int = 10,
         total_iterations: int = 20,
         batch_size: int = 1,
-        bo_methods: Optional[List[TGeneratorFactory]] = None,
+        bo_methods: Optional[List[TModelFactory]] = None,
         bo_problems: Optional[List[BenchmarkProblem]] = None,
     ) -> BOBenchmarkRunner:
         if bo_methods is None:
@@ -65,8 +65,8 @@ class BOBenchmarkingSuite:
             BenchmarkSetup(problem, total_iterations, batch_size)
             for problem in bo_problems
         )
-        for setup, generator_factory in product(setups, bo_methods):
-            self._runner.run_benchmark_test(setup, generator_factory, num_trials)
+        for setup, model_factory in product(setups, bo_methods):
+            self._runner.run_benchmark_test(setup, model_factory, num_trials)
 
         return self._runner
 

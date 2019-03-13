@@ -13,10 +13,7 @@ from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.core.trial import Trial
 from ae.lazarus.ae.core.types.types import ComparisonOp
-from ae.lazarus.ae.generator.generation_strategy import (
-    TGeneratorFactory,
-    _filter_kwargs,
-)
+from ae.lazarus.ae.modelbridge.generation_strategy import TModelFactory, _filter_kwargs
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
 from ae.lazarus.ae.utils.common.logger import get_logger
 
@@ -28,22 +25,22 @@ PROBLEM_METHOD_DELIMETER = "_on_"
 RUN_DELIMETER = "_run_"
 
 
-# Identifies whether a given benchmark method (generator factory function)
+# Identifies whether a given benchmark method (model factory function)
 # is a generator strategy or a standalone factory function.
-def _method_is_generation_strategy(generator_factory: TGeneratorFactory) -> bool:
-    return getattr(generator_factory, "from_generation_strategy", False)
+def _method_is_generation_strategy(model_factory: TModelFactory) -> bool:
+    return getattr(model_factory, "from_generation_strategy", False)
 
 
 # Infers the name of the benchmarking method from a given factory function.
-def _method_name(generator_factory: TGeneratorFactory) -> str:
-    if _method_is_generation_strategy(generator_factory):
-        return generator_factory.__self__.name
+def _method_name(model_factory: TModelFactory) -> str:
+    if _method_is_generation_strategy(model_factory):
+        return model_factory.__self__.name
     else:
         return (
-            generator_factory.__name__[4:]
+            model_factory.__name__[4:]
             # Trim the "get_" beginning of the factory function if it's there.
-            if generator_factory.__name__[:4] == "get_"
-            else generator_factory.__name__
+            if model_factory.__name__[:4] == "get_"
+            else model_factory.__name__
         )
 
 
@@ -113,7 +110,7 @@ class BenchmarkRunner:
 
     @abstractmethod
     def run_benchmark_run(
-        self, setup: BenchmarkSetup, generator_factory: TGeneratorFactory
+        self, setup: BenchmarkSetup, model_factory: TModelFactory
     ) -> BenchmarkSetup:
         """Run a single full benchmark run of the given problem and method
         combination.
@@ -121,10 +118,7 @@ class BenchmarkRunner:
         pass  # pragma: no cover
 
     def run_benchmark_test(
-        self,
-        setup: BenchmarkSetup,
-        generator_factory: TGeneratorFactory,
-        num_runs: int = 20,
+        self, setup: BenchmarkSetup, model_factory: TModelFactory, num_runs: int = 20
     ) -> Dict[Tuple[str, str, int], BenchmarkSetup]:
         """Run full benchmark test for the given method and problem combination.
         A benchmark test consists of repeated full benchmark runs.
@@ -132,14 +126,14 @@ class BenchmarkRunner:
         Args:
             setup: setup, runs on which to execute; includes
                 a benchmarking problem, total number of iterations, etc.
-            generator_factory: factory function that returns
-                an instantiated generator, thereby defining a benchmarking
+            model_factory: factory function that returns
+                an instantiated model, thereby defining a benchmarking
                 method
             num_runs: how many benchmark runs of given problem and method
                 combination to run with the given setup for one benchmark test
         """
         num_failures = 0
-        method_name = _method_name(generator_factory=generator_factory)
+        method_name = _method_name(model_factory=model_factory)
         benchmark_runs: Dict[Tuple[str, str, int], BenchmarkSetup] = {}
         logger.info(f"Testing {method_name} on {setup.name}:")
         for run_idx in range(num_runs):
@@ -161,13 +155,11 @@ class BenchmarkRunner:
             while num_failures < ALLOWED_RUN_RETRIES:
                 try:
                     benchmark_runs[run_key] = self.run_benchmark_run(
-                        setup.clone_reset(), generator_factory
+                        setup.clone_reset(), model_factory
                     )
-                    is_gs = _method_is_generation_strategy(generator_factory)
+                    is_gs = _method_is_generation_strategy(model_factory)
                     self._generator_changes[run_key] = (
-                        None
-                        if not is_gs
-                        else generator_factory.__self__.generator_changes
+                        None if not is_gs else model_factory.__self__.generator_changes
                     )
                     break
                 except Exception as err:  # pragma: no cover
@@ -266,29 +258,29 @@ class BenchmarkRunner:
 
 class BanditBenchmarkRunner(BenchmarkRunner):
     def run_benchmark_run(
-        self, setup: BenchmarkSetup, generator_factory: TGeneratorFactory
+        self, setup: BenchmarkSetup, model_factory: TModelFactory
     ) -> BenchmarkSetup:
         pass  # pragma: no cover  TODO[drfreund]
 
 
 class BOBenchmarkRunner(BenchmarkRunner):
     def run_benchmark_run(
-        self, setup: BenchmarkSetup, generator_factory: TGeneratorFactory
+        self, setup: BenchmarkSetup, model_factory: TModelFactory
     ) -> BenchmarkSetup:
         remaining_iterations = setup.total_iterations
         while remaining_iterations > 0:
             # Instantiate the generator for the current trial; we filter kwargs
             # since diffent factory functions have different signatures.
-            iter_generator = generator_factory(
+            iter_model = model_factory(
                 **_filter_kwargs(
-                    generator_factory,
+                    model_factory,
                     experiment=setup,
                     data=setup.fetch_data(),
                     search_space=setup.search_space,
                 )
             )
             num_suggestions = min(remaining_iterations, setup.batch_size)
-            generator_run = iter_generator.gen(
+            generator_run = iter_model.gen(
                 num_suggestions, setup.search_space, setup.optimization_config
             )
             if setup.batch_size > 1:

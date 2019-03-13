@@ -5,7 +5,7 @@ import math
 import plotly.graph_objs as go
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
-from ae.lazarus.ae.generator.factory import get_empirical_bayes_thompson
+from ae.lazarus.ae.modelbridge.factory import get_empirical_bayes_thompson
 from ae.lazarus.ae.plot.base import AEPlotConfig, AEPlotTypes, PlotMetric, Z
 from ae.lazarus.ae.plot.helper import get_plot_data
 from ae.lazarus.ae.plot.scatter import _error_scatter_data
@@ -33,13 +33,13 @@ def table_view_plot(experiment: Experiment, data: Data):
     +-------+------------+-----------+
 
     """
-    generator = get_empirical_bayes_thompson(experiment=experiment, data=data)
+    model = get_empirical_bayes_thompson(experiment=experiment, data=data)
 
     results = {}
     plot_data, _, _ = get_plot_data(
-        generator=generator, generator_runs_dict={}, metric_names=generator.metric_names
+        model=model, generator_runs_dict={}, metric_names=model.metric_names
     )
-    for metric_name in generator.metric_names:
+    for metric_name in model.metric_names:
         arms, _, ys, ys_se = _error_scatter_data(
             arms=list(plot_data.in_sample.values()),
             y_axis_var=PlotMetric(metric_name, True),

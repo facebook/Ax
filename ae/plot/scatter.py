@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import plotly.graph_objs as go
-from ae.lazarus.ae.generator.base import Generator
+from ae.lazarus.ae.modelbridge.base import ModelBridge
 from ae.lazarus.ae.plot.base import (
     CI_OPACITY,
     DECIMALS,
@@ -239,16 +239,16 @@ def _error_scatter_trace(
 
 
 def _multiple_metric_traces(
-    generator: Generator,
+    model: ModelBridge,
     metric_x: str,
     metric_y: str,
     generator_runs_dict: TNullableGeneratorRunsDict,
     rel: bool,
 ) -> Traces:
-    """Plot traces for multiple metrics given a generator and metrics.
+    """Plot traces for multiple metrics given a model and metrics.
 
     Args:
-        generator: generator to draw predictions from.
+        model: model to draw predictions from.
         metric_x: metric to plot on the x-axis.
         metric_y: metric to plot on the y-axis.
         generator_runs_dict: a mapping from
@@ -257,7 +257,7 @@ def _multiple_metric_traces(
 
     """
     plot_data, _, _ = get_plot_data(
-        generator,
+        model,
         generator_runs_dict if generator_runs_dict is not None else {},
         {metric_x, metric_y},
     )
@@ -320,7 +320,7 @@ def _multiple_metric_traces(
 
 
 def plot_multiple_metrics(
-    generator: Generator,
+    model: ModelBridge,
     metric_x: str,
     metric_y: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
@@ -328,11 +328,11 @@ def plot_multiple_metrics(
 ) -> AEPlotConfig:
     """Plot raw values or predictions of two metrics for arms.
 
-    All arms used in the generator are included in the plot. Additional
+    All arms used in the model are included in the plot. Additional
     arms can be passed through the `generator_runs_dict` argument.
 
     Args:
-        generator: generator to draw predictions from.
+        model: model to draw predictions from.
         metric_x: metric to plot on the x-axis.
         metric_y: metric to plot on the y-axis.
         generator_runs_dict: a mapping from
@@ -341,7 +341,7 @@ def plot_multiple_metrics(
 
     """
     traces = _multiple_metric_traces(
-        generator, metric_x, metric_y, generator_runs_dict, rel
+        model, metric_x, metric_y, generator_runs_dict, rel
     )
     num_cand_traces = len(generator_runs_dict) if generator_runs_dict is not None else 0
 
@@ -448,22 +448,22 @@ def plot_multiple_metrics(
 
 
 def plot_objective_vs_constraints(
-    generator: Generator,
+    model: ModelBridge,
     objective: str,
     subset_metrics: Optional[List[str]] = None,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
 ) -> AEPlotConfig:
-    """Plot the tradeoff between an objetive and all other metrics in a generator.
+    """Plot the tradeoff between an objetive and all other metrics in a model.
 
-    All arms used in the generator are included in the plot. Additional
+    All arms used in the model are included in the plot. Additional
     arms can be passed through via the `generator_runs_dict` argument.
 
     Args:
-        generator: generator to draw predictions from.
+        model: model to draw predictions from.
         objective: metric to optimize. Plotted on the x-axis.
         subset_metrics: list of metrics to plot on the y-axes
-            if need a subset of all metrics in the generator.
+            if need a subset of all metrics in the model.
         generator_runs_dict: a mapping from
             generator run name to generator run.
         rel: if True, use relative effects. Default is True.
@@ -472,18 +472,18 @@ def plot_objective_vs_constraints(
     if subset_metrics is not None:
         metrics = subset_metrics
     else:
-        metrics = [m for m in generator.metric_names if m != objective]
+        metrics = [m for m in model.metric_names if m != objective]
 
     metric_dropdown = []
 
     # set plotted data to the first outcome
     plot_data = _multiple_metric_traces(
-        generator, objective, metrics[0], generator_runs_dict, rel
+        model, objective, metrics[0], generator_runs_dict, rel
     )
 
     for metric in metrics:
         otraces = _multiple_metric_traces(
-            generator, objective, metric, generator_runs_dict, rel
+            model, objective, metric, generator_runs_dict, rel
         )
 
         # Current version of Plotly does not allow updating the yaxis label
@@ -620,7 +620,7 @@ def plot_objective_vs_constraints(
 
 
 def lattice_multiple_metrics(
-    generator: Generator,
+    model: ModelBridge,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     show_arm_details_on_hover: bool = False,
@@ -628,7 +628,7 @@ def lattice_multiple_metrics(
     """Plot raw values or predictions of combinations of two metrics for arms.
 
     Args:
-        generator: generator to draw predictions from.
+        model: model to draw predictions from.
         generator_runs_dict: a mapping from
             generator run name to generator run.
         rel: if True, use relative effects. Default is True.
@@ -636,7 +636,7 @@ def lattice_multiple_metrics(
             parameterizations of arms on hover. Default is False.
 
     """
-    metrics = generator.metric_names
+    metrics = model.metric_names
     fig = tools.make_subplots(
         rows=len(metrics),
         cols=len(metrics),
@@ -646,9 +646,7 @@ def lattice_multiple_metrics(
     )
 
     plot_data, _, _ = get_plot_data(
-        generator,
-        generator_runs_dict if generator_runs_dict is not None else {},
-        metrics,
+        model, generator_runs_dict if generator_runs_dict is not None else {}, metrics
     )
     status_quo_arm = (
         None
@@ -696,7 +694,7 @@ def lattice_multiple_metrics(
                 fig.append_trace(obs_insample_trace, j, i)
                 fig.append_trace(predicted_insample_trace, j, i)
 
-                # iterate over generators here
+                # iterate over models here
                 for k, (generator_run_name, cand_arms) in enumerate(
                     (plot_data.out_of_sample or {}).items(), start=1
                 ):
@@ -906,7 +904,7 @@ def lattice_multiple_metrics(
 
 # Single metric fitted values
 def _single_metric_traces(
-    generator: Generator,
+    model: ModelBridge,
     metric: str,
     generator_runs_dict: TNullableGeneratorRunsDict,
     rel: bool,
@@ -919,7 +917,7 @@ def _single_metric_traces(
     Arms are plotted on the x-axis.
 
     Args:
-        generator: generator to draw predictions from.
+        model: model to draw predictions from.
         metric: name of metric to plot.
         generator_runs_dict: a mapping from
             generator run name to generator run.
@@ -930,7 +928,7 @@ def _single_metric_traces(
         show_CI: if True, render confidence intervals.
 
     """
-    plot_data, _, _ = get_plot_data(generator, generator_runs_dict or {}, {metric})
+    plot_data, _, _ = get_plot_data(model, generator_runs_dict or {}, {metric})
 
     status_quo_arm = (
         None
@@ -985,7 +983,7 @@ def _single_metric_traces(
 
 
 def plot_fitted(
-    generator: Generator,
+    model: ModelBridge,
     metric: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
@@ -996,7 +994,7 @@ def plot_fitted(
     """Plot fitted metrics.
 
     Args:
-        generator: generator to use for predictions.
+        model: model to use for predictions.
         metric: metric to plot predictions for.
         generator_runs_dict: a mapping from
             generator run name to generator run.
@@ -1010,7 +1008,7 @@ def plot_fitted(
 
     """
     traces = _single_metric_traces(
-        generator, metric, generator_runs_dict, rel, show_CI=show_CI
+        model, metric, generator_runs_dict, rel, show_CI=show_CI
     )
 
     # order arm name sorting arm numbers within batch
@@ -1106,7 +1104,7 @@ def plot_fitted(
 
 
 def tile_fitted(
-    generator: Generator,
+    model: ModelBridge,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     show_arm_details_on_hover: bool = False,
@@ -1115,7 +1113,7 @@ def tile_fitted(
     """Tile version of fitted outcome plots.
 
     Args:
-        generator: generator to use for predictions.
+        model: model to use for predictions.
         generator_runs_dict: a mapping from
             generator run name to generator run.
         rel: if True, use relative effects. Default is True.
@@ -1124,7 +1122,7 @@ def tile_fitted(
         show_CI: if True, render confidence intervals.
 
     """
-    metrics = generator.metric_names
+    metrics = model.metric_names
     nrows = int(np.ceil(len(metrics) / 2))
     ncols = min(len(metrics), 2)
 
@@ -1146,7 +1144,7 @@ def tile_fitted(
 
     for i, metric in enumerate(metrics):
         data = _single_metric_traces(
-            generator,
+            model,
             metric,
             generator_runs_dict,
             rel,
@@ -1259,18 +1257,18 @@ def tile_fitted(
 
 
 def interact_fitted(
-    generator: Generator,
+    model: ModelBridge,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     show_arm_details_on_hover: bool = True,
     show_CI: bool = True,
 ) -> AEPlotConfig:
-    """Interactive fitted outcome plots for each arm used in fitting the generator.
+    """Interactive fitted outcome plots for each arm used in fitting the model.
 
     Choose the outcome to plot using a dropdown.
 
     Args:
-        generator: generator to use for predictions.
+        model: model to use for predictions.
         generator_runs_dict: a mapping from
             generator run name to generator run.
         rel: if True, use relative effects. Default is True.
@@ -1282,14 +1280,14 @@ def interact_fitted(
     traces_per_metric = (
         1 if generator_runs_dict is None else len(generator_runs_dict) + 1
     )
-    metrics = sorted(generator.metric_names)
+    metrics = sorted(model.metric_names)
 
     traces = []
     dropdown = []
 
     for i, metric in enumerate(metrics):
         data = _single_metric_traces(
-            generator,
+            model,
             metric,
             generator_runs_dict,
             rel,

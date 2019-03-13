@@ -211,7 +211,7 @@ def validate_bounds(
         if bound[0] != 0 or bound[1] != 1:
             raise ValueError(
                 "This generator operates on [0,1]^d. Please make use "
-                "of the UnitX transform in the Generator, and ensure "
+                "of the UnitX transform in the ModelBridge, and ensure "
                 "task features are fixed."
             )
 
@@ -349,7 +349,7 @@ def as_array(
     elif isinstance(x, np.ndarray):
         return x
     elif torch.is_tensor(x):
-        return x.detach().cpu().double().numpy()
+        return x.detach().cpu().double().numpy()  # pyre-ignore
     else:
         raise ValueError(
             "Input to as_array must be numpy array or torch tensor"
@@ -358,7 +358,7 @@ def as_array(
 
 def get_observed(
     Xs: Union[List[torch.Tensor], List[np.ndarray]],
-    objective_weights: Optional[Tensoray],
+    objective_weights: Tensoray,
     outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
 ) -> Tensoray:
     """Filter points to those that are observed for objective outcomes and outcomes

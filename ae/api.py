@@ -24,7 +24,7 @@ from ae.lazarus.ae.core.alias import (
     Trial,
 )
 from ae.lazarus.ae.core.types.types import TParameterization
-from ae.lazarus.ae.generator import alias as generator
 from ae.lazarus.ae.metrics import alias as metrics
+from ae.lazarus.ae.modelbridge import alias as modelbridge
 from ae.lazarus.ae.models import alias as models
 from ae.lazarus.ae.runners import alias as runners

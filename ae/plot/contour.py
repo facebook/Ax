@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 from ae.lazarus.ae.core.observation import ObservationFeatures
-from ae.lazarus.ae.generator.base import Generator
+from ae.lazarus.ae.modelbridge.base import ModelBridge
 from ae.lazarus.ae.plot.base import AEPlotConfig, AEPlotTypes, PlotData
 from ae.lazarus.ae.plot.color import BLUE_SCALE, GREEN_PINK_SCALE, GREEN_SCALE
 from ae.lazarus.ae.plot.helper import (
@@ -24,7 +24,7 @@ ContourPredictions = Tuple[
 
 
 def _get_contour_predictions(
-    generator: Generator,
+    model: ModelBridge,
     x_param_name: str,
     y_param_name: str,
     metric: str,
@@ -36,10 +36,10 @@ def _get_contour_predictions(
     slice_values is a dictionary {param_name: value} for the parameters that
     are being sliced on.
     """
-    x_param = get_range_parameter(generator, x_param_name)
-    y_param = get_range_parameter(generator, y_param_name)
+    x_param = get_range_parameter(model, x_param_name)
+    y_param = get_range_parameter(model, y_param_name)
 
-    plot_data, _, _ = get_plot_data(generator, generator_runs_dict or {}, {metric})
+    plot_data, _, _ = get_plot_data(model, generator_runs_dict or {}, {metric})
 
     grid_x = get_grid_for_parameter(x_param, density)
     grid_y = get_grid_for_parameter(y_param, density)
@@ -50,7 +50,7 @@ def _get_contour_predictions(
     grid2_x = grid2_x.flatten()
     grid2_y = grid2_y.flatten()
 
-    fixed_values = get_fixed_values(generator, slice_values)
+    fixed_values = get_fixed_values(model, slice_values)
 
     param_grid_obsf = []
     for i in range(density ** 2):
@@ -59,7 +59,7 @@ def _get_contour_predictions(
         params[y_param_name] = grid2_y[i]
         param_grid_obsf.append(ObservationFeatures(params))
 
-    mu, cov = generator.predict(param_grid_obsf)
+    mu, cov = model.predict(param_grid_obsf)
 
     f_plt = mu[metric]
     sd_plt = np.sqrt(cov[metric][metric])
@@ -67,7 +67,7 @@ def _get_contour_predictions(
 
 
 def plot_contour(
-    generator: Generator,
+    model: ModelBridge,
     param_x: str,
     param_y: str,
     metric: str,
@@ -80,7 +80,7 @@ def plot_contour(
     if param_x == param_y:
         raise ValueError("Please select different parameters for x- and y-dimensions.")
     data, f_plt, sd_plt, grid_x, grid_y, scales = _get_contour_predictions(
-        generator=generator,
+        model=model,
         x_param_name=param_x,
         y_param_name=param_y,
         metric=metric,
@@ -110,7 +110,7 @@ def plot_contour(
 
 
 def interact_contour(
-    generator: Generator,
+    model: ModelBridge,
     metric: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
@@ -118,8 +118,8 @@ def interact_contour(
     slice_values: Optional[Dict[str, Any]] = None,
     lower_is_better: bool = False,
 ) -> AEPlotConfig:
-    range_parameters = get_range_parameters(generator)
-    plot_data, _, _ = get_plot_data(generator, generator_runs_dict or {}, {metric})
+    range_parameters = get_range_parameters(model)
+    plot_data, _, _ = get_plot_data(model, generator_runs_dict or {}, {metric})
 
     # TODO T38563759: Sort parameters by feature importances
     param_names = [parameter.name for parameter in range_parameters]
@@ -144,7 +144,7 @@ def interact_contour(
     for param1 in param_names:
         for param2 in param_names:
             _, f_plt, sd_plt, _, _, _ = _get_contour_predictions(
-                generator=generator,
+                model=model,
                 x_param_name=param1,
                 y_param_name=param2,
                 metric=metric,
