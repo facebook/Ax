@@ -25,6 +25,7 @@ from ae.lazarus.ae.storage.sqa_store.db import (
     get_engine,
     get_session,
     init_engine_and_session_factory,
+    init_test_engine_and_session_factory,
     session_scope,
 )
 from ae.lazarus.ae.storage.sqa_store.load import load_experiment
@@ -71,18 +72,19 @@ from ae.lazarus.ae.utils.common.testutils import TestCase
 
 class SQAStoreTest(TestCase):
     def setUp(self):
-        init_engine_and_session_factory(test=True, force_init=True)
+        init_test_engine_and_session_factory(force_init=True)
         self.experiment = get_experiment_with_batch_trial()
 
     def testCreationOfTestDB(self):
-        init_engine_and_session_factory(
-            test=True, tier_or_path=":memory:", force_init=True
-        )
+        init_test_engine_and_session_factory(tier_or_path=":memory:", force_init=True)
         engine = get_engine()
         self.assertIsNotNone(engine)
 
     def testDBConnectionWithoutForceInit(self):
-        init_engine_and_session_factory(test=True, tier_or_path=":memory:")
+        init_test_engine_and_session_factory(tier_or_path=":memory:")
+
+    def testConnectionToDBWithURL(self):
+        init_engine_and_session_factory(url="sqlite://", force_init=True)
 
     def testConnectionToDBWithCreator(self):
         def MockDBAPI():

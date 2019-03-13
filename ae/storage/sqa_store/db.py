@@ -287,6 +287,29 @@ def create_mysql_engine_from_creator(
     )
 
 
+def create_mysql_engine_from_url(
+    url: str, echo: bool = False, pool_recycle: int = 10, **kwargs: Any
+) -> Engine:
+    """Create a SQLAlchemy engine with the MySQL dialect given a database url.
+
+    Args:
+        url: a database url that can include username, password, hostname, database name
+            as well as optional keyword arguments for additional configuration.
+            e.g. `dialect+driver://username:password@host:port/database`.
+        echo: if True, set engine to be verbose.
+        pool_recycle: number of seconds after which to recycle
+            connections. -1 means no timeout. Default is 10 seconds.
+        **kwargs: keyword args passed to `create_engine`
+
+    Returns:
+        Engine: SQLAlchemy engine with connection to MySQL DB.
+
+    """
+    return create_engine(
+        name_or_url=url, pool_recycle=pool_recycle, echo=echo, **kwargs
+    )
+
+
 def create_test_engine(path: Optional[str] = None, echo: bool = True) -> Engine:
     """Creates a SQLAlchemy engine object for use in unit tests.
 
@@ -307,8 +330,7 @@ def create_test_engine(path: Optional[str] = None, echo: bool = True) -> Engine:
 
 
 def init_engine_and_session_factory(
-    test: bool = False,
-    tier_or_path: Optional[str] = None,
+    url: Optional[str] = None,
     creator: Optional[Callable] = None,
     echo: bool = False,
     force_init: bool = False,
@@ -322,10 +344,50 @@ def init_engine_and_session_factory(
     are doing.
 
     Args:
-        test: if True, use in-memory SQLite.
-        tier_or_path: the name of the DB tier for
-            writing to a SQL database.
-        creator:  a callable which returns a DBAPI connection.
+        url: a database url that can include username, password, hostname, database name
+            as well as optional keyword arguments for additional configuration.
+            e.g. `dialect+driver://username:password@host:port/database`.
+            Either this argument or `creator` argument must be specified.
+        creator: a callable which returns a DBAPI connection.
+            Either this argument or `url` argument must be specified.
+        echo: if True, logging for engine is enabled.
+        force_init: if True, allows re-initializing engine
+            and session factory.
+        **kwargs: keyword arguments passed to `create_mysql_engine_from_creator`
+
+    """
+    global SESSION_FACTORY
+
+    if SESSION_FACTORY is not None:
+        if force_init:
+            SESSION_FACTORY.bind.dispose()
+        else:
+            return  # pragma: no cover
+    if url is not None:
+        engine = create_mysql_engine_from_url(url=url, echo=echo, **kwargs)
+    elif creator is not None:
+        engine = create_mysql_engine_from_creator(creator=creator, echo=echo, **kwargs)
+    else:
+        raise ValueError("Must specify either `url` or `creator`.")  # pragma: no cover
+    SESSION_FACTORY = scoped_session(sessionmaker(bind=engine))
+
+
+def init_test_engine_and_session_factory(
+    tier_or_path: Optional[str] = None,
+    echo: bool = False,
+    force_init: bool = False,
+    **kwargs: Any,
+) -> None:
+    """Initialize the global engine and SESSION_FACTORY for SQLAlchemy,
+    using an in-memory SQLite database.
+
+    The initialization needs to only happen once. Note that it is possible to
+    re-initialize the engine by setting the `force_init` flag to True, but this
+    should only be used if you are absolutely certain that you know what you
+    are doing.
+
+    Args:
+        tier_or_path: the name of the DB tier.
         echo: if True, logging for engine is enabled.
         force_init: if True, allows re-initializing engine
             and session factory.
@@ -339,15 +401,9 @@ def init_engine_and_session_factory(
             SESSION_FACTORY.bind.dispose()
         else:
             return
-    if test:
-        engine = create_test_engine(path=tier_or_path, echo=echo)
-        create_all_tables(engine)
-    elif creator is not None:
-        engine = create_mysql_engine_from_creator(creator=creator, echo=echo, **kwargs)
-    else:
-        raise ValueError(
-            "Must specify either test mode or a creator function."
-        )  # pragma: no cover
+    engine = create_test_engine(path=tier_or_path, echo=echo)
+    create_all_tables(engine)
+
     SESSION_FACTORY = scoped_session(sessionmaker(bind=engine))
 
 
