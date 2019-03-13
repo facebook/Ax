@@ -2,8 +2,10 @@
 
 import datetime
 import enum
+from collections import OrderedDict
 from typing import Any
 
+import pandas as pd
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.exceptions.storage import JSONDecodeError
@@ -34,6 +36,12 @@ def object_from_json(object_json: Any) -> Any:
             return datetime.datetime.strptime(
                 object_json["value"], "%Y-%m-%d %H:%M:%S.%f"
             )
+        elif _type == "OrderedDict":
+            return OrderedDict(
+                [(k, object_from_json(v)) for k, v in object_json["value"]]
+            )
+        elif _type == "DataFrame":
+            return pd.read_json(object_json["value"])
 
         if _type not in DECODER_REGISTRY:
             err = (
@@ -81,6 +89,7 @@ def object_from_json(object_json: Any) -> Any:
             time_created_json = object_json.pop("time_created")
             trials_json = object_json.pop("trials")
             experiment_type_json = object_json.pop("experiment_type")
+            data_by_trial_json = object_json.pop("data_by_trial")
             # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun, ae.
             # pyre: lazarus.core.base_trial.TrialStatus, ae.lazarus.ae.core.
             # pyre: batch_trial.AbandonedArm, ae.lazarus.ae.core.
@@ -116,9 +125,19 @@ def object_from_json(object_json: Any) -> Any:
                     if is_trial
                     else batch_trial_from_json(experiment=experiment, **batch_json)
                 )
+
+            data_by_trial = object_from_json(data_by_trial_json)
+            # hack necessary because Python's json module converts dictionary
+            # keys to strings: https://stackoverflow.com/q/1450957
+            data_by_trial = {
+                int(k): OrderedDict({int(k2): v2 for k2, v2 in v.items()})
+                for k, v in data_by_trial.items()
+            }
+
             experiment._time_created = object_from_json(time_created_json)
             experiment._trials = loaded_trials
             experiment._experiment_type = object_from_json(experiment_type_json)
+            experiment._data_by_trial = data_by_trial
             return experiment
 
         # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun, ae.

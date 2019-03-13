@@ -56,6 +56,7 @@ class DataTest(TestCase):
 
     def testData(self):
         data = Data(df=self.df)
+        self.assertEqual(data, data)
         self.assertEqual(data.df_hash, self.df_hash)
 
         df = data.df

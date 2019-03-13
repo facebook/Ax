@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.batch_trial import BatchTrial
+from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.core.metric import Metric
@@ -37,6 +38,7 @@ def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
         "time_created": experiment.time_created,
         "trials": experiment.trials,
         "is_test": experiment.is_test,
+        "data_by_trial": experiment.data_by_trial,
     }
 
 
@@ -238,4 +240,13 @@ def branin_metric_to_dict(metric: BraninMetric) -> Dict[str, Any]:
         "param_names": metric.param_names,
         "noise_sd": metric.noise_sd,
         "lower_is_better": metric.lower_is_better,
+    }
+
+
+def data_to_dict(data: Data) -> Dict[str, Any]:
+    """Convert AE data to a dictionary."""
+    return {
+        "__type": data.__class__.__name__,
+        "df": data.df,
+        "description": data.description,
     }

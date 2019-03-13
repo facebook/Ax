@@ -3,6 +3,7 @@
 from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.base_trial import TrialStatus
 from ae.lazarus.ae.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
+from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.core.metric import Metric
@@ -30,6 +31,7 @@ from ae.lazarus.ae.storage.json_store.encoders import (
     batch_to_dict,
     branin_metric_to_dict,
     choice_parameter_to_dict,
+    data_to_dict,
     experiment_to_dict,
     fixed_parameter_to_dict,
     generator_run_to_dict,
@@ -49,10 +51,11 @@ from ae.lazarus.ae.storage.utils import DomainType, ParameterConstraintType
 
 
 ENCODER_REGISTRY = {
+    Arm: arm_to_dict,
     BatchTrial: batch_to_dict,
     BraninMetric: branin_metric_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
-    Arm: arm_to_dict,
+    Data: data_to_dict,
     Experiment: experiment_to_dict,
     FixedParameter: fixed_parameter_to_dict,
     GeneratorRun: generator_run_to_dict,
@@ -70,13 +73,14 @@ ENCODER_REGISTRY = {
 }
 
 DECODER_REGISTRY = {
+    "Arm": Arm,
     "AbandonedArm": AbandonedArm,
     "BatchTrial": BatchTrial,
     "TrialStatus": TrialStatus,
     "BraninMetric": BraninMetric,
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
-    "Arm": Arm,
+    "Data": Data,
     "DomainType": DomainType,
     "Experiment": Experiment,
     "FixedParameter": FixedParameter,

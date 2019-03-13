@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from ae.lazarus.ae.utils.common.equality import (
     datetime_equals,
     equality_typechecker,
@@ -35,6 +36,8 @@ class Base(object):
                 equal = np.array_equal(self_val, other_val)
             elif isinstance(self_val, datetime):
                 equal = datetime_equals(self_val, other_val)
+            elif isinstance(self_val, pd.DataFrame):
+                equal = self_val.equals(other_val)
             else:
                 equal = self_val == other_val
             if not equal:

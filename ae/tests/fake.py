@@ -5,8 +5,10 @@ from datetime import datetime
 from typing import Dict, List, MutableMapping
 
 import numpy as np
+import pandas as pd
 from ae.lazarus.ae.core.arm import Arm
 from ae.lazarus.ae.core.batch_trial import AbandonedArm, BatchTrial
+from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.core.generator_run import GeneratorRun
 from ae.lazarus.ae.core.metric import Metric
@@ -220,6 +222,12 @@ def get_experiment_with_batch_trial() -> Experiment:
 def get_experiment_with_batch_and_single_trial() -> Experiment:
     batch_trial = get_batch_trial()
     batch_trial.experiment.new_trial(generator_run=GeneratorRun(arms=[get_arm()]))
+    return batch_trial.experiment
+
+
+def get_experiment_with_data() -> Experiment:
+    batch_trial = get_batch_trial()
+    batch_trial.experiment.attach_data(data=get_data())
     return batch_trial.experiment
 
 
@@ -463,3 +471,18 @@ def get_model_predictions_per_arm() -> Dict[str, TModelPredictArm]:
         )
         for i in range(len(arms))
     }
+
+
+# Data
+
+
+def get_data() -> Data:
+    df_dict = {
+        "trial_index": 0,
+        "metric_name": "ae_test_metric",
+        "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3"],
+        "mean": [1, 3, 2, 2.25, 1.75],
+        "sem": [0, 0.5, 0.25, 0.40, 0.15],
+        "n": [100, 100, 100, 100, 100],
+    }
+    return Data(df=pd.DataFrame.from_records(df_dict))

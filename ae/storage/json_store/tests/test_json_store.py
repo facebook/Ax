@@ -15,6 +15,7 @@ from ae.lazarus.ae.tests.fake import (
     get_branin_metric,
     get_choice_parameter,
     get_experiment_with_batch_and_single_trial,
+    get_experiment_with_data,
     get_fixed_parameter,
     get_generator_run,
     get_metric,
@@ -38,6 +39,7 @@ TEST_CASES = [
     ("ChoiceParameter", get_choice_parameter),
     ("Arm", get_arm),
     ("Experiment", get_experiment_with_batch_and_single_trial),
+    ("Experiment", get_experiment_with_data),
     ("FixedParameter", get_fixed_parameter),
     ("GeneratorRun", get_generator_run),
     ("Metric", get_metric),
@@ -63,11 +65,10 @@ TEST_CASES = [
 ENCODE_DECODE_FIELD_MAPS = {
     "BatchTrial": EncodeDecodeFieldsMap(python_only=["experiment"]),
     "Experiment": EncodeDecodeFieldsMap(
-        python_only=["data_by_trial"], python_to_encoded={"metrics": "tracking_metrics"}
+        python_to_encoded={"metrics": "tracking_metrics"}
     ),
     "GeneratorRun": EncodeDecodeFieldsMap(
-        encoded_only=["arms", "weights"],
-        python_only=["arm_weight_table", "model_predictions"],
+        encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
     ),
     "OrderConstraint": EncodeDecodeFieldsMap(python_only=["bound"]),
     "SumConstraint": EncodeDecodeFieldsMap(python_only=["constraint_dict"]),

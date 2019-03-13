@@ -2,8 +2,10 @@
 
 import datetime
 import enum
+from collections import OrderedDict
 from typing import Any
 
+import pandas as pd
 from ae.lazarus.ae.exceptions.storage import JSONEncodeError
 from ae.lazarus.ae.storage.json_store.registry import ENCODER_REGISTRY
 
@@ -32,11 +34,18 @@ def object_to_json(object: Any) -> Any:
         return tuple(object_to_json(x) for x in object)
     elif _type is dict:
         return {k: object_to_json(v) for k, v in object.items()}
+    elif _type is OrderedDict:
+        return {
+            "__type": _type.__name__,
+            "value": [(k, object_to_json(v)) for k, v in object.items()],
+        }
     elif _type is datetime.datetime:
         return {
             "__type": _type.__name__,
             "value": datetime.datetime.strftime(object, "%Y-%m-%d %H:%M:%S.%f"),
         }
+    elif _type is pd.DataFrame:
+        return {"__type": _type.__name__, "value": object.to_json()}
     elif _is_named_tuple(object):
         return {
             "__type": _type.__name__,
