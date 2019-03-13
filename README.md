@@ -29,6 +29,15 @@ They are needed for parsing the `setup.py` files for both botorch and AE.
 3) Download and install AE from the [GitHub repo](https://github.com/facebook/Adaptive-Experiment):
 `pip3 install git+ssh://git@github.com/facebook/Adaptive-Experiment.git`
 
+If you are interesting in contributing to AE, you will also need to install the
+dependencies needed for development, which are listed in `DEV_REQUIRES`
+in `setup.py`. You can install these directly via ssh:
+`pip3 install git+ssh://git@github.com/facebook/Adaptive-Experiment.git#egg=Adaptive-Experiment[dev]`
+
+Or you can clone a local version of the repo and then pip install via flags from
+the root of the local repo:
+`pip3 install -e .[dev]`
+
 ## Join the AE community
 
 See the [CONTRIBUTING](CONTRIBUTING.md) file for how to help out.
