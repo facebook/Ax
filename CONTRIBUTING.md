@@ -33,13 +33,27 @@ outlined on that page and do not file a public issue.
 We use the [`Black` code formatter](https://github.com/ambv/black) for all Python files. You can install the latest release via `pip install black` and run it over the library via `black ae`.
 
 ## Documentation
+
+The Ax website was created with [Docusaurus](https://docusaurus.io/).
+FontAwesome icons were used under the [Creative Commons Attribution 4.0 International](https://fontawesome.com/license).
+
+### Building
+
 You will need [Node](https://nodejs.org/en/) >= 8.x and [Yarn](https://yarnpkg.com/en/) >= 1.5
-to build our Sphinx docs and Docusaurus site (which embeds the Sphinx docs inside). The
+to build the Sphinx docs and Docusaurus site (which embeds the Sphinx docs inside). The
 following command will both build the docs and serve the site locally:
 ```
 cd scripts
 ./make_docs.sh
 ```
+
+Open http://localhost:3000 (if doesn't automatically open).
+
+Anytime you change the contents of the page, the page should auto-update.
+
+### Publishing
+The site is hosted as a GitHub page. Once Ax is live, we will generate a static
+site and automatically push the output to the `gh-pages` branch via CircleCI.
 
 ## License
 By contributing to AE, you agree that your contributions will be licensed
