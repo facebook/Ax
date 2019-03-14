@@ -28,7 +28,6 @@ from ae.lazarus.ae.modelbridge.transforms.unit_x import UnitX
 from ae.lazarus.ae.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ae.lazarus.ae.models.discrete.full_factorial import FullFactorialGenerator
 from ae.lazarus.ae.models.discrete.thompson import ThompsonSampler
-from ae.lazarus.ae.models.numpy.gpy import GPyGP
 from ae.lazarus.ae.models.random.sobol import SobolGenerator
 from ae.lazarus.ae.models.random.uniform import UniformGenerator
 from ae.lazarus.ae.models.torch.botorch import BotorchModel
@@ -126,26 +125,6 @@ def get_GPEI(
         transforms=Cont_X_trans + Y_trans,
         torch_dtype=dtype,
         torch_device=device,
-    )
-
-
-def get_GPyGPEI(
-    experiment: Experiment,
-    data: Data,
-    search_space: Optional[SearchSpace] = None,
-    **kwargs: Union[int, bool, str]
-) -> NumpyModelBridge:
-    """Instantiates a GPy-backed GP+EI model."""
-    if search_space is None:
-        search_space = experiment.search_space
-    return NumpyModelBridge(
-        experiment=experiment,
-        search_space=search_space,
-        data=data,
-        # Expected `int` for 1st anon. param. to `ae.lazarus.models.numpy.
-        # pyre-ignore [6]: gpy.GPyGP.__init__`, but got `str`.
-        model=GPyGP(**kwargs),
-        transforms=Cont_X_trans + Y_trans,
     )
 
 

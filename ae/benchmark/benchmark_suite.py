@@ -14,7 +14,7 @@ from ae.lazarus.ae.benchmark.benchmark_runner import (
     BenchmarkSetup,
     BOBenchmarkRunner,
 )
-from ae.lazarus.ae.modelbridge.factory import get_GPyGPEI, get_sobol
+from ae.lazarus.ae.modelbridge.factory import get_GPEI, get_sobol
 from ae.lazarus.ae.modelbridge.generation_strategy import (
     GenerationStrategy,
     TModelFactory,
@@ -37,7 +37,7 @@ from ae.lazarus.ae.utils.render.render import (
 BOMethods: List[TModelFactory] = [
     get_sobol,
     # Generation strategy to use Sobol for first 5 arms and GP+EI for next 30:
-    GenerationStrategy([get_sobol, get_GPyGPEI], [5, 30]).get_model,
+    GenerationStrategy([get_sobol, get_GPEI], [5, 30]).get_model,
 ]
 
 BOProblems: List[BenchmarkProblem] = [constrained_branin, branin_max]

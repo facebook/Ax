@@ -5,7 +5,6 @@ from ae.lazarus.ae.modelbridge.factory import (
     get_empirical_bayes_thompson,
     get_factorial,
     get_GPEI,
-    get_GPyGPEI,
     get_sobol,
     get_thompson,
     get_uniform,
@@ -41,10 +40,6 @@ class ModelBridgeFactoryTest(TestCase):
             experiment=exp, data=exp.fetch_data(), search_space=exp.search_space
         )
         self.assertIsInstance(gpei, TorchModelBridge)
-        gpei = get_GPyGPEI(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(gpei, NumpyModelBridge)
-        gpei_run = gpei.gen(n=2)
-        self.assertEqual(len(gpei_run.arms), 2)
 
     def test_model_kwargs(self):
         """Tests that model kwargs are passed correctly."""
@@ -58,12 +53,6 @@ class ModelBridgeFactoryTest(TestCase):
             exp.new_batch_trial().add_generator_run(sobol_run).run()
         with self.assertRaises(TypeError):
             get_sobol(search_space=exp.search_space, nonexistent=True)
-        gpei = get_GPyGPEI(experiment=exp, data=exp.fetch_data(), refit_on_cv=True)
-        self.assertIsInstance(gpei, NumpyModelBridge)
-        gpei_run = gpei.gen(2)
-        self.assertEqual(len(gpei_run.arms), 2)
-        with self.assertRaises(TypeError):
-            get_GPyGPEI(experiment=exp, data=exp.fetch_data(), nonexistent=True)
         with self.assertRaises(TypeError):
             get_GPEI(experiment=exp, data=exp.fetch_data(), nonexistent=True)
 

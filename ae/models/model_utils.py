@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ae.lazarus.ae import models  # noqa F401  # pragma: no cover
 
-
 Tensoray = Union[torch.Tensor, np.ndarray]
 
 
@@ -217,7 +216,7 @@ def validate_bounds(
 
 
 def best_observed_point(
-    model: "Union[models.numpy.gpy.GPyGP, models.torch.botorch.BotorchModel]",
+    model: Union["models.numpy_base.NumpyModel", "models.torch_base.TorchModel"],
     bounds: List[Tuple[float, float]],
     objective_weights: Optional[Tensoray],
     outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
@@ -278,6 +277,8 @@ def best_observed_point(
     Returns:
         A d-array of the best point, or None if no feasible point exists.
     """
+    if not hasattr(model, "Xs"):
+        raise ValueError(f"Model must store training data Xs, but {model} does not.")
     # Parse options
     if options is None:
         options = {}
@@ -290,6 +291,7 @@ def best_observed_point(
         return None  # pragma: no cover
     objective_weights_np = as_array(objective_weights)
     X_obs = get_observed(
+        # pyre-fixme[16]: attribute must exist, otherwise error raised above
         Xs=model.Xs,
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
@@ -349,7 +351,8 @@ def as_array(
     elif isinstance(x, np.ndarray):
         return x
     elif torch.is_tensor(x):
-        return x.detach().cpu().double().numpy()  # pyre-ignore
+        # pyre-fixme[16]: `torch.Tensor` has no attribute `detach`
+        return x.detach().cpu().double().numpy()
     else:
         raise ValueError(
             "Input to as_array must be numpy array or torch tensor"
