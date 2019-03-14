@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
+from unittest.mock import patch
 
 import numpy as np
+import torch
 from ae.lazarus.ae.core.parameter import ParameterType, RangeParameter
 from ae.lazarus.ae.core.search_space import SearchSpace
-from ae.lazarus.ae.modelbridge.numpy import NumpyModelBridge
+from ae.lazarus.ae.modelbridge.torch import TorchModelBridge
 from ae.lazarus.ae.modelbridge.transforms.int_to_float import IntToFloat
 from ae.lazarus.ae.modelbridge.transforms.log import Log
 from ae.lazarus.ae.modelbridge.transforms.unit_x import UnitX
-from ae.lazarus.ae.models.numpy.gpy import GPyGP
+from ae.lazarus.ae.models.torch.botorch import BotorchModel
 from ae.lazarus.ae.tests.fake import get_branin_experiment
 from ae.lazarus.ae.utils.common.testutils import TestCase
 
 
 class TransformCallbackTest(TestCase):
-    def test_transform_callback_int(self):
+    @patch(
+        "ae.lazarus.ae.modelbridge.torch.TorchModelBridge._model_fit", return_value=None
+    )
+    def test_transform_callback_int(self, _):
         exp = get_branin_experiment()
         parameters = [
             RangeParameter(
@@ -23,16 +28,21 @@ class TransformCallbackTest(TestCase):
                 name="x2", parameter_type=ParameterType.INT, lower=5, upper=15
             ),
         ]
-        gpei = NumpyModelBridge(
+        gpei = TorchModelBridge(
             experiment=exp,
+            data=exp.fetch_data(),
             search_space=SearchSpace(parameters=parameters),
-            model=GPyGP(),
+            model=BotorchModel(),
             transforms=[IntToFloat],
+            torch_dtype=torch.double,
         )
         transformed = gpei._transform_callback([5.4, 7.6])
         self.assertTrue(np.allclose(transformed, [5, 8]))
 
-    def test_transform_callback_log(self):
+    @patch(
+        "ae.lazarus.ae.modelbridge.torch.TorchModelBridge._model_fit", return_value=None
+    )
+    def test_transform_callback_log(self, _):
         exp = get_branin_experiment()
         parameters = [
             RangeParameter(
@@ -50,16 +60,21 @@ class TransformCallbackTest(TestCase):
                 log_scale=True,
             ),
         ]
-        gpei = NumpyModelBridge(
+        gpei = TorchModelBridge(
             experiment=exp,
+            data=exp.fetch_data(),
             search_space=SearchSpace(parameters=parameters),
-            model=GPyGP(),
+            model=BotorchModel(),
             transforms=[Log],
+            torch_dtype=torch.double,
         )
         transformed = gpei._transform_callback([1.2, 2.5])
         self.assertTrue(np.allclose(transformed, [1.2, 2.5]))
 
-    def test_transform_callback_unitx(self):
+    @patch(
+        "ae.lazarus.ae.modelbridge.torch.TorchModelBridge._model_fit", return_value=None
+    )
+    def test_transform_callback_unitx(self, _):
         exp = get_branin_experiment()
         parameters = [
             RangeParameter(
@@ -69,16 +84,20 @@ class TransformCallbackTest(TestCase):
                 name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=100
             ),
         ]
-        gpei = NumpyModelBridge(
+        gpei = TorchModelBridge(
             experiment=exp,
+            data=exp.fetch_data(),
             search_space=SearchSpace(parameters=parameters),
-            model=GPyGP(),
+            model=BotorchModel(),
             transforms=[UnitX],
         )
         transformed = gpei._transform_callback([0.75, 0.35])
         self.assertTrue(np.allclose(transformed, [0.75, 0.35]))
 
-    def test_transform_callback_int_log(self):
+    @patch(
+        "ae.lazarus.ae.modelbridge.torch.TorchModelBridge._model_fit", return_value=None
+    )
+    def test_transform_callback_int_log(self, _):
         exp = get_branin_experiment()
         parameters = [
             RangeParameter(
@@ -96,16 +115,21 @@ class TransformCallbackTest(TestCase):
                 log_scale=True,
             ),
         ]
-        gpei = NumpyModelBridge(
+        gpei = TorchModelBridge(
             experiment=exp,
+            data=exp.fetch_data(),
             search_space=SearchSpace(parameters=parameters),
-            model=GPyGP(),
+            model=BotorchModel(),
             transforms=[IntToFloat, Log],
+            torch_dtype=torch.double,
         )
         transformed = gpei._transform_callback([0.5, 1.5])
         self.assertTrue(np.allclose(transformed, [0.47712, 1.50515]))
 
-    def test_transform_callback_int_unitx(self):
+    @patch(
+        "ae.lazarus.ae.modelbridge.torch.TorchModelBridge._model_fit", return_value=None
+    )
+    def test_transform_callback_int_unitx(self, _):
         exp = get_branin_experiment()
         parameters = [
             RangeParameter(
@@ -115,11 +139,13 @@ class TransformCallbackTest(TestCase):
                 name="x2", parameter_type=ParameterType.INT, lower=0, upper=100
             ),
         ]
-        gpei = NumpyModelBridge(
+        gpei = TorchModelBridge(
             experiment=exp,
+            data=exp.fetch_data(),
             search_space=SearchSpace(parameters=parameters),
-            model=GPyGP(),
+            model=BotorchModel(),
             transforms=[IntToFloat, UnitX],
+            torch_dtype=torch.double,
         )
         transformed = gpei._transform_callback([0.75, 0.35])
         self.assertTrue(np.allclose(transformed, [0.8, 0.35]))
