@@ -174,11 +174,19 @@ class BaseTrial(ABC, Base):
     @trial_type.setter
     @immutable_once_run
     def trial_type(self, trial_type: Optional[str]) -> None:
+        """Identifier used to distinguish trial types in experiments
+           with multiple trial types.
+        """
         if self._experiment is not None:
             if not self._experiment.supports_trial_type(trial_type):
                 raise ValueError(f"{trial_type} is not supported by the experiment.")
 
         self._trial_type = trial_type
+
+    def assign_runner(self) -> "BaseTrial":
+        """Assigns default experiment runner if trial doesn't already have one."""
+        self._runner = self._runner or self.experiment.runner_for_trial(self)
+        return self
 
     def run(self) -> "BaseTrial":
         """Deploys the trial according to the behavior on the runner.
@@ -193,7 +201,7 @@ class BaseTrial(ABC, Base):
         """
 
         # Default to experiment runner if trial doesn't have one
-        self._runner = self._runner or self.experiment.runner_for_trial(self)
+        self.assign_runner()
 
         if self._runner is None:
             raise ValueError("No runner set on trial or experiment.")

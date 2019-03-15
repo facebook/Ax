@@ -501,7 +501,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(get_session().query(SQAAbandonedArm).count(), 1)
 
         trial = experiment.trials[0]
-        trial.mark_arm_abandoned(trial.arms[1])
+        trial.mark_arm_abandoned(trial.arms[1].name)
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAAbandonedArm).count(), 2)
 

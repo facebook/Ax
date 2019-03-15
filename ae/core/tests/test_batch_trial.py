@@ -215,7 +215,7 @@ class BatchTrialTest(TestCase):
     def testAbandonArm(self):
         arm = self.batch.arms[0]
         reason = "Bad arm"
-        self.batch.mark_arm_abandoned(arm, reason)
+        self.batch.mark_arm_abandoned(arm.name, reason)
         self.assertEqual(len(self.batch.abandoned_arms), 1)
         self.assertEqual(self.batch.abandoned_arms[0], arm)
 

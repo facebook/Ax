@@ -329,7 +329,7 @@ class BatchTrial(BaseTrial):
         return OrderedDict(zip(self.arms, weights))
 
     def mark_arm_abandoned(
-        self, arm: Arm, reason: Optional[str] = None
+        self, arm_name: str, reason: Optional[str] = None
     ) -> "BatchTrial":
         """Mark a arm abandoned.
 
@@ -337,19 +337,17 @@ class BatchTrial(BaseTrial):
         user wants to continue running other arms in the batch.
 
         Args:
-            arm: The arm object to abandon.
+            arm_name: The name of the arm to abandon.
             reason: The reason for abandoning the arm.
 
         Returns:
             The batch instance.
         """
-        if arm not in self.arms:
+        if arm_name not in self.arms_by_name:
             raise ValueError("Arm must be contained in batch.")
-        if not arm.has_name:  # pragma: nocover
-            raise ValueError("Arm must have a name.")
 
-        abandoned_arm = AbandonedArm(name=arm.name, time=datetime.now(), reason=reason)
-        self._abandoned_arms_metadata[arm.name] = abandoned_arm
+        abandoned_arm = AbandonedArm(name=arm_name, time=datetime.now(), reason=reason)
+        self._abandoned_arms_metadata[arm_name] = abandoned_arm
         return self
 
     def clone(self) -> "BatchTrial":

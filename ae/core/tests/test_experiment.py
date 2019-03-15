@@ -267,5 +267,5 @@ class ExperimentTest(TestCase):
         trial = exp.new_batch_trial().add_arm(arm)
         self.assertEqual(exp.sum_trial_sizes, 2)
         self.assertEqual(len(exp.arms_by_name), 1)
-        trial.mark_arm_abandoned(arm)
+        trial.mark_arm_abandoned(arm.name)
         self.assertEqual(exp.num_abandoned_arms, 1)
