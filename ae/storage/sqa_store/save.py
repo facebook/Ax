@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 from ae.lazarus.ae.core.experiment import Experiment
-from ae.lazarus.ae.storage.sqa_store.base_encoder import Encoder
 from ae.lazarus.ae.storage.sqa_store.db import session_scope
+from ae.lazarus.ae.storage.sqa_store.encoder import Encoder
 
 
 def save_experiment(experiment: Experiment) -> None:

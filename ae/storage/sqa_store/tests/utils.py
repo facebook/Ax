@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from ae.lazarus.ae.storage.sqa_store.base_decoder import Decoder
-from ae.lazarus.ae.storage.sqa_store.base_encoder import Encoder
+from ae.lazarus.ae.storage.sqa_store.decoder import Decoder
+from ae.lazarus.ae.storage.sqa_store.encoder import Encoder
 from ae.lazarus.ae.storage.utils import EncodeDecodeFieldsMap
 from ae.lazarus.ae.tests.fake import (
     get_abandoned_arm,

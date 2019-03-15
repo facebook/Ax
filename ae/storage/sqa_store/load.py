@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 from ae.lazarus.ae.core.experiment import Experiment
-from ae.lazarus.ae.storage.sqa_store.base_decoder import Decoder
 from ae.lazarus.ae.storage.sqa_store.db import session_scope
+from ae.lazarus.ae.storage.sqa_store.decoder import Decoder
 from ae.lazarus.ae.storage.sqa_store.sqa_classes import SQAExperiment
 
 

@@ -72,7 +72,7 @@ SQLAlchemy (MySQL / SQLite)
 ---------------------------
 ae.storage.sqa\_store.base\_decoder module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. automodule:: ae.storage.sqa_store.base_decoder
+.. automodule:: ae.storage.sqa_store.decoder
     :members:
     :undoc-members:
     :show-inheritance:
@@ -81,7 +81,7 @@ ae.storage.sqa\_store.base\_decoder module
 ae.storage.sqa\_store.base\_encoder module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.storage.sqa_store.base_encoder
+.. automodule:: ae.storage.sqa_store.encoder
     :members:
     :undoc-members:
     :show-inheritance:

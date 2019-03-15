@@ -18,8 +18,6 @@ from ae.lazarus.ae.exceptions.storage import (
 )
 from ae.lazarus.ae.metrics.branin import BraninMetric
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
-from ae.lazarus.ae.storage.sqa_store.base_decoder import Decoder
-from ae.lazarus.ae.storage.sqa_store.base_encoder import Encoder
 from ae.lazarus.ae.storage.sqa_store.db import (
     SQABase,
     get_engine,
@@ -28,6 +26,8 @@ from ae.lazarus.ae.storage.sqa_store.db import (
     init_test_engine_and_session_factory,
     session_scope,
 )
+from ae.lazarus.ae.storage.sqa_store.decoder import Decoder
+from ae.lazarus.ae.storage.sqa_store.encoder import Encoder
 from ae.lazarus.ae.storage.sqa_store.load import load_experiment
 from ae.lazarus.ae.storage.sqa_store.save import save_experiment
 from ae.lazarus.ae.storage.sqa_store.sqa_classes import (
