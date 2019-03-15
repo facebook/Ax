@@ -308,7 +308,7 @@ def best_observed_point(
         return None
     # Predict objective and P(feas) at these points
     if isinstance(model, TorchModel):
-        X_obs = torch.tensor(X_obs, device=model.device, dtype=model.dtype)
+        X_obs = X_obs.clone().detach()
     f, cov = as_array(model.predict(X_obs))
     obj = objective_weights_np @ f.transpose()  # pyre-ignore
     pfeas = np.ones_like(obj)
