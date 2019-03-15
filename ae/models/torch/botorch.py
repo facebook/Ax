@@ -16,8 +16,8 @@ from ae.lazarus.ae.models.torch.utils import (
 )
 from ae.lazarus.ae.models.torch_base import TorchModel
 from ae.lazarus.ae.utils.common.docutils import copy_doc
-from botorch.acquisition.functional import get_infeasible_cost
-from botorch.acquisition.utils import get_acquisition_function
+from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObjective
+from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
 from botorch.fit import fit_model
 from botorch.models import MultiOutputGP
 from botorch.utils import (
@@ -44,21 +44,20 @@ class BotorchModel(TorchModel):
     def __init__(
         self,
         acquisition_function_name: str = "qNEI",
-        acquisition_function_args: Optional[Dict[str, Union[float, int]]] = None,
+        acquisition_function_kwargs: Optional[Dict[str, Union[float, int]]] = None,
         refit_on_cv: bool = False,
     ) -> None:
         """
         Args:
             acquisition_function_name: a string representing the acquisition
-                function name
-            acquisition_function_args: A map containing extra arguments for initializing
-                the acquisition function module. For UCB, this should include beta.
-            refit_on_cv: Re-fit hyperparameters during cross validation
+                function name.
+            acquisition_function_kwargs: A map containing extra arguments for
+                initializing the acquisition function module. For instance, for
+                UCB this should include the `beta` parameter.
+            refit_on_cv: Re-fit hyperparameters during cross validation.
         """
         self.acquisition_function_name = acquisition_function_name
-        if acquisition_function_args is None:
-            acquisition_function_args = {"mc_samples": 500, "qmc": True}
-        self.acquisition_function_args = acquisition_function_args
+        self.acquisition_function_kwargs = acquisition_function_kwargs or {}
         # pyre-fixme[8]: Attribute has type `MultiOutputGP`; used as `None`.
         self.model = None
         self.Xs = []
@@ -81,7 +80,7 @@ class BotorchModel(TorchModel):
         if len(task_features) > 0:
             raise ValueError("Task features not supported.")
         self.dtype = Xs[0].dtype  # pyre-ignore
-        self.device = Xs[0].device  # pyre-ignore
+        self.device = Xs[0].device
         self.Xs = Xs
         self.Ys = Ys
         self.Yvars = Yvars
@@ -152,15 +151,8 @@ class BotorchModel(TorchModel):
                 X_pending = None
         else:
             X_pending = None
-        objective_transform = get_objective_weights_transform(objective_weights)
-        outcome_constraint_transforms = get_outcome_constraint_transforms(
-            outcome_constraints=outcome_constraints
-        )
 
-        # pyre-fixme[9]: acquisition_function has type `Optional[Module]`; used as `O...
-        acquisition_function: Optional[torch.nn.Module] = options.get(
-            "acquisition_function"
-        )
+        acquisition_function = options.get("acquisition_function")
         if acquisition_function is None:
             # Get points observed for all objective and constraint outcomes
             X_observed = get_observed(
@@ -177,20 +169,33 @@ class BotorchModel(TorchModel):
             )
             if len(X_observed) == 0:
                 raise ValueError("There are no feasible observed points.")
-            # pyre-fixme[16]: Module `functional` has no attribute `get_infeasible_co...
-            infeasible_cost = get_infeasible_cost(
-                X=X_observed, model=self.model, objective=objective_transform
-            )
+            # construct Objective module
+            if outcome_constraints is None:
+                objective = LinearMCObjective(weights=objective_weights)
+            else:
+                obj_tf = get_objective_weights_transform(objective_weights)
+                con_tfs = get_outcome_constraint_transforms(outcome_constraints)
+                if not torch.is_tensor(X_observed):  # this is just to shut up pyre
+                    X_observed = torch.tensor(X_observed)
+                inf_cost = get_infeasible_cost(
+                    X=X_observed, model=self.model, objective=obj_tf
+                )
+                objective = ConstrainedMCObjective(
+                    objective=obj_tf,
+                    constraints=con_tfs or [],  # shut up pyre
+                    infeasible_cost=inf_cost,
+                )
+            # get the AcquisitionFunction
             acquisition_function = get_acquisition_function(
                 acquisition_function_name=self.acquisition_function_name,
                 model=self.model,
-                X_observed=X_observed,  # pyre-ignore
-                objective=objective_transform,
-                constraints=outcome_constraint_transforms,
-                infeasible_cost=infeasible_cost,
+                objective=objective,
+                X_observed=X_observed,
                 X_pending=X_pending,
-                acquisition_function_args=self.acquisition_function_args,
+                mc_samples=self.acquisition_function_kwargs.get("mc_samples", 500),
+                qmc=self.acquisition_function_kwargs.get("qmc", True),
                 seed=torch.randint(1, 10000, (1,)).item(),
+                **self.acquisition_function_kwargs
             )
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
@@ -202,9 +207,7 @@ class BotorchModel(TorchModel):
         # pyre-fixme[9]: num_restarts has type `int`; used as `Union[float, str]`.
         num_restarts: int = options.get("num_restarts", 20)
         # pyre-fixme[9]: raw_samples has type `int`; used as `Union[float, str]`.
-        raw_samples: int = options.get(
-            "num_raw_samples", 1000 if self.device == torch.device("cpu") else 5000
-        )
+        raw_samples: int = options.get("num_raw_samples", 50 * num_restarts)
         # pyre-fixme[9]: joint_optimization has type `bool`; used as `Union[float, st...
         joint_optimization: bool = options.get("joint_optimization", False)
         optimize = _joint_optimize if joint_optimization else _sequential_optimize

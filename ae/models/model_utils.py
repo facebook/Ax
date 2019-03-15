@@ -422,7 +422,7 @@ def filter_constraints_and_fixed_features(
         return X
     X_np = X
     if isinstance(X, torch.Tensor):
-        X_np = X.numpy()
+        X_np = X.cpu().numpy()
     feas = np.ones(X_np.shape[0], dtype=bool)  # (n)
     for i, b in enumerate(bounds):
         feas &= (X_np[:, i] >= b[0]) & (X_np[:, i] <= b[1])

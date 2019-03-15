@@ -24,13 +24,10 @@ from torch import Tensor
 
 class MockAcquisitionFunction:
     def __init__(self):
-        self.X_pending = None
+        self.X_baseline = None
 
     def __call__(self, X):
         return X[..., 0].max(dim=-1)[0]
-
-    def _set_X_pending(self, X_pending):
-        self.X_pending = X_pending
 
 
 def rounding_func(X: Tensor) -> Tensor:

@@ -7,7 +7,7 @@ import torch
 from ae.lazarus.ae.models.torch.botorch import BotorchModel, _get_and_fit_model
 from ae.lazarus.ae.models.torch.utils import MIN_OBSERVED_NOISE_LEVEL
 from ae.lazarus.ae.utils.common.testutils import TestCase
-from botorch.acquisition.functional import get_infeasible_cost
+from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import MultiOutputGP
 from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase

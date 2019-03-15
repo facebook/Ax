@@ -5,8 +5,8 @@ from typing import Callable, Dict, Optional, Union
 
 import torch
 from ae.lazarus.ae.exceptions.model import ModelError
-from botorch.acquisition.batch_modules import BatchAcquisitionFunction
-from botorch.exceptions import BadInitialCandidatesWarning
+from botorch.acquisition.monte_carlo import MCAcquisitionFunction
+from botorch.exceptions import BadInitialCandidatesWarning, UnsupportedError
 from botorch.gen import gen_candidates_scipy, get_best_candidates
 from botorch.models import Model, MultiOutputGP
 from botorch.models.constant_noise import ConstantNoiseGP
@@ -39,18 +39,20 @@ def _get_model(X: Tensor, Y: Tensor, Yvar: Tensor) -> Model:
     """Instantiate a model of type depending on the input data"""
     Yvar = Yvar.view(-1)  # last dimension is not needed for botorch
     # Determine if we want to treat the noise as constant
-    mean_var = Yvar.mean().clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
+    mean_var = Yvar.mean().clamp_min_(MIN_OBSERVED_NOISE_LEVEL)  # pyre-ignore [16]
     # Look at relative variance in noise level
-    if Yvar.nelement() > 1:
-        Yvar_std = Yvar.std()
+    if Yvar.nelement() > 1:  # pyre-ignore [16]
+        Yvar_std = Yvar.std()  # pyre-ignore [16]
     else:
-        Yvar_std = torch.tensor(0).to(device=Yvar.device, dtype=Yvar.dtype)
+        Yvar_std = torch.tensor(0).to(
+            device=Yvar.device, dtype=Yvar.dtype  # pyre-ignore [16]
+        )
     if Yvar_std / mean_var < 0.1:
         model = ConstantNoiseGP(
             train_X=X, train_Y=Y.view(-1), train_Y_se=mean_var.sqrt()
         )
     else:
-        Yvar = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)
+        Yvar = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)  # pyre-ignore [16]
         model = HeteroskedasticSingleTaskGP(
             train_X=X, train_Y=Y.view(-1), train_Y_se=Yvar.view(-1).sqrt()
         )
@@ -59,7 +61,7 @@ def _get_model(X: Tensor, Y: Tensor, Yvar: Tensor) -> Model:
 
 
 def _sequential_optimize(
-    acq_function: BatchAcquisitionFunction,
+    acq_function: MCAcquisitionFunction,
     bounds: Tensor,
     n: int,
     num_restarts: int,
@@ -73,26 +75,30 @@ def _sequential_optimize(
     Returns a set of candidates via sequential multi-start optimization.
 
     Args:
-        acq_function:  An acquisition function Module
+        acq_function: A qNoisyExpectedImprovement acquisition function.
         bounds: A `2 x d` tensor of lower and upper bounds for each column of X.
-        n: The number of candidates
+        n: The number of candidates.
         num_restarts:  Number of starting points for multistart acquisition
             function optimization.
         raw_samples: number of samples for initialization
-        model: the model
-        options: options for candidate generation
+        model: A fitted model.
+        options: options for candidate generation.
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value during generation.
         rounding_func: A function that rounds an optimization result
             appropriately (i.e., according to `round-trip` transformations).
+
     Returns:
-        The set of generated candidates
+        The set of generated candidates.,
     """
+    if not hasattr(acq_function, "X_baseline"):
+        raise UnsupportedError(  # pyre-ignore: [16]
+            "Sequential Optimization only supporte for acquisition functions "
+            "with an `X_pending` property"
+        )
     candidate_list = []
     candidates = torch.tensor([])
-    base_X_pending = acq_function.X_pending
-    # Needed to clear base_samples
-    acq_function._set_X_pending(base_X_pending)
+    base_X_baseline = acq_function.X_baseline  # pyre-ignore: [16]
     for _ in range(n):
         candidate = _joint_optimize(
             acq_function=acq_function,
@@ -109,18 +115,18 @@ def _sequential_optimize(
             candidate = rounding_func(candidate.view(-1)).view(*candidate_shape)
         candidate_list.append(candidate)
         candidates = torch.cat(candidate_list, dim=-2)
-        acq_function._set_X_pending(
-            torch.cat([base_X_pending, candidates], dim=-2)
-            if base_X_pending is not None
+        acq_function.X_baseline = (
+            torch.cat([base_X_baseline, candidates], dim=-2)
+            if base_X_baseline is not None
             else candidates
         )
-    # Reset acq_func to previous X_pending state
-    acq_function._set_X_pending(base_X_pending)
+    # Reset acq_func to previous X_baseline state
+    acq_function.X_baseline = base_X_baseline
     return candidates
 
 
 def _joint_optimize(
-    acq_function: Module,
+    acq_function: MCAcquisitionFunction,
     bounds: Tensor,
     n: int,
     num_restarts: int,
