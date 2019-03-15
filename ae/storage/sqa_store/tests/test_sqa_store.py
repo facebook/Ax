@@ -40,6 +40,7 @@ from ae.lazarus.ae.storage.sqa_store.sqa_classes import (
     SQARunner,
     SQATrial,
 )
+from ae.lazarus.ae.storage.sqa_store.sqa_config import SQAConfig
 from ae.lazarus.ae.storage.sqa_store.tests.utils import (
     ENCODE_DECODE_FIELD_MAPS,
     TEST_CASES,
@@ -73,6 +74,9 @@ from ae.lazarus.ae.utils.common.testutils import TestCase
 class SQAStoreTest(TestCase):
     def setUp(self):
         init_test_engine_and_session_factory(force_init=True)
+        self.config = SQAConfig()
+        self.encoder = Encoder(config=self.config)
+        self.decoder = Decoder(config=self.config)
         self.experiment = get_experiment_with_batch_trial()
 
     def testCreationOfTestDB(self):
@@ -112,7 +116,7 @@ class SQAStoreTest(TestCase):
             self.assertEqual(engine.pool.size(), 2)
 
     def testEquals(self):
-        trial_sqa = Encoder.trial_to_sqa(get_batch_trial())
+        trial_sqa = self.encoder.trial_to_sqa(get_batch_trial())
         self.assertTrue(trial_sqa.equals(trial_sqa))
 
     def testListEquals(self):
@@ -131,10 +135,10 @@ class SQAStoreTest(TestCase):
 
     def testValidateUpdate(self):
         parameter = get_choice_parameter()
-        parameter_sqa = Encoder.parameter_to_sqa(parameter)
+        parameter_sqa = self.encoder.parameter_to_sqa(parameter)
         parameter2 = get_choice_parameter()
         parameter2._name = 5
-        parameter_sqa_2 = Encoder.parameter_to_sqa(parameter2)
+        parameter_sqa_2 = self.encoder.parameter_to_sqa(parameter2)
         with self.assertRaises(ImmutabilityError):
             parameter_sqa.validate_update(parameter_sqa_2)
 
@@ -143,16 +147,16 @@ class SQAStoreTest(TestCase):
         generator_run = experiment.trials[0].generator_run_structs[0].generator_run
         generator_run._generator_run_type = "foobar"
         with self.assertRaises(SQAEncodeError):
-            Encoder.generator_run_to_sqa(generator_run)
+            self.encoder.generator_run_to_sqa(generator_run)
 
         generator_run._generator_run_type = "STATUS_QUO"
-        generator_run_sqa = Encoder.generator_run_to_sqa(generator_run)
+        generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)
         generator_run_sqa.generator_run_type = 1
         with self.assertRaises(SQADecodeError):
-            Decoder.generator_run_from_sqa(generator_run_sqa)
+            self.decoder.generator_run_from_sqa(generator_run_sqa)
 
         generator_run_sqa.generator_run_type = 0
-        Decoder.generator_run_from_sqa(generator_run_sqa)
+        self.decoder.generator_run_from_sqa(generator_run_sqa)
 
     def testExperimentSaveAndLoad(self):
         save_experiment(self.experiment)
@@ -160,12 +164,14 @@ class SQAStoreTest(TestCase):
         self.assertEqual(loaded_experiment, self.experiment)
 
     def testEncodeDecode(self):
-        for class_, fake_func, encode_func, decode_func in TEST_CASES:
+        for class_, fake_func, unbound_encode_func, unbound_decode_func in TEST_CASES:
             # Can't load trials from SQL, because a trial needs an experiment
             # in order to be initialized
             if class_ == "BatchTrial" or class_ == "Trial":
                 continue
             original_object = fake_func()
+            encode_func = unbound_encode_func.__get__(self.encoder)
+            decode_func = unbound_decode_func.__get__(self.decoder)
             sqa_object = encode_func(original_object)
             converted_object = decode_func(sqa_object)
             self.assertEqual(
@@ -175,8 +181,9 @@ class SQAStoreTest(TestCase):
             )
 
     def testEncoders(self):
-        for class_, fake_func, encode_func, _ in TEST_CASES:
+        for class_, fake_func, unbound_encode_func, _ in TEST_CASES:
             original_object = fake_func()
+            encode_func = unbound_encode_func.__get__(self.encoder)
             sqa_object = encode_func(original_object)
             if isinstance(
                 original_object, AbandonedArm
@@ -605,16 +612,16 @@ class SQAStoreTest(TestCase):
 
     def testParameterDecodeFailure(self):
         parameter = get_fixed_parameter()
-        sqa_parameter = Encoder.parameter_to_sqa(parameter)
+        sqa_parameter = self.encoder.parameter_to_sqa(parameter)
         sqa_parameter.domain_type = 5
         with self.assertRaises(SQADecodeError):
-            Decoder.parameter_from_sqa(sqa_parameter)
+            self.decoder.parameter_from_sqa(sqa_parameter)
 
     def testParameterUpdateFailure(self):
         parameter = get_range_parameter()
-        sqa_parameter = Encoder.parameter_to_sqa(parameter)
+        sqa_parameter = self.encoder.parameter_to_sqa(parameter)
         parameter._name = "new"
-        sqa_parameter_2 = Encoder.parameter_to_sqa(parameter)
+        sqa_parameter_2 = self.encoder.parameter_to_sqa(parameter)
         with self.assertRaises(ImmutabilityError):
             sqa_parameter.update(sqa_parameter_2)
 
@@ -652,20 +659,20 @@ class SQAStoreTest(TestCase):
             type=ParameterConstraintType.ORDER, constraint_dict={}, bound=0
         )
         with self.assertRaises(SQADecodeError):
-            Decoder.parameter_constraint_from_sqa(sqa_parameter)
+            self.decoder.parameter_constraint_from_sqa(sqa_parameter)
 
     def testDecodeSumParameterConstraintFailure(self):
         sqa_parameter = SQAParameterConstraint(
             type=ParameterConstraintType.SUM, constraint_dict={}, bound=0
         )
         with self.assertRaises(SQADecodeError):
-            Decoder.parameter_constraint_from_sqa(sqa_parameter)
+            self.decoder.parameter_constraint_from_sqa(sqa_parameter)
 
     def testMetricValidation(self):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=Encoder.metric_registry.CLASS_TO_TYPE[BraninMetric],
+            metric_type=self.config.metric_registry.CLASS_TO_TYPE[BraninMetric],
         )
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -682,7 +689,7 @@ class SQAStoreTest(TestCase):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=Encoder.metric_registry.CLASS_TO_TYPE[BraninMetric],
+            metric_type=self.config.metric_registry.CLASS_TO_TYPE[BraninMetric],
             generator_run_id=0,
         )
         with session_scope() as session:
@@ -696,35 +703,35 @@ class SQAStoreTest(TestCase):
         metric = get_branin_metric()
         del metric.__dict__["param_names"]
         with self.assertRaises(SQAEncodeError):
-            Encoder.metric_to_sqa(metric)
+            self.encoder.metric_to_sqa(metric)
 
     def testMetricDecodeFailure(self):
         metric = get_branin_metric()
-        sqa_metric = Encoder.metric_to_sqa(metric)
+        sqa_metric = self.encoder.metric_to_sqa(metric)
         sqa_metric.metric_type = "foobar"
         with self.assertRaises(SQADecodeError):
-            Decoder.metric_from_sqa(sqa_metric)
+            self.decoder.metric_from_sqa(sqa_metric)
 
-        sqa_metric.metric_type = Decoder.metric_registry.CLASS_TO_TYPE[BraninMetric]
+        sqa_metric.metric_type = self.config.metric_registry.CLASS_TO_TYPE[BraninMetric]
         sqa_metric.intent = "foobar"
         with self.assertRaises(SQADecodeError):
-            Decoder.metric_from_sqa(sqa_metric)
+            self.decoder.metric_from_sqa(sqa_metric)
 
         sqa_metric.intent = MetricIntent.TRACKING
         sqa_metric.properties = {}
         with self.assertRaises(AttributeError):
-            Decoder.metric_from_sqa(sqa_metric)
+            self.decoder.metric_from_sqa(sqa_metric)
 
     def testRunnerDecodeFailure(self):
         runner = get_synthetic_runner()
-        sqa_runner = Encoder.runner_to_sqa(runner)
+        sqa_runner = self.encoder.runner_to_sqa(runner)
         sqa_runner.runner_type = "foobar"
         with self.assertRaises(SQADecodeError):
-            Decoder.runner_from_sqa(sqa_runner)
+            self.decoder.runner_from_sqa(sqa_runner)
 
     def testRunnerValidation(self):
         sqa_runner = SQARunner(
-            runner_type=Encoder.runner_registry.CLASS_TO_TYPE[SyntheticRunner]
+            runner_type=self.config.runner_registry.CLASS_TO_TYPE[SyntheticRunner]
         )
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -739,7 +746,7 @@ class SQAStoreTest(TestCase):
                 session.add(sqa_runner)
 
         sqa_runner = SQARunner(
-            runner_type=Encoder.runner_registry.CLASS_TO_TYPE[SyntheticRunner],
+            runner_type=self.config.runner_registry.CLASS_TO_TYPE[SyntheticRunner],
             trial_id=0,
         )
         with session_scope() as session:

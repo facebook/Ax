@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 
+from typing import Optional
+
 from ae.lazarus.ae.core.experiment import Experiment
 from ae.lazarus.ae.storage.sqa_store.db import session_scope
 from ae.lazarus.ae.storage.sqa_store.encoder import Encoder
+from ae.lazarus.ae.storage.sqa_store.sqa_config import SQAConfig
 
 
-def save_experiment(experiment: Experiment) -> None:
-    """Save experiment (using default Encoder)."""
-    return _save_experiment(experiment=experiment, encoder=Encoder())
+def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) -> None:
+    """Save experiment (using default SQAConfig)."""
+    config = config or SQAConfig()
+    encoder = Encoder(config=config)
+    return _save_experiment(experiment=experiment, encoder=encoder)
 
 
 def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
@@ -23,7 +28,7 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
     """
     with session_scope() as session:
         new_sqa_experiment = encoder.experiment_to_sqa(experiment)
-        exp_sqa_class = encoder.class_to_sqa_class[Experiment]
+        exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
         existing_sqa_experiment = (
             session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
         )

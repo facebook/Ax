@@ -28,8 +28,6 @@ from ae.lazarus.ae.core.runner import Runner
 from ae.lazarus.ae.core.search_space import SearchSpace
 from ae.lazarus.ae.core.trial import Trial
 from ae.lazarus.ae.exceptions.storage import SQADecodeError
-from ae.lazarus.ae.metrics.registry import MetricRegistry
-from ae.lazarus.ae.runners.registry import RunnerRegistry
 from ae.lazarus.ae.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
@@ -41,6 +39,7 @@ from ae.lazarus.ae.storage.sqa_store.sqa_classes import (
     SQARunner,
     SQATrial,
 )
+from ae.lazarus.ae.storage.sqa_store.sqa_config import SQAConfig
 from ae.lazarus.ae.storage.utils import (
     DomainType,
     MetricIntent,
@@ -49,30 +48,21 @@ from ae.lazarus.ae.storage.utils import (
 
 
 class Decoder:
-    """Base class that contains methods for loading an AE experiment from SQLAlchemy.
+    """Class that contains methods for loading an AE experiment from SQLAlchemy.
 
-    Create a subclass that inherits from Decoder to implement custom load
-    functionality for a given user-facing type. This class can then be passed
-    into _load_experiment (defined in load.py).
+    Instantiate with an instance of Config to customize the functionality.
+    For even more flexibility, create a subclass.
 
     Attributes:
-        metric_registry: Maps int constants to corresponding Metric classes.
-            Ensures that when we load metric types, they will correspond
-            to an existing Metric class.
-        runner_registry: Maps int constants to corresponding Runner classes.
-            Ensures that when we load runner types, they will correspond
-            to an existing Runner class.
-        experiment_type_enum: Enum containing valid Experiment types.
-        generator_run_type_enum: Enum containing valid Generator Run types.
+        config: Metadata needed to save and load an experiment to SQLAlchemy.
     """
 
-    metric_registry: MetricRegistry = MetricRegistry()
-    runner_registry: RunnerRegistry = RunnerRegistry()
-    experiment_type_enum: Optional[Enum] = None
-    generator_run_type_enum: Optional[Enum] = GeneratorRunType
+    def __init__(self, config: SQAConfig) -> None:
+        self.config = config
 
-    @classmethod
-    def get_enum_name(cls, value: Optional[int], enum: Optional[Enum]) -> Optional[str]:
+    def get_enum_name(
+        self, value: Optional[int], enum: Optional[Enum]
+    ) -> Optional[str]:
         """Given an enum value (int) and an enum (of ints), return the
         corresponding enum name. If the value is not present in the enum,
         throw an error.
@@ -85,13 +75,12 @@ class Decoder:
         except ValueError:
             raise SQADecodeError(f"Value {value} is invalid for enum {enum}.")
 
-    @classmethod
-    def experiment_from_sqa(cls, experiment_sqa: SQAExperiment) -> Experiment:
+    def experiment_from_sqa(self, experiment_sqa: SQAExperiment) -> Experiment:
         """Convert SQLAlchemy Experiment to AE Experiment."""
-        optimization_config, tracking_metrics = cls.optimization_config_and_tracking_metrics_from_sqa(
+        opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
             metrics_sqa=experiment_sqa.metrics
         )
-        search_space = cls.search_space_from_sqa(
+        search_space = self.search_space_from_sqa(
             parameters_sqa=experiment_sqa.parameters,
             parameter_constraints_sqa=experiment_sqa.parameter_constraints,
         )
@@ -100,7 +89,7 @@ class Decoder:
                 "Experiment SearchSpace cannot be None."
             )
         runner = (
-            cls.runner_from_sqa(experiment_sqa.runner)
+            self.runner_from_sqa(experiment_sqa.runner)
             if experiment_sqa.runner
             else None
         )
@@ -117,26 +106,25 @@ class Decoder:
             name=experiment_sqa.name,
             description=experiment_sqa.description,
             search_space=search_space,
-            optimization_config=optimization_config,
+            optimization_config=opt_config,
             tracking_metrics=tracking_metrics,
             runner=runner,
             status_quo=status_quo,
             is_test=experiment_sqa.is_test,
         )
         trials = [
-            cls.trial_from_sqa(trial_sqa=trial, experiment=experiment)
+            self.trial_from_sqa(trial_sqa=trial, experiment=experiment)
             for trial in experiment_sqa.trials
         ]
         experiment._trials = {trial.index: trial for trial in trials}
         experiment._time_created = experiment_sqa.time_created
-        experiment._experiment_type = cls.get_enum_name(
-            value=experiment_sqa.experiment_type, enum=cls.experiment_type_enum
+        experiment._experiment_type = self.get_enum_name(
+            value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
 
         return experiment
 
-    @classmethod
-    def parameter_from_sqa(cls, parameter_sqa: SQAParameter) -> Parameter:
+    def parameter_from_sqa(self, parameter_sqa: SQAParameter) -> Parameter:
         """Convert SQLAlchemy Parameter to AE Parameter."""
         if parameter_sqa.domain_type == DomainType.RANGE:
             if parameter_sqa.lower is None or parameter_sqa.upper is None:
@@ -177,9 +165,8 @@ class Decoder:
                 "is an invalid domain type."
             )
 
-    @classmethod
     def parameter_constraint_from_sqa(
-        cls, parameter_constraint_sqa: SQAParameterConstraint
+        self, parameter_constraint_sqa: SQAParameterConstraint
     ) -> ParameterConstraint:
         """Convert SQLAlchemy ParameterConstraint to AE ParameterConstraint."""
         if parameter_constraint_sqa.type == ParameterConstraintType.ORDER:
@@ -218,9 +205,8 @@ class Decoder:
                 bound=parameter_constraint_sqa.bound,
             )
 
-    @classmethod
     def search_space_from_sqa(
-        cls,
+        self,
         parameters_sqa: List[SQAParameter],
         parameter_constraints_sqa: List[SQAParameterConstraint],
     ) -> Optional[SearchSpace]:
@@ -228,11 +214,11 @@ class Decoder:
         AE SearchSpace.
         """
         parameters = [
-            cls.parameter_from_sqa(parameter_sqa=parameter_sqa)
+            self.parameter_from_sqa(parameter_sqa=parameter_sqa)
             for parameter_sqa in parameters_sqa
         ]
         parameter_constraints = [
-            cls.parameter_constraint_from_sqa(
+            self.parameter_constraint_from_sqa(
                 parameter_constraint_sqa=parameter_constraint_sqa
             )
             for parameter_constraint_sqa in parameter_constraints_sqa
@@ -245,12 +231,13 @@ class Decoder:
             parameters=parameters, parameter_constraints=parameter_constraints
         )
 
-    @classmethod
     def metric_from_sqa(
-        cls, metric_sqa: SQAMetric
+        self, metric_sqa: SQAMetric
     ) -> Union[Metric, Objective, OutcomeConstraint]:
         """Convert SQLAlchemy Metric to AE Metric, Objective, or OutcomeConstraint."""
-        metric_class = cls.metric_registry.TYPE_TO_CLASS.get(metric_sqa.metric_type)
+        metric_class = self.config.metric_registry.TYPE_TO_CLASS.get(
+            metric_sqa.metric_type
+        )
         if metric_class is None:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
@@ -281,9 +268,8 @@ class Decoder:
                 f"is an invalid intent."
             )
 
-    @classmethod
-    def optimization_config_and_tracking_metrics_from_sqa(
-        cls, metrics_sqa: List[SQAMetric]
+    def opt_config_and_tracking_metrics_from_sqa(
+        self, metrics_sqa: List[SQAMetric]
     ) -> Tuple[Optional[OptimizationConfig], List[Metric]]:
         """Convert a list of SQLAlchemy Metrics to a a tuple of AE OptimizationConfig
         and tracking metrics.
@@ -292,7 +278,7 @@ class Decoder:
         outcome_constraints = []
         tracking_metrics = []
         for metric_sqa in metrics_sqa:
-            metric = cls.metric_from_sqa(metric_sqa=metric_sqa)
+            metric = self.metric_from_sqa(metric_sqa=metric_sqa)
             if isinstance(metric, Objective):
                 objective = metric
             elif isinstance(metric, OutcomeConstraint):
@@ -310,13 +296,13 @@ class Decoder:
             tracking_metrics,
         )
 
-    @classmethod
-    def arm_from_sqa(cls, arm_sqa: SQAArm) -> Arm:
+    def arm_from_sqa(self, arm_sqa: SQAArm) -> Arm:
         """Convert SQLAlchemy Arm to AE Arm."""
         return Arm(params=arm_sqa.parameters, name=arm_sqa.name)
 
-    @classmethod
-    def abandoned_arm_from_sqa(cls, abandoned_arm_sqa: SQAAbandonedArm) -> AbandonedArm:
+    def abandoned_arm_from_sqa(
+        self, abandoned_arm_sqa: SQAAbandonedArm
+    ) -> AbandonedArm:
         """Convert SQLAlchemy AbandonedArm to AE AbandonedArm."""
         return AbandonedArm(
             name=abandoned_arm_sqa.name,
@@ -324,19 +310,20 @@ class Decoder:
             time=abandoned_arm_sqa.time_abandoned,
         )
 
-    @classmethod
-    def generator_run_from_sqa(cls, generator_run_sqa: SQAGeneratorRun) -> GeneratorRun:
+    def generator_run_from_sqa(
+        self, generator_run_sqa: SQAGeneratorRun
+    ) -> GeneratorRun:
         """Convert SQLAlchemy GeneratorRun to AE GeneratorRun."""
         arms = []
         weights = []
-        optimization_config = None
+        opt_config = None
         search_space = None
 
         for arm_sqa in generator_run_sqa.arms:
-            arms.append(cls.arm_from_sqa(arm_sqa=arm_sqa))
+            arms.append(self.arm_from_sqa(arm_sqa=arm_sqa))
             weights.append(arm_sqa.weight)
 
-        optimization_config, tracking_metrics = cls.optimization_config_and_tracking_metrics_from_sqa(
+        opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
             metrics_sqa=generator_run_sqa.metrics
         )
         if len(tracking_metrics) > 0:
@@ -344,7 +331,7 @@ class Decoder:
                 "GeneratorRun should not have tracking metrics."
             )
 
-        search_space = cls.search_space_from_sqa(
+        search_space = self.search_space_from_sqa(
             parameters_sqa=generator_run_sqa.parameters,
             parameter_constraints_sqa=generator_run_sqa.parameter_constraints,
         )
@@ -372,7 +359,7 @@ class Decoder:
         generator_run = GeneratorRun(
             arms=arms,
             weights=weights,
-            optimization_config=optimization_config,
+            optimization_config=opt_config,
             search_space=search_space,
             fit_time=generator_run_sqa.fit_time,
             gen_time=generator_run_sqa.gen_time,
@@ -380,16 +367,18 @@ class Decoder:
             model_predictions=model_predictions,
         )
         generator_run._time_created = generator_run_sqa.time_created
-        generator_run._generator_run_type = cls.get_enum_name(
-            value=generator_run_sqa.generator_run_type, enum=cls.generator_run_type_enum
+        generator_run._generator_run_type = self.get_enum_name(
+            value=generator_run_sqa.generator_run_type,
+            enum=self.config.generator_run_type_enum,
         )
         generator_run._index = generator_run_sqa.index
         return generator_run
 
-    @classmethod
-    def runner_from_sqa(cls, runner_sqa: SQARunner) -> Runner:
+    def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
         """Convert SQLAlchemy Runner to AE Runner."""
-        runner_class = cls.runner_registry.TYPE_TO_CLASS.get(runner_sqa.runner_type)
+        runner_class = self.config.runner_registry.TYPE_TO_CLASS.get(
+            runner_sqa.runner_type
+        )
         if runner_class is None:
             raise SQADecodeError(
                 f"Cannot decode SQARunner because {runner_sqa.runner_type} "
@@ -399,14 +388,13 @@ class Decoder:
         # pyre-fixme[29]: `Type[Any]` is not a function.
         return runner_class(**properties)
 
-    @classmethod
-    def trial_from_sqa(cls, trial_sqa: SQATrial, experiment: Experiment) -> BaseTrial:
+    def trial_from_sqa(self, trial_sqa: SQATrial, experiment: Experiment) -> BaseTrial:
         """Convert SQLAlchemy Trial to AE Trial."""
         if trial_sqa.is_batch:
             trial = BatchTrial(experiment=experiment)
             generator_run_structs = [
                 GeneratorRunStruct(
-                    generator_run=cls.generator_run_from_sqa(
+                    generator_run=self.generator_run_from_sqa(
                         generator_run_sqa=generator_run_sqa
                     ),
                     weight=generator_run_sqa.weight or 1.0,
@@ -427,7 +415,7 @@ class Decoder:
                 generator_run_structs = new_generator_run_structs
             trial._generator_run_structs = generator_run_structs
             trial._abandoned_arms_metadata = {
-                abandoned_arm_sqa.name: cls.abandoned_arm_from_sqa(
+                abandoned_arm_sqa.name: self.abandoned_arm_from_sqa(
                     abandoned_arm_sqa=abandoned_arm_sqa
                 )
                 for abandoned_arm_sqa in trial_sqa.abandoned_arms
@@ -440,7 +428,7 @@ class Decoder:
                         "Cannot decode SQATrial to Trial because trial is not batched "
                         "but has more than one generator run."
                     )
-                trial._generator_run = cls.generator_run_from_sqa(
+                trial._generator_run = self.generator_run_from_sqa(
                     generator_run_sqa=trial_sqa.generator_runs[0]
                 )
         trial._index = trial_sqa.index
@@ -456,6 +444,6 @@ class Decoder:
         )
         trial._num_arms_created = trial_sqa.num_arms_created
         trial._runner = (
-            cls.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None
+            self.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None
         )
         return trial
