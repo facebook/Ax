@@ -3,7 +3,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
 from ae.lazarus.ae.core.arm import Arm
-from ae.lazarus.ae.core.base_trial import BaseTrial
+from ae.lazarus.ae.core.base_trial import BaseTrial, TrialStatus
 from ae.lazarus.ae.core.batch_trial import BatchTrial
 from ae.lazarus.ae.core.data import Data
 from ae.lazarus.ae.core.experiment import Experiment
@@ -13,12 +13,10 @@ from ae.lazarus.ae.core.optimization_config import OptimizationConfig
 from ae.lazarus.ae.core.outcome_constraint import OutcomeConstraint
 from ae.lazarus.ae.core.search_space import SearchSpace
 from ae.lazarus.ae.core.trial import Trial
-from ae.lazarus.ae.core.types.types import TParameterization
+from ae.lazarus.ae.core.types.types import TEvaluationOutcome, TParameterization
 from ae.lazarus.ae.runners.synthetic import SyntheticRunner
 
 
-# Outcome of the evaluation function: {metric_name -> (mean, standard error)}
-TEvaluationOutcome = Dict[str, Tuple[float, float]]
 # Function that evaluates one parameter configuration.
 TEvaluationFunction = Callable[[TParameterization, Optional[float]], TEvaluationOutcome]
 
@@ -96,7 +94,24 @@ class SimpleExperiment(Experiment):
                 arm_params: TParameterization = arm.params
                 evaluations[arm.name] = self.evaluation_function(arm_params, weight)
 
-        data = Data(
+        data = self.data_from_evaluations(evaluations, trial.index)
+        self.attach_data(data)
+        return data
+
+    @staticmethod
+    def data_from_evaluations(
+        evaluations: Dict[str, TEvaluationOutcome], trial_index: int
+    ) -> Data:
+        """
+        Convert dict of evaluations to AE data object.
+
+        Args:
+            evaluations: Map from condition name to metric outcomes.
+
+        Returns:
+            AE Data object.
+        """
+        return Data(
             df=pd.DataFrame(
                 [
                     {
@@ -104,16 +119,13 @@ class SimpleExperiment(Experiment):
                         "metric_name": metric_name,
                         "mean": evaluation[metric_name][0],
                         "sem": evaluation[metric_name][1],
-                        "trial_index": trial.index,
+                        "trial_index": trial_index,
                     }
                     for name, evaluation in evaluations.items()
                     for metric_name in evaluation.keys()
                 ]
             )
         )
-
-        self.attach_data(data)
-        return data
 
     def eval(self) -> Data:
         """
@@ -122,7 +134,11 @@ class SimpleExperiment(Experiment):
         """
 
         return Data.from_multiple_data(
-            [self.eval_trial(trial) for trial in self.trials.values()]
+            [
+                self.eval_trial(trial)
+                for trial in self.trials.values()
+                if trial.status != TrialStatus.FAILED
+            ]
         )
 
     def fetch_data(self, **kwargs: Any) -> Data:
