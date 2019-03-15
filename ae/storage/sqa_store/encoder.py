@@ -247,7 +247,7 @@ class Encoder:
         and construct a dictionary to be stored in the database `properties`
         json blob.
         """
-        metric_type = self.config.metric_registry.CLASS_TO_TYPE.get(type(metric))
+        metric_type = self.config.metric_registry.class_to_type.get(type(metric))
         if metric_type is None:
             raise SQAEncodeError(
                 "Cannot encode metric to SQLAlchemy because metric's "
@@ -414,7 +414,7 @@ class Encoder:
 
     def runner_to_sqa(self, runner: Runner) -> SQARunner:
         """Convert AE Runner to SQLAlchemy."""
-        runner_type = self.config.runner_registry.CLASS_TO_TYPE.get(type(runner))
+        runner_type = self.config.runner_registry.class_to_type.get(type(runner))
         if runner_type is None:
             raise SQAEncodeError(
                 "Cannot encode runner to SQLAlchemy because runner's "

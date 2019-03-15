@@ -235,7 +235,7 @@ class Decoder:
         self, metric_sqa: SQAMetric
     ) -> Union[Metric, Objective, OutcomeConstraint]:
         """Convert SQLAlchemy Metric to AE Metric, Objective, or OutcomeConstraint."""
-        metric_class = self.config.metric_registry.TYPE_TO_CLASS.get(
+        metric_class = self.config.metric_registry.type_to_class.get(
             metric_sqa.metric_type
         )
         if metric_class is None:
@@ -248,7 +248,6 @@ class Decoder:
             if arg == "self" or arg in args:
                 continue
             args[arg] = getattr(metric_sqa, arg)
-        # pyre-fixme[29]: `typing.Type[typing.Any]` is not a function.
         metric = metric_class(**args)
 
         if metric_sqa.intent == MetricIntent.TRACKING:
@@ -376,7 +375,7 @@ class Decoder:
 
     def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
         """Convert SQLAlchemy Runner to AE Runner."""
-        runner_class = self.config.runner_registry.TYPE_TO_CLASS.get(
+        runner_class = self.config.runner_registry.type_to_class.get(
             runner_sqa.runner_type
         )
         if runner_class is None:
@@ -385,7 +384,6 @@ class Decoder:
                 f"is an invalid type."
             )
         properties = runner_sqa.properties or {}
-        # pyre-fixme[29]: `Type[Any]` is not a function.
         return runner_class(**properties)
 
     def trial_from_sqa(self, trial_sqa: SQATrial, experiment: Experiment) -> BaseTrial:

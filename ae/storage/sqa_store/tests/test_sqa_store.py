@@ -672,7 +672,7 @@ class SQAStoreTest(TestCase):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=self.config.metric_registry.CLASS_TO_TYPE[BraninMetric],
+            metric_type=self.config.metric_registry.class_to_type[BraninMetric],
         )
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -689,7 +689,7 @@ class SQAStoreTest(TestCase):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=self.config.metric_registry.CLASS_TO_TYPE[BraninMetric],
+            metric_type=self.config.metric_registry.class_to_type[BraninMetric],
             generator_run_id=0,
         )
         with session_scope() as session:
@@ -712,7 +712,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
 
-        sqa_metric.metric_type = self.config.metric_registry.CLASS_TO_TYPE[BraninMetric]
+        sqa_metric.metric_type = self.config.metric_registry.class_to_type[BraninMetric]
         sqa_metric.intent = "foobar"
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
@@ -731,7 +731,7 @@ class SQAStoreTest(TestCase):
 
     def testRunnerValidation(self):
         sqa_runner = SQARunner(
-            runner_type=self.config.runner_registry.CLASS_TO_TYPE[SyntheticRunner]
+            runner_type=self.config.runner_registry.class_to_type[SyntheticRunner]
         )
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -746,7 +746,7 @@ class SQAStoreTest(TestCase):
                 session.add(sqa_runner)
 
         sqa_runner = SQARunner(
-            runner_type=self.config.runner_registry.CLASS_TO_TYPE[SyntheticRunner],
+            runner_type=self.config.runner_registry.class_to_type[SyntheticRunner],
             trial_id=0,
         )
         with session_scope() as session:
