@@ -135,14 +135,15 @@ def _get_in_sample_arms(
     for obs in observations:
         cond_name_to_params[obs.arm_name] = obs.features.parameters
         for j, metric_name in enumerate(obs.data.metric_names):
-            raw_data.append(
-                {
-                    "metric_name": metric_name,
-                    "arm_name": obs.arm_name,
-                    "mean": obs.data.means[j],
-                    "sem": np.sqrt(obs.data.covariance[j, j]),
-                }
-            )
+            if metric_name in metric_names:
+                raw_data.append(
+                    {
+                        "metric_name": metric_name,
+                        "arm_name": obs.arm_name,
+                        "mean": obs.data.means[j],
+                        "sem": np.sqrt(obs.data.covariance[j, j]),
+                    }
+                )
     # Check that we have one ObservationFeatures per arm name since we
     # key by arm name.
     if len(cond_name_to_params) != len(observations):
