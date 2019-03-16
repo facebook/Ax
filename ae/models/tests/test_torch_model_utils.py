@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
 
-
 import torch
 from ae.lazarus.ae.exceptions.model import ModelError
 from ae.lazarus.ae.models.torch.utils import is_noiseless
 from ae.lazarus.ae.utils.common.testutils import TestCase
-from botorch.models import (
-    FidelityAwareSingleTaskGP,
-    HeteroskedasticSingleTaskGP,
-    MultiOutputGP,
-    SingleTaskGP,
-)
+from botorch.models import HeteroskedasticSingleTaskGP, MultiOutputGP, SingleTaskGP
 
 
 class TorchModelUtilsTest(TestCase):
@@ -21,8 +15,6 @@ class TorchModelUtilsTest(TestCase):
         model = SingleTaskGP(x, y)
         self.assertTrue(is_noiseless(model))
         model = HeteroskedasticSingleTaskGP(x, y, se)
-        self.assertFalse(is_noiseless(model))
-        model = FidelityAwareSingleTaskGP(x, y, se)
         self.assertFalse(is_noiseless(model))
         with self.assertRaises(ModelError):
             is_noiseless(MultiOutputGP([]))
