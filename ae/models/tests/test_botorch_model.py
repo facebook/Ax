@@ -124,7 +124,7 @@ class BotorchModelTest(TestCase):
         model_gen_options = {}
         # test sequential optimize
         with mock.patch(
-            "ae.lazarus.ae.models.torch.botorch._sequential_optimize",
+            "ae.lazarus.ae.models.torch.botorch.sequential_optimize",
             return_value=X_dummy,
         ) as mock_sequential_optimize:
 
@@ -144,13 +144,13 @@ class BotorchModelTest(TestCase):
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
             print(mock_sequential_optimize.call_args_list[-1][1])
             self.assertEqual(
-                mock_sequential_optimize.call_args_list[-1][1]["rounding_func"],
+                mock_sequential_optimize.call_args_list[-1][1]["post_processing_func"],
                 dummy_func,
             )
 
         # test joint optimize
         with mock.patch(
-            "ae.lazarus.ae.models.torch.botorch._joint_optimize", return_value=X_dummy
+            "ae.lazarus.ae.models.torch.botorch.joint_optimize", return_value=X_dummy
         ) as mock_joint_optimize:
             Xgen, wgen = model.gen(
                 n=n,

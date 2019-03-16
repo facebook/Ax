@@ -9,17 +9,14 @@ from ae.lazarus.ae.models.model_utils import (
     filter_constraints_and_fixed_features,
     get_observed,
 )
-from ae.lazarus.ae.models.torch.utils import (
-    _get_model,
-    _joint_optimize,
-    _sequential_optimize,
-)
+from ae.lazarus.ae.models.torch.utils import _get_model
 from ae.lazarus.ae.models.torch_base import TorchModel
 from ae.lazarus.ae.utils.common.docutils import copy_doc
 from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
 from botorch.fit import fit_model
 from botorch.models import MultiOutputGP
+from botorch.optim.optimize import joint_optimize, sequential_optimize
 from botorch.utils import (
     get_objective_weights_transform,
     get_outcome_constraint_transforms,
@@ -152,51 +149,49 @@ class BotorchModel(TorchModel):
         else:
             X_pending = None
 
-        acquisition_function = options.get("acquisition_function")
-        if acquisition_function is None:
-            # Get points observed for all objective and constraint outcomes
-            X_observed = get_observed(
-                Xs=self.Xs,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
+        # Get points observed for all objective and constraint outcomes
+        X_observed = get_observed(
+            Xs=self.Xs,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+        )
+        # Filter to those that satisfy constraints.
+        X_observed = filter_constraints_and_fixed_features(
+            X=X_observed,
+            bounds=bounds,
+            linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
+        )
+        if len(X_observed) == 0:
+            raise ValueError("There are no feasible observed points.")
+        # construct Objective module
+        if outcome_constraints is None:
+            objective = LinearMCObjective(weights=objective_weights)
+        else:
+            obj_tf = get_objective_weights_transform(objective_weights)
+            con_tfs = get_outcome_constraint_transforms(outcome_constraints)
+            if not torch.is_tensor(X_observed):  # this is just to shut up pyre
+                X_observed = torch.tensor(X_observed)
+            inf_cost = get_infeasible_cost(
+                X=X_observed, model=self.model, objective=obj_tf
             )
-            # Filter to those that satisfy constraints.
-            X_observed = filter_constraints_and_fixed_features(
-                X=X_observed,
-                bounds=bounds,
-                linear_constraints=linear_constraints,
-                fixed_features=fixed_features,
+            objective = ConstrainedMCObjective(
+                objective=obj_tf,
+                constraints=con_tfs or [],  # shut up pyre
+                infeasible_cost=inf_cost,
             )
-            if len(X_observed) == 0:
-                raise ValueError("There are no feasible observed points.")
-            # construct Objective module
-            if outcome_constraints is None:
-                objective = LinearMCObjective(weights=objective_weights)
-            else:
-                obj_tf = get_objective_weights_transform(objective_weights)
-                con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-                if not torch.is_tensor(X_observed):  # this is just to shut up pyre
-                    X_observed = torch.tensor(X_observed)
-                inf_cost = get_infeasible_cost(
-                    X=X_observed, model=self.model, objective=obj_tf
-                )
-                objective = ConstrainedMCObjective(
-                    objective=obj_tf,
-                    constraints=con_tfs or [],  # shut up pyre
-                    infeasible_cost=inf_cost,
-                )
-            # get the AcquisitionFunction
-            acquisition_function = get_acquisition_function(
-                acquisition_function_name=self.acquisition_function_name,
-                model=self.model,
-                objective=objective,
-                X_observed=X_observed,
-                X_pending=X_pending,
-                mc_samples=self.acquisition_function_kwargs.get("mc_samples", 500),
-                qmc=self.acquisition_function_kwargs.get("qmc", True),
-                seed=torch.randint(1, 10000, (1,)).item(),
-                **self.acquisition_function_kwargs
-            )
+        # get the AcquisitionFunction
+        acquisition_function = get_acquisition_function(
+            acquisition_function_name=self.acquisition_function_name,
+            model=self.model,
+            objective=objective,
+            X_observed=X_observed,
+            X_pending=X_pending,
+            mc_samples=self.acquisition_function_kwargs.get("mc_samples", 500),
+            qmc=self.acquisition_function_kwargs.get("qmc", True),
+            seed=torch.randint(1, 10000, (1,)).item(),
+            **self.acquisition_function_kwargs
+        )
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
@@ -210,18 +205,16 @@ class BotorchModel(TorchModel):
         raw_samples: int = options.get("num_raw_samples", 50 * num_restarts)
         # pyre-fixme[9]: joint_optimization has type `bool`; used as `Union[float, st...
         joint_optimization: bool = options.get("joint_optimization", False)
-        optimize = _joint_optimize if joint_optimization else _sequential_optimize
+        optimize = joint_optimize if joint_optimization else sequential_optimize
         candidates = optimize(
-            # pyre-fixme[6]: Expected `BatchAcquisitionFunction` for 1st param but go...
             acq_function=acquisition_function,
             bounds=bounds_,
             n=n,
             num_restarts=num_restarts,
             raw_samples=raw_samples,
-            model=self.model,
             options=opts,
             fixed_features=fixed_features,
-            rounding_func=rounding_func,
+            post_processing_func=rounding_func,
         )
         return candidates.detach().cpu(), torch.ones(n, dtype=self.dtype)
 
