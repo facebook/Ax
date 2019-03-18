@@ -1,6 +1,6 @@
 {
   "docs": {
-    "Introduction": ["why-ax"],
+    "Introduction": ["why-ax", "glossary"],
     "Setup": ["installation", "usage"],
     "Algorithms": ["algo-overview"],
     "Components": ["experiment", "runner", "data", "generator"],
