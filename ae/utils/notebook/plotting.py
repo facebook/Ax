@@ -11,7 +11,7 @@ logger = get_logger("ipy_plotting")
 
 def init_notebook_plotting(offline=False):
     """Initialize plotting in notebooks, either in online or offline mode."""
-    display_bundle = {"text/html": _wrap_js(_js_requires(offline=True))}
+    display_bundle = {"text/html": _wrap_js(_js_requires(offline=offline))}
     display(display_bundle, raw=True)
     logger.info(
         "Injecting Plotly library into cell. " "Do not overwrite or delete cell."
