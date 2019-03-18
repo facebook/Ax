@@ -1,0 +1,18 @@
+{
+  "Bandits": [
+    {
+      "id": "factorial",
+      "title": "Factorial"
+    }
+  ],
+  "BayesOpt": [
+    {
+      "id": "gpei_svm",
+      "title": "GP-EI for SVM"
+    },
+    {
+      "id": "gpei_synthetic",
+      "title": "GP-EI for Branin"
+    }
+  ]
+}

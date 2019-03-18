@@ -30,6 +30,7 @@ const siteConfig = {
   // For no header links in the top nav bar -> headerLinks: [],
   headerLinks: [
     {doc: 'why-ax', label: 'Docs'},
+    {href: '/tutorials/index', label: 'Tutorials'},
     {href: '/api/index', label: 'API'},
     // Search can be enabled when site is online
     // {search: true},
