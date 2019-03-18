@@ -1062,6 +1062,7 @@ def plot_fitted(
                 "label": custom_arm_order_name,
                 "method": "relayout",
             }
+            # pyre-fixme[6]: Expected `List[Dict[str, Union[List[Dict[str, Union[List[str...
         ] + order_options
 
     layout = go.Layout(  # pyre-ignore[16]

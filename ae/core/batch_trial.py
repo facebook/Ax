@@ -277,6 +277,7 @@ class BatchTrial(BaseTrial):
         sufficient_factors = all(len(arm.params or []) >= 2 for arm in self.arms)
         if not sufficient_factors:
             return False
+        # pyre-fixme[9]: param_levels has type `DefaultDict[str, Dict[Union[float, st...
         param_levels: DefaultDict[str, Dict[Union[str, float], int]] = (
             defaultdict(dict)
         )
@@ -284,6 +285,7 @@ class BatchTrial(BaseTrial):
             for param_name, param_value in arm.params.items():
                 # Expected `Union[float, str]` for 2nd anonymous parameter to call
                 # `dict.__setitem__` but got `Optional[Union[bool, float, str]]`.
+                # pyre-fixme[6]: Expected `Union[float, str]` for 1st param but got `...
                 param_levels[param_name][param_value] = 1
         param_cardinality = 1
         for param_values in param_levels.values():

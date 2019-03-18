@@ -45,9 +45,7 @@ class AEPlotConfig(_AEPlotConfigBase):
                 namedtuple_as_object=True,  # uses NamesTuple's `_asdict()`
             )
         )
-        # pyre: Call `tuple.__new__` expects 1 positional argument, 3 were
-        # pyre: provided., Expected `AEPlotConfig` but got
-        # pyre-fixme[19, 7]: `_AEPlotConfigBase`.
+        # pyre-fixme[7]: Expected `AEPlotConfig` but got `_AEPlotConfigBase`.
         return super(AEPlotConfig, cls).__new__(cls, dict_data, plot_type)
 
 

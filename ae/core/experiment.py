@@ -242,6 +242,7 @@ class Experiment(Base):
         return self._metrics
 
     def _metrics_by_class(self) -> Dict[Type[Metric], List[Metric]]:
+        # pyre-fixme[9]: metrics_by_class has type `Dict[Type[Metric], List[Metric]]`...
         metrics_by_class: Dict[Type[Metric], List[Metric]] = defaultdict(list)
         for metric in self._metrics.values():
             metrics_by_class[metric.__class__].append(metric)

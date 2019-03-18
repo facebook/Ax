@@ -63,7 +63,6 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
         )
         self.lineno = None
         self.filename = None
-        # pyre-fixme[28]: Unexpected keyword argument `expected`.
         super().__init__(
             expected=expected, test_case=test_case, expected_regex=expected_regex
         )
@@ -99,8 +98,6 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
 # Instead of showing a warning (like in the standard library) we throw an error when
 # deprecated functions are called.
 def _deprecate(original_func: Callable) -> Callable:
-    # pyre: Parameter `**kwargs` must have a type that does not contain `Any`.
-    # pyre-fixme[2]: Parameter `*args` must have a type that does not contain `Any`.
     def _deprecated_func(*args: List[Any], **kwargs: Dict[str, Any]) -> None:
         raise RuntimeError(
             f"This function is deprecated please use {original_func.__name__} "

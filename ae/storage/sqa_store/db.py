@@ -67,7 +67,7 @@ class SQABase:
             return False  # pragma: no cover
         for x in l1:
             for y in l2:
-                # pyre-fixme[20]: Argument `o` expected.
+                # pyre-fixme[16]: `T` has no attribute `__eq__`.
                 if type(x) != type(y):
                     equal = False
                 if isinstance(x, SQABase):
@@ -123,7 +123,6 @@ class SQABase:
         new_list = []
         for y in l2:  # For each item in the new list
             for x in l1:  # Check if there is a matching item in the old list
-                # pyre-fixme[20]: Argument `o` expected.
                 if type(x) != type(y):
                     equal = False
                 elif isinstance(x, SQABase):

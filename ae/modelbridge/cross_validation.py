@@ -142,6 +142,7 @@ def compute_diagnostics(result: List[CVResult]) -> Dict[str, Dict[str, float]]:
         "Fisher exact test p": _fisher_exact_test_p,
     }
 
+    # pyre-fixme[9]: diagnostics has type `Dict[str, Dict[str, float]]`; used as `Def...
     diagnostics: Dict[str, Dict[str, float]] = defaultdict(dict)
     # Get all per-metric diagnostics.
     for metric_name in y_obs:

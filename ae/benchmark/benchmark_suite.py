@@ -34,6 +34,7 @@ from ae.lazarus.ae.utils.render.render import (
 )
 
 
+# pyre-fixme[9]: BOMethods has type `List[Callable[..., ModelBridge]]`; used as `List...
 BOMethods: List[TModelFactory] = [
     get_sobol,
     # Generation strategy to use Sobol for first 5 arms and GP+EI for next 30:

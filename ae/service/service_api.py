@@ -14,7 +14,11 @@ from ae.lazarus.ae.core.types.types import (
     TParameterization,
 )
 from ae.lazarus.ae.modelbridge.generation_strategy import GenerationStrategy
+
+# pyre-fixme[21]: Could not find `base_decoder`.
 from ae.lazarus.ae.storage.sqa_store.base_decoder import Decoder
+
+# pyre-fixme[21]: Could not find `base_encoder`.
 from ae.lazarus.ae.storage.sqa_store.base_encoder import Encoder
 from ae.lazarus.ae.storage.sqa_store.db import init_engine_and_session_factory
 from ae.lazarus.ae.storage.sqa_store.load import _load_experiment

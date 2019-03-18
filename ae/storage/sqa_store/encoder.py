@@ -375,9 +375,7 @@ class Encoder:
         if generator_run.best_arm_predictions is not None:
             best_arm = generator_run.best_arm_predictions[0]
             best_arm_predictions = list(generator_run.best_arm_predictions[1])
-            # pyre-fixme[16]: Optional type has no attribute `_name`.
             best_arm_name = best_arm._name
-            # pyre-fixme[16]: Optional type has no attribute `params`.
             best_arm_parameters = best_arm.params
         model_predictions = (
             list(generator_run.model_predictions)

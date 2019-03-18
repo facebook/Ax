@@ -413,5 +413,6 @@ def get_fixed_values(
 
     if slice_values is not None:
         # slice_values has type Dictionary[str, Any]
+        # pyre-fixme[6]: Expected `Iterable[Tuple[str, Optional[Union[bool, float, st...
         setx.update(slice_values)
     return setx

@@ -465,7 +465,6 @@ def optimize_from_x0(
     if len(x0_opt) == 0:
         # Nothing to optimize.
         xopt = np.array([fixed_features[i] for i, _ in enumerate(bounds)])
-        # pyre-fixme[7]: Expected `Tuple[ndarray, float]` but got `Tuple[ndarray, Uni...
         return xopt, objective_and_grad(x0_opt, *args)[0]
 
     # Prepare linear constraints

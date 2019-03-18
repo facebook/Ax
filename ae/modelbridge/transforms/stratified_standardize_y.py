@@ -76,6 +76,7 @@ class StratifiedStandardizeY(Transform):
                 )
             self.p_name = task_params[0]
         # Compute means and SDs
+        # pyre-fixme[9]: Ys has type `DefaultDict[Tuple[str, Optional[Union[bool, flo...
         Ys: DefaultDict[Tuple[str, TParamValue], List[float]] = defaultdict(list)
         for j, obsd in enumerate(observation_data):
             v = observation_features[j].parameters[self.p_name]
@@ -87,6 +88,7 @@ class StratifiedStandardizeY(Transform):
         # `ae.lazarus.ae.modelbridge.transforms.standardize_y.compute_standardization_params`
         # but got `DefaultDict[typing.Tuple[str, Optional[typing.Union[bool, float,
         # str]]], List[float]]`.
+        # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
         self.Ymean, self.Ystd = compute_standardization_params(Ys)
 
     def transform_observation_data(

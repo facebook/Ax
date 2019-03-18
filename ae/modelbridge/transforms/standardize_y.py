@@ -40,6 +40,7 @@ class StandardizeY(Transform):
                 "StandardizeY transform requires non-empty observation data."
             )
         # Compute means and SDs
+        # pyre-fixme[9]: Ys has type `DefaultDict[str, List[float]]`; used as `Defaul...
         Ys: DefaultDict[str, List[float]] = defaultdict(list)
         for obsd in observation_data:
             for i, m in enumerate(obsd.metric_names):
@@ -48,6 +49,7 @@ class StandardizeY(Transform):
         # str]]]], List[float]]` for 1st anonymous parameter to call
         # `ae.lazarus.ae.modelbridge.transforms.standardize_y.compute_standardization_params`
         # but got `DefaultDict[str, List[float]]`.
+        # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
         self.Ymean, self.Ystd = compute_standardization_params(Ys)
 
     def transform_observation_data(
