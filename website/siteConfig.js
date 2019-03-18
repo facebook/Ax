@@ -3,6 +3,8 @@
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
+ *
+ * @format
  */
 
 // See https://docusaurus.io/docs/site-config for all the possible
@@ -34,7 +36,7 @@ const siteConfig = {
     {href: '/api/index', label: 'API'},
     // Search can be enabled when site is online
     // {search: true},
-    {href: 'https://github.com/facebook/Adaptive-Experiment', label: "GitHub" }
+    {href: 'https://github.com/facebook/Ax', label: 'GitHub'},
   ],
 
   // If you have users set above, you add it here:
@@ -56,8 +58,12 @@ const siteConfig = {
     theme: 'default',
   },
 
-  // Add custom scripts here that would be placed in <script> tags.
-  scripts: ['https://buttons.github.io/buttons.js'],
+  // Custom scripts that are placed in <head></head> of each page
+  scripts: [
+    'https://buttons.github.io/buttons.js',
+    '/js/mathjax.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML',
+  ],
 
   // On page navigation for the current documentation page.
   onPageNav: 'separate',
@@ -75,7 +81,6 @@ const siteConfig = {
   // enableUpdateTime: true,
 
   wrapPagesHTML: true,
-
 };
 
 module.exports = siteConfig;
