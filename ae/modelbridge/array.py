@@ -364,7 +364,7 @@ def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.n
         outcomes: n-length list of names of metrics.
 
     Returns:
-        objective_weights: (n,) array of weights.
+        (n,) array of weights.
 
     """
     s = -1.0 if objective.minimize else 1.0

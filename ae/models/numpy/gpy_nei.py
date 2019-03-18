@@ -23,7 +23,8 @@ def get_infeasible_cost(
         obj_sign: The sign of the objective weights
         X: The data for the objective
 
-    Returns: The no-feasible penalty M
+    Returns:
+        The no-feasible penalty M
     """
     # Make predictions on the observations
     f, var = obj_model._raw_predict(X)
@@ -51,7 +52,8 @@ def compute_best_feasible_value(
         obj_sign: Sign of weight on objective.
         con_list: List of (index, weight, upper bound) for outcome constraints.
 
-    Returns: (nsamp,) array of best feasible objective value.
+    Returns:
+        (nsamp,) array of best feasible objective value.
     """
     nsamp = len(fantasy_models[obj_idx])
     if cand_X_array.size == 0:
@@ -113,7 +115,8 @@ def get_initial_points(
         f_best: Incumbent best value for each fantasy.
         M: Penalty for no feasible point.
 
-    Returns: (nopt x d) array of optimization initial points.
+    Returns:
+        (nopt x d) array of optimization initial points.
     """
     g = SobolEngine(len(bounds), scramble=True)  # pyre-ignore
     z = g.draw(n=init_samples)
@@ -183,7 +186,8 @@ def nei_vectorized(
         f_best: Incumbent best value for each fantasy.
         M: Penalty for no feasible point.
 
-    Returns: (n,) array of NEI at X.
+    Returns:
+        (n,) array of NEI at X.
     """
     eis = np.zeros(X.shape[0])
     for i, m in enumerate(fantasy_models[obj_idx]):
@@ -225,7 +229,8 @@ def nei_and_grad(
         f_best: Incumbent best value for each fantasy.
         M: Penalty for no feasible point.
 
-    Returns: NEI at x and its gradient.
+    Returns:
+        NEI at x and its gradient.
     """
     nsamp = len(fantasy_models[obj_idx])
     nei = 0.0
@@ -283,7 +288,8 @@ def ei_and_grad(
         df: Gradient of mean, in n dimensional space.
         dvar: Gradient of variances.
 
-    Returns: ei and its gradient.
+    Returns:
+        ei and its gradient.
     """
     sd = np.sqrt(f_var)
     sd = max(sd, 1e-9)  # Avoid dividing by zero
@@ -304,7 +310,7 @@ def ei_vectorized(f: np.ndarray, f_var: np.ndarray, f_best: float) -> np.ndarray
         f_best: Current feasible best.
 
     Returns:
-        ei: The expected improvement at each point.
+        The expected improvement at each point.
     """
     sd = np.sqrt(f_var)
     indx = sd < 1e-9
@@ -325,7 +331,7 @@ def _f_and_grad(
         w: Evaluation is weighted by this factor.
 
     Returns:
-        A tuple containing
+        4-element tuple containing
 
         - Mean prediction.
         - Variance prediction.
@@ -371,7 +377,8 @@ def optimize(
         M: Penalty for no feasible point.
         use_multiprocessing: Use multiprocessing.
 
-    Returns: x that optimizes NEI, and NEI at that x.
+    Returns:
+        x that optimizes NEI, and NEI at that x.
     """
     opt_kwargs = [
         {
@@ -437,7 +444,8 @@ def optimize_from_x0(
         f_best: Incumbent best value for each fantasy.
         M: Penalty for no feasible point.
 
-    Returns: x that optimizes NEI, and NEI at that x.
+    Returns:
+        x that optimizes NEI, and NEI at that x.
     """
     # Restrict optimization problem to tunable features
     tunable_slice = [i for i, _ in enumerate(bounds) if i not in fixed_features]
@@ -469,16 +477,16 @@ def optimize_from_x0(
         for j in range(A.shape[0]):
             Ax_fix[j, 0] = np.sum([A[j, k] * v for k, v in fixed_features.items()])
 
-        def eval_linear_constraints(x: np.ndarray) -> np.ndarray:
+        def _eval_linear_constraints(x: np.ndarray) -> np.ndarray:
             return (b - Ax_fix - A_opt @ x[:, None]).flatten()
 
-        def deval_linear_constraints(x: np.ndarray) -> np.ndarray:
+        def _deval_linear_constraints(x: np.ndarray) -> np.ndarray:
             return -A_opt
 
         constraints = {
             "type": "ineq",
-            "fun": eval_linear_constraints,
-            "jac": deval_linear_constraints,
+            "fun": _eval_linear_constraints,
+            "jac": _deval_linear_constraints,
         }
     else:
         constraints = ()
@@ -535,7 +543,8 @@ def objective_and_grad(
         f_best: Incumbent best value for each fantasy.
         M: Penalty for no feasible point.
 
-    Returns: NEI at x and its gradient.
+    Returns:
+        NEI at x and its gradient.
     """
     x_full = np.zeros(len(tunable_slice) + len(fixed_features))
     x_full[tunable_slice] = x

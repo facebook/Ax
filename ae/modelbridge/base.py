@@ -29,11 +29,11 @@ logger = get_logger("ModelBridge")
 class ModelBridge(ABC):
     """The main object for using models in AE. ModelBridge specifies 3 methods
     for using models:
-        - predict: Make model predictions. This method is not optimized for
-            speed and so should be used primarily for plotting or similar tasks
-            and not inside an optimization loop.
-        - gen: Use the model to generate new candidates.
-        - cross_validate: Do cross validation to assess model predictions.
+    - predict: Make model predictions. This method is not optimized for
+      speed and so should be used primarily for plotting or similar tasks
+      and not inside an optimization loop.
+    - gen: Use the model to generate new candidates.
+    - cross_validate: Do cross validation to assess model predictions.
 
     ModelBridge converts AE types like Data and Arm to types that are
     meant to be consumed by the models. The data sent to the model will depend
@@ -224,6 +224,7 @@ class ModelBridge(ABC):
 
     @property
     def status_quo(self) -> Optional[Observation]:
+        """Observation corresponding to status quo, if any."""
         return self._status_quo
 
     @property
@@ -281,13 +282,15 @@ class ModelBridge(ABC):
         Predictions are made for all outcomes.
 
         Args:
-            observation_features:
+            observation_features: observation features
 
         Returns:
-            f: Dictionary from metric name to list of mean estimates, in same
-                order as observation_features.
-            cov: Nested dictionary with cov['metric1']['metric2'] a list of
-                cov(metric1@x, metric2@x) for x in observation_features.
+            2-element tuple containing
+
+            - Dictionary from metric name to list of mean estimates, in same
+              order as observation_features.
+            - Nested dictionary with cov['metric1']['metric2'] a list of
+              cov(metric1@x, metric2@x) for x in observation_features.
         """
         # Get modifiable version
         observation_features = deepcopy(observation_features)
@@ -461,7 +464,8 @@ class ModelBridge(ABC):
             cv_training_data: The training data to use for cross validation.
             cv_test_points: The test points at which predictions will be made.
 
-        Returns: A list of predictions at the test points.
+        Returns:
+            A list of predictions at the test points.
         """
         # Apply transforms to cv_training_data and cv_test_points
         cv_test_points = deepcopy(cv_test_points)

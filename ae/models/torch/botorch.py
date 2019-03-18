@@ -112,10 +112,10 @@ class BotorchModel(TorchModel):
                 the columns of f(x). These are the weights.
             outcome_constraints: A tuple of (A, b). For k outcome constraints
                 and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                    A f(x) <= b. (Not used by single task models)
+                A f(x) <= b. (Not used by single task models)
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
-                    A x <= b. (Not used by single task models)
+                A x <= b. (Not used by single task models)
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
             pending_observations:  A list of m (k_i x d) feature tensors X
@@ -126,8 +126,10 @@ class BotorchModel(TorchModel):
             rounding_func: A function that rounds an optimization result
                 appropriately (i.e., according to `round-trip` transformations).
         Returns:
-            X: An (n x d) tensor of generated points.
-            w: An n-tensor of weights for each point.
+            2-element tuple containing
+
+            - (n x d) tensor of generated points.
+            - n-tensor of weights for each point.
         """
         options: TConfig = model_gen_options or {}
         if pending_observations is not None:
@@ -272,7 +274,8 @@ def _get_and_fit_model(
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
 
-    Returns: A MultiOutputGP.
+    Returns:
+        A MultiOutputGP.
     """
     models = [_get_model(X=X, Y=Y, Yvar=Yvar) for X, Y, Yvar in zip(Xs, Ys, Yvars)]
     model = MultiOutputGP(gp_models=models)  # pyre-ignore: [16]

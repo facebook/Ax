@@ -44,9 +44,11 @@ class NumpyModel:
             X: (j x d) array of the j points at which to make predictions.
 
         Returns:
-            f: (j x m) array of outcome predictions at X.
-            cov: (j x m x m) array of predictive covariances at X.
-                cov[j, m1, m2] is Cov[m1@j, m2@j].
+            2-element tuple containing
+
+            - (j x m) array of outcome predictions at X.
+            - (j x m x m) array of predictive covariances at X.
+              `cov[j, m1, m2]` is `Cov[m1@j, m2@j]`.
         """
         raise NotImplementedError
 
@@ -72,10 +74,10 @@ class NumpyModel:
                 the columns of f(x). These are the weights.
             outcome_constraints: A tuple of (A, b). For k outcome constraints
                 and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                    A f(x) <= b.
+                A f(x) <= b.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
-                    A x <= b.
+                A x <= b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
             pending_observations:  A list of m (k_i x d) feature arrays X
@@ -86,8 +88,10 @@ class NumpyModel:
                 appropriately (i.e., according to `round-trip` transformations)
 
         Returns:
-            X: An (n x d) array of generated points.
-            w: An n-array of weights for each point.
+            2-element tuple containing
+
+            - (n x d) array of generated points.
+            - n-array of weights for each point.
         """
         raise NotImplementedError
 
@@ -112,16 +116,17 @@ class NumpyModel:
                 the columns of f(x). These are the weights.
             outcome_constraints: A tuple of (A, b). For k outcome constraints
                 and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                    A f(x) <= b.
+                A f(x) <= b.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
-                    A x <= b.
+                A x <= b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value in the best point.
             model_gen_options: A config dictionary that can contain
                 model-specific options.
 
-        Returns: A d-array of the best point.
+        Returns:
+            A d-array of the best point.
         """
         return None
 
@@ -146,8 +151,10 @@ class NumpyModel:
             X_test: (j x d) array of the j points at which to make predictions.
 
         Returns:
-            f: (j x m) array of outcome predictions at X.
-            cov: (j x m x m) array of predictive covariances at X.
-                cov[j, m1, m2] is Cov[m1@j, m2@j].
+            2-element tuple containing
+
+            - (j x m) array of outcome predictions at X.
+            - (j x m x m) array of predictive covariances at X.
+              cov[j, m1, m2] is Cov[m1@j, m2@j].
         """
         raise NotImplementedError

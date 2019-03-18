@@ -157,12 +157,14 @@ def check_param_constraints(
     Args:
         linear_constraints: A tuple of (A, b). For k linear constraints on
             d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b.
+            A x <= b.
         point: A candidate point in d-dimensional space, as a (1 x d) matrix.
 
     Returns:
-        all_satisfied: True if all constraints are satisfied by the point.
-        violators: Indices of constraints which are violated by the point.
+        2-element tuple containing
+
+        - Flag that is True if all constraints are satisfied by the point.
+        - Indices of constraints which are violated by the point.
     """
     constraints_satisfied = linear_constraints[0] @ point.T <= linear_constraints[1]
     if np.all(constraints_satisfied):
@@ -246,18 +248,13 @@ def best_observed_point(
     The following quantities may be specified in the options dict:
 
     - best_point_method: 'max_utility' (default) or 'feasible_threshold'
-        to select between the two approaches described above.
+      to select between the two approaches described above.
     - utility_baseline: Value for the baseline used in max_utility approach. If
-        not provided, defaults to min objective value.
+      not provided, defaults to min objective value.
     - probability_threshold: Threshold for the feasible_threshold approach.
-        Defaults to p=0.95.
+      Defaults to p=0.95.
     - feasibility_mc_samples: Number of MC samples used for estimating the
-        probability of feasibility (defaults 10k).
-
-    Returns None if no best point can be identified (for example, if no
-    observations satisfying the constraints).
-
-    Accepts either tensors or arrays, but returns an array.
+      probability of feasibility (defaults 10k).
 
     Args:
         model: Numpy or Torch model.
@@ -344,7 +341,8 @@ def as_array(
     Args:
         x: A tensor, array, or a tuple of potentially mixed tensors and arrays.
 
-    Returns: x, with everything convert to array.
+    Returns:
+        x, with everything converted to array.
     """
     if isinstance(x, tuple):
         return tuple(as_array(x_i) for x_i in x)  # pyre-ignore
@@ -374,9 +372,10 @@ def get_observed(
             the columns of f(x). These are the weights.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                A f(x) <= b.
+            A f(x) <= b.
+
     Returns:
-        X_obs: Points observed for all objective outcomes and outcome constraints.
+        Points observed for all objective outcomes and outcome constraints.
     """
     objective_weights_np = as_array(objective_weights)
     used_outcomes: Set[int] = set(np.where(objective_weights_np != 0)[0])
@@ -412,11 +411,12 @@ def filter_constraints_and_fixed_features(
         bounds: A list of (lower, upper) tuples for each feature.
         linear_constraints: A tuple of (A, b). For k linear constraints on
             d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b.
+            A x <= b.
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value in the best point.
+
     Returns:
-        X_feas: Feasible points.
+        Feasible points.
     """
     if len(X) == 0:  # if there are no points, nothing to filter
         return X

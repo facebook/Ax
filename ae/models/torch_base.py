@@ -48,9 +48,11 @@ class TorchModel:
             X: (j x d) tensor of the j points at which to make predictions.
 
         Returns:
-            f: (j x m) tensor of outcome predictions at X.
-            cov: (j x m x m) tensor of predictive covariances at X.
-                cov[j, m1, m2] is Cov[m1@j, m2@j].
+            2-element tuple containing
+
+            - (j x m) tensor of outcome predictions at X.
+            - (j x m x m) tensor of predictive covariances at X.
+              cov[j, m1, m2] is Cov[m1@j, m2@j].
         """
         raise NotImplementedError
 
@@ -76,10 +78,10 @@ class TorchModel:
                 the columns of f(x). These are the weights.
             outcome_constraints: A tuple of (A, b). For k outcome constraints
                 and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                    A f(x) <= b.
+                A f(x) <= b.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
-                    A x <= b.
+                A x <= b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
             pending_observations:  A list of m (k_i x d) feature tensors X
@@ -88,8 +90,10 @@ class TorchModel:
                 model-specific options.
 
         Returns:
-            X: An (n x d) tensor of generated points.
-            w: An n-tensor of weights for each point.
+            2-element tuple containing
+
+            - (n x d) tensor of generated points.
+            - n-tensor of weights for each point.
         """
         raise NotImplementedError
 
@@ -114,16 +118,17 @@ class TorchModel:
                 the columns of f(x). These are the weights.
             outcome_constraints: A tuple of (A, b). For k outcome constraints
                 and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                    A f(x) <= b.
+                A f(x) <= b.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
-                    A x <= b.
+                A x <= b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value in the best point.
             model_gen_options: A config dictionary that can contain
                 model-specific options.
 
-        Returns: A d-tensor of the best point.
+        Returns:
+            d-tensor of the best point.
         """
         return None
 
@@ -148,8 +153,10 @@ class TorchModel:
             X_test: (j x d) tensor of the j points at which to make predictions.
 
         Returns:
-            f: (j x m) tensor of outcome predictions at X.
-            cov: (j x m x m) tensor of predictive covariances at X.
-                cov[j, m1, m2] is Cov[m1@j, m2@j].
+            2-element tuple containing
+
+            - (j x m) tensor of outcome predictions at X.
+            - (j x m x m) tensor of predictive covariances at X.
+              cov[j, m1, m2] is Cov[m1@j, m2@j].
         """
         raise NotImplementedError

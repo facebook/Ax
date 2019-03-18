@@ -19,10 +19,11 @@ if TYPE_CHECKING:
 class TrialStatus(Enum):
     """Enum of trial status.
 
-    General lifecycle of a trial is:
-    CANDIDATE --> STAGED --> RUNNING --> COMPLETED
-              ------------->         --> FAILED (machine failure)
-              -------------------------> ABANDONED (human-initiated action)
+    General lifecycle of a trial is:::
+
+        CANDIDATE --> STAGED --> RUNNING --> COMPLETED
+                  ------------->         --> FAILED (machine failure)
+                  -------------------------> ABANDONED (human-initiated action)
 
     Trials may be abandoned at any time prior to completion or failure
     via human intervention. The difference between abandonment and failure

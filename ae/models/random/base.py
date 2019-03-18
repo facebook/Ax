@@ -58,7 +58,7 @@ class RandomModel:
                 Defined on [0, 1]^d.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
-                    A x <= b.
+                A x <= b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
             model_gen_options: A config dictionary that is passed along to the
@@ -67,8 +67,10 @@ class RandomModel:
                 appropriately (e.g., according to `round-trip` transformations).
 
         Returns:
-            X: An (n x d) array of generated points.
-            w: Uniform weights, an n-array of ones for each point.
+            2-element tuple containing
+
+            - (n x d) array of generated points.
+            - Uniform weights, an n-array of ones for each point.
 
         """
         tf_indices = tunable_feature_indices(
@@ -125,7 +127,7 @@ class RandomModel:
             tunable_feature_indices: Parameter indices (in d) which are tunable.
 
         Returns:
-            X: An (n x d) array of generated points.
+            An (n x d) array of generated points.
 
         """
         tunable_points = self._gen_samples(n=n, tunable_d=len(tunable_feature_indices))
@@ -144,7 +146,7 @@ class RandomModel:
             n: Number of points to generate.
 
         Returns:
-            X: An (n x d) array of generated points.
+            (n x d) array of generated points.
 
         """
         raise NotImplementedError("Base RandomModel can't generate samples.")

@@ -27,7 +27,7 @@ def suppress_gpy_logs(func: Callable[..., Any]) -> Callable[..., Any]:
     """Suppress gpy log info to avoid notebook clutter."""
 
     @wraps(func)
-    def decorated(*args, **kwargs):
+    def _decorated(*args, **kwargs):
         gpy_logger = logging.getLogger("GP")
         prev_level = gpy_logger.level
         paramz_logger = logging.getLogger("paramz")
@@ -43,7 +43,7 @@ def suppress_gpy_logs(func: Callable[..., Any]) -> Callable[..., Any]:
         paramz_logger.setLevel(prev_level_p)
         return output
 
-    return decorated
+    return _decorated
 
 
 class GPyGP(NumpyModel):
@@ -55,7 +55,7 @@ class GPyGP(NumpyModel):
     - 0 task features uses a Matern52 kernel
     - 1 task feature combines that with an ICM coregionalization kernel
     - 2 task features uses 2 coregionalization kernels, typically one of lower
-        rank.
+      rank.
 
     See docstrings for _get_SGTP, _get_MTGP1, and _get_MTGP2 for more details.
 
@@ -186,11 +186,12 @@ class GPyGP(NumpyModel):
         """Generate candidate points using noisy EI
 
         The following options can be set using model_gen_options:
-            nsamp: Number of fantasy samples (default 20)
-            qmc: Use QMC for fantasy samples (default True)
-            nopt: Number of random restarts for optimizing NEI (default 50)
-            init_samples: Number of samples in vectorized NEI evaluation
-                used to select restart initializations (default 1e4)
+
+        - nsamp: Number of fantasy samples (default 20)
+        - qmc: Use QMC for fantasy samples (default True)
+        - nopt: Number of random restarts for optimizing NEI (default 50)
+        - init_samples: Number of samples in vectorized NEI evaluation
+          used to select restart initializations (default 1e4)
 
         Args:
             n: Number of candidates to generate.
@@ -212,7 +213,7 @@ class GPyGP(NumpyModel):
                 above.
 
         Returns:
-            A tuple containing
+            2-element tuple containing
 
             - (n x d) array of generated points.
             - n-array of weights for each point.
@@ -319,7 +320,8 @@ class GPyGP(NumpyModel):
             fixed_features: As in gen.
             model_gen_options: Config dictionary.
 
-        Returns: A d-array of the best point.
+        Returns:
+            A d-array of the best point.
         """
         return best_observed_point(
             model=self,
@@ -353,10 +355,10 @@ class GPyGP(NumpyModel):
             qmc: Use QMC.
 
         Returns:
-            Tuple containing
+            2-element tuple containing
 
             - fantasy_models: Dictionary from outcome index to a list of fantasy
-                models for that outcome.
+              models for that outcome.
             - cand_X_array: np.ndarray of potential best-feasible points.
         """
         # Data for fantasy models begins with the observations
@@ -479,8 +481,7 @@ def _get_GP(
 
 
 def _get_STGP(X: np.ndarray, Y: np.ndarray) -> GPy.core.gp.GP:
-    """Construct a single task GP with 0 mean and Matern52 kernel.
-    """
+    """Construct a single task GP with 0 mean and Matern52 kernel."""
     # Single-task
     kernel = GPy.kern.Matern52(X.shape[1], ARD=True)  # pyre-ignore
     m = GPy.models.GPHeteroscedasticRegression(X, Y, kernel)  # pyre-ignore
@@ -687,9 +688,11 @@ def _parse_gen_inputs(
         outcome_constraints: Tuple of linear outcome constraints.
 
     Returns:
-        obj_idx: The index of the objective outcome.
-        obj_sign: Sign of the weight on the objective.
-        con_list: List of (outcome_index, weight, ub) for each constraint.
+        3-element tuple containing
+
+        - The index of the objective outcome.
+        - Sign of the weight on the objective.
+        - List of (outcome_index, weight, ub) for each constraint.
     """
     Z = np.nonzero(objective_weights)[0]
     if len(Z) != 1:
@@ -727,7 +730,8 @@ def _update_pending_observations(
         pending_observations: Pending observations as given to gen.
         x: array of point whose observation is pending.
 
-    Returns: pending observations including x.
+    Returns:
+        Pending observations including x.
     """
     for i, X in enumerate(pending_observations):
         if X.size > 0:
@@ -750,7 +754,8 @@ def _mvn_sample(mu: np.ndarray, cov: np.ndarray, nsamp: int, qmc: bool) -> np.nd
         nsamp: Number of samples to draw.
         qmc: Use QMC or not.
 
-    Returns: nsamp x d array of MVN samples.
+    Returns:
+        (nsamp x d) array of MVN samples.
     """
     if qmc:
         try:

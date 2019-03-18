@@ -40,11 +40,11 @@ class DiscreteModel:
             X: List of the j parameterizations at which to make predictions.
 
         Returns:
-            A tuple containing
+            2-element tuple containing
 
             - (j x m) array of outcome predictions at X.
             - (j x m x m) array of predictive covariances at X.
-                cov[j, m1, m2] is Cov[m1@j, m2@j].
+              cov[j, m1, m2] is Cov[m1@j, m2@j].
         """
         raise NotImplementedError
 
@@ -78,10 +78,10 @@ class DiscreteModel:
                 model-specific options.
 
         Returns:
-            A tuple containing
+            2-element tuple containing
 
             - List of n generated points, where each point is represented
-                by a list of parameter values.
+              by a list of parameter values.
             - List of weights for each of the n points.
         """
         raise NotImplementedError
@@ -108,11 +108,11 @@ class DiscreteModel:
             X_test: List of the j parameterizations at which to make predictions.
 
         Returns:
-            A tuple containing
+            2-element tuple containing
 
             - (j x m) array of outcome predictions at X.
             - (j x m x m) array of predictive covariances at X.
-                cov[j, m1, m2] is Cov[m1@j, m2@j].
+              `cov[j, m1, m2]` is `Cov[m1@j, m2@j]`.
         """
         raise NotImplementedError
 

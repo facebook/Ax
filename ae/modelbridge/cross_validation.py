@@ -94,22 +94,23 @@ def compute_diagnostics(result: List[CVResult]) -> Dict[str, Dict[str, float]]:
 
     It provides a dictionary with values for the following diagnostics, for
     each metric:
-        - 'Mean prediction CI': the average width of the CIs at each of the CV
-          predictions, relative to the observed mean.
-        - 'MAPE': mean absolute percentage error of the estimated mean relative
-          to the observed mean.
-        - 'Total raw effect': the percent change from the smallest observed
-          mean to the largest observed mean.
-        - 'Correlation coefficient': the Pearson correlation of the estimated
-          and observed means.
-        - 'Rank correlation': the Spearman correlation of the estimated
-          and observed means.
-        - 'Fisher exact test p': we test if the model is able to distinguish the
-          bottom half of the observations from the top half, using Fisher's
-          exact test and the observed/estimated means. A low p value indicates
-          that the model has some ability to identify good arms. A high p value
-          indicates that the model cannot identify arms better than chance, or
-          that the observations are too noisy to be able to tell.
+
+    - 'Mean prediction CI': the average width of the CIs at each of the CV
+      predictions, relative to the observed mean.
+    - 'MAPE': mean absolute percentage error of the estimated mean relative
+      to the observed mean.
+    - 'Total raw effect': the percent change from the smallest observed
+      mean to the largest observed mean.
+    - 'Correlation coefficient': the Pearson correlation of the estimated
+      and observed means.
+    - 'Rank correlation': the Spearman correlation of the estimated
+      and observed means.
+    - 'Fisher exact test p': we test if the model is able to distinguish the
+      bottom half of the observations from the top half, using Fisher's
+      exact test and the observed/estimated means. A low p value indicates
+      that the model has some ability to identify good arms. A high p value
+      indicates that the model cannot identify arms better than chance, or
+      that the observations are too noisy to be able to tell.
 
     Each of these is returned as a dictionary from metric name to value for
     that metric.
@@ -162,7 +163,8 @@ def _gen_train_test_split(
         folds: Number of folds to return
         arm_names: Array of arm names
 
-    Returns: Yields (train, test) tuple of arm names.
+    Returns:
+        Yields (train, test) tuple of arm names.
     """
     n = len(arm_names)
     test_size = n // folds  # The size of all test sets but the last

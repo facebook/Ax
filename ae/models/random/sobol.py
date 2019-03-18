@@ -52,7 +52,7 @@ class SobolGenerator(RandomModel):
                 searched over.
 
         Returns:
-            engine: SobolEngine, which can generate Sobol points.
+            SobolEngine, which can generate Sobol points.
 
         """
         if not self._engine:
@@ -83,7 +83,7 @@ class SobolGenerator(RandomModel):
             bounds: A list of (lower, upper) tuples for each column of X.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
-                    A x <= b.
+                A x <= b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
             rounding_func: A function that rounds an optimization result
@@ -91,8 +91,10 @@ class SobolGenerator(RandomModel):
                 but *unused here*.
 
         Returns:
-            X: An (n x d) array of generated points.
-            w: Uniform weights, an n-array of ones for each point.
+            2-element tuple containing
+
+            - (n x d) array of generated points.
+            - Uniform weights, an n-array of ones for each point.
 
         """
         tf_indices = tunable_feature_indices(
