@@ -1,4 +1,4 @@
-# Contributing to AE
+# Contributing to Ax
 We want to make contributing to this project as easy and transparent as
 possible.
 
@@ -56,5 +56,5 @@ The site is hosted as a GitHub page. Once Ax is live, we will generate a static
 site and automatically push the output to the `gh-pages` branch via CircleCI.
 
 ## License
-By contributing to AE, you agree that your contributions will be licensed
+By contributing to Ax, you agree that your contributions will be licensed
 under the LICENSE file in the root directory of this source tree.

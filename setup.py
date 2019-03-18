@@ -42,7 +42,7 @@ setup(
     description="Adaptive Experimentation",
     author="Facebook, Inc.",
     license="MIT",
-    url="https://github.com/facebook/Adaptive-Experiment",
+    url="https://github.com/facebook/Ax",
     keywords=["Experimentation", "Optimization"],
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",

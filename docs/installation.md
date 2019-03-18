@@ -5,7 +5,7 @@ title: Installation
 
 To set up Ax:
 * Make sure you have installed the `botorch` dependency.
-* Download Ax from the [Git repository](https://github.com/facebook/Adaptive-Experiment).
+* Download Ax from the [Git repository](https://github.com/facebook/Ax).
 * `cd` into the `ae` project and run:
 
 ```
