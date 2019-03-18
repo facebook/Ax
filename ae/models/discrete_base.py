@@ -19,6 +19,7 @@ class DiscreteModel:
         Ys: List[List[float]],
         Yvars: List[List[float]],
         parameter_values: List[TParamValueList],
+        outcome_names: List[str],
     ) -> None:
         """Fit model to m outcomes.
 
@@ -30,6 +31,7 @@ class DiscreteModel:
                 each outcome.
             Yvars: The variances of each entry in Ys, same shape.
             parameter_values: A list of possible values for each parameter.
+            outcome_names: A list of m outcome names.
         """
         pass
 

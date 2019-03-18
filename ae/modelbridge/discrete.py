@@ -59,6 +59,7 @@ class DiscreteModelBridge(ModelBridge):
             Ys=Ys_array,
             Yvars=Yvars_array,
             parameter_values=parameter_values,
+            outcome_names=self.outcomes,
         )
 
     def _predict(

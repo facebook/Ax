@@ -11,7 +11,13 @@ class DiscreteModelTest(TestCase):
 
     def testDiscreteModelFit(self):
         discrete_model = DiscreteModel()
-        discrete_model.fit(Xs=[[[0]]], Ys=[[0]], Yvars=[[1]], parameter_values=[[0, 1]])
+        discrete_model.fit(
+            Xs=[[[0]]],
+            Ys=[[0]],
+            Yvars=[[1]],
+            parameter_values=[[0, 1]],
+            outcome_names=[],
+        )
 
     def testdiscreteModelPredict(self):
         discrete_model = DiscreteModel()

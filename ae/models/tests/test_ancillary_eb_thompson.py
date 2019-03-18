@@ -16,14 +16,22 @@ class AncillaryEBThompsonSamplerTest(TestCase):
         self.Ys = [[0.1, 0.2, 0.3, 0.4], [0, 0, 0, 0.1]]
         self.Yvars = [[0.1, 0.1, 0.1, 0.1], [0.1, 0.1, 0.1, 0.1]]
         self.parameter_values = [[1, 2, 3, 4], [1, 2, 3, 4]]
+        self.primary_outcome = "primary"
+        self.secondary_outcome = "secondary"
+        self.outcome_names = [self.primary_outcome, self.secondary_outcome]
 
     def testAncillaryEBThompsonSamplerFit(self):
-        generator = AncillaryEBThompsonSampler(min_weight=0.0)
+        generator = AncillaryEBThompsonSampler(
+            min_weight=0.0,
+            primary_outcome=self.primary_outcome,
+            secondary_outcome=self.secondary_outcome,
+        )
         generator.fit(
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         self.assertEqual(generator.X, self.Xs[0])
         self.assertTrue(
@@ -42,12 +50,17 @@ class AncillaryEBThompsonSamplerTest(TestCase):
         )
 
     def testAncillaryEBThompsonSamplerGen(self):
-        generator = AncillaryEBThompsonSampler(min_weight=0.0)
+        generator = AncillaryEBThompsonSampler(
+            min_weight=0.0,
+            primary_outcome=self.primary_outcome,
+            secondary_outcome=self.secondary_outcome,
+        )
         generator.fit(
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         arms, weights = generator.gen(
             n=5,
@@ -59,34 +72,47 @@ class AncillaryEBThompsonSamplerTest(TestCase):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
     def testAncillaryEBThompsonSamplerError(self):
-        generator = AncillaryEBThompsonSampler(min_weight=0.0)
+        generator = AncillaryEBThompsonSampler(
+            min_weight=0.0,
+            primary_outcome=self.primary_outcome,
+            secondary_outcome=self.secondary_outcome,
+        )
         with self.assertRaises(ValueError):
             generator.fit(
                 Xs=[x[:-1] for x in self.Xs],
                 Ys=[y[:-1] for y in self.Ys],
                 Yvars=[y[:-1] for y in self.Yvars],
                 parameter_values=self.parameter_values,
+                outcome_names=self.outcome_names,
             )
 
     def testAncillaryEBThompsonSamplerValidation(self):
 
         with self.assertRaises(ValueError):
             generator = AncillaryEBThompsonSampler(
-                min_weight=0.01, primary_outcome=0, secondary_outcome=0
+                min_weight=0.01,
+                primary_outcome=self.primary_outcome,
+                secondary_outcome=self.primary_outcome,
             )
             generator.fit(
                 Xs=self.Xs,
                 Ys=self.Ys,
                 Yvars=self.Yvars,
                 parameter_values=self.parameter_values,
+                outcome_names=self.outcome_names,
             )
-        generator = AncillaryEBThompsonSampler(min_weight=0.01)
+        generator = AncillaryEBThompsonSampler(
+            min_weight=0.01,
+            primary_outcome=self.primary_outcome,
+            secondary_outcome=self.secondary_outcome,
+        )
         with self.assertRaises(ValueError):
             generator.fit(
                 Xs=self.Xs,
                 Ys=[[1.1, 0.2, 0.3, 0.4], [0, 0, 0, 0.1]],
                 Yvars=self.Yvars,
                 parameter_values=self.parameter_values,
+                outcome_names=self.outcome_names,
             )
         with self.assertRaises(ValueError):
             generator.fit(
@@ -94,15 +120,29 @@ class AncillaryEBThompsonSamplerTest(TestCase):
                 Ys=self.Ys,
                 Yvars=[[0.1, 0.1, 0.3, 0.1], [0, 0, 0, 0.1]],
                 parameter_values=self.parameter_values,
+                outcome_names=self.outcome_names,
+            )
+        with self.assertRaises(ValueError):
+            generator.fit(
+                Xs=self.Xs,
+                Ys=self.Ys,
+                Yvars=self.Yvars,
+                parameter_values=self.parameter_values,
+                outcome_names=[],
             )
 
     def testAncillaryEBThompsonSamplerPredict(self):
-        generator = AncillaryEBThompsonSampler(min_weight=0.0)
+        generator = AncillaryEBThompsonSampler(
+            min_weight=0.0,
+            primary_outcome=self.primary_outcome,
+            secondary_outcome=self.secondary_outcome,
+        )
         generator.fit(
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         f, cov = generator.predict([[1, 1], [3, 3]])
         self.assertTrue(

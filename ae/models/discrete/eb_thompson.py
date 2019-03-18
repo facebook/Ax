@@ -20,7 +20,7 @@ class EmpiricalBayesThompsonSampler(ThompsonSampler):
     """
 
     def _fit_Ys_and_Yvars(
-        self, Ys: List[List[float]], Yvars: List[List[float]]
+        self, Ys: List[List[float]], Yvars: List[List[float]], outcome_names: List[str]
     ) -> Tuple[List[List[float]], List[List[float]]]:
         newYs = []
         newYvars = []

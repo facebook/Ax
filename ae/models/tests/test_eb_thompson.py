@@ -14,6 +14,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
         self.Ys = [[1, 2, 3, 4], [0, 0, 0, 1]]
         self.Yvars = [[1, 1, 1, 1], [1, 1, 1, 1]]
         self.parameter_values = [[1, 2, 3, 4], [1, 2, 3, 4]]
+        self.outcome_names = ["x", "y"]  # not used for regular EB
 
     def testEmpiricalBayesThompsonSamplerFit(self):
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
@@ -22,6 +23,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         self.assertEqual(generator.X, self.Xs[0])
         self.assertTrue(
@@ -44,6 +46,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         arms, weights = generator.gen(
             n=5,
@@ -61,6 +64,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             Ys=[y[:-1] for y in self.Ys],
             Yvars=[y[:-1] for y in self.Yvars],
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         arms, weights = generator.gen(
             n=5,
@@ -79,6 +83,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
                 Ys=self.Ys,
                 Yvars=self.Yvars,
                 parameter_values=self.parameter_values,
+                outcome_names=self.outcome_names,
             )
 
     def testEmpiricalBayesThompsonSamplerPredict(self):
@@ -88,6 +93,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         f, cov = generator.predict([[1, 1], [3, 3]])
         self.assertTrue(np.allclose(f, np.array([[1.3, 0.25], [2.9, 0.25]])))

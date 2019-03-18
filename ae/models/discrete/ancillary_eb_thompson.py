@@ -24,11 +24,11 @@ class AncillaryEBThompsonSampler(EmpiricalBayesThompsonSampler):
 
     def __init__(
         self,
+        primary_outcome: str,
+        secondary_outcome: str,
         num_samples: int = 10000,
         min_weight: Optional[float] = None,
         uniform_weights: bool = False,
-        primary_outcome: int = 0,
-        secondary_outcome: int = 1,
     ) -> None:
         self.primary_outcome = primary_outcome
         self.secondary_outcome = secondary_outcome
@@ -39,17 +39,22 @@ class AncillaryEBThompsonSampler(EmpiricalBayesThompsonSampler):
         )
 
     def _fit_Ys_and_Yvars(
-        self, Ys: List[List[float]], Yvars: List[List[float]]
+        self, Ys: List[List[float]], Yvars: List[List[float]], outcome_names: List[str]
     ) -> Tuple[List[List[float]], List[List[float]]]:
-        self._check_input_validity(Ys, Yvars)
+        primary_outcome_index = outcome_names.index(self.primary_outcome)
+        secondary_outcome_index = outcome_names.index(self.secondary_outcome)
+
+        self._check_input_validity(
+            Ys, Yvars, primary_outcome_index, secondary_outcome_index
+        )
         newYs = []
         newYvars = []
         for i, (Y, Yvar) in enumerate(zip(Ys, Yvars)):
-            if i == self.primary_outcome:
+            if i == primary_outcome_index:
                 Y = np.array(Y)
                 Yvar = np.array(Yvar)
-                Y2 = np.array(Ys[self.secondary_outcome])
-                Y2var = np.array(Yvars[self.secondary_outcome])
+                Y2 = np.array(Ys[secondary_outcome_index])
+                Y2var = np.array(Yvars[secondary_outcome_index])
                 imputed_var_primary = Y * (1 - Y)
                 imputed_var_primary = np.where(
                     imputed_var_primary == 0, 0.25, imputed_var_primary
@@ -68,15 +73,19 @@ class AncillaryEBThompsonSampler(EmpiricalBayesThompsonSampler):
         return newYs, newYvars
 
     def _check_input_validity(
-        self, Ys: List[List[float]], Yvars: List[List[float]]
+        self,
+        Ys: List[List[float]],
+        Yvars: List[List[float]],
+        primary_outcome_index: int,
+        secondary_outcome_index: int,
     ) -> None:
-        if self.primary_outcome == self.secondary_outcome:
+        if primary_outcome_index == secondary_outcome_index:
             raise ValueError("Primary and secondary outcomes must differ.")
 
-        Y1 = Ys[self.primary_outcome]
-        Y2 = Ys[self.secondary_outcome]
-        Y1v = Yvars[self.primary_outcome]
-        Y2v = Yvars[self.secondary_outcome]
+        Y1 = Ys[primary_outcome_index]
+        Y2 = Ys[secondary_outcome_index]
+        Y1v = Yvars[primary_outcome_index]
+        Y2v = Yvars[secondary_outcome_index]
 
         if any(v > 0.25 for v in Y1v) or any(v > 0.25 for v in Y2v):
             raise ValueError(

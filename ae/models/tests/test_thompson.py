@@ -12,6 +12,7 @@ class ThompsonSamplerTest(TestCase):
         self.Ys = [[1, 2, 3, 4]]
         self.Yvars = [[1, 1, 1, 1]]
         self.parameter_values = [[1, 2, 3, 4], [1, 2, 3, 4]]
+        self.outcome_names = ["x", "y"]  # not used for regular TS
 
         self.multiple_metrics_Xs = [
             [[1, 1], [2, 2], [3, 3], [4, 4]],
@@ -27,6 +28,7 @@ class ThompsonSamplerTest(TestCase):
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         arms, weights = generator.gen(
             n=3, parameter_values=self.parameter_values, objective_weights=np.ones(1)
@@ -45,6 +47,7 @@ class ThompsonSamplerTest(TestCase):
                 Ys=self.Ys,
                 Yvars=self.Yvars,
                 parameter_values=self.parameter_values,
+                outcome_names=self.outcome_names,
             )
 
         # multiple observations per parameterization
@@ -54,6 +57,7 @@ class ThompsonSamplerTest(TestCase):
                 Ys=self.Ys,
                 Yvars=self.Yvars,
                 parameter_values=self.parameter_values,
+                outcome_names=self.outcome_names,
             )
 
         # these are not the same observations, so should not error
@@ -62,6 +66,7 @@ class ThompsonSamplerTest(TestCase):
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
 
         # requires objective weights
@@ -75,6 +80,7 @@ class ThompsonSamplerTest(TestCase):
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         arms, weights = generator.gen(
             n=5, parameter_values=self.parameter_values, objective_weights=np.ones(1)
@@ -90,6 +96,7 @@ class ThompsonSamplerTest(TestCase):
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         arms, weights = generator.gen(
             n=3, parameter_values=self.parameter_values, objective_weights=np.ones(1)
@@ -105,6 +112,7 @@ class ThompsonSamplerTest(TestCase):
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         with self.assertRaises(ValueError):
             generator.gen(
@@ -120,6 +128,7 @@ class ThompsonSamplerTest(TestCase):
             Ys=self.multiple_metrics_Ys,
             Yvars=self.multiple_metrics_Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         arms, weights = generator.gen(
             n=4,
@@ -143,6 +152,7 @@ class ThompsonSamplerTest(TestCase):
             Ys=self.multiple_metrics_Ys,
             Yvars=self.multiple_metrics_Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         with self.assertRaises(ValueError):
             generator.gen(
@@ -159,6 +169,7 @@ class ThompsonSamplerTest(TestCase):
             Ys=self.Ys,
             Yvars=self.Yvars,
             parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
         )
         f, cov = generator.predict([[1, 1], [3, 3]])
         self.assertTrue(np.array_equal(f, np.array([[1], [3]])))

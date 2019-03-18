@@ -42,16 +42,19 @@ class ThompsonSampler(DiscreteModel):
         self.Yvars = None
         self.X_to_Ys_and_Yvars = None
 
-    @copy_doc(DiscreteModel.gen)
+    @copy_doc(DiscreteModel.fit)
     def fit(
         self,
         Xs: List[List[TParamValueList]],
         Ys: List[List[float]],
         Yvars: List[List[float]],
         parameter_values: List[TParamValueList],
+        outcome_names: List[str],
     ) -> None:
         self.X = self._fit_X(Xs=Xs)
-        self.Ys, self.Yvars = self._fit_Ys_and_Yvars(Ys=Ys, Yvars=Yvars)
+        self.Ys, self.Yvars = self._fit_Ys_and_Yvars(
+            Ys=Ys, Yvars=Yvars, outcome_names=outcome_names
+        )
         self.X_to_Ys_and_Yvars = self._fit_X_to_Ys_and_Yvars(
             X=self.X, Ys=self.Ys, Yvars=self.Yvars
         )
@@ -240,7 +243,7 @@ class ThompsonSampler(DiscreteModel):
         return Xs[0]
 
     def _fit_Ys_and_Yvars(
-        self, Ys: List[List[float]], Yvars: List[List[float]]
+        self, Ys: List[List[float]], Yvars: List[List[float]], outcome_names: List[str]
     ) -> Tuple[List[List[float]], List[List[float]]]:
         """For plain Thompson Sampling, there's nothing to be done here.
         EmpiricalBayesThompsonSampler will overwrite this method to perform
