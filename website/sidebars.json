@@ -3,7 +3,7 @@
     "Introduction": ["why-ax", "glossary"],
     "Setup": ["installation", "usage"],
     "Algorithms": ["algo-overview"],
-    "Components": ["experiment", "runner", "data", "generator"],
+    "Components": ["experiment", "runner", "data", "models"],
     "Applications": ["ab", "hpo"]
   }
 }
