@@ -50,7 +50,7 @@ const arm_res = relativize_data(
   arm_y, arm_sem, rel, arm_data, metric
 );
 const arm_y_final = arm_res[0];
-const arm_sem_final = arm_res[1];
+const arm_sem_final = arm_res[1].map(x => x * 2);
 
 // create traces
 const f_trace = {
