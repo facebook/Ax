@@ -1,17 +1,17 @@
 .. role:: hidden
     :class: hidden-section
 
-ae.runners
+ax.runners
 ===================================
 
-.. automodule:: ae.runners
-.. currentmodule:: ae.runners
+.. automodule:: ax.runners
+.. currentmodule:: ax.runners
 
 
 Runner Registry
 ~~~~~~~~~~~~~~~
 
-.. automodule:: ae.runners.registry
+.. automodule:: ax.runners.registry
     :members:
     :undoc-members:
     :show-inheritance:
@@ -19,7 +19,7 @@ Runner Registry
 Synthetic Runner
 ~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.runners.synthetic
+.. automodule:: ax.runners.synthetic
     :members:
     :undoc-members:
     :show-inheritance:

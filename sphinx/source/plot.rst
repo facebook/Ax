@@ -1,11 +1,11 @@
 .. role:: hidden
     :class: hidden-section
 
-ae.plot
+ax.plot
 ===================================
 
-.. automodule:: ae.plot
-.. currentmodule:: ae.plot
+.. automodule:: ax.plot
+.. currentmodule:: ax.plot
 
 
 Plots
@@ -14,7 +14,7 @@ Plots
 Base
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.plot.base
+.. automodule:: ax.plot.base
     :members:
     :undoc-members:
     :show-inheritance:
@@ -22,7 +22,7 @@ Base
 Color
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.plot.color
+.. automodule:: ax.plot.color
     :members:
     :undoc-members:
     :show-inheritance:
@@ -30,7 +30,7 @@ Color
 Contour Plot
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.plot.contour
+.. automodule:: ax.plot.contour
     :members:
     :undoc-members:
     :show-inheritance:
@@ -38,7 +38,7 @@ Contour Plot
 Model Diagnostic Plot
 ~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.plot.diagnostic
+.. automodule:: ax.plot.diagnostic
     :members:
     :undoc-members:
     :show-inheritance:
@@ -46,7 +46,7 @@ Model Diagnostic Plot
 Helpers
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.plot.helper
+.. automodule:: ax.plot.helper
     :members:
     :undoc-members:
     :show-inheritance:
@@ -54,7 +54,7 @@ Helpers
 Rendering
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.plot.render
+.. automodule:: ax.plot.render
     :members:
     :undoc-members:
     :show-inheritance:
@@ -62,7 +62,7 @@ Rendering
 Scatter Plots
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.plot.scatter
+.. automodule:: ax.plot.scatter
     :members:
     :undoc-members:
     :show-inheritance:
@@ -70,7 +70,7 @@ Scatter Plots
 Slice Plot
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.plot.slice
+.. automodule:: ax.plot.slice
     :members:
     :undoc-members:
     :show-inheritance:
@@ -78,7 +78,7 @@ Slice Plot
 Table
 --------------------------
 
-.. automodule:: ae.plot.table_view
+.. automodule:: ax.plot.table_view
     :members:
     :undoc-members:
     :show-inheritance:
@@ -86,7 +86,7 @@ Table
 Trace Plots
 --------------------
 
-.. automodule:: ae.plot.trace
+.. automodule:: ax.plot.trace
     :members:
     :undoc-members:
     :show-inheritance:

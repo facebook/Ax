@@ -1,11 +1,11 @@
 .. role:: hidden
     :class: hidden-section
 
-ae.core
+ax.core
 ===================================
 
-.. automodule:: ae.core
-.. currentmodule:: ae.core
+.. automodule:: ax.core
+.. currentmodule:: ax.core
 
 
 Core Classes
@@ -14,7 +14,7 @@ Core Classes
 `Arm`
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.arm
+.. automodule:: ax.core.arm
     :members:
     :undoc-members:
     :show-inheritance:
@@ -22,7 +22,7 @@ Core Classes
 `Base`
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.base
+.. automodule:: ax.core.base
     :members:
     :undoc-members:
     :show-inheritance:
@@ -30,7 +30,7 @@ Core Classes
 `BaseTrial`
 ~~~~~~~~~~~
 
-.. automodule:: ae.core.base_trial
+.. automodule:: ax.core.base_trial
     :members:
     :undoc-members:
     :show-inheritance:
@@ -38,7 +38,7 @@ Core Classes
 `BatchTrial`
 ~~~~~~~~~~~~~
 
-.. automodule:: ae.core.batch_trial
+.. automodule:: ax.core.batch_trial
     :members:
     :undoc-members:
     :show-inheritance:
@@ -46,7 +46,7 @@ Core Classes
 `Data`
 ~~~~~~~~~~
 
-.. automodule:: ae.core.data
+.. automodule:: ax.core.data
     :members:
     :undoc-members:
     :show-inheritance:
@@ -54,7 +54,7 @@ Core Classes
 `Experiment`
 ~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.experiment
+.. automodule:: ax.core.experiment
     :members:
     :undoc-members:
     :show-inheritance:
@@ -62,7 +62,7 @@ Core Classes
 `GeneratorRun`
 ~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.generator_run
+.. automodule:: ax.core.generator_run
     :members:
     :undoc-members:
     :show-inheritance:
@@ -70,7 +70,7 @@ Core Classes
 `Metric`
 ~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.metric
+.. automodule:: ax.core.metric
     :members:
     :undoc-members:
     :show-inheritance:
@@ -78,7 +78,7 @@ Core Classes
 `MultiTypeExperiment`
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.multi_type_experiment
+.. automodule:: ax.core.multi_type_experiment
     :members:
     :undoc-members:
     :show-inheritance:
@@ -86,7 +86,7 @@ Core Classes
 Objective
 ~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.objective
+.. automodule:: ax.core.objective
     :members:
     :undoc-members:
     :show-inheritance:
@@ -94,7 +94,7 @@ Objective
 `Observation`
 ~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.observation
+.. automodule:: ax.core.observation
     :members:
     :undoc-members:
     :show-inheritance:
@@ -102,7 +102,7 @@ Objective
 `OptimizationConfig`
 ~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.optimization_config
+.. automodule:: ax.core.optimization_config
     :members:
     :undoc-members:
     :show-inheritance:
@@ -110,7 +110,7 @@ Objective
 `OutcomeConstraint`
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.outcome_constraint
+.. automodule:: ax.core.outcome_constraint
     :members:
     :undoc-members:
     :show-inheritance:
@@ -118,7 +118,7 @@ Objective
 `Parameter`
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.parameter
+.. automodule:: ax.core.parameter
     :members:
     :undoc-members:
     :show-inheritance:
@@ -126,7 +126,7 @@ Objective
 `ParameterConstraint`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.parameter_constraint
+.. automodule:: ax.core.parameter_constraint
     :members:
     :undoc-members:
     :show-inheritance:
@@ -134,7 +134,7 @@ Objective
 `Runner`
 ~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.runner
+.. automodule:: ax.core.runner
     :members:
     :undoc-members:
     :show-inheritance:
@@ -142,7 +142,7 @@ Objective
 `SearchSpace`
 ~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.search_space
+.. automodule:: ax.core.search_space
     :members:
     :undoc-members:
     :show-inheritance:
@@ -150,7 +150,7 @@ Objective
 `SimpleExperiment`
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.core.simple_experiment
+.. automodule:: ax.core.simple_experiment
     :members:
     :undoc-members:
     :show-inheritance:
@@ -158,7 +158,7 @@ Objective
 `Trial`
 ~~~~~~~~
 
-.. automodule:: ae.core.trial
+.. automodule:: ax.core.trial
     :members:
     :undoc-members:
     :show-inheritance:
@@ -167,7 +167,7 @@ Objective
 Core Types
 ----------
 
-.. automodule:: ae.core.types.types
+.. automodule:: ax.core.types.types
     :members:
     :undoc-members:
     :show-inheritance:

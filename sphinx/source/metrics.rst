@@ -1,17 +1,17 @@
 .. role:: hidden
     :class: hidden-section
 
-ae.metrics
+ax.metrics
 ===================================
 
-.. automodule:: ae.metrics
-.. currentmodule:: ae.metrics
+.. automodule:: ax.metrics
+.. currentmodule:: ax.metrics
 
 
 Branin
 ~~~~~~
 
-.. automodule:: ae.metrics.branin
+.. automodule:: ax.metrics.branin
     :members:
     :undoc-members:
     :show-inheritance:
@@ -19,7 +19,7 @@ Branin
 Factorial
 ~~~~~~~~~
 
-.. automodule:: ae.metrics.factorial
+.. automodule:: ax.metrics.factorial
     :members:
     :undoc-members:
     :show-inheritance:
@@ -27,7 +27,7 @@ Factorial
 Hartmann6
 ~~~~~~~~~
 
-.. automodule:: ae.metrics.hartmann6
+.. automodule:: ax.metrics.hartmann6
     :members:
     :undoc-members:
     :show-inheritance:
@@ -35,7 +35,7 @@ Hartmann6
 Noisy Functions
 ~~~~~~~~~~~~~~~
 
-.. automodule:: ae.metrics.noisy_function
+.. automodule:: ax.metrics.noisy_function
     :members:
     :undoc-members:
     :show-inheritance:
@@ -43,7 +43,7 @@ Noisy Functions
 Metric Registry
 ~~~~~~~~~~~~~~~
 
-.. automodule:: ae.metrics.registry
+.. automodule:: ax.metrics.registry
     :members:
     :undoc-members:
     :show-inheritance:

@@ -1,44 +1,44 @@
 .. role:: hidden
     :class: hidden-section
 
-ae.models
+ax.models
 ===================================
 
-.. automodule:: ae.models
-.. currentmodule:: ae.models
+.. automodule:: ax.models
+.. currentmodule:: ax.models
 
 
 Base Models
 ---------------
 
-ae.models.discrete\_base module
+ax.models.discrete\_base module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.discrete_base
+.. automodule:: ax.models.discrete_base
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.models.model\_utils module
+ax.models.model\_utils module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.model_utils
+.. automodule:: ax.models.model_utils
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.models.numpy\_base module
+ax.models.numpy\_base module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.numpy_base
+.. automodule:: ax.models.numpy_base
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.models.torch\_base module
+ax.models.torch\_base module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.torch_base
+.. automodule:: ax.models.torch_base
     :members:
     :undoc-members:
     :show-inheritance:
@@ -47,26 +47,26 @@ ae.models.torch\_base module
 Discrete Models
 ----------------
 
-ae.models.discrete.eb\_thompson module
+ax.models.discrete.eb\_thompson module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.discrete.eb_thompson
+.. automodule:: ax.models.discrete.eb_thompson
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.models.discrete.full\_factorial module
+ax.models.discrete.full\_factorial module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.discrete.full_factorial
+.. automodule:: ax.models.discrete.full_factorial
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.models.discrete.thompson module
+ax.models.discrete.thompson module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.discrete.thompson
+.. automodule:: ax.models.discrete.thompson
     :members:
     :undoc-members:
     :show-inheritance:
@@ -75,18 +75,18 @@ ae.models.discrete.thompson module
 NumPy Models
 ----------------
 
-ae.models.numpy.gpy module
+ax.models.numpy.gpy module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.numpy.gpy
+.. automodule:: ax.models.numpy.gpy
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.models.numpy.gpy\_nei module
+ax.models.numpy.gpy\_nei module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.numpy.gpy_nei
+.. automodule:: ax.models.numpy.gpy_nei
     :members:
     :undoc-members:
     :show-inheritance:
@@ -95,26 +95,26 @@ ae.models.numpy.gpy\_nei module
 Random Models
 ----------------
 
-ae.models.random.base module
+ax.models.random.base module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.random.base
+.. automodule:: ax.models.random.base
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.models.random.sobol module
+ax.models.random.sobol module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.random.sobol
+.. automodule:: ax.models.random.sobol
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.models.random.uniform module
+ax.models.random.uniform module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.random.uniform
+.. automodule:: ax.models.random.uniform
     :members:
     :undoc-members:
     :show-inheritance:
@@ -122,18 +122,18 @@ ae.models.random.uniform module
 
 Torch Models
 ----------------
-ae.models.torch.botorch module
+ax.models.torch.botorch module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.torch.botorch
+.. automodule:: ax.models.torch.botorch
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.models.torch.utils module
+ax.models.torch.utils module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.models.torch.utils
+.. automodule:: ax.models.torch.utils
     :members:
     :undoc-members:
     :show-inheritance:

@@ -1,11 +1,11 @@
 .. role:: hidden
     :class: hidden-section
 
-ae.generator
+ax.generator
 ===================================
 
-.. automodule:: ae.generator
-.. currentmodule:: ae.generator
+.. automodule:: ax.generator
+.. currentmodule:: ax.generator
 
 
 Generators
@@ -14,7 +14,7 @@ Generators
 Base Generator
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.base
+.. automodule:: ax.generator.base
     :members:
     :undoc-members:
     :show-inheritance:
@@ -22,7 +22,7 @@ Base Generator
 Array Generator
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.array
+.. automodule:: ax.generator.array
     :members:
     :undoc-members:
     :show-inheritance:
@@ -30,7 +30,7 @@ Array Generator
 Discrete Generator
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.discrete
+.. automodule:: ax.generator.discrete
     :members:
     :undoc-members:
     :show-inheritance:
@@ -38,7 +38,7 @@ Discrete Generator
 NumPy Generator
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.numpy
+.. automodule:: ax.generator.numpy
     :members:
     :undoc-members:
     :show-inheritance:
@@ -46,7 +46,7 @@ NumPy Generator
 Torch Generator
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.torch
+.. automodule:: ax.generator.torch
     :members:
     :undoc-members:
     :show-inheritance:
@@ -54,7 +54,7 @@ Torch Generator
 
 Generator Factory
 -----------------
-.. automodule:: ae.generator.factory
+.. automodule:: ax.generator.factory
     :members:
     :undoc-members:
     :show-inheritance:
@@ -65,7 +65,7 @@ Utilities
 
 Cross Validation
 ~~~~~~~~~~~~~~~~~
-.. automodule:: ae.generator.cross_validation
+.. automodule:: ax.generator.cross_validation
     :members:
     :undoc-members:
     :show-inheritance:
@@ -74,130 +74,130 @@ Cross Validation
 Transforms
 -------------
 
-`ae.generator.transforms.base`
+`ax.generator.transforms.base`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.base
+.. automodule:: ax.generator.transforms.base
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.derelativize`
+`ax.generator.transforms.derelativize`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.derelativize
+.. automodule:: ax.generator.transforms.derelativize
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.int\_range\_to\_choice`
+`ax.generator.transforms.int\_range\_to\_choice`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.int_range_to_choice
+.. automodule:: ax.generator.transforms.int_range_to_choice
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.int\_to\_float`
+`ax.generator.transforms.int\_to\_float`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.int_to_float
+.. automodule:: ax.generator.transforms.int_to_float
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.ivw`
+`ax.generator.transforms.ivw`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.ivw
+.. automodule:: ax.generator.transforms.ivw
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.log`
+`ax.generator.transforms.log`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.log
+.. automodule:: ax.generator.transforms.log
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.one\_hot`
+`ax.generator.transforms.one\_hot`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.one_hot
+.. automodule:: ax.generator.transforms.one_hot
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.ordered\_choice\_encode`
+`ax.generator.transforms.ordered\_choice\_encode`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.ordered_choice_encode
+.. automodule:: ax.generator.transforms.ordered_choice_encode
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.remove\_fixed`
+`ax.generator.transforms.remove\_fixed`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.remove_fixed
+.. automodule:: ax.generator.transforms.remove_fixed
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.rounding`
+`ax.generator.transforms.rounding`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.rounding
+.. automodule:: ax.generator.transforms.rounding
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.search\_space\_to\_choice`
+`ax.generator.transforms.search\_space\_to\_choice`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.search_space_to_choice
+.. automodule:: ax.generator.transforms.search_space_to_choice
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.standardize\_y`
+`ax.generator.transforms.standardize\_y`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.standardize_y
+.. automodule:: ax.generator.transforms.standardize_y
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.stratified\_standardize\_y`
+`ax.generator.transforms.stratified\_standardize\_y`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.stratified_standardize_y
+.. automodule:: ax.generator.transforms.stratified_standardize_y
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.task\_encode`
+`ax.generator.transforms.task\_encode`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.task_encode
+.. automodule:: ax.generator.transforms.task_encode
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.trial\_as\_task`
+`ax.generator.transforms.trial\_as\_task`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.trial_as_task
+.. automodule:: ax.generator.transforms.trial_as_task
     :members:
     :undoc-members:
     :show-inheritance:
 
-`ae.generator.transforms.unit\_x`
+`ax.generator.transforms.unit\_x`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.generator.transforms.unit_x
+.. automodule:: ax.generator.transforms.unit_x
     :members:
     :undoc-members:
     :show-inheritance:

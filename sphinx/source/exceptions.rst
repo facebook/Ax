@@ -1,41 +1,41 @@
 .. role:: hidden
     :class: hidden-section
 
-ae.exceptions
+ax.exceptions
 ===================================
 
-.. automodule:: ae.exceptions
-.. currentmodule:: ae.exceptions
+.. automodule:: ax.exceptions
+.. currentmodule:: ax.exceptions
 
 
-ae.exceptions.core module
+ax.exceptions.core module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.exceptions.core
+.. automodule:: ax.exceptions.core
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.exceptions.data\_provider module
+ax.exceptions.data\_provider module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.exceptions.data_provider
+.. automodule:: ax.exceptions.data_provider
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.exceptions.model module
+ax.exceptions.model module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.exceptions.model
+.. automodule:: ax.exceptions.model
     :members:
     :undoc-members:
     :show-inheritance:
 
-ae.exceptions.storage module
+ax.exceptions.storage module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.exceptions.storage
+.. automodule:: ax.exceptions.storage
     :members:
     :undoc-members:
     :show-inheritance:

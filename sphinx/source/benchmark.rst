@@ -1,17 +1,17 @@
 .. role:: hidden
     :class: hidden-section
 
-ae.benchmark
+ax.benchmark
 ===================================
 
-.. automodule:: ae.benchmark
-.. currentmodule:: ae.benchmark
+.. automodule:: ax.benchmark
+.. currentmodule:: ax.benchmark
 
 
 Benchmark Problems
 ~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.benchmark.benchmark_problem
+.. automodule:: ax.benchmark.benchmark_problem
     :members:
     :undoc-members:
     :show-inheritance:
@@ -19,7 +19,7 @@ Benchmark Problems
 Benchmark Runner
 ~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.benchmark.benchmark_runner
+.. automodule:: ax.benchmark.benchmark_runner
     :members:
     :undoc-members:
     :show-inheritance:
@@ -27,7 +27,7 @@ Benchmark Runner
 Benchmark Suite
 ~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.benchmark.benchmark_suite
+.. automodule:: ax.benchmark.benchmark_suite
     :members:
     :undoc-members:
     :show-inheritance:
@@ -35,7 +35,7 @@ Benchmark Suite
 `GenerationStrategy`
 ~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.benchmark.generation_strategy
+.. automodule:: ax.benchmark.generation_strategy
     :members:
     :undoc-members:
     :show-inheritance:
@@ -43,7 +43,7 @@ Benchmark Suite
 Benchmarking Utilities
 ~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ae.benchmark.utils
+.. automodule:: ax.benchmark.utils
     :members:
     :undoc-members:
     :show-inheritance:
