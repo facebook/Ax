@@ -85,7 +85,7 @@ class IntToFloat(Transform):
                 # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
                 param: float = obsf.parameters.get(p_name)
                 if self.rounding == "strict":
-                    obsf.parameters[p_name] = round(param)
+                    obsf.parameters[p_name] = int(round(param))  # TODO: T41938776
                 else:
                     obsf.parameters[p_name] = randomized_round(param)
         return observation_features

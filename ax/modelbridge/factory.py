@@ -6,7 +6,6 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.discrete import DiscreteModelBridge
-from ax.modelbridge.numpy import NumpyModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
