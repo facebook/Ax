@@ -9,4 +9,4 @@ max-line-length = 88
 
 [flake8:local-plugins]
 extension =
-  A = ae.utils.flake8_plugins.docstring_checker:DocstringChecker
+  A = ax.utils.flake8_plugins.docstring_checker:DocstringChecker
