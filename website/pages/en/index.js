@@ -120,7 +120,7 @@ class Index extends React.Component {
                 <li>
                   Download Ax from the Github repo and install with pip:
                   <MarkdownBlock>
-                    {bash`cd ae && pip3 install -e .`}
+                    {bash`cd ax && pip3 install -e .`}
                   </MarkdownBlock>
                 </li>
               </ol>

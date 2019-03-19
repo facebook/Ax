@@ -479,7 +479,7 @@ def get_model_predictions_per_arm() -> Dict[str, TModelPredictArm]:
 def get_data() -> Data:
     df_dict = {
         "trial_index": 0,
-        "metric_name": "ae_test_metric",
+        "metric_name": "ax_test_metric",
         "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3"],
         "mean": [1, 3, 2, 2.25, 1.75],
         "sem": [0, 0.5, 0.25, 0.40, 0.15],

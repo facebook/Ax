@@ -57,8 +57,8 @@ def object_from_json(object_json: Any) -> Any:
             time_created_json = object_json.pop("time_created")
             type_json = object_json.pop("generator_run_type")
             index_json = object_json.pop("index")
-            # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun, ae.
-            # pyre: lazarus.core.base_trial.TrialStatus, ax.core.
+            # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun,
+            # pyre: ax.core.base_trial.TrialStatus, ax.core.
             # pyre: batch_trial.AbandonedArm, ax.core.
             # pyre: batch_trial.BatchTrial, ax.core.batch_trial.
             # pyre: GeneratorRunStruct, ax.core.arm.Arm,
@@ -70,8 +70,8 @@ def object_from_json(object_json: Any) -> Any:
             # pyre: FixedParameter, ax.core.parameter.ParameterType,
             # pyre: ax.core.parameter.RangeParameter, ax.core.
             # pyre: parameter_constraint.ParameterConstraint, ax.core.
-            # pyre: search_space.SearchSpace, ax.core.trial.Trial, ae.
-            # pyre: lazarus.core.types.types.ComparisonOp, ax.runners.
+            # pyre: search_space.SearchSpace, ax.core.trial.Trial,
+            # pyre: ax.core.types.types.ComparisonOp, ax.runners.
             # pyre: synthetic.SyntheticRunner, ax.storage.utils.
             # pyre: DomainType, ax.storage.utils.
             # pyre-fixme[29]: ParameterConstraintType]]` is not a function.
@@ -87,8 +87,8 @@ def object_from_json(object_json: Any) -> Any:
             trials_json = object_json.pop("trials")
             experiment_type_json = object_json.pop("experiment_type")
             data_by_trial_json = object_json.pop("data_by_trial")
-            # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun, ae.
-            # pyre: lazarus.core.base_trial.TrialStatus, ax.core.
+            # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun,
+            # pyre: ax.core.base_trial.TrialStatus, ax.core.
             # pyre: batch_trial.AbandonedArm, ax.core.
             # pyre: batch_trial.BatchTrial, ax.core.batch_trial.
             # pyre: GeneratorRunStruct, ax.core.arm.Arm,
@@ -100,8 +100,8 @@ def object_from_json(object_json: Any) -> Any:
             # pyre: FixedParameter, ax.core.parameter.ParameterType,
             # pyre: ax.core.parameter.RangeParameter, ax.core.
             # pyre: parameter_constraint.ParameterConstraint, ax.core.
-            # pyre: search_space.SearchSpace, ax.core.trial.Trial, ae.
-            # pyre: lazarus.core.types.types.ComparisonOp, ax.runners.
+            # pyre: search_space.SearchSpace, ax.core.trial.Trial,
+            # pyre: ax.core.types.types.ComparisonOp, ax.runners.
             # pyre: synthetic.SyntheticRunner, ax.storage.utils.
             # pyre: DomainType, ax.storage.utils.
             # pyre-fixme[29]: ParameterConstraintType]]` is not a function.
@@ -137,8 +137,8 @@ def object_from_json(object_json: Any) -> Any:
             experiment._data_by_trial = data_by_trial
             return experiment
 
-        # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun, ae.
-        # pyre: lazarus.core.base_trial.TrialStatus, ax.core.
+        # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun,
+        # pyre: ax.core.base_trial.TrialStatus, ax.core.
         # pyre: batch_trial.AbandonedArm, ax.core.batch_trial.
         # pyre: BatchTrial, ax.core.batch_trial.GeneratorRunStruct,
         # pyre: ax.core.arm.Arm, ax.core.metric.
@@ -146,11 +146,11 @@ def object_from_json(object_json: Any) -> Any:
         # pyre: optimization_config.OptimizationConfig, ax.core.
         # pyre: outcome_constraint.OutcomeConstraint, ax.core.
         # pyre: parameter.ChoiceParameter, ax.core.parameter.
-        # pyre: FixedParameter, ax.core.parameter.ParameterType, ae.
-        # pyre: lazarus.core.parameter.RangeParameter, ax.core.
+        # pyre: FixedParameter, ax.core.parameter.ParameterType,
+        # pyre: ax.core.parameter.RangeParameter, ax.core.
         # pyre: parameter_constraint.ParameterConstraint, ax.core.
-        # pyre: search_space.SearchSpace, ax.core.trial.Trial, ae.
-        # pyre: lazarus.core.types.types.ComparisonOp, ax.runners.
+        # pyre: search_space.SearchSpace, ax.core.trial.Trial,
+        # pyre: ax.core.types.types.ComparisonOp, ax.runners.
         # pyre: synthetic.SyntheticRunner, ax.storage.utils.
         # pyre: DomainType, ax.storage.utils.
         # pyre-fixme[29]: ParameterConstraintType]]` is not a function.

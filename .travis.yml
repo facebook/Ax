@@ -11,7 +11,7 @@ before_install:
   - ssh-add botorch_key
 
 install:
-  # install cython and numpy first as they are needed for botorch / ae setup.py files
+  # install cython and numpy first as they are needed for botorch / Ax setup.py files
   - pip install cython numpy
   - pip install git+ssh://git@github.com/facebookexternal/botorch.git
   - pip install -q -e .[dev,mysql,notebook]
