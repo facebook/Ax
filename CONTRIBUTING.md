@@ -30,7 +30,7 @@ disclosure of security bugs. In those cases, please go through the process
 outlined on that page and do not file a public issue.
 
 ## Coding Style  
-We use the [`Black` code formatter](https://github.com/ambv/black) for all Python files. You can install the latest release via `pip install black` and run it over the library via `black ae`.
+We use the [`Black` code formatter](https://github.com/ambv/black) for all Python files. You can install the latest release via `pip install black` and run it over the library via `black ax`.
 
 ## Documentation
 
