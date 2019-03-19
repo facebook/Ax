@@ -211,7 +211,7 @@ class BotorchModel(TorchModel):
         candidates = optimize(
             acq_function=acquisition_function,
             bounds=bounds_,
-            n=n,
+            q=n,
             num_restarts=num_restarts,
             raw_samples=raw_samples,
             options=opts,
