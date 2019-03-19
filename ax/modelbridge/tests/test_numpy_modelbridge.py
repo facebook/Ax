@@ -6,11 +6,7 @@ from unittest import mock
 import numpy as np
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -69,9 +65,7 @@ class NumpyModelBridgeTest(TestCase):
         }
         self.model_gen_options = {"option": "yes"}
 
-    @mock.patch(
-        "ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None)
     def testFit(self, mock_init):
         sq_feat = ObservationFeatures({})
         sq_data = self.observation_data[2]
@@ -119,9 +113,7 @@ class NumpyModelBridgeTest(TestCase):
         ),
         autospec=True,
     )
-    @mock.patch(
-        "ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None)
     def testPredict(self, mock_init, mock_predict):
         ma = NumpyModelBridge()
         ma.params = ["x", "y", "z"]
@@ -145,9 +137,7 @@ class NumpyModelBridgeTest(TestCase):
         autospec=True,
         return_value=None,
     )
-    @mock.patch(
-        "ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None)
     def testGen(self, mock_init, mock_best_point, mock_gen):
         # Test with constraints
         optimization_config = OptimizationConfig(
@@ -278,9 +268,7 @@ class NumpyModelBridgeTest(TestCase):
         ),
         autospec=True,
     )
-    @mock.patch(
-        "ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None)
     def testCrossValidate(self, mock_init, mock_cv):
         ma = NumpyModelBridge()
         ma.params = ["x", "y", "z"]

@@ -10,13 +10,7 @@ from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.types.types import TParameterization
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.transforms.ivw import IVW
-from ax.plot.base import (
-    DECIMALS,
-    PlotData,
-    PlotInSampleArm,
-    PlotOutOfSampleArm,
-    Z,
-)
+from ax.plot.base import DECIMALS, PlotData, PlotInSampleArm, PlotOutOfSampleArm, Z
 from ax.utils.common.logger import get_logger
 
 

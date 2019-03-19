@@ -29,9 +29,7 @@ class RandomModelBridgeTest(TestCase):
 
         self.model_gen_options = {"option": "yes"}
 
-    @mock.patch(
-        "ax.modelbridge.random.RandomModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
     def testFit(self, mock_init):
         modelbridge = RandomModelBridge()
         model = mock.create_autospec(RandomModel, instance=True)
@@ -39,9 +37,7 @@ class RandomModelBridgeTest(TestCase):
         self.assertEqual(modelbridge.params, ["x", "y", "z"])
         self.assertTrue(isinstance(modelbridge.model, RandomModel))
 
-    @mock.patch(
-        "ax.modelbridge.random.RandomModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
     def testPredict(self, mock_init):
         modelbridge = RandomModelBridge()
         modelbridge.transforms = OrderedDict()
@@ -49,9 +45,7 @@ class RandomModelBridgeTest(TestCase):
         with self.assertRaises(NotImplementedError):
             modelbridge._predict([])
 
-    @mock.patch(
-        "ax.modelbridge.random.RandomModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
     def testCrossValidate(self, mock_init):
         modelbridge = RandomModelBridge()
         modelbridge.transforms = OrderedDict()
@@ -67,9 +61,7 @@ class RandomModelBridgeTest(TestCase):
             np.array([1.0, 2.0]),
         ),
     )
-    @mock.patch(
-        "ax.modelbridge.random.RandomModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
     def testGen(self, mock_init, mock_gen):
         # Test with constraints
         modelbridge = RandomModelBridge()

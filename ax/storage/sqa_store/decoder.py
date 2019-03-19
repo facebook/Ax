@@ -13,12 +13,7 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.parameter import (
-    ChoiceParameter,
-    FixedParameter,
-    Parameter,
-    RangeParameter,
-)
+from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
     ParameterConstraint,
@@ -40,11 +35,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.utils import (
-    DomainType,
-    MetricIntent,
-    ParameterConstraintType,
-)
+from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 
 
 class Decoder:

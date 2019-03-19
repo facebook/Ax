@@ -15,9 +15,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TransformCallbackTest(TestCase):
-    @patch(
-        "ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None
-    )
+    @patch("ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None)
     def test_transform_callback_int(self, _):
         exp = get_branin_experiment()
         parameters = [
@@ -39,9 +37,7 @@ class TransformCallbackTest(TestCase):
         transformed = gpei._transform_callback([5.4, 7.6])
         self.assertTrue(np.allclose(transformed, [5, 8]))
 
-    @patch(
-        "ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None
-    )
+    @patch("ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None)
     def test_transform_callback_log(self, _):
         exp = get_branin_experiment()
         parameters = [
@@ -71,9 +67,7 @@ class TransformCallbackTest(TestCase):
         transformed = gpei._transform_callback([1.2, 2.5])
         self.assertTrue(np.allclose(transformed, [1.2, 2.5]))
 
-    @patch(
-        "ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None
-    )
+    @patch("ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None)
     def test_transform_callback_unitx(self, _):
         exp = get_branin_experiment()
         parameters = [
@@ -94,9 +88,7 @@ class TransformCallbackTest(TestCase):
         transformed = gpei._transform_callback([0.75, 0.35])
         self.assertTrue(np.allclose(transformed, [0.75, 0.35]))
 
-    @patch(
-        "ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None
-    )
+    @patch("ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None)
     def test_transform_callback_int_log(self, _):
         exp = get_branin_experiment()
         parameters = [
@@ -126,9 +118,7 @@ class TransformCallbackTest(TestCase):
         transformed = gpei._transform_callback([0.5, 1.5])
         self.assertTrue(np.allclose(transformed, [0.47712, 1.50515]))
 
-    @patch(
-        "ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None
-    )
+    @patch("ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None)
     def test_transform_callback_int_unitx(self, _):
         exp = get_branin_experiment()
         parameters = [

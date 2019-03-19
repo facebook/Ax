@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from ax.models.discrete.ancillary_eb_thompson import (
-    AncillaryEBThompsonSampler,
-)
+from ax.models.discrete.ancillary_eb_thompson import AncillaryEBThompsonSampler
 from ax.utils.common.testutils import TestCase
 
 

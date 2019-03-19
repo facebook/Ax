@@ -5,19 +5,12 @@ from unittest import mock
 import numpy as np
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.discrete import (
-    DiscreteModelBridge,
-    _get_parameter_values,
-)
+from ax.modelbridge.discrete import DiscreteModelBridge, _get_parameter_values
 from ax.models.discrete_base import DiscreteModel
 from ax.utils.common.testutils import TestCase
 
@@ -67,8 +60,7 @@ class DiscreteModelBridgeTest(TestCase):
         self.model_gen_options = {"option": "yes"}
 
     @mock.patch(
-        "ax.modelbridge.discrete.DiscreteModelBridge.__init__",
-        return_value=None,
+        "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
     def testFit(self, mock_init):
         sq_feat = ObservationFeatures({})
@@ -103,8 +95,7 @@ class DiscreteModelBridgeTest(TestCase):
         self.assertEqual(model_fit_args["parameter_values"], parameter_values)
 
     @mock.patch(
-        "ax.modelbridge.discrete.DiscreteModelBridge.__init__",
-        return_value=None,
+        "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
     def testPredict(self, mock_init):
         ma = DiscreteModelBridge()
@@ -125,8 +116,7 @@ class DiscreteModelBridgeTest(TestCase):
             self.assertEqual(od, self.observation_data[i])
 
     @mock.patch(
-        "ax.modelbridge.discrete.DiscreteModelBridge.__init__",
-        return_value=None,
+        "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
     def testGen(self, mock_init):
         # Test with constraints
@@ -210,8 +200,7 @@ class DiscreteModelBridgeTest(TestCase):
             )
 
     @mock.patch(
-        "ax.modelbridge.discrete.DiscreteModelBridge.__init__",
-        return_value=None,
+        "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
     def testCrossValidate(self, mock_init):
         ma = DiscreteModelBridge()

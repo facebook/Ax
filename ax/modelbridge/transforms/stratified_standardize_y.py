@@ -10,17 +10,13 @@ from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types.types import TConfig, TParamValue
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.standardize_y import (
-    compute_standardization_params,
-)
+from ax.modelbridge.transforms.standardize_y import compute_standardization_params
 from ax.utils.common.logger import get_logger
 
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import (  # noqa F401  # pragma: no cover
-        modelbridge as modelbridge_module,
-    )
+    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 logger = get_logger("StratifiedStandardizeY")
 

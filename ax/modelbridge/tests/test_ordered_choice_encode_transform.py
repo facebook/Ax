@@ -6,9 +6,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.transforms.ordered_choice_encode import (
-    OrderedChoiceEncode,
-)
+from ax.modelbridge.transforms.ordered_choice_encode import OrderedChoiceEncode
 from ax.utils.common.testutils import TestCase
 
 

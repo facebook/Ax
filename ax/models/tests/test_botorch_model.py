@@ -124,8 +124,7 @@ class BotorchModelTest(TestCase):
         model_gen_options = {}
         # test sequential optimize
         with mock.patch(
-            "ax.models.torch.botorch.sequential_optimize",
-            return_value=X_dummy,
+            "ax.models.torch.botorch.sequential_optimize", return_value=X_dummy
         ) as mock_sequential_optimize:
 
             Xgen, wgen = model.gen(

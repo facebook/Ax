@@ -11,11 +11,7 @@ from ax.core.objective import Objective
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.types.types import ComparisonOp
-from ax.exceptions.storage import (
-    ImmutabilityError,
-    SQADecodeError,
-    SQAEncodeError,
-)
+from ax.exceptions.storage import ImmutabilityError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.sqa_store.db import (
@@ -41,10 +37,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.sqa_store.tests.utils import (
-    ENCODE_DECODE_FIELD_MAPS,
-    TEST_CASES,
-)
+from ax.storage.sqa_store.tests.utils import ENCODE_DECODE_FIELD_MAPS, TEST_CASES
 from ax.storage.sqa_store.utils import is_foreign_key_field
 from ax.storage.utils import (
     DomainType,

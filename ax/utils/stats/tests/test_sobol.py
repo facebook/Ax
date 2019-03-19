@@ -4,11 +4,7 @@ from collections import Counter
 
 import numpy as np
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.sobol import (
-    SobolEngine,
-    _test_find_index,
-    multinomial_qmc,
-)
+from ax.utils.stats.sobol import SobolEngine, _test_find_index, multinomial_qmc
 
 
 class SobolTests(TestCase):

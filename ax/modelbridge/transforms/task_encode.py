@@ -6,9 +6,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types.types import TConfig, TParamValue
-from ax.modelbridge.transforms.ordered_choice_encode import (
-    OrderedChoiceEncode,
-)
+from ax.modelbridge.transforms.ordered_choice_encode import OrderedChoiceEncode
 
 
 class TaskEncode(OrderedChoiceEncode):

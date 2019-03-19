@@ -2,10 +2,7 @@
 
 import numpy as np
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import (
-    benjamini_hochberg,
-    inverse_variance_weight,
-)
+from ax.utils.stats.statstools import benjamini_hochberg, inverse_variance_weight
 
 
 class BenjaminiHochbergTest(TestCase):

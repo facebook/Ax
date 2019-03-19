@@ -14,9 +14,7 @@ from ax.utils.common.logger import get_logger
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax.modelbridge import (  # noqa F401  # pragma: no cover
-        base as base_modelbridge,
-    )
+    from ax.modelbridge import base as base_modelbridge  # noqa F401  # pragma: no cover
 
 
 logger = get_logger("StandardizeY")

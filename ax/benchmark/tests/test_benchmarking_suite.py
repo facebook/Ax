@@ -2,11 +2,7 @@
 from typing import Any
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, branin
-from ax.benchmark.benchmark_suite import (
-    BOBenchmarkingSuite,
-    BOMethods,
-    BOProblems,
-)
+from ax.benchmark.benchmark_suite import BOBenchmarkingSuite, BOMethods, BOProblems
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint

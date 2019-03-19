@@ -5,10 +5,7 @@ import pkgutil
 from typing import List
 
 import ax.utils.render as render_module
-from ax.plot.render import (
-    _js_requires,
-    _load_css_resource as _load_plot_css_resource,
-)
+from ax.plot.render import _js_requires, _load_css_resource as _load_plot_css_resource
 from jinja2 import Environment, FunctionLoader
 
 

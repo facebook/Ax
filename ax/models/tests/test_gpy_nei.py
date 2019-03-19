@@ -269,13 +269,9 @@ class GPyModelTest(TestCase):
         dfx0 = approx_fprime(x0, testf, epsilon=1e-9)
         self.assertTrue(np.abs(dfx0 - testdf(x0)) < 1e-6)
 
+    @mock.patch("ax.models.numpy.gpy_nei.minimize", side_effect=StopIteration)
     @mock.patch(
-        "ax.models.numpy.gpy_nei.minimize", side_effect=StopIteration
-    )
-    @mock.patch(
-        "ax.models.numpy.gpy_nei.objective_and_grad",
-        autospec=True,
-        return_value=(1, 2),
+        "ax.models.numpy.gpy_nei.objective_and_grad", autospec=True, return_value=(1, 2)
     )
     def testOptimizeFromX0(self, obj_grad_mock, minimize_mock):
         x0 = np.array([1.0, 2.0, 3.0])

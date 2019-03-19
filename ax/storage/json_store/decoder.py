@@ -9,10 +9,7 @@ import pandas as pd
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.exceptions.storage import JSONDecodeError
-from ax.storage.json_store.decoders import (
-    batch_trial_from_json,
-    trial_from_json,
-)
+from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
 from ax.storage.json_store.registry import DECODER_REGISTRY
 
 

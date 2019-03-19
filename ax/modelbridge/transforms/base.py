@@ -10,9 +10,7 @@ from ax.core.types.types import TConfig
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import (  # noqa F401  # pragma: no cover
-        modelbridge as modelbridge_module,
-    )
+    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
 class Transform:

@@ -8,11 +8,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
-from ax.core.types.types import (
-    TEvaluationOutcome,
-    TModelPredictArm,
-    TParameterization,
-)
+from ax.core.types.types import TEvaluationOutcome, TModelPredictArm, TParameterization
 from ax.modelbridge.generation_strategy import GenerationStrategy
 # pyre-fixme[21]: Could not find `base_decoder`.
 from ax.storage.sqa_store.base_decoder import Decoder

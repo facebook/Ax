@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
 
 import pandas as pd
-from ax.core.data import (
-    REQUIRED_COLUMNS,
-    Data,
-    custom_data_class,
-    set_single_trial,
-)
+from ax.core.data import REQUIRED_COLUMNS, Data, custom_data_class, set_single_trial
 from ax.utils.common.testutils import TestCase
 
 

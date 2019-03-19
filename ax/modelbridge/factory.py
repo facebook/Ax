@@ -16,13 +16,9 @@ from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.one_hot import OneHot
-from ax.modelbridge.transforms.ordered_choice_encode import (
-    OrderedChoiceEncode,
-)
+from ax.modelbridge.transforms.ordered_choice_encode import OrderedChoiceEncode
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
-from ax.modelbridge.transforms.search_space_to_choice import (
-    SearchSpaceToChoice,
-)
+from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler

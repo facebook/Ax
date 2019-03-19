@@ -7,19 +7,11 @@ from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.base import (
-    ModelBridge,
-    gen_arms,
-    unwrap_observation_data,
-)
+from ax.modelbridge.base import ModelBridge, gen_arms, unwrap_observation_data
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.testutils import TestCase
 
@@ -180,9 +172,7 @@ class BaseModelBridgeTest(TestCase):
         return_value=(2, 2),
     )
     @mock.patch(
-        "ax.modelbridge.base.gen_arms",
-        autospec=True,
-        return_value=[Arm(params={})],
+        "ax.modelbridge.base.gen_arms", autospec=True, return_value=[Arm(params={})]
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
     def testModelBridge(
@@ -439,9 +429,7 @@ class BaseModelBridgeTest(TestCase):
         return_value=([observation1trans().features], [2], None),
     )
     @mock.patch(
-        "ax.modelbridge.base.ModelBridge.predict",
-        autospec=True,
-        return_value=None,
+        "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
     )
     def testGenWithDefaults(self, _, mock_gen):
         exp = get_experiment()

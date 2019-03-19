@@ -25,11 +25,7 @@ from ax.storage.sqa_store.json import (
 )
 from ax.storage.sqa_store.sqa_enum import IntEnum, StringEnum
 from ax.storage.sqa_store.timestamp import IntTimestamp
-from ax.storage.utils import (
-    DomainType,
-    MetricIntent,
-    ParameterConstraintType,
-)
+from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 

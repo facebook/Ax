@@ -6,9 +6,7 @@ import numpy as np
 from ax.core.types.types import TConfig
 from ax.models.model_utils import tunable_feature_indices
 from ax.models.random.base import RandomModel
-from ax.utils.stats.sobol import (  # pyre-ignore: Not handling .pyx properly
-    SobolEngine,
-)
+from ax.utils.stats.sobol import SobolEngine  # pyre-ignore: Not handling .pyx properly
 
 
 class SobolGenerator(RandomModel):

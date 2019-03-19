@@ -2,11 +2,7 @@
 
 from datetime import datetime
 
-from ax.utils.common.equality import (
-    datetime_equals,
-    equality_typechecker,
-    list_equals,
-)
+from ax.utils.common.equality import datetime_equals, equality_typechecker, list_equals
 from ax.utils.common.testutils import TestCase
 
 

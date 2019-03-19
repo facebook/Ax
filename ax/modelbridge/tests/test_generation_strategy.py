@@ -3,12 +3,7 @@ from unittest import mock
 
 from ax.core.arm import Arm
 from ax.modelbridge.discrete import DiscreteModelBridge
-from ax.modelbridge.factory import (
-    get_factorial,
-    get_GPEI,
-    get_sobol,
-    get_thompson,
-)
+from ax.modelbridge.factory import get_factorial, get_GPEI, get_sobol, get_thompson
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge

@@ -3,11 +3,7 @@
 from unittest import mock
 
 import numpy as np
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.modelbridge.cross_validation import (
     CVResult,
     compute_diagnostics,

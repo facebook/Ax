@@ -11,9 +11,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types.types import ComparisonOp
-from ax.modelbridge.transforms.stratified_standardize_y import (
-    StratifiedStandardizeY,
-)
+from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandardizeY
 from ax.utils.common.testutils import TestCase
 
 
