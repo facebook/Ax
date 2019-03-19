@@ -6,13 +6,11 @@ from setuptools import find_packages, setup
 from setuptools.extension import Extension
 
 
-EXTENSIONS = [Extension("ae.utils.stats.sobol", ["ae/utils/stats/sobol.pyx"])]
+EXTENSIONS = [Extension("ax.utils.stats.sobol", ["ax/utils/stats/sobol.pyx"])]
 
 REQUIRES = [
     "botorch",
-    "GPy==1.9.6",  # will be removed prior to release
     "jinja2",  # also a Plotly dep
-    "matplotlib",  # will be removed prior to release (needed for GPy)
     "pandas",
     "scipy",
     "simplejson",
@@ -35,9 +33,11 @@ MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
 
+GPY_REQUIRES = ["GPy==1.9.6", "matplotlib"]  # NOTE: GPy does not work with py3.7
+
 
 setup(
-    name="ae",
+    name="ax",
     version="pre-alpha",
     description="Adaptive Experimentation",
     author="Facebook, Inc.",
@@ -62,5 +62,6 @@ setup(
         "dev": DEV_REQUIRES,
         "mysql": MYSQL_REQUIRES,
         "notebook": NOTEBOOK_REQUIRES,
+        "gpy": GPY_REQUIRES,
     },
 )
