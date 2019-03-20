@@ -670,7 +670,7 @@ def lattice_multiple_metrics(
                     y_axis_var=PlotMetric(o2, pred=False),
                     rel=rel,
                     status_quo_arm=status_quo_arm,
-                    showlegend=(i is 1 and j is 2),
+                    showlegend=(i == 1 and j == 2),
                     legendgroup="In-sample",
                     visible=False,
                     show_arm_details_on_hover=show_arm_details_on_hover,
@@ -687,7 +687,7 @@ def lattice_multiple_metrics(
                     rel=rel,
                     status_quo_arm=status_quo_arm,
                     legendgroup="In-sample",
-                    showlegend=(i is 1 and j is 2),
+                    showlegend=(i == 1 and j == 2),
                     visible=True,
                     show_arm_details_on_hover=show_arm_details_on_hover,
                 )
@@ -713,7 +713,7 @@ def lattice_multiple_metrics(
                             status_quo_arm=status_quo_arm,
                             name=generator_run_name,
                             color=DISCRETE_COLOR_SCALE[k],
-                            showlegend=(i is 1 and j is 2),
+                            showlegend=(i == 1 and j == 2),
                             legendgroup=generator_run_name,
                             show_arm_details_on_hover=show_arm_details_on_hover,
                         ),
@@ -1062,7 +1062,8 @@ def plot_fitted(
                 "label": custom_arm_order_name,
                 "method": "relayout",
             }
-            # pyre-fixme[6]: Expected `List[Dict[str, Union[List[Dict[str, Union[List[str...
+            # pyre-fixme[6]: Expected `List[Dict[str, Union[List[Dict[str,
+            # Union[List[str...
         ] + order_options
 
     layout = go.Layout(  # pyre-ignore[16]

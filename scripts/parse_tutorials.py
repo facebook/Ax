@@ -22,9 +22,12 @@ module.exports = renderTutorial;
 
 """
 
-JS_SCRIPTS = """<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
-"""
+SRCS = [
+    "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js",
+]
+
+JS_SCRIPT_TAGS = """<script src="{}"></script>"""
 
 
 def gen_tutorials(repo_dir: str) -> None:
@@ -59,7 +62,7 @@ def gen_tutorials(repo_dir: str) -> None:
         nb_meat = soup.find("div", {"id": "notebook-container"})
         del nb_meat.attrs["id"]
         nb_meat.attrs["class"] = ["notebook"]
-        html_out = JS_SCRIPTS + str(nb_meat)
+        html_out = "".join([JS_SCRIPT_TAGS.format(src) for src in SRCS]) + str(nb_meat)
 
         with open(
             os.path.join(repo_dir, "website", "_tutorials", "{}.html".format(tid)), "w"

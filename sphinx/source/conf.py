@@ -14,7 +14,6 @@
 # serve to show the default.
 
 import os
-import shlex
 import sys
 
 

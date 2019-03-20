@@ -9,7 +9,6 @@ from ax.modelbridge.factory import (
     get_thompson,
     get_uniform,
 )
-from ax.modelbridge.numpy import NumpyModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler

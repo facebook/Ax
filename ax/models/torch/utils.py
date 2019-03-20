@@ -1,24 +1,11 @@
 #!/usr/bin/env python3
 
-import warnings
-from typing import Callable, Dict, Optional, Union
-
 import torch
 from ax.exceptions.model import ModelError
-from botorch.acquisition.monte_carlo import MCAcquisitionFunction
-from botorch.exceptions import BadInitialCandidatesWarning, UnsupportedError
-from botorch.gen import gen_candidates_scipy, get_best_candidates
 from botorch.models import Model, MultiOutputGP
 from botorch.models.constant_noise import ConstantNoiseGP
 from botorch.models.gp_regression import HeteroskedasticSingleTaskGP, SingleTaskGP
-from botorch.optim.initializers import (
-    get_similarity_measure,
-    initialize_q_batch,
-    initialize_q_batch_simple,
-)
-from botorch.utils import draw_sobol_samples
 from torch import Tensor
-from torch.nn import Module
 
 
 NOISELESS_MODELS = {SingleTaskGP}

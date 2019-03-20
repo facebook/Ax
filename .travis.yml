@@ -24,7 +24,7 @@ matrix:
             - pip install -q -e .[dev,mysql,notebook,gpy]
         script:
           - black --check --diff .
-          - flake8
+          - flake8 --ignore=A000,T484,T499,W503,E704,E231,E203
           - pytest -ra
       - name: "Python 3.7"
         python: "3.7"
@@ -35,5 +35,5 @@ matrix:
             - pip install -q -e .[dev,mysql,notebook]
         script:
           - black --check --diff .
-          - flake8
+          - flake8 --ignore=A000,T484,T499,W503,E704,E231,E203
           - pytest -ra  --ignore=ax/models/tests/test_gpy.py   --ignore=ax/models/tests/test_gpy_nei.py

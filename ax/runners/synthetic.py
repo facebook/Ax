@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional
 
 from ax.core.base_trial import BaseTrial
 from ax.core.runner import Runner
-from ax.utils.common.equality import equality_typechecker
 
 
 class SyntheticRunner(Runner):
