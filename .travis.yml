@@ -10,23 +10,30 @@ before_install:
   - eval "$(ssh-agent -s)"
   - ssh-add botorch_key
 
-install:
-  # install cython and numpy first as they are needed for botorch / Ax setup.py files
-  - pip install cython numpy
-  - pip install git+ssh://git@github.com/facebookexternal/botorch.git
-  - pip install -q -e .[dev,mysql,notebook]
 
 # Enable Python 3.7 w/o without globally enabling sudo and xenial dist
 # See https://github.com/travis-ci/travis-ci/issues/9815
 matrix:
   include:
-    # Cannot build on 3.7 because of GPy; see https://github.com/SheffieldML/GPy/issues/649
-    # - python: 3.7
-    #   dist: xenial
-    #   sudo: true
-    - python: 3.6
-
-script:
-  - black --check --diff .
-  - flake8
-  - pytest -ra
+      - name: "Python 3.6 with GPy"
+        python: "3.6"
+        dist: xenial
+        install:
+            - pip install cython numpy
+            - pip install git+ssh://git@github.com/facebookexternal/botorch.git
+            - pip install -q -e .[dev,mysql,notebook,gpy]
+        script:
+          - black --check --diff .
+          - flake8
+          - pytest -ra
+      - name: "Python 3.7"
+        python: "3.7"
+        dist: xenial
+        install:
+            - pip install cython numpy
+            - pip install git+ssh://git@github.com/facebookexternal/botorch.git
+            - pip install -q -e .[dev,mysql,notebook]
+        script:
+          - black --check --diff .
+          - flake8
+          - pytest -ra  --ignore=ax/models/tests/test_gpy.py   --ignore=ax/models/tests/test_gpy_nei.py
