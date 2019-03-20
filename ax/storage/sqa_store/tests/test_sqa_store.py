@@ -712,7 +712,7 @@ class SQAStoreTest(TestCase):
 
         sqa_metric.intent = MetricIntent.TRACKING
         sqa_metric.properties = {}
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
 
     def testRunnerDecodeFailure(self):
@@ -755,3 +755,12 @@ class SQAStoreTest(TestCase):
 
         # second save should not fail
         save_experiment(self.experiment)
+
+    def testGetProperties(self):
+        properties = self.encoder.get_properties(Metric(name="foo"))
+        self.assertEqual(properties, {"name": "foo"})
+
+        properties = self.encoder.get_properties(
+            Metric(name="foo", lower_is_better=True)
+        )
+        self.assertEqual(properties, {"name": "foo", "lower_is_better": True})

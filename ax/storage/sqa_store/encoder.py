@@ -218,7 +218,8 @@ class Encoder:
         """
         properties = {}
         exclude_args = ["self"] + (exclude_fields or [])
-        for arg in inspect.getfullargspec(object.__class__.__init__).args:
+        signature = inspect.signature(object.__class__.__init__)
+        for arg, info in signature.parameters.items():
             if arg in exclude_args:
                 continue
             try:
@@ -228,6 +229,10 @@ class Encoder:
                     f"{object.__class__} is missing a value for {arg}, "
                     f"which is needed by its constructor."
                 )
+            if info.default == value:
+                # If the constructor has a default value for the arg, and the
+                # object's value is the default, we do not need to store it
+                continue
             properties[arg] = value
         return properties
 

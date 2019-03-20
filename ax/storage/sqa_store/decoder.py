@@ -2,7 +2,7 @@
 
 import inspect
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -23,6 +23,7 @@ from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
+from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
@@ -222,6 +223,32 @@ class Decoder:
             parameters=parameters, parameter_constraints=parameter_constraints
         )
 
+    def get_init_args_from_properties(
+        self, object_sqa: SQABase, class_: SQABase
+    ) -> Dict[str, Any]:
+        """Given a SQAAlchemy instance with a properties blob, extract the
+        arguments required for its class's initializer.
+        """
+        args = dict(getattr(object_sqa, 'properties', None) or {})
+        signature = inspect.signature(class_.__init__)
+        for arg, info in signature.parameters.items():
+            if arg == "self" or arg in args:
+                continue
+            value = getattr(object_sqa, arg, None)
+            if value is None:
+                # Only necessary to raise an exception if there is no default
+                # value for this argument
+                if info.default is inspect.Parameter.empty:
+                    raise SQADecodeError(
+                        f"Cannot decode because required argument "
+                        f"{arg} is missing."
+                    )
+                else:
+                    # Constructor will use default value
+                    continue  # pragma: no cover
+            args[arg] = value
+        return args
+
     def metric_from_sqa(
         self, metric_sqa: SQAMetric
     ) -> Union[Metric, Objective, OutcomeConstraint]:
@@ -234,11 +261,11 @@ class Decoder:
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type."
             )
-        args = metric_sqa.properties or {}
-        for arg in inspect.getfullargspec(metric_class.__init__).args:
-            if arg == "self" or arg in args:
-                continue
-            args[arg] = getattr(metric_sqa, arg)
+
+        args = self.get_init_args_from_properties(
+            # pyre-fixme[6]: Expected `SQABase` for ...es` but got `SQAMetric`.
+            object_sqa=metric_sqa, class_=metric_class
+        )
         metric = metric_class(**args)
 
         if metric_sqa.intent == MetricIntent.TRACKING:
@@ -374,8 +401,11 @@ class Decoder:
                 f"Cannot decode SQARunner because {runner_sqa.runner_type} "
                 f"is an invalid type."
             )
-        properties = runner_sqa.properties or {}
-        return runner_class(**properties)
+        args = self.get_init_args_from_properties(
+            # pyre-fixme[6]: Expected `SQABase` for ...es` but got `SQARunner`.
+            object_sqa=runner_sqa, class_=runner_class
+        )
+        return runner_class(**args)
 
     def trial_from_sqa(self, trial_sqa: SQATrial, experiment: Experiment) -> BaseTrial:
         """Convert SQLAlchemy Trial to AE Trial."""
