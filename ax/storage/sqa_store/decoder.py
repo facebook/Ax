@@ -229,7 +229,7 @@ class Decoder:
         """Given a SQAAlchemy instance with a properties blob, extract the
         arguments required for its class's initializer.
         """
-        args = dict(getattr(object_sqa, 'properties', None) or {})
+        args = dict(getattr(object_sqa, "properties", None) or {})
         signature = inspect.signature(class_.__init__)
         for arg, info in signature.parameters.items():
             if arg == "self" or arg in args:
@@ -240,8 +240,7 @@ class Decoder:
                 # value for this argument
                 if info.default is inspect.Parameter.empty:
                     raise SQADecodeError(
-                        f"Cannot decode because required argument "
-                        f"{arg} is missing."
+                        f"Cannot decode because required argument {arg} is missing."
                     )
                 else:
                     # Constructor will use default value
@@ -264,7 +263,8 @@ class Decoder:
 
         args = self.get_init_args_from_properties(
             # pyre-fixme[6]: Expected `SQABase` for ...es` but got `SQAMetric`.
-            object_sqa=metric_sqa, class_=metric_class
+            object_sqa=metric_sqa,
+            class_=metric_class,
         )
         metric = metric_class(**args)
 
@@ -403,7 +403,8 @@ class Decoder:
             )
         args = self.get_init_args_from_properties(
             # pyre-fixme[6]: Expected `SQABase` for ...es` but got `SQARunner`.
-            object_sqa=runner_sqa, class_=runner_class
+            object_sqa=runner_sqa,
+            class_=runner_class,
         )
         return runner_class(**args)
 
