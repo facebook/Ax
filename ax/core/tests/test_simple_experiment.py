@@ -53,3 +53,14 @@ class SimpleExperimentTest(TestCase):
         for i in range(len(self.arms)):
             self.experiment.new_trial(generator_run=GeneratorRun(arms=[self.arms[i]]))
         self.assertFalse(self.experiment.eval().df.empty)
+
+    def test_unimplemented_evaluation_function(self):
+        experiment = SimpleExperiment(
+            name="test_branin",
+            search_space=get_branin_search_space(),
+            objective_name="sum",
+        )
+        with self.assertRaises(Exception):
+            experiment.evaluation_function(parameters={})
+
+        experiment.evaluation_function = sum_evaluation_function

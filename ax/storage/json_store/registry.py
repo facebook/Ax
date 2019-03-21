@@ -22,6 +22,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
+from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types.types import ComparisonOp
 from ax.metrics.branin import BraninMetric
@@ -43,6 +44,7 @@ from ax.storage.json_store.encoders import (
     parameter_constraint_to_dict,
     range_parameter_to_dict,
     search_space_to_dict,
+    simple_experiment_to_dict,
     sum_parameter_constraint_to_dict,
     synthetic_runner_to_dict,
     trial_to_dict,
@@ -67,6 +69,7 @@ ENCODER_REGISTRY = {
     ParameterConstraint: parameter_constraint_to_dict,
     RangeParameter: range_parameter_to_dict,
     SearchSpace: search_space_to_dict,
+    SimpleExperiment: simple_experiment_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
     SyntheticRunner: synthetic_runner_to_dict,
     Trial: trial_to_dict,
@@ -96,6 +99,7 @@ DECODER_REGISTRY = {
     "ParameterType": ParameterType,
     "RangeParameter": RangeParameter,
     "SearchSpace": SearchSpace,
+    "SimpleExperiment": SimpleExperiment,
     "SumConstraint": SumConstraint,
     "SyntheticRunner": SyntheticRunner,
     "Trial": Trial,

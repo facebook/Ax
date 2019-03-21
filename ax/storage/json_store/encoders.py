@@ -18,6 +18,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
+from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
@@ -40,6 +41,11 @@ def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
         "is_test": experiment.is_test,
         "data_by_trial": experiment.data_by_trial,
     }
+
+
+def simple_experiment_to_dict(experiment: SimpleExperiment) -> Dict[str, Any]:
+    """Convert AE simple experiment to a dictionary."""
+    return experiment_to_dict(experiment)
 
 
 def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:

@@ -10,6 +10,10 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data  # noqa F401
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.simple_experiment import (
+    SimpleExperiment,
+    unimplemented_evaluation_function,
+)
 from ax.exceptions.storage import JSONDecodeError
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
 from ax.storage.json_store.registry import DECODER_REGISTRY
@@ -56,6 +60,8 @@ def object_from_json(object_json: Any) -> Any:
             return _class[object_json["name"]]
         elif _class == GeneratorRun:
             return generator_run_from_json(object_json=object_json)
+        elif _class == SimpleExperiment:
+            return simple_experiment_from_json(object_json=object_json)
         elif _class == Experiment:
             return experiment_from_json(object_json=object_json)
 
@@ -113,6 +119,37 @@ def data_from_json(
         int(k): OrderedDict({int(k2): v2 for k2, v2 in v.items()})
         for k, v in data_by_trial.items()
     }
+
+
+def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment:
+    """Load AE SimpleExperiment from JSON."""
+    time_created_json = object_json.pop("time_created")
+    trials_json = object_json.pop("trials")
+    experiment_type_json = object_json.pop("experiment_type")
+    data_by_trial_json = object_json.pop("data_by_trial")
+    description_json = object_json.pop("description")
+    is_test_json = object_json.pop("is_test")
+    runner_json = object_json.pop("runner")
+
+    optimization_config = object_from_json(object_json.pop("optimization_config"))
+    tracking_metrics = object_from_json(object_json.pop("tracking_metrics"))
+
+    kwargs = {k: object_from_json(v) for k, v in object_json.items()}
+    kwargs["evaluation_function"] = unimplemented_evaluation_function
+    kwargs["objective_name"] = optimization_config.objective.metric.name
+    kwargs["minimize"] = optimization_config.objective.minimize
+    kwargs["outcome_constraints"] = optimization_config.outcome_constraints
+    experiment = SimpleExperiment(**kwargs)
+
+    experiment.description = object_from_json(description_json)
+    experiment.is_test = object_from_json(is_test_json)
+    experiment.runner = object_from_json(runner_json)
+    experiment._metrics = {m.name: m for m in tracking_metrics}
+    experiment._time_created = object_from_json(time_created_json)
+    experiment._trials = trials_from_json(experiment, trials_json)
+    experiment._experiment_type = object_from_json(experiment_type_json)
+    experiment._data_by_trial = data_from_json(data_by_trial_json)
+    return experiment
 
 
 def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:

@@ -26,6 +26,7 @@ from ax.tests.fake import (
     get_parameter_constraint,
     get_range_parameter,
     get_search_space,
+    get_simple_experiment,
     get_sum_constraint1,
     get_sum_constraint2,
     get_trial,
@@ -50,6 +51,7 @@ TEST_CASES = [
     ("ParameterConstraint", get_parameter_constraint),
     ("RangeParameter", get_range_parameter),
     ("SearchSpace", get_search_space),
+    ("SimpleExperiment", get_simple_experiment),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
     ("Trial", get_trial),
@@ -71,6 +73,10 @@ ENCODE_DECODE_FIELD_MAPS = {
         encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
     ),
     "OrderConstraint": EncodeDecodeFieldsMap(python_only=["bound"]),
+    "SimpleExperiment": EncodeDecodeFieldsMap(
+        python_to_encoded={"metrics": "tracking_metrics"},
+        python_only=["evaluation_function"],
+    ),
     "SumConstraint": EncodeDecodeFieldsMap(python_only=["constraint_dict"]),
     "Trial": EncodeDecodeFieldsMap(python_only=["experiment"]),
 }
@@ -107,6 +113,16 @@ class JSONStoreTest(TestCase):
             original_object = fake_func()
             json_object = object_to_json(original_object)
             converted_object = object_from_json(json_object)
+
+            if class_ == "SimpleExperiment":
+                # Evaluation functions will be different, so need to do
+                # this so equality test passes
+                with self.assertRaises(Exception):
+                    converted_object.evaluation_function()
+
+                original_object.evaluation_function = None
+                converted_object.evaluation_function = None
+
             self.assertEqual(
                 original_object,
                 converted_object,

@@ -21,6 +21,18 @@ from ax.runners.synthetic import SyntheticRunner
 TEvaluationFunction = Callable[[TParameterization, Optional[float]], TEvaluationOutcome]
 
 
+def unimplemented_evaluation_function(
+    parameters: TParameterization, weight: Optional[float] = None
+) -> TEvaluationOutcome:
+    """
+    Default evaluation function used if none is provided during initialization.
+    The evaluation function must be manually set before use.
+    """
+    raise Exception(
+        "The evaluation function has not been set yet."
+    )
+
+
 class SimpleExperiment(Experiment):
     """
     Simplified experiment class with defaults.
@@ -28,14 +40,14 @@ class SimpleExperiment(Experiment):
     Args:
         name: name of this experiment
         search_space: parameter space
+        objective_name: which of the metrics computed by the evaluation
+            function is the objective
         evaluation_function: function that evaluates
             mean and standard error for a parameter configuration. This
             function should accept a dictionary of parameter names to parameter
             values (TParametrization) and an optional weight, and return a tuple
             of a dictionary of metric names to means and a dictionary of metric
             names to standard errors (TEvaluationOutcome)
-        objective_name: which of the metrics computed by the evaluation
-            function is the objective
         minimize: whether the objective should be minimized,
             defaults to False
         outcome_constraints: constraints on the outcome,
@@ -43,14 +55,14 @@ class SimpleExperiment(Experiment):
         status_quo: Arm representing existing "control" arm
     """
 
-    evaluation_function: TEvaluationFunction
+    _evaluation_function: TEvaluationFunction
 
     def __init__(
         self,
         name: str,
         search_space: SearchSpace,
-        evaluation_function: TEvaluationFunction,
         objective_name: str,
+        evaluation_function: TEvaluationFunction = unimplemented_evaluation_function,
         minimize: bool = False,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
         status_quo: Optional[Arm] = None,
@@ -66,7 +78,7 @@ class SimpleExperiment(Experiment):
             runner=SyntheticRunner(),
             status_quo=status_quo,
         )
-        self.evaluation_function = evaluation_function
+        self._evaluation_function = evaluation_function
 
     def eval_trial(self, trial: BaseTrial) -> Data:
         """
@@ -140,6 +152,21 @@ class SimpleExperiment(Experiment):
                 if trial.status != TrialStatus.FAILED
             ]
         )
+
+    @property
+    def evaluation_function(self) -> TEvaluationFunction:
+        """
+        Get the evaluation function.
+        """
+        return self._evaluation_function
+
+    @evaluation_function.setter
+    def evaluation_function(self, evaluation_function: TEvaluationFunction) -> None:
+        """
+        Set the evaluation function.
+        """
+
+        self._evaluation_function = evaluation_function
 
     def fetch_data(self, **kwargs: Any) -> Data:
         return self.eval()

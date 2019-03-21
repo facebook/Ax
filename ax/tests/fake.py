@@ -27,6 +27,10 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
+from ax.core.simple_experiment import (
+    SimpleExperiment,
+    unimplemented_evaluation_function,
+)
 from ax.core.trial import Trial
 from ax.core.types.types import (
     ComparisonOp,
@@ -115,6 +119,20 @@ def get_factorial_experiment(
         exp.new_batch_trial().add_generator_run(factorial_run)
 
     return exp
+
+
+def get_simple_experiment() -> SimpleExperiment:
+    experiment = SimpleExperiment(
+        name="test_branin",
+        search_space=get_branin_search_space(),
+        evaluation_function=unimplemented_evaluation_function,
+        objective_name="sum",
+    )
+
+    experiment.description = "foobar"
+    experiment.add_metric(get_metric())
+
+    return experiment
 
 
 # Search Spaces
