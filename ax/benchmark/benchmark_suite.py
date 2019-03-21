@@ -100,7 +100,6 @@ class BOBenchmarkingSuite:
                 title=f"{problem_name}: optimization times",
             )
         )
-        # TODO[drfreund]: plot other metrics
         return plots
 
     def generate_report(self, include_individual: bool = True) -> str:
