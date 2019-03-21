@@ -9,7 +9,7 @@ from ax.core.base import Base
 
 
 TPdTimestamp = pd.Timestamp  # pyre-ignore[16]: Pyre doesn't recognize this type
-# TODO: support contexts.
+
 COLUMN_DATA_TYPES = {
     "arm_name": str,
     "metric_name": str,

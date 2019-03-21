@@ -413,7 +413,6 @@ def estimate_correlation_from_splits(
     # serialization is necessary o/w we cannot check for uniqueness
     if "context" in split_df.columns:
         if len(split_df["context"].unique()) > 1:
-            # @TODO Estimate covariance across contexts (t18363185)
             raise ValueError(
                 "Correlation estimation not supported for contextual data."
             )

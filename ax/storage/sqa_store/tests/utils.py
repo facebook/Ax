@@ -243,7 +243,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "arm_weight_table",
             "optimization_config",
             "search_space",
-            "best_arm_predictions",  # TODO[drfreund, lilidworkin] T38936022
+            "best_arm_predictions",
         ],
     ),
     "Metric": EncodeDecodeFieldsMap(

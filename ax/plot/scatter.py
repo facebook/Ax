@@ -443,10 +443,6 @@ def plot_multiple_metrics(
     return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
 
 
-# @TODO: we can eventually pass an Objective object directly to this function
-# to extract object and outcome constraints.
-
-
 def plot_objective_vs_constraints(
     model: ModelBridge,
     objective: str,

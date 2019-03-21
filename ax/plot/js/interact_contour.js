@@ -246,8 +246,6 @@ for (var yvar_idx in param_names) {
       y: grid_dict[yvar],
       z: f_start,
       visible: cur_visible,
-      // @TODO T17556631: better handling of color scale (i.e. want to support
-      // asymmetric color scales when data skews positive or negative).
       // zmax and zmin are ignored if zauto is true
       // zmax: f_absmax,
       // zmin: -f_absmax,

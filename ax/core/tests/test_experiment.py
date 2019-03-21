@@ -14,6 +14,7 @@ from ax.tests.fake import (
     get_experiment,
     get_optimization_config,
     get_search_space,
+    get_status_quo,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -72,19 +73,9 @@ class ExperimentTest(TestCase):
         self.assertEqual("Experiment(test)", str(self.experiment))
 
     def testBasicProperties(self):
-        # TODO: Add equals methods to all classes to allow proper comparison here
-        self.assertEqual(len(self.experiment.status_quo.params), len(get_arm().params))
-        self.assertEqual(
-            len(get_search_space().parameters), len(self.experiment.parameters)
-        )
-        self.assertEqual(
-            len(get_search_space().parameters),
-            len(self.experiment.search_space.parameters),
-        )
-        self.assertEqual(
-            len(get_optimization_config().metrics),
-            len(self.experiment.optimization_config.metrics),
-        )
+        self.assertEqual(self.experiment.status_quo, get_status_quo())
+        self.assertEqual(self.experiment.search_space, get_search_space())
+        self.assertEqual(self.experiment.optimization_config, get_optimization_config())
         self.assertEqual(self.experiment.is_test, True)
 
     def testMetricSetters(self):

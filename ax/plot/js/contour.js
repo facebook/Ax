@@ -68,8 +68,6 @@ const f_trace = {
   xaxis: 'x',
   yaxis: 'y',
   z: f_plt,
-  // @TODO T17556631: better handling of color scale (i.e. want to support
-  // asymmetric color scales when data skews positive or negative).
   // zmax and zmin are ignored if zauto is true
   zauto: !rel,
   zmax: f_absmax,
