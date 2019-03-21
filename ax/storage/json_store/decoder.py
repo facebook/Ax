@@ -3,9 +3,11 @@
 import datetime
 import enum
 from collections import OrderedDict
-from typing import Any
+from typing import Any, Dict
 
 import pandas as pd
+from ax.core.base_trial import BaseTrial
+from ax.core.data import Data  # noqa F401
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.exceptions.storage import JSONDecodeError
@@ -39,121 +41,25 @@ def object_from_json(object_json: Any) -> Any:
             )
         elif _type == "DataFrame":
             return pd.read_json(object_json["value"])
-
-        if _type not in DECODER_REGISTRY:
+        elif _type not in DECODER_REGISTRY:
             err = (
                 f"The JSON dictionary passed to `object_from_json` has a type "
                 f"{_type} that is not registered with a corresponding class in "
                 f"DECODER_REGISTRY."
             )
             raise JSONDecodeError(err)
+
         _class = DECODER_REGISTRY[_type]
 
         if issubclass(_class, enum.Enum):
             # to access enum members by name, use item access
             return _class[object_json["name"]]
+        elif _class == GeneratorRun:
+            return generator_run_from_json(object_json=object_json)
+        elif _class == Experiment:
+            return experiment_from_json(object_json=object_json)
 
-        if _class == GeneratorRun:
-            time_created_json = object_json.pop("time_created")
-            type_json = object_json.pop("generator_run_type")
-            index_json = object_json.pop("index")
-            # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun,
-            # pyre: ax.core.base_trial.TrialStatus, ax.core.
-            # pyre: batch_trial.AbandonedArm, ax.core.
-            # pyre: batch_trial.BatchTrial, ax.core.batch_trial.
-            # pyre: GeneratorRunStruct, ax.core.arm.Arm,
-            # pyre: ax.core.metric.Metric, ax.core.objective.
-            # pyre: Objective, ax.core.optimization_config.
-            # pyre: OptimizationConfig, ax.core.outcome_constraint.
-            # pyre: OutcomeConstraint, ax.core.parameter.
-            # pyre: ChoiceParameter, ax.core.parameter.
-            # pyre: FixedParameter, ax.core.parameter.ParameterType,
-            # pyre: ax.core.parameter.RangeParameter, ax.core.
-            # pyre: parameter_constraint.ParameterConstraint, ax.core.
-            # pyre: search_space.SearchSpace, ax.core.trial.Trial,
-            # pyre: ax.core.types.types.ComparisonOp, ax.runners.
-            # pyre: synthetic.SyntheticRunner, ax.storage.utils.
-            # pyre: DomainType, ax.storage.utils.
-            # pyre-fixme[29]: ParameterConstraintType]]` is not a function.
-            generator_run = _class(
-                **{k: object_from_json(v) for k, v in object_json.items()}
-            )
-            generator_run._time_created = object_from_json(time_created_json)
-            generator_run._generator_run_type = object_from_json(type_json)
-            generator_run._index = object_from_json(index_json)
-            return generator_run
-        if _class == Experiment:
-            time_created_json = object_json.pop("time_created")
-            trials_json = object_json.pop("trials")
-            experiment_type_json = object_json.pop("experiment_type")
-            data_by_trial_json = object_json.pop("data_by_trial")
-            # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun,
-            # pyre: ax.core.base_trial.TrialStatus, ax.core.
-            # pyre: batch_trial.AbandonedArm, ax.core.
-            # pyre: batch_trial.BatchTrial, ax.core.batch_trial.
-            # pyre: GeneratorRunStruct, ax.core.arm.Arm,
-            # pyre: ax.core.metric.Metric, ax.core.objective.
-            # pyre: Objective, ax.core.optimization_config.
-            # pyre: OptimizationConfig, ax.core.outcome_constraint.
-            # pyre: OutcomeConstraint, ax.core.parameter.
-            # pyre: ChoiceParameter, ax.core.parameter.
-            # pyre: FixedParameter, ax.core.parameter.ParameterType,
-            # pyre: ax.core.parameter.RangeParameter, ax.core.
-            # pyre: parameter_constraint.ParameterConstraint, ax.core.
-            # pyre: search_space.SearchSpace, ax.core.trial.Trial,
-            # pyre: ax.core.types.types.ComparisonOp, ax.runners.
-            # pyre: synthetic.SyntheticRunner, ax.storage.utils.
-            # pyre: DomainType, ax.storage.utils.
-            # pyre-fixme[29]: ParameterConstraintType]]` is not a function.
-            experiment = _class(
-                **{k: object_from_json(v) for k, v in object_json.items()}
-            )
-            loaded_trials = {}
-            for index, batch_json in trials_json.items():
-                is_trial = batch_json["__type"] == "Trial"
-                batch_json = {
-                    k: object_from_json(v)
-                    for k, v in batch_json.items()
-                    if k != "__type"
-                }
-                # TODO[drfreund]: if trial, decode as trial here
-                loaded_trials[int(index)] = (
-                    trial_from_json(experiment=experiment, **batch_json)
-                    if is_trial
-                    else batch_trial_from_json(experiment=experiment, **batch_json)
-                )
-
-            data_by_trial = object_from_json(data_by_trial_json)
-            # hack necessary because Python's json module converts dictionary
-            # keys to strings: https://stackoverflow.com/q/1450957
-            data_by_trial = {
-                int(k): OrderedDict({int(k2): v2 for k2, v2 in v.items()})
-                for k, v in data_by_trial.items()
-            }
-
-            experiment._time_created = object_from_json(time_created_json)
-            experiment._trials = loaded_trials
-            experiment._experiment_type = object_from_json(experiment_type_json)
-            experiment._data_by_trial = data_by_trial
-            return experiment
-
-        # pyre: `typing.Type[typing.Union[Experiment, GeneratorRun,
-        # pyre: ax.core.base_trial.TrialStatus, ax.core.
-        # pyre: batch_trial.AbandonedArm, ax.core.batch_trial.
-        # pyre: BatchTrial, ax.core.batch_trial.GeneratorRunStruct,
-        # pyre: ax.core.arm.Arm, ax.core.metric.
-        # pyre: Metric, ax.core.objective.Objective, ax.core.
-        # pyre: optimization_config.OptimizationConfig, ax.core.
-        # pyre: outcome_constraint.OutcomeConstraint, ax.core.
-        # pyre: parameter.ChoiceParameter, ax.core.parameter.
-        # pyre: FixedParameter, ax.core.parameter.ParameterType,
-        # pyre: ax.core.parameter.RangeParameter, ax.core.
-        # pyre: parameter_constraint.ParameterConstraint, ax.core.
-        # pyre: search_space.SearchSpace, ax.core.trial.Trial,
-        # pyre: ax.core.types.types.ComparisonOp, ax.runners.
-        # pyre: synthetic.SyntheticRunner, ax.storage.utils.
-        # pyre: DomainType, ax.storage.utils.
-        # pyre-fixme[29]: ParameterConstraintType]]` is not a function.
+        # pyre-fixme
         return _class(**{k: object_from_json(v) for k, v in object_json.items()})
     else:
         err = (
@@ -161,3 +67,65 @@ def object_from_json(object_json: Any) -> Any:
             f"{type(object_json)}."
         )
         raise JSONDecodeError(err)
+
+
+def generator_run_from_json(object_json: Dict[str, Any]) -> GeneratorRun:
+    """Load AE GeneratorRun from JSON."""
+    time_created_json = object_json.pop("time_created")
+    type_json = object_json.pop("generator_run_type")
+    index_json = object_json.pop("index")
+    generator_run = GeneratorRun(
+        **{k: object_from_json(v) for k, v in object_json.items()}
+    )
+    generator_run._time_created = object_from_json(time_created_json)
+    generator_run._generator_run_type = object_from_json(type_json)
+    generator_run._index = object_from_json(index_json)
+    return generator_run
+
+
+def trials_from_json(
+    experiment: Experiment, trials_json: Dict[str, Any]
+) -> Dict[int, BaseTrial]:
+    """Load AE Trials from JSON."""
+    loaded_trials = {}
+    for index, batch_json in trials_json.items():
+        is_trial = batch_json["__type"] == "Trial"
+        batch_json = {
+            k: object_from_json(v) for k, v in batch_json.items() if k != "__type"
+        }
+        loaded_trials[int(index)] = (
+            trial_from_json(experiment=experiment, **batch_json)
+            if is_trial
+            else batch_trial_from_json(experiment=experiment, **batch_json)
+        )
+    # pyre-fixme[7]: Expected `Dict[int, Bas... ax.core.trial.Trial]]`.
+    return loaded_trials
+
+
+def data_from_json(data_by_trial_json: Dict[str, Any]) -> Dict[
+    int, "OrderedDict[int, Data]"
+]:
+    """Load AE Data from JSON."""
+    data_by_trial = object_from_json(data_by_trial_json)
+    # hack necessary because Python's json module converts dictionary
+    # keys to strings: https://stackoverflow.com/q/1450957
+    return {
+        int(k): OrderedDict({int(k2): v2 for k2, v2 in v.items()})
+        for k, v in data_by_trial.items()
+    }
+
+
+def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
+    """Load AE Experiment from JSON."""
+    time_created_json = object_json.pop("time_created")
+    trials_json = object_json.pop("trials")
+    experiment_type_json = object_json.pop("experiment_type")
+    data_by_trial_json = object_json.pop("data_by_trial")
+    experiment = Experiment(
+        **{k: object_from_json(v) for k, v in object_json.items()}
+    )
+    experiment._time_created = object_from_json(time_created_json)
+    experiment._trials = trials_from_json(experiment, trials_json)
+    experiment._experiment_type = object_from_json(experiment_type_json)
+    experiment._data_by_trial = data_from_json(data_by_trial_json)
+    return experiment
