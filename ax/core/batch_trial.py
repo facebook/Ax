@@ -59,7 +59,7 @@ class BatchTrial(BaseTrial):
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
         self._status_quo: Optional[Arm] = None
         self._status_quo_weight: float = 0.0
-        self.status_quo = experiment.status_quo
+        self.set_status_quo(experiment.status_quo)
 
     @property
     def experiment(self) -> "core.experiment.Experiment":
@@ -180,8 +180,8 @@ class BatchTrial(BaseTrial):
         )
         generator_run.index = len(self._generator_run_structs) - 1
 
-        # Resetting status quo reweights the status_quo, based on new arms
-        self.status_quo = self.status_quo
+        # Resize status_quo based on new arms
+        self.set_status_quo(self.status_quo)
         return self
 
     @property
@@ -189,13 +189,8 @@ class BatchTrial(BaseTrial):
         """The control arm for this batch."""
         return self._status_quo
 
-    @status_quo.setter
-    def status_quo(self, status_quo: Optional[Arm]) -> None:
-        """Sets status quo arm."""
-        self.set_status_quo_with_weight(status_quo)
-
     @immutable_once_run
-    def set_status_quo_with_weight(
+    def set_status_quo(
         self, status_quo: Optional[Arm], weight: Optional[float] = None
     ) -> "BatchTrial":
         """Sets status quo arm.

@@ -164,8 +164,6 @@ class Experiment(Base):
         arms_by_name = {}
         for trial in self._trials.values():
             arms_by_name.update(trial.arms_by_name)
-        if self.status_quo:
-            arms_by_name[self.status_quo.name] = self.status_quo
         return arms_by_name
 
     @property
