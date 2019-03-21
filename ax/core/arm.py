@@ -80,7 +80,6 @@ class Arm(Base):
             Hash of arm's parameters.
 
         """
-        # TODO [drfreund]: remove!
         for k, v in params.items():
             if type(v) is np.int64:
                 params[k] = int(v)  # pragma: no cover
