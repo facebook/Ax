@@ -102,9 +102,9 @@ def trials_from_json(
     return loaded_trials
 
 
-def data_from_json(data_by_trial_json: Dict[str, Any]) -> Dict[
-    int, "OrderedDict[int, Data]"
-]:
+def data_from_json(
+    data_by_trial_json: Dict[str, Any]
+) -> Dict[int, "OrderedDict[int, Data]"]:
     """Load AE Data from JSON."""
     data_by_trial = object_from_json(data_by_trial_json)
     # hack necessary because Python's json module converts dictionary
@@ -121,9 +121,7 @@ def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
     trials_json = object_json.pop("trials")
     experiment_type_json = object_json.pop("experiment_type")
     data_by_trial_json = object_json.pop("data_by_trial")
-    experiment = Experiment(
-        **{k: object_from_json(v) for k, v in object_json.items()}
-    )
+    experiment = Experiment(**{k: object_from_json(v) for k, v in object_json.items()})
     experiment._time_created = object_from_json(time_created_json)
     experiment._trials = trials_from_json(experiment, trials_json)
     experiment._experiment_type = object_from_json(experiment_type_json)
