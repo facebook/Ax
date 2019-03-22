@@ -104,6 +104,15 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(self.batch.generator_run_structs), 2)
         self.assertEqual(sum(self.batch.weights), sum(self.weights) + 2)
 
+    def testInitWithGeneratorRun(self):
+        generator_run = GeneratorRun(arms=self.arms, weights=self.weights)
+        batch = self.experiment.new_batch_trial(generator_run=generator_run)
+        batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
+        self.assertEqual(self.batch.arms_by_name["0_0"], self.batch.arms[0])
+        self.assertEqual(self.batch.arms_by_name["0_1"], self.batch.arms[1])
+        self.assertEqual(len(batch.arms), len(self.arms))
+        self.assertEqual(len(self.batch.generator_run_structs), 1)
+
     def testStatusQuoOverlap(self):
         tot_weight = sum(self.batch.weights)
         new_sq = Arm(params={"w": 0.95, "x": 1, "y": "foo", "z": True})

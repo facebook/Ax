@@ -53,12 +53,14 @@ class GeneratorRunStruct(NamedTuple):
 
 
 class BatchTrial(BaseTrial):
-    def __init__(self, experiment: "core.experiment.Experiment") -> None:
+    def __init__(self, experiment: "core.experiment.Experiment", generator_run: Optional[GeneratorRun] = None) -> None:
         super().__init__(experiment=experiment)
         self._generator_run_structs: List[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
         self._status_quo: Optional[Arm] = None
         self._status_quo_weight: float = 0.0
+        if generator_run is not None:
+            self.add_generator_run(generator_run=generator_run)
         self.set_status_quo(experiment.status_quo)
 
     @property

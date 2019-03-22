@@ -373,9 +373,11 @@ class Experiment(Base):
         """Create a new trial associated with this experiment."""
         return Trial(experiment=self, generator_run=generator_run)
 
-    def new_batch_trial(self, trial_type: Optional[str] = None) -> BatchTrial:
+    def new_batch_trial(
+        self, generator_run: Optional[GeneratorRun] = None, trial_type: Optional[str] = None
+    ) -> BatchTrial:
         """Create a new batch trial associated with this experiment."""
-        return BatchTrial(experiment=self)
+        return BatchTrial(experiment=self, generator_run=generator_run)
 
     def _attach_trial(self, trial: BaseTrial) -> int:
         """Attach a trial to this experiment.
