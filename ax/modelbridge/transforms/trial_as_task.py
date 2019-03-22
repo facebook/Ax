@@ -13,7 +13,7 @@ from ax.modelbridge.transforms.base import Transform
 BATCH_PARAM = "BATCH_PARAM"
 
 
-class BatchAsTask(Transform):
+class TrialAsTask(Transform):
     """Convert trial to one or more task parameters.
 
     How trial is mapped to parameter is specified with a map like
@@ -53,7 +53,7 @@ class BatchAsTask(Transform):
         # Get trial level map
         if config is not None and "trial_level_map" in config:
             # pyre: Attribute `trial_level_map` declared in class `ax.
-            # pyre: modelbridge.transforms.trial_as_task.BatchAsTask` has type
+            # pyre: modelbridge.transforms.trial_as_task.TrialAsTask` has type
             # pyre: `Dict[str, Dict[int, str]]` but is used as type `typing.
             # pyre-fixme[8]: Union[float, int, str]`.
             self.trial_level_map: Dict[str, Dict[int, str]] = config["trial_level_map"]

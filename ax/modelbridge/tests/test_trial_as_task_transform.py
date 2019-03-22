@@ -5,11 +5,11 @@ from copy import deepcopy
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.transforms.trial_as_task import BatchAsTask
+from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.utils.common.testutils import TestCase
 
 
-class BatchAsTaskTransformTest(TestCase):
+class TrialAsTaskTransformTest(TestCase):
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -24,7 +24,7 @@ class BatchAsTaskTransformTest(TestCase):
             ObservationFeatures({"x": 3}, trial_index=1),
             ObservationFeatures({"x": 4}, trial_index=2),
         ]
-        self.t = BatchAsTask(
+        self.t = TrialAsTask(
             search_space=self.search_space,
             observation_features=self.training_feats,
             observation_data=None,
@@ -34,13 +34,13 @@ class BatchAsTaskTransformTest(TestCase):
             "bp2": {0: "u1", 1: "u1", 2: "u2"},
         }
 
-        self.t2 = BatchAsTask(
+        self.t2 = TrialAsTask(
             search_space=self.search_space,
             observation_features=self.training_feats,
             observation_data=None,
             config={"trial_level_map": self.bm},
         )
-        self.t3 = BatchAsTask(
+        self.t3 = TrialAsTask(
             search_space=self.search_space,
             observation_features=self.training_feats,
             observation_data=None,
@@ -57,14 +57,14 @@ class BatchAsTaskTransformTest(TestCase):
         # Test validation
         obsf = ObservationFeatures({"x": 2})
         with self.assertRaises(ValueError):
-            BatchAsTask(
+            TrialAsTask(
                 search_space=self.search_space,
                 observation_features=self.training_feats + [obsf],
                 observation_data=None,
             )
         bm = {"p": {0: "x1", 1: "x2"}}
         with self.assertRaises(ValueError):
-            BatchAsTask(
+            TrialAsTask(
                 search_space=self.search_space,
                 observation_features=self.training_feats,
                 observation_data=None,
