@@ -1,9 +1,9 @@
-.. Adaptive Experiment documentation master file, created by
+.. Ax documentation master file, created by
    sphinx-quickstart on Sat Mar  2 00:03:32 2019.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-ax API Reference
+Ax API Reference
 ===============================================
 
 .. automodule:: ax
@@ -15,8 +15,8 @@ ax API Reference
    benchmark
    core
    exceptions
-   generator
    metrics
+   modelbridge
    models
    plot
    runners

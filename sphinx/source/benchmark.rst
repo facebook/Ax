@@ -31,19 +31,3 @@ Benchmark Suite
     :members:
     :undoc-members:
     :show-inheritance:
-
-`GenerationStrategy`
-~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.benchmark.generation_strategy
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Benchmarking Utilities
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.benchmark.utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
