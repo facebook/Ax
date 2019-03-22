@@ -5,6 +5,8 @@ from typing import Dict, Optional, Type
 from ax.core.metric import Metric
 from ax.metrics.branin import BraninMetric
 from ax.metrics.factorial import FactorialMetric
+from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.metrics.noisy_function import NoisyFunctionMetric
 
 
 class MetricRegistry:
@@ -22,5 +24,7 @@ class MetricRegistry:
             Metric: 0,
             FactorialMetric: 1,
             BraninMetric: 2,
+            NoisyFunctionMetric: 3,
+            Hartmann6Metric: 4,
         }
         self.type_to_class = {v: k for k, v in self.class_to_type.items()}
