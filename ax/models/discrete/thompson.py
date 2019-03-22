@@ -5,7 +5,7 @@ import json
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types.types import TConfig, TParamValue, TParamValueList
+from ax.core.types import TConfig, TParamValue, TParamValueList
 from ax.models.discrete_base import DiscreteModel
 from ax.utils.common.docutils import copy_doc
 

@@ -18,7 +18,7 @@ from ax.core.observation import (
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import TConfig, TModelCov, TModelMean, TModelPredict
+from ax.core.types import TConfig, TModelCov, TModelMean, TModelPredict
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.logger import get_logger
 

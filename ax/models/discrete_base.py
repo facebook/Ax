@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types.types import TConfig, TParamValue, TParamValueList
+from ax.core.types import TConfig, TParamValue, TParamValueList
 
 
 class DiscreteModel:

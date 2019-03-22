@@ -4,7 +4,7 @@ import enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 import simplejson
-from ax.core.types.types import TParameterization
+from ax.core.types import TParameterization
 from plotly import utils
 
 

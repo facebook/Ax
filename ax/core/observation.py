@@ -8,7 +8,7 @@ from ax.core.arm import Arm
 from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.types.types import TParameterization
+from ax.core.types import TParameterization
 
 
 class ObservationFeatures(Base):

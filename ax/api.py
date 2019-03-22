@@ -23,7 +23,7 @@ from ax.core.alias import (
     TEvaluationOutcome,
     Trial,
 )
-from ax.core.types.types import TParameterization
+from ax.core.types import TParameterization
 from ax.metrics import alias as metrics
 from ax.modelbridge import alias as modelbridge
 from ax.models import alias as models

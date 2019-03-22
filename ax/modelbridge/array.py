@@ -8,7 +8,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import TBounds, TConfig
+from ax.core.types import TBounds, TConfig
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,

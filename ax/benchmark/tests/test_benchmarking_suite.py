@@ -6,7 +6,7 @@ from ax.benchmark.benchmark_suite import BOBenchmarkingSuite, BOMethods, BOProbl
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.types.types import ComparisonOp
+from ax.core.types import ComparisonOp
 from ax.metrics.branin import BraninConstraintMetric, BraninMetric
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy

@@ -12,7 +12,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import ComparisonOp
+from ax.core.types import ComparisonOp
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.utils.common.testutils import TestCase

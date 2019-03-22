@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Un
 
 import numpy as np
 import torch
-from ax.core.types.types import TConfig, TParamCounter
+from ax.core.types import TConfig, TParamCounter
 from ax.models.torch_base import TorchModel
 
 

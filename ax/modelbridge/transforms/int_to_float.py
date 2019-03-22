@@ -5,7 +5,7 @@ from typing import List, Optional, Set
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import TConfig
+from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.rounding import randomized_round
 

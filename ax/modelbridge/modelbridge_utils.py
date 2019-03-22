@@ -7,7 +7,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import TBounds
+from ax.core.types import TBounds
 from ax.modelbridge.transforms.base import Transform
 
 

@@ -10,7 +10,7 @@ from ax.core.arm import Arm
 from ax.core.base import Base
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import TModelPredict, TModelPredictArm
+from ax.core.types import TModelPredict, TModelPredictArm
 
 
 class GeneratorRunType(Enum):

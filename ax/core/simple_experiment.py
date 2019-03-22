@@ -13,7 +13,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.core.types.types import TEvaluationOutcome, TParameterization
+from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.runners.synthetic import SyntheticRunner
 
 

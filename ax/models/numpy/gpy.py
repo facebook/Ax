@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import GPy
 import numpy as np
-from ax.core.types.types import TConfig
+from ax.core.types import TConfig
 from ax.models.model_utils import best_observed_point
 from ax.models.numpy.gpy_nei import (
     compute_best_feasible_value,

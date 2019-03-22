@@ -6,7 +6,7 @@ import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import TConfig, TParameterization
+from ax.core.types import TConfig, TParameterization
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.rounding import (
     randomized_onehot_round,

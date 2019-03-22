@@ -8,7 +8,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import TConfig
+from ax.core.types import TConfig
 from ax.modelbridge.array import FIT_MODEL_ERROR, ArrayModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchModel

@@ -10,7 +10,7 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.types.types import ComparisonOp
+from ax.core.types import ComparisonOp
 from ax.exceptions.storage import ImmutabilityError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner

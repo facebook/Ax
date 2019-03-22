@@ -8,7 +8,7 @@ from ax.core.objective import Objective
 from ax.core.observation import ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.types.types import ComparisonOp
+from ax.core.types import ComparisonOp
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.utils.common.testutils import TestCase
 

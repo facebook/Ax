@@ -6,7 +6,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import TConfig
+from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
 
 

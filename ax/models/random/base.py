@@ -3,7 +3,7 @@
 from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types.types import TConfig
+from ax.core.types import TConfig
 from ax.models.model_utils import (
     add_fixed_features,
     rejection_sample,

@@ -7,7 +7,7 @@ import numpy as np
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
-from ax.core.types.types import TParameterization
+from ax.core.types import TParameterization
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.transforms.ivw import IVW
 from ax.plot.base import DECIMALS, PlotData, PlotInSampleArm, PlotOutOfSampleArm, Z

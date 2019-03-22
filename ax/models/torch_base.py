@@ -3,7 +3,7 @@
 from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
-from ax.core.types.types import TConfig
+from ax.core.types import TConfig
 from torch import Tensor
 
 

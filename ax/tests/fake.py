@@ -32,7 +32,7 @@ from ax.core.simple_experiment import (
     unimplemented_evaluation_function,
 )
 from ax.core.trial import Trial
-from ax.core.types.types import (
+from ax.core.types import (
     ComparisonOp,
     TModelCov,
     TModelMean,

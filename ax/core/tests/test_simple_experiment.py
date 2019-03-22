@@ -4,7 +4,7 @@ from typing import Optional
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationOutcome
-from ax.core.types.types import TParameterization
+from ax.core.types import TParameterization
 from ax.tests.fake import get_branin_search_space
 from ax.utils.common.testutils import TestCase
 

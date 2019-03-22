@@ -7,7 +7,7 @@ from typing import Optional
 
 import numpy as np
 from ax.core.base import Base
-from ax.core.types.types import TParameterization
+from ax.core.types import TParameterization
 from ax.utils.common.equality import equality_typechecker
 
 

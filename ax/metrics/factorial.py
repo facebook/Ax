@@ -8,7 +8,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.metric import Metric
-from ax.core.types.types import TParameterization, TParamValue
+from ax.core.types import TParameterization, TParamValue
 from ax.utils.stats.statstools import agresti_coull_sem
 
 

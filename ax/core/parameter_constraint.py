@@ -4,7 +4,7 @@
 from typing import Dict, List, Union
 
 from ax.core.base import Base
-from ax.core.types.types import ComparisonOp
+from ax.core.types import ComparisonOp
 
 
 class ParameterConstraint(Base):

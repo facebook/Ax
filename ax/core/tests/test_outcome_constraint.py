@@ -9,7 +9,7 @@ from ax.core.outcome_constraint import (
     UPPER_BOUND_MISMATCH,
     OutcomeConstraint,
 )
-from ax.core.types.types import ComparisonOp
+from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 
 

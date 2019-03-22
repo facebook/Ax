@@ -8,7 +8,7 @@ from ax.core.base import Base
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.types.types import ComparisonOp
+from ax.core.types import ComparisonOp
 
 
 MAX_OBJECTIVES: int = 4

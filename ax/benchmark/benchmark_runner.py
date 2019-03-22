@@ -12,7 +12,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
-from ax.core.types.types import ComparisonOp
+from ax.core.types import ComparisonOp
 from ax.modelbridge.generation_strategy import TModelFactory, _filter_kwargs
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.logger import get_logger

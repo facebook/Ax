@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
 from ax.core.base import Base
-from ax.core.types.types import TParamValue
+from ax.core.types import TParamValue
 
 
 FIXED_CHOICE_PARAM_ERROR = (

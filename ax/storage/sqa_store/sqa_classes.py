@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from ax.core.base_trial import TrialStatus
 from ax.core.parameter import ParameterType
-from ax.core.types.types import (
+from ax.core.types import (
     ComparisonOp,
     TModelPredict,
     TModelPredictArm,

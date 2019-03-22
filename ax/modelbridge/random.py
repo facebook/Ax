@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Tuple
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import TConfig
+from ax.core.types import TConfig
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,

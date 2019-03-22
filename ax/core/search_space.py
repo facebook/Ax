@@ -7,7 +7,7 @@ from ax.core.arm import Arm
 from ax.core.base import Base
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.types.types import TParameterization
+from ax.core.types import TParameterization
 
 
 class SearchSpace(Base):

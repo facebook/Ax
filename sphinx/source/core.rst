@@ -167,7 +167,7 @@ Objective
 Core Types
 ----------
 
-.. automodule:: ax.core.types.types
+.. automodule:: ax.core.types
     :members:
     :undoc-members:
     :show-inheritance:

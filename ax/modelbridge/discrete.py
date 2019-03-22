@@ -6,7 +6,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import TConfig, TParamValueList
+from ax.core.types import TConfig, TParamValueList
 from ax.modelbridge.array import (
     array_to_observation_data,
     extract_objective_weights,

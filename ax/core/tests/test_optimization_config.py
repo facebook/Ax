@@ -4,7 +4,7 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.types.types import ComparisonOp
+from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 
 

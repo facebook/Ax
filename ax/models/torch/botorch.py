@@ -3,7 +3,7 @@
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
-from ax.core.types.types import TConfig
+from ax.core.types import TConfig
 from ax.models.model_utils import (
     best_observed_point,
     filter_constraints_and_fixed_features,

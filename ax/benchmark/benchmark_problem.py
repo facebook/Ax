@@ -7,7 +7,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types.types import ComparisonOp
+from ax.core.types import ComparisonOp
 from ax.metrics.branin import BraninConstraintMetric, BraninMetric, NegativeBraninMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.tests.fake import get_branin_search_space
