@@ -6,6 +6,7 @@ from typing import Dict, NamedTuple, Optional, Type
 from ax.core.arm import Arm
 from ax.core.base import Base
 from ax.core.batch_trial import AbandonedArm
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
@@ -19,6 +20,7 @@ from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
+    SQAData,
     SQAExperiment,
     SQAGeneratorRun,
     SQAMetric,
@@ -49,6 +51,7 @@ class SQAConfig(NamedTuple):
     class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = {
         AbandonedArm: SQAAbandonedArm,
         Arm: SQAArm,
+        Data: SQAData,
         Experiment: SQAExperiment,
         GeneratorRun: SQAGeneratorRun,
         Parameter: SQAParameter,

@@ -8,6 +8,7 @@ from ax.core.arm import Arm
 from ax.core.base import Base
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
@@ -27,6 +28,7 @@ from ax.exceptions.storage import SQAEncodeError
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
+    SQAData,
     SQAExperiment,
     SQAGeneratorRun,
     SQAMetric,
@@ -99,6 +101,15 @@ class Encoder:
         ]
         runner = self.runner_to_sqa(experiment.runner) if experiment.runner else None
 
+        experiment_data = []
+        for trial_index, data_by_timestamp in experiment.data_by_trial.items():
+            for timestamp, data in data_by_timestamp.items():
+                experiment_data.append(
+                    self.data_to_sqa(
+                        data=data, trial_index=trial_index, timestamp=timestamp
+                    )
+                )
+
         experiment_type = self.get_enum_value(
             value=experiment.experiment_type, enum=self.config.experiment_type_enum
         )
@@ -119,6 +130,7 @@ class Encoder:
             parameter_constraints=parameter_constraints,
             trials=trials,
             runner=runner,
+            data=experiment_data,
         )
 
     def parameter_to_sqa(self, parameter: Parameter) -> SQAParameter:
@@ -480,4 +492,16 @@ class Encoder:
             abandoned_arms=abandoned_arms,
             generator_runs=generator_runs,
             runner=runner,
+        )
+
+    def data_to_sqa(self, data: Data, trial_index: int, timestamp: int) -> SQAData:
+        """Convert AE data to SQLAlchemy."""
+        # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[Data]`.
+        data_class: SQAData = self.config.class_to_sqa_class[Data]
+        # pyre-fixme[29]: `SQAData` is not a function.
+        return data_class(
+            data_json=data.df.to_json(),
+            description=data.description,
+            time_created=timestamp,
+            trial_index=trial_index,
         )

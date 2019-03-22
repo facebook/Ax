@@ -13,6 +13,7 @@ from ax.tests.fake import (
     get_choice_parameter,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_batch_trial,
+    get_experiment_with_data,
     get_fixed_parameter,
     get_generator_run,
     get_generator_run2,
@@ -36,6 +37,7 @@ TEST_CASES = [
         Encoder.abandoned_arm_to_sqa,
         Decoder.abandoned_arm_from_sqa,
     ),
+    ("Arm", get_arm, Encoder.arm_to_sqa, Decoder.arm_from_sqa),
     ("BatchTrial", get_batch_trial, Encoder.trial_to_sqa, Decoder.trial_from_sqa),
     ("BraninMetric", get_branin_metric, Encoder.metric_to_sqa, Decoder.metric_from_sqa),
     (
@@ -56,7 +58,6 @@ TEST_CASES = [
         Encoder.parameter_to_sqa,
         Decoder.parameter_from_sqa,
     ),
-    ("Arm", get_arm, Encoder.arm_to_sqa, Decoder.arm_from_sqa),
     (
         "Experiment",
         get_experiment_with_batch_trial,
@@ -66,6 +67,12 @@ TEST_CASES = [
     (
         "Experiment",
         get_experiment_with_batch_and_single_trial,
+        Encoder.experiment_to_sqa,
+        Decoder.experiment_from_sqa,
+    ),
+    (
+        "Experiment",
+        get_experiment_with_data,
         Encoder.experiment_to_sqa,
         Decoder.experiment_from_sqa,
     ),
@@ -141,6 +148,9 @@ ENCODE_DECODE_FIELD_MAPS = {
     "AbandonedArm": EncodeDecodeFieldsMap(
         python_to_encoded={"reason": "abandoned_reason", "time": "time_abandoned"}
     ),
+    "Arm": EncodeDecodeFieldsMap(
+        encoded_only=["weight"], python_to_encoded={"params": "parameters"}
+    ),
     "BatchTrial": EncodeDecodeFieldsMap(
         python_to_encoded={
             "generator_run_structs": "generator_runs",
@@ -186,9 +196,6 @@ ENCODE_DECODE_FIELD_MAPS = {
             "minimize",
         ],
     ),
-    "Arm": EncodeDecodeFieldsMap(
-        encoded_only=["weight"], python_to_encoded={"params": "parameters"}
-    ),
     "ChoiceParameter": EncodeDecodeFieldsMap(
         encoded_only=[
             "domain_type",
@@ -207,13 +214,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "status_quo_name",
             "status_quo_parameters",
         ],
-        python_only=[
-            "search_space",
-            "data_by_trial",
-            "runner",
-            "optimization_config",
-            "status_quo",
-        ],
+        python_only=["search_space", "runner", "optimization_config", "status_quo"],
+        python_to_encoded={"data_by_trial": "data"},
     ),
     "FixedParameter": EncodeDecodeFieldsMap(
         encoded_only=[

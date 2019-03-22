@@ -135,6 +135,25 @@ def get_simple_experiment() -> SimpleExperiment:
     return experiment
 
 
+def get_experiment_with_batch_trial() -> Experiment:
+    batch_trial = get_batch_trial()
+    return batch_trial.experiment
+
+
+def get_experiment_with_batch_and_single_trial() -> Experiment:
+    batch_trial = get_batch_trial()
+    batch_trial.experiment.new_trial(generator_run=GeneratorRun(arms=[get_arm()]))
+    return batch_trial.experiment
+
+
+def get_experiment_with_data() -> Experiment:
+    batch_trial = get_batch_trial()
+    batch_trial.experiment.attach_data(data=get_data())
+    batch_trial.experiment.attach_data(data=get_data())
+    batch_trial.experiment.attach_data(data=get_data())
+    return batch_trial.experiment
+
+
 # Search Spaces
 
 
@@ -230,23 +249,6 @@ def get_trial() -> Trial:
     trial.add_arm(arm)
     trial.runner = SyntheticRunner()
     return trial
-
-
-def get_experiment_with_batch_trial() -> Experiment:
-    batch_trial = get_batch_trial()
-    return batch_trial.experiment
-
-
-def get_experiment_with_batch_and_single_trial() -> Experiment:
-    batch_trial = get_batch_trial()
-    batch_trial.experiment.new_trial(generator_run=GeneratorRun(arms=[get_arm()]))
-    return batch_trial.experiment
-
-
-def get_experiment_with_data() -> Experiment:
-    batch_trial = get_batch_trial()
-    batch_trial.experiment.attach_data(data=get_data())
-    return batch_trial.experiment
 
 
 # Parameters

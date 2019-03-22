@@ -26,7 +26,16 @@ from ax.storage.sqa_store.json import (
 from ax.storage.sqa_store.sqa_enum import IntEnum, StringEnum
 from ax.storage.sqa_store.timestamp import IntTimestamp
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 
 
@@ -173,6 +182,17 @@ class SQARunner(Base):
     trial_id: Optional[int] = Column(Integer, ForeignKey("trial_v2.id"))
 
 
+class SQAData(Base):
+    __tablename__: str = "data_v2"
+
+    id: int = Column(Integer, primary_key=True)
+    data_json: str = Column(Text, nullable=False)
+    description: Optional[str] = Column(String(LONG_STRING_FIELD_LENGTH))
+    experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"), nullable=False)
+    time_created: int = Column(BigInteger, nullable=False)
+    trial_index: Optional[int] = Column(Integer)
+
+
 class SQATrial(Base):
     __tablename__: str = "trial_v2"
 
@@ -227,6 +247,7 @@ class SQAExperiment(Base):
     # Trials and experiments are mutable, so the children relationships need
     # cascade="all, delete-orphan", which means if we remove or replace
     # a child, the old one will be deleted.
+    data: List[SQAData] = relationship("SQAData", cascade="all, delete-orphan")
     metrics: List[SQAMetric] = relationship("SQAMetric", cascade="all, delete-orphan")
     parameters: List[SQAParameter] = relationship(
         "SQAParameter", cascade="all, delete-orphan"

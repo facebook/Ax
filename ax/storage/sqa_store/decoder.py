@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 
 import inspect
+import pandas as pd
+
+from collections import OrderedDict, defaultdict
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
@@ -27,6 +31,7 @@ from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
+    SQAData,
     SQAExperiment,
     SQAGeneratorRun,
     SQAMetric,
@@ -108,11 +113,25 @@ class Decoder:
             self.trial_from_sqa(trial_sqa=trial, experiment=experiment)
             for trial in experiment_sqa.trials
         ]
+
+        data_by_trial = defaultdict(dict)
+        for data_sqa in experiment_sqa.data:
+            trial_index = data_sqa.trial_index
+            timestamp = data_sqa.time_created
+            data_by_trial[trial_index][timestamp] = self.data_from_sqa(
+                data_sqa=data_sqa
+            )
+        data_by_trial = {
+            trial_index: OrderedDict(sorted(data_by_timestamp.items()))
+            for trial_index, data_by_timestamp in data_by_trial.items()
+        }
+
         experiment._trials = {trial.index: trial for trial in trials}
         experiment._time_created = experiment_sqa.time_created
         experiment._experiment_type = self.get_enum_name(
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
+        experiment._data_by_trial = dict(data_by_trial)
 
         return experiment
 
@@ -467,3 +486,9 @@ class Decoder:
             self.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None
         )
         return trial
+
+    def data_from_sqa(self, data_sqa: SQAData) -> Data:
+        """Convert SQLAlchemy Data to AE Data."""
+        return Data(
+            description=data_sqa.description, df=pd.read_json(data_sqa.data_json)
+        )
