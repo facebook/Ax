@@ -46,7 +46,7 @@ class Footer extends React.Component {
             <a href={this.docUrl('installation.html')}>
               Getting Started
             </a>
-            <a href={'/api/'}>
+            <a href={`${this.props.config.baseUrl}api/`}>
               API Reference
             </a>
             <a href={this.docUrl('ab.html')}>

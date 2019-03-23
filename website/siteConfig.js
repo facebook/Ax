@@ -10,14 +10,16 @@
 // See https://docusaurus.io/docs/site-config for all the possible
 // site configuration options.
 
+const baseUrl = '/';
+
 // List of projects/orgs using your project for the users page.
 const users = [];
 
 const siteConfig = {
-  title: 'Ax', // Title for your website.
+  title: 'Ax',
   tagline: 'Automated optimization and experimentation',
-  url: 'https://ax-platform.org', // Your website URL
-  baseUrl: '/', // Base URL for your project */
+  url: 'https://ax-platform.org',
+  baseUrl: baseUrl,
   // For github.io type URLs, you would set the url and baseUrl like:
   //   url: 'https://facebook.github.io',
   //   baseUrl: '/test-site/',
@@ -32,8 +34,8 @@ const siteConfig = {
   // For no header links in the top nav bar -> headerLinks: [],
   headerLinks: [
     {doc: 'why-ax', label: 'Docs'},
-    {href: '/tutorials/index', label: 'Tutorials'},
-    {href: '/api/index', label: 'API'},
+    {href: `${baseUrl}tutorials/`, label: 'Tutorials'},
+    {href: `${baseUrl}api/`, label: 'API'},
     // Search can be enabled when site is online
     // {search: true},
     {href: 'https://github.com/facebook/Ax', label: 'GitHub'},
