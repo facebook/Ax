@@ -123,14 +123,10 @@ def get_factorial_experiment(
 
 def get_simple_experiment() -> SimpleExperiment:
     experiment = SimpleExperiment(
-        name="test_branin",
-        search_space=get_branin_search_space(),
-        evaluation_function=unimplemented_evaluation_function,
-        objective_name="sum",
+        name="test_branin", search_space=get_branin_search_space(), objective_name="sum"
     )
 
     experiment.description = "foobar"
-    experiment.add_metric(get_metric())
 
     return experiment
 

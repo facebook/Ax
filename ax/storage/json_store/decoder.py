@@ -129,10 +129,11 @@ def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment
     data_by_trial_json = object_json.pop("data_by_trial")
     description_json = object_json.pop("description")
     is_test_json = object_json.pop("is_test")
-    runner_json = object_json.pop("runner")
-
     optimization_config = object_from_json(object_json.pop("optimization_config"))
-    tracking_metrics = object_from_json(object_json.pop("tracking_metrics"))
+
+    # not relevant to simple experiment
+    del object_json["tracking_metrics"]
+    del object_json["runner"]
 
     kwargs = {k: object_from_json(v) for k, v in object_json.items()}
     kwargs["evaluation_function"] = unimplemented_evaluation_function
@@ -143,8 +144,6 @@ def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment
 
     experiment.description = object_from_json(description_json)
     experiment.is_test = object_from_json(is_test_json)
-    experiment.runner = object_from_json(runner_json)
-    experiment._metrics = {m.name: m for m in tracking_metrics}
     experiment._time_created = object_from_json(time_created_json)
     experiment._trials = trials_from_json(experiment, trials_json)
     experiment._experiment_type = object_from_json(experiment_type_json)

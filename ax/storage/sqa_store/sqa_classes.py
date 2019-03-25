@@ -239,6 +239,7 @@ class SQAExperiment(Base):
     id: int = Column(Integer, primary_key=True)
     is_test: bool = Column(Boolean, nullable=False, default=False)
     name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
+    properties: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict, default={})
     status_quo_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     status_quo_parameters: Optional[TParameterization] = Column(JSONEncodedTextDict)
     time_created: datetime = Column(IntTimestamp, nullable=False)

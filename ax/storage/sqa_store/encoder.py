@@ -23,6 +23,7 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
+from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
 from ax.storage.sqa_store.sqa_classes import (
@@ -114,6 +115,10 @@ class Encoder:
             value=experiment.experiment_type, enum=self.config.experiment_type_enum
         )
 
+        properties = {}
+        if isinstance(experiment, SimpleExperiment):
+            properties["subclass"] = "SimpleExperiment"
+
         # pyre-fixme: Expected `Base` for 1st...yping.Type[Experiment]`.
         experiment_class: SQAExperiment = self.config.class_to_sqa_class[Experiment]
         # pyre-fixme[29]: `SQAExperiment` is not a function.
@@ -131,6 +136,7 @@ class Encoder:
             trials=trials,
             runner=runner,
             data=experiment_data,
+            properties=properties,
         )
 
     def parameter_to_sqa(self, parameter: Parameter) -> SQAParameter:

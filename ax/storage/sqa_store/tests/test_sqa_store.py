@@ -167,6 +167,16 @@ class SQAStoreTest(TestCase):
             decode_func = unbound_decode_func.__get__(self.decoder)
             sqa_object = encode_func(original_object)
             converted_object = decode_func(sqa_object)
+
+            if class_ == "SimpleExperiment":
+                # Evaluation functions will be different, so need to do
+                # this so equality test passes
+                with self.assertRaises(Exception):
+                    converted_object.evaluation_function()
+
+                original_object.evaluation_function = None
+                converted_object.evaluation_function = None
+
             self.assertEqual(
                 original_object,
                 converted_object,

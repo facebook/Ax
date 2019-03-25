@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
 import inspect
-import pandas as pd
-
 from collections import OrderedDict, defaultdict
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
@@ -25,6 +24,7 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
+from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.storage.sqa_store.db import SQABase
@@ -99,16 +99,36 @@ class Decoder:
             else None
         )
 
-        experiment = Experiment(
-            name=experiment_sqa.name,
-            description=experiment_sqa.description,
-            search_space=search_space,
-            optimization_config=opt_config,
-            tracking_metrics=tracking_metrics,
-            runner=runner,
-            status_quo=status_quo,
-            is_test=experiment_sqa.is_test,
-        )
+        if (
+            experiment_sqa.properties is not None
+            and experiment_sqa.properties.get("subclass") == "SimpleExperiment"
+        ):
+            if opt_config is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "SimpleExperiment must have an optimization config."
+                )
+            experiment = SimpleExperiment(
+                name=experiment_sqa.name,
+                search_space=search_space,
+                objective_name=opt_config.objective.metric.name,
+                minimize=opt_config.objective.minimize,
+                outcome_constraints=opt_config.outcome_constraints,
+                status_quo=status_quo,
+            )
+            experiment.description = experiment_sqa.description
+            experiment.is_test = experiment_sqa.is_test
+        else:
+            experiment = Experiment(
+                name=experiment_sqa.name,
+                description=experiment_sqa.description,
+                search_space=search_space,
+                optimization_config=opt_config,
+                tracking_metrics=tracking_metrics,
+                runner=runner,
+                status_quo=status_quo,
+                is_test=experiment_sqa.is_test,
+            )
+
         trials = [
             self.trial_from_sqa(trial_sqa=trial, experiment=experiment)
             for trial in experiment_sqa.trials

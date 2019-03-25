@@ -23,6 +23,7 @@ from ax.tests.fake import (
     get_outcome_constraint,
     get_parameter_constraint,
     get_range_parameter,
+    get_simple_experiment,
     get_sum_constraint1,
     get_sum_constraint2,
     get_synthetic_runner,
@@ -121,6 +122,12 @@ TEST_CASES = [
         Decoder.parameter_from_sqa,
     ),
     (
+        "SimpleExperiment",
+        get_simple_experiment,
+        Encoder.experiment_to_sqa,
+        Decoder.experiment_from_sqa,
+    ),
+    (
         "SyntheticRunner",
         get_synthetic_runner,
         Encoder.runner_to_sqa,
@@ -211,6 +218,7 @@ ENCODE_DECODE_FIELD_MAPS = {
         encoded_only=[
             "parameter_constraints",
             "parameters",
+            "properties",
             "status_quo_name",
             "status_quo_parameters",
         ],
@@ -296,6 +304,23 @@ ENCODE_DECODE_FIELD_MAPS = {
             "is_task",
             "is_ordered",
         ]
+    ),
+    "SimpleExperiment": EncodeDecodeFieldsMap(
+        encoded_only=[
+            "parameter_constraints",
+            "parameters",
+            "properties",
+            "status_quo_name",
+            "status_quo_parameters",
+        ],
+        python_only=[
+            "search_space",
+            "runner",
+            "optimization_config",
+            "status_quo",
+            "evaluation_function",
+        ],
+        python_to_encoded={"data_by_trial": "data"},
     ),
     "SumConstraint": EncodeDecodeFieldsMap(
         python_only=["parameter_names", "is_upper_bound"], encoded_only=["type"]
