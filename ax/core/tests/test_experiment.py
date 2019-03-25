@@ -32,17 +32,16 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.num_abandoned_arms, 0)
 
     def testEq(self):
-        experiment2 = get_experiment()
-        self.assertEqual(self.experiment, experiment2)
+        self.assertEqual(self.experiment, self.experiment)
 
-        experiment3 = Experiment(
+        experiment2 = Experiment(
             name="test2",
             search_space=get_search_space(),
             optimization_config=get_optimization_config(),
             status_quo=get_arm(),
             description="test description",
         )
-        self.assertNotEqual(self.experiment, experiment3)
+        self.assertNotEqual(self.experiment, experiment2)
 
     def testTrackingMetricsMerge(self):
         # Tracking and optimization metrics should get merged
