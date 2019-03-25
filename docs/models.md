@@ -5,10 +5,125 @@ title: Models
 
 ## Using models in Ax
 
-Describe model factory, get_sobol, get_GPEI, get_empirical_Bayes_thompson, get_factorial. Plots, cross validation. Brief descriptions of transforms and when to use each.
+Models in Ax are created using factory functions from the [model factory](link to code page). All of these models share a common API with methods `predict` to make predictions at new points and `gen` to generate new candidates to be tested. There are a variety of models available in the factory; here we describe the usage patterns for the primary model types and show how the various Ax utilities can be used with models.
+
+#### Sobol sequence
+The `get_sobol` function is used to construct a model that produces a quasirandom Sobol sequence on calls to `gen`. This code generates a scrambled Sobol sequence of 10 points:
+```Python
+from ax.modelbridge.factory import get_sobol
+
+m = get_sobol(search_space)
+gr = m.gen(n=10)
+```
+The output of `gen` is a [GeneratorRun](link to api) object that contains the generated points, along with metadata about the generation process. The generated arms can be accessed at `GeneratorRun.arms`.
+
+Additional arguments can be passed to `get_sobol` such as `scramble=False` to disable scrambling, and `seed` to set a seed (see [model API](link to init for SobolGenerator)).
+
+Sobol sequences are typically used to select initialization points, and this model does not implement `predict`. It can be used on search spaces with any combination of discrete and continuous parameters.
+
+#### Gaussian process with EI
+The `get_GPEI` function constructs a model that fits a GP to the data, and uses the EI acquisition function to generate new points on calls to `gen`. This code fits a GP and generates a batch of 5 points that maximize EI:
+```Python
+from ax.modelbridge.factory import get_GPEI
+
+m = get_GPEI(experiment, data)
+gr = m.gen(n=5, optimization_config=optimization_config)
+```
+[FIXME: have we introduced optimization_config earlier in the documentation?]
+
+[TODO: Include here the plot of all of the arms plus the new generated arms?]
+
+In contrast to `get_sobol`, the GP requires data and is able to make predictions. We make predictions by constructing a list of ObservationFeatures objects with the parameter values for which we want predictions:
+```Python
+from ax.core.observation import ObservationFeatures
+
+obs_feats = [
+    ObservationFeatures(parameters={'x1': 3.14, 'x2': 2.72}),
+    ObservationFeatures(parameters={'x1': 1.41, 'x2': 1.62}),
+]
+f, cov = m.predict(obs_feats)
+```
+The output of `predict` is the mean estimate at each of those points for each metric in the data, and the covariance (across metrics) for each point ([API](Link to ax.modelbridge.base.predict)).
+
+All Ax models that implement `predict` can be used with the built-in plotting utilities, which can produce plots of model predictions on 1-d or 2-d slices of the parameter space:
+```Python
+from ax.plot.slice import plot_slice
+from ax.utils.notebook.plotting import render, init_notebook_plotting
+
+init_notebook_plotting()
+render(plot_slice(
+  model=m,
+  param_name='x1',  # slice on values of 'x1'
+  metric_name='metric_a',
+  slice_values={'x2': 1.},  # Fix at this value for the slice
+))
+```
+[INSERT HERE A SLICE PLOT]
+```Python
+from ax.plot.contour import plot_contour
+
+render(plot_contour(
+  model=m,
+  param_x='x1',  # Parameter on x-axis
+  param_y='x2',  # Parameter on y-axis
+  metric_name='metric_a',
+  slice_values={'x2': 1.},  # Fix at this value for the slice
+))
+```
+[INSERT HERE A CONTOUR]
+
+Ax also includes utilities for cross validation to assess model predictive performance. Leave-one-out cross validation can be done like so:
+```Python
+from ax.modelbridge.cross_validation import cross_validate, compute_diagnostics
+
+cv = cross_validate(model)
+diagnostics = compute_diagnostics(cv)
+```
+`diagnostics` contains a collection of diagnostics of model predictions, such as the correlation between predictions and actual values and the p-value for a Fisher test of the model's ability to distinguish high values from low ([API](link to ax.modelbridge.cross_validation.compute_diagnostics)). A very useful tool for assessing model performance is to plot the cross validated predictions vs. actual observed values:
+```
+from ax.plot.diagnostic import interact_cross_validation
+
+render(interact_cross_validation(cv))
+```
+[INSERT HERE A CROSS VALIDATION PLOT]
+
+A good-performing model will have values that lie along the diagonal. Poor GP fits tend to produce cross validation plots that are flat with high predictive uncertainty - such fits are unlikely to produce good values in `gen`.
+
+The GP typically does a good job of modeling continuous parameters (`RangeParameter`s). If the search space contains `ChoiceParameter`s, they will be one-hot-encoded and the GP fit in the encoded space. A search space with a mix of continuous parameters and `ChoiceParameter`s that take a small number of values can be modeled effectively with a GP, but model performance may be poor if there are more than about 20 parameters after one-hot encoding. Cross validation is an effective tool for determining usefulness of the GP on a particular problem.
+
+In discrete spaces where the GP does not predict well, a multi-armed bandit approach is often preferred, and we now discuss those models.
+
+#### Empirical Bayes and Thompson sampling
+The `get_empirical_bayes_thompson` factory function returns a model that applies empirical Bayes shrinkage to a discrete set of arms, and then uses Thompson sampling to construct a policy with the weight that should be allocated to each arms. Here we apply empirical Bayes to the data and generate use Thompson sampling to generate a policy that is truncated at `n=10` arms:
+```Python
+from ax.modelbridge.factory import get_empirical_bayes_thompson
+
+m = get_empirical_bayes_thompson(experiment, data)
+gr = m.gen(n=10, optimization_config=optimization_config)
+```
+The arms and their corresponding weights can be accessed as `gr.arm_weights`.
+
+As with the GP, we can use `predict` to evaluate the model at points of our choosing. However, because this is a purely in-sample model, those points should correspond to arms that were in the data. The model prediction will return the estimate at that point after applying the empirical Bayes shrinkage:
+```Python
+f, cov = m.predict([ObservationFeatures(parameters={'x1': 3.14, 'x2': 2.72})])
+```
+
+[TODO: What plots do we use with EBTS?]
+
+#### Factorial designs
+[Actually I'm not certain we want to include this, since Sobol can also be used for discrete spaces]
+
+The factory function `get_factorial` can be used to construct a factorial design on a set of `ChoiceParameter`s.
+```Python
+from ax.modelbridge.factory import get_factorial
+
+m = get_factorial(search_space)
+gr = m.gen(n=10)
+```
+Like the Sobol sequence, the factorial model is only used to generate points and does not implement `predict`.
 
 
-## Deeper dive: Organization of the modeling stack
+## Deeper dive: organization of the modeling stack
 
 Ax uses a bridge design to provide a unified interface for models, while still allowing for modularity in how different types of models are implemented. The modeling stack consists of two layers: the ModelBridge and the Model.
 
@@ -49,10 +164,10 @@ m = NumpyModelBridge(
     search_space=search_space,
     data=data,
     model=new_model_obj,
-    transforms=[UnitX, StandardizeY],
+    transforms=[UnitX, StandardizeY],  # Include the desired set of transforms
 )
 ```
-The ModelBridge object m can then be used with plotting and cross validation utilities exactly the same way as the built-in models.
+The ModelBridge object `m` can then be used with plotting and cross validation utilities exactly the same way as the built-in models.
 
 ### Creating a new Model interface
 
