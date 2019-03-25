@@ -70,20 +70,37 @@ def plot_contour(
     model: ModelBridge,
     param_x: str,
     param_y: str,
-    metric: str,
+    metric_name: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
-    rel: bool = True,
+    relative: bool = False,
     density: int = 50,
     slice_values: Optional[Dict[str, Any]] = None,
     lower_is_better: bool = False,
 ) -> AEPlotConfig:
+    """Plot predictions for a 2-d slice of the parameter space.
+
+    Args:
+        model: ModelBridge that contains model for predictions
+        param_x: Name of parameter that will be sliced on x-axis
+        param_y: Name of parameter that will be sliced on y-axis
+        metric_name: Name of metric to plot
+        generator_runs_dict: A dictionary {name: generator run} of generator runs
+            whose arms will be plotted, if they lie in the slice.
+        relative: Predictions relative to status quo
+        density: Number of points along slice to evaluate predictions.
+        slice_values: A dictionary {name: val} for the fixed values of the
+            other parameters. If not provided, then the status quo values will
+            be used if there is a status quo, otherwise the mean of numeric
+            parameters or the mode of choice parameters.
+        lower_is_better: Lower values for metric are better.
+    """
     if param_x == param_y:
         raise ValueError("Please select different parameters for x- and y-dimensions.")
     data, f_plt, sd_plt, grid_x, grid_y, scales = _get_contour_predictions(
         model=model,
         x_param_name=param_x,
         y_param_name=param_y,
-        metric=metric,
+        metric=metric_name,
         generator_runs_dict=generator_runs_dict,
         density=density,
         slice_values=slice_values,
@@ -98,8 +115,8 @@ def plot_contour(
         "grid_x": grid_x,
         "grid_y": grid_y,
         "lower_is_better": lower_is_better,
-        "metric": metric,
-        "rel": rel,
+        "metric": metric_name,
+        "rel": relative,
         "sd": sd_plt,
         "xvar": param_x,
         "yvar": param_y,
@@ -111,15 +128,31 @@ def plot_contour(
 
 def interact_contour(
     model: ModelBridge,
-    metric: str,
+    metric_name: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
-    rel: bool = True,
+    relative: bool = False,
     density: int = 50,
     slice_values: Optional[Dict[str, Any]] = None,
     lower_is_better: bool = False,
 ) -> AEPlotConfig:
+    """Create interactive plot with predictions for a 2-d slice of the parameter
+    space.
+
+    Args:
+        model: ModelBridge that contains model for predictions
+        metric_name: Name of metric to plot
+        generator_runs_dict: A dictionary {name: generator run} of generator runs
+            whose arms will be plotted, if they lie in the slice.
+        relative: Predictions relative to status quo
+        density: Number of points along slice to evaluate predictions.
+        slice_values: A dictionary {name: val} for the fixed values of the
+            other parameters. If not provided, then the status quo values will
+            be used if there is a status quo, otherwise the mean of numeric
+            parameters or the mode of choice parameters.
+        lower_is_better: Lower values for metric are better.
+    """
     range_parameters = get_range_parameters(model)
-    plot_data, _, _ = get_plot_data(model, generator_runs_dict or {}, {metric})
+    plot_data, _, _ = get_plot_data(model, generator_runs_dict or {}, {metric_name})
 
     # TODO T38563759: Sort parameters by feature importances
     param_names = [parameter.name for parameter in range_parameters]
@@ -147,7 +180,7 @@ def interact_contour(
                 model=model,
                 x_param_name=param1,
                 y_param_name=param2,
-                metric=metric,
+                metric=metric_name,
                 generator_runs_dict=generator_runs_dict,
                 density=density,
                 slice_values=slice_values,
@@ -164,8 +197,8 @@ def interact_contour(
         "green_pink_scale": GREEN_PINK_SCALE,
         "grid_dict": grid_dict,
         "lower_is_better": lower_is_better,
-        "metric": metric,
-        "rel": rel,
+        "metric": metric_name,
+        "rel": relative,
         "sd_dict": sd_dict,
         "is_log_dict": is_log_dict,
         "param_names": param_names,
