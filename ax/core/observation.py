@@ -179,15 +179,11 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
         obs_params = experiment.arms_by_name[features["arm_name"]].params.copy()
         if obs_params:
             # Wipe null values => arm is out of design.
-            obs_params = {
-                p_name: p_value
-                for p_name, p_value in obs_params.items()
-                if p_value is not None
-            }
+            if None in obs_params.values():  # pyre-ignore: T42190436
+                obs_params = {}
             obs_kwargs["parameters"] = obs_params
         for f in ["trial_index", "start_time", "end_time", "random_split"]:
-            # pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float, str]]]` ...
-            obs_kwargs[f] = features.get(f, None)
+            obs_kwargs[f] = features.get(f, None)  # pyre-ignore: Confusion over get()
         observations.append(
             Observation(
                 # Expected `Optional[np.datetime64]` for 2nd anonymous
