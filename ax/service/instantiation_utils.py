@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from typing import Dict, List, Optional
 
+from ax.core.metric import Metric
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
     PARAMETER_PYTHON_TYPE_MAP,
@@ -11,15 +12,25 @@ from ax.core.parameter import (
     RangeParameter,
     TParameterType,
 )
-from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.parameter_constraint import (
+    OrderConstraint,
+    ParameterConstraint,
+    SumConstraint,
+)
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
-from ax.core.types import TParamValue
+from ax.core.types import (
+    ComparisonOp,
+    TEvaluationOutcome,
+    TParameterization,
+    TParamValue,
+)
 from ax.utils.common.typeutils import not_none
 
 
 PARAM_CLASSES = ["range", "choice", "fixed"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
+COMPARISON_OPS = {"<=": ComparisonOp.LEQ, ">=": ComparisonOp.GEQ}
 
 
 def _get_parameter_type(python_type: TParameterType) -> ParameterType:
@@ -129,32 +140,74 @@ def parameter_from_json(representation: Dict[str, TParamValue]) -> Parameter:
         raise ValueError(f"Unrecognized parameter type {parameter_class}.")
 
 
-def constraint_from_str(representation: str) -> ParameterConstraint:
+def constraint_from_str(
+    representation: str, parameter_names: List[str]
+) -> ParameterConstraint:
     """Parse string representation of a parameter constraint."""
-    pass
+    tokens = representation.split()
+    assert (len(tokens) == 3 and tokens[1] in COMPARISON_OPS) or (
+        len(tokens) == 5 and tokens[3] in COMPARISON_OPS
+    ), (
+        "Parameter constraint should be of form `metric_name` >= `other_metric_name` "
+        "for order constraints or `metric_name` + `other_metric_name` >= x, where "
+        "x is a float bound, and acceptable comparison operators are >= and <=."
+    )
+    one, other = tokens[0], tokens[2]
+    assert one in parameter_names, f"Parameter {one} not in {parameter_names}."
+    assert other in parameter_names, f"Parameter {other} not in {parameter_names}."
+
+    if len(tokens) == 3:  # Case "x1 >= x2" => order constraint.
+        return (
+            OrderConstraint(lower_name=one, upper_name=other)
+            if COMPARISON_OPS[tokens[1]] is ComparisonOp.LEQ
+            else OrderConstraint(lower_name=other, upper_name=one)
+        )
+
+    try:  # Case "x1 + x3 >= 2" => sum constraint.
+        bound = float(tokens[4])
+    except ValueError:
+        raise ValueError(f"Bound for sum constraint must be a number; got {tokens[4]}")
+    return SumConstraint(
+        parameter_names=[one, other],
+        is_upper_bound=COMPARISON_OPS[tokens[3]] is ComparisonOp.LEQ,
+        bound=bound,
+    )
 
 
 def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
     """Parse string representation of an outcome constraint."""
-    pass
+    tokens = representation.split()
+    assert len(tokens) == 3 and tokens[1] in COMPARISON_OPS, (
+        "Outcome constraint should be of form `metric_name >= x`, where x is a "
+        "float bound and comparison operator is >= or <=."
+    )
+    op = COMPARISON_OPS[tokens[1]]
+    try:
+        bound = float(tokens[2])
+    except ValueError:
+        raise ValueError("Outcome constraint bound should be a float.")
+    return OutcomeConstraint(Metric(name=tokens[0]), op=op, bound=bound, relative=False)
 
 
 def make_simple_experiment(
     name: str,
     parameters: List[Dict[str, TParamValue]],
     objective_name: str,
-    parameter_constraints: Optional[List[str]] = None,  # TODO[drfreund]
-    outcome_constraints: Optional[List[str]] = None,  # TODO[drfreund]
+    parameter_constraints: Optional[List[str]] = None,
+    outcome_constraints: Optional[List[str]] = None,
 ) -> SimpleExperiment:
     """Instantiation wrapper that allows for creation of SimpleExperiment without
     importing or instantiating any Ax classes."""
+
+    exp_parameters: List[Parameter] = [parameter_from_json(p) for p in parameters]
+    names = [p.name for p in exp_parameters]
     return SimpleExperiment(
         name=name,
         search_space=SearchSpace(
-            parameters=[parameter_from_json(p) for p in parameters],
+            parameters=exp_parameters,
             parameter_constraints=None
             if parameter_constraints is None
-            else [constraint_from_str(c) for c in parameter_constraints],
+            else [constraint_from_str(c, names) for c in parameter_constraints],
         ),
         objective_name=objective_name,
         outcome_constraints=None

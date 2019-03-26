@@ -110,10 +110,10 @@ class AELoopHandler:
         name: str,
         parameters: List[Dict[str, TParamValue]],
         objective_name: str,
-        parameter_constraints: Optional[List[str]] = None,  # TODO[drfreund]
-        outcome_constraints: Optional[List[str]] = None,  # TODO[drfreund]
+        parameter_constraints: Optional[List[str]] = None,
+        outcome_constraints: Optional[List[str]] = None,
     ) -> None:
-        """Create and save a new experiment."""  # TODO[drfreund]
+        """Create and save a new experiment."""
         experiment = make_simple_experiment(
             name=name,
             parameters=parameters,
@@ -220,7 +220,7 @@ class AELoopHandler:
         if self.db_settings is not None:
             save_experiment(self.experiment, self.db_settings)
 
-    def should_stop_early(
+    def should_stop_early(  # should take trial ID
         self, params: TParameterization, data: TEvaluationOutcome
     ) -> bool:
         """Whether to stop the given parameterization given early data."""
