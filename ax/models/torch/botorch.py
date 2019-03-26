@@ -152,6 +152,7 @@ class BotorchModel(TorchModel):
                 X_pending = None
         else:
             X_pending = None
+
         acquisition_function = options.get("acquisition_function")
         if acquisition_function is None:
             # Get points observed for all objective and constraint outcomes
@@ -175,10 +176,8 @@ class BotorchModel(TorchModel):
             else:
                 obj_tf = get_objective_weights_transform(objective_weights)
                 con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-                if not torch.is_tensor(X_observed):  # this is just to shut up pyre
-                    X_observed = torch.tensor(X_observed)
                 inf_cost = get_infeasible_cost(
-                    X=X_observed, model=self.model, objective=obj_tf
+                    X=X_observed, model=self.model, objective=obj_tf  # pyre-ignore [9]
                 )
                 objective = ConstrainedMCObjective(
                     objective=obj_tf,

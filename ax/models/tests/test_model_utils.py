@@ -118,6 +118,18 @@ class ModelUtilsTest(TestCase):
                 options={"method": "feasible_threshold"},
             )
 
+        with self.assertRaises(ValueError):
+            delattr(model, "Xs")
+            xbest = best_observed_point(
+                model=model,
+                bounds=bounds,
+                objective_weights=np.zeros(3),
+                outcome_constraints=outcome_constraints,
+                linear_constraints=linear_constraints,
+                fixed_features={1: 100},
+                options={"method": "feasible_threshold"},
+            )
+
     def testCheckDuplicate(self):
         duplicate_point = np.array([0, 1])
         not_duplicate_point = np.array([9, 9])

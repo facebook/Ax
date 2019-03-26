@@ -155,7 +155,7 @@ class BotorchModelTest(TestCase):
                 n=n,
                 bounds=bounds,
                 objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
+                outcome_constraints=None,
                 linear_constraints=linear_constraints,
                 fixed_features=fixed_features,
                 pending_observations=pending_observations,
