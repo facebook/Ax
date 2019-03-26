@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Dict, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -8,15 +8,17 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
-from ax.core.types import TEvaluationOutcome, TModelPredictArm, TParameterization
+from ax.core.types import (
+    TEvaluationOutcome,
+    TModelPredictArm,
+    TParameterization,
+    TParamValue,
+)
 from ax.modelbridge.generation_strategy import GenerationStrategy
-
-# pyre-fixme[21]: Could not find `base_decoder`.
-from ax.storage.sqa_store.base_decoder import Decoder
-
-# pyre-fixme[21]: Could not find `base_encoder`.
-from ax.storage.sqa_store.base_encoder import Encoder
+from ax.service.instantiation_utils import make_simple_experiment
 from ax.storage.sqa_store.db import init_engine_and_session_factory
+from ax.storage.sqa_store.decoder import Decoder
+from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.load import _load_experiment
 from ax.storage.sqa_store.save import _save_experiment
 from libfb.py import db_locator
@@ -103,16 +105,22 @@ class AELoopHandler:
             )
         return self._experiment
 
-    # TODO (T40274901): Make a simpler API for doing this
-    def create_experiment(self, experiment: SimpleExperiment) -> None:
-        """Create and save a new experiment.
-
-        Args:
-            experiment: Experiment object.
-
-        Returns:
-            Experiment object.
-        """
+    def create_experiment(
+        self,
+        name: str,
+        parameters: List[Dict[str, TParamValue]],
+        objective_name: str,
+        parameter_constraints: Optional[List[str]] = None,  # TODO[drfreund]
+        outcome_constraints: Optional[List[str]] = None,  # TODO[drfreund]
+    ) -> None:
+        """Create and save a new experiment."""  # TODO[drfreund]
+        experiment = make_simple_experiment(
+            name=name,
+            parameters=parameters,
+            objective_name=objective_name,
+            parameter_constraints=parameter_constraints,
+            outcome_constraints=outcome_constraints,
+        )
         if self.db_settings:
             save_experiment(experiment, self.db_settings)
         self._experiment = experiment

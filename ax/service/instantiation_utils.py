@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+from typing import Dict, List, Optional
+
+from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.parameter import (
+    PARAMETER_PYTHON_TYPE_MAP,
+    ChoiceParameter,
+    FixedParameter,
+    Parameter,
+    ParameterType,
+    RangeParameter,
+    TParameterType,
+)
+from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.search_space import SearchSpace
+from ax.core.simple_experiment import SimpleExperiment
+from ax.core.types import TParamValue
+from ax.utils.common.typeutils import not_none
+
+
+PARAM_CLASSES = ["range", "choice", "fixed"]
+PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
+
+
+def _get_parameter_type(python_type: TParameterType) -> ParameterType:
+    for param_type, py_type in PARAMETER_PYTHON_TYPE_MAP.items():
+        if py_type is python_type:
+            return param_type
+    raise ValueError(f"No AE parameter type corresponding to {python_type}.")
+
+
+def _to_parameter_type(
+    vals: List[TParamValue], typ: Optional[str], param_name: str, field_name: str
+) -> ParameterType:
+    if typ is None:
+        parameter_type = _get_parameter_type(type(not_none(vals[0])))  # pyre-ignore[6]
+        assert all(isinstance(x, parameter_type) for x in vals), (  # pyre-ignore[6]
+            f"Values in `{field_name}` not of the same type and no `value_type` was "
+            f"explicitly specified; cannot infer value type for parameter {param_name}."
+        )
+        return parameter_type
+    return _get_parameter_type(PARAM_TYPES[typ])  # pyre-ignore[6]
+
+
+def _make_range_param(
+    name: str, representation: Dict[str, TParamValue], parameter_type: Optional[str]
+) -> RangeParameter:
+    assert "bounds" in representation, "Bounds are required for range parameters."
+    bounds = representation["bounds"]
+    assert isinstance(bounds, list) and len(bounds) == 2, (
+        f"Cannot parse parameter {name}: for range parameters, json representation "
+        "should include a list of two values, lower and upper bounds of the bounds."
+    )
+    return RangeParameter(
+        name=name,
+        parameter_type=_to_parameter_type(bounds, parameter_type, name, "bounds"),
+        lower=bounds[0],
+        upper=bounds[1],
+        log_scale=representation.get("log_scale", False),
+    )
+
+
+def _make_choice_param(
+    name: str, representation: Dict[str, TParamValue], parameter_type: Optional[str]
+) -> ChoiceParameter:
+    assert "values" in representation, "Values are required for choice parameters."
+    values = representation["values"]
+    assert isinstance(values, list) and len(values) > 1, (
+        f"Cannot parse parameter {name}: for choice parameters, json representation"
+        " should include a list values, lower and upper bounds of the range."
+    )
+    return ChoiceParameter(
+        name=name,
+        parameter_type=_to_parameter_type(values, parameter_type, name, "values"),
+        values=values,
+        is_ordered=representation.get("is_ordered", False),
+    )
+
+
+def _make_fixed_param(
+    name: str, representation: Dict[str, TParamValue], parameter_type: Optional[str]
+) -> FixedParameter:
+    assert "value" in representation, "Value is required for fixed parameters."
+    value = representation["value"]
+    assert type(value) in PARAM_TYPES.values(), (
+        f"Cannot parse fixed parameter {name}: for fixed parameters, json "
+        "representation should include a single value."
+    )
+    return FixedParameter(
+        name=name,
+        parameter_type=_get_parameter_type(type(value))  # pyre-ignore[6]
+        if parameter_type is None
+        else _get_parameter_type(PARAM_TYPES[parameter_type]),  # pyre-ignore[6]
+        value=value,
+    )
+
+
+def parameter_from_json(representation: Dict[str, TParamValue]) -> Parameter:
+    """Instantiate a parameter from JSON representation."""
+    name = representation["name"]
+    assert isinstance(name, str), "Parameter name must be a string."
+    parameter_class = representation["type"]
+    assert (
+        isinstance(parameter_class, str) and parameter_class in PARAM_CLASSES
+    ), "Type in parameter JSON representation must be `range`, `choice`, or `fixed`."
+
+    parameter_type = representation.get("value_type", None)
+    if parameter_type is not None:
+        assert isinstance(parameter_type, str) and parameter_type in PARAM_TYPES, (
+            "Value type in parameter JSON representation must be `int`, `float`, "
+            "`bool` or `str`."
+        )
+
+    if parameter_class == "range":
+        return _make_range_param(
+            name=name, representation=representation, parameter_type=parameter_type
+        )
+
+    if parameter_class == "choice":
+        return _make_choice_param(
+            name=name, representation=representation, parameter_type=parameter_type
+        )
+
+    if parameter_class == "fixed":
+        return _make_fixed_param(
+            name=name, representation=representation, parameter_type=parameter_type
+        )
+    else:
+        raise ValueError(f"Unrecognized parameter type {parameter_class}.")
+
+
+def constraint_from_str(representation: str) -> ParameterConstraint:
+    """Parse string representation of a parameter constraint."""
+    pass
+
+
+def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
+    """Parse string representation of an outcome constraint."""
+    pass
+
+
+def make_simple_experiment(
+    name: str,
+    parameters: List[Dict[str, TParamValue]],
+    objective_name: str,
+    parameter_constraints: Optional[List[str]] = None,  # TODO[drfreund]
+    outcome_constraints: Optional[List[str]] = None,  # TODO[drfreund]
+) -> SimpleExperiment:
+    """Instantiation wrapper that allows for creation of SimpleExperiment without
+    importing or instantiating any Ax classes."""
+    return SimpleExperiment(
+        name=name,
+        search_space=SearchSpace(
+            parameters=[parameter_from_json(p) for p in parameters],
+            parameter_constraints=None
+            if parameter_constraints is None
+            else [constraint_from_str(c) for c in parameter_constraints],
+        ),
+        objective_name=objective_name,
+        outcome_constraints=None
+        if outcome_constraints is None
+        else [outcome_constraint_from_str(c) for c in outcome_constraints],
+    )

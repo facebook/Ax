@@ -8,7 +8,7 @@ from botorch.acquisition import AcquisitionFunction
 
 
 TParamCounter = DefaultDict[int, int]
-TParamValue = Optional[Union[str, bool, float]]
+TParamValue = Optional[Union[str, bool, float, int]]
 TParameterization = Dict[str, TParamValue]
 TParamValueList = List[TParamValue]  # a parameterization without the keys
 TContextStratum = Optional[Dict[str, Union[str, float, int]]]
