@@ -393,10 +393,14 @@ def get_fixed_values(
         observations = model.get_training_data()
         setx = {}
         for p_name, parameter in model.model_space.parameters.items():
+            # Exclude out of design status quo (no parameters)
             vals = [
                 obs.features.parameters[p_name]
                 for obs in observations
-                if parameter.validate(obs.features.parameters[p_name])
+                if (
+                    len(obs.features.parameters) > 0
+                    and parameter.validate(obs.features.parameters[p_name])
+                )
             ]
             if isinstance(parameter, FixedParameter):
                 setx[p_name] = parameter.value
