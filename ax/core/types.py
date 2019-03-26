@@ -4,6 +4,7 @@ import enum
 from typing import DefaultDict, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from botorch.acquisition import AcquisitionFunction
 
 
 TParamCounter = DefaultDict[int, int]
@@ -24,7 +25,7 @@ TModelPredictArm = Tuple[Dict[str, float], Dict[str, Dict[str, float]]]
 # {metric_name -> (mean, standard error)}
 TEvaluationOutcome = Dict[str, Tuple[float, float]]
 
-TConfig = Dict[str, Union[int, float, str]]
+TConfig = Dict[str, Union[int, float, str, AcquisitionFunction]]
 TBucket = List[Dict[str, List[str]]]
 
 

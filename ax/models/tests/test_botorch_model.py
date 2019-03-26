@@ -7,7 +7,8 @@ import torch
 from ax.models.torch.botorch import BotorchModel, _get_and_fit_model
 from ax.models.torch.utils import MIN_OBSERVED_NOISE_LEVEL
 from ax.utils.common.testutils import TestCase
-from botorch.acquisition.utils import get_infeasible_cost
+from botorch.acquisition.objective import LinearMCObjective
+from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
 from botorch.models import MultiOutputGP
 from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
@@ -141,7 +142,6 @@ class BotorchModelTest(TestCase):
             # note: gen() always returns CPU tensors
             self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
-            print(mock_sequential_optimize.call_args_list[-1][1])
             self.assertEqual(
                 mock_sequential_optimize.call_args_list[-1][1]["post_processing_func"],
                 dummy_func,
@@ -165,6 +165,32 @@ class BotorchModelTest(TestCase):
             self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
             mock_joint_optimize.assert_called_once()
+
+        # test passing acquisition function via model_gen_options
+        acquisition_function = get_acquisition_function(
+            acquisition_function_name="qUCB",
+            model=model.model,
+            objective=LinearMCObjective(objective_weights),
+            X_observed=Xs1 + Xs2,
+            beta=2.0,
+        )
+        with mock.patch(
+            "ax.models.torch.botorch.sequential_optimize", return_value=X_dummy
+        ) as mock_sequential_optimize:
+            _, __ = model.gen(
+                n=n,
+                bounds=bounds,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                linear_constraints=linear_constraints,
+                fixed_features=fixed_features,
+                pending_observations=pending_observations,
+                model_gen_options={"acquisition_function": acquisition_function},
+            )
+            self.assertEqual(
+                mock_sequential_optimize.call_args_list[-1][1]["acq_function"],
+                acquisition_function,
+            )
 
         # Check best point selection
         xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
