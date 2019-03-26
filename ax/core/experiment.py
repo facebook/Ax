@@ -164,6 +164,8 @@ class Experiment(Base):
         arms_by_name = {}
         for trial in self._trials.values():
             arms_by_name.update(trial.arms_by_name)
+        if self.status_quo:
+            arms_by_name[self.status_quo.name] = self.status_quo
         return arms_by_name
 
     @property
@@ -374,7 +376,9 @@ class Experiment(Base):
         return Trial(experiment=self, generator_run=generator_run)
 
     def new_batch_trial(
-        self, generator_run: Optional[GeneratorRun] = None, trial_type: Optional[str] = None
+        self,
+        generator_run: Optional[GeneratorRun] = None,
+        trial_type: Optional[str] = None,
     ) -> BatchTrial:
         """Create a new batch trial associated with this experiment."""
         return BatchTrial(experiment=self, generator_run=generator_run)

@@ -53,7 +53,11 @@ class GeneratorRunStruct(NamedTuple):
 
 
 class BatchTrial(BaseTrial):
-    def __init__(self, experiment: "core.experiment.Experiment", generator_run: Optional[GeneratorRun] = None) -> None:
+    def __init__(
+        self,
+        experiment: "core.experiment.Experiment",
+        generator_run: Optional[GeneratorRun] = None,
+    ) -> None:
         super().__init__(experiment=experiment)
         self._generator_run_structs: List[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
@@ -61,7 +65,7 @@ class BatchTrial(BaseTrial):
         self._status_quo_weight: float = 0.0
         if generator_run is not None:
             self.add_generator_run(generator_run=generator_run)
-        self.set_status_quo(experiment.status_quo)
+        self.status_quo = experiment.status_quo
 
     @property
     def experiment(self) -> "core.experiment.Experiment":
@@ -182,8 +186,8 @@ class BatchTrial(BaseTrial):
         )
         generator_run.index = len(self._generator_run_structs) - 1
 
-        # Resize status_quo based on new arms
-        self.set_status_quo(self.status_quo)
+        # Resetting status quo reweights the status_quo, based on new arms
+        self.reweight_status_quo()
         return self
 
     @property
@@ -191,8 +195,13 @@ class BatchTrial(BaseTrial):
         """The control arm for this batch."""
         return self._status_quo
 
+    @status_quo.setter
+    def status_quo(self, status_quo: Optional[Arm]) -> None:
+        """Sets status quo arm."""
+        self.set_status_quo_with_weight(status_quo)
+
     @immutable_once_run
-    def set_status_quo(
+    def set_status_quo_with_weight(
         self, status_quo: Optional[Arm], weight: Optional[float] = None
     ) -> "BatchTrial":
         """Sets status quo arm.
@@ -218,7 +227,18 @@ class BatchTrial(BaseTrial):
                 status_quo = new_status_quo
             elif not status_quo.has_name:
                 status_quo.name = "status_quo_" + str(self.index)
+        self._status_quo = status_quo
+        self.reweight_status_quo(weight)
+        return self
 
+    @immutable_once_run
+    def reweight_status_quo(self, weight: Optional[float] = None) -> "BatchTrial":
+        """Update status quo weight.
+
+        If arms have been added since the status quo was initially added,
+        the optimal weight of the status quo may change.
+        """
+        status_quo = self._status_quo
         # Unset status_quo so avg weight computation works as intended
         self._status_quo = None
         if weight is None:
@@ -227,7 +247,6 @@ class BatchTrial(BaseTrial):
                 if len(self.weights) == 0
                 else float(sum(self.weights)) / len(self.weights)
             )
-
         self._status_quo = status_quo
         self._status_quo_weight = weight
         return self

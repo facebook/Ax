@@ -234,7 +234,7 @@ def get_batch_trial() -> BatchTrial:
     batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=0.75)
     batch.mark_arm_abandoned(batch.arms[0].name, "abandoned reason")
     batch.runner = SyntheticRunner()
-    batch.set_status_quo(status_quo=arms[0], weight=0.5)
+    batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
     return batch
 
 

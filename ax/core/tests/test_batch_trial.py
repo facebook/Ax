@@ -118,7 +118,7 @@ class BatchTrialTest(TestCase):
         new_sq = Arm(params={"w": 0.95, "x": 1, "y": "foo", "z": True})
 
         # Set status quo to existing arm
-        self.batch.set_status_quo(self.arms[0], self.sq_weight)
+        self.batch.set_status_quo_with_weight(self.arms[0], self.sq_weight)
         self.assertTrue(self.batch.status_quo == self.arms[0])
         self.assertEqual(self.batch.status_quo.name, self.arms[0].name)
         self.assertEqual(
@@ -127,7 +127,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(sum(self.batch.weights), tot_weight + self.sq_weight)
 
         # Set status quo to new arm, add it
-        self.batch.set_status_quo(new_sq, self.sq_weight)
+        self.batch.set_status_quo_with_weight(new_sq, self.sq_weight)
         self.assertEqual(self.batch.status_quo.name, "status_quo_0")
         self.batch.add_arms_and_weights([new_sq])
         self.assertEqual(
@@ -143,15 +143,15 @@ class BatchTrialTest(TestCase):
 
         # Test negative weight
         with self.assertRaises(ValueError):
-            self.batch.set_status_quo(new_sq, -1)
+            self.batch.set_status_quo_with_weight(new_sq, -1)
 
         # Set status quo to new arm
-        self.batch.set_status_quo(new_sq, self.sq_weight)
+        self.batch.set_status_quo_with_weight(new_sq, self.sq_weight)
         self.assertTrue(self.batch.status_quo == new_sq)
         self.assertEqual(self.batch.status_quo.name, "status_quo_0")
         self.assertEqual(sum(self.batch.weights), tot_weight + self.sq_weight)
         # sq weight should be ignored when sq is None
-        self.batch.set_status_quo(None)
+        self.batch.status_quo = None
         self.assertEqual(sum(self.batch.weights), tot_weight)
 
         # Verify experiment status quo gets set on init
@@ -162,7 +162,7 @@ class BatchTrialTest(TestCase):
 
         # Try setting sq to existing arm with different name
         with self.assertRaises(ValueError):
-            self.batch.set_status_quo(Arm(self.arms[0].params, name="new_name"))
+            self.batch.status_quo = Arm(self.arms[0].params, name="new_name")
 
     def testBatchLifecycle(self):
         self.batch.runner = SyntheticRunner()
