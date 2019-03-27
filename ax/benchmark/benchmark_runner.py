@@ -25,23 +25,9 @@ PROBLEM_METHOD_DELIMETER = "_on_"
 RUN_DELIMETER = "_run_"
 
 
-# Identifies whether a given benchmark method (model factory function)
-# is a generator strategy or a standalone factory function.
-def _method_is_generation_strategy(model_factory: TModelFactory) -> bool:
-    return getattr(model_factory, "from_generation_strategy", False)
-
-
 # Infers the name of the benchmarking method from a given factory function.
 def _method_name(model_factory: TModelFactory) -> str:
-    if _method_is_generation_strategy(model_factory):
-        return model_factory.__self__.name
-    else:
-        return (
-            model_factory.__name__[4:]
-            # Trim the "get_" beginning of the factory function if it's there.
-            if model_factory.__name__[:4] == "get_"
-            else model_factory.__name__
-        )
+    return model_factory.__self__.name
 
 
 class BenchmarkResult(NamedTuple):
@@ -157,10 +143,9 @@ class BenchmarkRunner:
                     benchmark_runs[run_key] = self.run_benchmark_run(
                         setup.clone_reset(), model_factory
                     )
-                    is_gs = _method_is_generation_strategy(model_factory)
-                    self._generator_changes[run_key] = (
-                        None if not is_gs else model_factory.__self__.generator_changes
-                    )
+                    self._generator_changes[
+                        run_key
+                    ] = model_factory.__self__.generator_changes
                     break
                 except Exception as err:  # pragma: no cover
                     num_failures += 1

@@ -8,8 +8,9 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
-from ax.metrics.branin import BraninConstraintMetric, BraninMetric, NegativeBraninMetric
+from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.metrics.l2norm import L2NormMetric
 from ax.tests.fake import get_branin_search_space
 
 
@@ -62,31 +63,6 @@ branin_max = BenchmarkProblem(
 )
 
 
-constrained_branin = BenchmarkProblem(
-    name="constrained_branin",
-    fbest=0.397_887,
-    optimization_config=OptimizationConfig(
-        objective=Objective(
-            metric=BraninMetric(
-                name="branin_objective", param_names=["x1", "x2"], noise_sd=5.0
-            ),
-            minimize=True,
-        ),
-        outcome_constraints=[
-            OutcomeConstraint(
-                metric=BraninConstraintMetric(
-                    name="branin_constraint", param_names=["x1", "x2"], noise_sd=5.0
-                ),
-                op=ComparisonOp.LEQ,
-                bound=0.0,
-                relative=False,
-            )
-        ],
-    ),
-    search_space=get_branin_search_space(),
-)
-
-
 # Hartmann 6 problems
 
 hartmann6 = BenchmarkProblem(
@@ -99,6 +75,38 @@ hartmann6 = BenchmarkProblem(
             ),
             minimize=True,
         )
+    ),
+    search_space=SearchSpace(
+        parameters=[
+            RangeParameter(
+                name=f"x{i}", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+            )
+            for i in range(6)
+        ]
+    ),
+)
+
+
+hartmann6_constrained = BenchmarkProblem(
+    name="hartmann6",
+    fbest=-3.32237,
+    optimization_config=OptimizationConfig(
+        objective=Objective(
+            metric=Hartmann6Metric(
+                name="hartmann6", param_names=[f"x{i}" for i in range(6)], noise_sd=0.2
+            ),
+            minimize=True,
+        ),
+        outcome_constraints=[
+            OutcomeConstraint(
+                metric=L2NormMetric(
+                    name="l2norm", param_names=[f"x{i}" for i in range(6)], noise_sd=0.2
+                ),
+                op=ComparisonOp.LEQ,
+                bound=1.25,
+                relative=False,
+            )
+        ],
     ),
     search_space=SearchSpace(
         parameters=[

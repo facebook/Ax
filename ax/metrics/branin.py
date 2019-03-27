@@ -12,13 +12,6 @@ class BraninMetric(NoisyFunctionMetric):
         return y
 
 
-class BraninConstraintMetric(NoisyFunctionMetric):
-    """Constraint is f(x) <= 0"""
-
-    def f(self, x: np.ndarray) -> float:
-        return (x[0] - 2.5) ** 2 + (x[1] - 7.5) ** 2 - 50
-
-
 class NegativeBraninMetric(BraninMetric):
     def f(self, x: np.ndarray) -> float:
         fpos = super().f(x)

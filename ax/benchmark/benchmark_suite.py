@@ -2,12 +2,12 @@
 # pyre-strict
 
 from itertools import product
-from typing import List, Optional
+from typing import List
 
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     branin_max,
-    constrained_branin,
+    hartmann6_constrained,
 )
 from ax.benchmark.benchmark_runner import (
     BenchmarkResult,
@@ -15,7 +15,7 @@ from ax.benchmark.benchmark_runner import (
     BOBenchmarkRunner,
 )
 from ax.modelbridge.factory import get_GPEI, get_sobol
-from ax.modelbridge.generation_strategy import GenerationStrategy, TModelFactory
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.plot.base import AEPlotConfig
 from ax.plot.render import plot_config_to_html
 from ax.plot.trace import (
@@ -26,14 +26,13 @@ from ax.plot.trace import (
 from ax.utils.render.render import h2_html, h3_html, p_html, render_report_elements
 
 
-# pyre-fixme[9]: BOMethods has type `List[Callable[..., ModelBridge]]`; used as `List...
-BOMethods: List[TModelFactory] = [
-    get_sobol,
-    # Generation strategy to use Sobol for first 5 arms and GP+EI for next 30:
-    GenerationStrategy([get_sobol, get_GPEI], [5, 30]).get_model,
+BOStrategies: List[GenerationStrategy] = [
+    GenerationStrategy(model_factories=[get_sobol], arms_per_model=[50]),  # pyre-ignore
+    # Generation strategy to use Sobol for first 5 arms and GP+EI for next 45:
+    GenerationStrategy(model_factories=[get_sobol, get_GPEI], arms_per_model=[5, 45]),
 ]
 
-BOProblems: List[BenchmarkProblem] = [constrained_branin, branin_max]
+BOProblems: List[BenchmarkProblem] = [hartmann6_constrained, branin_max]
 
 
 class BOBenchmarkingSuite:
@@ -44,22 +43,22 @@ class BOBenchmarkingSuite:
 
     def run(
         self,
-        num_trials: int = 10,
-        total_iterations: int = 20,
+        num_trials: int,
+        total_iterations: int,
+        bo_strategies: List[GenerationStrategy],
+        bo_problems: List[BenchmarkProblem],
         batch_size: int = 1,
-        bo_methods: Optional[List[TModelFactory]] = None,
-        bo_problems: Optional[List[BenchmarkProblem]] = None,
     ) -> BOBenchmarkRunner:
-        if bo_methods is None:
-            bo_methods = BOMethods
-        if bo_problems is None:
-            bo_problems = BOProblems
         setups = (
             BenchmarkSetup(problem, total_iterations, batch_size)
             for problem in bo_problems
         )
-        for setup, model_factory in product(setups, bo_methods):
-            self._runner.run_benchmark_test(setup, model_factory, num_trials)
+        for setup, gs in product(setups, bo_strategies):
+            self._runner.run_benchmark_test(
+                setup=setup,
+                model_factory=gs.get_model,  # pyre-ignore
+                num_runs=num_trials,
+            )
 
         return self._runner
 
@@ -102,7 +101,7 @@ class BOBenchmarkingSuite:
         )
         return plots
 
-    def generate_report(self, include_individual: bool = True) -> str:
+    def generate_report(self, include_individual: bool = False) -> str:
         benchmark_result_dict = self._runner.aggregate_results()
         html_elements = [h2_html("Bayesian Optimization benchmarking suite report")]
         for p, benchmark_result in benchmark_result_dict.items():
