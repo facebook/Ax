@@ -52,10 +52,10 @@ from ax.utils.notebook.plotting import render, init_notebook_plotting
 
 init_notebook_plotting()
 render(plot_slice(
-  model=m,
-  param_name='x1',  # slice on values of 'x1'
-  metric_name='metric_a',
-  slice_values={'x2': 1.},  # Fix at this value for the slice
+    model=m,
+    param_name='x1',  # slice on values of 'x1'
+    metric_name='metric_a',
+    slice_values={'x2': 7.5},  # Fix at this value for the slice
 ))
 ```
 [INSERT HERE A SLICE PLOT]
@@ -63,11 +63,10 @@ render(plot_slice(
 from ax.plot.contour import plot_contour
 
 render(plot_contour(
-  model=m,
-  param_x='x1',  # Parameter on x-axis
-  param_y='x2',  # Parameter on y-axis
-  metric_name='metric_a',
-  slice_values={'x2': 1.},  # Fix at this value for the slice
+    model=m,
+    param_x='x1',
+    param_y='x2',
+    metric_name='metric_a',
 ))
 ```
 [INSERT HERE A CONTOUR]
@@ -80,7 +79,7 @@ cv = cross_validate(model)
 diagnostics = compute_diagnostics(cv)
 ```
 `diagnostics` contains a collection of diagnostics of model predictions, such as the correlation between predictions and actual values and the p-value for a Fisher test of the model's ability to distinguish high values from low ([API](link to ax.modelbridge.cross_validation.compute_diagnostics)). A very useful tool for assessing model performance is to plot the cross validated predictions vs. actual observed values:
-```
+```Python
 from ax.plot.diagnostic import interact_cross_validation
 
 render(interact_cross_validation(cv))
@@ -88,6 +87,8 @@ render(interact_cross_validation(cv))
 [INSERT HERE A CROSS VALIDATION PLOT]
 
 A good-performing model will have values that lie along the diagonal. Poor GP fits tend to produce cross validation plots that are flat with high predictive uncertainty - such fits are unlikely to produce good values in `gen`.
+
+This model will by default apply a number of transformations to the feature space, such as one-hot encoding of `ChoiceParameter`s and apply a log transform to `RangeParameter`s that have `log_scale` set to `True`. Transforms are also applied to the observed outcomes, such as standardizing the data for each metric. See the section below on Transforms for a description of the default transforms, and how new transforms can be implemented and included.
 
 The GP typically does a good job of modeling continuous parameters (`RangeParameter`s). If the search space contains `ChoiceParameter`s, they will be one-hot-encoded and the GP fit in the encoded space. A search space with a mix of continuous parameters and `ChoiceParameter`s that take a small number of values can be modeled effectively with a GP, but model performance may be poor if there are more than about 20 parameters after one-hot encoding. Cross validation is an effective tool for determining usefulness of the GP on a particular problem.
 
@@ -107,8 +108,16 @@ As with the GP, we can use `predict` to evaluate the model at points of our choo
 ```Python
 f, cov = m.predict([ObservationFeatures(parameters={'x1': 3.14, 'x2': 2.72})])
 ```
+We can generate a plot that shows the predictions for each arm with the shrinkage using `plot_fitted`, which shows model predictions on all in-sample arms:
+```Python
+from ax.plot.scatter import plot_fitted
 
-[TODO: What plots do we use with EBTS?]
+render(plot_fitted(m, metric="metric_a", rel=False))
+# TODO this should be changed to default to rel=False, otherwise it errors out
+# when you don't have a SQ set.
+# "metric_name" would also be a more consistent argument name.
+```
+[INSERT HERE FITTED PLOT]
 
 #### Factorial designs
 [Actually I'm not certain we want to include this, since Sobol can also be used for discrete spaces]
@@ -134,30 +143,46 @@ Model objects are only used in Ax via a ModelBridge. Each Model object defines a
 | ModelBridge         | Model         | Example implementation        |
 | ------------------- | ------------- | ----------------------------- |
 | TorchModelBridge    | TorchModel    | BotorchModel                  |
-| NumpyModelBridge    | NumpyModel    | TBD                           |
-| DiscreteModelBridge | DiscreteModel | EmpiricalBayesThompsonSampler |
+| NumpyModelBridge    | NumpyModel    | RandomForest                  |
+| DiscreteModelBridge | DiscreteModel | ThompsonSampler               |
 | RandomModelBridge   | RandomModel   | SobolGenerator                |
 
-This structure allows for different models like the GP in BotorchModel and the ?? in TBD to share an interface and use common plotting tools at the level of the ModelBridge, while each is implemented using its own torch or numpy structures.
+This structure allows for different models like the GP in BotorchModel and the Random Forest in RandomForest to share an interface and use common plotting tools at the level of the ModelBridge, while each is implemented using its own torch or numpy structures.
 
 The primary role of the ModelBridge is to act as a transformation layer. This includes transformations to the data, search space, and optimization config such as standardization and log transforms, as well as the final transform from Ax objects into the objects consumed by the Model. We now describe how transforms are implemented and used in the ModelBridge.
 
 
 ## Transforms
 
-Describe how transforms work, how to pass in options to them, point to API reference for full list, describe transforms for each factory function, and describe what needs to be done to implement new transforms. An important detail we should note is that the order in which transforms are applied matters.
+The transformations in the ModelBridge are done by chaining together a set of individual Transform objects. For continuous space models obtained via factory functions (`get_sobol` and `get_GPEI`), the following transforms will be applied by default, in this sequence:
+* `RemoveFixed`: Remove `FixedParameter`s from the search space.
+* `OrderedChoiceEncode`: `ChoiceParameter`s with `is_ordered` set to `True` are encoded as a sequence of integers.
+* `OneHot`: `ChoiceParameter`s with `is_ordered` set to `False` are one-hot encoded.
+* `IntToFloat`: Integer-valued `RangeParameter`s are converted to have float values.
+* `Log`: `RangeParameter`s with `log_scale` set to `True` are log transformed.
+* `UnitX`: All float `RangeParameter`s are mapped to `[0, 1]`.
+* `Derelativize`: Constraints relative to status quo are converted to constraints on raw values.
+* `StandardizeY`: The Y values for each metric are standardized (subtract mean, divide by standard deviation).
 
+Each transform defines both a forward and backwards transform. Arm parameters are passed through the forward transform before being sent along to the Model. The Model works entirely in the transformed space, and when new candidates are generated, they are passed through all of the backwards transforms so the ModelBridge returns points in the original space.
+
+New transforms can be implemented by creating a subclass of [`Transform`](link to api ref), which defines the interface for all transforms. There are separate methods for transforming the search space, optimization config, observation features, and observation data. Transforms that operate on only some aspects of the problem do not need to implement all methods, for instance, `Log` implements only `transform_observation_features` (to log transform the parameters), `transform_search_space` (to log transform the search space bounds), and `untransform_observation_features` (to apply the inverse transform).
+
+The (ordered) list of transforms to apply is an input to the ModelBridge, and so can easily be altered to add new transforms. It is important that transforms be applied in the right order. For instance, the `StandardizeY` and `Winsorize` transforms both transform the observed metric values. Applying them in the order `[StandardizeY, Winsorize]` could produce very different results than `[Winsorize, StandardizeY]`. In the former case, outliers would have already been included in the standardization (a procedure sensitive to outliers), and so the second approach that Winsorizes first is preferred.
+
+See [the API reference](link) for the full collection of implemented transforms.
 
 ## Implementing new models
 
 The structure of the modeling stack makes it easy to implement new models and use them inside Ax. There are two ways this might be done.
+
 
 ### Using an existing Model interface
 
 The easiest way to implement a new model is if it can be adapted to the one of the existing Model interfaces (`TorchModel`, `NumpyModel`, `DiscreteModel`, or `RandomModel`). The class definition provides the interface for each of the methods that should be implemented in order for Ax to be able to fully use the new model. Note however that not all methods must necessarily be implemented in order to use some Ax functionality. An implementation of NumpyModel that implements only `fit` and `predict` can be used to fit data and make plots in Ax; however it will not be able to generate new candidates (requires implementing `gen`) or be used with Ax's cross validation utility (requires implementing `cross_validate`).
 
 Once the new model has been implemented, it can be used in Ax with the corresponding ModelBridge from the table above. For instance, suppose a new numpy-based model was implemented as a subclass of NumpyModel. We can use that model in Ax like:
-```
+```Python
 new_model_obj = NewModel(init_args)  # An instance of the new model class
 m = NumpyModelBridge(
     experiment=experiment,
@@ -171,4 +196,4 @@ The ModelBridge object `m` can then be used with plotting and cross validation u
 
 ### Creating a new Model interface
 
-If none of the existing Model interfaces work are suitable for the new model type, then a new interface will have to be created. This involves two steps: creating the new model interface and creating the new model bridge. The new model bridge must be a subclass of ModelBridge  that implements ModelBridge._fit,  ModelBridge._predict, ModelBridge._gen, and  ModelBridge._cross_validate. The implementation of each of these methods will transform the Ax objects in the inputs into objects required for the interface with the new model type. The model bridge will then call out to the new model interface to do the actual modeling work. All of the ModelBridge/Model pairs in the table above provide examples of how this interface can be defined. The main key is that the inputs on the ModelBridge side are fixed, but those inputs can then be transformed in whatever way is desired for the downstream Model interface to be that which is most convenient for implementing the model.
+If none of the existing Model interfaces work are suitable for the new model type, then a new interface will have to be created. This involves two steps: creating the new model interface and creating the new model bridge. The new model bridge must be a subclass of `ModelBridge`  that implements `ModelBridge._fit`,  `ModelBridge._predict`, `ModelBridge._gen`, and  `ModelBridge._cross_validate`. The implementation of each of these methods will transform the Ax objects in the inputs into objects required for the interface with the new model type. The model bridge will then call out to the new model interface to do the actual modeling work. All of the ModelBridge/Model pairs in the table above provide examples of how this interface can be defined. The main key is that the inputs on the ModelBridge side are fixed, but those inputs can then be transformed in whatever way is desired for the downstream Model interface to be that which is most convenient for implementing the model.
