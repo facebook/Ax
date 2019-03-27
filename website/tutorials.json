@@ -13,6 +13,10 @@
     {
       "id": "gpei_synthetic",
       "title": "GP-EI for Branin"
+    },
+    {
+      "id": "benchmarking_suite_example",
+      "title": "Benchmarking Suite"
     }
   ]
 }
