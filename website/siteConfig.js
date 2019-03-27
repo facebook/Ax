@@ -62,8 +62,10 @@ const siteConfig = {
 
   // Custom scripts that are placed in <head></head> of each page
   scripts: [
+    'https://cdn.plot.ly/plotly-latest.min.js',
+    `${baseUrl}js/plotUtils.js`,
     'https://buttons.github.io/buttons.js',
-    '/js/mathjax.js',
+    `${baseUrl}js/mathjax.js`,
     'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML',
   ],
 

@@ -146,4 +146,5 @@ website/pages/tutorials/*
 website/pages/api/
 website/static/js/*
 !website/static/js/mathjax.js
+!website/static/js/plotUtils.js
 website/static/_sphinx-sources/
