@@ -58,7 +58,9 @@ render(plot_slice(
     slice_values={'x2': 7.5},  # Fix at this value for the slice
 ))
 ```
-[INSERT HERE A SLICE PLOT]
+
+<div id="slice" style="width: 100%;"></div>
+
 ```Python
 from ax.plot.contour import plot_contour
 
@@ -197,3 +199,5 @@ The ModelBridge object `m` can then be used with plotting and cross validation u
 ### Creating a new Model interface
 
 If none of the existing Model interfaces work are suitable for the new model type, then a new interface will have to be created. This involves two steps: creating the new model interface and creating the new model bridge. The new model bridge must be a subclass of `ModelBridge`  that implements `ModelBridge._fit`,  `ModelBridge._predict`, `ModelBridge._gen`, and  `ModelBridge._cross_validate`. The implementation of each of these methods will transform the Ax objects in the inputs into objects required for the interface with the new model type. The model bridge will then call out to the new model interface to do the actual modeling work. All of the ModelBridge/Model pairs in the table above provide examples of how this interface can be defined. The main key is that the inputs on the ModelBridge side are fixed, but those inputs can then be transformed in whatever way is desired for the downstream Model interface to be that which is most convenient for implementing the model.
+
+<script type="text/javascript" src="../js/plots/slice.js" />
