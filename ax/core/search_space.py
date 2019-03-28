@@ -215,6 +215,22 @@ class SearchSpace(Base):
 
         return Arm(new_params, arm.name if arm.has_name else None)
 
+    def out_of_design_arm(self) -> Arm:
+        """Create a default out-of-design arm.
+
+        An out of design arm contains values for some parameters which are
+        outside of the search space. In the modeling conversion, these parameters
+        are all stripped down to an empty dictionary, since the point is already
+        outside of the modeled space.
+
+        Returns:
+            New arm w/ null parameter values.
+        """
+        params = {}
+        for p_name in self.parameters.keys():
+            params[p_name] = None
+        return Arm(params)  # pyre-ignore [6]
+
     def clone(self) -> "SearchSpace":
         return SearchSpace(
             parameters=[p.clone() for p in self._parameters.values()],

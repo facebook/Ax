@@ -262,3 +262,10 @@ class SearchSpaceTest(TestCase):
 
         ss_copy.add_parameter(FixedParameter("d", ParameterType.STRING, "h"))
         self.assertNotEqual(len(ss_copy.parameters), len(ss.parameters))
+
+    def testOutOfDesignArm(self):
+        arm1 = self.ss1.out_of_design_arm()
+        arm2 = self.ss2.out_of_design_arm()
+        arm1_nones = [p is None for p in arm1.params.values()]
+        self.assertTrue(all(arm1_nones))
+        self.assertTrue(arm1 == arm2)
