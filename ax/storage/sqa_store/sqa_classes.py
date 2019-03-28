@@ -155,11 +155,11 @@ class SQAGeneratorRun(Base):
     gen_time: Optional[float] = Column(Float)
 
     # relationships
-    arms: List[SQAArm] = relationship("SQAArm")
-    metrics: List[SQAMetric] = relationship("SQAMetric")
-    parameters: List[SQAParameter] = relationship("SQAParameter")
+    arms: List[SQAArm] = relationship("SQAArm", lazy=False)
+    metrics: List[SQAMetric] = relationship("SQAMetric", lazy=False)
+    parameters: List[SQAParameter] = relationship("SQAParameter", lazy=False)
     parameter_constraints: List[SQAParameterConstraint] = relationship(
-        "SQAParameterConstraint"
+        "SQAParameterConstraint", lazy=False
     )
 
     immutable_fields = [
@@ -218,13 +218,13 @@ class SQATrial(Base):
     # cascade="all, delete-orphan", which means if we remove or replace
     # a child, the old one will be deleted.
     abandoned_arms: List[SQAAbandonedArm] = relationship(
-        "SQAAbandonedArm", cascade="all, delete-orphan"
+        "SQAAbandonedArm", cascade="all, delete-orphan", lazy=False
     )
     generator_runs: List[SQAGeneratorRun] = relationship(
-        "SQAGeneratorRun", cascade="all, delete-orphan"
+        "SQAGeneratorRun", cascade="all, delete-orphan", lazy=False
     )
     runner: SQARunner = relationship(
-        "SQARunner", uselist=False, cascade="all, delete-orphan"
+        "SQARunner", uselist=False, cascade="all, delete-orphan", lazy=False
     )
 
     unique_id = "index"
@@ -248,17 +248,23 @@ class SQAExperiment(Base):
     # Trials and experiments are mutable, so the children relationships need
     # cascade="all, delete-orphan", which means if we remove or replace
     # a child, the old one will be deleted.
-    data: List[SQAData] = relationship("SQAData", cascade="all, delete-orphan")
-    metrics: List[SQAMetric] = relationship("SQAMetric", cascade="all, delete-orphan")
+    data: List[SQAData] = relationship(
+        "SQAData", cascade="all, delete-orphan", lazy=False
+    )
+    metrics: List[SQAMetric] = relationship(
+        "SQAMetric", cascade="all, delete-orphan", lazy=False
+    )
     parameters: List[SQAParameter] = relationship(
-        "SQAParameter", cascade="all, delete-orphan"
+        "SQAParameter", cascade="all, delete-orphan", lazy=False
     )
     parameter_constraints: List[SQAParameterConstraint] = relationship(
-        "SQAParameterConstraint", cascade="all, delete-orphan"
+        "SQAParameterConstraint", cascade="all, delete-orphan", lazy=False
     )
     runner: SQARunner = relationship(
-        "SQARunner", uselist=False, cascade="all, delete-orphan"
+        "SQARunner", uselist=False, cascade="all, delete-orphan", lazy=False
     )
-    trials: List[SQATrial] = relationship("SQATrial", cascade="all, delete-orphan")
+    trials: List[SQATrial] = relationship(
+        "SQATrial", cascade="all, delete-orphan", lazy=False
+    )
 
     immutable_fields = ["name", "time_created"]
