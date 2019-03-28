@@ -53,6 +53,7 @@ class TestServiceAPI(TestCase):
                 },
             ],
             objective_name="test_objective",
+            minimize=True,
             outcome_constraints=["some_metric >= 3", "some_metric <= 4.0"],
             parameter_constraints=["x3 >= x4", "x3 + x4 >= 2"],
         )
@@ -111,6 +112,7 @@ class TestServiceAPI(TestCase):
                 relative=False,
             ),
         )
+        self.assertTrue(ax.experiment.optimization_config.objective.minimize)
 
     def ftest_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""

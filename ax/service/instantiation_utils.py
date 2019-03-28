@@ -193,6 +193,7 @@ def make_simple_experiment(
     name: str,
     parameters: List[Dict[str, TParamValue]],
     objective_name: str,
+    minimize: bool = False,
     parameter_constraints: Optional[List[str]] = None,
     outcome_constraints: Optional[List[str]] = None,
 ) -> SimpleExperiment:
@@ -210,6 +211,7 @@ def make_simple_experiment(
             else [constraint_from_str(c, names) for c in parameter_constraints],
         ),
         objective_name=objective_name,
+        minimize=minimize,
         outcome_constraints=None
         if outcome_constraints is None
         else [outcome_constraint_from_str(c) for c in outcome_constraints],

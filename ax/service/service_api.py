@@ -110,6 +110,7 @@ class AELoopHandler:
         name: str,
         parameters: List[Dict[str, TParamValue]],
         objective_name: str,
+        minimize: bool = False,
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
     ) -> None:
@@ -118,6 +119,7 @@ class AELoopHandler:
             name=name,
             parameters=parameters,
             objective_name=objective_name,
+            minimize=minimize,
             parameter_constraints=parameter_constraints,
             outcome_constraints=outcome_constraints,
         )
