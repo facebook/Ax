@@ -3,8 +3,10 @@ from typing import Optional
 
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationOutcome
 from ax.core.types import TParameterization
+from ax.runners.synthetic import SyntheticRunner
 from ax.tests.fake import get_branin_search_space
 from ax.utils.common.testutils import TestCase
 
@@ -35,15 +37,20 @@ class SimpleExperimentTest(TestCase):
         ]
 
     def test_basic(self):
+        self.assertTrue(self.experiment.is_simple_experiment)
         trial = self.experiment.new_trial()
+        with self.assertRaises(NotImplementedError):
+            trial.runner = SyntheticRunner()
+        with self.assertRaises(NotImplementedError):
+            self.experiment.add_metric(Metric(name="test"))
+        with self.assertRaises(NotImplementedError):
+            self.experiment.update_metric(Metric(name="test"))
         self.assertTrue(self.experiment.eval_trial(trial).df.empty)
         batch = self.experiment.new_batch_trial()
         batch.add_arm(Arm(params={"x1": 5, "x2": 10}))
         self.assertEqual(self.experiment.eval_trial(batch).df["mean"][0], 15)
         self.experiment.new_batch_trial().add_arm(Arm(params={"x1": 15, "x2": 25}))
         self.assertAlmostEqual(self.experiment.eval().df["mean"][1], 40)
-
-        # fetch_data -> eval, fetch_trial_data -> eval_trial
         self.assertEqual(
             self.experiment.fetch_trial_data(batch.index).df["mean"][0], 15
         )

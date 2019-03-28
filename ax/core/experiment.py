@@ -89,6 +89,12 @@ class Experiment(Base):
             self._metrics[metric.name] = metric
 
     @property
+    def is_simple_experiment(self):
+        """Whether this experiment is a regular Experiment or the subclassing
+        `SimpleExperiment`."""
+        return False
+
+    @property
     def time_created(self) -> datetime:
         """Creation time of the experiment."""
         return self._time_created

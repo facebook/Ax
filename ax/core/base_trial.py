@@ -145,6 +145,10 @@ class BaseTrial(ABC, Base):
     @runner.setter
     @immutable_once_run
     def runner(self, runner: Optional[Runner]) -> None:
+        if self.experiment.is_simple_experiment:
+            raise NotImplementedError(
+                "SimpleExperiment does not support addition of runners."
+            )
         self._runner = runner
 
     @property

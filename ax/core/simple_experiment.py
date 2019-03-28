@@ -15,6 +15,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.runners.synthetic import SyntheticRunner
+from ax.utils.common.docutils import copy_doc
 
 
 # Function that evaluates one parameter configuration.
@@ -77,6 +78,11 @@ class SimpleExperiment(Experiment):
             status_quo=status_quo,
         )
         self._evaluation_function = evaluation_function
+
+    @copy_doc(Experiment.is_simple_experiment)
+    @property
+    def is_simple_experiment(self):
+        return True
 
     def eval_trial(self, trial: BaseTrial) -> Data:
         """
@@ -166,8 +172,18 @@ class SimpleExperiment(Experiment):
 
         self._evaluation_function = evaluation_function
 
+    @copy_doc(Experiment.fetch_data)
     def fetch_data(self, **kwargs: Any) -> Data:
         return self.eval()
 
+    @copy_doc(Experiment.fetch_trial_data)
     def fetch_trial_data(self, trial_index: int, **kwargs: Any) -> Data:
         return self.eval_trial(self.trials[trial_index])
+
+    @copy_doc(Experiment.add_metric)
+    def add_metric(self, metric: Metric) -> "SimpleExperiment":
+        raise NotImplementedError("SimpleExperiment does not support metric addition.")
+
+    @copy_doc(Experiment.update_metric)
+    def update_metric(self, metric: Metric) -> "SimpleExperiment":
+        raise NotImplementedError("SimpleExperiment does not support metric updates.")
