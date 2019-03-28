@@ -4,8 +4,8 @@ from itertools import chain
 from unittest import mock
 
 import torch
-from ax.models.torch.botorch import BotorchModel, _get_and_fit_model
-from ax.models.torch.utils import MIN_OBSERVED_NOISE_LEVEL
+from ax.models.torch.botorch import BotorchModel
+from ax.models.torch.botorch_defaults import MIN_OBSERVED_NOISE_LEVEL, get_and_fit_model
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.objective import LinearMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
@@ -14,8 +14,7 @@ from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 
 
-FIT_MODEL_MO_PATH = "ax.models.torch.botorch.fit_model"
-GEN_MO_PATH_PREFIX = "ax.models.torch.utils."
+FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_model"
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -95,18 +94,6 @@ class BotorchModelTest(TestCase):
         self.assertTrue(f_mean.shape == torch.Size([1, 2]))
         self.assertTrue(f_cov.shape == torch.Size([1, 2, 2]))
 
-        # Check validation on fit
-        model_2 = BotorchModel()
-        with self.assertRaises(ValueError):
-            model_2.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=[0],
-                feature_names=feature_names,
-            )
-
         # Check generation
         objective_weights = torch.tensor([1.0, 0.0], dtype=dtype, device=device)
         outcome_constraints = (
@@ -125,7 +112,7 @@ class BotorchModelTest(TestCase):
         model_gen_options = {}
         # test sequential optimize
         with mock.patch(
-            "ax.models.torch.botorch.sequential_optimize", return_value=X_dummy
+            "ax.models.torch.botorch_defaults.sequential_optimize", return_value=X_dummy
         ) as mock_sequential_optimize:
 
             Xgen, wgen = model.gen(
@@ -149,7 +136,7 @@ class BotorchModelTest(TestCase):
 
         # test joint optimize
         with mock.patch(
-            "ax.models.torch.botorch.joint_optimize", return_value=X_dummy
+            "ax.models.torch.botorch_defaults.joint_optimize", return_value=X_dummy
         ) as mock_joint_optimize:
             Xgen, wgen = model.gen(
                 n=n,
@@ -159,38 +146,12 @@ class BotorchModelTest(TestCase):
                 linear_constraints=linear_constraints,
                 fixed_features=fixed_features,
                 pending_observations=pending_observations,
-                model_gen_options={"joint_optimization": True},
+                model_gen_options={"optimizer_kwargs": {"joint_optimization": True}},
             )
             # note: gen() always returns CPU tensors
             self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
             mock_joint_optimize.assert_called_once()
-
-        # test passing acquisition function via model_gen_options
-        acquisition_function = get_acquisition_function(
-            acquisition_function_name="qUCB",
-            model=model.model,
-            objective=LinearMCObjective(objective_weights),
-            X_observed=Xs1 + Xs2,
-            beta=2.0,
-        )
-        with mock.patch(
-            "ax.models.torch.botorch.sequential_optimize", return_value=X_dummy
-        ) as mock_sequential_optimize:
-            _, __ = model.gen(
-                n=n,
-                bounds=bounds,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                linear_constraints=linear_constraints,
-                fixed_features=fixed_features,
-                pending_observations=pending_observations,
-                model_gen_options={"acquisition_function": acquisition_function},
-            )
-            self.assertEqual(
-                mock_sequential_optimize.call_args_list[-1][1]["acq_function"],
-                acquisition_function,
-            )
 
         # Check best point selection
         xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
@@ -212,6 +173,16 @@ class BotorchModelTest(TestCase):
         )
         self.assertTrue(mean.shape == torch.Size([2, 2]))
         self.assertTrue(variance.shape == torch.Size([2, 2, 2]))
+
+        # test unfit model CV
+        unfit_model = BotorchModel()
+        with self.assertRaises(RuntimeError):
+            unfit_model.cross_validate(
+                Xs_train=Xs1 + Xs2,
+                Ys_train=Ys1 + Ys2,
+                Yvars_train=Yvars1 + Yvars2,
+                X_test=Xs1[0],
+            )
 
         # Test loading state dict
         tkwargs = {"device": device, "dtype": dtype}
@@ -239,7 +210,7 @@ class BotorchModelTest(TestCase):
         ]
         state_dict_vals = [torch.tensor(val, **tkwargs) for val in state_dict_vals]
         true_state_dict = dict(zip(state_dict_keys, state_dict_vals))
-        model = _get_and_fit_model(
+        model = get_and_fit_model(
             Xs=Xs1, Ys=Ys1, Yvars=Yvars1, state_dict=true_state_dict
         )
         for k, v in chain(model.named_parameters(), model.named_buffers()):
@@ -387,7 +358,7 @@ class BotorchModelTest(TestCase):
         tkwargs = {"device": device, "dtype": dtype}
         state_dict_vals = [torch.tensor(val, **tkwargs) for val in state_dict_vals]
         true_state_dict = dict(zip(state_dict_keys, state_dict_vals))
-        model = _get_and_fit_model(
+        model = get_and_fit_model(
             Xs=Xs1, Ys=Ys1, Yvars=Yvars1, state_dict=true_state_dict
         )
         for k, v in chain(model.named_parameters(), model.named_buffers()):

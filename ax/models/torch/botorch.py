@@ -1,68 +1,148 @@
 #!/usr/bin/env python3
 
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from ax.core.types import TConfig
-from ax.models.model_utils import (
-    best_observed_point,
-    filter_constraints_and_fixed_features,
-    get_observed,
+from ax.models.model_utils import best_observed_point
+from ax.models.torch.botorch_defaults import (  # pyre-ignore [21]
+    get_and_fit_model,
+    get_NEI,
+    predict_from_model,
+    scipy_optimizer,
 )
-from ax.models.torch.utils import _get_model
+from ax.models.torch.utils import _get_X_pending_and_observed
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObjective
-from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
-from botorch.fit import fit_model
-from botorch.models import MultiOutputGP
-from botorch.optim.optimize import joint_optimize, sequential_optimize
-from botorch.utils import (
-    get_objective_weights_transform,
-    get_outcome_constraint_transforms,
-)
-from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
+from botorch.models import Model
 from torch import Tensor
+
+
+TModelConstuctor = Callable[
+    [List[Tensor], List[Tensor], List[Tensor], Optional[Dict[str, Tensor]], Any], Model
+]
+TModelPredictor = Callable[[Model, Tensor], Tuple[Tensor, Tensor]]
+TAcqfConstructor = Callable[
+    [
+        Model,
+        Tensor,
+        Optional[Tuple[Tensor, Tensor]],
+        Optional[Tensor],
+        Optional[Tensor],
+        Any,
+    ],
+    AcquisitionFunction,
+]
+TOptimizer = Callable[
+    [
+        AcquisitionFunction,
+        Tensor,
+        int,
+        Optional[Dict[int, float]],
+        Optional[Callable[[Tensor], Tensor]],
+        Any,
+    ],
+    Tensor,
+]
 
 
 class BotorchModel(TorchModel):
     """
-    Class implementing a single task multi-outcome model, assuming independence
-    across outcomes.
+    Customizable botorch model.
+
+    By default, this uses a noisy Expected Improvement acquisition funciton on
+    top of a model made up of separate GPs, one for each outcome. This behavior
+    can be modified by providing custom implementations of the following
+    components:
+        - a `model_constructor` that instantiates and fits a model on data
+        - a `model_predictor` that predicts using the fitted model
+        - a `acqf_constructor` that creates an acquisition function from a fitted model
+        - a `acqf_optimizer` that optimizes the acquisition function
+
+    Args:
+        model_constructor: A callable with the following signature:
+            ```
+            model_constructor(Xs, Ys, Yvars, state_dict, **kwargs) -> model
+            ```
+            where `Xs`, `Ys`, `Yvars` are lists of tensors (one element per
+            outcome), `state_dict` is a pytorch module state dict, and `model` is
+            a botorch `Model`. Optional kwargs are being passed through from the
+            `BotorchModel` constructor. This callable is assumed to return a
+            fitted botorch model that has the same dtype and lives on the same
+            device as the input tensors.
+        model_predictor: A callable with the following signature:
+            ```
+            model_predictor(model, X) -> [mean, cov]
+            ````
+            where `model` is a fitted botorch model, `X` is a tensor of
+            candidate points, and `mean` and `cov` are the posterior mean and
+            covariance, respectively.
+        acqf_constructor: A callable with the following signature:
+            ```
+            acqf_constructor(
+                model,
+                objective_weights,
+                outcome_constraints,
+                X_observed,
+                X_pending,
+                **kwargs,
+            ) -> acq_function
+            ```
+            where `model` is a botorch `Model`, `objective_weights` is a tensor
+            of weights for the model outputs, `outcome_constraints` is a tuple
+            of tensors describing the (linear) outcome constraints, `X_observed`
+            are previously observed points, and `X_pending` are points whose
+            evaluation is pending. `acq_function` is a botorch acquisition
+            function crafted from these inputs.
+            For additional details on the arguments, see `get_NEI`.
+        acqf_optimizer: A callable with the following signature:
+            ```
+            acqf_optimizer(
+                acq_function,
+                bounds,
+                n,
+                fixed_features,
+                rounding_func,
+                **kwargs,
+            ) -> candidates
+            ```
+            where `acq_function` is a botorch `AcquisitionFunciton`, `bounds` is
+            a tensor containing bounds on the parameters, `n` is the number of
+            candidates to be generated, `fixed_features` specifies features that
+            should be fixed during generation, and `rounding_func` is a callback
+            that rounds an optimization result appropriately. `candidates` is
+            a tensor of generated candidates.
+            For additional details on the arguments, see `scipy_optimizer`.
+        refit_on_cv: If True, refit the model for each fold when performing
+            cross-validation.
     """
 
     dtype: Optional[torch.dtype]
     device: Optional[torch.device]
-    model: MultiOutputGP
     Xs: List[Tensor]
     Ys: List[Tensor]
     Yvars: List[Tensor]
 
     def __init__(
         self,
-        acquisition_function_name: str = "qNEI",
-        acquisition_function_kwargs: Optional[Dict[str, Union[float, int]]] = None,
+        model_constructor: TModelConstuctor = get_and_fit_model,
+        model_predictor: TModelPredictor = predict_from_model,
+        acqf_constructor: TAcqfConstructor = get_NEI,
+        acqf_optimizer: TOptimizer = scipy_optimizer,
         refit_on_cv: bool = False,
+        **kwargs: Any,
     ) -> None:
-        """
-        Args:
-            acquisition_function_name: a string representing the acquisition
-                function name.
-            acquisition_function_kwargs: A map containing extra arguments for
-                initializing the acquisition function module. For instance, for
-                UCB this should include the `beta` parameter.
-            refit_on_cv: Re-fit hyperparameters during cross validation.
-        """
-        self.acquisition_function_name = acquisition_function_name
-        self.acquisition_function_kwargs = acquisition_function_kwargs or {}
-        # pyre-fixme[8]: Attribute has type `MultiOutputGP`; used as `None`.
+        self.model_constructor = model_constructor
+        self.model_predictor = model_predictor
+        self.acqf_constructor = acqf_constructor
+        self.acqf_optimizer = acqf_optimizer
+        self.refit_on_cv = refit_on_cv
         self.model = None
         self.Xs = []
         self.Ys = []
         self.Yvars = []
-        self.refit_on_cv = refit_on_cv
         self.dtype = None
         self.device = None
 
@@ -76,18 +156,18 @@ class BotorchModel(TorchModel):
         task_features: List[int],
         feature_names: List[str],
     ) -> None:
-        if len(task_features) > 0:
-            raise ValueError("Task features not supported.")
-        self.dtype = Xs[0].dtype  # pyre-ignore
+        self.dtype = Xs[0].dtype  # pyre-ignore [16]
         self.device = Xs[0].device
         self.Xs = Xs
         self.Ys = Ys
         self.Yvars = Yvars
-        self.model = _get_and_fit_model(Xs=Xs, Ys=Ys, Yvars=Yvars)
+        self.model = self.model_constructor(  # pyre-ignore [28]
+            Xs=Xs, Ys=Ys, Yvars=Yvars
+        )
 
     @copy_doc(TorchModel.predict)
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
-        return _model_predict(model=self.model, X=X)
+        return self.model_predictor(model=self.model, X=X)  # pyre-ignore [28]
 
     def gen(
         self,
@@ -101,8 +181,7 @@ class BotorchModel(TorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
     ) -> Tuple[Tensor, Tensor]:
-        """
-        Generate new candidates.
+        """Generate new candidates.
 
         An initialized acquisition function can be passed in as
         model_gen_options["acquisition_function"].
@@ -127,98 +206,44 @@ class BotorchModel(TorchModel):
                 model-specific options.
             rounding_func: A function that rounds an optimization result
                 appropriately (i.e., according to `round-trip` transformations).
+
         Returns:
-            2-element tuple containing
-
-            - (n x d) tensor of generated points.
-            - n-tensor of weights for each point.
+            Tensor: `n x d`-dim Tensor of generated points.
+            Tensor: `n`-dim Tensor of weights for each point.
         """
-        options: TConfig = model_gen_options or {}
-        if pending_observations is not None:
-            # Get points observed for all objective and constraint outcomes
-            X_pending = get_observed(
-                Xs=pending_observations,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-            )
-            # Filter to those that satisfy constraints.
-            X_pending = filter_constraints_and_fixed_features(
-                X=X_pending,
-                bounds=bounds,
-                linear_constraints=linear_constraints,
-                fixed_features=fixed_features,
-            )
-            if len(X_pending) == 0:
-                X_pending = None
-        else:
-            X_pending = None
+        options = model_gen_options or {}
+        acf_options = options.get("acqiusition_function_kwargs", {})
+        optimizer_options = options.get("optimizer_kwargs", {})
 
-        acquisition_function = options.get("acquisition_function")
-        if acquisition_function is None:
-            # Get points observed for all objective and constraint outcomes
-            X_observed = get_observed(
-                Xs=self.Xs,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-            )
-            # Filter to those that satisfy constraints.
-            X_observed = filter_constraints_and_fixed_features(
-                X=X_observed,
-                bounds=bounds,
-                linear_constraints=linear_constraints,
-                fixed_features=fixed_features,
-            )
-            if len(X_observed) == 0:
-                raise ValueError("There are no feasible observed points.")
-            # construct Objective module
-            if outcome_constraints is None:
-                objective = LinearMCObjective(weights=objective_weights)
-            else:
-                obj_tf = get_objective_weights_transform(objective_weights)
-                con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-                inf_cost = get_infeasible_cost(
-                    X=X_observed, model=self.model, objective=obj_tf  # pyre-ignore [9]
-                )
-                objective = ConstrainedMCObjective(
-                    objective=obj_tf,
-                    constraints=con_tfs or [],  # shut up pyre
-                    infeasible_cost=inf_cost,
-                )
-            # get the AcquisitionFunction
-            acquisition_function = get_acquisition_function(
-                acquisition_function_name=self.acquisition_function_name,
-                model=self.model,
-                objective=objective,
-                X_observed=X_observed,
-                X_pending=X_pending,
-                mc_samples=self.acquisition_function_kwargs.get("mc_samples", 500),
-                qmc=self.acquisition_function_kwargs.get("qmc", True),
-                seed=torch.randint(1, 10000, (1,)).item(),
-                **self.acquisition_function_kwargs
-            )
+        X_pending, X_observed = _get_X_pending_and_observed(
+            Xs=self.Xs,
+            pending_observations=pending_observations,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            bounds=bounds,
+            linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
+        )
+
+        acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
+            model=self.model,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+            X_pending=X_pending,
+            **acf_options,
+        )
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
 
-        # TODO: implement better random restart heuristic
-        # pyre-fixme[9]: opts has type `Dict[str, Union[bool, float, int]]`; used as ...
-        opts: Dict[str, Union[bool, float, int]] = options
-        # pyre-fixme[9]: num_restarts has type `int`; used as `Union[float, str]`.
-        num_restarts: int = options.get("num_restarts", 20)
-        # pyre-fixme[9]: raw_samples has type `int`; used as `Union[float, str]`.
-        raw_samples: int = options.get("num_raw_samples", 50 * num_restarts)
-        # pyre-fixme[9]: joint_optimization has type `bool`; used as `Union[float, st...
-        joint_optimization: bool = options.get("joint_optimization", False)
-        optimize = joint_optimize if joint_optimization else sequential_optimize
-        candidates = optimize(
+        candidates = self.acqf_optimizer(  # pyre-ignore: [28]
             acq_function=checked_cast(AcquisitionFunction, acquisition_function),
             bounds=bounds_,
-            q=n,
-            num_restarts=num_restarts,
-            raw_samples=raw_samples,
-            options=opts,
+            n=n,
             fixed_features=fixed_features,
-            post_processing_func=rounding_func,
+            rounding_func=rounding_func,
+            **optimizer_options,
         )
         return candidates.detach().cpu(), torch.ones(n, dtype=self.dtype)
 
@@ -243,8 +268,7 @@ class BotorchModel(TorchModel):
         )
         if x_best is None:
             return None
-        else:
-            return x_best.to(dtype=self.dtype, device=torch.device("cpu"))
+        return x_best.to(dtype=self.dtype, device=torch.device("cpu"))
 
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
@@ -254,48 +278,12 @@ class BotorchModel(TorchModel):
         Yvars_train: List[Tensor],
         X_test: Tensor,
     ) -> Tuple[Tensor, Tensor]:
-        state_dict = None if self.refit_on_cv else self.model.state_dict()
-        model = _get_and_fit_model(
+        if self.model is None:
+            raise RuntimeError("Cannot cross-validate model that has not been fitted")
+        state_dict = (
+            None if self.refit_on_cv else self.model.state_dict()  # pyre-ignore [16]
+        )
+        model = self.model_constructor(  # pyre-ignore [28]
             Xs=Xs_train, Ys=Ys_train, Yvars=Yvars_train, state_dict=state_dict
         )
-        return _model_predict(model=model, X=X_test)
-
-
-def _get_and_fit_model(
-    Xs: List[Tensor],
-    Ys: List[Tensor],
-    Yvars: List[Tensor],
-    state_dict: Optional[Dict[str, Tensor]] = None,
-) -> MultiOutputGP:
-    """Instantiate a model with the given data.
-
-    Args:
-        Xs: List of X data, one tensor per outcome
-        Ys: List of Y data, one tensor per outcome
-        Yvars: List of observed variance of Ys.
-        state_dict: If provided, will set model parameters to this state
-            dictionary. Otherwise, will fit the model.
-
-    Returns:
-        A MultiOutputGP.
-    """
-    models = [_get_model(X=X, Y=Y, Yvar=Yvar) for X, Y, Yvar in zip(Xs, Ys, Yvars)]
-    model = MultiOutputGP(gp_models=models)  # pyre-ignore: [16]
-    model.to(dtype=Xs[0].dtype, device=Xs[0].device)  # pyre-ignore
-    if state_dict is None:
-        # TODO: Add bounds for optimization stability - requires revamp upstream
-        bounds = {}
-        mll = SumMarginalLogLikelihood(model.likelihood, model)
-        mll = fit_model(mll, bounds=bounds)
-    else:
-        model.load_state_dict(state_dict)
-    return model
-
-
-def _model_predict(model: MultiOutputGP, X: Tensor) -> Tuple[Tensor, Tensor]:
-    with torch.no_grad():
-        posterior = model.posterior(X)
-    mean = posterior.mean.cpu().detach()
-    variance = posterior.variance.cpu().detach()
-    cov = variance.unsqueeze(-1) * torch.eye(variance.shape[-1], dtype=variance.dtype)
-    return mean, cov
+        return self.model_predictor(model=model, X=X_test)  # pyre-ignore [28]

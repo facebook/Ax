@@ -52,8 +52,6 @@ class ModelBridgeFactoryTest(TestCase):
             exp.new_batch_trial().add_generator_run(sobol_run).run()
         with self.assertRaises(TypeError):
             get_sobol(search_space=exp.search_space, nonexistent=True)
-        with self.assertRaises(TypeError):
-            get_GPEI(experiment=exp, data=exp.fetch_data(), nonexistent=True)
 
     def test_factorial(self):
         """Tests factorial instantiation."""
