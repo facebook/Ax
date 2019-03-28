@@ -16,7 +16,7 @@ from ax.benchmark.benchmark_runner import (
 )
 from ax.modelbridge.factory import get_GPEI, get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.plot.base import AEPlotConfig
+from ax.plot.base import AxPlotConfig
 from ax.plot.render import plot_config_to_html
 from ax.plot.trace import (
     optimization_times,
@@ -68,8 +68,8 @@ class BOBenchmarkingSuite:
         benchmark_result: BenchmarkResult,
         problem_name: str,
         include_individual: bool,
-    ) -> List[AEPlotConfig]:
-        plots: List[AEPlotConfig] = []
+    ) -> List[AxPlotConfig]:
+        plots: List[AxPlotConfig] = []
         # Plot objective at true best
         plots.append(
             optimization_trace_all_methods(

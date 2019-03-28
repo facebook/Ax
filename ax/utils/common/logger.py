@@ -5,7 +5,7 @@ import logging
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Get an AElogger.
+    """Get an Axlogger.
 
     Sets default level to INFO, instead of WARNING.
     Adds timestamps to logger messages.

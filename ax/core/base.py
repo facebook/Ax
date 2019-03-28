@@ -9,7 +9,7 @@ from ax.utils.common.equality import datetime_equals, equality_typechecker, list
 
 
 class Base(object):
-    """Metaclass for core AE classes."""
+    """Metaclass for core Ax classes."""
 
     @equality_typechecker
     def __eq__(self, other: "Base"):

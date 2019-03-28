@@ -10,7 +10,7 @@ class NumpyModel:
     """This class specifies the interface for a numpy-based model.
 
     These methods should be implemented to have access to all of the features
-    of AE.
+    of Ax.
     """
 
     def fit(

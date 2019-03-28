@@ -10,8 +10,8 @@ from ax.modelbridge.base import ModelBridge
 from ax.plot.base import (
     CI_OPACITY,
     DECIMALS,
-    AEPlotConfig,
-    AEPlotTypes,
+    AxPlotConfig,
+    AxPlotTypes,
     PlotInSampleArm,
     PlotMetric,
     PlotOutOfSampleArm,
@@ -325,7 +325,7 @@ def plot_multiple_metrics(
     metric_y: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Plot raw values or predictions of two metrics for arms.
 
     All arms used in the model are included in the plot. Additional
@@ -440,7 +440,7 @@ def plot_multiple_metrics(
     )
 
     fig = go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
-    return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
 def plot_objective_vs_constraints(
@@ -449,7 +449,7 @@ def plot_objective_vs_constraints(
     subset_metrics: Optional[List[str]] = None,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Plot the tradeoff between an objetive and all other metrics in a model.
 
     All arms used in the model are included in the plot. Additional
@@ -612,7 +612,7 @@ def plot_objective_vs_constraints(
     )
 
     fig = go.Figure(data=plot_data, layout=layout)  # pyre-ignore[16]
-    return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
 def lattice_multiple_metrics(
@@ -620,7 +620,7 @@ def lattice_multiple_metrics(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     show_arm_details_on_hover: bool = False,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Plot raw values or predictions of combinations of two metrics for arms.
 
     Args:
@@ -895,7 +895,7 @@ def lattice_multiple_metrics(
     for xaxis in boxplot_xaxes:
         fig["layout"][xaxis]["showticklabels"] = False
 
-    return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
 # Single metric fitted values
@@ -986,7 +986,7 @@ def plot_fitted(
     custom_arm_order: Optional[List[str]] = None,
     custom_arm_order_name: str = "Custom",
     show_CI: bool = True,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Plot fitted metrics.
 
     Args:
@@ -1098,7 +1098,7 @@ def plot_fitted(
     )
 
     fig = go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
-    return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
 def tile_fitted(
@@ -1107,7 +1107,7 @@ def tile_fitted(
     rel: bool = True,
     show_arm_details_on_hover: bool = False,
     show_CI: bool = True,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Tile version of fitted outcome plots.
 
     Args:
@@ -1251,7 +1251,7 @@ def tile_fitted(
     ]
 
     fig = resize_subtitles(figure=fig, size=10)
-    return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
 def interact_fitted(
@@ -1260,7 +1260,7 @@ def interact_fitted(
     rel: bool = True,
     show_arm_details_on_hover: bool = True,
     show_CI: bool = True,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
     Choose the outcome to plot using a dropdown.
@@ -1365,7 +1365,7 @@ def interact_fitted(
             }
         )
 
-    return AEPlotConfig(
+    return AxPlotConfig(
         data=go.Figure(data=traces, layout=layout),  # pyre-ignore[16]
-        plot_type=AEPlotTypes.GENERIC,
+        plot_type=AxPlotTypes.GENERIC,
     )

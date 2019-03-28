@@ -29,14 +29,14 @@ MEDIUMTEXT_BYTES: int = 2 ** 24 - 1
 LONGTEXT_BYTES: int = 2 ** 32 - 1
 
 # global database variables
-AE_PROD_TIER: str = "xdb.adaptive_experiment"
+Ax_PROD_TIER: str = "xdb.adaptive_experiment"
 SESSION_FACTORY: Optional[Session] = None
 
 T = TypeVar("T")
 
 
 class SQABase:
-    """Metaclass for SQLAlchemy classes corresponding to core AE classes."""
+    """Metaclass for SQLAlchemy classes corresponding to core Ax classes."""
 
     @property
     def attributes(self):

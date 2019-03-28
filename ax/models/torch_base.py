@@ -11,7 +11,7 @@ class TorchModel:
     """This class specifies the interface for a torch-based model.
 
     These methods should be implemented to have access to all of the features
-    of AE.
+    of Ax.
     """
 
     dtype: Optional[torch.dtype]

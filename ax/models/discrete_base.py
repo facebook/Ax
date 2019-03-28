@@ -10,7 +10,7 @@ class DiscreteModel:
     """This class specifies the interface for a model based on discrete parameters.
 
     These methods should be implemented to have access to all of the features
-    of AE.
+    of Ax.
     """
 
     def fit(

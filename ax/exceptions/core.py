@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 
-class AEError(Exception):
-    """Base AE exception.
+class AxError(Exception):
+    """Base Ax exception.
 
-    All exceptions derived from AEError need to define a custom error message.
+    All exceptions derived from AxError need to define a custom error message.
     Additionally, exceptions can define a hint property that provides additional
     guidance as to how to remedy the error.
 
@@ -18,7 +18,7 @@ class AEError(Exception):
         return " ".join([self.message, getattr(self, "hint", "")])
 
 
-class UnsupportedError(AEError):
+class UnsupportedError(AxError):
     """Raised when an unsupported request is made.
 
     UnsupportedError may seem similar to NotImplementedError (NIE).
@@ -33,7 +33,7 @@ class UnsupportedError(AEError):
     pass
 
 
-class ExperimentNotReadyError(AEError):
+class ExperimentNotReadyError(AxError):
     """Raised when failing to query data due to immature experiment.
 
     Useful to distinguish data failure reasons in automated analyses.
@@ -42,7 +42,7 @@ class ExperimentNotReadyError(AEError):
     pass
 
 
-class NoDataError(AEError):
+class NoDataError(AxError):
     """Raised when no data is found for experiment in underlying data store.
 
     Useful to distinguish data failure reasons in automated analyses.

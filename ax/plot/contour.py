@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.modelbridge.base import ModelBridge
-from ax.plot.base import AEPlotConfig, AEPlotTypes, PlotData
+from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
 from ax.plot.color import BLUE_SCALE, GREEN_PINK_SCALE, GREEN_SCALE
 from ax.plot.helper import (
     TNullableGeneratorRunsDict,
@@ -76,7 +76,7 @@ def plot_contour(
     density: int = 50,
     slice_values: Optional[Dict[str, Any]] = None,
     lower_is_better: bool = False,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Plot predictions for a 2-d slice of the parameter space.
 
     Args:
@@ -123,7 +123,7 @@ def plot_contour(
         "x_is_log": scales["x"],
         "y_is_log": scales["y"],
     }
-    return AEPlotConfig(config, plot_type=AEPlotTypes.CONTOUR)
+    return AxPlotConfig(config, plot_type=AxPlotTypes.CONTOUR)
 
 
 def interact_contour(
@@ -134,7 +134,7 @@ def interact_contour(
     density: int = 50,
     slice_values: Optional[Dict[str, Any]] = None,
     lower_is_better: bool = False,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Create interactive plot with predictions for a 2-d slice of the parameter
     space.
 
@@ -203,4 +203,4 @@ def interact_contour(
         "is_log_dict": is_log_dict,
         "param_names": param_names,
     }
-    return AEPlotConfig(config, plot_type=AEPlotTypes.INTERACT_CONTOUR)
+    return AxPlotConfig(config, plot_type=AxPlotTypes.INTERACT_CONTOUR)

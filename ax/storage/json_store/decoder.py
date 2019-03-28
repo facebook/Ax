@@ -76,7 +76,7 @@ def object_from_json(object_json: Any) -> Any:
 
 
 def generator_run_from_json(object_json: Dict[str, Any]) -> GeneratorRun:
-    """Load AE GeneratorRun from JSON."""
+    """Load Ax GeneratorRun from JSON."""
     time_created_json = object_json.pop("time_created")
     type_json = object_json.pop("generator_run_type")
     index_json = object_json.pop("index")
@@ -92,7 +92,7 @@ def generator_run_from_json(object_json: Dict[str, Any]) -> GeneratorRun:
 def trials_from_json(
     experiment: Experiment, trials_json: Dict[str, Any]
 ) -> Dict[int, BaseTrial]:
-    """Load AE Trials from JSON."""
+    """Load Ax Trials from JSON."""
     loaded_trials = {}
     for index, batch_json in trials_json.items():
         is_trial = batch_json["__type"] == "Trial"
@@ -111,7 +111,7 @@ def trials_from_json(
 def data_from_json(
     data_by_trial_json: Dict[str, Any]
 ) -> Dict[int, "OrderedDict[int, Data]"]:
-    """Load AE Data from JSON."""
+    """Load Ax Data from JSON."""
     data_by_trial = object_from_json(data_by_trial_json)
     # hack necessary because Python's json module converts dictionary
     # keys to strings: https://stackoverflow.com/q/1450957
@@ -152,7 +152,7 @@ def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment
 
 
 def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
-    """Load AE Experiment from JSON."""
+    """Load Ax Experiment from JSON."""
     time_created_json = object_json.pop("time_created")
     trials_json = object_json.pop("trials")
     experiment_type_json = object_json.pop("experiment_type")

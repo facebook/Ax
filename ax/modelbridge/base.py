@@ -27,17 +27,16 @@ logger = get_logger("ModelBridge")
 
 
 class ModelBridge(ABC):
-    """The main object for using models in AE.
+    """The main object for using models in Ax.
 
     ModelBridge specifies 3 methods for using models:
-
     - predict: Make model predictions. This method is not optimized for
       speed and so should be used primarily for plotting or similar tasks
       and not inside an optimization loop.
     - gen: Use the model to generate new candidates.
     - cross_validate: Do cross validation to assess model predictions.
 
-    ModelBridge converts AE types like Data and Arm to types that are
+    ModelBridge converts Ax types like Data and Arm to types that are
     meant to be consumed by the models. The data sent to the model will depend
     on the implementation of the subclass, which will specify the actual API
     for external model.
@@ -69,7 +68,7 @@ class ModelBridge(ABC):
             experiment: Is used to get arm parameters. Is not mutated.
             search_space: Search space for fitting the model. Constraints need
                 not be the same ones used in gen.
-            data: AE Data.
+            data: Ax Data.
             model: Interface will be specified in subclass. If model requires
                 initialization, that should be done prior to its use here.
             transforms: List of uninitialized transform classes. Forward

@@ -14,8 +14,8 @@ DECIMALS = 3
 Z = 1.96
 
 
-class AEPlotTypes(enum.Enum):
-    """Enum of AE plot types."""
+class AxPlotTypes(enum.Enum):
+    """Enum of Ax plot types."""
 
     DATA_AVAILABILITY = 0
     CONTOUR = 1
@@ -27,15 +27,15 @@ class AEPlotTypes(enum.Enum):
 
 
 # Configuration for all plots
-class _AEPlotConfigBase(NamedTuple):
+class _AxPlotConfigBase(NamedTuple):
     data: Dict[str, Any]
-    plot_type: AEPlotTypes
+    plot_type: AxPlotTypes
 
 
-class AEPlotConfig(_AEPlotConfigBase):
+class AxPlotConfig(_AxPlotConfigBase):
     """Config for plots"""
 
-    def __new__(cls, data: Dict[str, Any], plot_type: AEPlotTypes) -> "AEPlotConfig":
+    def __new__(cls, data: Dict[str, Any], plot_type: AxPlotTypes) -> "AxPlotConfig":
         # Convert data to json-encodable form (strips out NamedTuple and numpy
         # array). This is a lossy conversion.
         dict_data = simplejson.loads(
@@ -45,8 +45,8 @@ class AEPlotConfig(_AEPlotConfigBase):
                 namedtuple_as_object=True,  # uses NamesTuple's `_asdict()`
             )
         )
-        # pyre-fixme[7]: Expected `AEPlotConfig` but got `_AEPlotConfigBase`.
-        return super(AEPlotConfig, cls).__new__(cls, dict_data, plot_type)
+        # pyre-fixme[7]: Expected `AxPlotConfig` but got `_AxPlotConfigBase`.
+        return super(AxPlotConfig, cls).__new__(cls, dict_data, plot_type)
 
 
 # Structs for plot data

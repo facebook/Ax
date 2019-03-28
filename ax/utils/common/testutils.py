@@ -108,7 +108,7 @@ def _deprecate(original_func: Callable) -> Callable:
 
 
 class TestCase(unittest.TestCase):
-    """The base test case for AE, contains various helper functions to write unittest.
+    """The base test case for Ax, contains various helper functions to write unittest.
     """
 
     def assertRaisesOn(

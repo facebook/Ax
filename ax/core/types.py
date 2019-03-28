@@ -21,7 +21,7 @@ TModelPredict = Tuple[TModelMean, TModelCov]
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
 TModelPredictArm = Tuple[Dict[str, float], Dict[str, Dict[str, float]]]
 
-# Format for trasmitting externally evaluated data to AE
+# Format for trasmitting externally evaluated data to Ax
 # {metric_name -> (mean, standard error)}
 TEvaluationOutcome = Dict[str, Tuple[float, float]]
 

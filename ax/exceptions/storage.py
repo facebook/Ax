@@ -1,34 +1,34 @@
 #!/usr/bin/env python3
 
 
-from ax.exceptions.core import AEError
+from ax.exceptions.core import AxError
 
 
-class JSONDecodeError(AEError):
+class JSONDecodeError(AxError):
     """Raised when an error occurs during JSON decoding."""
 
     pass
 
 
-class JSONEncodeError(AEError):
+class JSONEncodeError(AxError):
     """Raised when an error occurs during JSON encoding."""
 
     pass
 
 
-class SQADecodeError(AEError):
+class SQADecodeError(AxError):
     """Raised when an error occurs during SQA decoding."""
 
     pass
 
 
-class SQAEncodeError(AEError):
+class SQAEncodeError(AxError):
     """Raised when an error occurs during SQA encoding."""
 
     pass
 
 
-class ImmutabilityError(AEError):
+class ImmutabilityError(AxError):
     """Raised when an attempt is made to update an immutable object."""
 
     pass

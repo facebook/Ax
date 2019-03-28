@@ -25,7 +25,7 @@ from ax.runners.synthetic import SyntheticRunner
 
 
 def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
-    """Convert AE experiment to a dictionary."""
+    """Convert Ax experiment to a dictionary."""
     return {
         "__type": experiment.__class__.__name__,
         "name": experiment.name,
@@ -49,7 +49,7 @@ def simple_experiment_to_dict(experiment: SimpleExperiment) -> Dict[str, Any]:
 
 
 def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
-    """Convert AE batch to a dictionary."""
+    """Convert Ax batch to a dictionary."""
     return {
         "__type": batch.__class__.__name__,
         "index": batch.index,
@@ -71,7 +71,7 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
 
 
 def trial_to_dict(trial: Trial) -> Dict[str, Any]:
-    """Convert AE trial to a dictionary."""
+    """Convert Ax trial to a dictionary."""
     return {
         "__type": trial.__class__.__name__,
         "index": trial.index,
@@ -90,7 +90,7 @@ def trial_to_dict(trial: Trial) -> Dict[str, Any]:
 
 
 def range_parameter_to_dict(parameter: RangeParameter) -> Dict[str, Any]:
-    """Convert AE range parameter to a dictionary."""
+    """Convert Ax range parameter to a dictionary."""
     return {
         "__type": parameter.__class__.__name__,
         "name": parameter.name,
@@ -103,7 +103,7 @@ def range_parameter_to_dict(parameter: RangeParameter) -> Dict[str, Any]:
 
 
 def choice_parameter_to_dict(parameter: ChoiceParameter) -> Dict[str, Any]:
-    """Convert AE choice parameter to a dictionary."""
+    """Convert Ax choice parameter to a dictionary."""
     return {
         "__type": parameter.__class__.__name__,
         "is_ordered": parameter.is_ordered,
@@ -115,7 +115,7 @@ def choice_parameter_to_dict(parameter: ChoiceParameter) -> Dict[str, Any]:
 
 
 def fixed_parameter_to_dict(parameter: FixedParameter) -> Dict[str, Any]:
-    """Convert AE fixed parameter to a dictionary."""
+    """Convert Ax fixed parameter to a dictionary."""
     return {
         "__type": parameter.__class__.__name__,
         "name": parameter.name,
@@ -127,7 +127,7 @@ def fixed_parameter_to_dict(parameter: FixedParameter) -> Dict[str, Any]:
 def order_parameter_constraint_to_dict(
     parameter_constraint: OrderConstraint
 ) -> Dict[str, Any]:
-    """Convert AE order parameter constraint to a dictionary."""
+    """Convert Ax order parameter constraint to a dictionary."""
     return {
         "__type": parameter_constraint.__class__.__name__,
         "lower_name": parameter_constraint.lower_name,
@@ -138,7 +138,7 @@ def order_parameter_constraint_to_dict(
 def sum_parameter_constraint_to_dict(
     parameter_constraint: SumConstraint
 ) -> Dict[str, Any]:
-    """Convert AE sum parameter constraint to a dictionary."""
+    """Convert Ax sum parameter constraint to a dictionary."""
     return {
         "__type": parameter_constraint.__class__.__name__,
         "parameter_names": parameter_constraint._parameter_names,
@@ -152,7 +152,7 @@ def sum_parameter_constraint_to_dict(
 def parameter_constraint_to_dict(
     parameter_constraint: ParameterConstraint
 ) -> Dict[str, Any]:
-    """Convert AE sum parameter constraint to a dictionary."""
+    """Convert Ax sum parameter constraint to a dictionary."""
     return {
         "__type": parameter_constraint.__class__.__name__,
         "constraint_dict": parameter_constraint.constraint_dict,
@@ -161,12 +161,12 @@ def parameter_constraint_to_dict(
 
 
 def arm_to_dict(arm: Arm) -> Dict[str, Any]:
-    """Convert AE arm to a dictionary."""
+    """Convert Ax arm to a dictionary."""
     return {"__type": arm.__class__.__name__, "params": arm.params, "name": arm._name}
 
 
 def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:
-    """Convert AE search space to a dictionary."""
+    """Convert Ax search space to a dictionary."""
     return {
         "__type": search_space.__class__.__name__,
         "parameters": list(search_space.parameters.values()),
@@ -175,7 +175,7 @@ def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:
 
 
 def metric_to_dict(metric: Metric) -> Dict[str, Any]:
-    """Convert AE metric to a dictionary."""
+    """Convert Ax metric to a dictionary."""
     return {
         "__type": metric.__class__.__name__,
         "name": metric.name,
@@ -184,7 +184,7 @@ def metric_to_dict(metric: Metric) -> Dict[str, Any]:
 
 
 def objective_to_dict(objective: Objective) -> Dict[str, Any]:
-    """Convert AE objective to a dictionary."""
+    """Convert Ax objective to a dictionary."""
     return {
         "__type": objective.__class__.__name__,
         "metric": objective.metric,
@@ -193,7 +193,7 @@ def objective_to_dict(objective: Objective) -> Dict[str, Any]:
 
 
 def outcome_constraint_to_dict(outcome_constraint: OutcomeConstraint) -> Dict[str, Any]:
-    """Convert AE outcome constraint to a dictionary."""
+    """Convert Ax outcome constraint to a dictionary."""
     return {
         "__type": outcome_constraint.__class__.__name__,
         "metric": outcome_constraint.metric,
@@ -206,7 +206,7 @@ def outcome_constraint_to_dict(outcome_constraint: OutcomeConstraint) -> Dict[st
 def optimization_config_to_dict(
     optimization_config: OptimizationConfig
 ) -> Dict[str, Any]:
-    """Convert AE optimization config to a dictionary."""
+    """Convert Ax optimization config to a dictionary."""
     return {
         "__type": optimization_config.__class__.__name__,
         "objective": optimization_config.objective,
@@ -215,7 +215,7 @@ def optimization_config_to_dict(
 
 
 def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
-    """Convert AE generator run to a dictionary."""
+    """Convert Ax generator run to a dictionary."""
     return {
         "__type": generator_run.__class__.__name__,
         "arms": generator_run.arms,
@@ -233,13 +233,13 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
 
 
 def synthetic_runner_to_dict(runner: SyntheticRunner) -> Dict[str, Any]:
-    """Convert AE synthetic runner to a dictionary."""
+    """Convert Ax synthetic runner to a dictionary."""
     return {"__type": runner.__class__.__name__}
 
 
 # TODO this should be generalized to handle arbitrary subclasses of SyntheticMetric
 def branin_metric_to_dict(metric: BraninMetric) -> Dict[str, Any]:
-    """Convert AE Branin metric to a dictionary."""
+    """Convert Ax Branin metric to a dictionary."""
     return {
         "__type": metric.__class__.__name__,
         "name": metric.name,
@@ -250,7 +250,7 @@ def branin_metric_to_dict(metric: BraninMetric) -> Dict[str, Any]:
 
 
 def data_to_dict(data: Data) -> Dict[str, Any]:
-    """Convert AE data to a dictionary."""
+    """Convert Ax data to a dictionary."""
     return {
         "__type": data.__class__.__name__,
         "df": data.df,

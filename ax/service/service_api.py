@@ -81,7 +81,7 @@ def save_experiment(experiment: Experiment, db_settings: DBSettings) -> None:
     _save_experiment(experiment, db_settings.encoder)
 
 
-class AELoopHandler:
+class AxLoopHandler:
     """
     Convenience handler for managing the experimentation loop process.
     """

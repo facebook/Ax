@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from ax.plot.base import AEPlotConfig
+from ax.plot.base import AxPlotConfig
 from ax.plot.render import _js_requires, _wrap_js, plot_config_to_html
 from ax.utils.common.logger import get_logger
 from IPython.display import display
@@ -18,7 +18,7 @@ def init_notebook_plotting(offline=False):
     )
 
 
-def render(plot_config: AEPlotConfig, inject_helpers=False) -> None:
+def render(plot_config: AxPlotConfig, inject_helpers=False) -> None:
     """Render plot config."""
     display_bundle = {"text/html": plot_config_to_html(plot_config, inject_helpers)}
     display(display_bundle, raw=True)

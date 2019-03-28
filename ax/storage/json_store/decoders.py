@@ -34,7 +34,7 @@ def batch_trial_from_json(
     status_quo: Optional[Arm],
     status_quo_weight: float,
 ) -> BatchTrial:
-    """Load AE BatchTrial from JSON.
+    """Load Ax BatchTrial from JSON.
 
     Other classes don't need explicit deserializers, because we can just use
     their constructors (see decoder.py). However, the constructor for Batch
@@ -75,7 +75,7 @@ def trial_from_json(
     runner: Optional[Runner],
     num_arms_created: int,
 ) -> Trial:
-    """Load AE trial from JSON.
+    """Load Ax trial from JSON.
 
     Other classes don't need explicit deserializers, because we can just use
     their constructors (see decoder.py). However, the constructor for Trial

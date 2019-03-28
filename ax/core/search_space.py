@@ -255,13 +255,13 @@ class SearchSpace(Base):
 
                 # ChoiceParameters are transformed either using OneHotEncoding
                 # or the OrderedChoice transform. Both are non-linear, and
-                # AE models only support linear constraints.
+                # Ax models only support linear constraints.
                 if isinstance(parameter, ChoiceParameter):
                     raise ValueError(
                         f"Parameter constraints not supported for ChoiceParameter."
                     )
 
-                # Log parameters require a non-linear transformation, and AE
+                # Log parameters require a non-linear transformation, and Ax
                 # models only support linear constraints.
                 if (
                     isinstance(parameter, RangeParameter)

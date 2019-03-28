@@ -19,7 +19,7 @@ def equality_typechecker(eq_func: Callable) -> Callable:
 
 
 def list_equals(list1: List[Any], list2: List[Any]) -> bool:
-    """Compare equality of two lists of core AE objects.
+    """Compare equality of two lists of core Ax objects.
 
     Assumptions:
         -- The contents of each list are types that implement __eq__

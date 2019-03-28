@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.modelbridge.base import ModelBridge
-from ax.plot.base import AEPlotConfig, AEPlotTypes
+from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.helper import (
     TNullableGeneratorRunsDict,
     get_fixed_values,
@@ -23,7 +23,7 @@ def plot_slice(
     relative: bool = False,
     density: int = 50,
     slice_values: Optional[Dict[str, Any]] = None,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Plot predictions for a 1-d slice of the parameter space.
 
     Args:
@@ -76,4 +76,4 @@ def plot_slice(
         "sd": sd_plt,
         "is_log": parameter.log_scale,
     }
-    return AEPlotConfig(config, plot_type=AEPlotTypes.SLICE)
+    return AxPlotConfig(config, plot_type=AxPlotTypes.SLICE)

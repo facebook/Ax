@@ -44,7 +44,7 @@ from ax.utils.common.typeutils import not_none
 
 
 class Encoder:
-    """Class that contains methods for storing an AE experiment to SQLAlchemy.
+    """Class that contains methods for storing an Ax experiment to SQLAlchemy.
 
     Instantiate with an instance of Config to customize the functionality.
     For even more flexibility, create a subclass.
@@ -72,7 +72,7 @@ class Encoder:
             raise SQAEncodeError(f"Value {value} is invalid for enum {enum}.")
 
     def experiment_to_sqa(self, experiment: Experiment) -> SQAExperiment:
-        """Convert AE Experiment to SQLAlchemy.
+        """Convert Ax Experiment to SQLAlchemy.
 
         In addition to creating and storing a new Experiment object, we need to
         create and store copies of the Trials, Metrics, Parameters,
@@ -140,7 +140,7 @@ class Encoder:
         )
 
     def parameter_to_sqa(self, parameter: Parameter) -> SQAParameter:
-        """Convert AE Parameter to SQLAlchemy."""
+        """Convert Ax Parameter to SQLAlchemy."""
         # pyre-fixme: Expected `Base` for 1st...typing.Type[Parameter]`.
         parameter_class: SQAParameter = self.config.class_to_sqa_class[Parameter]
         if isinstance(parameter, RangeParameter):
@@ -181,7 +181,7 @@ class Encoder:
     def parameter_constraint_to_sqa(
         self, parameter_constraint: ParameterConstraint
     ) -> SQAParameterConstraint:
-        """Convert AE ParameterConstraint to SQLAlchemy."""
+        """Convert Ax ParameterConstraint to SQLAlchemy."""
         # pyre-fixme[9]: parameter_constraint_cl... used as type `SQABase`.
         param_constraint_cls: SQAParameterConstraint = self.config.class_to_sqa_class[
             ParameterConstraint
@@ -211,7 +211,7 @@ class Encoder:
     def search_space_to_sqa(
         self, search_space: Optional[SearchSpace]
     ) -> Tuple[List[SQAParameter], List[SQAParameterConstraint]]:
-        """Convert AE SearchSpace to a list of SQLAlchemy Parameters and
+        """Convert Ax SearchSpace to a list of SQLAlchemy Parameters and
         ParameterConstraints.
         """
         if search_space is None:
@@ -230,7 +230,7 @@ class Encoder:
     def get_properties(
         self, object: Base, exclude_fields: Optional[List[str]] = None
     ) -> Dict[str, Any]:
-        """Given an AE object, return a dictionary of the attributes that are
+        """Given an Ax object, return a dictionary of the attributes that are
         needed by its constructor, and which we therefore need to store
         in the properties blob in the DB.
         """
@@ -257,7 +257,7 @@ class Encoder:
     def get_metric_type_and_properties(
         self, metric: Metric
     ) -> Tuple[str, Dict[str, Any]]:
-        """Given an AE Metric, convert its type into a member of MetricType enum,
+        """Given an Ax Metric, convert its type into a member of MetricType enum,
         and construct a dictionary to be stored in the database `properties`
         json blob.
         """
@@ -277,7 +277,7 @@ class Encoder:
         return metric_type, properties
 
     def metric_to_sqa(self, metric: Metric) -> SQAMetric:
-        """Convert AE Metric to SQLAlchemy."""
+        """Convert Ax Metric to SQLAlchemy."""
         metric_type, properties = self.get_metric_type_and_properties(metric=metric)
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
@@ -292,7 +292,7 @@ class Encoder:
         )
 
     def objective_to_sqa(self, objective: Objective) -> SQAMetric:
-        """Convert AE Objective to SQLAlchemy."""
+        """Convert Ax Objective to SQLAlchemy."""
         metric = objective.metric
         metric_type, properties = self.get_metric_type_and_properties(metric=metric)
 
@@ -311,7 +311,7 @@ class Encoder:
     def outcome_constraint_to_sqa(
         self, outcome_constraint: OutcomeConstraint
     ) -> SQAMetric:
-        """Convert AE OutcomeConstraint to SQLAlchemy."""
+        """Convert Ax OutcomeConstraint to SQLAlchemy."""
         metric = outcome_constraint.metric
         metric_type, properties = self.get_metric_type_and_properties(metric=metric)
 
@@ -332,7 +332,7 @@ class Encoder:
     def optimization_config_to_sqa(
         self, optimization_config: Optional[OptimizationConfig]
     ) -> List[SQAMetric]:
-        """Convert AE OptimizationConfig to a list of SQLAlchemy Metrics."""
+        """Convert Ax OptimizationConfig to a list of SQLAlchemy Metrics."""
         if optimization_config is None:
             return []
 
@@ -344,14 +344,14 @@ class Encoder:
         return [objective_sqa] + outcome_constraints_sqa
 
     def arm_to_sqa(self, arm: Arm, weight: Optional[float] = 1.0) -> SQAArm:
-        """Convert AE Arm to SQLAlchemy."""
+        """Convert Ax Arm to SQLAlchemy."""
         # pyre-fixme: Expected `Base` for 1st... got `typing.Type[Arm]`.
         arm_class: SQAArm = self.config.class_to_sqa_class[Arm]
         # pyre-fixme[29]: `SQAArm` is not a function.
         return arm_class(parameters=arm.params, name=arm._name, weight=weight)
 
     def abandoned_arm_to_sqa(self, abandoned_arm: AbandonedArm) -> SQAAbandonedArm:
-        """Convert AE AbandonedArm to SQLAlchemy."""
+        """Convert Ax AbandonedArm to SQLAlchemy."""
         # pyre-fixme[9]: abandoned_arm_class is ....sqa_store.db.SQABase]`.
         abandoned_arm_class: SQAAbandonedArm = self.config.class_to_sqa_class[
             # pyre-fixme[6]: Expected `typing.Type[B...ing.Type[AbandonedArm]`.
@@ -367,7 +367,7 @@ class Encoder:
     def generator_run_to_sqa(
         self, generator_run: GeneratorRun, weight: Optional[float] = None
     ) -> SQAGeneratorRun:
-        """Convert AE GeneratorRun to SQLAlchemy.
+        """Convert Ax GeneratorRun to SQLAlchemy.
 
         In addition to creating and storing a new GeneratorRun object, we need to
         create and store copies of the Arms, Metrics, Parameters, and
@@ -425,7 +425,7 @@ class Encoder:
         )
 
     def runner_to_sqa(self, runner: Runner) -> SQARunner:
-        """Convert AE Runner to SQLAlchemy."""
+        """Convert Ax Runner to SQLAlchemy."""
         runner_type = self.config.runner_registry.class_to_type.get(type(runner))
         if runner_type is None:
             raise SQAEncodeError(
@@ -440,7 +440,7 @@ class Encoder:
         return runner_class(runner_type=runner_type, properties=properties)
 
     def trial_to_sqa(self, trial: BaseTrial) -> SQATrial:
-        """Convert AE Trial to SQLAlchemy.
+        """Convert Ax Trial to SQLAlchemy.
 
         In addition to creating and storing a new Trial object, we need to
         create and store the GeneratorRuns and Runner that it owns.

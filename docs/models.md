@@ -138,7 +138,7 @@ Like the Sobol sequence, the factorial model is only used to generate points and
 
 Ax uses a bridge design to provide a unified interface for models, while still allowing for modularity in how different types of models are implemented. The modeling stack consists of two layers: the ModelBridge and the Model.
 
-The ModelBridge is the object that is directly used in Ax: model factories return ModelBridge objects, and plotting and cross validation tools operate on a ModelBridge. The ModelBridge defines a unified API for all of the models used in Ax via methods like `predict` and `gen`. Internally, it is responsible for transforming AE objects like Arm and Data into objects which are then consumed downstream by a Model.
+The ModelBridge is the object that is directly used in Ax: model factories return ModelBridge objects, and plotting and cross validation tools operate on a ModelBridge. The ModelBridge defines a unified API for all of the models used in Ax via methods like `predict` and `gen`. Internally, it is responsible for transforming Ax objects like Arm and Data into objects which are then consumed downstream by a Model.
 
 Model objects are only used in Ax via a ModelBridge. Each Model object defines an API that does not include Ax objects, which allows for modularity of different model types and makes it easy to implement new models. For example, the TorchModel defines an API for a model that operates on torch tensors. There is a 1-to-1 link between ModelBridge objects and Model objects: the TorchModelBridge takes in Ax objects, converts them to torch tensors, and sends them along to the TorchModel. Similar pairings exist for all of the different model types:
 

@@ -4,11 +4,11 @@ from typing import Any, Dict, List
 
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
-from ax.plot.base import AEPlotConfig, AEPlotTypes
+from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.color import MIXED_SCALE, rgba
 
 
-def plot_bandit_rollout(experiment: Experiment) -> AEPlotConfig:
+def plot_bandit_rollout(experiment: Experiment) -> AxPlotConfig:
     """Plot bandit rollout from ane experiement."""
 
     categories: List[str] = []
@@ -48,4 +48,4 @@ def plot_bandit_rollout(experiment: Experiment) -> AEPlotConfig:
     colors = [rgba(c) for c in MIXED_SCALE]
     config = {"data": data, "categories": categories, "colors": colors}
 
-    return AEPlotConfig(config, plot_type=AEPlotTypes.BANDIT_ROLLOUT)
+    return AxPlotConfig(config, plot_type=AxPlotTypes.BANDIT_ROLLOUT)

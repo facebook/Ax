@@ -9,8 +9,8 @@ from ax.core.data import Data
 from ax.core.observation import Observation
 from ax.modelbridge.cross_validation import CVResult
 from ax.plot.base import (
-    AEPlotConfig,
-    AEPlotTypes,
+    AxPlotConfig,
+    AxPlotTypes,
     PlotData,
     PlotInSampleArm,
     PlotMetric,
@@ -347,7 +347,7 @@ def _get_cv_plot_data(cv_results: List[CVResult]) -> PlotData:
     )
 
 
-def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AEPlotConfig:
+def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlotConfig:
     """Compare the model predictions for the batch arms against observed data.
 
     Relies on the model predictions stored on the generator_runs of batch.
@@ -356,7 +356,7 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AEPlot
         batch: Batch on which to perform analysis.
         data: Observed data for the batch.
     Returns:
-        AEPlotConfig for the plot.
+        AxPlotConfig for the plot.
     """
     insample_data: Dict[str, PlotInSampleArm] = {}
     metric_names = list(data.df["metric_name"].unique())
@@ -400,12 +400,12 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AEPlot
 
     fig = _obs_vs_pred_dropdown_plot(data=plot_data, rel=False)
     fig["layout"]["title"] = "Cross-validation"
-    return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
 def interact_cross_validation(
     cv_results: List[CVResult], show_context: bool = True
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Interactive cross-validation (CV) plotting; select metric via dropdown.
 
     Note: uses the Plotly version of dropdown (which means that all data is
@@ -419,14 +419,14 @@ def interact_cross_validation(
     data = _get_cv_plot_data(cv_results)
     fig = _obs_vs_pred_dropdown_plot(data=data, rel=False, show_context=show_context)
     fig["layout"]["title"] = "Cross-validation"
-    return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
 def tile_cross_validation(
     cv_results: List[CVResult],
     show_arm_details_on_hover: bool = True,
     show_context: bool = True,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Tile version of CV plots; sorted by 'best fitting' outcomes.
 
     Plots are sorted in decreasing order using the p-value of a Fisher exact
@@ -517,7 +517,7 @@ def tile_cross_validation(
             title="Predicted Outcome", mirror=True, linecolor="black", linewidth=0.5
         )
 
-    return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
 def interact_batch_comparison(
@@ -526,7 +526,7 @@ def interact_batch_comparison(
     batch_y: int,
     rel: bool = False,
     status_quo_name: Optional[str] = None,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Compare repeated arms from two trials; select metric via dropdown.
 
     Args:
@@ -546,4 +546,4 @@ def interact_batch_comparison(
         ylabel="Batch {}".format(batch_y),
     )
     fig["layout"]["title"] = "Repeated arms across trials"
-    return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

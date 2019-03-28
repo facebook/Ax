@@ -11,10 +11,10 @@ from ax.storage.json_store.registry import ENCODER_REGISTRY
 
 
 def object_to_json(object: Any) -> Any:
-    """Convert an AE object to a JSON-serializable dictionary.
+    """Convert an Ax object to a JSON-serializable dictionary.
 
     The root node passed to this function should always be an instance of a
-    core AE class. The sub-fields of this object will then be recursively
+    core Ax class. The sub-fields of this object will then be recursively
     passed to this function.
 
     e.g. if we pass an instance of Experiment, we will first fall through

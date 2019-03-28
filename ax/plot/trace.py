@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import plotly.graph_objs as go
-from ax.plot.base import AEPlotConfig, AEPlotTypes
+from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 
 
@@ -150,7 +150,7 @@ def optimization_trace_single_method(
     trace_color: Tuple[int] = COLORS.STEELBLUE.value,
     optimum_color: Tuple[int] = COLORS.ORANGE.value,
     generator_change_color: Tuple[int] = COLORS.TEAL.value,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Plots an optimization trace with mean and 2 SEMs
 
     Args:
@@ -168,7 +168,7 @@ def optimization_trace_single_method(
             an RGB color. Defaults to orange.
 
     Returns:
-        AEPlotConfig: plot of the optimization trace with IQR
+        AxPlotConfig: plot of the optimization trace with IQR
     """
     trace = mean_trace_scatter(y=y, trace_color=trace_color)
     # pyre-fixme[23]: Unable to unpack single value, 2 were expected.
@@ -205,10 +205,10 @@ def optimization_trace_single_method(
             )
         )
 
-    return AEPlotConfig(
+    return AxPlotConfig(
         # pyre-ignore[16]: ...graph_objs` has no attr. `Figure`
         data=go.Figure(layout=layout, data=data),
-        plot_type=AEPlotTypes.GENERIC,
+        plot_type=AxPlotTypes.GENERIC,
     )
 
 
@@ -219,7 +219,7 @@ def optimization_trace_all_methods(
     ylabel: str = "",
     trace_colors: List[Tuple[int]] = DISCRETE_COLOR_SCALE,
     optimum_color: Tuple[int] = COLORS.ORANGE.value,
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Plots a comparison of optimization traces with 2-SEM bands for multiple
     methods on the same problem.
 
@@ -231,12 +231,12 @@ def optimization_trace_all_methods(
         ylabel: Label for y axis
         trace_colors: tuples of 3 int values representing
             RGB colors to use for different methods shown in the combination plot.
-            Defaults to AE discrete color scale.
+            Defaults to Ax discrete color scale.
         optimum_color: tuple of 3 int values representing an RGB color.
             Defaults to orange.
 
     Returns:
-        AEPlotConfig: plot of the comparison of optimization traces with IQR
+        AxPlotConfig: plot of the comparison of optimization traces with IQR
     """
     data: List[go.Scatter] = []
 
@@ -266,10 +266,10 @@ def optimization_trace_all_methods(
         xaxis={"title": "Iteration"},
     )
 
-    return AEPlotConfig(
+    return AxPlotConfig(
         # pyre-ignore[16]: ...graph_objs` has no attr. `Figure`
         data=go.Figure(layout=layout, data=data),
-        plot_type=AEPlotTypes.GENERIC,
+        plot_type=AxPlotTypes.GENERIC,
     )
 
 
@@ -277,7 +277,7 @@ def optimization_times(
     fit_times: Dict[str, List[float]],
     gen_times: Dict[str, List[float]],
     title: str = "",
-) -> AEPlotConfig:
+) -> AxPlotConfig:
     """Plots wall times for each method as a bar chart.
 
     Args:
@@ -285,7 +285,7 @@ def optimization_times(
         gen_times: A map from method name to a list of the gen times.
         title: Title for this plot.
 
-    Returns: AEPlotConfig with the plot
+    Returns: AxPlotConfig with the plot
     """
     # Compute means and SEs
     methods = list(fit_times.keys())
@@ -338,8 +338,8 @@ def optimization_times(
         xaxis={"title": "Method"},
     )
 
-    return AEPlotConfig(
+    return AxPlotConfig(
         # pyre-ignore[16]: ...graph_objs` has no attr. `Figure`
         data=go.Figure(layout=layout, data=data),
-        plot_type=AEPlotTypes.GENERIC,
+        plot_type=AxPlotTypes.GENERIC,
     )

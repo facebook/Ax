@@ -45,7 +45,7 @@ from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 
 
 class Decoder:
-    """Class that contains methods for loading an AE experiment from SQLAlchemy.
+    """Class that contains methods for loading an Ax experiment from SQLAlchemy.
 
     Instantiate with an instance of Config to customize the functionality.
     For even more flexibility, create a subclass.
@@ -73,7 +73,7 @@ class Decoder:
             raise SQADecodeError(f"Value {value} is invalid for enum {enum}.")
 
     def experiment_from_sqa(self, experiment_sqa: SQAExperiment) -> Experiment:
-        """Convert SQLAlchemy Experiment to AE Experiment."""
+        """Convert SQLAlchemy Experiment to Ax Experiment."""
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
             metrics_sqa=experiment_sqa.metrics
         )
@@ -156,7 +156,7 @@ class Decoder:
         return experiment
 
     def parameter_from_sqa(self, parameter_sqa: SQAParameter) -> Parameter:
-        """Convert SQLAlchemy Parameter to AE Parameter."""
+        """Convert SQLAlchemy Parameter to Ax Parameter."""
         if parameter_sqa.domain_type == DomainType.RANGE:
             if parameter_sqa.lower is None or parameter_sqa.upper is None:
                 raise SQADecodeError(  # pragma: no cover
@@ -199,7 +199,7 @@ class Decoder:
     def parameter_constraint_from_sqa(
         self, parameter_constraint_sqa: SQAParameterConstraint
     ) -> ParameterConstraint:
-        """Convert SQLAlchemy ParameterConstraint to AE ParameterConstraint."""
+        """Convert SQLAlchemy ParameterConstraint to Ax ParameterConstraint."""
         if parameter_constraint_sqa.type == ParameterConstraintType.ORDER:
             lower_name = None
             upper_name = None
@@ -242,7 +242,7 @@ class Decoder:
         parameter_constraints_sqa: List[SQAParameterConstraint],
     ) -> Optional[SearchSpace]:
         """Convert a list of SQLAlchemy Parameters and ParameterConstraints to an
-        AE SearchSpace.
+        Ax SearchSpace.
         """
         parameters = [
             self.parameter_from_sqa(parameter_sqa=parameter_sqa)
@@ -290,7 +290,7 @@ class Decoder:
     def metric_from_sqa(
         self, metric_sqa: SQAMetric
     ) -> Union[Metric, Objective, OutcomeConstraint]:
-        """Convert SQLAlchemy Metric to AE Metric, Objective, or OutcomeConstraint."""
+        """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
         metric_class = self.config.metric_registry.type_to_class.get(
             metric_sqa.metric_type
         )
@@ -327,7 +327,7 @@ class Decoder:
     def opt_config_and_tracking_metrics_from_sqa(
         self, metrics_sqa: List[SQAMetric]
     ) -> Tuple[Optional[OptimizationConfig], List[Metric]]:
-        """Convert a list of SQLAlchemy Metrics to a a tuple of AE OptimizationConfig
+        """Convert a list of SQLAlchemy Metrics to a a tuple of Ax OptimizationConfig
         and tracking metrics.
         """
         objective = None
@@ -353,13 +353,13 @@ class Decoder:
         )
 
     def arm_from_sqa(self, arm_sqa: SQAArm) -> Arm:
-        """Convert SQLAlchemy Arm to AE Arm."""
+        """Convert SQLAlchemy Arm to Ax Arm."""
         return Arm(params=arm_sqa.parameters, name=arm_sqa.name)
 
     def abandoned_arm_from_sqa(
         self, abandoned_arm_sqa: SQAAbandonedArm
     ) -> AbandonedArm:
-        """Convert SQLAlchemy AbandonedArm to AE AbandonedArm."""
+        """Convert SQLAlchemy AbandonedArm to Ax AbandonedArm."""
         return AbandonedArm(
             name=abandoned_arm_sqa.name,
             reason=abandoned_arm_sqa.abandoned_reason,
@@ -369,7 +369,7 @@ class Decoder:
     def generator_run_from_sqa(
         self, generator_run_sqa: SQAGeneratorRun
     ) -> GeneratorRun:
-        """Convert SQLAlchemy GeneratorRun to AE GeneratorRun."""
+        """Convert SQLAlchemy GeneratorRun to Ax GeneratorRun."""
         arms = []
         weights = []
         opt_config = None
@@ -431,7 +431,7 @@ class Decoder:
         return generator_run
 
     def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
-        """Convert SQLAlchemy Runner to AE Runner."""
+        """Convert SQLAlchemy Runner to Ax Runner."""
         runner_class = self.config.runner_registry.type_to_class.get(
             runner_sqa.runner_type
         )
@@ -448,7 +448,7 @@ class Decoder:
         return runner_class(**args)
 
     def trial_from_sqa(self, trial_sqa: SQATrial, experiment: Experiment) -> BaseTrial:
-        """Convert SQLAlchemy Trial to AE Trial."""
+        """Convert SQLAlchemy Trial to Ax Trial."""
         if trial_sqa.is_batch:
             trial = BatchTrial(experiment=experiment)
             generator_run_structs = [

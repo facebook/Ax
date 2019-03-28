@@ -51,7 +51,7 @@ def render_report_elements(
     header: bool = True,
     offline: bool = False,
 ) -> str:
-    """Generate AE HTML report for a given experiment from HTML elements.
+    """Generate Ax HTML report for a given experiment from HTML elements.
 
     Uses Jinja2 for template. Injects Plotly JS for graph rendering.
 

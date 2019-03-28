@@ -4,11 +4,11 @@ from typing import Any
 
 
 class DataProviderError(Exception):
-    """Base Exception for AE DataProviders.
+    """Base Exception for Ax DataProviders.
 
     The type of the driver must be included.
     The raw error is stored in the data_provider_error section,
-    and an AE-friendly message is stored as the actual error message.
+    and an Ax-friendly message is stored as the actual error message.
     """
 
     def __init__(

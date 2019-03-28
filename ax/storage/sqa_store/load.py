@@ -22,7 +22,7 @@ def _load_experiment(experiment_name: str, decoder: Decoder) -> Experiment:
     """Load experiment by name, using given Decoder instance.
 
     1) Get SQLAlchemy object from DB.
-    2) Convert to corresponding AE object.
+    2) Convert to corresponding Ax object.
     """
     with session_scope() as session:
         sqa_experiment = (

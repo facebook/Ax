@@ -25,7 +25,7 @@ class TorchModelBridge(ArrayModelBridge):
     Requires that all parameters have been transformed to RangeParameters
     or FixedParameters with float type and no log scale.
 
-    This class converts AE parameter types to torch tensors before passing
+    This class converts Ax parameter types to torch tensors before passing
     them to the model.
     """
 

@@ -6,7 +6,7 @@ import plotly.graph_objs as go
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.modelbridge.factory import get_empirical_bayes_thompson
-from ax.plot.base import AEPlotConfig, AEPlotTypes, PlotMetric, Z
+from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotMetric, Z
 from ax.plot.helper import get_plot_data
 from ax.plot.scatter import _error_scatter_data
 
@@ -80,4 +80,4 @@ def table_view_plot(experiment: Experiment, data: Data):
         margin=go.Margin(l=0, r=20, b=20, t=20, pad=4),  # noqa E741
     )
     fig = go.Figure(data=[trace], layout=layout)
-    return AEPlotConfig(data=fig, plot_type=AEPlotTypes.GENERIC)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

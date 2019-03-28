@@ -9,7 +9,7 @@ def load_experiment(filepath: str) -> Experiment:
     """Load experiment from file.
 
     1) Read file.
-    2) Convert dictionary to AE experiment instance.
+    2) Convert dictionary to Ax experiment instance.
     """
     with open(filepath, "r") as file:
         json_experiment = json.loads(file.read())

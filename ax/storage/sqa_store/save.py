@@ -18,7 +18,7 @@ def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) 
 def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
     """Save experiment, using given Encoder instance.
 
-    1) Convert AE object to SQLAlchemy object.
+    1) Convert Ax object to SQLAlchemy object.
     2) Determine if there is an existing experiment with that name in the DB.
     3) If not, create a new one.
     4) If so, update the old one.

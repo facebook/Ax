@@ -4,7 +4,7 @@ from functools import partial
 
 import numpy as np
 import scipy.optimize as optimize
-from ax.exceptions.core import AEError
+from ax.exceptions.core import AxError
 from ax.utils.common.logger import get_logger
 from scipy.stats import norm
 
@@ -122,7 +122,7 @@ def constraint_sample_size(
         elif power_fn(n=upper_bound) < power:
             n_star = np.inf
         else:
-            raise AEError("Bisection failed to determine sample size.")
+            raise AxError("Bisection failed to determine sample size.")
     n = int(n_star) + 1 if n_star < np.inf else np.inf
     if verbose:
         if n_star < np.inf:
@@ -203,7 +203,7 @@ def feasible_constraint(
         ):
             constraint_star = np.nan
         else:
-            raise AEError("Bisection failed to determine sample size.")
+            raise AxError("Bisection failed to determine sample size.")
     if verbose:
         if not np.isnan(constraint_star):
             realized_power = power_fn(constraint=constraint_star)

@@ -113,13 +113,13 @@ class SimpleExperiment(Experiment):
         evaluations: Dict[str, TEvaluationOutcome], trial_index: int
     ) -> Data:
         """
-        Convert dict of evaluations to AE data object.
+        Convert dict of evaluations to Ax data object.
 
         Args:
             evaluations: Map from condition name to metric outcomes.
 
         Returns:
-            AE Data object.
+            Ax Data object.
         """
         return Data(
             df=pd.DataFrame(
