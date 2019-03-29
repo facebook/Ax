@@ -20,6 +20,7 @@ from ax.storage.sqa_store.db import init_engine_and_session_factory
 from ax.storage.sqa_store.load import _load_experiment
 from ax.storage.sqa_store.save import _save_experiment
 from ax.storage.sqa_store.structs import DBSettings
+from ax.utils.common.typeutils import not_none
 
 
 # DO NOT OPEN SOURCE UNTIL T40274901 is resolved2
@@ -70,7 +71,8 @@ def save_experiment(experiment: Experiment, db_settings: DBSettings) -> None:
 
 class AxAsyncClient:
     """
-    Convenience handler for managing the experimentation loop process.
+    Convenience handler for async management of experimentation cycle. External
+    system manages scheduling of the cycle and makes calls to the async client.
     """
 
     def __init__(
@@ -130,7 +132,25 @@ class AxAsyncClient:
         # pyre-ignore[8]: Should be fixed in above task
         self._experiment = load_experiment(experiment_name, self.db_settings)
 
-    def _suggest_new_trial(self, n: int = 1) -> BaseTrial:
+    def _suggest_new_batch_trial(self, n: int) -> BatchTrial:
+        """
+        Suggest new set of candidates for this experiment.
+
+        Uses data attached to the experiment and the given generator.
+
+        Args:
+            n: Number of candidates to generate.
+
+        Returns:
+            BatchTrial with candidates.
+        """
+        generator = self.generation_strategy.get_model(
+            self.experiment, data=self.experiment.eval()
+        )
+        generator_run = generator.gen(n=n)
+        return self.experiment.new_batch_trial().add_generator_run(generator_run)
+
+    def _suggest_new_trial(self) -> Trial:
         """
         Suggest new candidate for this experiment.
 
@@ -140,16 +160,13 @@ class AxAsyncClient:
             n: Number of candidates to generate.
 
         Returns:
-            Trial with candidates.
+            Trial with candidate.
         """
         generator = self.generation_strategy.get_model(
             self.experiment, data=self.experiment.eval()
         )
-        generator_run = generator.gen(n=n)
-        if n == 1:
-            return self.experiment.new_trial(generator_run=generator_run)
-        else:
-            return self.experiment.new_batch_trial().add_generator_run(generator_run)
+        generator_run = generator.gen(n=1)
+        return self.experiment.new_trial(generator_run=generator_run)
 
     def log_failure(
         self, trial_index: int, metadata: Optional[Dict[str, str]] = None
@@ -183,10 +200,11 @@ class AxAsyncClient:
 
         return new_trial
 
-    def log_data(
+    def log_batch_data(
         self,
         trial_index: int,
-        raw_data: Dict[str, TEvaluationOutcome],
+        # {arm_name -> {metric_name -> (mean, standard error)}}
+        raw_data: Dict[str, Dict[str, Tuple[float, float]]],
         metadata: Optional[Dict[str, str]] = None,
     ) -> None:
         """
@@ -209,27 +227,73 @@ class AxAsyncClient:
         if self.db_settings is not None:
             save_experiment(self.experiment, self.db_settings)
 
+    def log_data(
+        self,
+        trial_index: int,
+        # {metric_name -> (mean, standard error)}
+        raw_data: Dict[str, Tuple[float, float]],
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> None:
+        """
+        Stores given metric outcomes and metadata on trial.
+
+        Args:
+            trial_index: Index of trial within the experiment.
+            raw_data: Map from metric name to (mean, standard_error).
+            metadata: Additional metadata to track about this run.
+        """
+        trial = self.experiment.trials[trial_index]
+        if not isinstance(trial, Trial):
+            raise ValueError("To log data for BatchTrial use `log_batch_data`.")
+
+        trial._status = TrialStatus.COMPLETED
+        if metadata is not None:
+            trial._run_metadata = metadata
+
+        data = SimpleExperiment.data_from_evaluations(
+            {not_none(trial.arm).name: raw_data}, trial.index
+        )
+        self.experiment.attach_data(data)
+
+        if self.db_settings is not None:
+            save_experiment(self.experiment, self.db_settings)
+
     def should_stop_early(  # should take trial ID
         self, params: TParameterization, data: TEvaluationOutcome
     ) -> bool:
         """Whether to stop the given parameterization given early data."""
         raise NotImplementedError
 
-    def get_next_trial(self, n: int = 1) -> BaseTrial:
+    def get_next_batch_trial(self, n: int) -> Tuple[Dict[str, TParameterization], int]:
         """
-        Generate trial with the next set of parameters to try in the iteration process.
+        Generate trial with the next sets of parameters to try in the iteration process.
 
         Args:
             n: Number of candidates to generate.
 
         Returns:
-            The new experimental trial.
+            Tuple of trial parameterization dict, trial index
         """
         # Potentially move this into log_data to save latency on this call
-        trial = self._suggest_new_trial(n)
+        trial = self._suggest_new_batch_trial(n)
         if self.db_settings is not None:
             save_experiment(self.experiment, self.db_settings)
-        return trial
+        return ({arm.name: arm.params for arm in trial.arms}, trial.index)
+
+    def get_next_trial(self) -> Tuple[TParameterization, int]:
+        """
+        Generate trial with the next set of parameters to try in the iteration process.
+
+        Use `get_next_batch_trial` to generate multiple points at once.
+
+        Returns:
+            Tuple of trial parameterization, trial index
+        """
+        # Potentially move this into log_data to save latency on this call
+        trial = self._suggest_new_trial()
+        if self.db_settings is not None:
+            save_experiment(self.experiment, self.db_settings)
+        return not_none(trial.arm).params, trial.index
 
     def get_optimized_arm(self) -> Optional[Tuple[Arm, Optional[TModelPredictArm]]]:
         """
