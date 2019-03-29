@@ -226,6 +226,12 @@ class SQABase:
                 continue
             self_val = getattr(self, field)
             other_val = getattr(other, field)
+
+            # TODO T42335528: Change fit_time and gen_time to be floats in db
+            if field in ["fit_time", "gen_time"]:
+                self_val = int(self_val) if self_val is not None else None
+                other_val = int(other_val) if other_val is not None else None
+
             if isinstance(self_val, list) and isinstance(other_val, list):
                 other_val = SQABase.list_update(self_val, other_val)
             elif isinstance(self_val, SQABase) and isinstance(other_val, SQABase):

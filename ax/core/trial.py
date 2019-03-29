@@ -83,6 +83,7 @@ class Trial(BaseTrial):
 
         # TODO validate that arms belong to search space
         self._generator_run = generator_run
+        generator_run.index = 0
         return self
 
     @property
