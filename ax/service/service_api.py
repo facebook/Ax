@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -17,24 +17,12 @@ from ax.core.types import (
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.instantiation_utils import make_simple_experiment
 from ax.storage.sqa_store.db import init_engine_and_session_factory
-from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.load import _load_experiment
 from ax.storage.sqa_store.save import _save_experiment
-from libfb.py import db_locator
+from ax.storage.sqa_store.structs import DBSettings
 
 
 # DO NOT OPEN SOURCE UNTIL T40274901 is resolved2
-
-
-class DBSettings(NamedTuple):
-    """
-    Defines behavior for loading/saving experiment to/from db.
-    """
-
-    decoder: Decoder
-    encoder: Encoder
-    tier_name: str
 
 
 def initialize_db(db_settings: DBSettings) -> None:
@@ -46,9 +34,8 @@ def initialize_db(db_settings: DBSettings) -> None:
     Returns:
         None
     """
-    if db_settings.tier_name is not None:
-        locator = db_locator.Locator(tier_name=db_settings.tier_name)
-        init_engine_and_session_factory(creator=locator.get_creator())
+    if db_settings.creator is not None:
+        init_engine_and_session_factory(creator=db_settings.creator)
 
 
 def load_experiment(name: str, db_settings: DBSettings) -> Experiment:
@@ -81,7 +68,7 @@ def save_experiment(experiment: Experiment, db_settings: DBSettings) -> None:
     _save_experiment(experiment, db_settings.encoder)
 
 
-class AxLoopHandler:
+class AxAsyncClient:
     """
     Convenience handler for managing the experimentation loop process.
     """

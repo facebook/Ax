@@ -11,7 +11,7 @@ from ax.core.parameter import (
 from ax.core.types import ComparisonOp
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.service.service_api import AxLoopHandler
+from ax.service.service_api import AxAsyncClient
 from ax.utils.common.testutils import TestCase
 
 
@@ -20,7 +20,7 @@ class TestServiceAPI(TestCase):
 
     def test_create_expreriment(self):
         """Test basic experiment creation."""
-        ax = AxLoopHandler(GenerationStrategy([get_sobol], [30]))
+        ax = AxAsyncClient(GenerationStrategy([get_sobol], [30]))
         ax.create_experiment(
             name="test_experiment",
             parameters=[
@@ -116,7 +116,7 @@ class TestServiceAPI(TestCase):
 
     def ftest_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""
-        ax = AxLoopHandler(GenerationStrategy([get_sobol], [30]))
+        ax = AxAsyncClient(GenerationStrategy([get_sobol], [30]))
         with self.assertRaises(ValueError):
             ax.create_experiment(
                 name="test_experiment",
