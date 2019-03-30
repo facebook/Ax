@@ -6,7 +6,7 @@ html body {
 }
 
 .headerTitle {
-  font-weight: 400
+  font-weight: 400;
 }
 
 .homeContainer {
@@ -15,24 +15,24 @@ html body {
 }
 
 .projectTitle {
-  color: #66FCF1;
+  color: #66fcf1;
   font-variant: small-caps;
   font-weight: 300;
 }
 
 .promoSection .button {
-  border: 1px solid #45A29E;
-  color: #66FCF1;
+  border: 1px solid #45a29e;
+  color: #66fcf1;
 }
 
 .promoSection .button:hover {
-  background: #45A29E;
-  border: 1px solid #C5C6C7;
+  background: #45a29e;
+  border: 1px solid #c5c6c7;
   color: #353d47;
 }
 
 .landingPage {
-    padding: 0px;
+  padding: 0px;
 }
 
 div.productShowcaseSection {
@@ -50,12 +50,12 @@ div.productShowcaseSection {
   padding: 40px 0px;
 }
 
-.productShowcaseSection div.blockImage  {
+.productShowcaseSection div.blockImage {
   height: 80px;
 }
 
 .blockContent > h2 {
-  color: #45A29E;
+  color: #45a29e;
 }
 
 .productShowcaseSection li {
@@ -70,12 +70,40 @@ div.productShowcaseSection {
   background: #fff;
 }
 
-div#quickstart  {
+div#quickstart {
   background: #f1f1f2;
 }
 
 div#quickstart ol {
   margin-bottom: 0px;
+}
+
+p a {
+  color: #45a29e;
+}
+
+p a:hover {
+  color: #45a29e;
+  border-bottom: 1px dotted #45a29e;
+}
+
+.tutorialButton {
+  color: #45a29e;
+}
+
+.tutorialButton svg {
+  height: 15px;
+  margin-right: 5px;
+  fill: #45a29e;
+}
+
+.tutorialButton:hover {
+  background-color: #353d47;
+  color: #66fcf1;
+}
+
+.tutorialButton:hover svg path {
+  fill: #66fcf1;
 }
 
 @media only screen and (min-device-width: 360px) and (max-device-width: 736px) {
