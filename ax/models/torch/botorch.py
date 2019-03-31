@@ -49,74 +49,89 @@ TOptimizer = Callable[
 
 
 class BotorchModel(TorchModel):
-    """
+    r"""
     Customizable botorch model.
 
     By default, this uses a noisy Expected Improvement acquisition funciton on
     top of a model made up of separate GPs, one for each outcome. This behavior
     can be modified by providing custom implementations of the following
     components:
-        - a `model_constructor` that instantiates and fits a model on data
-        - a `model_predictor` that predicts using the fitted model
-        - a `acqf_constructor` that creates an acquisition function from a fitted model
-        - a `acqf_optimizer` that optimizes the acquisition function
+
+    - a `model_constructor` that instantiates and fits a model on data
+    - a `model_predictor` that predicts using the fitted model
+    - a `acqf_constructor` that creates an acquisition function from a fitted model
+    - a `acqf_optimizer` that optimizes the acquisition function
 
     Args:
-        model_constructor: A callable with the following signature:
-            ```
-            model_constructor(Xs, Ys, Yvars, state_dict, **kwargs) -> model
-            ```
-            where `Xs`, `Ys`, `Yvars` are lists of tensors (one element per
-            outcome), `state_dict` is a pytorch module state dict, and `model` is
-            a botorch `Model`. Optional kwargs are being passed through from the
-            `BotorchModel` constructor. This callable is assumed to return a
-            fitted botorch model that has the same dtype and lives on the same
-            device as the input tensors.
-        model_predictor: A callable with the following signature:
-            ```
-            model_predictor(model, X) -> [mean, cov]
-            ````
-            where `model` is a fitted botorch model, `X` is a tensor of
-            candidate points, and `mean` and `cov` are the posterior mean and
-            covariance, respectively.
-        acqf_constructor: A callable with the following signature:
-            ```
-            acqf_constructor(
-                model,
-                objective_weights,
-                outcome_constraints,
-                X_observed,
-                X_pending,
-                **kwargs,
-            ) -> acq_function
-            ```
-            where `model` is a botorch `Model`, `objective_weights` is a tensor
-            of weights for the model outputs, `outcome_constraints` is a tuple
-            of tensors describing the (linear) outcome constraints, `X_observed`
-            are previously observed points, and `X_pending` are points whose
-            evaluation is pending. `acq_function` is a botorch acquisition
-            function crafted from these inputs.
-            For additional details on the arguments, see `get_NEI`.
-        acqf_optimizer: A callable with the following signature:
-            ```
-            acqf_optimizer(
-                acq_function,
-                bounds,
-                n,
-                fixed_features,
-                rounding_func,
-                **kwargs,
-            ) -> candidates
-            ```
-            where `acq_function` is a botorch `AcquisitionFunciton`, `bounds` is
-            a tensor containing bounds on the parameters, `n` is the number of
-            candidates to be generated, `fixed_features` specifies features that
-            should be fixed during generation, and `rounding_func` is a callback
-            that rounds an optimization result appropriately. `candidates` is
-            a tensor of generated candidates.
-            For additional details on the arguments, see `scipy_optimizer`.
+        model_constructor: A callable that instantiates and fits a model on data,
+            with signature as described below.
+        model_predictor: A callable that predicts using the fitted model, with
+            signature as described below.
+        acqf_constructor: A callable that creates an acquisition function from a
+            fitted model, with signature as described below.
+        acqf_optimizer: A callable that optimizes the acquisition function, with
+            signature as described below.
         refit_on_cv: If True, refit the model for each fold when performing
             cross-validation.
+
+
+    Call signatures:
+
+    ::
+
+        model_constructor(Xs, Ys, Yvars, state_dict, **kwargs) -> model
+
+    Here `Xs`, `Ys`, `Yvars` are lists of tensors (one element per outcome),
+    `state_dict` is a pytorch module state dict, and `model` is a botorch
+    `Model`. Optional kwargs are being passed through from the `BotorchModel`
+    constructor. This callable is assumed to return a fitted botorch model
+    that has the same dtype and lives on the same device as the input tensors.
+
+    ::
+
+        model_predictor(model, X) -> [mean, cov]
+
+    Here `model` is a fitted botorch model, `X` is a tensor of candidate
+    points, and `mean` and `cov` are the posterior mean and covariance,
+    respectively.
+
+    ::
+
+        acqf_constructor(
+            model,
+            objective_weights,
+            outcome_constraints,
+            X_observed,
+            X_pending,
+            **kwargs,
+        ) -> acq_function
+
+
+    Here `model` is a botorch `Model`, `objective_weights` is a tensor of
+    weights for the model outputs, `outcome_constraints` is a tuple of
+    tensors describing the (linear) outcome constraints, `X_observed` are
+    previously observed points, and `X_pending` are points whose evaluation
+    is pending. `acq_function` is a botorch acquisition function crafted
+    from these inputs. For additional details on the arguments, see `get_NEI`.
+
+    ::
+
+        acqf_optimizer(
+            acq_function,
+            bounds,
+            n,
+            fixed_features,
+            rounding_func,
+            **kwargs,
+        ) -> candidates
+
+    Here `acq_function` is a botorch `AcquisitionFunciton`, `bounds` is a
+    tensor containing bounds on the parameters, `n` is the number of
+    candidates to be generated, `fixed_features` specifies features that
+    should be fixed during generation, and `rounding_func` is a callback
+    that rounds an optimization result appropriately. `candidates` is
+    a tensor of generated candidates. For additional details on the
+    arguments, see `scipy_optimizer`.
     """
 
     dtype: Optional[torch.dtype]
