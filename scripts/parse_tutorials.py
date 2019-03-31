@@ -51,9 +51,6 @@ def gen_tutorials(repo_dir: str) -> None:
             nb_str = infile.read()
             nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
 
-        # displayname is absent from notebook metadata
-        nb["metadata"]["kernelspec"]["display_name"] = "python3"
-
         exporter = HTMLExporter()
         html, meta = exporter.from_notebook_node(nb)
 
@@ -62,6 +59,18 @@ def gen_tutorials(repo_dir: str) -> None:
         nb_meat = soup.find("div", {"id": "notebook-container"})
         del nb_meat.attrs["id"]
         nb_meat.attrs["class"] = ["notebook"]
+
+        # when output html, iframe it (useful for Ax reports)
+        for html_div in nb_meat.findAll("div", {"class": "output_html"}):
+            if html_div.html is not None:
+                iframe = soup.new_tag("iframe")
+                iframe.attrs["src"] = "data:text/html;charset=utf-8," + str(
+                    html_div.html
+                )
+                # replace `#` in CSS
+                iframe.attrs["src"] = iframe.attrs["src"].replace("#", "%23")
+                html_div.contents = [iframe]
+
         html_out = "".join([JS_SCRIPT_TAGS.format(src) for src in SRCS]) + str(nb_meat)
 
         with open(

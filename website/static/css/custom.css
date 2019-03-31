@@ -103,7 +103,8 @@ p a:hover {
   margin: 0px;
 }
 
-.tutorialBody .input_prompt {
+.tutorialBody .input_prompt,
+.tutorialBody .output_prompt {
   color: darkred;
   font-size: 12px;
 }
@@ -125,6 +126,11 @@ p a:hover {
 
 .tutorialBody .anchor-link {
   color: lightgray;
+}
+
+.tutorialBody iframe {
+  width: 100%;
+  height: 100vh;
 }
 
 .tutorialButtonWrapper {
