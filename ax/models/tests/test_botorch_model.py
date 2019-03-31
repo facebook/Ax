@@ -7,8 +7,7 @@ import torch
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_defaults import MIN_OBSERVED_NOISE_LEVEL, get_and_fit_model
 from ax.utils.common.testutils import TestCase
-from botorch.acquisition.objective import LinearMCObjective
-from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
+from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import MultiOutputGP
 from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase

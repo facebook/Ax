@@ -27,10 +27,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.core.simple_experiment import (
-    SimpleExperiment,
-    unimplemented_evaluation_function,
-)
+from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,

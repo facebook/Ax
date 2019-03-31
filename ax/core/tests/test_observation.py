@@ -61,7 +61,8 @@ class ObservationsTest(TestCase):
         self.assertTrue(np.array_equal(obsd.covariance, attrs["covariance"]))
         # use legacy printing for numpy (<= 1.13 add spaces in front of floats;
         # to get around tests failing on older versions, peg version to 1.13)
-        np.set_printoptions(legacy="1.13")
+        if np.__version__ >= "1.14":
+            np.set_printoptions(legacy="1.13")
         printstr = "ObservationData(metric_names=['a', 'b'], means=[ 4.  5.], "
         printstr += "covariance=[[ 1.  4.]\n [ 3.  6.]])"
         self.assertEqual(repr(obsd), printstr)

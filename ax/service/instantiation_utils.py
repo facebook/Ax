@@ -19,12 +19,7 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
-from ax.core.types import (
-    ComparisonOp,
-    TEvaluationOutcome,
-    TParameterization,
-    TParamValue,
-)
+from ax.core.types import ComparisonOp, TParamValue
 from ax.utils.common.typeutils import not_none
 
 
