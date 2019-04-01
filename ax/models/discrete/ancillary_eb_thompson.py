@@ -106,4 +106,7 @@ class AncillaryEBThompsonSampler(EmpiricalBayesThompsonSampler):
         )
         # We rescale these estimates back to the scale of the original variable
         # so that all of our usual tools look more or less like usual.
-        return ((1 + eb_est) * overall_p).tolist(), (eb_sem * overall_p).tolist()
+        return (
+            ((1 + eb_est) * overall_p).tolist(),
+            np.power(eb_sem * overall_p, 2).tolist(),
+        )

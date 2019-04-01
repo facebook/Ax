@@ -103,6 +103,8 @@ def get_factorial_experiment(
         else None,
         runner=SyntheticRunner(),
         is_test=True,
+        # pyre-fixme[6]: Expected `typing.Option...`List[FactorialMetric]`.
+        tracking_metrics=[get_factorial_metric("secondary_metric")],
     )
 
     if with_status_quo:
@@ -307,14 +309,14 @@ def get_branin_metric() -> BraninMetric:
     return BraninMetric(name="branin", param_names=["x1", "x2"], noise_sd=0.01)
 
 
-def get_factorial_metric() -> FactorialMetric:
+def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
     coefficients = {
         "factor1": {"level11": 0.1, "level12": 0.2, "level13": 0.3},
         "factor2": {"level21": 0.1, "level22": 0.2},
         "factor3": {"level31": 0.1, "level32": 0.2, "level33": 0.3, "level34": 0.4},
     }
     return FactorialMetric(
-        name="success_metric",
+        name=name,
         # Expected `Dict[str, Dict[typing.Optional[typing.Union[bool, float, str]],
         # float]]` for 3rd parameter `coefficients` to call
         # `ax.metrics.factorial.FactorialMetric.__init__` but got `Dict[str,

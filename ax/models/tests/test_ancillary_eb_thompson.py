@@ -39,10 +39,11 @@ class AncillaryEBThompsonSamplerTest(TestCase):
                 atol=1e-2,
             )
         )
+
         self.assertTrue(
             np.allclose(
                 np.array(generator.Yvars),
-                np.array([[0.267, 0.226, 0.280, 0.330], [0.026, 0.026, 0.026, 0.036]]),
+                np.array([[0.07, 0.05, 0.08, 0.11], [0.026, 0.026, 0.026, 0.036]]),
                 atol=1e-2,
             )
         )
@@ -65,8 +66,9 @@ class AncillaryEBThompsonSamplerTest(TestCase):
             parameter_values=self.parameter_values,
             objective_weights=np.array([1, 0]),
         )
+
         self.assertEqual(arms, [[4, 4], [3, 3], [2, 2], [1, 1]])
-        for weight, expected_weight in zip(weights, [0.31, 0.27, 0.22, 0.20]):
+        for weight, expected_weight in zip(weights, [0.38, 0.28, 0.18, 0.14]):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
     def testAncillaryEBThompsonSamplerError(self):
@@ -153,7 +155,7 @@ class AncillaryEBThompsonSamplerTest(TestCase):
         self.assertTrue(
             np.allclose(
                 cov,
-                np.array([[[0.267, 0.0], [0.0, 0.026]], [[0.279, 0.0], [0.0, 0.0262]]]),
+                np.array([[[0.07, 0.0], [0.0, 0.026]], [[0.08, 0.0], [0.0, 0.0262]]]),
                 atol=1e-2,
             )
         )

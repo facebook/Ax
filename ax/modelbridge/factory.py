@@ -20,6 +20,7 @@ from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.modelbridge.transforms.unit_x import UnitX
+from ax.models.discrete.ancillary_eb_thompson import AncillaryEBThompsonSampler
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
@@ -53,6 +54,12 @@ Y_trans: List[Type[Transform]] = [IVW, Derelativize, StandardizeY]
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
 TS_trans: List[Type[Transform]] = Discrete_X_trans + Y_trans + [SearchSpaceToChoice]
+# Same as TS_trans but omit StandardizeY
+Ancillary_EB_trans: List[Type[Transform]] = Discrete_X_trans + [
+    IVW,
+    Derelativize,
+    SearchSpaceToChoice,
+]
 
 
 DEFAULT_TORCH_DEVICE = torch.device("cpu")
@@ -130,6 +137,35 @@ def get_factorial(search_space: SearchSpace) -> DiscreteModelBridge:
         data=Data(),
         model=FullFactorialGenerator(),
         transforms=Discrete_X_trans,
+    )
+
+
+def get_ancillary_eb_thompson(
+    experiment: Experiment,
+    data: Data,
+    primary_outcome: str,
+    secondary_outcome: str,
+    search_space: Optional[SearchSpace] = None,
+    num_samples: int = 10000,
+    min_weight: Optional[float] = None,
+    uniform_weights: bool = False,
+) -> DiscreteModelBridge:
+    """Instantiates an Ancillary EB / Thompson sampling generator."""
+    model = AncillaryEBThompsonSampler(
+        primary_outcome=primary_outcome,
+        secondary_outcome=secondary_outcome,
+        num_samples=num_samples,
+        min_weight=min_weight,
+        uniform_weights=uniform_weights,
+    )
+    return DiscreteModelBridge(
+        experiment=experiment,
+        search_space=search_space
+        if search_space is not None
+        else experiment.search_space,
+        data=data,
+        model=model,
+        transforms=Ancillary_EB_trans,
     )
 
 
