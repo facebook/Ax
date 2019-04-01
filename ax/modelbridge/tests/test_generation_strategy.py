@@ -23,10 +23,10 @@ class TestGenerationStrategy(TestCase):
                 model_factories=[get_sobol, get_sobol, get_sobol], arms_per_model=[5]
             )
 
-        # arms_per_model can't be negative.
+        # arms_per_model can be positive or -1.
         with self.assertRaises(ValueError):
             GenerationStrategy(
-                model_factories=[get_sobol, get_GPEI], arms_per_model=[5, -1]
+                model_factories=[get_sobol, get_GPEI], arms_per_model=[5, -10]
             )
 
         # GenerationStrategy should require that there be no more
@@ -39,6 +39,12 @@ class TestGenerationStrategy(TestCase):
         # Must specify arms_per_model
         with self.assertRaises(TypeError):
             GenerationStrategy(model_factories=[get_sobol, get_sobol])
+
+        gs = GenerationStrategy(
+            model_factories=[get_sobol, get_GPEI], arms_per_model=[5, -1]
+        )
+
+        self.assertEqual(gs._arms_per_model[-1], 10000)
 
     @mock.patch(
         f"{TorchModelBridge.__module__}.TorchModelBridge.__init__",

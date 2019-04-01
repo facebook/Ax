@@ -14,17 +14,6 @@ TModelFactory = Callable[..., ModelBridge]
 MAX_CONDITIONS_GENERATED = 10000
 
 
-def _from_generation_strategy(f: Callable) -> Callable:
-    """Set 'from_generator_strategy' attribute on the wrapped function to true."""
-
-    @wraps(f)
-    def wrapped_get_model(*args: Any, **kwargs: Any) -> ModelBridge:
-        return f(*args, **kwargs)
-
-    wrapped_get_model.from_generation_strategy = True
-    return wrapped_get_model
-
-
 def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
     """Filter out kwargs that are not applicable for a given function.
     Return a copy of given kwargs dict with only the required kwargs."""
@@ -70,6 +59,9 @@ class GenerationStrategy:
 
         arms_per_model: number of arms for each
             of the models in ``model_factories`` to generate.
+            Note: if last number is this list is `-1`, the last model in
+            `model_factories` will be used to generate any number of arms once
+            all previous models have generated their respective arms.
     """
 
     _model_factories: List[TModelFactory]
@@ -85,7 +77,9 @@ class GenerationStrategy:
                 "GenerationStrategy expects to include as many designated "
                 "number of arms per model as models. "
             )
-        if min(arms_per_model) <= 0:
+        if arms_per_model[-1] == -1:  # We should keep using last model for any
+            arms_per_model[-1] = MAX_CONDITIONS_GENERATED  # number of arms.
+        if len(arms_per_model) > 1 and min(arms_per_model) <= 0:
             raise ValueError("arms_per_model must all be greater than 0.")
         self._model_factories = model_factories
         self._arms_per_model = arms_per_model
@@ -95,8 +89,6 @@ class GenerationStrategy:
         self._generator_changes = [
             sum(gen_changes[: i + 1]) for i in range(len(gen_changes))
         ][:-1]
-        # TODO[drfreund]: possibly add 'bind_kwargs' argument to pass kwargs
-        # needed for instantiation of different models in the strategy.
 
     @property
     def name(self) -> str:
@@ -112,7 +104,6 @@ class GenerationStrategy:
     def generator_changes(self) -> List[int]:
         return self._generator_changes
 
-    @_from_generation_strategy
     def get_model(
         self,
         experiment: Experiment,

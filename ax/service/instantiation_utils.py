@@ -39,8 +39,9 @@ def _to_parameter_type(
     vals: List[TParamValue], typ: Optional[str], param_name: str, field_name: str
 ) -> ParameterType:
     if typ is None:
-        parameter_type = _get_parameter_type(type(not_none(vals[0])))  # pyre-ignore[6]
-        assert all(isinstance(x, parameter_type) for x in vals), (  # pyre-ignore[6]
+        typ = type(not_none(vals[0]))
+        parameter_type = _get_parameter_type(typ)  # pyre-ignore [6]
+        assert all(isinstance(x, typ) for x in vals), (
             f"Values in `{field_name}` not of the same type and no `value_type` was "
             f"explicitly specified; cannot infer value type for parameter {param_name}."
         )

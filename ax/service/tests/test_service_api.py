@@ -9,7 +9,8 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.types import ComparisonOp
-from ax.modelbridge.factory import get_sobol
+from ax.metrics.branin import branin
+from ax.modelbridge.factory import get_GPEI, get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.service_api import AxAsyncClient
 from ax.utils.common.testutils import TestCase
@@ -17,6 +18,24 @@ from ax.utils.common.testutils import TestCase
 
 class TestServiceAPI(TestCase):
     """Tests service-like API functionality."""
+
+    def test_default_generation_strategy(self):
+        """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
+        ax = AxAsyncClient()
+        ax.create_experiment(
+            name="test_branin",
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            objective_name="branin",
+            minimize=True,
+        )
+        self.assertEqual(ax.generation_strategy._model_factories, [get_sobol, get_GPEI])
+        for _ in range(6):
+            parameterization, trial_index = ax.get_next_trial()
+            x1, x2 = parameterization.get("x1"), parameterization.get("x2")
+            ax.log_data(trial_index, raw_data={"branin": (branin(x1, x2), 0.0)})
 
     def test_create_expreriment(self):
         """Test basic experiment creation."""
@@ -114,7 +133,7 @@ class TestServiceAPI(TestCase):
         )
         self.assertTrue(ax.experiment.optimization_config.objective.minimize)
 
-    def ftest_constraint_same_as_objective(self):
+    def test_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""
         ax = AxAsyncClient(GenerationStrategy([get_sobol], [30]))
         with self.assertRaises(ValueError):

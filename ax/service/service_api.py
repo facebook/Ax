@@ -6,6 +6,8 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.parameter import ChoiceParameter, RangeParameter
+from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types import (
@@ -14,6 +16,7 @@ from ax.core.types import (
     TParameterization,
     TParamValue,
 )
+from ax.modelbridge.factory import get_GPEI, get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.instantiation_utils import make_simple_experiment
 from ax.storage.sqa_store.db import init_engine_and_session_factory
@@ -77,7 +80,7 @@ class AxAsyncClient:
 
     def __init__(
         self,
-        generation_strategy: GenerationStrategy,
+        generation_strategy: Optional[GenerationStrategy] = None,
         db_settings: Optional[DBSettings] = None,
     ) -> None:
         self.generation_strategy = generation_strategy
@@ -112,6 +115,10 @@ class AxAsyncClient:
             parameter_constraints=parameter_constraints,
             outcome_constraints=outcome_constraints,
         )
+        if self.generation_strategy is None:
+            self.generation_strategy = self._choose_generation_strategy(
+                search_space=experiment.search_space
+            )
         if self.db_settings:
             save_experiment(experiment, self.db_settings)
         self._experiment = experiment
@@ -144,7 +151,7 @@ class AxAsyncClient:
         Returns:
             BatchTrial with candidates.
         """
-        generator = self.generation_strategy.get_model(
+        generator = not_none(self.generation_strategy).get_model(
             self.experiment, data=self.experiment.eval()
         )
         generator_run = generator.gen(n=n)
@@ -162,7 +169,7 @@ class AxAsyncClient:
         Returns:
             Trial with candidate.
         """
-        generator = self.generation_strategy.get_model(
+        generator = not_none(self.generation_strategy).get_model(
             self.experiment, data=self.experiment.eval()
         )
         generator_run = generator.gen(n=1)
@@ -258,9 +265,7 @@ class AxAsyncClient:
         if self.db_settings is not None:
             save_experiment(self.experiment, self.db_settings)
 
-    def should_stop_early(  # should take trial ID
-        self, params: TParameterization, data: TEvaluationOutcome
-    ) -> bool:
+    def should_stop_early(self, trial_index: int, data: TEvaluationOutcome) -> bool:
         """Whether to stop the given parameterization given early data."""
         raise NotImplementedError
 
@@ -329,3 +334,29 @@ class AxAsyncClient:
     def get_report(self) -> str:
         """Returns HTML of a generated report containing vizualizations."""
         raise NotImplementedError
+
+    def _choose_generation_strategy(
+        self, search_space: SearchSpace
+    ) -> GenerationStrategy:
+        num_continuous_parameters = 0
+        num_discrete_choices = 0
+        for parameter in search_space.parameters:
+            if isinstance(parameter, ChoiceParameter):
+                num_discrete_choices += len(parameter.values)
+            if isinstance(parameter, RangeParameter):
+                num_continuous_parameters += 1
+        # If there are more continuous parameters than discrete choices, 
+        # GP+EI will do better than Sobol.
+        if num_continuous_parameters >= num_discrete_choices:
+            return GenerationStrategy(
+                model_factories=[get_sobol, get_GPEI],
+                arms_per_model=[max(5, len(search_space.parameters)), -1],
+            )
+        else:
+            # Expected `List[typing.Callable[..., ax.modelbridge.base.ModelBridge]]`
+            # for 1st parameter `model_factories` to call `GenerationStrategy.__init__`
+            # but got `List[typing.Callable(ax.modelbridge.factory.get_sobol)
+            # [[Named(search_space, SearchSpace), Keywords(kwargs,
+            # typing.Union[bool, int])], ax.modelbridge.random.RandomModelBridge]]`.
+            # pyre-fixme[6]
+            return GenerationStrategy(model_factories=[get_sobol], arms_per_model=[-1])
