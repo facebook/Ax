@@ -40,11 +40,10 @@ matrix:
     - name: "Lint: flake8 (Python 3.6)"
       python: "3.6"
       install:
-        - pip install cython numpy
-        - pip install git+ssh://git@github.com/facebookexternal/botorch.git
-        - pip install -q -e .[dev]
+        - pip install flake8
       script:
-        - flake8 --ignore=A000,T484,T499,W503,E704,E231,E203
+        # don't use .flake8 config for now, since don't need custom plugin
+        - flake8 --isolated --ignore=T484,T499,W503,E704,E231,E203 --max-line-length=88
     - name: "Docs: Sphinx (Python 3.6)"
       python: "3.6"
       install:
