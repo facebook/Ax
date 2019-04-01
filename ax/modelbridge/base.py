@@ -30,6 +30,7 @@ class ModelBridge(ABC):
     """The main object for using models in Ax.
 
     ModelBridge specifies 3 methods for using models:
+
     - predict: Make model predictions. This method is not optimized for
       speed and so should be used primarily for plotting or similar tasks
       and not inside an optimization loop.
