@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-from typing import Dict, List, Optional, Type, Union
+
+from typing import Any, Dict, List, Optional, Type, Union
 
 import torch
 from ax.core.data import Data
@@ -105,28 +106,44 @@ def get_uniform(
     )
 
 
-def get_GPEI(
+def get_botorch(
     experiment: Experiment,
     data: Data,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
-    **kwargs: Union[Dict[str, Union[int, bool]], bool, int, float, str]
+    transforms: List[Type[Transform]] = Cont_X_trans + Y_trans,
+    **kwargs: Any,
 ) -> TorchModelBridge:
-    """Instantiates a GP model that generates points with EI."""
+    """Instantiates a BotorchModel."""
     if search_space is None:
         search_space = experiment.search_space
     return TorchModelBridge(
         experiment=experiment,
         search_space=search_space,
         data=data,
-        # Expected `Optional[Dict[str, Union[float, int]]]` for 1st anon. param.
-        # to call `ae.lazarus.models.torch.botorch.BotorchModel.__init__`
-        # pyre-ignore[6]: but got `Dict[str, Union[bool, int]].
         model=BotorchModel(**kwargs),
-        transforms=Cont_X_trans + Y_trans,
+        transforms=transforms,
         torch_dtype=dtype,
         torch_device=device,
+    )
+
+
+def get_GPEI(
+    experiment: Experiment,
+    data: Data,
+    search_space: Optional[SearchSpace] = None,
+    dtype: torch.dtype = torch.double,
+    device: torch.device = DEFAULT_TORCH_DEVICE,
+    **kwargs: Union[Dict[str, Union[int, bool]], bool, int, float, str],
+) -> TorchModelBridge:
+    """Instantiates a GP model that generates points with EI."""
+    return get_botorch(
+        experiment=experiment,
+        data=data,
+        search_space=search_space,
+        dtype=dtype,
+        device=device,
     )
 
 
