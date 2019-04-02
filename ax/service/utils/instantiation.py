@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union, cast
 
 from ax.core.metric import Metric
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -23,6 +23,10 @@ from ax.core.types import ComparisonOp, TParamValue
 from ax.utils.common.typeutils import not_none
 
 
+"""Utilities for RESTful-like instantiation of Ax classes needed in AxClient."""
+
+
+TParameterRepresentation = Dict[str, Union[TParamValue, List[TParamValue]]]
 PARAM_CLASSES = ["range", "choice", "fixed"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
 COMPARISON_OPS = {"<=": ComparisonOp.LEQ, ">=": ComparisonOp.GEQ}
@@ -50,7 +54,7 @@ def _to_parameter_type(
 
 
 def _make_range_param(
-    name: str, representation: Dict[str, TParamValue], parameter_type: Optional[str]
+    name: str, representation: TParameterRepresentation, parameter_type: Optional[str]
 ) -> RangeParameter:
     assert "bounds" in representation, "Bounds are required for range parameters."
     bounds = representation["bounds"]
@@ -68,7 +72,7 @@ def _make_range_param(
 
 
 def _make_choice_param(
-    name: str, representation: Dict[str, TParamValue], parameter_type: Optional[str]
+    name: str, representation: TParameterRepresentation, parameter_type: Optional[str]
 ) -> ChoiceParameter:
     assert "values" in representation, "Values are required for choice parameters."
     values = representation["values"]
@@ -102,7 +106,9 @@ def _make_fixed_param(
     )
 
 
-def parameter_from_json(representation: Dict[str, TParamValue]) -> Parameter:
+def parameter_from_json(
+    representation: Dict[str, Union[TParamValue, List[TParamValue]]]
+) -> Parameter:
     """Instantiate a parameter from JSON representation."""
     name = representation["name"]
     assert isinstance(name, str), "Parameter name must be a string."
@@ -129,8 +135,11 @@ def parameter_from_json(representation: Dict[str, TParamValue]) -> Parameter:
         )
 
     if parameter_class == "fixed":
+        assert not any(isinstance(val, list) for val in representation.values())
         return _make_fixed_param(
-            name=name, representation=representation, parameter_type=parameter_type
+            name=name,
+            representation=cast(Dict[str, TParamValue], representation),
+            parameter_type=parameter_type,
         )
     else:
         raise ValueError(f"Unrecognized parameter type {parameter_class}.")
@@ -187,7 +196,7 @@ def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
 
 def make_simple_experiment(
     name: str,
-    parameters: List[Dict[str, TParamValue]],
+    parameters: List[TParameterRepresentation],
     objective_name: str,
     minimize: bool = False,
     parameter_constraints: Optional[List[str]] = None,

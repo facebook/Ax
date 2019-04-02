@@ -12,7 +12,7 @@ from ax.core.types import ComparisonOp
 from ax.metrics.branin import branin
 from ax.modelbridge.factory import get_GPEI, get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.service.service_api import AxAsyncClient
+from ax.service.ax_client import AxClient
 from ax.utils.common.testutils import TestCase
 
 
@@ -21,7 +21,7 @@ class TestServiceAPI(TestCase):
 
     def test_default_generation_strategy(self):
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
-        ax = AxAsyncClient()
+        ax = AxClient()
         ax.create_experiment(
             name="test_branin",
             parameters=[
@@ -35,11 +35,11 @@ class TestServiceAPI(TestCase):
         for _ in range(6):
             parameterization, trial_index = ax.get_next_trial()
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
-            ax.log_data(trial_index, raw_data={"branin": (branin(x1, x2), 0.0)})
+            ax.complete_trial(trial_index, raw_data={"branin": (branin(x1, x2), 0.0)})
 
-    def test_create_expreriment(self):
+    def test_create_experiment(self):
         """Test basic experiment creation."""
-        ax = AxAsyncClient(GenerationStrategy([get_sobol], [30]))
+        ax = AxClient(GenerationStrategy([get_sobol], [30]))
         ax.create_experiment(
             name="test_experiment",
             parameters=[
@@ -77,7 +77,7 @@ class TestServiceAPI(TestCase):
             parameter_constraints=["x3 >= x4", "x3 + x4 >= 2"],
         )
         self.assertEqual(
-            ax.experiment.search_space.parameters["x1"],
+            ax._experiment.search_space.parameters["x1"],
             RangeParameter(
                 name="x1",
                 parameter_type=ParameterType.FLOAT,
@@ -87,7 +87,7 @@ class TestServiceAPI(TestCase):
             ),
         )
         self.assertEqual(
-            ax.experiment.search_space.parameters["x2"],
+            ax._experiment.search_space.parameters["x2"],
             ChoiceParameter(
                 name="x2",
                 parameter_type=ParameterType.INT,
@@ -96,17 +96,17 @@ class TestServiceAPI(TestCase):
             ),
         )
         self.assertEqual(
-            ax.experiment.search_space.parameters["x3"],
+            ax._experiment.search_space.parameters["x3"],
             FixedParameter(name="x3", parameter_type=ParameterType.INT, value=2),
         )
         self.assertEqual(
-            ax.experiment.search_space.parameters["x4"],
+            ax._experiment.search_space.parameters["x4"],
             RangeParameter(
                 name="x4", parameter_type=ParameterType.INT, lower=1.0, upper=3.0
             ),
         )
         self.assertEqual(
-            ax.experiment.search_space.parameters["x5"],
+            ax._experiment.search_space.parameters["x5"],
             ChoiceParameter(
                 name="x5",
                 parameter_type=ParameterType.STRING,
@@ -114,7 +114,7 @@ class TestServiceAPI(TestCase):
             ),
         )
         self.assertEqual(
-            ax.experiment.optimization_config.outcome_constraints[0],
+            ax._experiment.optimization_config.outcome_constraints[0],
             OutcomeConstraint(
                 metric=Metric(name="some_metric"),
                 op=ComparisonOp.GEQ,
@@ -123,7 +123,7 @@ class TestServiceAPI(TestCase):
             ),
         )
         self.assertEqual(
-            ax.experiment.optimization_config.outcome_constraints[1],
+            ax._experiment.optimization_config.outcome_constraints[1],
             OutcomeConstraint(
                 metric=Metric(name="some_metric"),
                 op=ComparisonOp.LEQ,
@@ -131,11 +131,11 @@ class TestServiceAPI(TestCase):
                 relative=False,
             ),
         )
-        self.assertTrue(ax.experiment.optimization_config.objective.minimize)
+        self.assertTrue(ax._experiment.optimization_config.objective.minimize)
 
     def test_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""
-        ax = AxAsyncClient(GenerationStrategy([get_sobol], [30]))
+        ax = AxClient(GenerationStrategy([get_sobol], [30]))
         with self.assertRaises(ValueError):
             ax.create_experiment(
                 name="test_experiment",
