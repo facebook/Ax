@@ -191,7 +191,8 @@ class AxClient:
             tr = checked_cast(Trial, trial)
             gr = tr.generator_run
             if gr is not None and gr.best_arm_predictions is not None:
-                return gr.best_arm_predictions[0].params, gr[1]
+                best_arm, best_arm_predictions = gr.best_arm_predictions
+                return best_arm.params, best_arm_predictions
         return None
 
     def load_experiment(self, experiment_name: str) -> None:
@@ -251,10 +252,16 @@ class AxClient:
         Returns:
             Trial with candidate.
         """
-        generator = not_none(self.generation_strategy).get_model(
-            self.experiment, data=self.experiment.eval()
-        )
-        generator_run = generator.gen(n=1)
+        try:
+            generator = not_none(self.generation_strategy).get_model(
+                self.experiment, data=self.experiment.eval()
+            )
+            generator_run = generator.gen(n=1)
+        except ValueError as err:
+            raise ValueError(
+                f"Error getting next trial: {err} Likely cause of the error is "
+                "that more trials need to be completed with data."
+            )
         return self.experiment.new_trial(generator_run=generator_run)
 
     def _choose_generation_strategy(

@@ -98,13 +98,15 @@ class SimpleExperiment(Experiment):
 
         evaluations = {}
         if isinstance(trial, Trial):
-            if trial.arm is None:
+            if trial.arm is None or not self.has_evaluation_function:
                 return Data()
             trial.run()
             evaluations[trial.arm.name] = self.evaluation_function(
                 trial.arm.params, None
             )
         elif isinstance(trial, BatchTrial):
+            if not self.has_evaluation_function:
+                return Data()  # pragma: no cover
             trial.run()
             for arm, weight in trial.normalized_arm_weights().items():
                 arm_params: TParameterization = arm.params
@@ -158,6 +160,12 @@ class SimpleExperiment(Experiment):
         )
 
     @property
+    def has_evaluation_function(self) -> bool:
+        """Whether this `SimpleExperiment` has a valid evalutation function
+        attached."""
+        return self._evaluation_function is not unimplemented_evaluation_function
+
+    @property
     def evaluation_function(self) -> TEvaluationFunction:
         """
         Get the evaluation function.
@@ -169,7 +177,6 @@ class SimpleExperiment(Experiment):
         """
         Set the evaluation function.
         """
-
         self._evaluation_function = evaluation_function
 
     @copy_doc(Experiment.fetch_data)
