@@ -10,7 +10,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
-from ax.tests.fake import get_branin_experiment
+from ax.tests.fake import get_branin_experiment, get_data
 from ax.utils.common.testutils import TestCase
 
 
@@ -67,7 +67,7 @@ class TestGenerationStrategy(TestCase):
         for i in range(7):
             prev_g = g
             g = sobol_GPEI_generation_strategy.get_model(
-                exp, exp.fetch_data(), exp.search_space
+                exp, get_data(), exp.search_space
             )
             exp.new_batch_trial().add_arm(Arm(params={"x1": i, "x2": i}))
             if i > 0 and i < 5:
@@ -100,7 +100,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(factorial_thompson_generation_strategy.generator_changes, [1])
         for i in range(3):
             factorial_thompson_generation_strategy.get_model(
-                exp, exp.fetch_data(), exp.search_space
+                exp, get_data(), exp.search_space
             )
             exp.new_batch_trial().add_arm(Arm(params={"x1": i, "x2": i}))
             if i < 1:

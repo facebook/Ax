@@ -118,6 +118,8 @@ def get_botorch(
     """Instantiates a BotorchModel."""
     if search_space is None:
         search_space = experiment.search_space
+    if data.df.empty:  # pragma: no cover
+        raise ValueError("BotorchModel requires non-empty data.")
     return TorchModelBridge(
         experiment=experiment,
         search_space=search_space,
@@ -138,6 +140,8 @@ def get_GPEI(
     **kwargs: Union[Dict[str, Union[int, bool]], bool, int, float, str],
 ) -> TorchModelBridge:
     """Instantiates a GP model that generates points with EI."""
+    if data.df.empty:  # pragma: no cover
+        raise ValueError("GP+EI BotorchModel requires non-empty data.")
     return get_botorch(
         experiment=experiment,
         data=data,
@@ -168,6 +172,8 @@ def get_ancillary_eb_thompson(
     uniform_weights: bool = False,
 ) -> DiscreteModelBridge:
     """Instantiates an Ancillary EB / Thompson sampling generator."""
+    if data.df.empty:  # pragma: no cover
+        raise ValueError("Ancillary EB Thompson sampler requires non-empty data.")
     model = AncillaryEBThompsonSampler(
         primary_outcome=primary_outcome,
         secondary_outcome=secondary_outcome,
@@ -195,6 +201,8 @@ def get_empirical_bayes_thompson(
     uniform_weights: bool = False,
 ) -> DiscreteModelBridge:
     """Instantiates an empirical Bayes / Thompson sampling model."""
+    if data.df.empty:  # pragma: no cover
+        raise ValueError("Empirical Bayes Thompson sampler requires non-empty data.")
     model = EmpiricalBayesThompsonSampler(
         num_samples=num_samples, min_weight=min_weight, uniform_weights=uniform_weights
     )
@@ -218,6 +226,8 @@ def get_thompson(
     uniform_weights: bool = False,
 ) -> DiscreteModelBridge:
     """Instantiates a Thompson sampling model."""
+    if data.df.empty:  # pragma: no cover
+        raise ValueError("Thompson sampler requires non-empty data.")
     model = ThompsonSampler(
         num_samples=num_samples, min_weight=min_weight, uniform_weights=uniform_weights
     )
