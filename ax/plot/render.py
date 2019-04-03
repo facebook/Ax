@@ -15,7 +15,7 @@ from jinja2 import Template
 # Rendering constants
 DEFAULT_WIDTH = "100%"
 DEFAULT_HEIGHT = 550
-CSS_FILE = "ae/lazarus/plot/css/base.css"
+CSS_FILE = "ax/ax/plot/css/base.css"
 
 
 # Common resources used in plotting (load with _load_js_resource)
