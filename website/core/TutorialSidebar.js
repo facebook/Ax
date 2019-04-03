@@ -61,7 +61,7 @@ class TutorialSidebar extends React.Component {
         items.push({
           type: 'LINK',
           item: {
-            permalink: `tutorials/${item.id}`,
+            permalink: `tutorials/${item.id}.html`,
             id: item.id,
             title: item.title,
           },
