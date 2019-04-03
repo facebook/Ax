@@ -192,6 +192,8 @@ class SQAData(Base):
     time_created: int = Column(BigInteger, nullable=False)
     trial_index: Optional[int] = Column(Integer)
 
+    unique_id = "time_created"
+
 
 class SQATrial(Base):
     __tablename__: str = "trial_v2"
