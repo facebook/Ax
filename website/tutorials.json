@@ -18,5 +18,11 @@
       "id": "benchmarking_suite_example",
       "title": "Benchmarking Suite"
     }
+  ],
+  "Service API": [
+    {
+      "id": "service_api",
+      "title": "Service API and AxClient"
+    }
   ]
 }
