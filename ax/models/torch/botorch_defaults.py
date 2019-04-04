@@ -6,7 +6,7 @@ import torch
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
-from botorch.fit import fit_model
+from botorch.fit import fit_gpytorch_model
 from botorch.models.constant_noise import ConstantNoiseGP
 from botorch.models.gp_regression import HeteroskedasticSingleTaskGP
 from botorch.models.model import Model
@@ -49,7 +49,7 @@ def get_and_fit_model(
         # TODO: Add bounds for optimization stability - requires revamp upstream
         bounds = {}
         mll = SumMarginalLogLikelihood(model.likelihood, model)
-        mll = fit_model(mll, bounds=bounds)
+        mll = fit_gpytorch_model(mll, bounds=bounds)
     else:
         model.load_state_dict(state_dict)
     return model

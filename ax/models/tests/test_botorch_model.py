@@ -13,7 +13,7 @@ from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 
 
-FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_model"
+FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
