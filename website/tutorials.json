@@ -7,6 +7,10 @@
   ],
   "BayesOpt": [
     {
+      "id": "tune_cnn",
+      "title": "GP-EI for CNN"
+    },
+    {
       "id": "gpei_svm",
       "title": "GP-EI for SVM"
     },
