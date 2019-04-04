@@ -5,7 +5,7 @@ from unittest import mock
 
 import torch
 from ax.models.torch.botorch import BotorchModel
-from ax.models.torch.botorch_defaults import MIN_OBSERVED_NOISE_LEVEL, get_and_fit_model
+from ax.models.torch.botorch_defaults import get_and_fit_model
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import MultiOutputGP
@@ -185,30 +185,22 @@ class BotorchModelTest(TestCase):
 
         # Test loading state dict
         tkwargs = {"device": device, "dtype": dtype}
-        state_dict_keys = [
-            "models.0.likelihood.noise_covar._noise_levels",
-            "models.0.mean_module.constant",
-            "models.0.covar_module.raw_outputscale",
-            "models.0.covar_module.base_kernel.raw_lengthscale",
-            "models.0.covar_module.base_kernel.lengthscale_prior.concentration",
-            "models.0.covar_module.base_kernel.lengthscale_prior.rate",
-            "models.0.covar_module.outputscale_prior.concentration",
-            "models.0.covar_module.outputscale_prior.rate",
-            "likelihood.likelihoods.0.noise_covar._noise_levels",
-        ]
-        state_dict_vals = [
-            [0.0003],
-            [[3.4969]],
-            [1.0109],
-            [[[-0.9313, -0.9313, -0.9313]]],
-            3.0,
-            6.0,
-            2.0,
-            0.1500,
-            [0.0003],
-        ]
-        state_dict_vals = [torch.tensor(val, **tkwargs) for val in state_dict_vals]
-        true_state_dict = dict(zip(state_dict_keys, state_dict_vals))
+        true_state_dict = {
+            "models.0.likelihood.noise_covar.noise": [1.0, 1.0],
+            "models.0.mean_module.constant": [[3.5004]],
+            "models.0.covar_module.raw_outputscale": [2.2438],
+            "models.0.covar_module.base_kernel.raw_lengthscale": [
+                [[-0.9274, -0.9274, -0.9274]]
+            ],
+            "models.0.covar_module.base_kernel.lengthscale_prior.concentration": 3.0,
+            "models.0.covar_module.base_kernel.lengthscale_prior.rate": 6.0,
+            "models.0.covar_module.outputscale_prior.concentration": 2.0,
+            "models.0.covar_module.outputscale_prior.rate": 0.15,
+            "likelihood.likelihoods.0.noise_covar.noise": [1.0, 1.0],
+        }
+        true_state_dict = {
+            key: torch.tensor(val, **tkwargs) for key, val in true_state_dict.items()
+        }
         model = get_and_fit_model(
             Xs=Xs1, Ys=Ys1, Yvars=Yvars1, state_dict=true_state_dict
         )
@@ -225,154 +217,6 @@ class BotorchModelTest(TestCase):
     def test_BotorchModel_double_cuda(self):
         if torch.cuda.is_available():
             self.test_BotorchModel(dtype=torch.double, cuda=True)
-
-    def test_BotorchModelHetNoise(self, dtype=torch.float, cuda=False):
-        Xs1, Ys1, Yvars1, bounds, task_features, feature_names = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=False
-        )
-        Xs2, Ys2, Yvars2, _, _, _ = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=False
-        )
-
-        model = BotorchModel()
-        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
-            model.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=task_features,
-                feature_names=feature_names,
-            )
-            _mock_fit_model.assert_called_once()
-
-        self.assertLess(
-            torch.norm(
-                model.model.likelihood.likelihoods[
-                    0
-                ].noise_covar.noise_model.train_targets
-                - (Yvars1[0].view(-1).clamp_min(MIN_OBSERVED_NOISE_LEVEL).log())
-            ).item(),
-            1e-5,
-        )
-
-        # Test state dict loading
-        nm = "models.0.likelihood.noise_covar.noise_model"
-        lk = "likelihood.likelihoods.0.noise_covar.noise_model"
-        state_dict_keys = [
-            f"{nm}.likelihood.noise_covar.raw_noise",
-            f"{nm}.likelihood.noise_covar.noise_prior.a",
-            f"{nm}.likelihood.noise_covar.noise_prior.b",
-            f"{nm}.likelihood.noise_covar.noise_prior.sigma",
-            f"{nm}.likelihood.noise_covar.noise_prior.tails.loc",
-            f"{nm}.likelihood.noise_covar.noise_prior.tails.scale",
-            f"{nm}.mean_module.constant",
-            f"{nm}.covar_module.raw_outputscale",
-            f"{nm}.covar_module.base_kernel.raw_lengthscale",
-            f"{nm}.covar_module.base_kernel.lengthscale_prior.concentration",
-            f"{nm}.covar_module.base_kernel.lengthscale_prior.rate",
-            f"{nm}.covar_module.outputscale_prior.concentration",
-            f"{nm}.covar_module.outputscale_prior.rate",
-            "models.0.mean_module.constant",
-            "models.0.covar_module.raw_outputscale",
-            "models.0.covar_module.base_kernel.raw_lengthscale",
-            "models.0.covar_module.base_kernel.lengthscale_prior.concentration",
-            "models.0.covar_module.base_kernel.lengthscale_prior.rate",
-            "models.0.covar_module.outputscale_prior.concentration",
-            "models.0.covar_module.outputscale_prior.rate",
-            f"{lk}.likelihood.noise_covar.raw_noise",
-            f"{lk}.likelihood.noise_covar.noise_prior.a",
-            f"{lk}.likelihood.noise_covar.noise_prior.b",
-            f"{lk}.likelihood.noise_covar.noise_prior.sigma",
-            f"{lk}.likelihood.noise_covar.noise_prior.tails.loc",
-            f"{lk}.likelihood.noise_covar.noise_prior.tails.scale",
-            f"{lk}.mean_module.constant",
-            f"{lk}.covar_module.raw_outputscale",
-            f"{lk}.covar_module.base_kernel.raw_lengthscale",
-            f"{lk}.covar_module.base_kernel.lengthscale_prior.concentration",
-            f"{lk}.covar_module.base_kernel.lengthscale_prior.rate",
-            f"{lk}.covar_module.outputscale_prior.concentration",
-            f"{lk}.covar_module.outputscale_prior.rate",
-        ]
-        state_dict_vals = [
-            [[0.0]],
-            [-3.0],
-            [5.0],
-            [0.5],
-            [0.0],
-            [0.5],
-            [[-7.654_725_551_605_225]],
-            [6.679_621_219_635_01],
-            [
-                [
-                    [
-                        -0.927_428_603_172_302_2,
-                        -0.927_428_603_172_302_2,
-                        -0.927_428_603_172_302_2,
-                    ]
-                ]
-            ],
-            3.0,
-            6.0,
-            2.0,
-            0.150_000_005_960_464_48,
-            [[3.500_487_565_994_262_7]],
-            [0.955_063_641_071_319_6],
-            [
-                [
-                    [
-                        -0.929_637_432_098_388_7,
-                        -0.929_637_432_098_388_7,
-                        -0.929_637_432_098_388_7,
-                    ]
-                ]
-            ],
-            3.0,
-            6.0,
-            2.0,
-            0.150_000_005_960_464_48,
-            [[0.0]],
-            [-3.0],
-            [5.0],
-            [0.5],
-            [0.0],
-            [0.5],
-            [[-7.654_725_551_605_225]],
-            [6.679_621_219_635_01],
-            [
-                [
-                    [
-                        -0.927_428_603_172_302_2,
-                        -0.927_428_603_172_302_2,
-                        -0.927_428_603_172_302_2,
-                    ]
-                ]
-            ],
-            3.0,
-            6.0,
-            2.0,
-            0.150_000_005_960_464_48,
-        ]
-        device = torch.device("cuda") if cuda else torch.device("cpu")
-        tkwargs = {"device": device, "dtype": dtype}
-        state_dict_vals = [torch.tensor(val, **tkwargs) for val in state_dict_vals]
-        true_state_dict = dict(zip(state_dict_keys, state_dict_vals))
-        model = get_and_fit_model(
-            Xs=Xs1, Ys=Ys1, Yvars=Yvars1, state_dict=true_state_dict
-        )
-        for k, v in chain(model.named_parameters(), model.named_buffers()):
-            self.assertTrue(torch.equal(true_state_dict[k], v))
-
-    def test_BotorchModelHetNoise_cuda(self):
-        if torch.cuda.is_available():
-            self.test_BotorchModelHetNoise(cuda=True)
-
-    def test_BotorchModelConstantNoise_double(self):
-        self.test_BotorchModelHetNoise(dtype=torch.double)
-
-    def test_BotorchModelConstantNoise_double_cuda(self):
-        if torch.cuda.is_available():
-            self.test_BotorchModelHetNoise(dtype=torch.double, cuda=True)
 
     def test_BotorchModelOneOutcome(self):
         Xs1, Ys1, Yvars1, bounds, task_features, feature_names = _get_torch_test_data(

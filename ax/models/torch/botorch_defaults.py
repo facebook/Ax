@@ -7,8 +7,7 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
 from botorch.fit import fit_gpytorch_model
-from botorch.models.constant_noise import ConstantNoiseGP
-from botorch.models.gp_regression import HeteroskedasticSingleTaskGP
+from botorch.models.gp_regression import FixedNoiseGP
 from botorch.models.model import Model
 from botorch.models.multi_output_gp_regression import MultiOutputGP
 from botorch.optim.optimize import joint_optimize, sequential_optimize
@@ -172,21 +171,6 @@ def scipy_optimizer(
 
 def _get_model(X: Tensor, Y: Tensor, Yvar: Tensor) -> Model:
     """Instantiate a model of type depending on the input data."""
-    Yvar = Yvar.view(-1)  # last dimension is not needed for botorch
-    # Determine if we want to treat the noise as constant
-    mean_var = Yvar.mean().clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
-    # Look at relative variance in noise level
-    if Yvar.nelement() > 1:
-        Yvar_std = Yvar.std()
-    else:
-        Yvar_std = torch.tensor(0).to(device=Yvar.device, dtype=Yvar.dtype)
-    if Yvar_std / mean_var < 0.1:
-        model = ConstantNoiseGP(
-            train_X=X, train_Y=Y.view(-1), train_Y_se=mean_var.sqrt()
-        )
-    else:
-        Yvar = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)
-        model = HeteroskedasticSingleTaskGP(
-            train_X=X, train_Y=Y.view(-1), train_Y_se=Yvar.view(-1).sqrt()
-        )
-    return model.to(X)
+    Yvar = Yvar.clamp_min_(MIN_OBSERVED_NOISE_LEVEL)  # pyre-ignore: [16]
+    gp = FixedNoiseGP(train_X=X, train_Y=Y.view(-1), train_Y_se=Yvar.view(-1).sqrt())
+    return gp.to(X)  # pyre-ignore: [7]

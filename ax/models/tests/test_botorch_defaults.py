@@ -3,7 +3,7 @@
 import torch
 from ax.models.torch.botorch_defaults import _get_model
 from ax.utils.common.testutils import TestCase
-from botorch.models import ConstantNoiseGP
+from botorch.models import FixedNoiseGP
 
 
 class BotorchDefaultsTest(TestCase):
@@ -12,4 +12,4 @@ class BotorchDefaultsTest(TestCase):
         y = torch.zeros(1)
         se = torch.zeros(1)
         model = _get_model(x, y, se)
-        self.assertTrue(isinstance(model, ConstantNoiseGP))
+        self.assertTrue(isinstance(model, FixedNoiseGP))
