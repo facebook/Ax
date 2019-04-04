@@ -61,7 +61,7 @@ class Metric(Base):
         cls,
         trial: "core.base_trial.BaseTrial",
         metrics: Iterable["Metric"],
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Data:
         """Fetch multiple metrics data for one trial.
 
@@ -82,7 +82,7 @@ class Metric(Base):
         cls,
         experiment: "core.experiment.Experiment",
         metrics: Iterable["Metric"],
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Data:
         """Fetch multiple metrics data for an experiment.
 

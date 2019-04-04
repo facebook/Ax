@@ -4,7 +4,7 @@ from typing import Dict, Optional, Tuple
 
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
-from ax.core.simple_experiment import SimpleExperiment
+from ax.core.data import Data
 from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.service.ax_client import AxClient
@@ -52,7 +52,7 @@ class AxBatchClient(AxClient):
         if metadata is not None:
             trial._run_metadata = metadata
 
-        data = SimpleExperiment.data_from_evaluations(raw_data, trial.index)
+        data = Data.from_evaluations(raw_data, trial.index)
         self.experiment.attach_data(data)
         self._save_experiment_if_possible()
 
@@ -94,7 +94,7 @@ class AxBatchClient(AxClient):
             BatchTrial with candidates.
         """
         generator = not_none(self.generation_strategy).get_model(
-            self.experiment, data=self.experiment.eval()
+            self.experiment, data=self.experiment.fetch_data()
         )
         generator_run = generator.gen(n=n)
         return self.experiment.new_batch_trial().add_generator_run(generator_run)

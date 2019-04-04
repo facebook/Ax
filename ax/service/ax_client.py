@@ -4,9 +4,10 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
+from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.parameter import ChoiceParameter, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
@@ -16,7 +17,7 @@ from ax.core.types import (
 )
 from ax.modelbridge.factory import get_GPEI, get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.service.utils.instantiation import make_simple_experiment
+from ax.service.utils.instantiation import make_experiment
 from ax.service.utils.storage import load_experiment, save_experiment
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -45,7 +46,7 @@ class AxClient:
     ) -> None:
         self.generation_strategy = generation_strategy
         self.db_settings = db_settings
-        self._experiment: Optional[SimpleExperiment] = None
+        self._experiment: Optional[Experiment] = None
 
     # ------------------------ Public API methods. ------------------------
 
@@ -77,7 +78,7 @@ class AxClient:
             outcome_constraints: List of string representation of outcome
                 constraints of form "metric_name >= bound", like "m1 <= 3."
         """
-        self._experiment = make_simple_experiment(
+        self._experiment = make_experiment(
             name=name,
             parameters=parameters,
             objective_name=objective_name,
@@ -129,9 +130,7 @@ class AxClient:
         if metadata is not None:
             trial._run_metadata = metadata
 
-        data = SimpleExperiment.data_from_evaluations(
-            {not_none(trial.arm).name: raw_data}, trial.index
-        )
+        data = Data.from_evaluations({not_none(trial.arm).name: raw_data}, trial.index)
         self.experiment.attach_data(data)
         self._save_experiment_if_possible()
 
@@ -221,7 +220,7 @@ class AxClient:
     # ---------------------- Private helper methods. ---------------------
 
     @property
-    def experiment(self) -> SimpleExperiment:
+    def experiment(self) -> Experiment:
         """Returns the experiment set on this Ax client"""
         if self._experiment is None:
             raise ValueError(
@@ -254,7 +253,7 @@ class AxClient:
         """
         try:
             generator = not_none(self.generation_strategy).get_model(
-                self.experiment, data=self.experiment.eval()
+                self.experiment, data=self.experiment.fetch_data()
             )
             generator_run = generator.gen(n=1)
         except ValueError as err:

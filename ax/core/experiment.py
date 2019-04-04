@@ -281,12 +281,21 @@ class Experiment(Base):
                 "No metrics to fetch data for, as no metrics are defined for "
                 "this experiment."
             )
-        return Data.from_multiple_data(
-            [
-                metric_cls.fetch_experiment_data_multi(self, metric_list, **kwargs)
-                for metric_cls, metric_list in self._metrics_by_class().items()
-            ]
-        )
+        try:
+            return Data.from_multiple_data(
+                [
+                    metric_cls.fetch_experiment_data_multi(self, metric_list, **kwargs)
+                    for metric_cls, metric_list in self._metrics_by_class().items()
+                ]
+            )
+        # If some of the metrics do not implement data fetching, we should
+        # check if looking up trial data logic in 'fetch_trial_data' might work,
+        # since trial data might've been attached instead of provided through
+        # fetching from metrics.
+        except NotImplementedError:
+            return Data.from_multiple_data(
+                [self.fetch_trial_data(trial_index=idx) for idx in self.trials]
+            )
 
     def fetch_trial_data(self, trial_index: int, **kwargs: Any) -> Data:
         """Fetches data for all metrics and a single trial on this experiment.
@@ -304,12 +313,17 @@ class Experiment(Base):
                 "this experiment."
             )
         trial = self.trials[trial_index]
-        return Data.from_multiple_data(
-            [
-                metric_cls.fetch_trial_data_multi(trial, metric_list, **kwargs)
-                for metric_cls, metric_list in self._metrics_by_class().items()
-            ]
-        )
+        try:
+            return Data.from_multiple_data(
+                [
+                    metric_cls.fetch_trial_data_multi(trial, metric_list, **kwargs)
+                    for metric_cls, metric_list in self._metrics_by_class().items()
+                ]
+            )
+        except NotImplementedError:
+            # Data might've been attached for this trial, bypassing metrics'
+            # data-fetching logic.
+            return self.lookup_data_for_trial(trial_index=trial_index)
 
     def attach_data(self, data: Data) -> int:
         """Attach data to experiment.

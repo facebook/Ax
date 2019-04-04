@@ -112,38 +112,9 @@ class SimpleExperiment(Experiment):
                 arm_params: TParameterization = arm.params
                 evaluations[arm.name] = self.evaluation_function(arm_params, weight)
 
-        data = self.data_from_evaluations(evaluations, trial.index)
+        data = Data.from_evaluations(evaluations, trial.index)
         self.attach_data(data)
         return data
-
-    @staticmethod
-    def data_from_evaluations(
-        evaluations: Dict[str, TEvaluationOutcome], trial_index: int
-    ) -> Data:
-        """
-        Convert dict of evaluations to Ax data object.
-
-        Args:
-            evaluations: Map from condition name to metric outcomes.
-
-        Returns:
-            Ax Data object.
-        """
-        return Data(
-            df=pd.DataFrame(
-                [
-                    {
-                        "arm_name": name,
-                        "metric_name": metric_name,
-                        "mean": evaluation[metric_name][0],
-                        "sem": evaluation[metric_name][1],
-                        "trial_index": trial_index,
-                    }
-                    for name, evaluation in evaluations.items()
-                    for metric_name in evaluation.keys()
-                ]
-            )
-        )
 
     def eval(self) -> Data:
         """

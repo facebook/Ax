@@ -6,6 +6,7 @@ from typing import Dict, Iterable, Optional, Set, Type
 import numpy as np
 import pandas as pd
 from ax.core.base import Base
+from ax.core.types import TEvaluationOutcome
 
 
 TPdTimestamp = pd.Timestamp  # pyre-ignore[16]: Pyre doesn't recognize this type
@@ -109,6 +110,35 @@ class Data(Base):
         if sum(1 for _ in data) == 0:  # Return empty data if empty iterable.
             return Data()
         return Data(df=pd.concat([datum.df for datum in data], axis=0, sort=True))
+
+    @staticmethod
+    def from_evaluations(
+        evaluations: Dict[str, TEvaluationOutcome], trial_index: int
+    ) -> "Data":
+        """
+        Convert dict of evaluations to Ax data object.
+
+        Args:
+            evaluations: Map from condition name to metric outcomes.
+
+        Returns:
+            Ax Data object.
+        """
+        return Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "arm_name": name,
+                        "metric_name": metric_name,
+                        "mean": evaluation[metric_name][0],
+                        "sem": evaluation[metric_name][1],
+                        "trial_index": trial_index,
+                    }
+                    for name, evaluation in evaluations.items()
+                    for metric_name in evaluation.keys()
+                ]
+            )
+        )
 
     @property
     def df(self) -> pd.DataFrame:

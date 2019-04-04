@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 from typing import Dict, List, Optional, Union, cast
 
+from ax.core.experiment import Experiment
 from ax.core.metric import Metric
+from ax.core.objective import Objective
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
     PARAMETER_PYTHON_TYPE_MAP,
@@ -18,7 +21,6 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.core.simple_experiment import SimpleExperiment
 from ax.core.types import ComparisonOp, TParamValue
 from ax.utils.common.typeutils import not_none
 
@@ -194,20 +196,20 @@ def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
     return OutcomeConstraint(Metric(name=tokens[0]), op=op, bound=bound, relative=False)
 
 
-def make_simple_experiment(
+def make_experiment(
     name: str,
     parameters: List[TParameterRepresentation],
     objective_name: str,
     minimize: bool = False,
     parameter_constraints: Optional[List[str]] = None,
     outcome_constraints: Optional[List[str]] = None,
-) -> SimpleExperiment:
+) -> Experiment:
     """Instantiation wrapper that allows for creation of SimpleExperiment without
     importing or instantiating any Ax classes."""
 
     exp_parameters: List[Parameter] = [parameter_from_json(p) for p in parameters]
     names = [p.name for p in exp_parameters]
-    return SimpleExperiment(
+    return Experiment(
         name=name,
         search_space=SearchSpace(
             parameters=exp_parameters,
@@ -215,9 +217,10 @@ def make_simple_experiment(
             if parameter_constraints is None
             else [constraint_from_str(c, names) for c in parameter_constraints],
         ),
-        objective_name=objective_name,
-        minimize=minimize,
-        outcome_constraints=None
-        if outcome_constraints is None
-        else [outcome_constraint_from_str(c) for c in outcome_constraints],
+        optimization_config=OptimizationConfig(
+            objective=Objective(metric=Metric(name=objective_name), minimize=minimize),
+            outcome_constraints=None
+            if outcome_constraints is None
+            else [outcome_constraint_from_str(c) for c in outcome_constraints],
+        ),
     )

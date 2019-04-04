@@ -11,6 +11,7 @@ from ax.tests.fake import (
     get_arm,
     get_branin_arms,
     get_branin_search_space,
+    get_data,
     get_experiment,
     get_optimization_config,
     get_search_space,
@@ -253,6 +254,10 @@ class ExperimentTest(TestCase):
         self.assertEqual(empty_experiment.num_trials, 1)
         with self.assertRaises(ValueError):
             empty_experiment.fetch_trial_data(batch)
+        empty_experiment.add_metric(Metric(name="some_metric"))
+        empty_experiment.attach_data(get_data())
+        empty_experiment.trials[0].mark_staged()
+        self.assertFalse(empty_experiment.fetch_data().df.empty)
 
     def testNumArmsNoDeduplication(self):
         exp = Experiment(name="test_experiment", search_space=get_search_space())

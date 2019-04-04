@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from ax.core.simple_experiment import SimpleExperiment
+from ax.core.experiment import Experiment
 from ax.storage.sqa_store.db import init_engine_and_session_factory
 from ax.storage.sqa_store.load import _load_experiment
 from ax.storage.sqa_store.save import _save_experiment
@@ -20,30 +20,30 @@ def initialize_db(db_settings: DBSettings) -> None:
         init_engine_and_session_factory(creator=db_settings.creator)
 
 
-def load_experiment(name: str, db_settings: DBSettings) -> SimpleExperiment:
+def load_experiment(name: str, db_settings: DBSettings) -> Experiment:
     """
-    Load experiment from the db. Service API only supports `SimpleExperiment`.
+    Load experiment from the db. Service API only supports `Experiment`.
 
     Args:
         name: Experiment name.
         db_settings: Specifies decoder and xdb tier where experiment is stored.
 
     Returns:
-        SimpleExperiment: created `SimpleExperiment` object.
+        Experiment: created `SimpleExperiment` object.
     """
     initialize_db(db_settings)
     experiment = _load_experiment(name, db_settings.decoder)
-    if not isinstance(experiment, SimpleExperiment):
-        raise ValueError("Service API only supports SimpleExperiment")
+    if not isinstance(experiment, Experiment):
+        raise ValueError("Service API only supports Experiment")
     return experiment
 
 
-def save_experiment(experiment: SimpleExperiment, db_settings: DBSettings) -> None:
+def save_experiment(experiment: Experiment, db_settings: DBSettings) -> None:
     """
     Save experiment to db.
 
     Args:
-        experiment: `SimpleExperiment` object.
+        experiment: `Experiment` object.
         db_settings: Specifies decoder and xdb tier where experiment is stored.
     """
     initialize_db(db_settings)
