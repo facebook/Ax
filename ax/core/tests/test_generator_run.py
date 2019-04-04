@@ -63,6 +63,14 @@ class GeneratorRunTest(TestCase):
                 search_space=self.search_space,
             )
 
+    def testClone(self):
+        weighted_run2 = self.weighted_run.clone()
+        self.assertEqual(
+            self.weighted_run.optimization_config, weighted_run2.optimization_config
+        )
+        weighted_run2.arms[0].name = "bogus_name"
+        self.assertNotEqual(self.weighted_run.arms, weighted_run2.arms)
+
     def testMergeDuplicateArm(self):
         arms = self.arms + [self.arms[0]]
         run = GeneratorRun(

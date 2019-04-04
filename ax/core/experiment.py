@@ -59,7 +59,7 @@ class Experiment(Base):
         """
         # appease pyre
         self._search_space: SearchSpace
-        self._status_quo: Optional[Arm]
+        self._status_quo: Optional[Arm] = None
 
         self.name = name
         self.description = description
@@ -154,9 +154,20 @@ class Experiment(Base):
             return
 
         self.search_space.check_types(status_quo.params, raise_error=True)
+        existing_arm = self.arms_by_signature.get(status_quo.signature)
+        if existing_arm is not None:
+            if status_quo.has_name:
+                # if the new arm has a name set, make sure it matches
+                # the existing one
+                if status_quo.name != existing_arm.name:
+                    raise ValueError(
+                        "The status quo being added is the same as "
+                        "an existing arm, but has a different name."
+                    )
+            else:
+                status_quo.name = existing_arm.name
         if not status_quo.has_name:
             status_quo.name = "status_quo"
-
         self._status_quo = status_quo
 
     @property

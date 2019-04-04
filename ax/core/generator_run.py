@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import copy
 from collections import OrderedDict
 from datetime import datetime
 from enum import Enum
@@ -210,6 +211,24 @@ class GeneratorRun(Base):
         """
         return pd.DataFrame.from_dict(
             {a.name_or_short_signature: a.params for a in self.arms}, orient="index"
+        )
+
+    def clone(self) -> "GeneratorRun":
+        """Return a deep copy of a GeneratorRun."""
+        return GeneratorRun(
+            arms=[a.clone() for a in self.arms],
+            weights=self.weights[:] if self.weights is not None else None,
+            optimization_config=self.optimization_config.clone()
+            if self.optimization_config is not None
+            else None,
+            search_space=self.search_space.clone()
+            if self.search_space is not None
+            else None,
+            model_predictions=copy.deepcopy(self.model_predictions),
+            best_arm_predictions=copy.deepcopy(self.best_arm_predictions),
+            type=self.generator_run_type,
+            fit_time=self.fit_time,
+            gen_time=self.gen_time,
         )
 
     def __repr__(self) -> str:

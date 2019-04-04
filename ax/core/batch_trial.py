@@ -170,6 +170,8 @@ class BatchTrial(BaseTrial):
         Returns:
             The trial instance.
         """
+        # Copy the generator run, to preserve initial and skip mutations to arms.
+        generator_run = generator_run.clone()
 
         # First validate generator run arms
         for arm in generator_run.arms:
@@ -219,13 +221,15 @@ class BatchTrial(BaseTrial):
             # If status_quo is identical to an existing arm, set to that
             # so that the names match.
             if status_quo.signature in self.experiment.arms_by_signature:
-                new_status_quo = self.experiment.arms_by_signature[status_quo.signature]
-                if status_quo.name != new_status_quo.name:
+                existing_status_quo = self.experiment.arms_by_signature[
+                    status_quo.signature
+                ]
+                if status_quo.has_name and status_quo.name != existing_status_quo.name:
                     raise ValueError(
-                        f"Arm already exists with name {new_status_quo.name}."
+                        f"Arm already exists with name {existing_status_quo.name}."
                     )
-                status_quo = new_status_quo
-            elif not status_quo.has_name:
+                status_quo = existing_status_quo
+            if not status_quo.has_name:
                 status_quo.name = "status_quo_" + str(self.index)
         self._status_quo = status_quo
         self.reweight_status_quo(weight)

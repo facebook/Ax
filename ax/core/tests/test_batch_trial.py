@@ -119,10 +119,10 @@ class BatchTrialTest(TestCase):
 
         # Set status quo to existing arm
         self.batch.set_status_quo_with_weight(self.arms[0], self.sq_weight)
-        self.assertTrue(self.batch.status_quo == self.arms[0])
-        self.assertEqual(self.batch.status_quo.name, self.arms[0].name)
+        self.assertTrue(self.batch.status_quo.params == self.arms[0].params)
+        self.assertEqual(self.batch.status_quo.name, self.batch.arms[0].name)
         self.assertEqual(
-            self.batch.arm_weights[self.arms[0]], self.weights[0] + self.sq_weight
+            self.batch.arm_weights[self.batch.arms[0]], self.weights[0] + self.sq_weight
         )
         self.assertEqual(sum(self.batch.weights), tot_weight + self.sq_weight)
 
@@ -315,17 +315,24 @@ class BatchTrialTest(TestCase):
 
         # test normalizing to 1
         arm_weights = new_batch_trial.normalized_arm_weights()
-        self.assertEqual(list(arm_weights.keys()), arms)
+        # self.assertEqual(list(arm_weights.keys()), arms)
+        batch_arm_params = [arm.params for arm in list(arm_weights.keys())]
+        arm_params = [arm.params for arm in arms]
+        self.assertEqual(batch_arm_params, arm_params)
         self.assertTrue(np.allclose(list(arm_weights.values()), [2 / 3, 1 / 3]))
 
         # test normalizing to 100
         arm_weights = new_batch_trial.normalized_arm_weights(total=100)
-        self.assertEqual(list(arm_weights.keys()), arms)
+        batch_arm_params = [arm.params for arm in list(arm_weights.keys())]
+        arm_params = [arm.params for arm in arms]
+        self.assertEqual(batch_arm_params, arm_params)
         self.assertTrue(np.allclose(list(arm_weights.values()), [200 / 3, 100 / 3]))
 
         # test normalizing with truncation
         arm_weights = new_batch_trial.normalized_arm_weights(total=1, trunc_digits=2)
-        self.assertEqual(list(arm_weights.keys()), arms)
+        batch_arm_params = [arm.params for arm in list(arm_weights.keys())]
+        arm_params = [arm.params for arm in arms]
+        self.assertEqual(batch_arm_params, arm_params)
         self.assertTrue(np.allclose(list(arm_weights.values()), [0.67, 0.33]))
 
     def testAddGeneratorRunValidation(self):

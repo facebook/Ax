@@ -184,6 +184,10 @@ class ExperimentTest(TestCase):
         exp.status_quo = arms[0]
         self.assertEqual(exp.status_quo.name, "0_0")
 
+        # Try setting sq to existing arm with different name
+        with self.assertRaises(ValueError):
+            exp.status_quo = Arm(arms[0].params, name="new_name")
+
     def _setupBraninExperiment(self, n: int) -> Experiment:
         exp = Experiment(
             name="test3",
@@ -257,5 +261,5 @@ class ExperimentTest(TestCase):
         trial = exp.new_batch_trial().add_arm(arm)
         self.assertEqual(exp.sum_trial_sizes, 2)
         self.assertEqual(len(exp.arms_by_name), 1)
-        trial.mark_arm_abandoned(arm.name)
+        trial.mark_arm_abandoned(trial.arms[0].name)
         self.assertEqual(exp.num_abandoned_arms, 1)
