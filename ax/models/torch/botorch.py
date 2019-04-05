@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import torch
 from ax.core.types import TConfig
 from ax.models.model_utils import best_observed_point
-from ax.models.torch.botorch_defaults import (  # pyre-ignore [21]
+from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     get_NEI,
     predict_from_model,
@@ -21,7 +21,15 @@ from torch import Tensor
 
 
 TModelConstuctor = Callable[
-    [List[Tensor], List[Tensor], List[Tensor], Optional[Dict[str, Tensor]], Any], Model
+    [
+        List[Tensor],
+        List[Tensor],
+        List[Tensor],
+        List[int],
+        Optional[Dict[str, Tensor]],
+        Any,
+    ],
+    Model,
 ]
 TModelPredictor = Callable[[Model, Tensor], Tuple[Tensor, Tensor]]
 TAcqfConstructor = Callable[
@@ -79,13 +87,17 @@ class BotorchModel(TorchModel):
 
     ::
 
-        model_constructor(Xs, Ys, Yvars, state_dict, **kwargs) -> model
+        model_constructor(
+            Xs, Ys, Yvars, task_features, state_dict, **kwargs
+        ) -> model
 
     Here `Xs`, `Ys`, `Yvars` are lists of tensors (one element per outcome),
-    `state_dict` is a pytorch module state dict, and `model` is a botorch
-    `Model`. Optional kwargs are being passed through from the `BotorchModel`
-    constructor. This callable is assumed to return a fitted botorch model
-    that has the same dtype and lives on the same device as the input tensors.
+    `task_features` identifies columns of Xs that should be modeled
+    as a task, `state_dict` is a pytorch module state dict, and `model` is a
+    botorch `Model`. Optional kwargs are being passed through from the
+    `BotorchModel` constructor. This callable is assumed to return a fitted
+    botorch model that has the same dtype and lives on the same device as the
+    input tensors.
 
     ::
 
@@ -160,6 +172,7 @@ class BotorchModel(TorchModel):
         self.Yvars = []
         self.dtype = None
         self.device = None
+        self.task_features: List[int] = []
 
     @copy_doc(TorchModel.fit)
     def fit(
@@ -176,8 +189,9 @@ class BotorchModel(TorchModel):
         self.Xs = Xs
         self.Ys = Ys
         self.Yvars = Yvars
+        self.task_features = task_features
         self.model = self.model_constructor(  # pyre-ignore [28]
-            Xs=Xs, Ys=Ys, Yvars=Yvars
+            Xs=Xs, Ys=Ys, Yvars=Yvars, task_features=self.task_features
         )
 
     @copy_doc(TorchModel.predict)
@@ -299,6 +313,10 @@ class BotorchModel(TorchModel):
             None if self.refit_on_cv else self.model.state_dict()  # pyre-ignore [16]
         )
         model = self.model_constructor(  # pyre-ignore [28]
-            Xs=Xs_train, Ys=Ys_train, Yvars=Yvars_train, state_dict=state_dict
+            Xs=Xs_train,
+            Ys=Ys_train,
+            Yvars=Yvars_train,
+            task_features=self.task_features,
+            state_dict=state_dict,
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore [28]

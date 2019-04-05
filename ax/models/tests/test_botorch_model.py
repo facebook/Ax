@@ -202,7 +202,7 @@ class BotorchModelTest(TestCase):
             key: torch.tensor(val, **tkwargs) for key, val in true_state_dict.items()
         }
         model = get_and_fit_model(
-            Xs=Xs1, Ys=Ys1, Yvars=Yvars1, state_dict=true_state_dict
+            Xs=Xs1, Ys=Ys1, Yvars=Yvars1, task_features=[], state_dict=true_state_dict
         )
         for k, v in chain(model.named_parameters(), model.named_buffers()):
             self.assertTrue(torch.equal(true_state_dict[k], v))

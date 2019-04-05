@@ -10,6 +10,7 @@ from botorch.fit import fit_gpytorch_model
 from botorch.models.gp_regression import FixedNoiseGP
 from botorch.models.model import Model
 from botorch.models.multi_output_gp_regression import MultiOutputGP
+from botorch.models.multitask import FixedNoiseMultiTaskGP
 from botorch.optim.optimize import joint_optimize, sequential_optimize
 from botorch.utils import (
     get_objective_weights_transform,
@@ -26,6 +27,7 @@ def get_and_fit_model(
     Xs: List[Tensor],
     Ys: List[Tensor],
     Yvars: List[Tensor],
+    task_features: List[int],
     state_dict: Optional[Dict[str, Tensor]] = None,
     **kwargs: Any,
 ) -> MultiOutputGP:
@@ -35,13 +37,25 @@ def get_and_fit_model(
         Xs: List of X data, one tensor per outcome
         Ys: List of Y data, one tensor per outcome
         Yvars: List of observed variance of Ys.
+        task_features: List of columns of X that are tasks.
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
 
     Returns:
         A fitted MultiOutputGP.
     """
-    models = [_get_model(X=X, Y=Y, Yvar=Yvar) for X, Y, Yvar in zip(Xs, Ys, Yvars)]
+    if len(task_features) > 1:
+        raise ValueError(
+            f"This model only supports 1 task feature (got {task_features})"
+        )
+    elif len(task_features) == 1:
+        task_feature = task_features[0]
+    else:
+        task_feature = None
+    models = [
+        _get_model(X=X, Y=Y, Yvar=Yvar, task_feature=task_feature)
+        for X, Y, Yvar in zip(Xs, Ys, Yvars)
+    ]
     model = MultiOutputGP(gp_models=models)
     model.to(dtype=Xs[0].dtype, device=Xs[0].device)  # pyre-ignore
     if state_dict is None:
@@ -70,7 +84,9 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     mean = posterior.mean.cpu().detach()
     # TODO: Allow Posterior to (optionally) return the full covariance matrix
     variance = posterior.variance.cpu().detach()
-    cov = variance.unsqueeze(-1) * torch.eye(variance.shape[-1], dtype=variance.dtype)
+    cov = variance.unsqueeze(-1) * torch.eye(
+        variance.shape[-1], dtype=variance.dtype  # pyre-ignore
+    )
     return mean, cov
 
 
@@ -169,8 +185,19 @@ def scipy_optimizer(
     )
 
 
-def _get_model(X: Tensor, Y: Tensor, Yvar: Tensor) -> Model:
+def _get_model(
+    X: Tensor, Y: Tensor, Yvar: Tensor, task_feature: Optional[int]
+) -> Model:
     """Instantiate a model of type depending on the input data."""
     Yvar = Yvar.clamp_min_(MIN_OBSERVED_NOISE_LEVEL)  # pyre-ignore: [16]
-    gp = FixedNoiseGP(train_X=X, train_Y=Y.view(-1), train_Y_se=Yvar.view(-1).sqrt())
+    train_Y_se = Yvar.view(-1).sqrt()
+    if task_feature is None:
+        gp = FixedNoiseGP(train_X=X, train_Y=Y.view(-1), train_Y_se=train_Y_se)
+    else:
+        gp = FixedNoiseMultiTaskGP(
+            train_X=X,
+            train_Y=Y.view(-1),
+            train_Y_se=train_Y_se,
+            task_feature=task_feature,
+        )
     return gp.to(X)  # pyre-ignore: [7]
