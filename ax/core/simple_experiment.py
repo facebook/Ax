@@ -16,6 +16,7 @@ from ax.core.trial import Trial
 from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.typeutils import not_none
 
 
 # Function that evaluates one parameter configuration.
@@ -97,15 +98,23 @@ class SimpleExperiment(Experiment):
             return cached_data
 
         evaluations = {}
+        if not self.has_evaluation_function:
+            raise ValueError(  # pragma: no cover
+                f"Cannot evaluate trial {trial.index} as no attached data was "
+                "found and no evaluation function is set on this `SimpleExperiment.`"
+                "`SimpleExperiment` is geared to synchronous and sequential cases "
+                "where each trial is evaluated before more trials are created. "
+                "For all other cases, use `Experiment`."
+            )
         if isinstance(trial, Trial):
-            if trial.arm is None or not self.has_evaluation_function:
-                return Data()
+            if not trial.arm:
+                return Data()  # pragma: no cover
             trial.run()
-            evaluations[trial.arm.name] = self.evaluation_function(
-                trial.arm.params, None
+            evaluations[not_none(trial.arm).name] = self.evaluation_function(
+                not_none(trial.arm).params, None
             )
         elif isinstance(trial, BatchTrial):
-            if not self.has_evaluation_function:
+            if not trial.arms:
                 return Data()  # pragma: no cover
             trial.run()
             for arm, weight in trial.normalized_arm_weights().items():

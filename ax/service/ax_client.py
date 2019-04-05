@@ -6,8 +6,6 @@ from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.parameter import ChoiceParameter, RangeParameter
-from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
@@ -15,8 +13,8 @@ from ax.core.types import (
     TParameterization,
     TParamValue,
 )
-from ax.modelbridge.factory import get_GPEI, get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import make_experiment
 from ax.service.utils.storage import load_experiment, save_experiment
 from ax.storage.sqa_store.structs import DBSettings
@@ -87,7 +85,7 @@ class AxClient:
             outcome_constraints=outcome_constraints,
         )
         if self.generation_strategy is None:
-            self.generation_strategy = self._choose_generation_strategy(
+            self.generation_strategy = choose_generation_strategy(
                 search_space=self._experiment.search_space
             )
         self._save_experiment_if_possible()
@@ -262,28 +260,3 @@ class AxClient:
                 "that more trials need to be completed with data."
             )
         return self.experiment.new_trial(generator_run=generator_run)
-
-    def _choose_generation_strategy(
-        self, search_space: SearchSpace
-    ) -> GenerationStrategy:
-        num_continuous_parameters, num_discrete_choices = 0, 0
-        for parameter in search_space.parameters:
-            if isinstance(parameter, ChoiceParameter):
-                num_discrete_choices += len(parameter.values)
-            if isinstance(parameter, RangeParameter):
-                num_continuous_parameters += 1
-        # If there are more discrete choices than continuous parameters, Sobol
-        # will do better than GP+EI.
-        if num_continuous_parameters >= num_discrete_choices:
-            return GenerationStrategy(
-                model_factories=[get_sobol, get_GPEI],
-                arms_per_model=[max(5, len(search_space.parameters)), -1],
-            )
-        else:
-            # Expected `List[typing.Callable[..., ax.modelbridge.base.ModelBridge]]`
-            # for 1st parameter `model_factories` to call `GenerationStrategy.__init__`
-            # but got `List[typing.Callable(ax.modelbridge.factory.get_sobol)
-            # [[Named(search_space, SearchSpace), Keywords(kwargs,
-            # typing.Union[bool, int])], ax.modelbridge.random.RandomModelBridge]]`.
-            # pyre-fixme[6]:
-            return GenerationStrategy(model_factories=[get_sobol], arms_per_model=[-1])
