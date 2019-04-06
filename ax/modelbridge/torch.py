@@ -29,8 +29,11 @@ class TorchModelBridge(ArrayModelBridge):
     them to the model.
     """
 
+    # pyre-fixme[13]: Attribute `model` is never initialized.
     model: Optional[TorchModel]
+    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: Optional[List[str]]
+    # pyre-fixme[13]: Attribute `params` is never initialized.
     params: Optional[List[str]]
 
     def __init__(

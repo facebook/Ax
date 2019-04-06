@@ -510,8 +510,6 @@ def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPr
     """
     metrics = set(observation_data[0].metric_names)
     f: TModelMean = {metric: [] for metric in metrics}
-    # pyre: cov is declared to have type `Dict[str, Dict[str, List[float]]]`
-    # pyre-fixme[9]: but is used as type `Dict[str, Dict[str, List[]]]`.
     cov: TModelCov = {m1: {m2: [] for m2 in metrics} for m1 in metrics}
     for od in observation_data:
         if set(od.metric_names) != metrics:

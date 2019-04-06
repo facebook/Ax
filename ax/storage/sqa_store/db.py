@@ -67,7 +67,6 @@ class SQABase:
             return False  # pragma: no cover
         for x in l1:
             for y in l2:
-                # pyre-fixme[16]: `T` has no attribute `__eq__`.
                 if type(x) != type(y):
                     equal = False
                 if isinstance(x, SQABase):
@@ -171,7 +170,6 @@ class SQABase:
                 if equal:
                     # If we found a matching item (and potentially updated it)
                     # we add it to our new list and stop looking for a match.
-                    # pyre-fixme[6]: Expected `T` for 1st param but got `Union[Dict[A...
                     new_list.append(x)
                     break
             else:

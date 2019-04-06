@@ -154,9 +154,23 @@ class BotorchModel(TorchModel):
 
     def __init__(
         self,
+        # pyre-fixme[9]: model_constructor has type `Callable[[List[Tensor],
+        #  List[Tensor], List[Tensor], List[int], Optional[Dict[str, Tensor]], Any],
+        #  Model]`; used as `Callable[[List[Tensor], List[Tensor], List[Tensor],
+        #  List[int], Optional[Dict[str, Tensor]], **(Any)], MultiOutputGP]`.
         model_constructor: TModelConstuctor = get_and_fit_model,
         model_predictor: TModelPredictor = predict_from_model,
+        # pyre-fixme[9]: acqf_constructor has type `Callable[[Model, Tensor,
+        #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any],
+        #  AcquisitionFunction]`; used as `Callable[[Model, Tensor,
+        #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],
+        #  **(Any)], AcquisitionFunction]`.
         acqf_constructor: TAcqfConstructor = get_NEI,
+        # pyre-fixme[9]: acqf_optimizer has type `Callable[[AcquisitionFunction,
+        #  Tensor, int, Optional[Dict[int, float]], Optional[Callable[[Tensor],
+        #  Tensor]], Any], Tensor]`; used as `Callable[[AcquisitionFunction, Tensor,
+        #  int, Optional[Dict[int, float]], Optional[Callable[[Tensor], Tensor]],
+        #  **(Any)], Tensor]`.
         acqf_optimizer: TOptimizer = scipy_optimizer,
         refit_on_cv: bool = False,
         **kwargs: Any,

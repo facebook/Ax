@@ -399,7 +399,13 @@ def optimize(
         with omp_max_threads(1):
             with ProcessPoolExecutor() as executor:
                 futures = [
-                    executor.submit(optimize_from_x0, **kwargs) for kwargs in opt_kwargs
+                    # pyre-fixme[6]: Expected `Callable[..., _T]` for 1st param but
+                    #  got `Callable[[ndarray, List[Tuple[float, float]], Dict[int,
+                    #  float], Dict[int, List[GP]], int, float, List[Tuple[int, float,
+                    #  float]], Optional[Tuple[ndarray, ndarray]], ndarray, float],
+                    #  Tuple[ndarray, float]]`.
+                    executor.submit(optimize_from_x0, **kwargs)
+                    for kwargs in opt_kwargs
                 ]
             res = [future.result() for future in futures]
     else:

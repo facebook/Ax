@@ -279,10 +279,10 @@ def best_observed_point(
     # Parse options
     if options is None:
         options = {}
-    method: str = options.get("best_point_method", "max_utility")  # pyre-ignore
-    B: Optional[float] = options.get("utility_baseline", None)  # pyre-ignore
-    threshold: float = options.get("probability_threshold", 0.95)  # pyre-ignore
-    nsamp: int = options.get("feasibility_mc_samples", 10000)  # pyre-ignore
+    method: str = options.get("best_point_method", "max_utility")
+    B: Optional[float] = options.get("utility_baseline", None)
+    threshold: float = options.get("probability_threshold", 0.95)
+    nsamp: int = options.get("feasibility_mc_samples", 10000)
     # Get points observed for all objective and constraint outcomes
     if objective_weights is None:
         return None  # pragma: no cover

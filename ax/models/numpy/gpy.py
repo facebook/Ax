@@ -129,7 +129,11 @@ class GPyGP(NumpyModel):
             with omp_max_threads(1):
                 with ProcessPoolExecutor() as executor:
                     futures = [
-                        executor.submit(_get_GP, **kwargs) for kwargs in fit_kwargs
+                        # pyre-fixme[6]: Expected `Callable[..., _T]` for 1st param
+                        #  but got `Callable[[ndarray, ndarray, ndarray, List[int],
+                        #  int, Optional[ndarray], Optional[int], Optional[int]], GP]`.
+                        executor.submit(_get_GP, **kwargs)
+                        for kwargs in fit_kwargs
                     ]
                 self.models = [future.result() for future in futures]
         else:
@@ -220,10 +224,10 @@ class GPyGP(NumpyModel):
         """
         if model_gen_options is None:
             model_gen_options = {}
-        nsamp: int = model_gen_options.get("nsamp", 20)  # pyre-ignore
-        qmc: bool = model_gen_options.get("qmc", True)  # pyre-ignore
-        nopt: int = model_gen_options.get("nopt", 50)  # pyre-ignore
-        init_samples: int = model_gen_options.get("init_samples", 10000)  # pyre-ignore
+        nsamp: int = model_gen_options.get("nsamp", 20)
+        qmc: bool = model_gen_options.get("qmc", True)
+        nopt: int = model_gen_options.get("nopt", 50)
+        init_samples: int = model_gen_options.get("init_samples", 10000)
         obj_idx, obj_sign, con_list = _parse_gen_inputs(
             objective_weights, outcome_constraints
         )
@@ -385,6 +389,8 @@ class GPyGP(NumpyModel):
         for k, v in fixed_features.items():
             cand_X = {x for x in cand_X if x[k] == v}
         # Include candidates for incumbent best as points to sample
+        # pyre-fixme[6]: Expected `Iterable[Tuple[float]]` for 1st param but got
+        #  `Set[Tuple[Any, ...]]`.
         X_to_sample = X_to_sample.union(cand_X)
         cand_X_array = np.array([list(x) for x in cand_X])
         if len(X_to_sample) == 0:
@@ -407,6 +413,8 @@ class GPyGP(NumpyModel):
         }
         for idx in fantasy_models:
             # Identify points that should be fantasized for this outcome
+            # pyre-fixme[6]: Expected `object` for 1st param but got `Tuple[_T_co,
+            #  ...]`.
             to_sample = [tuple(x) in X_to_sample for x in fantasy_Xs[idx]]
             if sum(to_sample) == 0:
                 # Nothing to fantasize for this outcome

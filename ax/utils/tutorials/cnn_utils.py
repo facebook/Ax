@@ -48,10 +48,14 @@ def load_mnist(
         DataLoader: test data
     """
     # Specify transforms
+    # pyre-fixme[16]: Module `transforms` has no attribute `Compose`.
     transform = transforms.Compose(
+        # pyre-fixme[16]: Module `transforms` has no attribute `ToTensor`.
+        # pyre-fixme[16]: Module `transforms` has no attribute `Normalize`.
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
     # Load training set
+    # pyre-fixme[16]: Module `datasets` has no attribute `MNIST`.
     train_valid_set = torchvision.datasets.MNIST(
         root="./data", train=True, download=True, transform=transform
     )
@@ -72,6 +76,7 @@ def load_mnist(
     valid_loader = DataLoader(valid_set, batch_size=128, shuffle=True, num_workers=2)
 
     # Load test set
+    # pyre-fixme[16]: Module `datasets` has no attribute `MNIST`.
     test_set_all = torchvision.datasets.MNIST(
         root="./data", train=False, download=True, transform=transform
     )
@@ -160,6 +165,7 @@ def evaluate(
             outputs = net(inputs)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
+            # pyre-fixme[16]: `bool` has no attribute `sum`.
             correct += (predicted == labels).sum().item()
 
     return correct / total

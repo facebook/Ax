@@ -104,7 +104,6 @@ def trials_from_json(
             if is_trial
             else batch_trial_from_json(experiment=experiment, **batch_json)
         )
-    # pyre-fixme[7]: Expected `Dict[int, Bas... ax.core.trial.Trial]]`.
     return loaded_trials
 
 

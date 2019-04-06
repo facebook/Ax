@@ -179,12 +179,6 @@ def _get_in_sample_arms(
             se_hat=pred_se,
             context_stratum=None,
         )
-    # pyre: Expected `typing.Tuple[Dict[str, PlotInSampleArm],
-    # pyre: List[Dict[str, Union[float, str]]], Dict[str, Dict[str,
-    # pyre: Optional[Union[bool, float, str]]]]]` but got `typing.
-    # pyre: Tuple[Dict[str, PlotInSampleArm], List[],
-    # pyre: Dict[Optional[str], Dict[str, Optional[Union[bool, float,
-    # pyre-fixme[7]: str]]]]]`.
     return in_sample_plot, raw_data, cond_name_to_params
 
 
@@ -411,6 +405,5 @@ def get_fixed_values(
 
     if slice_values is not None:
         # slice_values has type Dictionary[str, Any]
-        # pyre-fixme[6]: Expected `Iterable[Tuple[str, Optional[Union[bool, float, st...
         setx.update(slice_values)
     return setx

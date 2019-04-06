@@ -302,7 +302,6 @@ class BatchTrial(BaseTrial):
         sufficient_factors = all(len(arm.params or []) >= 2 for arm in self.arms)
         if not sufficient_factors:
             return False
-        # pyre-fixme[9]: param_levels has type `DefaultDict[str, Dict[Union[float, st...
         param_levels: DefaultDict[str, Dict[Union[str, float], int]] = (
             defaultdict(dict)
         )

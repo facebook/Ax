@@ -261,9 +261,6 @@ class ThompsonSampler(DiscreteModel):
         hashableX = [self._hash_TParamValueList(x) for x in X]
         for (Y, Yvar) in zip(Ys, Yvars):
             X_to_Ys_and_Yvars.append(dict(zip(hashableX, zip(Y, Yvar))))
-        # Expected `List[Dict[List[Optional[typing.Union[bool, float, str]]],
-        # typing.Tuple[float, float]]]` but got `List[Dict[]]`.
-        # pyre-fixme[7]:
         return X_to_Ys_and_Yvars
 
     def _hash_TParamValueList(self, x: TParamValueList) -> str:

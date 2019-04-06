@@ -33,17 +33,14 @@ def copy_doc(src: _T) -> _T:
     # all the missing docstrings but we want to be able to detect syntactically
     # when docstrings are copied to keep things nice and simple
 
-    # pyre-fixme[16]: `_T` has no attribute `__doc__`.
     if src.__doc__ is None:
         # pyre-fixme[16]: `_T` has no attribute `__qualname__`.
         raise ValueError(f"{src.__qualname__} has no docstring to copy")
 
     def copy_doc(dst: _T) -> _T:
-        # pyre-fixme[16]: `_T` has no attribute `__doc__`.
         if dst.__doc__ is not None:
             # pyre-fixme[16]: `_T` has no attribute `__qualname__`.
             raise ValueError(f"{dst.__qualname__} already has a docstring")
-        # pyre-fixme[16]: `_T` has no attribute `__doc__`.
         dst.__doc__ = src.__doc__
         return dst
 

@@ -302,11 +302,6 @@ def _multiple_metric_traces(
     ):
         traces.append(
             _error_scatter_trace(
-                # pyre: Expected `List[Union[PlotInSampleArm,
-                # pyre: PlotOutOfSampleArm]]` for 1st anonymous
-                # pyre: parameter to call `ax.plot.scatter.
-                # pyre: _error_scatter_trace` but got
-                # pyre-fixme[6]: `List[PlotOutOfSampleArm]`.
                 list(cand_arms.values()),
                 x_axis_var=PlotMetric(metric_x, pred=True),
                 y_axis_var=PlotMetric(metric_y, pred=True),
@@ -696,12 +691,6 @@ def lattice_multiple_metrics(
                 ):
                     fig.append_trace(
                         _error_scatter_trace(
-                            # pyre: Expected
-                            # pyre: `List[Union[PlotInSampleArm,
-                            # pyre: PlotOutOfSampleArm]]` for 1st
-                            # pyre: anonymous parameter to call `ax.
-                            # pyre: plot.scatter._error_scatter_trace` but got
-                            # pyre-fixme[6]: `List[PlotOutOfSampleArm]`.
                             list(cand_arms.values()),
                             x_axis_var=PlotMetric(o1, pred=True),
                             y_axis_var=PlotMetric(o2, pred=True),
@@ -957,11 +946,6 @@ def _single_metric_traces(
     ):
         traces.append(
             _error_scatter_trace(
-                # pyre: Expected `List[Union[PlotInSampleArm,
-                # pyre: PlotOutOfSampleArm]]` for 1st anonymous
-                # pyre: parameter to call `ax.plot.scatter.
-                # pyre: _error_scatter_trace` but got
-                # pyre-fixme[6]: `List[PlotOutOfSampleArm]`.
                 list(cand_arms.values()),
                 x_axis_var=None,
                 y_axis_var=PlotMetric(metric, pred=True),
@@ -1058,7 +1042,6 @@ def plot_fitted(
                 "label": custom_arm_order_name,
                 "method": "relayout",
             }
-            # pyre-fixme[6]: Expected `List[Dict[str, Union[List[Dict[str,
             # Union[List[str...
         ] + order_options
 

@@ -38,7 +38,6 @@ class StandardizeY(Transform):
                 "StandardizeY transform requires non-empty observation data."
             )
         # Compute means and SDs
-        # pyre-fixme[9]: Ys has type `DefaultDict[str, List[float]]`; used as `Defaul...
         Ys: DefaultDict[str, List[float]] = defaultdict(list)
         for obsd in observation_data:
             for i, m in enumerate(obsd.metric_names):

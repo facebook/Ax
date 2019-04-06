@@ -72,7 +72,6 @@ class StratifiedStandardizeY(Transform):
                 )
             self.p_name = task_params[0]
         # Compute means and SDs
-        # pyre-fixme[9]: Ys has type `DefaultDict[Tuple[str, Optional[Union[bool, flo...
         Ys: DefaultDict[Tuple[str, TParamValue], List[float]] = defaultdict(list)
         for j, obsd in enumerate(observation_data):
             v = observation_features[j].parameters[self.p_name]

@@ -229,7 +229,7 @@ class SearchSpace(Base):
         params = {}
         for p_name in self.parameters.keys():
             params[p_name] = None
-        return Arm(params)  # pyre-ignore [6]
+        return Arm(params)
 
     def clone(self) -> "SearchSpace":
         return SearchSpace(
