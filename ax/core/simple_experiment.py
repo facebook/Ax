@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
-import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
