@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
+
+import logging
+
 from ax.core.parameter import ChoiceParameter, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.factory import get_GPEI, get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.utils.common.logger import get_logger
+
+
+logger: logging.Logger = get_logger(__name__)
 
 
 def choose_generation_strategy(search_space: SearchSpace) -> GenerationStrategy:
@@ -17,11 +24,16 @@ def choose_generation_strategy(search_space: SearchSpace) -> GenerationStrategy:
     # If there are more discrete choices than continuous parameters, Sobol
     # will do better than GP+EI.
     if num_continuous_parameters >= num_discrete_choices:
+        sobol_arms = max(5, len(search_space.parameters))
+        logger.info(
+            "Using Bayesian Optimization generation strategy. Iterations after "
+            f"{sobol_arms} will take longer to generate due to model-fitting."
+        )
         return GenerationStrategy(
-            model_factories=[get_sobol, get_GPEI],
-            arms_per_model=[max(5, len(search_space.parameters)), -1],
+            model_factories=[get_sobol, get_GPEI], arms_per_model=[sobol_arms, -1]
         )
     else:
+        logger.info(f"Using Sobol generation strategy.")
         # Expected `List[typing.Callable[..., ax.modelbridge.base.ModelBridge]]`
         # for 1st parameter `model_factories` to call `GenerationStrategy.__init__`
         # but got `List[typing.Callable(ax.modelbridge.factory.get_sobol)

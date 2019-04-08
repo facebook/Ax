@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+
+import logging
 from typing import Dict, List, NamedTuple, Optional, Union
 
 from ax.core.experiment import Experiment
@@ -11,6 +13,10 @@ from ax.service.utils.instantiation import (
     outcome_constraint_from_str,
     parameter_from_json,
 )
+from ax.utils.common.logger import get_logger
+
+
+logger: logging.Logger = get_logger(__name__)
 
 
 class ScheduleConfig(NamedTuple):
@@ -139,6 +145,7 @@ class OptimizationLoop:
     def run_step(self) -> None:
         """Run a single step of the optimization plan."""
         step = self.optimization_plan.optimization_steps[self.current_step]
+        logger.info(f"Running optimization step {self.current_step + 1}...")
         for _ in range(step.num_trials):
             if step.arms_per_trial == 1:
                 model = self.generation_strategy.get_model(
@@ -169,7 +176,9 @@ class OptimizationLoop:
     def full_run(self) -> "OptimizationLoop":
         """Runs full optimization loop as defined in the provided optimization
         plan."""
-        for _ in self.optimization_plan.optimization_steps:
+        num_steps = len(self.optimization_plan.optimization_steps)
+        logger.info(f"Started full optimization with {num_steps} steps.")
+        for _ in range(num_steps):
             self.run_step()
         return self
 
