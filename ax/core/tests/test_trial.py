@@ -6,7 +6,7 @@ import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
+from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.tests.fake import get_arms, get_experiment, get_objective
 from ax.utils.common.testutils import TestCase
 
@@ -45,6 +45,9 @@ class TrialTest(TestCase):
         self.assertEqual(self.trial.arms_by_name["0_0"], self.trial.arm)
         self.assertEqual(self.trial.arms, [self.arm])
         self.assertEqual(self.trial.abandoned_arms, [])
+        self.assertEqual(
+            self.trial.generator_run.generator_run_type, GeneratorRunType.MANUAL.name
+        )
 
         # Test empty arms
         with self.assertRaises(AttributeError):

@@ -18,6 +18,7 @@ class GeneratorRunType(Enum):
     """Class for enumerating generator run types."""
 
     STATUS_QUO = 0
+    MANUAL = 1
 
 
 class ArmWeight(NamedTuple):

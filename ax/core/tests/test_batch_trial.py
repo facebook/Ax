@@ -6,7 +6,7 @@ import numpy as np
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
+from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.runners.synthetic import SyntheticRunner
@@ -49,6 +49,10 @@ class BatchTrialTest(TestCase):
         self.assertIsNotNone(self.batch.time_created)
         self.assertEqual(self.batch.arms_by_name["0_0"], self.batch.arms[0])
         self.assertEqual(self.batch.arms_by_name["0_1"], self.batch.arms[1])
+        self.assertEqual(
+            self.batch.generator_run_structs[0].generator_run.generator_run_type,
+            GeneratorRunType.MANUAL.name,
+        )
 
         # Test empty arms
         self.assertEqual(len(self.experiment.new_batch_trial().abandoned_arms), 0)

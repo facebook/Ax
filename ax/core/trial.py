@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, immutable_once_run
-from ax.core.generator_run import GeneratorRun
+from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.utils.common.typeutils import not_none
 
 
@@ -58,7 +58,9 @@ class Trial(BaseTrial):
             The trial instance.
         """
 
-        return self.add_generator_run(generator_run=GeneratorRun(arms=[arm]))
+        return self.add_generator_run(
+            generator_run=GeneratorRun(arms=[arm], type=GeneratorRunType.MANUAL.name)
+        )
 
     @immutable_once_run
     def add_generator_run(
@@ -81,7 +83,6 @@ class Trial(BaseTrial):
 
         self._check_existing_and_name_arm(generator_run.arms[0])
 
-        # TODO validate that arms belong to search space
         self._generator_run = generator_run
         generator_run.index = 0
         return self

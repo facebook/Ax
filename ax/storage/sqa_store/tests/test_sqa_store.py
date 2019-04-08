@@ -144,7 +144,7 @@ class SQAStoreTest(TestCase):
 
         generator_run._generator_run_type = "STATUS_QUO"
         generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)
-        generator_run_sqa.generator_run_type = 1
+        generator_run_sqa.generator_run_type = 2
         with self.assertRaises(SQADecodeError):
             self.decoder.generator_run_from_sqa(generator_run_sqa)
 

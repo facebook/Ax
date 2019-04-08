@@ -16,7 +16,7 @@ from typing import (
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
-from ax.core.generator_run import GeneratorRun
+from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.typeutils import checked_cast
@@ -145,10 +145,10 @@ class BatchTrial(BaseTrial):
             The trial instance.
         """
 
-        # TODO: Somehow denote on the generator run that it was manually created.
-        # Currently no generator info is stored on generator run
         return self.add_generator_run(
-            generator_run=GeneratorRun(arms=arms, weights=weights),
+            generator_run=GeneratorRun(
+                arms=arms, weights=weights, type=GeneratorRunType.MANUAL.name
+            ),
             multiplier=multiplier,
         )
 
