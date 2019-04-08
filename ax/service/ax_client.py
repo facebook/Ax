@@ -179,7 +179,7 @@ class AxClient:
         name to a mapping of other mapping name to covariance of the two metrics.
 
         Returns:
-            Tuple of (best arm, model predictions for best arm). None if no data.
+            Tuple of (best params, model predictions for best params). None if no data.
         """
         # Find latest trial which has a generator_run attached and get its predictions
         for _, trial in sorted(

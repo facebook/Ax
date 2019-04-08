@@ -72,7 +72,7 @@ class SQABase:
                 if isinstance(x, SQABase):
                     # pyre-fixme[6]: Expected `SQABase` for 1st param but got `T`.
                     equal = x.equals(y)
-                elif isinstance(x, (int, float, str, bool, Enum)):
+                elif isinstance(x, (int, float, str, bool, dict, Enum)):
                     equal = x == y
                 else:
                     raise ValueError(

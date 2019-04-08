@@ -511,6 +511,9 @@ class Decoder:
 
     def data_from_sqa(self, data_sqa: SQAData) -> Data:
         """Convert SQLAlchemy Data to AE Data."""
+
+        # Need dtype=False, otherwise infers arm_names like "4_1" should be int 41
         return Data(
-            description=data_sqa.description, df=pd.read_json(data_sqa.data_json)
+            description=data_sqa.description,
+            df=pd.read_json(data_sqa.data_json, dtype=False),
         )
