@@ -994,5 +994,6 @@ function getPlotData() {
 const slicePlotData = getPlotData();
 
 Plotly.newPlot('slice', slicePlotData['traces'], slicePlotData['layout'], {
+  responsive: true,
   showLink: false,
 });
