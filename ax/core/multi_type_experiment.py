@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -162,7 +162,7 @@ class MultiTypeExperiment(Experiment):
             self._metric_to_canonical_name[metric.name] = canonical_name
         return self
 
-    def fetch_data(self, **kwargs: Any) -> Data:
+    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
         """Fetches data for all metrics and trials on this experiment."""
         return Data.from_multiple_data(
             [
@@ -173,8 +173,16 @@ class MultiTypeExperiment(Experiment):
             ]
         )
 
-    def fetch_trial_data(self, trial_index: int, **kwargs: Any) -> Data:
+    def fetch_trial_data(
+        self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
+    ) -> Data:
         """Fetches data for all metrics and a single trial on this experiment."""
+        if metrics is not None:
+            raise ValueError(  # pragma: no cover
+                "`metrics` argument is not supported for"
+                "`MultiTypeExperiment.fetch_trial_data`."
+            )
+
         trial = self.trials[trial_index]
         return Data.from_multiple_data(
             [

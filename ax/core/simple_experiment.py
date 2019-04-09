@@ -159,11 +159,13 @@ class SimpleExperiment(Experiment):
         self._evaluation_function = evaluation_function
 
     @copy_doc(Experiment.fetch_data)
-    def fetch_data(self, **kwargs: Any) -> Data:
+    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
         return self.eval()
 
     @copy_doc(Experiment.fetch_trial_data)
-    def fetch_trial_data(self, trial_index: int, **kwargs: Any) -> Data:
+    def fetch_trial_data(
+        self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
+    ) -> Data:
         return self.eval_trial(self.trials[trial_index])
 
     @copy_doc(Experiment.add_metric)

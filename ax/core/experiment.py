@@ -260,31 +260,37 @@ class Experiment(Base):
         """The metrics attached to the experiment."""
         return self._metrics
 
-    def _metrics_by_class(self) -> Dict[Type[Metric], List[Metric]]:
+    def _metrics_by_class(
+        self, metrics: Optional[List[Metric]] = None
+    ) -> Dict[Type[Metric], List[Metric]]:
         metrics_by_class: Dict[Type[Metric], List[Metric]] = defaultdict(list)
-        for metric in self._metrics.values():
+        for metric in metrics or list(self._metrics.values()):
             metrics_by_class[metric.__class__].append(metric)
         return metrics_by_class
 
-    def fetch_data(self, **kwargs: Any) -> Data:
+    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
         """Fetches data for all metrics and trials on this experiment.
 
         Args:
+            metrics: If provided, fetch data for these metrics instead of the ones
+                defined on the experiment.
             kwargs: keyword args to pass to underlying metrics' fetch data functions.
 
         Returns:
             Data for the experiment.
         """
-        if not self.metrics:
+        if not self.metrics and not metrics:
             raise ValueError(
                 "No metrics to fetch data for, as no metrics are defined for "
-                "this experiment."
+                "this experiment, and none were passed in to `fetch_data`."
             )
         try:
             return Data.from_multiple_data(
                 [
                     metric_cls.fetch_experiment_data_multi(self, metric_list, **kwargs)
-                    for metric_cls, metric_list in self._metrics_by_class().items()
+                    for metric_cls, metric_list in self._metrics_by_class(
+                        metrics=metrics
+                    ).items()
                 ]
             )
         # If some of the metrics do not implement data fetching, we should
@@ -296,27 +302,33 @@ class Experiment(Base):
                 [self.fetch_trial_data(trial_index=idx) for idx in self.trials]
             )
 
-    def fetch_trial_data(self, trial_index: int, **kwargs: Any) -> Data:
+    def fetch_trial_data(
+        self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
+    ) -> Data:
         """Fetches data for all metrics and a single trial on this experiment.
 
         Args:
             trial_index: The index of the trial to fetch data for.
+            metrics: If provided, fetch data for these metrics instead of the ones
+                defined on the experiment.
             kwargs: keyword args to pass to underlying metrics' fetch data functions.
 
         Returns:
             Data for this trial.
         """
-        if not self.metrics:
+        if not self.metrics and not metrics:
             raise ValueError(
                 "No metrics to fetch data for, as no metrics are defined for "
-                "this experiment."
+                "this experiment, and none were passed in to `fetch_trial_data`."
             )
         trial = self.trials[trial_index]
         try:
             return Data.from_multiple_data(
                 [
                     metric_cls.fetch_trial_data_multi(trial, metric_list, **kwargs)
-                    for metric_cls, metric_list in self._metrics_by_class().items()
+                    for metric_cls, metric_list in self._metrics_by_class(
+                        metrics=metrics
+                    ).items()
                 ]
             )
         except NotImplementedError:
