@@ -21,7 +21,7 @@ class ArmTest(TestCase):
         arm = Arm(params={"y": 0.25, "x": 0.75, "z": 75})
         self.assertFalse(arm.has_name)
         with self.assertRaises(ValueError):
-            getattr(arm, "name")
+            arm.name
         arm.name = "0_0"
         with self.assertRaises(ValueError):
             arm.name = "1_0"

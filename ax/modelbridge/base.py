@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections import OrderedDict
 from copy import deepcopy
 from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
