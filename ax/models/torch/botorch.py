@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
@@ -323,14 +324,19 @@ class BotorchModel(TorchModel):
     ) -> Tuple[Tensor, Tensor]:
         if self.model is None:
             raise RuntimeError("Cannot cross-validate model that has not been fitted")
-        state_dict = (
-            None if self.refit_on_cv else self.model.state_dict()  # pyre-ignore [16]
-        )
-        model = self.model_constructor(  # pyre-ignore [28]
-            Xs=Xs_train,
-            Ys=Ys_train,
-            Yvars=Yvars_train,
-            task_features=self.task_features,
-            state_dict=state_dict,
-        )
-        return self.model_predictor(model=model, X=X_test)  # pyre-ignore [28]
+        if self.refit_on_cv:
+            model = self.model_constructor(  # pyre-ignore: [28]
+                Xs=Xs_train,
+                Ys=Ys_train,
+                Yvars=Yvars_train,
+                task_features=self.task_features,
+            )
+        else:
+            model = deepcopy(self.model)
+            model.reinitialize(  # pyre-ignore: [16]
+                train_Xs=Xs_train,
+                train_Ys=Ys_train,
+                train_Y_ses=[yvar.sqrt() for yvar in Yvars_train],
+                keep_params=True,
+            )
+        return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]

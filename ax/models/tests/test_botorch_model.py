@@ -173,6 +173,19 @@ class BotorchModelTest(TestCase):
         self.assertTrue(mean.shape == torch.Size([2, 2]))
         self.assertTrue(variance.shape == torch.Size([2, 2, 2]))
 
+        # Test cross-validation with refit_on_cv
+        model.refit_on_cv = True
+        mean, variance = model.cross_validate(
+            Xs_train=Xs1 + Xs2,
+            Ys_train=Ys1 + Ys2,
+            Yvars_train=Yvars1 + Yvars2,
+            X_test=torch.tensor(
+                [[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], dtype=dtype, device=device
+            ),
+        )
+        self.assertTrue(mean.shape == torch.Size([2, 2]))
+        self.assertTrue(variance.shape == torch.Size([2, 2, 2]))
+
         # test unfit model CV
         unfit_model = BotorchModel()
         with self.assertRaises(RuntimeError):
