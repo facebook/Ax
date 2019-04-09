@@ -66,17 +66,11 @@ TEST_CASES = [
 #    might not be the same used by the attribute)
 ENCODE_DECODE_FIELD_MAPS = {
     "BatchTrial": EncodeDecodeFieldsMap(python_only=["experiment"]),
-    "Experiment": EncodeDecodeFieldsMap(
-        python_to_encoded={"metrics": "tracking_metrics"}
-    ),
     "GeneratorRun": EncodeDecodeFieldsMap(
         encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
     ),
     "OrderConstraint": EncodeDecodeFieldsMap(python_only=["bound"]),
-    "SimpleExperiment": EncodeDecodeFieldsMap(
-        python_to_encoded={"metrics": "tracking_metrics"},
-        python_only=["evaluation_function"],
-    ),
+    "SimpleExperiment": EncodeDecodeFieldsMap(python_only=["evaluation_function"]),
     "SumConstraint": EncodeDecodeFieldsMap(python_only=["constraint_dict"]),
     "Trial": EncodeDecodeFieldsMap(python_only=["experiment"]),
 }

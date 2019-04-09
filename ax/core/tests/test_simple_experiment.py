@@ -42,9 +42,9 @@ class SimpleExperimentTest(TestCase):
         with self.assertRaises(NotImplementedError):
             trial.runner = SyntheticRunner()
         with self.assertRaises(NotImplementedError):
-            self.experiment.add_metric(Metric(name="test"))
+            self.experiment.add_tracking_metric(Metric(name="test"))
         with self.assertRaises(NotImplementedError):
-            self.experiment.update_metric(Metric(name="test"))
+            self.experiment.update_tracking_metric(Metric(name="test"))
         self.assertTrue(self.experiment.eval_trial(trial).df.empty)
         batch = self.experiment.new_batch_trial()
         batch.add_arm(Arm(params={"x1": 5, "x2": 10}))

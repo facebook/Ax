@@ -68,25 +68,19 @@ class Experiment(Base):
 
         self._data_by_trial: Dict[int, OrderedDict[int, Data]] = {}
         self._experiment_type: Optional[str] = None
-        self._metrics: Dict[str, Metric] = {}
-        self._optimization_config = optimization_config
+        self._optimization_config = None
+        self._tracking_metrics: Dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
+
+        for metric in tracking_metrics or []:
+            self.add_tracking_metric(metric)
 
         # call setters defined below
         self.search_space = search_space
         self.status_quo = status_quo
         if optimization_config is not None:
             self.optimization_config = optimization_config
-
-        for metric in tracking_metrics or []:
-            if metric.name in self._metrics:
-                logger.warning(
-                    f"Duplicate definition of metric: `{metric.name}` in tracking_"
-                    "metrics. Falling back to definition in optimization_config."
-                )
-                continue
-            self._metrics[metric.name] = metric
 
     @property
     def is_simple_experiment(self):
@@ -211,8 +205,9 @@ class Experiment(Base):
 
     @optimization_config.setter
     def optimization_config(self, optimization_config: OptimizationConfig) -> None:
-        for metric_name, metric in optimization_config.metrics.items():
-            self._metrics[metric_name] = metric
+        for metric_name in optimization_config.metrics.keys():
+            if metric_name in self._tracking_metrics:
+                self.remove_tracking_metric(metric_name)
         self._optimization_config = optimization_config
 
     @property
@@ -225,46 +220,65 @@ class Experiment(Base):
         """
         return self._data_by_trial
 
-    def add_metric(self, metric: Metric) -> "Experiment":
+    def add_tracking_metric(self, metric: Metric) -> "Experiment":
         """Add a new metric to the experiment.
 
         Args:
             metric: Metric to be added.
         """
-        if metric.name in self._metrics:
+        if metric.name in self._tracking_metrics:
             raise ValueError(
                 f"Metric `{metric.name}` already defined on experiment."
-                "Use `update_metric` to update an existing metric definition."
+                "Use `update_tracking_metric` to update an existing metric definition."
             )
 
-        self._metrics[metric.name] = metric
+        if self.optimization_config and metric.name in self.optimization_config.metrics:
+            raise ValueError(
+                f"Metric `{metric.name}` already present in experiment's "
+                "OptimizationConfig. Set a new OptimizationConfig without this metric "
+                "before adding it to tracking metrics."
+            )
+
+        self._tracking_metrics[metric.name] = metric
         return self
 
-    def update_metric(self, metric: Metric) -> "Experiment":
+    def update_tracking_metric(self, metric: Metric) -> "Experiment":
         """Redefine a metric that already exists on the experiment.
 
         Args:
             metric: New metric definition.
         """
-        if metric.name not in self._metrics:
+        if metric.name not in self._tracking_metrics:
             raise ValueError(f"Metric `{metric.name}` doesn't exist on experiment.")
 
-        # Potential mismatch here from this metric definition and definition
-        # on optimization config
+        self._tracking_metrics[metric.name] = metric
+        return self
 
-        self._metrics[metric.name] = metric
+    def remove_tracking_metric(self, metric_name: str) -> "Experiment":
+        """Remove a metric that already exists on the experiment.
+
+        Args:
+            metric_name: Unique name of metric to remove.
+        """
+        if metric_name not in self._tracking_metrics:
+            raise ValueError(f"Metric `{metric_name}` doesn't exist on experiment.")
+
+        del self._tracking_metrics[metric_name]
         return self
 
     @property
     def metrics(self) -> Dict[str, Metric]:
         """The metrics attached to the experiment."""
-        return self._metrics
+        optimization_config_metrics: Dict[str, Metric] = {}
+        if self.optimization_config is not None:
+            optimization_config_metrics = self.optimization_config.metrics
+        return {**self._tracking_metrics, **optimization_config_metrics}
 
     def _metrics_by_class(
         self, metrics: Optional[List[Metric]] = None
     ) -> Dict[Type[Metric], List[Metric]]:
         metrics_by_class: Dict[Type[Metric], List[Metric]] = defaultdict(list)
-        for metric in metrics or list(self._metrics.values()):
+        for metric in metrics or list(self.metrics.values()):
             metrics_by_class[metric.__class__].append(metric)
         return metrics_by_class
 

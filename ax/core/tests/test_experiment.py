@@ -89,29 +89,37 @@ class ExperimentTest(TestCase):
         opt_config.outcome_constraints[0].metric = Metric(name="m3")
         self.experiment.optimization_config = opt_config
 
-        # Verify total metrics size is incremented
+        # Verify total metrics size is the same.
+        self.assertEqual(
+            len(get_optimization_config().metrics) + 1, len(self.experiment.metrics)
+        )
+
+        # Test adding new tracking metric
+        self.experiment.add_tracking_metric(Metric(name="m4"))
         self.assertEqual(
             len(get_optimization_config().metrics) + 2, len(self.experiment.metrics)
         )
 
-        # Test adding new tracking metric
-        self.experiment.add_metric(Metric(name="m4"))
-        self.assertEqual(
-            len(get_optimization_config().metrics) + 3, len(self.experiment.metrics)
-        )
-
-        # Verify update_metric updates the metric definition
+        # Verify update_tracking_metric updates the metric definition
         self.assertIsNone(self.experiment.metrics["m4"].lower_is_better)
-        self.experiment.update_metric(Metric(name="m4", lower_is_better=True))
+        self.experiment.update_tracking_metric(Metric(name="m4", lower_is_better=True))
         self.assertTrue(self.experiment.metrics["m4"].lower_is_better)
 
         # Verify unable to add existing metric
         with self.assertRaises(ValueError):
-            self.experiment.add_metric(Metric(name="m4"))
+            self.experiment.add_tracking_metric(Metric(name="m4"))
+
+        # Verify unable to add metric in optimization config
+        with self.assertRaises(ValueError):
+            self.experiment.add_tracking_metric(Metric(name="m1"))
 
         # Cannot update metric not already on experiment
         with self.assertRaises(ValueError):
-            self.experiment.update_metric(Metric(name="m5"))
+            self.experiment.update_tracking_metric(Metric(name="m5"))
+
+        # Cannot remove metric not already on experiment
+        with self.assertRaises(ValueError):
+            self.experiment.remove_tracking_metric(metric_name="m5")
 
     def testSearchSpaceSetter(self):
         one_param_ss = SearchSpace(parameters=[get_search_space().parameters["w"]])
@@ -257,7 +265,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(empty_experiment.num_trials, 1)
         with self.assertRaises(ValueError):
             empty_experiment.fetch_trial_data(batch)
-        empty_experiment.add_metric(Metric(name="some_metric"))
+        empty_experiment.add_tracking_metric(Metric(name="some_metric"))
         empty_experiment.attach_data(get_data())
         empty_experiment.trials[0].mark_staged()
         self.assertFalse(empty_experiment.fetch_data().df.empty)

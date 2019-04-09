@@ -422,7 +422,7 @@ class SQAStoreTest(TestCase):
         # update tracking metric
         # (should perform update in place)
         metric = Metric(name="tracking", lower_is_better=True)
-        experiment.update_metric(metric)
+        experiment.update_tracking_metric(metric)
         save_experiment(experiment)
         self.assertEqual(
             get_session().query(SQAMetric).count(), len(experiment.metrics)
@@ -430,7 +430,7 @@ class SQAStoreTest(TestCase):
 
         # add tracking metric
         metric = Metric(name="tracking2")
-        experiment.add_metric(metric)
+        experiment.add_tracking_metric(metric)
         save_experiment(experiment)
         self.assertEqual(
             get_session().query(SQAMetric).count(), len(experiment.metrics)
@@ -438,7 +438,7 @@ class SQAStoreTest(TestCase):
 
         # remove tracking metric
         # (old one should be deleted)
-        del experiment._metrics["tracking2"]
+        experiment.remove_tracking_metric("tracking2")
         save_experiment(experiment)
         self.assertEqual(
             get_session().query(SQAMetric).count(), len(experiment.metrics)

@@ -223,7 +223,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "status_quo_parameters",
         ],
         python_only=["search_space", "runner", "optimization_config", "status_quo"],
-        python_to_encoded={"data_by_trial": "data"},
+        python_to_encoded={"data_by_trial": "data", "tracking_metrics": "metrics"},
     ),
     "FixedParameter": EncodeDecodeFieldsMap(
         encoded_only=[
@@ -320,7 +320,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "status_quo",
             "evaluation_function",
         ],
-        python_to_encoded={"data_by_trial": "data"},
+        python_to_encoded={"data_by_trial": "data", "tracking_metrics": "metrics"},
     ),
     "SumConstraint": EncodeDecodeFieldsMap(
         python_only=["parameter_names", "is_upper_bound"], encoded_only=["type"]

@@ -168,10 +168,10 @@ class SimpleExperiment(Experiment):
     ) -> Data:
         return self.eval_trial(self.trials[trial_index])
 
-    @copy_doc(Experiment.add_metric)
-    def add_metric(self, metric: Metric) -> "SimpleExperiment":
+    @copy_doc(Experiment.add_tracking_metric)
+    def add_tracking_metric(self, metric: Metric) -> "SimpleExperiment":
         raise NotImplementedError("SimpleExperiment does not support metric addition.")
 
-    @copy_doc(Experiment.update_metric)
-    def update_metric(self, metric: Metric) -> "SimpleExperiment":
+    @copy_doc(Experiment.update_tracking_metric)
+    def update_tracking_metric(self, metric: Metric) -> "SimpleExperiment":
         raise NotImplementedError("SimpleExperiment does not support metric updates.")

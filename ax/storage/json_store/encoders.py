@@ -33,7 +33,7 @@ def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
         "experiment_type": experiment.experiment_type,
         "search_space": experiment.search_space,
         "optimization_config": experiment.optimization_config,
-        "tracking_metrics": list(experiment.metrics.values()),
+        "tracking_metrics": list(experiment._tracking_metrics.values()),
         "runner": experiment.runner,
         "status_quo": experiment.status_quo,
         "time_created": experiment.time_created,
