@@ -58,19 +58,20 @@ def get_experiment() -> Experiment:
     )
 
 
-def get_branin_optimization_config() -> OptimizationConfig:
-    return OptimizationConfig(objective=get_branin_objective())
+def get_branin_optimization_config(minimize: bool = False) -> OptimizationConfig:
+    return OptimizationConfig(objective=get_branin_objective(minimize=minimize))
 
 
 def get_branin_experiment(
     has_optimization_config: bool = True,
     with_batch: bool = False,
     with_status_quo: bool = False,
+    minimize: bool = False,
 ) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(),
-        optimization_config=get_branin_optimization_config()
+        optimization_config=get_branin_optimization_config(minimize=minimize)
         if has_optimization_config
         else None,
         runner=SyntheticRunner(),
@@ -346,8 +347,8 @@ def get_optimization_config() -> OptimizationConfig:
     )
 
 
-def get_branin_objective() -> Objective:
-    return Objective(metric=get_branin_metric(), minimize=False)
+def get_branin_objective(minimize: bool = False) -> Objective:
+    return Objective(metric=get_branin_metric(), minimize=minimize)
 
 
 def get_branin_outcome_constraint() -> OutcomeConstraint:

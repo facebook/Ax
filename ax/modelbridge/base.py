@@ -181,7 +181,6 @@ class ModelBridge(ABC):
         observation_features, observation_data = self._prepare_training_data(
             observations=observations
         )
-        self._training_data.extend(deepcopy(observations))
         for obsd in observation_data:
             for metric_name in obsd.metric_names:
                 if metric_name not in self._metric_names:
@@ -191,7 +190,8 @@ class ModelBridge(ABC):
                         "training data."
                     )
         # Initialize with all points in design.
-        self.training_in_design.extend([True] * len(observations))
+        self._training_data.extend(deepcopy(observations))
+        self._training_in_design.extend([True] * len(observations))
         return observation_features, observation_data
 
     def _set_status_quo(
@@ -286,7 +286,10 @@ class ModelBridge(ABC):
     @training_in_design.setter
     def training_in_design(self, training_in_design: List[bool]) -> None:
         if len(training_in_design) != len(self._training_data):
-            raise ValueError("In-design indicators not same length as training data")
+            raise ValueError(
+                f"In-design indicators not same length ({len(training_in_design)})"
+                f" as training data ({len(self._training_data)})."
+            )
         # Identify out-of-design arms
         if sum(training_in_design) < len(training_in_design):
             ood_names = []
@@ -305,7 +308,7 @@ class ModelBridge(ABC):
         observation_data: List[ObservationData],
     ) -> None:
         """Apply terminal transform and fit model."""
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def predict(self, observation_features: List[ObservationFeatures]) -> TModelPredict:
         """Make model predictions (mean and covariance) for the given
@@ -354,11 +357,9 @@ class ModelBridge(ABC):
         """Apply terminal transform, predict, and reverse terminal transform on
         output.
         """
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
-    def update(
-        self, data: Data, experiment: Experiment, search_space: SearchSpace
-    ) -> None:
+    def update(self, data: Data, experiment: Experiment) -> None:
         """Update the model bridge and the underlying model with new data. This
         method should be used instead of `fit`, in cases where the underlying
         model does not need to be re-fit from scratch, but rather updated.
@@ -379,20 +380,15 @@ class ModelBridge(ABC):
         for t in self.transforms.values():
             obs_feats = t.transform_observation_features(obs_feats)
             obs_data = t.transform_observation_data(obs_data, obs_feats)
-        self._update(
-            search_space=search_space,
-            observation_features=obs_feats,
-            observation_data=obs_data,
-        )
+        self._update(observation_features=obs_feats, observation_data=obs_data)
 
     def _update(
         self,
-        search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
     ) -> None:
         """Apply terminal transform and update model."""
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def gen(
         self,
@@ -519,7 +515,7 @@ class ModelBridge(ABC):
         """Apply terminal transform, gen, and reverse terminal transform on
         output.
         """
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     def cross_validate(
         self,
@@ -566,7 +562,7 @@ class ModelBridge(ABC):
         """Apply the terminal transform, make predictions on the test points,
         and reverse terminal transform on the results.
         """
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:

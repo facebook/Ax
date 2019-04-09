@@ -494,7 +494,6 @@ class BaseModelBridgeTest(TestCase):
                 )
             ),
             experiment=exp,
-            search_space=exp.search_space,
         )
         exp.new_trial(generator_run=modelbridge.gen(1))
         # Trying to update with unrecognised metric should error.
@@ -513,5 +512,4 @@ class BaseModelBridgeTest(TestCase):
                     )
                 ),
                 experiment=exp,
-                search_space=exp.search_space,
             )
