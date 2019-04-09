@@ -243,6 +243,9 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp.lookup_data_for_trial(0, 2).df), 0)
         self.assertEqual(len(exp.lookup_data_for_trial(2, 0).df), 0)
 
+        # Check that we get this data in fetch.
+        self.assertFalse(exp.fetch_trial_data(0).df.empty)
+
     def testEmptyMetrics(self):
         empty_experiment = Experiment(
             name="test_experiment", search_space=get_search_space()

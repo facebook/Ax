@@ -136,18 +136,20 @@ class ModelBridge(ABC):
                 self.transforms[t.__name__] = t_instance
 
         # Apply terminal transform and fit
-        self._fit(
-            model=model,
-            search_space=search_space,
-            observation_features=obs_feats,
-            observation_data=obs_data,
-        )
-        self.fit_time = time.time() - t_fit_start
+        try:
+            self._fit(
+                model=model,
+                search_space=search_space,
+                observation_features=obs_feats,
+                observation_data=obs_data,
+            )
+            self.fit_time = time.time() - t_fit_start
+        except NotImplementedError:
+            self.fit_time = None
 
-    def _set_training_data(
+    def _prepare_training_data(
         self, observations: List[Observation]
     ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
-        """Store training data, not-transformed"""
         observation_features = [obs.features for obs in observations]
         observation_data = [obs.data for obs in observations]
         if len(observation_features) != len(set(observation_features)):
@@ -155,12 +157,41 @@ class ModelBridge(ABC):
                 "Observation features not unique."
                 "Something went wrong constructing training data..."
             )
+        return observation_features, observation_data
+
+    def _set_training_data(
+        self, observations: List[Observation]
+    ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
+        """Store training data, not-transformed"""
+        observation_features, observation_data = self._prepare_training_data(
+            observations=observations
+        )
         self._training_data = deepcopy(observations)
         self._metric_names: Set[str] = set()
         for obsd in observation_data:
             self._metric_names.update(obsd.metric_names)
         # Initialize with all points in design.
         self.training_in_design = [True] * len(observations)
+        return observation_features, observation_data
+
+    def _extend_training_data(
+        self, observations: List[Observation]
+    ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
+        """Store training data, not-transformed"""
+        observation_features, observation_data = self._prepare_training_data(
+            observations=observations
+        )
+        self._training_data.extend(deepcopy(observations))
+        for obsd in observation_data:
+            for metric_name in obsd.metric_names:
+                if metric_name not in self._metric_names:
+                    raise ValueError(
+                        f"Unrecognised metric {metric_name}; cannot update "
+                        "training data with metrics that were not in the original "
+                        "training data."
+                    )
+        # Initialize with all points in design.
+        self.training_in_design.extend([True] * len(observations))
         return observation_features, observation_data
 
     def _set_status_quo(
@@ -266,7 +297,6 @@ class ModelBridge(ABC):
             logger.info(f"Leaving out out-of-design observations for arms: {ood_str}")
         self._training_in_design = training_in_design
 
-    @abstractmethod
     def _fit(
         self,
         model: Any,
@@ -275,7 +305,7 @@ class ModelBridge(ABC):
         observation_data: List[ObservationData],
     ) -> None:
         """Apply terminal transform and fit model."""
-        pass  # pragma: no cover
+        raise NotImplementedError()  # pragma: no cover
 
     def predict(self, observation_features: List[ObservationFeatures]) -> TModelPredict:
         """Make model predictions (mean and covariance) for the given
@@ -318,14 +348,51 @@ class ModelBridge(ABC):
         f, cov = unwrap_observation_data(observation_data)
         return f, cov
 
-    @abstractmethod
     def _predict(
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationData]:
         """Apply terminal transform, predict, and reverse terminal transform on
         output.
         """
-        pass  # pragma: no cover
+        raise NotImplementedError()  # pragma: no cover
+
+    def update(
+        self, data: Data, experiment: Experiment, search_space: SearchSpace
+    ) -> None:
+        """Update the model bridge and the underlying model with new data. This
+        method should be used instead of `fit`, in cases where the underlying
+        model does not need to be re-fit from scratch, but rather updated.
+
+        Note: `update` expects only new data (obtained since the model initialization
+        or last update) to be passed in, not all data in the experiment.
+
+        Args:
+            data: data from the experiment obtained since the last update
+            experiment: experiment, in which this data was obtained
+        """
+        observations = (
+            observations_from_data(experiment, data)
+            if experiment is not None and data is not None
+            else []
+        )
+        obs_feats, obs_data = self._extend_training_data(observations=observations)
+        for t in self.transforms.values():
+            obs_feats = t.transform_observation_features(obs_feats)
+            obs_data = t.transform_observation_data(obs_data, obs_feats)
+        self._update(
+            search_space=search_space,
+            observation_features=obs_feats,
+            observation_data=obs_data,
+        )
+
+    def _update(
+        self,
+        search_space: SearchSpace,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
+    ) -> None:
+        """Apply terminal transform and update model."""
+        raise NotImplementedError()  # pragma: no cover
 
     def gen(
         self,
@@ -440,7 +507,6 @@ class ModelBridge(ABC):
             gen_time=time.time() - t_gen_start,
         )
 
-    @abstractmethod
     def _gen(
         self,
         n: int,
@@ -453,7 +519,7 @@ class ModelBridge(ABC):
         """Apply terminal transform, gen, and reverse terminal transform on
         output.
         """
-        pass  # pragma: no cover
+        raise NotImplementedError()  # pragma: no cover
 
     def cross_validate(
         self,
@@ -491,7 +557,6 @@ class ModelBridge(ABC):
             )
         return cv_predictions
 
-    @abstractmethod
     def _cross_validate(
         self,
         obs_feats: List[ObservationFeatures],
@@ -501,7 +566,7 @@ class ModelBridge(ABC):
         """Apply the terminal transform, make predictions on the test points,
         and reverse terminal transform on the results.
         """
-        pass  # pragma: no cover
+        raise NotImplementedError()  # pragma: no cover
 
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:

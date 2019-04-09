@@ -3,16 +3,24 @@
 from unittest import mock
 
 import numpy as np
+import pandas as pd
 from ax.core.arm import Arm
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import (
+    Observation,
+    ObservationData,
+    ObservationFeatures,
+    observations_from_data,
+)
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge, gen_arms, unwrap_observation_data
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.log import Log
 from ax.utils.common.testutils import TestCase
 
 
@@ -156,11 +164,6 @@ class t2(Transform):
 
 
 class BaseModelBridgeTest(TestCase):
-    def setUp(self):
-        m = mock.patch.object(ModelBridge, "__abstractmethods__", frozenset())
-        self.addCleanup(m.stop)
-        m.start()
-
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
@@ -449,3 +452,66 @@ class BaseModelBridgeTest(TestCase):
             ),
             pending_observations={},
         )
+
+    @mock.patch(
+        "ax.modelbridge.base.ModelBridge._gen",
+        autospec=True,
+        side_effect=[
+            ([observation1trans().features], [2], None),
+            ([observation2trans().features], [2], None),
+            ([observation2().features], [2], None),
+        ],
+    )
+    @mock.patch("ax.modelbridge.base.ModelBridge._update", autospec=True)
+    def test_update(self, _mock_update, _mock_gen):
+        exp = get_experiment()
+        exp.optimization_config = get_optimization_config()
+        ss = search_space_for_range_value()
+        modelbridge = ModelBridge(ss, None, [Log], exp)
+        exp.new_trial(generator_run=modelbridge.gen(1))
+        modelbridge._set_training_data(
+            observations_from_data(
+                data=Data(
+                    pd.DataFrame(
+                        [
+                            {
+                                "arm_name": "0_0",
+                                "metric_name": "m1",
+                                "mean": 3.0,
+                                "sem": 1.0,
+                            }
+                        ]
+                    )
+                ),
+                experiment=exp,
+            )
+        )
+        exp.new_trial(generator_run=modelbridge.gen(1))
+        modelbridge.update(
+            data=Data(
+                pd.DataFrame(
+                    [{"arm_name": "1_0", "metric_name": "m1", "mean": 5.0, "sem": 0.0}]
+                )
+            ),
+            experiment=exp,
+            search_space=exp.search_space,
+        )
+        exp.new_trial(generator_run=modelbridge.gen(1))
+        # Trying to update with unrecognised metric should error.
+        with self.assertRaisesRegex(ValueError, "Unrecognised metric"):
+            modelbridge.update(
+                data=Data(
+                    pd.DataFrame(
+                        [
+                            {
+                                "arm_name": "1_0",
+                                "metric_name": "m2",
+                                "mean": 5.0,
+                                "sem": 0.0,
+                            }
+                        ]
+                    )
+                ),
+                experiment=exp,
+                search_space=exp.search_space,
+            )

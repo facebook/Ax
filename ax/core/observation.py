@@ -172,8 +172,11 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
         }.intersection(data.df.columns)
     )
     observations = []
-    # TODO (T35427142): this doesn't work if feature_cols is length 1.
     for g, d in data.df.groupby(by=feature_cols):
+        # If g were a single value, zip would transform it into an index,
+        # and we want the value.
+        if not isinstance(g, (list, tuple)):
+            g = [g]  # pragma: no cover
         features = dict(zip(feature_cols, g))
         obs_kwargs = {}
         obs_params = experiment.arms_by_name[features["arm_name"]].params.copy()
