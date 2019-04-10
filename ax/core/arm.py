@@ -83,6 +83,8 @@ class Arm(Base):
         for k, v in params.items():
             if type(v) is np.int64:
                 params[k] = int(v)  # pragma: no cover
+            elif type(v) is np.float32:
+                params[k] = float(v)  # pragma: no cover  # pyre-ignore
         params_str = json.dumps(params, sort_keys=True)
         return hashlib.md5(params_str.encode("utf-8")).hexdigest()
 
