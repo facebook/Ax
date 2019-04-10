@@ -94,6 +94,27 @@ class ArrayModelBridge(ModelBridge):
             feature_names=feature_names,
         )
 
+    def _update(
+        self,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
+    ) -> None:
+        """Apply terminal transform for update data, and pass along to model."""
+        Xs_array, Ys_array, Yvars_array, in_design = _convert_observations(
+            observation_data=observation_data,
+            observation_features=observation_features,
+            outcomes=self.outcomes,
+            params=self.params,
+        )
+        # Update in-design status for these new points.
+        self.training_in_design[-len(observation_features) :] = in_design
+        self._model_update(Xs=Xs_array, Ys=Ys_array, Yvars=Yvars_array)
+
+    def _model_update(
+        self, Xs: List[np.ndarray], Ys: List[np.ndarray], Yvars: List[np.ndarray]
+    ) -> None:
+        self.model.update(Xs=Xs, Ys=Ys, Yvars=Yvars)
+
     def _predict(
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationData]:

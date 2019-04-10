@@ -103,6 +103,16 @@ class TorchModelBridge(ArrayModelBridge):
             feature_names=feature_names,
         )
 
+    def _model_update(
+        self, Xs: List[np.ndarray], Ys: List[np.ndarray], Yvars: List[np.ndarray]
+    ) -> None:
+        if not self.model:  # pragma: no cover
+            raise ValueError(FIT_MODEL_ERROR.format(action="_model_update"))
+        Xs: List[Tensor] = self._array_list_to_tensors(Xs)
+        Ys: List[Tensor] = self._array_list_to_tensors(Ys)
+        Yvars: List[Tensor] = self._array_list_to_tensors(Yvars)
+        self.model.update(Xs=Xs, Ys=Ys, Yvars=Yvars)
+
     def _model_predict(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_predict"))

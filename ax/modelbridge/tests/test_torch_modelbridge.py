@@ -62,6 +62,27 @@ class TorchModelBridgeTest(TestCase):
                 torch.tensor(var, dtype=torch_dtype, device=torch_device),
             )
         )
+        # Update
+        ma._model_update(Xs=[X], Ys=[Y], Yvars=[var])
+        model_update_args = model.update.mock_calls[0][2]
+        self.assertTrue(
+            torch.equal(
+                model_update_args["Xs"][0],
+                torch.tensor(X, dtype=torch_dtype, device=torch_device),
+            )
+        )
+        self.assertTrue(
+            torch.equal(
+                model_update_args["Ys"][0],
+                torch.tensor(Y, dtype=torch_dtype, device=torch_device),
+            )
+        )
+        self.assertTrue(
+            torch.equal(
+                model_update_args["Yvars"][0],
+                torch.tensor(var, dtype=torch_dtype, device=torch_device),
+            )
+        )
         # Predict
         model.predict.return_value = (torch.tensor([3.0]), torch.tensor([4.0]))
         f, var = ma._model_predict(X)

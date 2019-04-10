@@ -66,7 +66,7 @@ class NumpyModelBridgeTest(TestCase):
         self.model_gen_options = {"option": "yes"}
 
     @mock.patch("ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None)
-    def testFit(self, mock_init):
+    def testFitAndUpdate(self, mock_init):
         sq_feat = ObservationFeatures({})
         sq_data = self.observation_data[2]
         sq_obs = Observation(
@@ -102,6 +102,21 @@ class NumpyModelBridgeTest(TestCase):
             self.assertTrue(np.array_equal(v, Yvars[ma.outcomes[i]]))
         self.assertEqual(model_fit_args["bounds"], bounds)
         self.assertEqual(model_fit_args["feature_names"], ["x", "y", "z"])
+
+        # And update
+        ma.training_in_design.extend([True, True, True, True])
+        ma._update(
+            observation_features=self.observation_features + [sq_feat],
+            observation_data=self.observation_data + [sq_data],
+        )
+        self.assertEqual(ma.training_in_design, [True, True, True, False] * 2)
+        model_update_args = model.update.mock_calls[0][2]
+        for i, x in enumerate(model_update_args["Xs"]):
+            self.assertTrue(np.array_equal(x, Xs[ma.outcomes[i]]))
+        for i, y in enumerate(model_update_args["Ys"]):
+            self.assertTrue(np.array_equal(y, Ys[ma.outcomes[i]]))
+        for i, v in enumerate(model_update_args["Yvars"]):
+            self.assertTrue(np.array_equal(v, Yvars[ma.outcomes[i]]))
 
     @mock.patch(
         "ax.modelbridge.numpy.NumpyModelBridge._model_predict",

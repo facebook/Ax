@@ -160,3 +160,13 @@ class TorchModel:
               cov[j, m1, m2] is Cov[m1@j, m2@j].
         """
         raise NotImplementedError
+
+    def update(self, Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]) -> None:
+        """Update the model with additional data.
+
+        Args:
+            Xs: Additional data for the model, in the same format as for `fit`.
+            Ys: Additional data for the model, in the same format as for `fit`.
+            Yvars: Additional data for the model, in the same format as for `fit`.
+        """
+        raise NotImplementedError
