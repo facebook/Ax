@@ -186,7 +186,19 @@ class BotorchModelTest(TestCase):
         self.assertTrue(mean.shape == torch.Size([2, 2]))
         self.assertTrue(variance.shape == torch.Size([2, 2, 2]))
 
-        # test unfit model CV
+        # Test update
+        model.refit_on_update = False
+        model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
+        self.assertTrue(torch.equal(model.Xs[0], torch.cat((Xs1[0], Xs2[0]))))
+        self.assertTrue(torch.equal(model.Xs[1], torch.cat((Xs2[0], Xs2[0]))))
+        self.assertTrue(torch.equal(model.Ys[0], torch.cat((Ys1[0], Ys2[0]))))
+        self.assertTrue(torch.equal(model.Yvars[0], torch.cat((Yvars1[0], Yvars2[0]))))
+
+        model.refit_on_update = True
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
+
+        # test unfit model CV and update
         unfit_model = BotorchModel()
         with self.assertRaises(RuntimeError):
             unfit_model.cross_validate(
@@ -195,6 +207,8 @@ class BotorchModelTest(TestCase):
                 Yvars_train=Yvars1 + Yvars2,
                 X_test=Xs1[0],
             )
+        with self.assertRaises(RuntimeError):
+            unfit_model.update(Xs=Xs1 + Xs2, Ys=Ys1 + Ys2, Yvars=Yvars1 + Yvars2)
 
         # Test loading state dict
         tkwargs = {"device": device, "dtype": dtype}

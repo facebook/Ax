@@ -74,6 +74,7 @@ class GPyGP(NumpyModel):
         self,
         map_fit_restarts: int = 10,
         refit_on_cv: bool = False,
+        refit_on_update: bool = True,
         primary_task_name: Optional[str] = None,
         primary_task_rank: Optional[int] = None,
         secondary_task_name: Optional[str] = None,
@@ -82,6 +83,7 @@ class GPyGP(NumpyModel):
     ) -> None:
         self.map_fit_restarts = map_fit_restarts
         self.refit_on_cv = refit_on_cv
+        self.refit_on_update = refit_on_update
         self.models: List[GPy.core.gp.GP] = []
         self.params: List[np.ndarray] = []
         self.task_features: List[int] = []
@@ -174,6 +176,30 @@ class GPyGP(NumpyModel):
             for i, _ in enumerate(self.models)
         ]
         return _gp_predict(cv_models, X_test)
+
+    @suppress_gpy_logs
+    @copy_doc(NumpyModel.update)
+    def update(
+        self, Xs: List[np.ndarray], Ys: List[np.ndarray], Yvars: List[np.ndarray]
+    ) -> None:
+        for i, _ in enumerate(Xs):
+            self.Xs[i] = np.vstack((self.Xs[i], Xs[i]))
+            self.Ys[i] = np.vstack((self.Ys[i], Ys[i]))
+            self.Yvars[i] = np.vstack((self.Yvars[i], Yvars[i]))
+        params = [None] * len(self.models) if self.refit_on_update else self.params
+        self.models = [
+            _get_GP(
+                X=self.Xs[i],
+                Y=self.Ys[i],
+                Yvar=self.Yvars[i],
+                task_features=self.task_features,
+                map_fit_restarts=self.map_fit_restarts,
+                params=params[i],
+                primary_task_rank=self.primary_task_rank,
+                secondary_task_rank=self.secondary_task_rank,
+            )
+            for i, _ in enumerate(self.Xs)
+        ]
 
     def gen(
         self,

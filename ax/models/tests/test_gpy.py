@@ -45,7 +45,7 @@ class GPyModelTest(TestCase):
 
     def testGPyModel(self):
         # Init
-        m = GPyGP(map_fit_restarts=2)
+        m = GPyGP(map_fit_restarts=2, refit_on_update=False)
         self.assertEqual(m.map_fit_restarts, 2)
         # Fit
         task_features = []
@@ -71,6 +71,12 @@ class GPyModelTest(TestCase):
         f, cov = m.cross_validate(self.Xs, self.Ys, self.Yvars, X)
         self.assertEqual(f.shape, (3, 2))
         self.assertEqual(cov.shape, (3, 2, 2))
+        # Update
+        m.update(Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars)
+        self.assertEqual(self.Xs[0].shape, (4, 4))
+        self.assertEqual(self.Ys[0].shape, (4, 1))
+        self.assertEqual(self.Yvars[0].shape, (4, 1))
+        self.assertEqual(len(m.models), 2)
 
         # No multiprocessing
         m2 = GPyGP(map_fit_restarts=2, use_multiprocessing=False)

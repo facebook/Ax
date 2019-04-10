@@ -174,6 +174,7 @@ class BotorchModel(TorchModel):
         #  **(Any)], Tensor]`.
         acqf_optimizer: TOptimizer = scipy_optimizer,
         refit_on_cv: bool = False,
+        refit_on_update: bool = True,
         **kwargs: Any,
     ) -> None:
         self.model_constructor = model_constructor
@@ -181,6 +182,7 @@ class BotorchModel(TorchModel):
         self.acqf_constructor = acqf_constructor
         self.acqf_optimizer = acqf_optimizer
         self.refit_on_cv = refit_on_cv
+        self.refit_on_update = refit_on_update
         self.model = None
         self.Xs = []
         self.Ys = []
@@ -340,3 +342,26 @@ class BotorchModel(TorchModel):
                 keep_params=True,
             )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
+
+    @copy_doc(TorchModel.update)
+    def update(self, Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]) -> None:
+        if self.model is None:
+            raise RuntimeError("Cannot update model that has not been fitted")
+        for i, _ in enumerate(Xs):
+            self.Xs[i] = torch.cat((self.Xs[i], Xs[i]))
+            self.Ys[i] = torch.cat((self.Ys[i], Ys[i]))
+            self.Yvars[i] = torch.cat((self.Yvars[i], Yvars[i]))
+        if self.refit_on_update:
+            self.model = self.model_constructor(  # pyre-ignore: [28]
+                Xs=self.Xs,
+                Ys=self.Ys,
+                Yvars=self.Yvars,
+                task_features=self.task_features,
+            )
+        else:
+            self.model.reinitialize(  # pyre-ignore: [16]
+                train_Xs=self.Xs,
+                train_Ys=self.Ys,
+                train_Y_ses=[yvar.sqrt() for yvar in self.Yvars],
+                keep_params=True,
+            )
