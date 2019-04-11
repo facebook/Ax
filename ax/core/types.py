@@ -34,3 +34,38 @@ class ComparisonOp(enum.Enum):
 
     GEQ: int = 0
     LEQ: int = 1
+
+
+def merge_model_predict(
+    predict: TModelPredict, predict_append: TModelPredict
+) -> TModelPredict:
+    """Append model predictions to an existing set of model predictions.
+
+    TModelPredict is of the form:
+        {metric_name: [mean1, mean2, ...],
+        {metric_name: {metric_name: [var1, var2, ...]}})
+
+    This will append the predictions
+
+    Args:
+        predict: Initial set of predictions.
+        other_predict: Predictions to be appended.
+
+    Returns:
+        TModelPredict with the new predictions appended.
+    """
+    mu, cov = predict
+    mu_append, cov_append = predict_append
+    if len(mu) != len(mu_append) or len(cov) != len(cov_append):
+        raise ValueError("Both sets of model predictions must have the same metrics")
+
+    # Iterate down to the list level and simply add.
+    for metric_name, metric_values in mu.items():
+        mu[metric_name] = metric_values + mu_append[metric_name]
+
+    for metric_name, co_cov in cov.items():
+        for co_metric_name, cov_values in co_cov.items():
+            cov[metric_name][co_metric_name] = (
+                cov_values + cov_append[metric_name][co_metric_name]
+            )
+    return mu, cov

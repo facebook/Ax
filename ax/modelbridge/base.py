@@ -564,6 +564,24 @@ class ModelBridge(ABC):
         """
         raise NotImplementedError  # pragma: no cover
 
+    def out_of_design_data(self) -> TModelPredict:
+        """Get formatted data for out of design points.
+
+        When predictions are requested from a ModelBridge, points which
+        are out-of-design (not in the fitted search space) should not be included.
+        These points should use raw data.
+
+        Returns:
+            Observation data for OOD points, in the format for model prediction outputs.
+        """
+        observations = self.get_training_data()
+        obs_data = [obs.data for obs in observations]
+        ood_obs_data = []
+        for i, obs in enumerate(obs_data):
+            if not self.training_in_design[i]:
+                ood_obs_data.append(obs)
+        return unwrap_observation_data(ood_obs_data)
+
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:
     """Converts observation data to the format for model prediction outputs.

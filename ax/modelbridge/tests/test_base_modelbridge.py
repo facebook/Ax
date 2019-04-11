@@ -170,21 +170,10 @@ class BaseModelBridgeTest(TestCase):
         return_value=([observation1(), observation2()]),
     )
     @mock.patch(
-        "ax.modelbridge.base.unwrap_observation_data",
-        autospec=True,
-        return_value=(2, 2),
-    )
-    @mock.patch(
         "ax.modelbridge.base.gen_arms", autospec=True, return_value=[Arm(params={})]
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    def testModelBridge(
-        self,
-        mock_fit,
-        mock_gen_arms,
-        mock_unwrap_observation_data,
-        mock_observations_from_data,
-    ):
+    def testModelBridge(self, mock_fit, mock_gen_arms, mock_observations_from_data):
         # Test that on init transforms are stored and applied in the correct order
         transforms = [t1, t2]
         exp = get_experiment()
@@ -212,8 +201,6 @@ class BaseModelBridgeTest(TestCase):
         modelbridge.predict([observation2().features])
         # Observation features sent to _predict are un-transformed afterwards
         modelbridge._predict.assert_called_with([observation2().features])
-
-        mock_unwrap_observation_data.assert_called_with([observation2().data])
 
         # Test transforms applied on gen
         modelbridge._gen = mock.MagicMock(
@@ -301,6 +288,9 @@ class BaseModelBridgeTest(TestCase):
         modelbridge.training_in_design = [True, False]
         with self.assertRaises(ValueError):
             modelbridge.training_in_design = [True, True, False]
+
+        ood_obs = modelbridge.out_of_design_data()
+        self.assertTrue(ood_obs == unwrap_observation_data([observation2().data]))
 
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
