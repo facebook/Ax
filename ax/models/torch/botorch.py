@@ -338,7 +338,7 @@ class BotorchModel(TorchModel):
             model.reinitialize(  # pyre-ignore: [16]
                 train_Xs=Xs_train,
                 train_Ys=Ys_train,
-                train_Y_ses=[yvar.sqrt() for yvar in Yvars_train],
+                train_Yvars=Yvars_train,
                 keep_params=True,
             )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
@@ -362,6 +362,6 @@ class BotorchModel(TorchModel):
             self.model.reinitialize(  # pyre-ignore: [16]
                 train_Xs=self.Xs,
                 train_Ys=self.Ys,
-                train_Y_ses=[yvar.sqrt() for yvar in self.Yvars],
+                train_Yvars=self.Yvars,
                 keep_params=True,
             )

@@ -190,14 +190,13 @@ def _get_model(
 ) -> Model:
     """Instantiate a model of type depending on the input data."""
     Yvar = Yvar.clamp_min_(MIN_OBSERVED_NOISE_LEVEL)  # pyre-ignore: [16]
-    train_Y_se = Yvar.view(-1).sqrt()
     if task_feature is None:
-        gp = FixedNoiseGP(train_X=X, train_Y=Y.view(-1), train_Y_se=train_Y_se)
+        gp = FixedNoiseGP(train_X=X, train_Y=Y.view(-1), train_Yvar=Yvar.view(-1))
     else:
         gp = FixedNoiseMultiTaskGP(
             train_X=X,
             train_Y=Y.view(-1),
-            train_Y_se=train_Y_se,
+            train_Yvar=Yvar.view(-1),
             task_feature=task_feature,
         )
     return gp.to(X)  # pyre-ignore: [7]
