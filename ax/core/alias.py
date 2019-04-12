@@ -16,6 +16,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
+from ax.core.parameter_constraint import OrderConstraint, SumConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationOutcome
 from ax.core.trial import Trial

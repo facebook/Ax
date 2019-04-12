@@ -15,11 +15,13 @@ from ax.core.alias import (
     ObservationData,
     ObservationFeatures,
     OptimizationConfig,
+    OrderConstraint,
     OutcomeConstraint,
     ParameterType,
     RangeParameter,
     SearchSpace,
     SimpleExperiment,
+    SumConstraint,
     TEvaluationOutcome,
     Trial,
 )
