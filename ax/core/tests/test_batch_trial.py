@@ -169,44 +169,48 @@ class BatchTrialTest(TestCase):
             self.batch.status_quo = Arm(self.arms[0].params, name="new_name")
 
     def testBatchLifecycle(self):
-        self.batch.runner = SyntheticRunner()
-        self.batch.run()
-        self.assertEqual(self.batch.status, TrialStatus.STAGED)
-        self.assertIsNotNone(self.batch.time_staged)
-        self.assertTrue(self.batch.status.is_deployed)
-        self.assertTrue(self.batch.status.expecting_data)
+        staging_mock = PropertyMock()
+        with patch.object(SyntheticRunner, "staging_required", staging_mock):
+            mock_runner = SyntheticRunner()
+            staging_mock.return_value = True
+            self.batch.runner = mock_runner
+            self.batch.run()
+            self.assertEqual(self.batch.status, TrialStatus.STAGED)
+            self.assertIsNotNone(self.batch.time_staged)
+            self.assertTrue(self.batch.status.is_deployed)
+            self.assertTrue(self.batch.status.expecting_data)
 
-        # Cannot change arms or runner once run
-        with self.assertRaises(ValueError):
-            self.batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
+            # Cannot change arms or runner once run
+            with self.assertRaises(ValueError):
+                self.batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
 
-        with self.assertRaises(ValueError):
-            self.batch.runner = None
+            with self.assertRaises(ValueError):
+                self.batch.runner = None
 
-        self.batch.mark_running()
-        self.assertEqual(self.batch.status, TrialStatus.RUNNING)
-        self.assertIsNotNone(self.batch.time_run_started)
-
-        self.batch.mark_completed()
-        self.assertEqual(self.batch.status, TrialStatus.COMPLETED)
-        self.assertIsNotNone(self.batch.time_completed)
-        self.assertTrue(self.batch.status.is_terminal)
-
-        # Cannot change status after BatchTrial is completed
-        with self.assertRaises(ValueError):
-            self.batch.mark_staged()
-
-        with self.assertRaises(ValueError):
-            self.batch.mark_completed()
-
-        with self.assertRaises(ValueError):
             self.batch.mark_running()
+            self.assertEqual(self.batch.status, TrialStatus.RUNNING)
+            self.assertIsNotNone(self.batch.time_run_started)
 
-        with self.assertRaises(ValueError):
-            self.batch.mark_abandoned()
+            self.batch.mark_completed()
+            self.assertEqual(self.batch.status, TrialStatus.COMPLETED)
+            self.assertIsNotNone(self.batch.time_completed)
+            self.assertTrue(self.batch.status.is_terminal)
 
-        with self.assertRaises(ValueError):
-            self.batch.mark_failed()
+            # Cannot change status after BatchTrial is completed
+            with self.assertRaises(ValueError):
+                self.batch.mark_staged()
+
+            with self.assertRaises(ValueError):
+                self.batch.mark_completed()
+
+            with self.assertRaises(ValueError):
+                self.batch.mark_running()
+
+            with self.assertRaises(ValueError):
+                self.batch.mark_abandoned()
+
+            with self.assertRaises(ValueError):
+                self.batch.mark_failed()
 
     def testAbandonBatchTrial(self):
         reason = "BatchTrial behaved poorly"
@@ -219,7 +223,6 @@ class BatchTrialTest(TestCase):
     def testFailedBatchTrial(self):
         self.batch.runner = SyntheticRunner()
         self.batch.run()
-        self.batch.mark_running()
         self.batch.mark_failed()
 
         self.assertEqual(self.batch.status, TrialStatus.FAILED)
@@ -261,20 +264,20 @@ class BatchTrialTest(TestCase):
         self.batch.run()
         self.assertEqual(self.batch.deployed_name, "test_0")
         self.assertNotEqual(len(self.batch.run_metadata.keys()), 0)
-        self.assertEqual(self.batch.status, TrialStatus.STAGED)
+        self.assertEqual(self.batch.status, TrialStatus.RUNNING)
 
         # Verify setting runner on experiment but not BatchTrial
         # Also mock staging_required to be false
         staging_mock = PropertyMock()
         with patch.object(SyntheticRunner, "staging_required", staging_mock):
             mock_runner = SyntheticRunner()
-            staging_mock.return_value = False
+            staging_mock.return_value = True
 
             self.experiment.runner = mock_runner
             b2 = self.experiment.new_batch_trial()
             b2.run()
             self.assertEqual(b2.deployed_name, "test_1")
-            self.assertEqual(b2.status, TrialStatus.RUNNING)
+            self.assertEqual(b2.status, TrialStatus.STAGED)
 
     def testIsFactorial(self):
         self.assertFalse(self.batch.is_factorial)

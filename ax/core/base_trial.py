@@ -88,11 +88,13 @@ class BaseTrial(ABC, Base):
     """Base class for representing trials.
 
     Trials are containers for arms that are deployed together. There are
-    two types of trials: reguler Trial, which only contains a single arm,
+    two types of trials: regular Trial, which only contains a single arm,
     and BatchTrial, which contains an arbitrary number of arms.
     """
 
-    def __init__(self, experiment: "core.experiment.Experiment") -> None:
+    def __init__(
+        self, experiment: "core.experiment.Experiment", trial_type: Optional[str] = None
+    ) -> None:
         """Initialize trial.
 
         Args:
@@ -100,7 +102,15 @@ class BaseTrial(ABC, Base):
         """
         self._experiment = experiment
         self._index = self._experiment._attach_trial(self)
-        self._trial_type: Optional[str] = self._experiment.default_trial_type
+
+        if trial_type is not None:
+            if not self._experiment.supports_trial_type(trial_type):
+                raise ValueError(
+                    f"Experiment does not support trial_type {trial_type}."
+                )
+        else:
+            trial_type = self._experiment.default_trial_type
+        self._trial_type: Optional[str] = trial_type
 
         self._status: TrialStatus = TrialStatus.CANDIDATE
         self._time_created: datetime = datetime.now()

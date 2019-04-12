@@ -25,4 +25,4 @@ class SyntheticRunner(Runner):
 
     @property
     def staging_required(self) -> bool:
-        return True
+        return False

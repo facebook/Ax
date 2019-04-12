@@ -29,8 +29,9 @@ class Trial(BaseTrial):
         self,
         experiment: "core.experiment.Experiment",
         generator_run: Optional[GeneratorRun] = None,
+        trial_type: Optional[str] = None,
     ) -> None:
-        super().__init__(experiment)
+        super().__init__(experiment=experiment, trial_type=trial_type)
         self._generator_run = None
         if generator_run is not None:
             self.add_generator_run(generator_run=generator_run)

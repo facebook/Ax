@@ -57,8 +57,9 @@ class BatchTrial(BaseTrial):
         self,
         experiment: "core.experiment.Experiment",
         generator_run: Optional[GeneratorRun] = None,
+        trial_type: Optional[str] = None,
     ) -> None:
-        super().__init__(experiment=experiment)
+        super().__init__(experiment=experiment, trial_type=trial_type)
         self._generator_run_structs: List[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
         self._status_quo: Optional[Arm] = None

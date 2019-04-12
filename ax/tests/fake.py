@@ -12,6 +12,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -59,20 +60,19 @@ def get_experiment() -> Experiment:
     )
 
 
-def get_branin_optimization_config(minimize: bool = False) -> OptimizationConfig:
-    return OptimizationConfig(objective=get_branin_objective(minimize=minimize))
+def get_branin_optimization_config() -> OptimizationConfig:
+    return OptimizationConfig(objective=get_branin_objective())
 
 
 def get_branin_experiment(
     has_optimization_config: bool = True,
     with_batch: bool = False,
     with_status_quo: bool = False,
-    minimize: bool = False,
 ) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(),
-        optimization_config=get_branin_optimization_config(minimize=minimize)
+        optimization_config=get_branin_optimization_config()
         if has_optimization_config
         else None,
         runner=SyntheticRunner(),
@@ -88,6 +88,36 @@ def get_branin_experiment(
         exp.new_batch_trial().add_generator_run(sobol_run)
 
     return exp
+
+
+def get_multi_type_experiment(
+    add_trial_type: bool = True, add_trials: bool = False
+) -> MultiTypeExperiment:
+    oc = OptimizationConfig(Objective(BraninMetric("m1", ["x1", "x2"])))
+    experiment = MultiTypeExperiment(
+        name="test_exp",
+        search_space=get_branin_search_space(),
+        default_trial_type="type1",
+        default_runner=SyntheticRunner(dummy_metadata="dummy1"),
+        optimization_config=oc,
+    )
+    experiment.add_trial_type(
+        trial_type="type2", runner=SyntheticRunner(dummy_metadata="dummy2")
+    )
+    # Switch the order of variables so metric gives different results
+    experiment.add_tracking_metric(
+        BraninMetric("m2", ["x2", "x1"]), trial_type="type2", canonical_name="m1"
+    )
+
+    if add_trials and add_trial_type:
+        generator = get_sobol(experiment.search_space)
+        gr = generator.gen(10)
+        t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
+        t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
+        t1.run()
+        t2.run()
+
+    return experiment
 
 
 def get_factorial_experiment(
@@ -307,8 +337,8 @@ def get_metric() -> Metric:
     return Metric(name="m1")
 
 
-def get_branin_metric() -> BraninMetric:
-    return BraninMetric(name="branin", param_names=["x1", "x2"], noise_sd=0.01)
+def get_branin_metric(name="branin") -> BraninMetric:
+    return BraninMetric(name=name, param_names=["x1", "x2"], noise_sd=0.01)
 
 
 def get_hartmann_metric() -> Hartmann6Metric:
@@ -352,8 +382,8 @@ def get_optimization_config() -> OptimizationConfig:
     )
 
 
-def get_branin_objective(minimize: bool = False) -> Objective:
-    return Objective(metric=get_branin_metric(), minimize=minimize)
+def get_branin_objective() -> Objective:
+    return Objective(metric=get_branin_metric(), minimize=False)
 
 
 def get_branin_outcome_constraint() -> OutcomeConstraint:

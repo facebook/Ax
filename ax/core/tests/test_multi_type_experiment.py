@@ -1,29 +1,16 @@
 #!/usr/bin/env python3
 
-from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import Objective
-from ax.core.optimization_config import OptimizationConfig
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
-from ax.tests.fake import get_branin_arms, get_branin_search_space
+from ax.tests.fake import get_branin_arms, get_multi_type_experiment
 from ax.utils.common.testutils import TestCase
 
 
 class MultiTypeExperimentTest(TestCase):
     def setUp(self):
-        self.oc = OptimizationConfig(Objective(BraninMetric("m1", ["x1", "x2"])))
-        self.experiment = MultiTypeExperiment(
-            name="test_exp",
-            search_space=get_branin_search_space(),
-            default_trial_type="type1",
-            default_runner=SyntheticRunner(dummy_metadata="dummy1"),
-        )
-        self.experiment.optimization_config = self.oc
+        self.experiment = get_multi_type_experiment()
 
     def testMTExperimentFlow(self):
-        self.experiment.add_trial_type(
-            trial_type="type2", runner=SyntheticRunner(dummy_metadata="dummy2")
-        )
         self.assertTrue(self.experiment.supports_trial_type("type1"))
         self.assertTrue(self.experiment.supports_trial_type("type2"))
         self.assertFalse(self.experiment.supports_trial_type(None))
@@ -44,11 +31,6 @@ class MultiTypeExperimentTest(TestCase):
         self.assertEqual(b2.trial_type, "type2")
         b2.run()
         self.assertEqual(b2.run_metadata["dummy_metadata"], "dummy3")
-
-        # Switch the order of variables so metric gives different results
-        self.experiment.add_tracking_metric(
-            BraninMetric("m2", ["x2", "x1"]), trial_type="type2"
-        )
 
         df = self.experiment.fetch_data().df
         for _, row in df.iterrows():
@@ -80,66 +62,61 @@ class MultiTypeExperimentTest(TestCase):
         self.assertEqual(str(self.experiment), "MultiTypeExperiment(test_exp)")
 
     def testEq(self):
-        exp2 = MultiTypeExperiment(
-            name="test_exp",
-            search_space=get_branin_search_space(),
-            default_trial_type="type1",
-            default_runner=SyntheticRunner(dummy_metadata="dummy1"),
-            optimization_config=self.oc,
-        )
+        exp2 = get_multi_type_experiment()
+
+        # Should be equal to start
+        self.assertTrue(self.experiment == exp2)
 
         self.experiment.add_tracking_metric(
-            BraninMetric("m2", ["x2", "x1"]), trial_type="type1", canonical_name="m3"
+            BraninMetric("m3", ["x2", "x1"]), trial_type="type1", canonical_name="m4"
         )
 
-        # Test different metrics
+        # Test different set of metrics
         self.assertFalse(self.experiment == exp2)
 
         exp2.add_tracking_metric(
-            BraninMetric("m2", ["x2", "x1"]), trial_type="type1", canonical_name="m4"
+            BraninMetric("m3", ["x2", "x1"]), trial_type="type1", canonical_name="m5"
         )
 
-        # Test different metrics
+        # Test different metric definitions
         self.assertFalse(self.experiment == exp2)
 
         exp2.update_tracking_metric(
-            BraninMetric("m2", ["x2", "x1"]), trial_type="type1", canonical_name="m3"
+            BraninMetric("m3", ["x2", "x1"]), trial_type="type1", canonical_name="m4"
         )
 
         # Should be the same
         self.assertTrue(self.experiment == exp2)
 
-        exp2.remove_tracking_metric("m2")
+        exp2.remove_tracking_metric("m3")
         self.assertFalse(self.experiment == exp2)
 
     def testBadBehavior(self):
-        # Add batch type that already exists
+        # Add trial type that already exists
         with self.assertRaises(ValueError):
             self.experiment.add_trial_type("type1", SyntheticRunner())
 
-        # Update runner for non-existent batch type
+        # Update runner for non-existent trial type
         with self.assertRaises(ValueError):
-            self.experiment.update_runner("type2", SyntheticRunner())
+            self.experiment.update_runner("type3", SyntheticRunner())
 
         # Add metric for trial_type that doesn't exist
         with self.assertRaises(ValueError):
             self.experiment.add_tracking_metric(
-                BraninMetric("m2", ["x1", "x2"]), "type2"
+                BraninMetric("m2", ["x1", "x2"]), "type3"
             )
 
         # Try to remove metric that doesn't exist
         with self.assertRaises(ValueError):
-            self.experiment.remove_tracking_metric("m2")
+            self.experiment.remove_tracking_metric("m3")
 
-        # Try to change optimization metric to non-primary batch type
-        self.experiment.add_trial_type("type2", SyntheticRunner())
+        # Try to change optimization metric to non-primary trial type
         with self.assertRaises(ValueError):
             self.experiment.update_tracking_metric(
                 BraninMetric("m1", ["x1", "x2"]), "type2"
             )
 
         # Update metric definition for trial_type that doesn't exist
-        self.experiment.add_tracking_metric(BraninMetric("m2", ["x1", "x2"]), "type2")
         with self.assertRaises(ValueError):
             self.experiment.update_tracking_metric(
                 BraninMetric("m2", ["x1", "x2"]), "type3"
@@ -147,6 +124,10 @@ class MultiTypeExperimentTest(TestCase):
 
         # Try to get runner for trial_type that's not supported
         batch = self.experiment.new_batch_trial()
-        batch._trial_type = "type3"  # Force override batch type
+        batch._trial_type = "type3"  # Force override trial type
         with self.assertRaises(ValueError):
             self.experiment.runner_for_trial(batch)
+
+        # Try making trial with unsupported trial type
+        with self.assertRaises(ValueError):
+            self.experiment.new_batch_trial(trial_type="type3")
