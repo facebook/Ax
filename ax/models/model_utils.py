@@ -166,7 +166,9 @@ def check_param_constraints(
         - Flag that is True if all constraints are satisfied by the point.
         - Indices of constraints which are violated by the point.
     """
-    constraints_satisfied = linear_constraints[0] @ point.T <= linear_constraints[1]
+    constraints_satisfied = (
+        linear_constraints[0] @ np.expand_dims(point, axis=1) <= linear_constraints[1]
+    )
     if np.all(constraints_satisfied):
         return True, np.array([])
     else:
