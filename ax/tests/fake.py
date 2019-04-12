@@ -39,6 +39,7 @@ from ax.core.types import (
 )
 from ax.metrics.branin import BraninMetric
 from ax.metrics.factorial import FactorialMetric
+from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.factory import get_factorial, get_sobol
 from ax.runners.synthetic import SyntheticRunner
 
@@ -308,6 +309,10 @@ def get_metric() -> Metric:
 
 def get_branin_metric() -> BraninMetric:
     return BraninMetric(name="branin", param_names=["x1", "x2"], noise_sd=0.01)
+
+
+def get_hartmann_metric() -> Hartmann6Metric:
+    return Hartmann6Metric(name="hartmann", param_names=["x1", "x2"], noise_sd=0.01)
 
 
 def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:

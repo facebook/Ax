@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-import inspect
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
@@ -39,7 +37,12 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.storage.utils import (
+    DomainType,
+    MetricIntent,
+    ParameterConstraintType,
+    get_object_properties,
+)
 from ax.utils.common.typeutils import not_none
 
 
@@ -229,33 +232,6 @@ class Encoder:
         ]
         return parameters, parameter_constraints
 
-    def get_properties(
-        self, object: Base, exclude_fields: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
-        """Given an Ax object, return a dictionary of the attributes that are
-        needed by its constructor, and which we therefore need to store
-        in the properties blob in the DB.
-        """
-        properties = {}
-        exclude_args = ["self"] + (exclude_fields or [])
-        signature = inspect.signature(object.__class__.__init__)
-        for arg, info in signature.parameters.items():
-            if arg in exclude_args:
-                continue
-            try:
-                value = getattr(object, arg)
-            except AttributeError:
-                raise SQAEncodeError(
-                    f"{object.__class__} is missing a value for {arg}, "
-                    f"which is needed by its constructor."
-                )
-            if info.default == value:
-                # If the constructor has a default value for the arg, and the
-                # object's value is the default, we do not need to store it
-                continue
-            properties[arg] = value
-        return properties
-
     def get_metric_type_and_properties(
         self, metric: Metric
     ) -> Tuple[str, Dict[str, Any]]:
@@ -272,7 +248,7 @@ class Encoder:
 
         # name and lower_is_better are stored directly on the metric,
         # so we don't need to include these in the properties blob
-        properties = self.get_properties(
+        properties = get_object_properties(
             object=metric, exclude_fields=["name", "lower_is_better"]
         )
 
@@ -434,7 +410,7 @@ class Encoder:
                 "Cannot encode runner to SQLAlchemy because runner's "
                 "subclass is invalid."
             )  # pragma: no cover
-        properties = self.get_properties(object=runner)
+        properties = get_object_properties(object=runner)
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Runner]`.
         runner_class: SQARunner = self.config.class_to_sqa_class[Runner]

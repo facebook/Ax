@@ -25,12 +25,15 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
-from ax.metrics.branin import BraninMetric
+from ax.metrics.branin import BraninMetric, NegativeBraninMetric
+from ax.metrics.factorial import FactorialMetric
+from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.metrics.l2norm import L2NormMetric
+from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.json_store.encoders import (
     arm_to_dict,
     batch_to_dict,
-    branin_metric_to_dict,
     choice_parameter_to_dict,
     data_to_dict,
     experiment_to_dict,
@@ -43,10 +46,10 @@ from ax.storage.json_store.encoders import (
     outcome_constraint_to_dict,
     parameter_constraint_to_dict,
     range_parameter_to_dict,
+    runner_to_dict,
     search_space_to_dict,
     simple_experiment_to_dict,
     sum_parameter_constraint_to_dict,
-    synthetic_runner_to_dict,
     trial_to_dict,
 )
 from ax.storage.utils import DomainType, ParameterConstraintType
@@ -55,45 +58,54 @@ from ax.storage.utils import DomainType, ParameterConstraintType
 ENCODER_REGISTRY = {
     Arm: arm_to_dict,
     BatchTrial: batch_to_dict,
-    BraninMetric: branin_metric_to_dict,
+    BraninMetric: metric_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
     Experiment: experiment_to_dict,
+    FactorialMetric: metric_to_dict,
     FixedParameter: fixed_parameter_to_dict,
     GeneratorRun: generator_run_to_dict,
+    Hartmann6Metric: metric_to_dict,
+    L2NormMetric: metric_to_dict,
     Metric: metric_to_dict,
+    NegativeBraninMetric: metric_to_dict,
+    NoisyFunctionMetric: metric_to_dict,
     Objective: objective_to_dict,
     OptimizationConfig: optimization_config_to_dict,
-    OutcomeConstraint: outcome_constraint_to_dict,
     OrderConstraint: order_parameter_constraint_to_dict,
+    OutcomeConstraint: outcome_constraint_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
     RangeParameter: range_parameter_to_dict,
     SearchSpace: search_space_to_dict,
     SimpleExperiment: simple_experiment_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
-    SyntheticRunner: synthetic_runner_to_dict,
+    SyntheticRunner: runner_to_dict,
     Trial: trial_to_dict,
 }
 
 DECODER_REGISTRY = {
-    "Arm": Arm,
     "AbandonedArm": AbandonedArm,
+    "Arm": Arm,
     "BatchTrial": BatchTrial,
-    "TrialStatus": TrialStatus,
     "BraninMetric": BraninMetric,
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
     "Data": Data,
     "DomainType": DomainType,
     "Experiment": Experiment,
+    "FactorialMetric": FactorialMetric,
     "FixedParameter": FixedParameter,
     "GeneratorRun": GeneratorRun,
     "GeneratorRunStruct": GeneratorRunStruct,
+    "Hartmann6Metric": Hartmann6Metric,
+    "L2NormMetric": L2NormMetric,
     "Metric": Metric,
+    "NegativeBraninMetric": NegativeBraninMetric,
+    "NoisyFunctionMetric": NoisyFunctionMetric,
     "Objective": Objective,
     "OptimizationConfig": OptimizationConfig,
-    "OutcomeConstraint": OutcomeConstraint,
     "OrderConstraint": OrderConstraint,
+    "OutcomeConstraint": OutcomeConstraint,
     "ParameterConstraint": ParameterConstraint,
     "ParameterConstraintType": ParameterConstraintType,
     "ParameterType": ParameterType,
@@ -103,4 +115,5 @@ DECODER_REGISTRY = {
     "SumConstraint": SumConstraint,
     "SyntheticRunner": SyntheticRunner,
     "Trial": Trial,
+    "TrialStatus": TrialStatus,
 }

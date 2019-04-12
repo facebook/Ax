@@ -22,6 +22,7 @@ from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
+from ax.storage.utils import get_object_properties
 
 
 def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
@@ -176,11 +177,9 @@ def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:
 
 def metric_to_dict(metric: Metric) -> Dict[str, Any]:
     """Convert Ax metric to a dictionary."""
-    return {
-        "__type": metric.__class__.__name__,
-        "name": metric.name,
-        "lower_is_better": metric.lower_is_better,
-    }
+    properties = get_object_properties(object=metric)
+    properties["__type"] = metric.__class__.__name__
+    return properties
 
 
 def objective_to_dict(objective: Objective) -> Dict[str, Any]:
@@ -232,21 +231,11 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
     }
 
 
-def synthetic_runner_to_dict(runner: SyntheticRunner) -> Dict[str, Any]:
+def runner_to_dict(runner: SyntheticRunner) -> Dict[str, Any]:
     """Convert Ax synthetic runner to a dictionary."""
-    return {"__type": runner.__class__.__name__}
-
-
-# TODO this should be generalized to handle arbitrary subclasses of SyntheticMetric
-def branin_metric_to_dict(metric: BraninMetric) -> Dict[str, Any]:
-    """Convert Ax Branin metric to a dictionary."""
-    return {
-        "__type": metric.__class__.__name__,
-        "name": metric.name,
-        "param_names": metric.param_names,
-        "noise_sd": metric.noise_sd,
-        "lower_is_better": metric.lower_is_better,
-    }
+    properties = get_object_properties(object=runner)
+    properties["__type"] = runner.__class__.__name__
+    return properties
 
 
 def data_to_dict(data: Data) -> Dict[str, Any]:

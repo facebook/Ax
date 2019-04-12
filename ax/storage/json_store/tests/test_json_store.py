@@ -3,6 +3,8 @@
 import os
 import tempfile
 
+from ax.core.metric import Metric
+from ax.core.runner import Runner
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.json_store.encoder import object_to_json
@@ -16,8 +18,10 @@ from ax.tests.fake import (
     get_choice_parameter,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_data,
+    get_factorial_metric,
     get_fixed_parameter,
     get_generator_run,
+    get_hartmann_metric,
     get_metric,
     get_objective,
     get_optimization_config,
@@ -29,6 +33,7 @@ from ax.tests.fake import (
     get_simple_experiment,
     get_sum_constraint1,
     get_sum_constraint2,
+    get_synthetic_runner,
     get_trial,
 )
 from ax.utils.common.testutils import TestCase
@@ -41,7 +46,9 @@ TEST_CASES = [
     ("Arm", get_arm),
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("Experiment", get_experiment_with_data),
+    ("FactorialMetric", get_factorial_metric),
     ("FixedParameter", get_fixed_parameter),
+    ("Hartmann6Metric", get_hartmann_metric),
     ("GeneratorRun", get_generator_run),
     ("Metric", get_metric),
     ("Objective", get_objective),
@@ -54,6 +61,7 @@ TEST_CASES = [
     ("SimpleExperiment", get_simple_experiment),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
+    ("SyntheticRunner", get_synthetic_runner),
     ("Trial", get_trial),
 ]
 
@@ -126,6 +134,14 @@ class JSONStoreTest(TestCase):
     def testEncoders(self):
         for class_, fake_func in TEST_CASES:
             original_object = fake_func()
+
+            # We can skip metrics and runners; the encoders will automatically
+            # handle the addition of new fields to these classes
+            if isinstance(original_object, Metric) or isinstance(
+                original_object, Runner
+            ):
+                continue
+
             json_object = object_to_json(original_object)
             object_keys = {
                 remove_prefix(key, "_") for key in original_object.__dict__.keys()

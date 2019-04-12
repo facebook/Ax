@@ -10,6 +10,7 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.runner import Runner
 from ax.core.types import ComparisonOp
 from ax.exceptions.storage import ImmutabilityError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
@@ -43,6 +44,7 @@ from ax.storage.utils import (
     DomainType,
     MetricIntent,
     ParameterConstraintType,
+    get_object_properties,
     remove_prefix,
 )
 from ax.tests.fake import (
@@ -186,6 +188,14 @@ class SQAStoreTest(TestCase):
     def testEncoders(self):
         for class_, fake_func, unbound_encode_func, _ in TEST_CASES:
             original_object = fake_func()
+
+            # We can skip metrics and runners; the encoders will automatically
+            # handle the addition of new fields to these classes
+            if isinstance(original_object, Metric) or isinstance(
+                original_object, Runner
+            ):
+                continue
+
             encode_func = unbound_encode_func.__get__(self.encoder)
             sqa_object = encode_func(original_object)
             if isinstance(
@@ -705,7 +715,7 @@ class SQAStoreTest(TestCase):
     def testMetricEncodeFailure(self):
         metric = get_branin_metric()
         del metric.__dict__["param_names"]
-        with self.assertRaises(SQAEncodeError):
+        with self.assertRaises(AttributeError):
             self.encoder.metric_to_sqa(metric)
 
     def testMetricDecodeFailure(self):
@@ -767,10 +777,8 @@ class SQAStoreTest(TestCase):
         save_experiment(self.experiment)
 
     def testGetProperties(self):
-        properties = self.encoder.get_properties(Metric(name="foo"))
+        properties = get_object_properties(Metric(name="foo"))
         self.assertEqual(properties, {"name": "foo"})
 
-        properties = self.encoder.get_properties(
-            Metric(name="foo", lower_is_better=True)
-        )
+        properties = get_object_properties(Metric(name="foo", lower_is_better=True))
         self.assertEqual(properties, {"name": "foo", "lower_is_better": True})

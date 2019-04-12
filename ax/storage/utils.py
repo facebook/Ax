@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
 import enum
-from typing import Dict, List, NamedTuple
+import inspect
+from typing import Any, Dict, List, NamedTuple, Optional
+
+from ax.core.base import Base
 
 
 class DomainType(enum.Enum):
@@ -42,3 +45,30 @@ def remove_prefix(text, prefix):
     if text.startswith(prefix):
         return text[len(prefix) :]
     return text
+
+
+def get_object_properties(
+    object: Base, exclude_fields: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """Given an Ax object, return a dictionary of the attributes that are
+    needed by its constructor, and which we therefore need to store.
+    """
+    properties = {}
+    exclude_args = ["self"] + (exclude_fields or [])
+    signature = inspect.signature(object.__class__.__init__)
+    for arg, info in signature.parameters.items():
+        if arg in exclude_args:
+            continue
+        try:
+            value = getattr(object, arg)
+        except AttributeError:
+            raise AttributeError(
+                f"{object.__class__} is missing a value for {arg}, "
+                f"which is needed by its constructor."
+            )
+        if info.default == value:
+            # If the constructor has a default value for the arg, and the
+            # object's value is the default, we do not need to store it
+            continue
+        properties[arg] = value
+    return properties

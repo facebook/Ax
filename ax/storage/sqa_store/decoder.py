@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.base import Base
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.data import Data
@@ -263,7 +264,7 @@ class Decoder:
         )
 
     def get_init_args_from_properties(
-        self, object_sqa: SQABase, class_: SQABase
+        self, object_sqa: SQABase, class_: Base
     ) -> Dict[str, Any]:
         """Given a SQAAlchemy instance with a properties blob, extract the
         arguments required for its class's initializer.

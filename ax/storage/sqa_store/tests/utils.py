@@ -14,9 +14,11 @@ from ax.tests.fake import (
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_batch_trial,
     get_experiment_with_data,
+    get_factorial_metric,
     get_fixed_parameter,
     get_generator_run,
     get_generator_run2,
+    get_hartmann_metric,
     get_metric,
     get_objective,
     get_order_constraint,
@@ -84,6 +86,12 @@ TEST_CASES = [
         Decoder.parameter_from_sqa,
     ),
     (
+        "FactorialMetric",
+        get_factorial_metric,
+        Encoder.metric_to_sqa,
+        Decoder.metric_from_sqa,
+    ),
+    (
         "GeneratorRun",
         get_generator_run,
         Encoder.generator_run_to_sqa,
@@ -94,6 +102,12 @@ TEST_CASES = [
         get_generator_run2,
         Encoder.generator_run_to_sqa,
         Decoder.generator_run_from_sqa,
+    ),
+    (
+        "HartmannMetric",
+        get_hartmann_metric,
+        Encoder.metric_to_sqa,
+        Decoder.metric_from_sqa,
     ),
     (
         "OrderConstraint",
@@ -166,18 +180,6 @@ ENCODE_DECODE_FIELD_MAPS = {
         },
         python_only=["experiment", "status_quo", "status_quo_weight"],
         encoded_only=["is_batch", "status_quo_name"],
-    ),
-    "BraninMetric": EncodeDecodeFieldsMap(
-        python_only=["param_names", "noise_sd"],
-        encoded_only=[
-            "intent",
-            "properties",
-            "metric_type",
-            "minimize",
-            "op",
-            "bound",
-            "relative",
-        ],
     ),
     "BraninObjective": EncodeDecodeFieldsMap(
         python_only=["metric"],
@@ -256,17 +258,6 @@ ENCODE_DECODE_FIELD_MAPS = {
             "best_arm_predictions",
         ],
     ),
-    "Metric": EncodeDecodeFieldsMap(
-        encoded_only=[
-            "intent",
-            "properties",
-            "metric_type",
-            "op",
-            "relative",
-            "bound",
-            "minimize",
-        ]
-    ),
     "Objective": EncodeDecodeFieldsMap(
         python_only=["metric"],
         encoded_only=[
@@ -324,9 +315,6 @@ ENCODE_DECODE_FIELD_MAPS = {
     ),
     "SumConstraint": EncodeDecodeFieldsMap(
         python_only=["parameter_names", "is_upper_bound"], encoded_only=["type"]
-    ),
-    "SyntheticRunner": EncodeDecodeFieldsMap(
-        encoded_only=["runner_type", "properties"], python_only=["dummy_metadata"]
     ),
     "Trial": EncodeDecodeFieldsMap(
         python_to_encoded={
