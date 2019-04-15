@@ -5,4 +5,57 @@ title: Runner
 
 ## Function Evaluation in Ax
 
-## Adding Your Own Runner Config
+There are 2 paradigms for evaluating trials:
+
+### Synchronous
+
+In the synchronous paradigm, the user specifies an evaluation function which takes in parameters and outputs metric outcomes. This use case is well supported by the ```SimpleExperiment``` class.
+
+### Asynchronous
+
+In the asynchronous paradigm, the trial is first deployed and the data is fetched at a later time. This is useful when evaluation happens on an external system and takes a long time to complete, such as for A/B tests. This is supported by the ```Experiment``` class. In this paradigm, the user specifies:
+  * Runner: Defines how to deploy the experiment.
+  * List of metrics: Each defining how to compute/fetch data for a given metric.
+
+A default runner is specified on the experiment, which is attached to each trial right before deployment. Runners can also be manually added to a trial to override the experiment default.
+
+## Adding Your Own Runner
+
+An example implementation is given below:
+
+```python
+from foo_system import deploy_to_foo
+from ae.core.runner import Runner
+from ae.core.base_trial import BaseTrial
+
+class FooRunner(Runner):
+    def __init__(self, foo_param: string) -> None:
+        self.foo_param = foo_param
+
+    # run_metadata output should contain any necessary tracking
+    # info to fetch data later from this external system.
+    #
+    # Any unique identifier/name for this trial in the external system
+    # should be stored with the key "name" in the run_metadata.
+    def run(self, trial) -> Dict[str, Any]:
+        name_to_params = {
+            arm.name: arm.params for arm in trial.arms
+        }
+        run_metadata = deploy_to_foo(foo_param, name_to_params)
+        return run_metadata
+
+    # Whether the trial requires an intermediate staging period
+    # before evaluation begins
+    def staging_required(self) -> bool:
+        return False
+
+This is then invoked by calling
+
+exp = Experiment(...)
+exp.runner = FooRunner(foo_param="foofoofoo")
+trial = exp.new_batch_trial()
+
+# This calls runner's run method and stores metadata output
+# in trial.run_metadata fiels
+trial.run()
+```
