@@ -199,4 +199,4 @@ def _get_model(
             train_Yvar=Yvar.view(-1),
             task_feature=task_feature,
         )
-    return gp.to(X)  # pyre-ignore: [7]
+    return gp

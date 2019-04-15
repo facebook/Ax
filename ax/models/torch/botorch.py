@@ -337,8 +337,8 @@ class BotorchModel(TorchModel):
             model = deepcopy(self.model)
             model.reinitialize(  # pyre-ignore: [16]
                 train_Xs=Xs_train,
-                train_Ys=Ys_train,
-                train_Yvars=Yvars_train,
+                train_Ys=[Y.view(-1) for Y in Ys_train],
+                train_Yvars=[Yvar.view(-1) for Yvar in Yvars_train],
                 keep_params=True,
             )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
