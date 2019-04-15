@@ -17,7 +17,7 @@ from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.models import Model
+from botorch.models.model import Model
 from torch import Tensor
 
 

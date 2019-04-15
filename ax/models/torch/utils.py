@@ -5,12 +5,12 @@ from typing import Dict, List, Optional, Tuple
 import torch
 from ax.exceptions.model import ModelError
 from ax.models.model_utils import filter_constraints_and_fixed_features, get_observed
-from botorch.models import Model, MultiOutputGP
-from botorch.models.gp_regression import SingleTaskGP
+from botorch.models import MultiOutputGP, SingleTaskGP
+from botorch.models.model import Model
 from torch import Tensor
 
 
-NOISELESS_MODELS = {SingleTaskGP}
+NOISELESS_MODELS = {SingleTaskGP}  # pyre-ignore [16]
 
 
 def is_noiseless(model: Model) -> bool:
