@@ -60,11 +60,11 @@ class TrialAsTask(Transform):
             # Validate
             for _p_name, level_dict in self.trial_level_map.items():
                 # Check that trials match those in data
-                b1 = set(level_dict.keys())
-                if b1 != trials:
+                level_map = set(level_dict.keys())
+                if not trials.issubset(level_map):
                     raise ValueError(
-                        f"trials in data ({trials}) do not match those "
-                        "in trial level map for {_p_name} ({b1})"
+                        f"Not all trials in data ({trials}) contained "
+                        f"in trial level map for {_p_name} ({level_map})"
                     )
         else:
             self.trial_level_map = {BATCH_PARAM: {int(b): str(b) for b in trials}}

@@ -52,20 +52,20 @@ class NoisyFunctionMetric(Metric):
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
     ) -> Data:
         noise_sd = self.noise_sd if noisy else 0.0
-        arm_name = []
+        arm_names = []
         mean = []
         for name, arm in trial.arms_by_name.items():
-            arm_name.append(name)
+            arm_names.append(name)
             x = np.array([arm.params[p] for p in self.param_names])
             mean.append(self.f(x) + np.random.randn() * noise_sd)
         df = pd.DataFrame(
             {
-                "arm_name": arm_name,
+                "arm_name": arm_names,
                 "metric_name": self.name,
                 "mean": mean,
                 "sem": noise_sd,
                 "trial_index": trial.index,
-                "n": 10000 / len(arm_name),
+                "n": 10000 / len(arm_names),
                 "frac_nonnull": mean,
             }
         )

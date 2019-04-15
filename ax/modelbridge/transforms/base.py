@@ -47,6 +47,7 @@ class Transform:
         self.config = config
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+        """Transform search_space as needed to do modeling."""
         return search_space
 
     def transform_optimization_config(
@@ -55,11 +56,13 @@ class Transform:
         modelbridge: Optional["modelbridge_module.base.ModelBridge"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
+        """Transform optimization_config as needed to do modeling."""
         return optimization_config
 
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
+        """Transform observation_features as needed to do modeling."""
         return observation_features
 
     def transform_observation_data(
@@ -67,11 +70,13 @@ class Transform:
         observation_data: List[ObservationData],
         observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
+        """Transform observation_data as needed to do modeling."""
         return observation_data
 
     def untransform_observation_features(
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
+        """Transform observation_features used for modeling back to the original."""
         return observation_features
 
     def untransform_observation_data(
@@ -79,4 +84,5 @@ class Transform:
         observation_data: List[ObservationData],
         observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
+        """Transform observation_data used for modeling back to the original."""
         return observation_data

@@ -5,11 +5,17 @@ from typing import Any, Dict, List, Optional, Type, Union
 import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.discrete import DiscreteModelBridge
+from ax.modelbridge.numpy import NumpyModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.convert_metric_names import (
+    ConvertMetricNames,
+    tconfig_from_mt_experiment,
+)
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.modelbridge.transforms.int_to_float import IntToFloat
@@ -20,11 +26,16 @@ from ax.modelbridge.transforms.ordered_choice_encode import OrderedChoiceEncode
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
+from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandardizeY
+from ax.modelbridge.transforms.task_encode import TaskEncode
+from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.models.discrete.ancillary_eb_thompson import AncillaryEBThompsonSampler
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
+from ax.models.numpy.gpy import GPyGP
+from ax.models.numpy_base import NumpyModel
 from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
@@ -60,6 +71,19 @@ Ancillary_EB_trans: List[Type[Transform]] = Discrete_X_trans + [
     IVW,
     Derelativize,
     SearchSpaceToChoice,
+]
+MTGP_trans: List[Type[Transform]] = [
+    RemoveFixed,
+    OrderedChoiceEncode,
+    OneHot,
+    IntToFloat,
+    Log,
+    UnitX,
+    Derelativize,
+    ConvertMetricNames,
+    TrialAsTask,
+    StratifiedStandardizeY,
+    TaskEncode,
 ]
 
 
@@ -148,6 +172,31 @@ def get_GPEI(
         search_space=search_space,
         dtype=dtype,
         device=device,
+    )
+
+
+def _get_mtgp_model() -> NumpyModel:
+    # Eventually move this off GPy
+    return GPyGP()
+
+
+def get_MTGP(
+    experiment: MultiTypeExperiment,
+    data: Data,
+    search_space: Optional[SearchSpace] = None,
+) -> NumpyModelBridge:
+    """Instantiates a Multi-task GP model that generates points with EI."""
+    trial_index_to_type = {t.index: t.trial_type for t in experiment.trials.values()}
+    return NumpyModelBridge(
+        experiment=experiment,
+        search_space=search_space or experiment.search_space,
+        data=data,
+        model=_get_mtgp_model(),
+        transforms=MTGP_trans,
+        transform_configs={
+            "TrialAsTask": {"trial_level_map": {"trial_type": trial_index_to_type}},
+            "ConvertMetricNames": tconfig_from_mt_experiment(experiment),
+        },
     )
 
 

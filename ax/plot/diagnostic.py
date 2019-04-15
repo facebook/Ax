@@ -6,8 +6,11 @@ import numpy as np
 import plotly.graph_objs as go
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
+from ax.core.experiment import Experiment
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.observation import Observation
 from ax.modelbridge.cross_validation import CVResult
+from ax.modelbridge.transforms.convert_metric_names import convert_mt_observations
 from ax.plot.base import (
     AxPlotConfig,
     AxPlotTypes,
@@ -522,6 +525,7 @@ def tile_cross_validation(
 
 def interact_batch_comparison(
     observations: List[Observation],
+    experiment: Experiment,
     batch_x: int,
     batch_y: int,
     rel: bool = False,
@@ -536,6 +540,8 @@ def interact_batch_comparison(
         rel: Whether to relativize data against status_quo arm.
         status_quo_name: Name of the status_quo arm.
     """
+    if isinstance(experiment, MultiTypeExperiment):
+        observations = convert_mt_observations(observations, experiment)
     plot_data = _get_batch_comparison_plot_data(
         observations, batch_x, batch_y, rel=rel, status_quo_name=status_quo_name
     )

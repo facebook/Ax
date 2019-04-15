@@ -6,10 +6,12 @@ from ax.modelbridge.factory import (
     get_empirical_bayes_thompson,
     get_factorial,
     get_GPEI,
+    get_MTGP,
     get_sobol,
     get_thompson,
     get_uniform,
 )
+from ax.modelbridge.numpy import NumpyModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.ancillary_eb_thompson import AncillaryEBThompsonSampler
@@ -19,6 +21,7 @@ from ax.tests.fake import (
     get_branin_experiment,
     get_branin_optimization_config,
     get_factorial_experiment,
+    get_multi_type_experiment,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -41,6 +44,12 @@ class ModelBridgeFactoryTest(TestCase):
             experiment=exp, data=exp.fetch_data(), search_space=exp.search_space
         )
         self.assertIsInstance(gpei, TorchModelBridge)
+
+    def test_MTGP(self):
+        """Tests MTGP instantiation."""
+        exp = get_multi_type_experiment(add_trials=True)
+        mtgp = get_MTGP(experiment=exp, data=exp.fetch_data())
+        self.assertIsInstance(mtgp, NumpyModelBridge)
 
     def test_model_kwargs(self):
         """Tests that model kwargs are passed correctly."""
