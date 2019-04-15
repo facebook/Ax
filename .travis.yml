@@ -16,8 +16,6 @@ matrix:
       python: "3.6"
       install:
         - pip install cython numpy
-        # temporarily use specific version of gpytorch
-        - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@eb96db228b9a1aeb8314ec1d8bc448d11d4cc46c
         - pip install git+ssh://git@github.com/facebookexternal/botorch.git
         - pip install -q -e .[dev,mysql,notebook,gpy]
       script:
@@ -29,8 +27,6 @@ matrix:
       dist: xenial
       install:
         - pip install cython numpy
-        # temporarily use specific version of gpytorch
-        - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@eb96db228b9a1aeb8314ec1d8bc448d11d4cc46c
         - pip install git+ssh://git@github.com/facebookexternal/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
       script:
@@ -52,8 +48,6 @@ matrix:
       python: "3.6"
       install:
         - pip install cython numpy
-        # temporarily use specific version of gpytorch
-        - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@eb96db228b9a1aeb8314ec1d8bc448d11d4cc46c
         - pip install git+ssh://git@github.com/facebookexternal/botorch.git
         - pip install -q -e .[dev,mysql,notebook,gpy]
       script:
