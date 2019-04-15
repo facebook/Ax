@@ -693,3 +693,48 @@ def estimate_aggregated_moments_normal(
     overall_vr = E_vr + vr_E
     overall_sem = np.sqrt(overall_vr / np.sum(ns))
     return overall_mn, overall_sem
+
+
+def marginal_effects(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    This method calculates the relative (in %) change in the outcome achieved
+    by using any individual factor level versus randomizing across all factor
+    levels. It does this by estimating a baseline under the experiment by
+    marginalizing over all factors/levels. For each factor level, then,
+    it conditions on that level for the individual factor and then marginalizes
+    over all levels for all other factors.
+
+    Args:
+        df: Dataframe containing columns named mean and sem. All other columns
+            are assumed to be factors for which to calculate marginal effects.
+
+    Returns:
+        A dataframe containing columns "Name", "Level", "Beta" and "SE"
+            corresponding to the factor, level, effect and standard error.
+            Results are relativized as percentage changes.
+    """
+    covariates = [col for col in df.columns if col not in ["mean", "sem"]]
+    formatted_vals = []
+    overall_mean, overall_sem = inverse_variance_weight(
+        df["mean"], np.power(df["sem"], 2)
+    )
+    for cov in covariates:
+        if len(df[cov].unique()) <= 1:
+            next
+        df_gb = df.groupby(cov)
+        for name, group_df in df_gb:
+            group_mean, group_var = inverse_variance_weight(
+                group_df["mean"], np.power(group_df["sem"], 2)
+            )
+            effect, effect_sem = relativize(
+                group_mean,
+                np.sqrt(group_var),
+                overall_mean,
+                overall_sem,
+                cov_means=0.0,
+                as_percent=True,
+            )
+            formatted_vals.append(
+                {"Name": cov, "Level": name, "Beta": effect, "SE": effect_sem}
+            )
+    return pd.DataFrame(formatted_vals)[["Name", "Level", "Beta", "SE"]]

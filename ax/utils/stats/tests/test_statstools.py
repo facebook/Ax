@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import pandas as pd
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import benjamini_hochberg, inverse_variance_weight
+from ax.utils.stats.statstools import (
+    benjamini_hochberg,
+    inverse_variance_weight,
+    marginal_effects,
+)
 
 
 class BenjaminiHochbergTest(TestCase):
@@ -55,3 +60,18 @@ class InverseVarianceWeightingTest(TestCase):
 
         with self.assertRaises(ValueError):
             inverse_variance_weight(means, variances, conflicting_noiseless="raise")
+
+
+class MarginalEffectsTest(TestCase):
+    def test_marginal_effects(self):
+        df = pd.DataFrame(
+            {
+                "mean": [1, 2, 3, 4],
+                "sem": [0.1, 0.1, 0.1, 0.1],
+                "factor_1": ["a", "a", "b", "b"],
+                "factor_2": ["A", "B", "A", "B"],
+            }
+        )
+        fx = marginal_effects(df)
+        self.assertTrue(np.allclose(fx["Beta"].values, [-40, 40, -20, 20], atol=1e-3))
+        self.assertTrue(np.allclose(fx["SE"].values, [2.83] * 4, atol=1e-2))
