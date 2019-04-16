@@ -209,13 +209,16 @@ class SQABase:
 
     def update(self, other: "SQABase") -> None:
         """Merge `other` into `self.`"""
-        immutable_fields = set(
-            getattr(self, "immutable_fields", []) + ["id", "_sa_instance_state"]
+        ignore_during_update_fields = set(
+            getattr(self, "ignore_during_update_fields", [])
+            + ["id", "_sa_instance_state"]
         )
+        immutable_fields = set(getattr(self, "immutable_fields", []))
         self.validate_update(other)
         for field in self.attributes:
             if (
                 field in immutable_fields
+                or field in ignore_during_update_fields
                 # We don't want to update foreign key fields, e.g. experiment_id.
                 # The new object will always have a value of None for this field,
                 # but we don't want to overwrite the value on the existing object.
