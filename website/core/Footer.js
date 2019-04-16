@@ -49,7 +49,7 @@ class Footer extends React.Component {
             <a href={`${this.props.config.baseUrl}api/`}>
               API Reference
             </a>
-            <a href={this.docUrl('ab.html')}>
+            <a href={this.docUrl('applications.html')}>
               Applications
             </a>
           </div>

@@ -1,8 +1,8 @@
 {
-  "Bandits": [
+  "Introduction": [
     {
-      "id": "factorial",
-      "title": "Factorial"
+      "id": "building_blocks",
+      "title": "Building Blocks of Ax"
     }
   ],
   "BayesOpt": [
@@ -11,22 +11,36 @@
       "title": "GP-EI for CNN"
     },
     {
-      "id": "gpei_svm",
-      "title": "GP-EI for SVM"
-    },
-    {
-      "id": "gpei_synthetic",
-      "title": "GP-EI for Branin"
+      "id": "multi_task",
+      "title": "Multi-Task Modeling"
     },
     {
       "id": "benchmarking_suite_example",
       "title": "Benchmarking Suite"
     }
   ],
-  "Service API": [
+  "Field Experiments": [
+    {
+      "id": "factorial",
+      "title": "Bandit Optimization"
+    },
+    {
+      "id": "human_loop",
+      "title": "Human-in-the-Loop Optimization"
+    }
+  ],
+  "API Comparison": [
+    {
+      "id": "managed_loop",
+      "title": "Loop API"
+    },
     {
       "id": "service_api",
       "title": "Service API and AxClient"
+    },
+    {
+      "id": "gpei_synthetic",
+      "title": "Developer API"
     }
   ]
 }
