@@ -9,7 +9,33 @@ There are 2 paradigms for evaluating trials:
 
 ### Synchronous
 
-In the synchronous paradigm, the user specifies an evaluation function which takes in parameters and outputs metric outcomes. This use case is well supported by the ```SimpleExperiment``` class.
+In the synchronous paradigm, the user specifies an evaluation function which takes in parameters and outputs metric outcomes. This use case is supported by the ```SimpleExperiment``` class:
+
+```python
+from ax.api import SimpleExperiment, SearchSpace, RangeParameter
+
+def dummy_evaluation_function(
+    parameterization, # dict of parameter names to values of those parameters
+    weight=None, # evaluation function signature requires a weight argument
+):
+    # given parameterization, compute a value for each metric
+    x = parameterization["x"]
+    y = parameterization["y"]
+    objective_val = f(x, y)
+    return {"objective": objective_val}
+
+exp = SimpleExperiment(
+    name="simple_experiment",
+    search_space=SearchSpace(
+      parameters=[
+        RangeParameter("x", ...),
+        RangeParameter("y", ...)
+      ]
+    ),
+    evaluation_function=dummy_evaluation_function,
+    objective_name="objective",
+)
+```
 
 ### Asynchronous
 
@@ -20,6 +46,12 @@ In the asynchronous paradigm, the trial is first deployed and the data is fetche
 A default runner is specified on the experiment, which is attached to each trial right before deployment. Runners can also be manually added to a trial to override the experiment default.
 
 ## Adding Your Own Runner
+
+To add your own runner, subclass `Runner` and implement the `run` method and `staging_required` property.
+
+The `run` method accepts a Trial and returns a JSON-serializable dictionary of any necessary tracking info to fetch data later from this external system. A unique identifier or name for this trial in the external system should be stored in this dictionary with the key "name", can then be accessed via trial.deployed_name.
+
+The `staging_required` indicates whether the trial requires an intermediate staging period before evaluation begins. This property returns False by default.
 
 An example implementation is given below:
 
@@ -32,11 +64,6 @@ class FooRunner(Runner):
     def __init__(self, foo_param: string) -> None:
         self.foo_param = foo_param
 
-    # run_metadata output should contain any necessary tracking
-    # info to fetch data later from this external system.
-    #
-    # Any unique identifier/name for this trial in the external system
-    # should be stored with the key "name" in the run_metadata.
     def run(self, trial) -> Dict[str, Any]:
         name_to_params = {
             arm.name: arm.params for arm in trial.arms
@@ -44,18 +71,19 @@ class FooRunner(Runner):
         run_metadata = deploy_to_foo(foo_param, name_to_params)
         return run_metadata
 
-    # Whether the trial requires an intermediate staging period
-    # before evaluation begins
+    @property
     def staging_required(self) -> bool:
         return False
+```
 
-This is then invoked by calling
+This is then invoked by calling:
 
+```python
 exp = Experiment(...)
-exp.runner = FooRunner(foo_param="foofoofoo")
+exp.runner = FooRunner(foo_param="foo")
 trial = exp.new_batch_trial()
 
 # This calls runner's run method and stores metadata output
-# in trial.run_metadata fiels
+# in the trial.run_metadata field
 trial.run()
 ```
