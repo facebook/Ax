@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from ax.utils.common.testutils import TestCase
-from ax.utils.render.render import (
+from ax.utils.report.render import (
     h2_html,
     h3_html,
     list_item_html,

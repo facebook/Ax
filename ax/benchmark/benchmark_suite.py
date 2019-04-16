@@ -23,7 +23,7 @@ from ax.plot.trace import (
     optimization_trace_all_methods,
     optimization_trace_single_method,
 )
-from ax.utils.render.render import h2_html, h3_html, p_html, render_report_elements
+from ax.utils.report.render import h2_html, h3_html, p_html, render_report_elements
 
 
 BOStrategies: List[GenerationStrategy] = [
