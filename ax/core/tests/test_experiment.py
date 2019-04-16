@@ -163,21 +163,25 @@ class ExperimentTest(TestCase):
         self.experiment.status_quo = Arm({n: None for n in sq_params.keys()})
         self.assertIsNone(self.experiment.status_quo.params["w"])
 
-        # Try extra param
-        sq_params["a"] = 4
-        with self.assertRaises(ValueError):
-            self.experiment.status_quo = Arm(sq_params)
-
         # Try wrong type
-        sq_params.pop("a")
         sq_params["w"] = "hello"
         with self.assertRaises(ValueError):
             self.experiment.status_quo = Arm(sq_params)
 
-        # Try missing param
-        sq_params.pop("w")
-        with self.assertRaises(ValueError):
-            self.experiment.status_quo = Arm(sq_params)
+        # Verify arms_by_signature only contains status_quo
+        self.assertEqual(len(self.experiment.arms_by_signature), 1)
+
+        # Change status quo, verify still just 1 arm
+        sq_params["w"] = 3.6
+        self.experiment.status_quo = Arm(sq_params)
+        self.assertEqual(len(self.experiment.arms_by_signature), 1)
+
+        # Make a batch, then change exp status quo, verify 2 arms
+        self.experiment.new_batch_trial()
+        sq_params["w"] = 3.7
+        self.experiment.status_quo = Arm(sq_params)
+        self.assertEqual(len(self.experiment.arms_by_signature), 2)
+        self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
 
         # Actually name the status quo.
         exp = Experiment(

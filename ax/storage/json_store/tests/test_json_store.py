@@ -73,12 +73,15 @@ TEST_CASES = [
 #    (because the name used by JSON is the name used by the constructor,
 #    might not be the same used by the attribute)
 ENCODE_DECODE_FIELD_MAPS = {
+    "Experiment": EncodeDecodeFieldsMap(python_only=["arms_by_signature"]),
     "BatchTrial": EncodeDecodeFieldsMap(python_only=["experiment"]),
     "GeneratorRun": EncodeDecodeFieldsMap(
         encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
     ),
     "OrderConstraint": EncodeDecodeFieldsMap(python_only=["bound"]),
-    "SimpleExperiment": EncodeDecodeFieldsMap(python_only=["evaluation_function"]),
+    "SimpleExperiment": EncodeDecodeFieldsMap(
+        python_only=["arms_by_signature", "evaluation_function"]
+    ),
     "SumConstraint": EncodeDecodeFieldsMap(python_only=["constraint_dict"]),
     "Trial": EncodeDecodeFieldsMap(python_only=["experiment"]),
 }

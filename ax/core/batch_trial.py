@@ -219,19 +219,9 @@ class BatchTrial(BaseTrial):
             self.experiment.search_space.check_types(
                 status_quo.params, raise_error=True
             )
-            # If status_quo is identical to an existing arm, set to that
-            # so that the names match.
-            if status_quo.signature in self.experiment.arms_by_signature:
-                existing_status_quo = self.experiment.arms_by_signature[
-                    status_quo.signature
-                ]
-                if status_quo.has_name and status_quo.name != existing_status_quo.name:
-                    raise ValueError(
-                        f"Arm already exists with name {existing_status_quo.name}."
-                    )
-                status_quo = existing_status_quo
-            if not status_quo.has_name:
-                status_quo.name = "status_quo_" + str(self.index)
+            self.experiment._name_and_store_arm_if_not_exists(
+                arm=status_quo, proposed_name="status_quo_" + str(self.index)
+            )
         self._status_quo = status_quo
         self.reweight_status_quo(weight)
         return self

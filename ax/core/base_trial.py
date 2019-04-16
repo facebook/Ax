@@ -237,20 +237,12 @@ class BaseTrial(ABC, Base):
         """Sets name for given arm; if this arm is already in the
         experiment, uses the existing arm name.
         """
-        existing_arm = self._experiment.arms_by_signature.get(arm.signature)
-        if existing_arm is not None:
-            if arm.has_name:
-                # if the new arm has a name set, make sure it matches
-                # the existing one
-                if arm.name != existing_arm.name:
-                    raise ValueError(
-                        "One of the arms being added is the same as "
-                        "an existing arm, but has a different name."
-                    )
-            else:
-                arm.name = existing_arm.name
-        else:
-            arm.name = f"{self.index}_{self._num_arms_created}"
+        proposed_name = f"{self.index}_{self._num_arms_created}"
+        self.experiment._name_and_store_arm_if_not_exists(
+            arm=arm, proposed_name=proposed_name
+        )
+        # If arm was named using given name, incremement the count
+        if arm.name == proposed_name:
             self._num_arms_created += 1
 
     @abstractproperty

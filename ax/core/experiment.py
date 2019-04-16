@@ -72,6 +72,7 @@ class Experiment(Base):
         self._tracking_metrics: Dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
+        self._arms_by_signature: Dict[str, Arm] = {}
 
         for metric in tracking_metrics or []:
             self.add_tracking_metric(metric)
@@ -143,25 +144,30 @@ class Experiment(Base):
 
     @status_quo.setter
     def status_quo(self, status_quo: Optional[Arm]) -> None:
-        if status_quo is None:
-            self._status_quo = None
-            return
+        if status_quo is not None:
+            self.search_space.check_types(status_quo.params, raise_error=True)
 
-        self.search_space.check_types(status_quo.params, raise_error=True)
-        existing_arm = self.arms_by_signature.get(status_quo.signature)
-        if existing_arm is not None:
-            if status_quo.has_name:
-                # if the new arm has a name set, make sure it matches
-                # the existing one
-                if status_quo.name != existing_arm.name:
-                    raise ValueError(
-                        "The status quo being added is the same as "
-                        "an existing arm, but has a different name."
-                    )
-            else:
-                status_quo.name = existing_arm.name
-        if not status_quo.has_name:
-            status_quo.name = "status_quo"
+            # Compute a unique name if "status_quo" is taken
+            name = "status_quo"
+            sq_idx = 0
+            arms_by_name = self.arms_by_name
+            while name in arms_by_name:
+                name = f"status_quo_e{sq_idx}"
+                sq_idx += 1
+
+            self._name_and_store_arm_if_not_exists(arm=status_quo, proposed_name=name)
+
+        # If old status_quo not present in any trials,
+        # remove from _arms_by_signature
+        if self._status_quo is not None:
+            persist_old_sq = False
+            for trial in self._trials.values():
+                if self._status_quo.name in trial.arms_by_name:
+                    persist_old_sq = True
+                    break
+            if not persist_old_sq:
+                self._arms_by_signature.pop(self._status_quo.signature)
+
         self._status_quo = status_quo
 
     @property
@@ -172,17 +178,12 @@ class Experiment(Base):
     @property
     def arms_by_name(self) -> Dict[str, Arm]:
         """The arms belonging to this experiment, by their name."""
-        arms_by_name = {}
-        for trial in self._trials.values():
-            arms_by_name.update(trial.arms_by_name)
-        if self.status_quo:
-            arms_by_name[self.status_quo.name] = self.status_quo
-        return arms_by_name
+        return {arm.name: arm for arm in self._arms_by_signature.values()}
 
     @property
     def arms_by_signature(self) -> Dict[str, Arm]:
         """The arms belonging to this experiment, by their signature."""
-        return {arm.signature: arm for arm in self.arms_by_name.values()}
+        return self._arms_by_signature
 
     @property
     def sum_trial_sizes(self) -> int:
@@ -465,6 +466,35 @@ class Experiment(Base):
         index = 0 if len(self._trials) == 0 else max(self._trials.keys()) + 1
         self._trials[index] = trial
         return index
+
+    def _name_and_store_arm_if_not_exists(self, arm: Arm, proposed_name: str) -> None:
+        """Tries to lookup arm with same signature, otherwise names and stores it.
+
+        - Looks up if arm already exists on experiment
+            - If so, name the input arm the same as the existing arm
+            - else name the arm with given name and store in _arms_by_signature
+
+        Args:
+            arm: The arm object to name.
+            proposed_name: The name to assign if it doesn't have one already.
+        """
+
+        # If arm is identical to an existing arm, return that
+        # so that the names match.
+        if arm.signature in self.arms_by_signature:
+            existing_arm = self.arms_by_signature[arm.signature]
+            if arm.has_name:
+                if arm.name != existing_arm.name:
+                    raise ValueError(
+                        f"Arm already exists with name {existing_arm.name}, "
+                        f"which doesn't match given arm name of {arm.name}."
+                    )
+            else:
+                arm.name = existing_arm.name
+        else:
+            if not arm.has_name:
+                arm.name = proposed_name
+            self._arms_by_signature[arm.signature] = arm
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + f"({self.name})"

@@ -224,7 +224,13 @@ ENCODE_DECODE_FIELD_MAPS = {
             "status_quo_name",
             "status_quo_parameters",
         ],
-        python_only=["search_space", "runner", "optimization_config", "status_quo"],
+        python_only=[
+            "arms_by_signature",
+            "search_space",
+            "runner",
+            "optimization_config",
+            "status_quo",
+        ],
         python_to_encoded={"data_by_trial": "data", "tracking_metrics": "metrics"},
     ),
     "FixedParameter": EncodeDecodeFieldsMap(
@@ -305,6 +311,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "status_quo_parameters",
         ],
         python_only=[
+            "arms_by_signature",
             "search_space",
             "runner",
             "optimization_config",

@@ -32,7 +32,9 @@ class Arm(Base):
     @property
     def params(self) -> TParameterization:
         """Get mapping from parameter names to values."""
-        return self._params
+
+        # Make a copy before returning so it cannot be accidentally mutated
+        return dict(self._params)
 
     @property
     def has_name(self) -> bool:

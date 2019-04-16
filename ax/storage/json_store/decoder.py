@@ -159,6 +159,12 @@ def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
     experiment = Experiment(**{k: object_from_json(v) for k, v in object_json.items()})
     experiment._time_created = object_from_json(time_created_json)
     experiment._trials = trials_from_json(experiment, trials_json)
+    for trial in experiment._trials.values():
+        for arm in trial.arms:
+            experiment._arms_by_signature[arm.signature] = arm
+    if experiment.status_quo is not None:
+        sq_sig = experiment.status_quo.signature
+        experiment._arms_by_signature[sq_sig] = experiment.status_quo
     experiment._experiment_type = object_from_json(experiment_type_json)
     experiment._data_by_trial = data_from_json(data_by_trial_json)
     return experiment
