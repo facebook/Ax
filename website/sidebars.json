@@ -1,9 +1,8 @@
 {
   "docs": {
-    "Introduction": ["why-ax", "glossary"],
-    "Setup": ["installation", "usage"],
-    "Algorithms": ["algo-overview"],
-    "Components": ["experiment", "runner", "data", "models", "storage"],
-    "Applications": ["ab", "hpo"]
+    "Introduction": ["why-ax", "applications", "glossary"],
+    "Getting Started": ["installation", "api"],
+    "Algorithms": ["algo-overview", "bayesopt", "eb", "thompson"],
+    "Components": ["experiment", "runner", "data", "models", "storage"]
   }
 }
