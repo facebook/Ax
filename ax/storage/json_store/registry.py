@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from typing import Any, Callable, Dict, Type
+
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
@@ -55,7 +57,7 @@ from ax.storage.json_store.encoders import (
 from ax.storage.utils import DomainType, ParameterConstraintType
 
 
-ENCODER_REGISTRY = {
+ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Arm: arm_to_dict,
     BatchTrial: batch_to_dict,
     BraninMetric: metric_to_dict,
@@ -83,7 +85,7 @@ ENCODER_REGISTRY = {
     Trial: trial_to_dict,
 }
 
-DECODER_REGISTRY = {
+DECODER_REGISTRY: Dict[str, Type] = {
     "AbandonedArm": AbandonedArm,
     "Arm": Arm,
     "BatchTrial": BatchTrial,
@@ -117,3 +119,15 @@ DECODER_REGISTRY = {
     "Trial": Trial,
     "TrialStatus": TrialStatus,
 }
+
+
+def register_metric(metric_cls: Type) -> None:
+    """Add a custom metric class to the registries."""
+    ENCODER_REGISTRY[metric_cls] = metric_to_dict
+    DECODER_REGISTRY[metric_cls.__name__] = metric_cls
+
+
+def register_runner(runner_cls: Type) -> None:
+    """Add a custom runner class to the registries."""
+    ENCODER_REGISTRY[runner_cls] = runner_to_dict
+    DECODER_REGISTRY[runner_cls.__name__] = runner_cls

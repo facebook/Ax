@@ -65,7 +65,6 @@ def object_from_json(object_json: Any) -> Any:
         elif _class == Experiment:
             return experiment_from_json(object_json=object_json)
 
-        # pyre-fixme
         return _class(**{k: object_from_json(v) for k, v in object_json.items()})
     else:
         err = (

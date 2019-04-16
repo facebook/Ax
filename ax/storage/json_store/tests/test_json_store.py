@@ -9,6 +9,7 @@ from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.load import load_experiment
+from ax.storage.json_store.registry import register_metric, register_runner
 from ax.storage.json_store.save import save_experiment
 from ax.storage.utils import EncodeDecodeFieldsMap, remove_prefix
 from ax.tests.fake import (
@@ -168,3 +169,26 @@ class JSONStoreTest(TestCase):
                 json_keys,
                 msg=f"Mismatch between Python and JSON representation in {class_}.",
             )
+
+    def testRegistryAdditions(self):
+        class MyRunner(Runner):
+            def run():
+                pass
+
+            def staging_required():
+                return False
+
+        class MyMetric(Metric):
+            pass
+
+        register_metric(MyMetric)
+        register_runner(MyRunner)
+
+        experiment = get_experiment_with_batch_and_single_trial()
+        experiment.runner = MyRunner()
+        experiment.add_tracking_metric(MyMetric(name="my_metric"))
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
+            save_experiment(experiment, f.name)
+            loaded_experiment = load_experiment(f.name)
+            self.assertEqual(loaded_experiment, experiment)
+            os.remove(f.name)

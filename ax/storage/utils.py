@@ -54,7 +54,7 @@ def get_object_properties(
     needed by its constructor, and which we therefore need to store.
     """
     properties = {}
-    exclude_args = ["self"] + (exclude_fields or [])
+    exclude_args = ["self", "args", "kwargs"] + (exclude_fields or [])
     signature = inspect.signature(object.__class__.__init__)
     for arg, info in signature.parameters.items():
         if arg in exclude_args:
