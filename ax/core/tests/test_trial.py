@@ -7,8 +7,8 @@ from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
-from ax.tests.fake import get_arms, get_experiment, get_objective
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import get_arms, get_experiment, get_objective
 
 
 TEST_DATA = Data(

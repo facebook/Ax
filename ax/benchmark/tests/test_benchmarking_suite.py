@@ -11,8 +11,8 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.l2norm import L2NormMetric
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.tests.fake import get_branin_search_space
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import get_branin_search_space
 
 
 def fail(*args: Any, **kwargs: Any) -> None:

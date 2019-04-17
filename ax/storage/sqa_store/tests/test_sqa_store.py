@@ -47,7 +47,8 @@ from ax.storage.utils import (
     get_object_properties,
     remove_prefix,
 )
-from ax.tests.fake import (
+from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import (
     get_arm,
     get_batch_trial,
     get_branin_metric,
@@ -63,7 +64,6 @@ from ax.tests.fake import (
     get_sum_constraint1,
     get_synthetic_runner,
 )
-from ax.utils.common.testutils import TestCase
 
 
 class SQAStoreTest(TestCase):

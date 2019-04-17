@@ -7,8 +7,8 @@ from ax.core.metric import Metric
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationOutcome
 from ax.core.types import TParameterization
 from ax.runners.synthetic import SyntheticRunner
-from ax.tests.fake import get_branin_search_space
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import get_branin_search_space
 
 
 def sum_evaluation_function(

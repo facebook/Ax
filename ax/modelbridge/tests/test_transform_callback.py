@@ -10,8 +10,8 @@ from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.models.torch.botorch import BotorchModel
-from ax.tests.fake import get_branin_experiment
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import get_branin_experiment
 
 
 class TransformCallbackTest(TestCase):

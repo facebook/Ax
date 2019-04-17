@@ -10,8 +10,8 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
-from ax.tests.fake import get_branin_experiment, get_data
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import get_branin_experiment, get_data
 
 
 class TestGenerationStrategy(TestCase):

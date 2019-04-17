@@ -10,7 +10,8 @@ from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.runners.synthetic import SyntheticRunner
-from ax.tests.fake import (
+from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import (
     get_abandoned_arm,
     get_arm,
     get_arm_weights,
@@ -18,7 +19,6 @@ from ax.tests.fake import (
     get_experiment,
     get_weights,
 )
-from ax.utils.common.testutils import TestCase
 
 
 class BatchTrialTest(TestCase):

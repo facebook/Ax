@@ -11,7 +11,7 @@ from ax.core.types import ComparisonOp
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
-from ax.tests.fake import get_branin_search_space
+from ax.utils.testing.fake import get_branin_search_space
 
 
 class BenchmarkProblem(NamedTuple):

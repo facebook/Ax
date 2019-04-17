@@ -2,8 +2,8 @@
 
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
-from ax.tests.fake import get_branin_arms, get_multi_type_experiment
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import get_branin_arms, get_multi_type_experiment
 
 
 class MultiTypeExperimentTest(TestCase):

@@ -7,7 +7,8 @@ from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
-from ax.tests.fake import (
+from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import (
     get_arm,
     get_branin_arms,
     get_branin_search_space,
@@ -17,7 +18,6 @@ from ax.tests.fake import (
     get_search_space,
     get_status_quo,
 )
-from ax.utils.common.testutils import TestCase
 
 
 class ExperimentTest(TestCase):

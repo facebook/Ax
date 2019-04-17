@@ -8,8 +8,8 @@ from ax.modelbridge.transforms.convert_metric_names import (
     convert_mt_observations,
     tconfig_from_mt_experiment,
 )
-from ax.tests.fake import get_multi_type_experiment
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import get_multi_type_experiment
 
 
 class ConvertMetricNamesTest(TestCase):

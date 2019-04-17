@@ -2,14 +2,14 @@
 
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
-from ax.tests.fake import (
+from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import (
     get_arms,
     get_model_predictions,
     get_model_predictions_per_arm,
     get_optimization_config,
     get_search_space,
 )
-from ax.utils.common.testutils import TestCase
 
 
 GENERATOR_RUN_STR = "GeneratorRun(3 arms, total weight 3.0)"

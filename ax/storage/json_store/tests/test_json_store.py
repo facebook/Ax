@@ -12,7 +12,8 @@ from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.registry import register_metric, register_runner
 from ax.storage.json_store.save import save_experiment
 from ax.storage.utils import EncodeDecodeFieldsMap, remove_prefix
-from ax.tests.fake import (
+from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import (
     get_arm,
     get_batch_trial,
     get_branin_metric,
@@ -37,7 +38,6 @@ from ax.tests.fake import (
     get_synthetic_runner,
     get_trial,
 )
-from ax.utils.common.testutils import TestCase
 
 
 TEST_CASES = [

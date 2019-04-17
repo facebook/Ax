@@ -16,13 +16,13 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.ancillary_eb_thompson import AncillaryEBThompsonSampler
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
-from ax.tests.fake import (
+from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import (
     get_branin_experiment,
     get_branin_optimization_config,
     get_factorial_experiment,
     get_multi_type_experiment,
 )
-from ax.utils.common.testutils import TestCase
 
 
 class ModelBridgeFactoryTest(TestCase):

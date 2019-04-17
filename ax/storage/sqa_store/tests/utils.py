@@ -3,7 +3,7 @@
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.utils import EncodeDecodeFieldsMap
-from ax.tests.fake import (
+from ax.utils.testing.fake import (
     get_abandoned_arm,
     get_arm,
     get_batch_trial,
