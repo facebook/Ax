@@ -124,8 +124,8 @@ class Trial(BaseTrial):
     @property
     def objective_mean(self) -> Optional[float]:
         """Objective mean for the arm attached to this trial."""
-        # For SimpleExperiment, fetch_trial_data just executes eval_trial.
-        df = self.experiment.fetch_trial_data(trial_index=self.index).df
+        # For SimpleExperiment, fetch_data just executes eval_trial.
+        df = self.fetch_data().df
         if df.empty or self.experiment.optimization_config is None:
             return None
         objective_name = not_none(

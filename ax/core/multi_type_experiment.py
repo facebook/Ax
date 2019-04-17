@@ -11,6 +11,7 @@ from ax.core.metric import Metric
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 
 
@@ -147,8 +148,8 @@ class MultiTypeExperiment(Experiment):
             self._metric_to_canonical_name[metric.name] = canonical_name
         return self
 
+    @copy_doc(Experiment.remove_tracking_metric)
     def remove_tracking_metric(self, metric_name: str) -> "MultiTypeExperiment":
-        """Remove all trace of a tracking metric."""
         if metric_name not in self._tracking_metrics:
             raise ValueError(f"Metric `{metric_name}` doesn't exist on experiment.")
 
@@ -161,8 +162,8 @@ class MultiTypeExperiment(Experiment):
             del self._metric_to_canonical_name[metric_name]
         return self
 
+    @copy_doc(Experiment.fetch_data)
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
-        """Fetches data for all metrics and trials on this experiment."""
         if metrics is not None:
             raise ValueError(  # pragma: no cover
                 "`metrics` argument is not supported for"
@@ -171,21 +172,19 @@ class MultiTypeExperiment(Experiment):
 
         return Data.from_multiple_data(
             [
-                self.fetch_trial_data(trial.index, **kwargs)
-                if trial.status.expecting_data
-                else Data()
+                trial.fetch_data(**kwargs) if trial.status.expecting_data else Data()
                 for trial in self.trials.values()
             ]
         )
 
-    def fetch_trial_data(
+    @copy_doc(Experiment._fetch_trial_data)
+    def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
     ) -> Data:
-        """Fetches data for all metrics and a single trial on this experiment."""
         if metrics is not None:
             raise ValueError(  # pragma: no cover
                 "`metrics` argument is not supported for"
-                "`MultiTypeExperiment.fetch_trial_data`."
+                "`MultiTypeExperiment._fetch_trial_data`."
             )
 
         trial = self.trials[trial_index]

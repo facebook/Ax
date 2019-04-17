@@ -256,7 +256,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp.lookup_data_for_trial(2, 0).df), 0)
 
         # Check that we get this data in fetch.
-        self.assertFalse(exp.fetch_trial_data(0).df.empty)
+        self.assertFalse(batch.fetch_data().df.empty)
 
     def testEmptyMetrics(self):
         empty_experiment = Experiment(
@@ -268,7 +268,7 @@ class ExperimentTest(TestCase):
         batch = empty_experiment.new_batch_trial()
         self.assertEqual(empty_experiment.num_trials, 1)
         with self.assertRaises(ValueError):
-            empty_experiment.fetch_trial_data(batch)
+            batch.fetch_data()
         empty_experiment.add_tracking_metric(Metric(name="some_metric"))
         empty_experiment.attach_data(get_data())
         empty_experiment.trials[0].mark_staged()

@@ -19,6 +19,7 @@ from ax.core.parameter import Parameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 
 
@@ -314,23 +315,13 @@ class Experiment(Base):
         # fetching from metrics.
         except NotImplementedError:
             return Data.from_multiple_data(
-                [self.fetch_trial_data(trial_index=idx) for idx in self.trials]
+                [self._fetch_trial_data(trial_index=idx) for idx in self.trials]
             )
 
-    def fetch_trial_data(
+    @copy_doc(BaseTrial.fetch_data)
+    def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
     ) -> Data:
-        """Fetches data for all metrics and a single trial on this experiment.
-
-        Args:
-            trial_index: The index of the trial to fetch data for.
-            metrics: If provided, fetch data for these metrics instead of the ones
-                defined on the experiment.
-            kwargs: keyword args to pass to underlying metrics' fetch data functions.
-
-        Returns:
-            Data for this trial.
-        """
         if not self.metrics and not metrics:
             raise ValueError(
                 "No metrics to fetch data for, as no metrics are defined for "

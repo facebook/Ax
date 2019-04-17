@@ -3,9 +3,8 @@
 from unittest.mock import patch
 
 import pandas as pd
-from ax.core.base_trial import TrialStatus
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.fake import get_arms, get_experiment, get_objective
@@ -90,15 +89,14 @@ class TrialTest(TestCase):
         self.assertTrue(self.trial.is_abandoned)
 
     @patch(
-        f"{Experiment.__module__}.{Experiment.__name__}.fetch_trial_data",
+        f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data",
         return_value=TEST_DATA,
     )
     def test_objective_mean(self, _mock):
         self.assertEqual(self.trial.objective_mean, 1.0)
 
     @patch(
-        f"{Experiment.__module__}.{Experiment.__name__}.fetch_trial_data",
-        return_value=Data(),
+        f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data", return_value=Data()
     )
     def test_objective_mean_empty_df(self, _mock):
         self.assertIsNone(self.trial.objective_mean)

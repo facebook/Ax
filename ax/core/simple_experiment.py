@@ -160,8 +160,8 @@ class SimpleExperiment(Experiment):
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
         return self.eval()
 
-    @copy_doc(Experiment.fetch_trial_data)
-    def fetch_trial_data(
+    @copy_doc(Experiment._fetch_trial_data)
+    def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
     ) -> Data:
         return self.eval_trial(self.trials[trial_index])

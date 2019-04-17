@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from ax.core.arm import Arm
 from ax.core.base import Base
 from ax.core.data import Data
+from ax.core.metric import Metric
 from ax.core.runner import Runner
 
 
@@ -229,9 +230,21 @@ class BaseTrial(ABC, Base):
             self.mark_running()
         return self
 
-    def fetch_data(self) -> Data:
-        """Fetch data for this trial for all metrics on experiment."""
-        return self.experiment.fetch_trial_data(self.index)
+    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
+        """Fetch data for this trial for all metrics on experiment.
+
+        Args:
+            trial_index: The index of the trial to fetch data for.
+            metrics: If provided, fetch data for these metrics instead of the ones
+                defined on the experiment.
+            kwargs: keyword args to pass to underlying metrics' fetch data functions.
+
+        Returns:
+            Data for this trial.
+        """
+        return self.experiment._fetch_trial_data(
+            trial_index=self.index, metrics=metrics, **kwargs
+        )
 
     def _check_existing_and_name_arm(self, arm: Arm) -> None:
         """Sets name for given arm; if this arm is already in the

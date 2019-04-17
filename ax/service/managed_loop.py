@@ -165,7 +165,7 @@ class OptimizationLoop:
                 raise ValueError(
                     f"Invalid number of arms per trial: {step.arms_per_trial}"
                 )
-            self.experiment.fetch_trial_data(trial.index)
+            trial.fetch_data()
             self.current_step += 1
 
     def run(self, iterations: Optional[int]) -> None:

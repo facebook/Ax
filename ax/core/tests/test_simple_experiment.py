@@ -51,9 +51,7 @@ class SimpleExperimentTest(TestCase):
         self.assertEqual(self.experiment.eval_trial(batch).df["mean"][0], 15)
         self.experiment.new_batch_trial().add_arm(Arm(params={"x1": 15, "x2": 25}))
         self.assertAlmostEqual(self.experiment.eval().df["mean"][1], 40)
-        self.assertEqual(
-            self.experiment.fetch_trial_data(batch.index).df["mean"][0], 15
-        )
+        self.assertEqual(batch.fetch_data().df["mean"][0], 15)
         self.assertAlmostEqual(self.experiment.fetch_data().df["mean"][1], 40)
 
     def test_trial(self):
