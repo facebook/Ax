@@ -148,6 +148,7 @@ class BenchmarkRunner:
                     ] = model_factory.__self__.generator_changes
                     break
                 except Exception as err:  # pragma: no cover
+                    logger.exception(err)
                     num_failures += 1
                     self._error_messages.append(f"Error in {run_key}: {err}")
 
