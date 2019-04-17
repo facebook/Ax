@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict
 
 from ax.core.base import Base
@@ -26,7 +26,7 @@ class Runner(Base, ABC):
         """
         pass  # pragma: no cover
 
-    @abstractproperty
+    @property
     def staging_required(self) -> bool:
         """Whether the trial goes to staged or running state once deployed."""
-        pass  # pragma: no cover
+        return False

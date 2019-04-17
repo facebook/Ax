@@ -22,7 +22,3 @@ class SyntheticRunner(Runner):
         if self.dummy_metadata:
             metadata["dummy_metadata"] = self.dummy_metadata
         return metadata
-
-    @property
-    def staging_required(self) -> bool:
-        return False
