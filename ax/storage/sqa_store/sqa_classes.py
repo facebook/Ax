@@ -155,11 +155,17 @@ class SQAGeneratorRun(Base):
     gen_time: Optional[float] = Column(Float)
 
     # relationships
-    arms: List[SQAArm] = relationship("SQAArm", lazy=False)
-    metrics: List[SQAMetric] = relationship("SQAMetric", lazy=False)
-    parameters: List[SQAParameter] = relationship("SQAParameter", lazy=False)
+    arms: List[SQAArm] = relationship(
+        "SQAArm", cascade="all, delete-orphan", lazy=False, order_by=lambda: SQAArm.id
+    )
+    metrics: List[SQAMetric] = relationship(
+        "SQAMetric", cascade="all, delete-orphan", lazy=False
+    )
+    parameters: List[SQAParameter] = relationship(
+        "SQAParameter", cascade="all, delete-orphan", lazy=False
+    )
     parameter_constraints: List[SQAParameterConstraint] = relationship(
-        "SQAParameterConstraint", lazy=False
+        "SQAParameterConstraint", cascade="all, delete-orphan", lazy=False
     )
 
     immutable_fields = [
