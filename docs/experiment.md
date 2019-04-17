@@ -18,21 +18,21 @@ Ax supports three types of parameters:
 * **Range parameters**: must be of type int or float, and whose domain is represented by a lower and upper bound
 
 ```python
-from ae.parameter import RangeParameter, ParameterType
+from ax import RangeParameter, ParameterType
 range_param = RangeParameter(name="x", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0)
 ```
 
 * **Choice parameters**: domain is a set of values
 
 ```python
-from ae.parameter import ChoiceParameter, ParameterType
+from ax import ChoiceParameter, ParameterType
 choice_param = ChoiceParameter(name="y", parameter_type=ParameterType.STRING, value=["foo", "bar"](glossary.md))
 ```
 
 * **Fixed parameters**: domain is a single value
 
 ```python
-from ae.parameter import FixedParameter, ParameterType
+from ax import FixedParameter, ParameterType
 fixed_param = ChoiceParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
 ```
 
@@ -41,7 +41,7 @@ Ax supports three types of parameter constraints, each of which can only be used
 * **Linear constraints**: e.g. w * v <= b where w is the vector of parameter weights, v is a vector of parameter values, and b is the specified bound
 
 ```python
-from ae.parameter_constraint import ParameterConstraint
+from ax import ParameterConstraint
 
 # 1.0*x * 0.5*y <= 1.0
 ParameterConstraint(constraint_dict={"x": 1.0, "y": 0.5}, bound=1.0)
@@ -50,7 +50,7 @@ ParameterConstraint(constraint_dict={"x": 1.0, "y": 0.5}, bound=1.0)
 * **Order constraints**: a type of linear constraint, which specifies that one parameter must be smaller than the other
 
 ```python
-from ae.parameter_constraint import OrderConstraint
+from ax import OrderConstraint
 
 # x <= y
 OrderConstraint(lower_name="x", upper_name="y")
@@ -59,7 +59,7 @@ OrderConstraint(lower_name="x", upper_name="y")
 * **Sum constraints**: a type of linear constraint, which specifies that the sum of the parameters must be greater or less than a bound
 
 ```python
-from ae.sum_constraint import SumConstraint
+from ax import SumConstraint
 
 # x + y <= 3
 SumConstraint(parameter_names=["x", "y"], is_upper_bound=False, bound=-3.0)
@@ -68,7 +68,7 @@ SumConstraint(parameter_names=["x", "y"], is_upper_bound=False, bound=-3.0)
 Given parameters and parameter constraints, you can construct a search space:
 
 ```python
-from ae.search_space import SearchSpace
+from ax import SearchSpace
 
 SearchSpace(parameters=[...], parameter_constraints=[...])
 ```
@@ -78,8 +78,8 @@ SearchSpace(parameters=[...], parameter_constraints=[...])
 An [optimization config](glossary.md) is composed of an [objective metric](glossary.md) to be minimized or maximized in the experiment, and optionally a set of [outcome constraints](glossary.md) that place restrictions on how other metrics can be moved by the experiment. Note that you cannot constrain the objective metric.
 
 ```python
-from ae.metric import Metric
-from ae.objective import Objective
+from ax import Metric
+from ax import Objective
 
 Objective(metric=Metric(name="m1"), minimize=True)
 ```
@@ -89,8 +89,8 @@ There is no minimum or maximum number of outcome constraints, but an individual 
 Outcome constraints may of the form metric >= bound or metric <= bound. The bound can be expressed as an absolute measurement, or relative to the status quo (if applicable), in which case the bound is the acceptable percent change from the status quo's value.
 
 ```python
-from ae.metric import Metric
-from ae.outcome_constraint import OutcomeConstraint
+from ax import Metric
+from ax import OutcomeConstraint
 
 # m2 cannot regress the status quo by more than 5%
 OutcomeConstraint(metric=Metric(name="m2"), op = ComparisonOp.GEQ, bound=-5.0, relative=True)
@@ -103,7 +103,7 @@ An [arm](glossary.md) in Ax is a set of parameters and their values with a name 
 Create an arm as follows:
 
 ```python
-from ae.arm import Arm
+from ax import Arm
 
 Arm(parameters={"x": 0, "y": "Foo", z: True}, name="arm1")
 ```
