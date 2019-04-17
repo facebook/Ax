@@ -119,7 +119,7 @@ class SQAArm(Base):
     parameters: TParameterization = Column(JSONEncodedTextDict, nullable=False)
     weight: float = Column(Float, nullable=False, default=1.0)
 
-    immutable_fields = ["parameters", "weight"]
+    immutable_fields = ["parameters"]
     unique_id = "name"
 
 
@@ -168,13 +168,7 @@ class SQAGeneratorRun(Base):
         "SQAParameterConstraint", cascade="all, delete-orphan", lazy=False
     )
 
-    immutable_fields = [
-        "arms",
-        "metrics",
-        "parameters",
-        "parameter_constraints",
-        "time_created",
-    ]
+    immutable_fields = ["time_created"]
     unique_id = "index"
 
 

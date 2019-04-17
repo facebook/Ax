@@ -249,7 +249,9 @@ class SQABase:
             if type(self_val) != type(other_val):
                 equal = False
             if isinstance(self_val, list):
-                equal = SQABase.list_equals(self_val, other_val)
+                equal = SQABase.list_equals(
+                    self_val, other_val  # pragma: no cover (no example of this yet)
+                )
             elif isinstance(self_val, SQABase):
                 equal = self_val.equals(  # pragma: no cover (no example of this yet)
                     other_val

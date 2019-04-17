@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from collections import OrderedDict
 from datetime import datetime
 from unittest.mock import MagicMock, Mock
 
@@ -547,47 +546,6 @@ class SQAStoreTest(TestCase):
         trial.add_generator_run(generator_run=generator_run, multiplier=0.5)
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 4)
-
-        # try to edit a generator run's search space
-        generator_run_struct = trial._generator_run_structs[0]
-        old_search_space = generator_run_struct.generator_run._search_space
-        search_space = get_search_space()
-        parameter = RangeParameter(
-            name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
-        )
-        search_space.add_parameter(parameter)
-        generator_run_struct.generator_run._search_space = search_space
-        with self.assertRaises(ImmutabilityError):
-            save_experiment(experiment)
-
-        # undo change so that equality test below passes
-        generator_run_struct.generator_run._search_space = old_search_space
-
-        # try to edit a generator run's optimization config (not allowed)
-        old_optimization_config = (
-            generator_run_struct.generator_run._optimization_config
-        )
-        optimization_config = get_optimization_config()
-        objective = get_objective()
-        objective.minimize = True
-        optimization_config.objective = objective
-        generator_run_struct.generator_run._optimization_config = optimization_config
-        with self.assertRaises(ImmutabilityError):
-            save_experiment(experiment)
-
-        # undo change so that equality test below passes
-        generator_run_struct.generator_run._optimization_config = (
-            old_optimization_config
-        )
-
-        # try to edit a generator run's arms (not allowed)
-        old_arm_weight_table = generator_run_struct.generator_run._arm_weight_table
-        generator_run_struct.generator_run._arm_weight_table = OrderedDict()
-        with self.assertRaises(ImmutabilityError):
-            save_experiment(experiment)
-
-        # undo change so that equality test below passes
-        generator_run_struct.generator_run._arm_weight_table = old_arm_weight_table
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
