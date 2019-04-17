@@ -11,7 +11,6 @@ from ax.modelbridge.factory import (
     get_thompson,
     get_uniform,
 )
-from ax.modelbridge.numpy import NumpyModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.ancillary_eb_thompson import AncillaryEBThompsonSampler
@@ -49,7 +48,7 @@ class ModelBridgeFactoryTest(TestCase):
         """Tests MTGP instantiation."""
         exp = get_multi_type_experiment(add_trials=True)
         mtgp = get_MTGP(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(mtgp, NumpyModelBridge)
+        self.assertIsInstance(mtgp, TorchModelBridge)
 
     def test_model_kwargs(self):
         """Tests that model kwargs are passed correctly."""

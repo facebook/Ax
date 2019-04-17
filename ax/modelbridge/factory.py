@@ -8,7 +8,6 @@ from ax.core.experiment import Experiment
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.discrete import DiscreteModelBridge
-from ax.modelbridge.numpy import NumpyModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
@@ -34,8 +33,6 @@ from ax.models.discrete.ancillary_eb_thompson import AncillaryEBThompsonSampler
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
-from ax.models.numpy.gpy import GPyGP
-from ax.models.numpy_base import NumpyModel
 from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
@@ -175,28 +172,25 @@ def get_GPEI(
     )
 
 
-def _get_mtgp_model() -> NumpyModel:
-    # Eventually move this off GPy
-    return GPyGP()
-
-
 def get_MTGP(
     experiment: MultiTypeExperiment,
     data: Data,
     search_space: Optional[SearchSpace] = None,
-) -> NumpyModelBridge:
+) -> TorchModelBridge:
     """Instantiates a Multi-task GP model that generates points with EI."""
     trial_index_to_type = {t.index: t.trial_type for t in experiment.trials.values()}
-    return NumpyModelBridge(
+    return TorchModelBridge(
         experiment=experiment,
         search_space=search_space or experiment.search_space,
         data=data,
-        model=_get_mtgp_model(),
+        model=BotorchModel(),
         transforms=MTGP_trans,
         transform_configs={
             "TrialAsTask": {"trial_level_map": {"trial_type": trial_index_to_type}},
             "ConvertMetricNames": tconfig_from_mt_experiment(experiment),
         },
+        torch_dtype=torch.double,
+        torch_device=DEFAULT_TORCH_DEVICE,
     )
 
 
