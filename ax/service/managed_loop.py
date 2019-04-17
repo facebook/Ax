@@ -113,6 +113,7 @@ class OptimizationLoop:
             ),
             objective_name=objective_name,
             evaluation_function=evaluation_function,
+            minimize=minimize,
             outcome_constraints=[
                 outcome_constraint_from_str(c) for c in (outcome_constraints or [])
             ],
