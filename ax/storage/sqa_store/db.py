@@ -191,19 +191,7 @@ class SQABase:
                 # will always have None for its foreign key fields, because it
                 # hasn't been inserted into the database yet.
                 continue
-            self_val = getattr(self, field)
-            other_val = getattr(other, field)
-            if type(self_val) != type(other_val):
-                return False
-            if isinstance(self_val, list):
-                equal = SQABase.list_equals(self_val, other_val)
-            elif isinstance(self_val, SQABase):
-                equal = self_val.equals(other_val)
-            elif isinstance(self_val, datetime):
-                equal = datetime_equals(self_val, other_val)
-            else:
-                equal = self_val == other_val
-            if not equal:
+            if not self.fields_equal(other, field):
                 return False
         return True
 
@@ -214,56 +202,53 @@ class SQABase:
             + ["id", "_sa_instance_state"]
         )
         immutable_fields = set(getattr(self, "immutable_fields", []))
-        self.validate_update(other)
         for field in self.attributes:
+            if field in immutable_fields:
+                if self.fields_equal(other, field):
+                    continue
+                raise ImmutabilityError(
+                    f"Cannot change `{field}` of {self.__class__.__name__}."
+                )
             if (
-                field in immutable_fields
-                or field in ignore_during_update_fields
+                field in ignore_during_update_fields
                 # We don't want to update foreign key fields, e.g. experiment_id.
                 # The new object will always have a value of None for this field,
                 # but we don't want to overwrite the value on the existing object.
                 or is_foreign_key_field(field)
             ):
                 continue
-            self_val = getattr(self, field)
-            other_val = getattr(other, field)
+            self.update_field(other, field)
 
-            if isinstance(self_val, list) and isinstance(other_val, list):
-                other_val = SQABase.list_update(self_val, other_val)
-            elif isinstance(self_val, SQABase) and isinstance(other_val, SQABase):
-                self_val.update(other_val)
-                other_val = self_val
-            elif isinstance(self_val, datetime) and isinstance(other_val, datetime):
-                if datetime_equals(self_val, other_val):
-                    continue
-            elif self_val == other_val:
-                continue
-            setattr(self, field, other_val)
+    def update_field(self, other: "SQABase", field: str) -> None:
+        """Update `field` on `self` to be equal to `field` on `other`."""
+        self_val = getattr(self, field)
+        other_val = getattr(other, field)
+        if isinstance(self_val, list) and isinstance(other_val, list):
+            other_val = SQABase.list_update(self_val, other_val)
+        elif isinstance(self_val, SQABase) and isinstance(other_val, SQABase):
+            self_val.update(other_val)
+            other_val = self_val
+        elif isinstance(self_val, datetime) and isinstance(other_val, datetime):
+            if datetime_equals(self_val, other_val):
+                return
+        elif self_val == other_val:
+            return
+        setattr(self, field, other_val)
 
-    def validate_update(self, other: "SQABase") -> None:
-        """Validate that `self` can be updated to `other`."""
-        immutable_fields = getattr(self, "immutable_fields", [])
-        for field in immutable_fields:
-            self_val = getattr(self, field)
-            other_val = getattr(other, field)
-            if type(self_val) != type(other_val):
-                equal = False
-            if isinstance(self_val, list):
-                equal = SQABase.list_equals(
-                    self_val, other_val  # pragma: no cover (no example of this yet)
-                )
-            elif isinstance(self_val, SQABase):
-                equal = self_val.equals(  # pragma: no cover (no example of this yet)
-                    other_val
-                )
-            elif isinstance(self_val, datetime):
-                equal = datetime_equals(self_val, other_val)
-            else:
-                equal = self_val == other_val
-            if not equal:
-                raise ImmutabilityError(
-                    f"Cannot change `{field}` of {self.__class__.__name__}."
-                )
+    def fields_equal(self, other: "SQABase", field: str) -> bool:
+        """Check if `field` on `self` is equal to `field` on `other`."""
+        self_val = getattr(self, field)
+        other_val = getattr(other, field)
+        if type(self_val) != type(other_val):
+            return False
+        if isinstance(self_val, list):
+            return SQABase.list_equals(self_val, other_val)
+        elif isinstance(self_val, SQABase):
+            return self_val.equals(other_val)
+        elif isinstance(self_val, datetime):
+            return datetime_equals(self_val, other_val)
+        else:
+            return self_val == other_val
 
 
 Base = declarative_base(cls=SQABase)

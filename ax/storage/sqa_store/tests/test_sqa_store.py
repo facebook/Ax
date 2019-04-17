@@ -134,7 +134,7 @@ class SQAStoreTest(TestCase):
         parameter2._name = 5
         parameter_sqa_2 = self.encoder.parameter_to_sqa(parameter2)
         with self.assertRaises(ImmutabilityError):
-            parameter_sqa.validate_update(parameter_sqa_2)
+            parameter_sqa.update(parameter_sqa_2)
 
     def testGeneratorRunTypeValidation(self):
         experiment = get_experiment_with_batch_trial()
