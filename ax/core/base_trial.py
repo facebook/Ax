@@ -313,6 +313,11 @@ class BaseTrial(ABC, Base):
             The trial instance.
 
         """
+        if self.experiment.is_simple_experiment:
+            self._status = TrialStatus.RUNNING
+            self._time_run_started = datetime.now()
+            return self
+
         if self._runner is None:
             raise ValueError("Cannot mark trial running without setting runner.")
 

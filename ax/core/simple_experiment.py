@@ -13,7 +13,6 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import TEvaluationOutcome, TParameterization
-from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 
@@ -74,7 +73,6 @@ class SimpleExperiment(Experiment):
             name=name,
             search_space=search_space,
             optimization_config=optimization_config,
-            runner=SyntheticRunner(),
             status_quo=status_quo,
         )
         self._evaluation_function = evaluation_function
@@ -108,14 +106,14 @@ class SimpleExperiment(Experiment):
         if isinstance(trial, Trial):
             if not trial.arm:
                 return Data()  # pragma: no cover
-            trial.run()
+            trial.mark_running()
             evaluations[not_none(trial.arm).name] = self.evaluation_function(
                 not_none(trial.arm).params, None
             )
         elif isinstance(trial, BatchTrial):
             if not trial.arms:
                 return Data()  # pragma: no cover
-            trial.run()
+            trial.mark_running()
             for arm, weight in trial.normalized_arm_weights().items():
                 arm_params: TParameterization = arm.params
                 evaluations[arm.name] = self.evaluation_function(arm_params, weight)
