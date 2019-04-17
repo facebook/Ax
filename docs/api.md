@@ -32,14 +32,38 @@ loop = OptimizationLoop.with_evaluation_function(
     evaluation_function=branin_evaluation_function,
     minimize=True,
 )
-loop.run()
+loop.full_run()
+
+best_parameters = loop.get_best_point()
 ```
 
 <!--Service-->
 ```py
-trial = ax.get_next_trial()
-data = evaluation(trial.parameterization)
-ax.log_data(trial.index, data)
+ax = AxClient()
+ax.create_experiment(
+    name="branin_test_experiment",
+    parameters=[
+        {
+            "name": "x1",
+            "type": "range",
+            "bounds": [-5.0, 10.0],
+            "value_type": "float",
+        },
+        {
+            "name": "x2",
+            "type": "range",
+            "bounds": [0.0, 10.0],
+        },
+    ],
+    objective_name="branin",
+    minimize=True,
+)
+
+for _ in range(15):
+    parameters, trial_index = ax.get_next_trial()
+    ax.complete_trial(trial_index=trial_index, raw_data=evaluate(parameters))
+
+best_parameters, metrics = ax.get_best_parameters()
 ```
 
 <!--Developer-->
@@ -66,9 +90,14 @@ sobol = modelbridge.get_sobol(exp.search_space)
 for i in range(5):
     exp.new_trial(generator_run=sobol.gen(1))
 
+best_arm = None
 for i in range(15):
     gpei = modelbridge.get_GPEI(experiment=exp, data=exp.eval())
-    exp.new_trial(generator_run=gpei.gen(1))
+    generator_run = gpei.gen(1)
+    best_arm, _ = generator_run.best_arm_predictions
+    exp.new_trial(generator_run=generator_run)
+
+best_parameters = best_arm.parameters
 ```
 
 <!--END_DOCUSAURUS_CODE_TABS-->
