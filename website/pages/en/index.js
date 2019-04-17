@@ -107,6 +107,40 @@ class Index extends React.Component {
       </Block>
     );
     //getStartedSection
+
+    const pre = "```";
+
+    const codeExample = `${pre}python
+>>> loop = OptimizationLoop.with_evaluation_function(
+        parameters=[
+          {
+            "name": "x1",
+            "type": "range",
+            "bounds": [-10.0, 10.0],
+          },
+          {
+            "name": "x2",
+            "type": "range",
+            "bounds": [-10.0, 10.0],
+          },
+        ],
+        experiment_name="test",
+        objective_name="objective",
+        evaluation_function=lambda p, _: {
+          "objective": (
+            (p["x1"] + 2*p["x2"] - 7)**2 + (2*p["x1"] + p["x2"] - 5),  # mean (Booth function)
+            0.0  # sem
+          )
+        },
+        minimize=True,
+    )
+
+>>> loop.full_run()
+
+>>> loop.get_best_point()
+{'x1': 1.02, 'x2': 2.97}  # global min is (1, 3)
+    `;
+
     const QuickStart = () => (
       <div
         className="productShowcaseSection" id="quickstart"
@@ -122,6 +156,10 @@ class Index extends React.Component {
                   <MarkdownBlock>
                     {bash`cd ax && pip3 install -e .`}
                   </MarkdownBlock>
+                </li>
+                <li>
+                  Run an optimization:
+                  <MarkdownBlock>{codeExample}</MarkdownBlock>
                 </li>
               </ol>
           </Container>
