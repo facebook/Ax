@@ -14,8 +14,8 @@ from ax.benchmark.benchmark_runner import (
     BenchmarkSetup,
     BOBenchmarkRunner,
 )
-from ax.modelbridge.factory import get_GPEI, get_sobol
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.factory import Models
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.plot.base import AxPlotConfig
 from ax.plot.render import plot_config_to_html
 from ax.plot.trace import (
@@ -27,9 +27,17 @@ from ax.utils.report.render import h2_html, h3_html, p_html, render_report_eleme
 
 
 BOStrategies: List[GenerationStrategy] = [
-    GenerationStrategy(model_factories=[get_sobol], arms_per_model=[50]),  # pyre-ignore
+    GenerationStrategy(
+        name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_arms=50)]
+    ),
     # Generation strategy to use Sobol for first 5 arms and GP+EI for next 45:
-    GenerationStrategy(model_factories=[get_sobol, get_GPEI], arms_per_model=[5, 45]),
+    GenerationStrategy(
+        name="Sobol+GPEI",
+        steps=[
+            GenerationStep(model=Models.SOBOL, num_arms=5, min_arms_observed=5),
+            GenerationStep(model=Models.GPEI, num_arms=-1),
+        ],
+    ),
 ]
 
 BOProblems: List[BenchmarkProblem] = [hartmann6_constrained, branin_max]
@@ -55,9 +63,7 @@ class BOBenchmarkingSuite:
         )
         for setup, gs in product(setups, bo_strategies):
             self._runner.run_benchmark_test(
-                setup=setup,
-                model_factory=gs.get_model,  # pyre-ignore
-                num_runs=num_trials,
+                setup=setup, generation_strategy=gs, num_runs=num_trials
             )
 
         return self._runner

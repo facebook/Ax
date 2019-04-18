@@ -7,13 +7,24 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.ax_client import AxClient
+from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 
 
 class AxBatchClient(AxClient):
     """An extension of AxClient, capable of handling `BatchTrial`."""
+
+    def __init__(
+        self,
+        generation_strategy: Optional[GenerationStrategy] = None,
+        db_settings: Optional[DBSettings] = None,
+    ) -> None:
+        raise NotImplementedError(  # TODO[drfreund] T41983558
+            "Batches are temporarily not supported in the service API."
+        )
 
     def get_next_batch_trial(self, n: int) -> Tuple[Dict[str, TParameterization], int]:
         """
@@ -93,8 +104,7 @@ class AxBatchClient(AxClient):
         Returns:
             BatchTrial with candidates.
         """
-        generator = not_none(self.generation_strategy).get_model(
+        generator_run = not_none(self.generation_strategy).gen(
             self.experiment, data=self.experiment.fetch_data()
         )
-        generator_run = generator.gen(n=n)
         return self.experiment.new_batch_trial().add_generator_run(generator_run)

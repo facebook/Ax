@@ -10,8 +10,8 @@ from ax.core.parameter import (
 )
 from ax.core.types import ComparisonOp
 from ax.metrics.branin import branin
-from ax.modelbridge.factory import get_GPEI, get_sobol
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.factory import Models
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.service.ax_client import AxClient
 from ax.utils.common.testutils import TestCase
 
@@ -31,7 +31,10 @@ class TestServiceAPI(TestCase):
             objective_name="branin",
             minimize=True,
         )
-        self.assertEqual(ax.generation_strategy._model_factories, [get_sobol, get_GPEI])
+        self.assertEqual(
+            [s.model for s in ax.generation_strategy._steps],
+            [Models.SOBOL, Models.GPEI],
+        )
         for _ in range(6):
             parameterization, trial_index = ax.get_next_trial()
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
@@ -39,7 +42,9 @@ class TestServiceAPI(TestCase):
 
     def test_create_experiment(self):
         """Test basic experiment creation."""
-        ax = AxClient(GenerationStrategy([get_sobol], [30]))
+        ax = AxClient(
+            GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
+        )
         ax.create_experiment(
             name="test_experiment",
             parameters=[
@@ -135,7 +140,9 @@ class TestServiceAPI(TestCase):
 
     def test_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""
-        ax = AxClient(GenerationStrategy([get_sobol], [30]))
+        ax = AxClient(
+            GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
+        )
         with self.assertRaises(ValueError):
             ax.create_experiment(
                 name="test_experiment",

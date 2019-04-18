@@ -151,19 +151,18 @@ class OptimizationLoop:
         logger.info(f"Running optimization step {self.current_step + 1}...")
         for _ in range(step.num_trials):
             if step.arms_per_trial == 1:
-                model = self.generation_strategy.get_model(
-                    experiment=self.experiment, data=self.experiment.fetch_data()
+                trial = self.experiment.new_trial(
+                    generator_run=self.generation_strategy.gen(
+                        experiment=self.experiment,
+                        new_data=self.experiment.fetch_data(),
+                    )
                 )
-                trial = self.experiment.new_trial(generator_run=model.gen(1))
-            elif step.arms_per_trial > 1:
-                model = self.generation_strategy.get_model(
-                    experiment=self.experiment, data=self.experiment.fetch_data()
-                )
-                trial = self.experiment.new_batch_trial(
-                    generator_run=model.gen(step.arms_per_trial)
+            elif step.arms_per_trial > 1:  # TODO[drfreund] T41922457
+                raise NotImplementedError(
+                    "OptimizationLoop does not yet support batches."
                 )
             else:
-                # TODO[drfreund]: handle -1?
+                # TODO[drfreund]: handle -1?  T41922457
                 raise ValueError(
                     f"Invalid number of arms per trial: {step.arms_per_trial}"
                 )

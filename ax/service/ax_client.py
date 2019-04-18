@@ -45,6 +45,9 @@ class AxClient:
         self.generation_strategy = generation_strategy
         self.db_settings = db_settings
         self._experiment: Optional[Experiment] = None
+        # Trials, for which we received data since last `GenerationStrategy.gen`,
+        # used to make sure that generation strategy is updated with new data.
+        self._updated_trials: List[int] = []
 
     # ------------------------ Public API methods. ------------------------
 
@@ -101,6 +104,7 @@ class AxClient:
         """
         # NOTE: Could move this into log_data to save latency on this call.
         trial = self._suggest_new_trial()
+        self._updated_trials = []
         self._save_experiment_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
@@ -130,6 +134,7 @@ class AxClient:
 
         data = Data.from_evaluations({not_none(trial.arm).name: raw_data}, trial.index)
         self.experiment.attach_data(data)
+        self._updated_trials.append(trial_index)
         self._save_experiment_if_possible()
 
     def log_trial_failure(
@@ -250,11 +255,13 @@ class AxClient:
         Returns:
             Trial with candidate.
         """
+        new_data = Data.from_multiple_data(
+            [self.experiment.lookup_data_for_trial(idx) for idx in self._updated_trials]
+        )
         try:
-            generator = not_none(self.generation_strategy).get_model(
-                self.experiment, data=self.experiment.fetch_data()
+            generator_run = not_none(self.generation_strategy).gen(
+                experiment=self.experiment, new_data=new_data
             )
-            generator_run = generator.gen(n=1)
         except ValueError as err:
             raise ValueError(
                 f"Error getting next trial: {err} Likely cause of the error is "

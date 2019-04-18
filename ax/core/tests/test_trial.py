@@ -87,6 +87,7 @@ class TrialTest(TestCase):
         self.assertFalse(self.trial.is_abandoned)
         self.trial.mark_abandoned(reason="testing")
         self.assertTrue(self.trial.is_abandoned)
+        self.assertFalse(self.trial.status.is_failed)
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data",

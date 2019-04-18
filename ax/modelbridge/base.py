@@ -177,7 +177,7 @@ class ModelBridge(ABC):
     def _extend_training_data(
         self, observations: List[Observation]
     ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
-        """Store training data, not-transformed"""
+        """Extend training data, not-transformed"""
         observation_features, observation_data = self._prepare_training_data(
             observations=observations
         )

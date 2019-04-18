@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from typing import List, Optional, Type
+from enum import Enum
+from typing import Any, Dict, List, Optional, Type, Union
 
 import torch
 from ax.core.data import Data
@@ -311,3 +312,16 @@ def get_thompson(
         model=model,
         transforms=TS_trans,
     )
+
+
+class Models(Enum):
+    """Registry of available factory functions."""
+
+    SOBOL = get_sobol
+    GPEI = get_GPEI
+    FACTORIAL = get_factorial
+    THOMPSON = get_thompson
+    BOTORCH = get_botorch
+    EMPIRICAL_BAYES_THOMPSON = get_empirical_bayes_thompson
+    ANCILLARY_EB_THOMPSON = get_ancillary_eb_thompson
+    UNIFORM = get_uniform

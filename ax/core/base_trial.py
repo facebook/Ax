@@ -66,6 +66,11 @@ class TrialStatus(Enum):
         """True if trial has been deployed but not completed."""
         return self == TrialStatus.STAGED or self == TrialStatus.RUNNING
 
+    @property
+    def is_failed(self) -> bool:
+        """True if this trial is a failed one."""
+        return self == TrialStatus.FAILED
+
 
 def immutable_once_run(func: Callable) -> Callable:
     """Decorator for methods that should throw Error when

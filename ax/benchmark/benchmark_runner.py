@@ -9,11 +9,12 @@ import numpy as np
 import pandas as pd
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.core.batch_trial import BatchTrial
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
-from ax.modelbridge.generation_strategy import TModelFactory, _filter_kwargs
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.logger import get_logger
 
@@ -23,11 +24,6 @@ logger: logging.Logger = get_logger(__name__)
 ALLOWED_RUN_RETRIES = 5
 PROBLEM_METHOD_DELIMETER = "_on_"
 RUN_DELIMETER = "_run_"
-
-
-# Infers the name of the benchmarking method from a given factory function.
-def _method_name(model_factory: TModelFactory) -> str:
-    return model_factory.__self__.name
 
 
 class BenchmarkResult(NamedTuple):
@@ -96,7 +92,7 @@ class BenchmarkRunner:
 
     @abstractmethod
     def run_benchmark_run(
-        self, setup: BenchmarkSetup, model_factory: TModelFactory
+        self, setup: BenchmarkSetup, generation_strategy: GenerationStrategy
     ) -> BenchmarkSetup:
         """Run a single full benchmark run of the given problem and method
         combination.
@@ -104,7 +100,10 @@ class BenchmarkRunner:
         pass  # pragma: no cover
 
     def run_benchmark_test(
-        self, setup: BenchmarkSetup, model_factory: TModelFactory, num_runs: int = 20
+        self,
+        setup: BenchmarkSetup,
+        generation_strategy: GenerationStrategy,
+        num_runs: int = 20,
     ) -> Dict[Tuple[str, str, int], BenchmarkSetup]:
         """Run full benchmark test for the given method and problem combination.
         A benchmark test consists of repeated full benchmark runs.
@@ -112,23 +111,21 @@ class BenchmarkRunner:
         Args:
             setup: setup, runs on which to execute; includes
                 a benchmarking problem, total number of iterations, etc.
-            model_factory: factory function that returns
-                an instantiated model, thereby defining a benchmarking
-                method
+            generation strategy: generation strategy that defines which
+                generation methods should be used in this benchmarking test
             num_runs: how many benchmark runs of given problem and method
                 combination to run with the given setup for one benchmark test
         """
         num_failures = 0
-        method_name = _method_name(model_factory=model_factory)
         benchmark_runs: Dict[Tuple[str, str, int], BenchmarkSetup] = {}
-        logger.info(f"Testing {method_name} on {setup.name}:")
+        logger.info(f"Testing {generation_strategy.name} on {setup.name}:")
         for run_idx in range(num_runs):
             logger.info(f"Run {run_idx}")
-            run_key = (setup.name, method_name, run_idx)
+            run_key = (setup.name, generation_strategy.name, run_idx)
             # If this run has already been executed, log and skip it.
             if run_key in self._runs:
                 self._error_messages.append(  # pragma: no cover
-                    f"Run {run_idx} of {method_name} on {setup.name} "
+                    f"Run {run_idx} of {generation_strategy.name} on {setup.name} "
                     "has already been executed in this benchmarking suite."
                     "Check that this method + problem combination is not "
                     "included in the benchmarking suite twice. Only the first "
@@ -141,11 +138,11 @@ class BenchmarkRunner:
             while num_failures < ALLOWED_RUN_RETRIES:
                 try:
                     benchmark_runs[run_key] = self.run_benchmark_run(
-                        setup.clone_reset(), model_factory
+                        setup.clone_reset(), generation_strategy.clone_reset()
                     )
                     self._generator_changes[
                         run_key
-                    ] = model_factory.__self__.generator_changes
+                    ] = generation_strategy.generator_changes
                     break
                 except Exception as err:  # pragma: no cover
                     logger.exception(err)
@@ -154,9 +151,9 @@ class BenchmarkRunner:
 
         if num_failures >= 5:
             self._error_messages.append(
-                f"Considering {method_name} on {setup.name} failed"
+                f"Considering {generation_strategy.name} on {setup.name} failed"
             )
-            self._failed_runs.append((setup.name, method_name))
+            self._failed_runs.append((setup.name, generation_strategy.name))
         else:
             self._runs.update(benchmark_runs)
         return self._runs
@@ -244,35 +241,32 @@ class BenchmarkRunner:
 
 class BanditBenchmarkRunner(BenchmarkRunner):
     def run_benchmark_run(
-        self, setup: BenchmarkSetup, model_factory: TModelFactory
+        self, setup: BenchmarkSetup, generation_strategy: GenerationStrategy
     ) -> BenchmarkSetup:
         pass  # pragma: no cover  TODO[drfreund]
 
 
 class BOBenchmarkRunner(BenchmarkRunner):
     def run_benchmark_run(
-        self, setup: BenchmarkSetup, model_factory: TModelFactory
+        self, setup: BenchmarkSetup, generation_strategy: GenerationStrategy
     ) -> BenchmarkSetup:
         remaining_iterations = setup.total_iterations
+        updated_trials = []
         while remaining_iterations > 0:
-            # Instantiate the generator for the current trial; we filter kwargs
-            # since diffent factory functions have different signatures.
-            iter_model = model_factory(
-                **_filter_kwargs(
-                    model_factory,
-                    experiment=setup,
-                    data=setup.fetch_data(),
-                    search_space=setup.search_space,
-                )
-            )
+            if setup.batch_size != 1:  # TODO[drfreund]: T41983558
+                raise ValueError(f"Generation strategy does not yet support batches.")
             num_suggestions = min(remaining_iterations, setup.batch_size)
-            generator_run = iter_model.gen(
-                num_suggestions, setup.search_space, setup.optimization_config
+            generator_run = generation_strategy.gen(
+                experiment=setup,
+                new_data=Data.from_multiple_data(
+                    [setup.fetch_trial_data(idx) for idx in updated_trials]
+                ),
             )
-            if setup.batch_size > 1:
-                setup.new_batch_trial().add_generator_run(generator_run).run()
+            if setup.batch_size > 1:  # pragma: no cover
+                trial = setup.new_batch_trial().add_generator_run(generator_run).run()
             else:
-                setup.new_trial(generator_run=generator_run).run()
+                trial = setup.new_trial(generator_run=generator_run).run()
+            updated_trials.append(trial.index)
             remaining_iterations -= num_suggestions
         return setup
 
@@ -319,7 +313,7 @@ def get_model_times(setup: BenchmarkSetup) -> Tuple[float, float]:
     fit_time = 0.0
     gen_time = 0.0
     for trial in setup.trials.values():
-        if isinstance(trial, BatchTrial):
+        if isinstance(trial, BatchTrial):  # pragma: no cover
             gr = trial._generator_run_structs[0].generator_run
         elif isinstance(trial, Trial):
             gr = trial.generator_run

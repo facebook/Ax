@@ -4,8 +4,8 @@ import logging
 
 from ax.core.parameter import ChoiceParameter, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.factory import get_GPEI, get_sobol
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.factory import Models
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.utils.common.logger import get_logger
 
 
@@ -30,14 +30,16 @@ def choose_generation_strategy(search_space: SearchSpace) -> GenerationStrategy:
             f"{sobol_arms} will take longer to generate due to model-fitting."
         )
         return GenerationStrategy(
-            model_factories=[get_sobol, get_GPEI], arms_per_model=[sobol_arms, -1]
+            name="Sobol+GPEI",
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL, num_arms=sobol_arms, min_arms_observed=5
+                ),
+                GenerationStep(model=Models.GPEI, num_arms=-1),
+            ],
         )
     else:
         logger.info(f"Using Sobol generation strategy.")
-        # Expected `List[typing.Callable[..., ax.modelbridge.base.ModelBridge]]`
-        # for 1st parameter `model_factories` to call `GenerationStrategy.__init__`
-        # but got `List[typing.Callable(ax.modelbridge.factory.get_sobol)
-        # [[Named(search_space, SearchSpace), Keywords(kwargs,
-        # typing.Union[bool, int])], ax.modelbridge.random.RandomModelBridge]]`.
-        # pyre-fixme[6]:
-        return GenerationStrategy(model_factories=[get_sobol], arms_per_model=[-1])
+        return GenerationStrategy(
+            name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
+        )

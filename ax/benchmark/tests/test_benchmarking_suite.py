@@ -9,14 +9,14 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.metrics.branin import BraninMetric
 from ax.metrics.l2norm import L2NormMetric
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.factory import Models
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.fake import get_branin_search_space
 
 
 def fail(*args: Any, **kwargs: Any) -> None:
-    raise ValueError
+    raise ValueError("This is failing intentionally for testing purposes.")
 
 
 class TestBOBenchmarkingSuite(TestCase):
@@ -53,7 +53,10 @@ class TestBOBenchmarkingSuite(TestCase):
         runner = suite.run(
             num_trials=1,
             total_iterations=1,
-            bo_strategies=[GenerationStrategy([get_sobol], [5])] * 2,
+            bo_strategies=[
+                GenerationStrategy([GenerationStep(model=Models.SOBOL, num_arms=5)])
+            ]
+            * 2,
             bo_problems=BOProblems,
         )
         self.assertRegex(runner.errors[0], r"^Run [0-9]* of .* on")
@@ -66,7 +69,9 @@ class TestBOBenchmarkingSuite(TestCase):
         runner = suite.run(
             num_trials=1,
             total_iterations=1,
-            bo_strategies=[GenerationStrategy([fail], [30])],
+            bo_strategies=[
+                GenerationStrategy([GenerationStep(model=fail, num_arms=30)])
+            ],
             bo_problems=BOProblems,
         )
         self.assertEqual(len(runner._runs), 0)
@@ -77,8 +82,10 @@ class TestBOBenchmarkingSuite(TestCase):
         runner = suite.run(
             num_trials=1,
             total_iterations=5,
-            batch_size=2,
-            bo_strategies=[GenerationStrategy([get_sobol], [10])],
+            batch_size=1,
+            bo_strategies=[
+                GenerationStrategy([GenerationStep(model=Models.SOBOL, num_arms=10)])
+            ],
             bo_problems=[branin],
         )
         # If run_benchmarking_trial fails, corresponding trial in '_runs' is None.
@@ -118,7 +125,9 @@ class TestBOBenchmarkingSuite(TestCase):
         suite.run(
             num_trials=1,
             total_iterations=5,
-            bo_strategies=[GenerationStrategy([get_sobol], [5])],
+            bo_strategies=[
+                GenerationStrategy([GenerationStep(model=Models.SOBOL, num_arms=5)])
+            ],
             bo_problems=[branin_rel],
         )
         with self.assertRaises(ValueError):
@@ -154,7 +163,9 @@ class TestBOBenchmarkingSuite(TestCase):
         suite.run(
             num_trials=1,
             total_iterations=5,
-            bo_strategies=[GenerationStrategy([get_sobol], [5])],
+            bo_strategies=[
+                GenerationStrategy([GenerationStep(model=Models.SOBOL, num_arms=5)])
+            ],
             bo_problems=[branin_lb],
         )
         suite.generate_report(include_individual=True)

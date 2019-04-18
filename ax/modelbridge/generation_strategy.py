@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 from inspect import signature
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, NamedTuple, Optional
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.search_space import SearchSpace
+from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.factory import Models
+from ax.utils.common.typeutils import not_none
 
 
 TModelFactory = Callable[..., ModelBridge]
@@ -19,6 +21,21 @@ def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
     return {k: v for k, v in kwargs.items() if k in signature(function).parameters}
 
 
+class GenerationStep(NamedTuple):
+    """One step in the generation strategy, corresponds to a single model.
+    Describes the model, how many arms will be generated with this model, what
+    minimum number of observations is required to proceed to the next model, etc.
+    """
+
+    model: Models
+    num_arms: int
+    min_arms_observed: int = 0
+    max_async_parallelism: Optional[int] = None  # TODO[drfreund, T41983558]: use
+    enforce_num_arms: bool = True
+    model_kwargs: Any = None  # Kwargs to pass into the Models factory function.
+    index: Optional[int] = None  # Index of this step, set internally.
+
+
 class GenerationStrategy:
     """GenerationStrategy describes which model should be used to generate new
     points for which trials, enabling and automating use of different models
@@ -27,159 +44,125 @@ class GenerationStrategy:
     trials. In the general case, this allows to automate use of an arbitrary
     number of models to generate an arbitrary numbers of arms
     described in the `arms_per_model` argument.
-
-    Note: if model returned from `GenerationStrategy.get_model` is
-    used to generate more than one arm, it is possible that a model
-    actually generating the N-th arm using `GenerationStrategy` is not
-    the one designated in the strategy. This is because each model is created
-    during the execution of `get_model` and not changed until `get_model`
-    is executed again. For instance:
-
-    >>  strategy = GenerationStrategy(
-    ...     model_factories=[get_sobol, get_GPEI],
-    ...     arms_per_model=[1, 25]
-    ... )
-    ... exp = make_my_experiment()  # Some function that creates an Experiment.
-    ... sobol = strategy.get_model(experiment=exp)
-    ... # All 5 arms generated in line below will be generated through
-    ... # Sobol, even though GenerationStrategy designates Sobol model only
-    ... # for the 1st arm in the experiment.
-    ... generator_run = sobol.gen(5)
-    ... exp.new_batch_trial().add_generator_run(generator_run=generator_run)
-    ... # Now that the experiment includes at least one arm, `get_model`
-    ... # returns the next model in the strategy after Sobol, GP+EI model.
-    ... gpei = strategy.get_model(experiment=exp, data=exp.fetch_data())
-
-    Args:
-        model_factories: functions that return a
-            single model. Index of a factory function in this list will
-            correspond to the ordering of models in a ``GenerationStrategy``.
-            This list is expected to have more than one model factory function.
-
-        arms_per_model: number of arms for each
-            of the models in ``model_factories`` to generate.
-            Note: if last number is this list is `-1`, the last model in
-            `model_factories` will be used to generate any number of arms once
-            all previous models have generated their respective arms.
     """
 
-    _model_factories: List[TModelFactory]
-    _arms_per_model: List[int]
-    _generator_changes: List[int] = None
-    _last_used_model: Optional[ModelBridge] = None
+    _name: Optional[str]
+    _steps: List[GenerationStep]
+    _generated: List[str]  # Arms generated in the current generation step.
+    _observed: List[str]  # Arms in the current step for which we observed data.
+    _last_model: Optional[ModelBridge]  # Last instantiated model.
+    _data: Data  # All data this strategy has been updated with.
+    _curr: GenerationStep  # Current step in the strategy.
 
-    def __init__(
-        self, model_factories: List[TModelFactory], arms_per_model: List[int]
-    ) -> None:
-        if len(arms_per_model) != len(model_factories):
-            raise ValueError(
-                "GenerationStrategy expects to include as many designated "
-                "number of arms per model as models. "
-            )
-        if arms_per_model[-1] == -1:  # We should keep using last model for any
-            arms_per_model[-1] = MAX_CONDITIONS_GENERATED  # number of arms.
-        if len(arms_per_model) > 1 and min(arms_per_model) <= 0:
-            raise ValueError("arms_per_model must all be greater than 0.")
-        self._model_factories = model_factories
-        self._arms_per_model = arms_per_model
-        # Record at what iteration in the experiment models changed
-        # (used to indicate generator changes in plotting).
-        gen_changes = self._arms_per_model
-        self._generator_changes = [
-            sum(gen_changes[: i + 1]) for i in range(len(gen_changes))
-        ][:-1]
+    def __init__(self, steps: List[GenerationStep], name: Optional[str] = None) -> None:
+        self._name = name
+        self._steps = steps
+        assert isinstance(self._steps, list), "Steps must be a GenerationStep list."
+        for idx, step in enumerate(self._steps):
+            if step.num_arms == -1:
+                if idx < len(self._steps) - 1:
+                    raise ValueError(
+                        "Only last step in generation strategy can have num_arms "
+                        "set to -1 to indicate that the model in the step should "
+                        "be used to generate new arms indefinitely."
+                    )
+            elif step.num_arms < 1:
+                raise ValueError("`num_arms` must be positive or -1 for all models.")
+            self._steps[idx] = step._replace(index=idx)
+        self._generated = []
+        self._observed = []
+        self._last_model = None
+        self._data = Data()
+        self._curr = steps[0]
 
     @property
     def name(self) -> str:
+        """Name of this generation strategy. Defaults to a combination of model
+        names provided in generation steps."""
+        if self._name:
+            return self._name
+
         factory_names = (
-            factory.__name__[4:]
+            step.model.__name__[4:]  # pyre-ignore[16] T41922457
             # Trim the "get_" beginning of the factory function if it's there.
-            if factory.__name__[:4] == "get_" else factory.__name__
-            for factory in self._model_factories
+            # pyre-ignore[16] T41922457
+            if step.model.__name__[:4] == "get_" else step.model.__name__
+            for step in self._steps
         )
-        return "+".join(factory_names)
+        return "+".join(factory_names)  # pyre-ignore[6]
 
     @property
     def generator_changes(self) -> List[int]:
-        return self._generator_changes
+        """List of arm indices where a transition happened from one model to
+        another."""
+        gen_changes = [step.num_arms for step in self._steps]
+        return [sum(gen_changes[: i + 1]) for i in range(len(gen_changes))][:-1]
 
-    def get_model(
+    def gen(
         self,
         experiment: Experiment,
-        data: Optional[Data] = None,
-        search_space: Optional[SearchSpace] = None,
-        exclude_abandoned: bool = False,
+        new_data: Optional[Data] = None,  # Take in just the new data.
         **kwargs: Any,
-    ) -> ModelBridge:
-        """Obtains a model from the factory corresponding to the current
-        trial in the strategy. This function filters out keyword arguments
-        that are not applicable to the model factory function to be used
-        for this trial.
+    ) -> GeneratorRun:
+        """Produce the next points in the experiment."""
+        # TODO[drfreund, T41983558]: add `n` arg. and handle generating batches.
 
-        Note: if the experiment passed as argument has 0 trials, number of
-        arms generated in this strategy resets to 0, which means that the
-        strategy starts with the first provided model.
+        # Add new data to data we already have.
+        if new_data is not None:
+            self._data = Data.from_multiple_data(data=[self._data, new_data])
+            for _, row in new_data.df.iterrows():
+                if (
+                    row["arm_name"] in experiment.arms_by_name
+                    and not experiment.trials.get(row["trial_index"]).status.is_failed
+                ):
+                    # NOTE: if this arm was suggested multiple times, in the
+                    # current step and before, and the data passed includes its
+                    # evaluation not for the current step, it will still be
+                    # counted as observed for the current step.
+                    self._observed.append(
+                        experiment.arms_by_name.get(row["arm_name"]).signature
+                    )
 
-        Args:
-            experiment: experiment, for which this generation
-                strategy will be generating arms.
-            data: data, on which to train the model, defaults
-                to None.
-            search_space: search space for this experiment.
-            exclude_abandoned: whether we should exclude abandoned
-                arms in the experiment when determining which model
-                to return (e.g., if this generator strategy uses model A for
-                first 5 arms, and then model B, if one of the first 5
-                arms is abandoned, model A will be returned from this
-                function if exclude_abandoned is True and model B if its
-                False). Defaults to False.
-            **kwargs: any other arguments to be passed into the model (e.g.,
-                'min_weight' for Thompson Sampler).
-        """
-        # Determine how many arms are already attached to this experiment.
-        arms_ran = (
-            experiment.sum_trial_sizes - experiment.num_abandoned_arms
-            if exclude_abandoned
-            else experiment.sum_trial_sizes
+        enough_observed = len(self._observed) >= self._curr.min_arms_observed
+        enough_generated = (  # If num arms is -1, model should be used indefinitely.
+            self._curr.num_arms != -1 and len(self._generated) >= self._curr.num_arms
         )
 
-        if arms_ran >= sum(self._arms_per_model):
+        # Check that minimum observed_arms is satisfied if it's enforced.
+        if self._curr.enforce_num_arms and enough_generated and not enough_observed:
             raise ValueError(
-                "This generation strategy expected to generate only "
-                f"{sum(self._arms_per_model)} arms, "
-                f"but experiment includes {arms_ran} arms already."
+                "All trials for current model have been generated, but not enough "
+                "data has been observed to fit next model. Try again when more data "
+                "are available."
             )
 
-        # Find index of model to use for this trial.
-        idx = 0
-        while sum(self._arms_per_model[: idx + 1]) <= arms_ran and idx + 1 < len(
-            self._model_factories
-        ):
-            idx += 1
-        # Is this model the same as the one that would've been returned for
-        # the previous trial:
-        same_model = sum(self._arms_per_model[:idx]) < arms_ran
-
-        factory = self._model_factories[idx]
-
-        # Filter out kwargs that the specific chosen factory function does not
-        # require.
-        factory_kwargs = _filter_kwargs(
-            factory,
-            experiment=experiment,
-            data=data if data is not None else Data(),
-            search_space=search_space
-            if search_space is not None
-            else experiment.search_space,
-            **kwargs,
-        )
-        if (
-            "data" not in factory_kwargs.keys()
-            and same_model
-            and self._last_used_model is not None
-        ):
-            current_model = self._last_used_model
+        if self._last_model and (not enough_generated or not enough_observed):
+            # Using the same model and updating with new data if available.
+            if new_data:
+                self._last_model.update(experiment=experiment, data=new_data)
         else:
-            current_model = factory(**factory_kwargs)
-        self._last_used_model = current_model
-        return current_model
+            if self._last_model:
+                if len(self._steps) == not_none(self._curr.index) + 1:
+                    raise ValueError(f"Generation strategy {self.name} is completed.")
+                self._curr = self._steps[not_none(self._curr.index) + 1]
+                # New step => reset _generated and _observed.
+                self._generated, self._observed = [], []
+            # Instantiate the new step's model from scratch with all known data.
+            self._last_model = self._curr.model(  # pyre-ignore[29] T41922457
+                **_filter_kwargs(
+                    self._curr.model,
+                    experiment=experiment,
+                    data=self._data,
+                    search_space=experiment.search_space,
+                    **(self._curr.model_kwargs or {}),
+                    **kwargs,
+                )
+            )
+        generator_run = self._last_model.gen(1)
+
+        self._generated.extend(a.signature for a in generator_run.arms)
+        return generator_run
+
+    def clone_reset(self) -> "GenerationStrategy":
+        """Copy this generation strategy without it's state."""
+        return GenerationStrategy(name=self.name, steps=self._steps)
