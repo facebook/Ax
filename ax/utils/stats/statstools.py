@@ -592,12 +592,10 @@ def ancillary_james_stein(
     unbiased means (weighted by the weights argument).
     Args:
         means_unbiased: Unbiased means
-        sems_unbiased: SEMs for
-            unbiased means
+        sems_unbiased: SEMs for unbiased means
         means_biased: Biased means
         sems_biased: SEMs for biased means
-        ns: weights for calculation of
-            bias term
+        ns: weights for calculation of bias term
 
     Returns:
         means: Empirical bayes estimate of underlying mean
