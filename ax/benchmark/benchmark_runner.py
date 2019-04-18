@@ -259,7 +259,7 @@ class BOBenchmarkRunner(BenchmarkRunner):
             generator_run = generation_strategy.gen(
                 experiment=setup,
                 new_data=Data.from_multiple_data(
-                    [setup.fetch_trial_data(idx) for idx in updated_trials]
+                    [setup._fetch_trial_data(idx) for idx in updated_trials]
                 ),
             )
             if setup.batch_size > 1:  # pragma: no cover
