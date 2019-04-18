@@ -82,6 +82,10 @@ class OptimizationLoop:
         self.schedule_config = schedule_config
         self.optimization_plan = optimization_plan or OptimizationPlan()
         self.experiment = experiment
+        assert len(experiment.trials) == 0, (
+            "Optimization Loop should not be initialized with an experiment "
+            "that has trials already."
+        )
         self.generation_strategy = choose_generation_strategy(
             search_space=experiment.search_space
         )
@@ -199,3 +203,30 @@ class OptimizationLoop:
             else objective_rows.loc[objective_rows["mean"].idxmax()]
         )["arm_name"]
         return self.experiment.arms_by_name.get(best_arm).parameters
+
+
+def optimize(
+    parameters: List[TParameterRepresentation],
+    objective_name: str,
+    evaluation_function: TEvaluationFunction,
+    experiment_name: str,
+    minimize: bool = False,
+    parameter_constraints: Optional[List[str]] = None,
+    outcome_constraints: Optional[List[str]] = None,
+    optimization_plan: Optional[OptimizationPlan] = None,
+    schedule_config: Optional[ScheduleConfig] = None,
+) -> Dict[str, Union[str, float, bool, int]]:
+    """Construct and run a full optimization loop."""
+    loop = OptimizationLoop.with_evaluation_function(
+        parameters=parameters,
+        objective_name=objective_name,
+        evaluation_function=evaluation_function,
+        experiment_name=experiment_name,
+        minimize=minimize,
+        parameter_constraints=parameter_constraints,
+        outcome_constraints=outcome_constraints,
+        optimization_plan=optimization_plan,
+        schedule_config=schedule_config,
+    )
+    loop.full_run()
+    return loop.get_best_point()

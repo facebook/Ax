@@ -77,15 +77,15 @@ class ObservationFeatures(Base):
         return repr_str
 
     def __hash__(self) -> int:
-        params = self.parameters.copy()
-        for k, v in params.items():
+        parameters = self.parameters.copy()
+        for k, v in parameters.items():
             if type(v) is np.int64:
-                params[k] = int(v)  # pragma: no cover
+                parameters[k] = int(v)  # pragma: no cover
             elif type(v) is np.float32:
-                params[k] = float(v)  # pragma: no cover  # pyre-ignore
+                parameters[k] = float(v)  # pragma: no cover  # pyre-ignore
         return hash(
             (
-                json.dumps(params, sort_keys=True),
+                json.dumps(parameters, sort_keys=True),
                 self.trial_index,
                 self.start_time,
                 self.end_time,
