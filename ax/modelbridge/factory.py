@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import List, Optional, Type
 
 import torch
 from ax.core.data import Data
@@ -35,7 +35,19 @@ from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
-from ax.models.torch.botorch import BotorchModel
+from ax.models.torch.botorch import (
+    BotorchModel,
+    TAcqfConstructor,
+    TModelConstructor,
+    TModelPredictor,
+    TOptimizer,
+)
+from ax.models.torch.botorch_defaults import (
+    get_and_fit_model,
+    get_NEI,
+    predict_from_model,
+    scipy_optimizer,
+)
 
 
 """
@@ -88,7 +100,11 @@ DEFAULT_TORCH_DEVICE = torch.device("cpu")
 
 
 def get_sobol(
-    search_space: SearchSpace, **kwargs: Union[int, bool]
+    search_space: SearchSpace,
+    seed: Optional[int] = None,
+    deduplicate: bool = False,
+    init_position: int = 0,
+    scramble: bool = True,
 ) -> RandomModelBridge:
     """Instantiates a Sobol sequence quasi-random generator.
 
@@ -101,14 +117,18 @@ def get_sobol(
     """
     return RandomModelBridge(
         search_space=search_space,
-        # pyre-ignore[6]: expected `bool` for the 1st anon. param., got `int`
-        model=SobolGenerator(**kwargs),
+        model=SobolGenerator(
+            seed=seed,
+            deduplicate=deduplicate,
+            init_position=init_position,
+            scramble=scramble,
+        ),
         transforms=Cont_X_trans,
     )
 
 
 def get_uniform(
-    search_space: SearchSpace, **kwargs: Union[int, bool]
+    search_space: SearchSpace, deduplicate: bool = False, seed: Optional[int] = None
 ) -> RandomModelBridge:
     """Instantiate uniform generator.
 
@@ -121,8 +141,7 @@ def get_uniform(
     """
     return RandomModelBridge(
         search_space=search_space,
-        # pyre-ignore[6]: expected `bool` for the 1st anon. param., got `int`
-        model=UniformGenerator(**kwargs),
+        model=UniformGenerator(deduplicate=deduplicate, seed=seed),
         transforms=Cont_X_trans,
     )
 
@@ -134,7 +153,12 @@ def get_botorch(
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
     transforms: List[Type[Transform]] = Cont_X_trans + Y_trans,
-    **kwargs: Any,
+    model_constructor: TModelConstructor = get_and_fit_model,  # pyre-ignore[9]
+    model_predictor: TModelPredictor = predict_from_model,
+    acqf_constructor: TAcqfConstructor = get_NEI,  # pyre-ignore[9]
+    acqf_optimizer: TOptimizer = scipy_optimizer,  # pyre-ignore[9]
+    refit_on_cv: bool = False,
+    refit_on_update: bool = True,
 ) -> TorchModelBridge:
     """Instantiates a BotorchModel."""
     if search_space is None:
@@ -145,7 +169,12 @@ def get_botorch(
         experiment=experiment,
         search_space=search_space,
         data=data,
-        model=BotorchModel(**kwargs),
+        model=BotorchModel(
+            model_constructor=model_constructor,
+            model_predictor=model_predictor,
+            acqf_constructor=acqf_constructor,
+            acqf_optimizer=acqf_optimizer,
+        ),
         transforms=transforms,
         torch_dtype=dtype,
         torch_device=device,
@@ -158,7 +187,6 @@ def get_GPEI(
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
-    **kwargs: Union[Dict[str, Union[int, bool]], bool, int, float, str],
 ) -> TorchModelBridge:
     """Instantiates a GP model that generates points with EI."""
     if data.df.empty:  # pragma: no cover

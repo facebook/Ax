@@ -21,7 +21,7 @@ from botorch.models.model import Model
 from torch import Tensor
 
 
-TModelConstuctor = Callable[
+TModelConstructor = Callable[
     [
         List[Tensor],
         List[Tensor],
@@ -158,8 +158,8 @@ class BotorchModel(TorchModel):
         # pyre-fixme[9]: model_constructor has type `Callable[[List[Tensor],
         #  List[Tensor], List[Tensor], List[int], Optional[Dict[str, Tensor]], Any],
         #  Model]`; used as `Callable[[List[Tensor], List[Tensor], List[Tensor],
-        #  List[int], Optional[Dict[str, Tensor]], **(Any)], ModelListGP]`.
-        model_constructor: TModelConstuctor = get_and_fit_model,
+        #  List[int], Optional[Dict[str, Tensor]], **(Any)], MultiOutputGP]`.
+        model_constructor: TModelConstructor = get_and_fit_model,
         model_predictor: TModelPredictor = predict_from_model,
         # pyre-fixme[9]: acqf_constructor has type `Callable[[Model, Tensor,
         #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any],
