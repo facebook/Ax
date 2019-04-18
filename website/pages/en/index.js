@@ -111,6 +111,7 @@ class Index extends React.Component {
     const pre = "```";
 
     const codeExample = `${pre}python
+>>> from ax.service.managed_loop import OptimizationLoop
 >>> loop = OptimizationLoop.with_evaluation_function(
         parameters=[
           {

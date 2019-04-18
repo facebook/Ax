@@ -6,7 +6,7 @@ Modular design of Ax enables multiple modes of usage, which provide different ba
 
 There are three primary usage modes, ranked from the most lightweight to fullest functionality:
   - **Loop API**. This API is intended for synchronous optimization loops. It is the recommended starting point for optimization of arbitrary functions that do not require parallelism and do not take a long time to compute.
-  - **Service API**: This is a simplified API which can be used as a lightweight service (via, for example, a Thrift interface) for parameter tuning applications, like hyper-parameter optimization and simulation optimization, where there are multiple parallel runs and data is available asynchronously. In this mode, Ax handles the experimentation algorithm(s), but not the execution of experiment iterations. This mode requires little to no knowledge of Ax data structures and easily integrates with various schedulers.
+  - **Service API**: This is a simplified API which can be used as a lightweight service (via, for example, a Thrift or RPC-type interface) for parameter tuning applications, like hyper-parameter optimization and simulation optimization, where there are multiple parallel runs and data is available asynchronously. In this mode, Ax handles the experimentation algorithm(s), but not the execution of experiment iterations. This mode requires little to no knowledge of Ax data structures and easily integrates with various schedulers.
   - **Developer API**. This API is for ad hoc use by data scientists, machine learning engineers, and researchers.  The developer API allows for a great deal of customizability, and is recommended for those who plan to use Ax to optimize A/B tests. This requires some knowledge of _Ax architecture_.
 
 Here is a comparison of the three APIs in the case of evaluating the synthetic Branin function:
@@ -14,6 +14,7 @@ Here is a comparison of the three APIs in the case of evaluating the synthetic B
 <!--DOCUSAURUS_CODE_TABS-->
 <!--Loop-->
 ```py
+from ax.service.managed_loop import OptimizationLoop
 loop = OptimizationLoop.with_evaluation_function(
     parameters=[
         {
@@ -68,6 +69,7 @@ best_parameters, metrics = ax.get_best_parameters()
 
 <!--Developer-->
 ```py
+from ax import *
 branin_search_space = SearchSpace(
     parameters=[
         RangeParameter(
