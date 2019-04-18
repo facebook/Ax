@@ -31,15 +31,15 @@
   ],
   "API Comparison": [
     {
-      "id": "managed_loop",
+      "id": "gpei_hartmann_loop",
       "title": "Loop API"
     },
     {
-      "id": "service_api",
-      "title": "Service API and AxClient"
+      "id": "gpei_hartmann_service",
+      "title": "Service API"
     },
     {
-      "id": "gpei_synthetic",
+      "id": "gpei_hartmann_developer",
       "title": "Developer API"
     }
   ]
