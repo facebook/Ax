@@ -5,8 +5,12 @@ from typing import Dict, List, Optional
 
 from ax.core.arm import Arm
 from ax.core.base import Base
-from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
-from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.parameter import FixedParameter, Parameter
+from ax.core.parameter_constraint import (
+    OrderConstraint,
+    ParameterConstraint,
+    SumConstraint,
+)
 from ax.core.types import TParameterization
 
 
@@ -241,35 +245,25 @@ class SearchSpace(Base):
         self, parameter_constraints: List[ParameterConstraint]
     ) -> None:
         for constraint in parameter_constraints:
-            for parameter_name in constraint.constraint_dict.keys():
-                if parameter_name not in self._parameters.keys():
-                    raise ValueError(
-                        f"`{parameter_name}` does not exist in search space."
-                    )
-
-                parameter = self._parameters[parameter_name]
-                if not parameter.is_numeric:
-                    raise ValueError(
-                        f"Parameter constraints only supported for types int and float."
-                    )
-
-                # ChoiceParameters are transformed either using OneHotEncoding
-                # or the OrderedChoice transform. Both are non-linear, and
-                # Ax models only support linear constraints.
-                if isinstance(parameter, ChoiceParameter):
-                    raise ValueError(
-                        f"Parameter constraints not supported for ChoiceParameter."
-                    )
-
-                # Log parameters require a non-linear transformation, and Ax
-                # models only support linear constraints.
-                if (
-                    isinstance(parameter, RangeParameter)
-                    and parameter.log_scale is True
-                ):
-                    raise ValueError(
-                        f"Parameter constraints not allowed on log scale parameters."
-                    )
+            if isinstance(constraint, OrderConstraint) or isinstance(
+                constraint, SumConstraint
+            ):
+                for parameter in constraint.parameters:
+                    if parameter.name not in self._parameters.keys():
+                        raise ValueError(
+                            f"`{parameter.name}` does not exist in search space."
+                        )
+                    if parameter != self._parameters[parameter.name]:
+                        raise ValueError(
+                            f"Parameter constraint's definition of '{parameter.name}' "
+                            "does not match the SearchSpace's definition"
+                        )
+            else:
+                for parameter_name in constraint.constraint_dict.keys():
+                    if parameter_name not in self._parameters.keys():
+                        raise ValueError(
+                            f"`{parameter_name}` does not exist in search space."
+                        )
 
     def __repr__(self) -> str:
         return (

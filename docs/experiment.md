@@ -52,8 +52,8 @@ ParameterConstraint(constraint_dict={"x": 1.0, "y": 0.5}, bound=1.0)
 ```python
 from ax import OrderConstraint
 
-# x <= y
-OrderConstraint(lower_name="x", upper_name="y")
+# x <= a
+OrderConstraint(lower_parameter=range_param, upper_parameter=RangeParameter(name='a', parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0)
 ```
 
 * **Sum constraints**: a type of linear constraint, which specifies that the sum of the parameters must be greater or less than a bound

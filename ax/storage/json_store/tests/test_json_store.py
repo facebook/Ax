@@ -79,11 +79,19 @@ ENCODE_DECODE_FIELD_MAPS = {
     "GeneratorRun": EncodeDecodeFieldsMap(
         encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
     ),
-    "OrderConstraint": EncodeDecodeFieldsMap(python_only=["bound"]),
+    "OrderConstraint": EncodeDecodeFieldsMap(
+        python_only=["bound"],
+        python_to_encoded={
+            "lower_parameter": "lower_name",
+            "upper_parameter": "upper_name",
+        },
+    ),
     "SimpleExperiment": EncodeDecodeFieldsMap(
         python_only=["arms_by_signature", "evaluation_function"]
     ),
-    "SumConstraint": EncodeDecodeFieldsMap(python_only=["constraint_dict"]),
+    "SumConstraint": EncodeDecodeFieldsMap(
+        python_only=["constraint_dict", "parameters"]
+    ),
     "Trial": EncodeDecodeFieldsMap(python_only=["experiment"]),
 }
 
@@ -115,6 +123,10 @@ class JSONStoreTest(TestCase):
             # Can't load trials from JSON, because a batch needs an experiment
             # in order to be initialized
             if class_ == "BatchTrial" or class_ == "Trial":
+                continue
+            # Can't load parameter constraints from JSON, because they require
+            # a SearchSpace in order to be initialized
+            if class_ == "OrderConstraint" or class_ == "SumConstraint":
                 continue
             original_object = fake_func()
             json_object = object_to_json(original_object)

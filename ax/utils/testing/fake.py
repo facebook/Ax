@@ -197,7 +197,11 @@ def get_search_space() -> SearchSpace:
         # pyre: SearchSpace.__init__` but got `List[typing.
         # pyre-fixme[6]: Union[ChoiceParameter, FixedParameter, RangeParameter]]`.
         parameters=parameters,
-        parameter_constraints=[get_order_constraint()],
+        parameter_constraints=[
+            get_order_constraint(),
+            get_parameter_constraint(),
+            get_sum_constraint1(),
+        ],
     )
 
 
@@ -315,7 +319,9 @@ def get_fixed_parameter() -> FixedParameter:
 
 
 def get_order_constraint() -> OrderConstraint:
-    return OrderConstraint(lower_name="x", upper_name="w")
+    w = get_range_parameter()
+    x = get_range_parameter2()
+    return OrderConstraint(lower_parameter=x, upper_parameter=w)
 
 
 def get_parameter_constraint() -> ParameterConstraint:
@@ -323,11 +329,15 @@ def get_parameter_constraint() -> ParameterConstraint:
 
 
 def get_sum_constraint1() -> SumConstraint:
-    return SumConstraint(parameter_names=["x", "w"], is_upper_bound=False, bound=10.0)
+    w = get_range_parameter()
+    x = get_range_parameter2()
+    return SumConstraint(parameters=[x, w], is_upper_bound=False, bound=10.0)
 
 
 def get_sum_constraint2() -> SumConstraint:
-    return SumConstraint(parameter_names=["x", "w"], is_upper_bound=True, bound=10.0)
+    w = get_range_parameter()
+    x = get_range_parameter2()
+    return SumConstraint(parameters=[x, w], is_upper_bound=True, bound=10.0)
 
 
 # Metrics

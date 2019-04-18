@@ -204,9 +204,12 @@ class Decoder:
             )
 
     def parameter_constraint_from_sqa(
-        self, parameter_constraint_sqa: SQAParameterConstraint
+        self,
+        parameter_constraint_sqa: SQAParameterConstraint,
+        parameters: List[Parameter],
     ) -> ParameterConstraint:
         """Convert SQLAlchemy ParameterConstraint to Ax ParameterConstraint."""
+        parameter_map = {p.name: p for p in parameters}
         if parameter_constraint_sqa.type == ParameterConstraintType.ORDER:
             lower_name = None
             upper_name = None
@@ -220,9 +223,23 @@ class Decoder:
                     "Cannot decode SQAParameterConstraint because `lower_name` or "
                     "`upper_name` was not found."
                 )
-            return OrderConstraint(lower_name=lower_name, upper_name=upper_name)
+            lower_parameter = parameter_map[lower_name]
+            upper_parameter = parameter_map[upper_name]
+            return OrderConstraint(
+                lower_parameter=lower_parameter, upper_parameter=upper_parameter
+            )
         elif parameter_constraint_sqa.type == ParameterConstraintType.SUM:
+            # This operation is potentially very inefficient.
+            # It is O(#constrained_parameters * #total_parameters)
             parameter_names = list(parameter_constraint_sqa.constraint_dict.keys())
+            constraint_parameters = [
+                next(
+                    search_space_param
+                    for search_space_param in parameters
+                    if search_space_param.name == c_p_name
+                )
+                for c_p_name in parameter_names
+            ]
             a_values = list(parameter_constraint_sqa.constraint_dict.values())
             if len(a_values) == 0:
                 raise SQADecodeError(
@@ -233,7 +250,7 @@ class Decoder:
             is_upper_bound = a == 1
             bound = parameter_constraint_sqa.bound * a
             return SumConstraint(
-                parameter_names=parameter_names,
+                parameters=constraint_parameters,
                 is_upper_bound=is_upper_bound,
                 bound=bound,
             )
@@ -257,7 +274,7 @@ class Decoder:
         ]
         parameter_constraints = [
             self.parameter_constraint_from_sqa(
-                parameter_constraint_sqa=parameter_constraint_sqa
+                parameter_constraint_sqa=parameter_constraint_sqa, parameters=parameters
             )
             for parameter_constraint_sqa in parameter_constraints_sqa
         ]

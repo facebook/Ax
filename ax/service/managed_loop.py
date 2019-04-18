@@ -102,14 +102,16 @@ class OptimizationLoop:
         """Constructs a synchronous `OptimizationLoop` using an evaluation
         function."""
         exp_parameters = [parameter_from_json(p) for p in parameters]
-        names = [p.name for p in exp_parameters]
+        parameter_map = {p.name: p for p in exp_parameters}
         experiment = SimpleExperiment(
             name=experiment_name,
             search_space=SearchSpace(
                 parameters=exp_parameters,
                 parameter_constraints=None
                 if parameter_constraints is None
-                else [constraint_from_str(c, names) for c in parameter_constraints],
+                else [
+                    constraint_from_str(c, parameter_map) for c in parameter_constraints
+                ],
             ),
             objective_name=objective_name,
             evaluation_function=evaluation_function,

@@ -20,14 +20,13 @@ from ax.utils.common.testutils import TestCase
 
 class NumpyModelBridgeTest(TestCase):
     def setUp(self):
-        self.parameters = [
-            RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1),
-            RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2),
-            RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5),
-        ]
+        x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
+        y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2)
+        z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)
+        self.parameters = [x, y, z]
         parameter_constraints = [
-            OrderConstraint("x", "y"),
-            SumConstraint(["x", "z"], False, 3.5),
+            OrderConstraint(x, y),
+            SumConstraint([x, z], False, 3.5),
         ]
 
         self.search_space = SearchSpace(self.parameters, parameter_constraints)

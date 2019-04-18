@@ -7,7 +7,11 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import OrderConstraint, SumConstraint
+from ax.core.parameter_constraint import (
+    OrderConstraint,
+    ParameterConstraint,
+    SumConstraint,
+)
 from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
 
@@ -18,36 +22,36 @@ TUNABLE_PARAMS = 4
 
 class SearchSpaceTest(TestCase):
     def setUp(self):
-        self.parameters = [
-            RangeParameter(
-                name="a", parameter_type=ParameterType.FLOAT, lower=0.5, upper=5.5
-            ),
-            RangeParameter(
-                name="b", parameter_type=ParameterType.INT, lower=2, upper=10
-            ),
-            ChoiceParameter(
-                name="c",
-                parameter_type=ParameterType.STRING,
-                values=["foo", "bar", "baz"],
-            ),
-            FixedParameter(name="d", parameter_type=ParameterType.BOOL, value=True),
-            ChoiceParameter(
-                name="e",
-                parameter_type=ParameterType.FLOAT,
-                values=[0.0, 0.1, 0.2, 0.5],
-            ),
-            RangeParameter(
-                name="f",
-                parameter_type=ParameterType.INT,
-                lower=2,
-                upper=10,
-                log_scale=True,
-            ),
-        ]
+        self.a = RangeParameter(
+            name="a", parameter_type=ParameterType.FLOAT, lower=0.5, upper=5.5
+        )
+        self.b = RangeParameter(
+            name="b", parameter_type=ParameterType.INT, lower=2, upper=10
+        )
+        self.c = ChoiceParameter(
+            name="c", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
+        )
+        self.d = FixedParameter(name="d", parameter_type=ParameterType.BOOL, value=True)
+        self.e = ChoiceParameter(
+            name="e", parameter_type=ParameterType.FLOAT, values=[0.0, 0.1, 0.2, 0.5]
+        )
+        self.f = RangeParameter(
+            name="f",
+            parameter_type=ParameterType.INT,
+            lower=2,
+            upper=10,
+            log_scale=True,
+        )
+        self.g = RangeParameter(
+            name="g", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+        )
+        self.parameters = [self.a, self.b, self.c, self.d, self.e, self.f]
         self.ss1 = SearchSpace(parameters=self.parameters)
         self.ss2 = SearchSpace(
             parameters=self.parameters,
-            parameter_constraints=[OrderConstraint(lower_name="a", upper_name="b")],
+            parameter_constraints=[
+                OrderConstraint(lower_parameter=self.a, upper_parameter=self.b)
+            ],
         )
         self.ss1_repr = (
             "SearchSpace("
@@ -81,7 +85,9 @@ class SearchSpaceTest(TestCase):
     def testEq(self):
         ss2 = SearchSpace(
             parameters=self.parameters,
-            parameter_constraints=[OrderConstraint(lower_name="a", upper_name="b")],
+            parameter_constraints=[
+                OrderConstraint(lower_parameter=self.a, upper_parameter=self.b)
+            ],
         )
         self.assertEqual(self.ss2, ss2)
         self.assertNotEqual(self.ss1, self.ss2)
@@ -99,20 +105,19 @@ class SearchSpaceTest(TestCase):
         self.assertEqual(str(self.ss1), self.ss1_repr)
 
     def testSetter(self):
-        new_c = SumConstraint(parameter_names=["a", "b"], is_upper_bound=True, bound=10)
+        new_c = SumConstraint(
+            parameters=[self.a, self.b], is_upper_bound=True, bound=10
+        )
         self.ss2.add_parameter_constraints([new_c])
         self.assertEqual(len(self.ss2.parameter_constraints), 2)
 
         self.ss2.set_parameter_constraints([])
         self.assertEqual(len(self.ss2.parameter_constraints), 0)
 
-        new_p = RangeParameter(
-            name="g", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
-        )
         update_p = RangeParameter(
             name="b", parameter_type=ParameterType.INT, lower=10, upper=20
         )
-        self.ss2.add_parameter(new_p)
+        self.ss2.add_parameter(self.g)
         self.assertEqual(len(self.ss2.parameters), TOTAL_PARAMS + 1)
 
         self.ss2.update_parameter(update_p)
@@ -128,28 +133,56 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[OrderConstraint(lower_name="a", upper_name="g")],
+                parameter_constraints=[
+                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.g)
+                ],
+            )
+
+        # Vanilla Constraint on non-existent parameter
+        with self.assertRaises(ValueError):
+            SearchSpace(
+                parameters=self.parameters,
+                parameter_constraints=[
+                    ParameterConstraint(constraint_dict={"g": 1}, bound=0)
+                ],
             )
 
         # Constraint on non-numeric parameter
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[OrderConstraint(lower_name="a", upper_name="d")],
+                parameter_constraints=[
+                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.d)
+                ],
             )
 
         # Constraint on choice parameter
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[OrderConstraint(lower_name="a", upper_name="e")],
+                parameter_constraints=[
+                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.e)
+                ],
             )
 
         # Constraint on logscale parameter
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[OrderConstraint(lower_name="a", upper_name="f")],
+                parameter_constraints=[
+                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.f)
+                ],
+            )
+
+        # Constraint on mismatched parameter
+        with self.assertRaises(ValueError):
+            wrong_a = self.a.clone()
+            wrong_a.update_range(upper=10)
+            SearchSpace(
+                parameters=self.parameters,
+                parameter_constraints=[
+                    OrderConstraint(lower_parameter=wrong_a, upper_parameter=self.b)
+                ],
             )
 
     def testBadSetter(self):
@@ -246,13 +279,14 @@ class SearchSpaceTest(TestCase):
             self.ss2.cast_arm(Arm(p_dict))
 
     def testCopy(self):
+        a = RangeParameter("a", ParameterType.FLOAT, 1.0, 5.5)
+        b = RangeParameter("b", ParameterType.FLOAT, 2.0, 5.5)
+        c = ChoiceParameter("c", ParameterType.INT, [2, 3])
         ss = SearchSpace(
-            parameters=[
-                RangeParameter("a", ParameterType.FLOAT, 1.0, 5.5),
-                RangeParameter("b", ParameterType.FLOAT, 2.0, 5.5),
-                ChoiceParameter("c", ParameterType.INT, [2, 3]),
+            parameters=[a, b, c],
+            parameter_constraints=[
+                OrderConstraint(lower_parameter=a, upper_parameter=b)
             ],
-            parameter_constraints=[OrderConstraint("a", "b")],
         )
         ss_copy = ss.clone()
         self.assertEqual(len(ss_copy.parameters), len(ss_copy.parameters))

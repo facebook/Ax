@@ -130,8 +130,8 @@ def order_parameter_constraint_to_dict(
     """Convert Ax order parameter constraint to a dictionary."""
     return {
         "__type": parameter_constraint.__class__.__name__,
-        "lower_name": parameter_constraint.lower_name,
-        "upper_name": parameter_constraint.upper_name,
+        "lower_name": parameter_constraint.lower_parameter.name,
+        "upper_name": parameter_constraint.upper_parameter.name,
     }
 
 

@@ -59,8 +59,9 @@ from ax.utils.testing.fake import (
     get_optimization_config,
     get_outcome_constraint,
     get_range_parameter,
+    get_range_parameter2,
     get_search_space,
-    get_sum_constraint1,
+    get_sum_constraint2,
     get_synthetic_runner,
 )
 
@@ -72,6 +73,10 @@ class SQAStoreTest(TestCase):
         self.encoder = Encoder(config=self.config)
         self.decoder = Decoder(config=self.config)
         self.experiment = get_experiment_with_batch_trial()
+        self.dummy_parameters = [
+            get_range_parameter(),  # w
+            get_range_parameter2(),  # x
+        ]
 
     def testCreationOfTestDB(self):
         init_test_engine_and_session_factory(tier_or_path=":memory:", force_init=True)
@@ -167,7 +172,14 @@ class SQAStoreTest(TestCase):
             encode_func = unbound_encode_func.__get__(self.encoder)
             decode_func = unbound_decode_func.__get__(self.decoder)
             sqa_object = encode_func(original_object)
-            converted_object = decode_func(sqa_object)
+            if (
+                class_ == "OrderConstraint"
+                or class_ == "ParameterConstraint"
+                or class_ == "SumConstraint"
+            ):
+                converted_object = decode_func(sqa_object, self.dummy_parameters)
+            else:
+                converted_object = decode_func(sqa_object)
 
             if class_ == "SimpleExperiment":
                 # Evaluation functions will be different, so need to do
@@ -300,14 +312,14 @@ class SQAStoreTest(TestCase):
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
-            get_session().query(SQAParameterConstraint).count(),  # 1
-            len(experiment.search_space.parameter_constraints),  # 1
+            get_session().query(SQAParameterConstraint).count(),  # 3
+            len(experiment.search_space.parameter_constraints),  # 3
         )
 
         # add a parameter constraint
         search_space = experiment.search_space
         existing_constraint = experiment.search_space.parameter_constraints[0]
-        new_constraint = get_sum_constraint1()
+        new_constraint = get_sum_constraint2()
         search_space.add_parameter_constraints([new_constraint])
         experiment.search_space = search_space
         save_experiment(experiment)
@@ -630,14 +642,18 @@ class SQAStoreTest(TestCase):
             type=ParameterConstraintType.ORDER, constraint_dict={}, bound=0
         )
         with self.assertRaises(SQADecodeError):
-            self.decoder.parameter_constraint_from_sqa(sqa_parameter)
+            self.decoder.parameter_constraint_from_sqa(
+                sqa_parameter, self.dummy_parameters
+            )
 
     def testDecodeSumParameterConstraintFailure(self):
         sqa_parameter = SQAParameterConstraint(
             type=ParameterConstraintType.SUM, constraint_dict={}, bound=0
         )
         with self.assertRaises(SQADecodeError):
-            self.decoder.parameter_constraint_from_sqa(sqa_parameter)
+            self.decoder.parameter_constraint_from_sqa(
+                sqa_parameter, self.dummy_parameters
+            )
 
     def testMetricValidation(self):
         sqa_metric = SQAMetric(
