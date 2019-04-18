@@ -121,13 +121,17 @@ class SQAStoreTest(TestCase):
     def testListEquals(self):
         self.assertTrue(SQABase.list_equals([1, 2, 3], [1, 2, 3]))
         self.assertFalse(SQABase.list_equals([4], ["foo"]))
+        self.assertFalse(SQABase.list_equals([4], []))
 
         with self.assertRaises(ValueError):
             SQABase.list_equals([[4]], [[4]])
 
     def testListUpdate(self):
         self.assertEqual(SQABase.list_update([1, 2, 3], [1, 2, 3]), [1, 2, 3])
-        self.assertEqual(SQABase.list_update([4], ["foo"]), ["foo"])
+        self.assertEqual(SQABase.list_update([4], [5]), [5])
+
+        with self.assertRaises(ValueError):
+            self.assertEqual(SQABase.list_update([4], ["foo"]), ["foo"])
 
         with self.assertRaises(ValueError):
             SQABase.list_update([[4]], [[4]])

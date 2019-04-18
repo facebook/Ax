@@ -54,17 +54,16 @@ class SQABase:
 
     @staticmethod
     def list_equals(l1: List[T], l2: List[T]) -> bool:
-        """Compare equality of two lists of SQABase instances.
+        """Compare equality of two lists.
 
         Assumptions:
-            -- The contents of each list are types that implement `equals`
             -- The lists do not contain duplicates
 
         Checking equality is then the same as checking that the lists are the same
         length, and that one is a subset of the other.
         """
         if len(l1) != len(l2):
-            return False  # pragma: no cover
+            return False
         for x in l1:
             for y in l2:
                 if type(x) != type(y):
@@ -87,98 +86,69 @@ class SQABase:
 
     @staticmethod
     def list_update(l1: List[T], l2: List[T]) -> List[T]:
-        """Merge a new list (`l2`) into an existing list (`l1`).
+        """Given an existing list (`l1`) and an new version (`l2`):
+           -- update the existing items in `l1` that have matching items in `l2`
+           -- delete existing items in `l1` that don't have matching items in `l2`
+           -- add items in `l2` that don't exist in `l1`
 
-        Assumptions:
-
-        - The lists do not contain duplicates
-
-        For each item in the new list:
-
-        - Check if there is a matching item in the old list.
-        - If so, update and retain the existing item.
-        - If not, add the item from the new list.
-        - If there are any items in the old list that don't have a matching
-          item in the new list, remove them.
-
-        Example:
-            1) You have an experiment with metrics [m1, m2]
-            2) You update the experiment to remove m1, change the properties of m2,
-               and add add m3. The new list of metrics is [m2(new), m3]
-            3) This will result in calling `list_update([m1, m2], [m2(new), m3])`
-            4) We start by looking at m2(new), and we find a matching object (m2)
-               in the original list, because the unique_id (name) of both objects
-               is the same. So we call m2.update(m2(new)) to update m2 in place,
-               and add it to our new list.
-            5) Now we look at m3. We don't find a matching object in the original list,
-               so we add m3 to our new list.
-            6) At the end, our new list contains the original m2 object with updates
-               applied, and the new m3 object.
-            7) SQLAlchemy will perform an update on m2, an insert of m3, and because
-               the new list does not contain m1, and because we have
-               cascade='all, delete-orphan' specified on the relationship between
-               experiment and metrics, this child will be deleted.
+        e.g. list_update([1,2,3], [1,5]) => [1,5]
+             list_update([Arm(name="0_0")], [Arm(name="0_0"), Arm(name="0_1")]) =>
+                [Arm(name="0_0"), Arm(name="0_1")]
+                where Arm(name="0_0") has been updated, not replaced, so that we
+                don't delete/recreate the DB row
         """
+        if not l1 and not l2:
+            return l1
+
+        types = [type(x) for x in l1 + l2]
+        if not all(x == types[0] for x in types):
+            raise ValueError(
+                "Cannot call `list_update` on lists that contain "
+                "multiple different types."
+            )
+        type_ = types[0]
+
+        if type_ in [int, float, str, bool, dict, Enum]:
+            # No need to do a special update here; just return the new list
+            return l2
+
+        if not issubclass(type_, SQABase):
+            raise ValueError(f"Calling list_update on unsupported type {type_}.")
+
+        unique_id = getattr(type_, "unique_id", None)
+        if unique_id is None:
+            return SQABase.list_update_without_unique_id(l1, l2)
+
+        l1_dict = {getattr(x, unique_id): x for x in l1}
+        l2_dict = {getattr(x, unique_id): x for x in l2}
+        if len(l1_dict) != len(l1) or len(l2_dict) != len(l2):
+            # If unique_ids aren't actually unique (could happen if all values
+            # are None), act as if there are no unique ids at all
+            return SQABase.list_update_without_unique_id(l1, l2)  # pragma: no cover
+
         new_list = []
-        for y in l2:  # For each item in the new list
-            for x in l1:  # Check if there is a matching item in the old list
-                if type(x) != type(y):
-                    equal = False
-                elif isinstance(x, SQABase):
-                    # To determine if the item is matching, first check if
-                    # the class has a unique id specified
-                    unique_id = getattr(type(x), "unique_id", None)
-                    if unique_id is None:
-                        # If there is no unique id specified, we can't match
-                        # up items and perform an update. Instead, we check if
-                        # there is an exact match, and if there isn't, we
-                        # throw away the old item and insert the new one.
-                        # This will happen for ParameterConstraints
-                        # pyre-fixme[6]: Expected `SQABase` for 1st param but got `T`.
-                        equal = x.equals(y)
-                    else:
-                        x_unique_value = getattr(x, unique_id)
-                        y_unique_value = getattr(y, unique_id)
-                        if x_unique_value is None or y_unique_value is None:
-                            # e.g. GeneratorRun's unique id is index, which is nullable.
-                            # Of a GeneratorRun does not have an index set,
-                            # we'll have to check if there is an exact match,
-                            # and if not, we throw away the old item and insert
-                            # the new one. This will happen for GeneratorRuns
-                            # wrapped around Trial status quos.
-                            # pyre-fixme[6]: Expected `SQABase` for 1st param but got...
-                            equal = x.equals(y)
-                        else:
-                            equal = x_unique_value == y_unique_value
-                            # If we've determined that two items are "matching",
-                            # i.e. have the same unique value but possibly differ
-                            # in other ways, we can recursively update.
-                            if equal:
-                                # pyre-fixme[6]: Expected `SQABase` for 1st param but...
-                                x.update(y)
-                elif isinstance(x, (int, float, str, bool, dict, Enum)):
-                    # Right now, the only times we perform an update on a list
-                    # that isn't a list of SQABase children is:
-                    # -- when we update the list of values of a ChoiceParameter.
-                    # -- when we update GeneratorRun model predictions
-                    equal = x == y
-                else:
-                    raise ValueError(
-                        f"Calling list_update on unsupported types: "
-                        f"{type(x)} and {type(y)}"
-                    )
-                if equal:
-                    # If we found a matching item (and potentially updated it)
-                    # we add it to our new list and stop looking for a match.
-                    new_list.append(x)
-                    break
+        for key, new_val in l2_dict.items():
+            # For each item in the new list, try to find a match in the old list.
+            if key in l1_dict:
+                # If there is a matching item in the old list, update it.
+                old_val = l1_dict[key]
+                # pyre-fixme[16]: `Variable[T]` has no attribute `update`.
+                old_val.update(new_val)
+                new_list.append(old_val)
             else:
-                # If we were unable to find a matching item, either because this
-                # item is new, or because this class doesn't have a unique id
-                # and an old item was changed, then we ignore the old item
-                # and add the new one.
-                new_list.append(y)
+                # If there is no matching item, append the new item.
+                new_list.append(new_val)
         return new_list
+
+    @staticmethod
+    def list_update_without_unique_id(l1: List[T], l2: List[T]) -> List[T]:
+        """Merge a new list (`l2`) into an existing list (`l1`)
+        This method works for lists whose items do not have a unique_id field.
+        If the lists are equal, return the old one. Else, return the new one.
+        """
+        if SQABase.list_equals(l1, l2):
+            return l1
+        return l2
 
     @equality_typechecker
     def equals(self, other: "SQABase") -> bool:
