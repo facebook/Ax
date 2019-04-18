@@ -4,7 +4,7 @@ import torch
 from ax.exceptions.model import ModelError
 from ax.models.torch.utils import is_noiseless
 from ax.utils.common.testutils import TestCase
-from botorch.models import HeteroskedasticSingleTaskGP, MultiOutputGP, SingleTaskGP
+from botorch.models import HeteroskedasticSingleTaskGP, ModelListGP, SingleTaskGP
 
 
 class TorchModelUtilsTest(TestCase):
@@ -17,4 +17,4 @@ class TorchModelUtilsTest(TestCase):
         model = HeteroskedasticSingleTaskGP(x, y, se)
         self.assertFalse(is_noiseless(model))
         with self.assertRaises(ModelError):
-            is_noiseless(MultiOutputGP([]))
+            is_noiseless(ModelListGP([]))

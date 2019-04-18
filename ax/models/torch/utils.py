@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Tuple
 import torch
 from ax.exceptions.model import ModelError
 from ax.models.model_utils import filter_constraints_and_fixed_features, get_observed
-from botorch.models import MultiOutputGP, SingleTaskGP
+from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.model import Model
 from torch import Tensor
 
@@ -15,9 +15,9 @@ NOISELESS_MODELS = {SingleTaskGP}  # pyre-ignore [16]
 
 def is_noiseless(model: Model) -> bool:
     """Check if a given (single-task) botorch model is noiseless"""
-    if isinstance(model, MultiOutputGP):  # pyre-ignore: [16]
+    if isinstance(model, ModelListGP):  # pyre-ignore: [16]
         raise ModelError(
-            "Checking for noisless models only applies to sub-models of MultiOutputGP"
+            "Checking for noisless models only applies to sub-models of ModelListGP"
         )
     return model.__class__ in NOISELESS_MODELS
 

@@ -18,7 +18,7 @@ class BotorchDefaultsTest(TestCase):
         self.assertTrue(isinstance(model, FixedNoiseMultiTaskGP))
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", autospec=True)
-    @mock.patch("ax.models.torch.botorch_defaults.MultiOutputGP", autospec=True)
+    @mock.patch("ax.models.torch.botorch_defaults.ModelListGP", autospec=True)
     def test_task_feature(self, gp_mock, get_model_mock):
         x = [torch.zeros(2, 2)]
         y = [torch.zeros(2, 1)]

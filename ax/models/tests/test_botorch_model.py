@@ -8,7 +8,7 @@ from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_defaults import get_and_fit_model
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.utils import get_infeasible_cost
-from botorch.models import MultiOutputGP
+from botorch.models import ModelListGP
 from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 
@@ -58,7 +58,7 @@ class BotorchModelTest(TestCase):
         self.assertTrue(torch.equal(model.Xs[1], Xs2[0]))
         self.assertEqual(model.dtype, Xs1[0].dtype)
         self.assertEqual(model.device, Xs1[0].device)
-        self.assertIsInstance(model.model, MultiOutputGP)
+        self.assertIsInstance(model.model, ModelListGP)
 
         # Check fitting
         model_list = model.model.models

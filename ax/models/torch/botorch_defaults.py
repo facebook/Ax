@@ -9,7 +9,7 @@ from botorch.acquisition.utils import get_acquisition_function, get_infeasible_c
 from botorch.fit import fit_gpytorch_model
 from botorch.models.gp_regression import FixedNoiseGP
 from botorch.models.model import Model
-from botorch.models.multi_output_gp_regression import MultiOutputGP
+from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP
 from botorch.optim.optimize import joint_optimize, sequential_optimize
 from botorch.utils import (
@@ -30,8 +30,8 @@ def get_and_fit_model(
     task_features: List[int],
     state_dict: Optional[Dict[str, Tensor]] = None,
     **kwargs: Any,
-) -> MultiOutputGP:
-    r"""Instantiates and fits a botorch MultiOutputGP using the given data.
+) -> ModelListGP:
+    r"""Instantiates and fits a botorch ModelListGP using the given data.
 
     Args:
         Xs: List of X data, one tensor per outcome
@@ -42,7 +42,7 @@ def get_and_fit_model(
             dictionary. Otherwise, will fit the model.
 
     Returns:
-        A fitted MultiOutputGP.
+        A fitted ModelListGP.
     """
     if len(task_features) > 1:
         raise ValueError(
@@ -56,7 +56,7 @@ def get_and_fit_model(
         _get_model(X=X, Y=Y, Yvar=Yvar, task_feature=task_feature)
         for X, Y, Yvar in zip(Xs, Ys, Yvars)
     ]
-    model = MultiOutputGP(gp_models=models)
+    model = ModelListGP(gp_models=models)
     model.to(dtype=Xs[0].dtype, device=Xs[0].device)  # pyre-ignore
     if state_dict is None:
         # TODO: Add bounds for optimization stability - requires revamp upstream
