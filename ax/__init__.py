@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # flake8: noqa F401
 from ax.core import *
+from ax.service import *
+from ax.storage import *
 
 
 __all__ = [
@@ -15,6 +17,7 @@ __all__ = [
     "Metric",
     "Objective",
     "OptimizationConfig",
+    "OptimizationLoop",
     "OrderConstraint",
     "OutcomeConstraint",
     "ParameterConstraint",
@@ -25,4 +28,7 @@ __all__ = [
     "SimpleExperiment",
     "SumConstraint",
     "Trial",
+    "save",
+    "load",
+    "sqa_store",
 ]

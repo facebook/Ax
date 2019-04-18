@@ -114,6 +114,10 @@ class JSONStoreTest(TestCase):
             self.assertEqual(loaded_experiment, self.experiment)
             os.remove(f.name)
 
+    def testSaveValidation(self):
+        with self.assertRaises(ValueError):
+            save_experiment(self.experiment.trials[0], "test.json")
+
     def testValidateFilename(self):
         bad_filename = "test"
         self.assertRaises(ValueError, save_experiment, self.experiment, bad_filename)

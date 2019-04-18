@@ -168,6 +168,10 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(loaded_experiment, self.experiment)
 
+    def testSaveValidation(self):
+        with self.assertRaises(ValueError):
+            save_experiment(self.experiment.trials[0])
+
     def testEncodeDecode(self):
         for class_, fake_func, unbound_encode_func, unbound_decode_func in TEST_CASES:
             # Can't load trials from SQL, because a trial needs an experiment

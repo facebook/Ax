@@ -10,6 +10,9 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 
 def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) -> None:
     """Save experiment (using default SQAConfig)."""
+    if not isinstance(experiment, Experiment):
+        raise ValueError("Can only save instances of Experiment")
+
     config = config or SQAConfig()
     encoder = Encoder(config=config)
     return _save_experiment(experiment=experiment, encoder=encoder)
