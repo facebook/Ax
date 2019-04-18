@@ -8,7 +8,7 @@
   "BayesOpt": [
     {
       "id": "tune_cnn",
-      "title": "GP-EI for CNN"
+      "title": "HPO for PyTorch"
     },
     {
       "id": "multi_task",
