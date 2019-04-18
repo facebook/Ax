@@ -28,6 +28,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
+from ax.metrics.registry import REVERSE_METRIC_REGISTRY
+from ax.runners.registry import REVERSE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -294,8 +296,9 @@ class Decoder:
         """
         args = dict(getattr(object_sqa, "properties", None) or {})
         signature = inspect.signature(class_.__init__)
+        exclude_args = ["self", "args", "kwargs"]
         for arg, info in signature.parameters.items():
-            if arg == "self" or arg in args:
+            if arg in exclude_args or arg in args:
                 continue
             value = getattr(object_sqa, arg, None)
             if value is None:
@@ -315,9 +318,7 @@ class Decoder:
         self, metric_sqa: SQAMetric
     ) -> Union[Metric, Objective, OutcomeConstraint]:
         """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
-        metric_class = self.config.metric_registry.type_to_class.get(
-            metric_sqa.metric_type
-        )
+        metric_class = REVERSE_METRIC_REGISTRY.get(metric_sqa.metric_type)
         if metric_class is None:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
@@ -334,8 +335,21 @@ class Decoder:
         if metric_sqa.intent == MetricIntent.TRACKING:
             return metric
         elif metric_sqa.intent == MetricIntent.OBJECTIVE:
+            if metric_sqa.minimize is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to Objective because minimize is None."
+                )
             return Objective(metric=metric, minimize=metric_sqa.minimize)
         elif metric_sqa.intent == MetricIntent.OUTCOME_CONSTRAINT:
+            if (
+                metric_sqa.bound is None
+                or metric_sqa.op is None
+                or metric_sqa.relative is None
+            ):
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to OutcomeConstraint because "
+                    "bound, op, or relative is None."
+                )
             return OutcomeConstraint(
                 metric=metric,
                 bound=metric_sqa.bound,
@@ -456,9 +470,7 @@ class Decoder:
 
     def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
         """Convert SQLAlchemy Runner to Ax Runner."""
-        runner_class = self.config.runner_registry.type_to_class.get(
-            runner_sqa.runner_type
-        )
+        runner_class = REVERSE_RUNNER_REGISTRY.get(runner_sqa.runner_type)
         if runner_class is None:
             raise SQADecodeError(
                 f"Cannot decode SQARunner because {runner_sqa.runner_type} "

@@ -13,6 +13,8 @@ from ax.core.runner import Runner
 from ax.core.types import ComparisonOp
 from ax.exceptions.storage import ImmutabilityError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
+from ax.metrics.registry import METRIC_REGISTRY, register_metric
+from ax.runners.registry import RUNNER_REGISTRY, register_runner
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.sqa_store.db import (
     SQABase,
@@ -663,7 +665,7 @@ class SQAStoreTest(TestCase):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=self.config.metric_registry.class_to_type[BraninMetric],
+            metric_type=METRIC_REGISTRY[BraninMetric],
         )
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -680,7 +682,7 @@ class SQAStoreTest(TestCase):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=self.config.metric_registry.class_to_type[BraninMetric],
+            metric_type=METRIC_REGISTRY[BraninMetric],
             generator_run_id=0,
         )
         with session_scope() as session:
@@ -703,7 +705,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
 
-        sqa_metric.metric_type = self.config.metric_registry.class_to_type[BraninMetric]
+        sqa_metric.metric_type = METRIC_REGISTRY[BraninMetric]
         sqa_metric.intent = "foobar"
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
@@ -721,9 +723,7 @@ class SQAStoreTest(TestCase):
             self.decoder.runner_from_sqa(sqa_runner)
 
     def testRunnerValidation(self):
-        sqa_runner = SQARunner(
-            runner_type=self.config.runner_registry.class_to_type[SyntheticRunner]
-        )
+        sqa_runner = SQARunner(runner_type=RUNNER_REGISTRY[SyntheticRunner])
         with self.assertRaises(ValueError):
             with session_scope() as session:
                 session.add(sqa_runner)
@@ -736,10 +736,7 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_runner)
 
-        sqa_runner = SQARunner(
-            runner_type=self.config.runner_registry.class_to_type[SyntheticRunner],
-            trial_id=0,
-        )
+        sqa_runner = SQARunner(runner_type=RUNNER_REGISTRY[SyntheticRunner], trial_id=0)
         with session_scope() as session:
             session.add(sqa_runner)
         with self.assertRaises(ValueError):
@@ -760,3 +757,24 @@ class SQAStoreTest(TestCase):
 
         properties = get_object_properties(Metric(name="foo", lower_is_better=True))
         self.assertEqual(properties, {"name": "foo", "lower_is_better": True})
+
+    def testRegistryAdditions(self):
+        class MyRunner(Runner):
+            def run():
+                pass
+
+            def staging_required():
+                return False
+
+        class MyMetric(Metric):
+            pass
+
+        register_metric(MyMetric)
+        register_runner(MyRunner)
+
+        experiment = get_experiment_with_batch_trial()
+        experiment.runner = MyRunner()
+        experiment.add_tracking_metric(MyMetric(name="my_metric"))
+        save_experiment(experiment)
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(loaded_experiment, experiment)

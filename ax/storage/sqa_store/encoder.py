@@ -24,6 +24,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
+from ax.metrics.registry import METRIC_REGISTRY
+from ax.runners.registry import RUNNER_REGISTRY
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
@@ -234,12 +236,12 @@ class Encoder:
 
     def get_metric_type_and_properties(
         self, metric: Metric
-    ) -> Tuple[str, Dict[str, Any]]:
+    ) -> Tuple[int, Dict[str, Any]]:
         """Given an Ax Metric, convert its type into a member of MetricType enum,
         and construct a dictionary to be stored in the database `properties`
         json blob.
         """
-        metric_type = self.config.metric_registry.class_to_type.get(type(metric))
+        metric_type = METRIC_REGISTRY.get(type(metric))
         if metric_type is None:
             raise SQAEncodeError(
                 "Cannot encode metric to SQLAlchemy because metric's "
@@ -404,7 +406,7 @@ class Encoder:
 
     def runner_to_sqa(self, runner: Runner) -> SQARunner:
         """Convert Ax Runner to SQLAlchemy."""
-        runner_type = self.config.runner_registry.class_to_type.get(type(runner))
+        runner_type = RUNNER_REGISTRY.get(type(runner))
         if runner_type is None:
             raise SQAEncodeError(
                 "Cannot encode runner to SQLAlchemy because runner's "
