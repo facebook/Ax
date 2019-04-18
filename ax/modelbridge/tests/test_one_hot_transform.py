@@ -64,8 +64,8 @@ class OneHotTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(list(self.t.encoded_params.keys()), ["b", "c"])
-        self.assertEqual(list(self.t2.encoded_params.keys()), ["b", "c"])
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
+        self.assertEqual(list(self.t2.encoded_parameters.keys()), ["b", "c"])
 
     def testTransformObservationFeatures(self):
         observation_features = [self.observation_features]

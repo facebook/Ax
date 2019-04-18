@@ -46,7 +46,7 @@ class ObservationsTest(TestCase):
     def testObservationFeaturesFromArm(self):
         arm = Arm({"x": 0, "y": "a"})
         obsf = ObservationFeatures.from_arm(arm, trial_index=3)
-        self.assertEqual(obsf.parameters, arm.params)
+        self.assertEqual(obsf.parameters, arm.parameters)
         self.assertEqual(obsf.trial_index, 3)
 
     def testObservationData(self):
@@ -173,9 +173,12 @@ class ObservationsTest(TestCase):
             }
         ]
         arms = {
-            obs["arm_name"]: Arm(params=obs["parameters"]) for obs in in_design_truth
+            obs["arm_name"]: Arm(parameters=obs["parameters"])
+            for obs in in_design_truth
         }
-        ood_arms = {obs["arm_name"]: Arm(params=obs["parameters"]) for obs in ood_truth}
+        ood_arms = {
+            obs["arm_name"]: Arm(parameters=obs["parameters"]) for obs in ood_truth
+        }
 
         experiment = Mock()
         type(experiment).arms_by_name = PropertyMock(return_value=arms)

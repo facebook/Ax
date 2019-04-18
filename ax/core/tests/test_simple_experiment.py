@@ -30,10 +30,10 @@ class SimpleExperimentTest(TestCase):
             objective_name="sum",
         )
         self.arms = [
-            Arm(params={"x1": 0.75, "x2": 1}),
-            Arm(params={"x1": 2, "x2": 7}),
-            Arm(params={"x1": 10, "x2": 8}),
-            Arm(params={"x1": -2, "x2": 10}),
+            Arm(parameters={"x1": 0.75, "x2": 1}),
+            Arm(parameters={"x1": 2, "x2": 7}),
+            Arm(parameters={"x1": 10, "x2": 8}),
+            Arm(parameters={"x1": -2, "x2": 10}),
         ]
 
     def test_basic(self):
@@ -47,9 +47,9 @@ class SimpleExperimentTest(TestCase):
             self.experiment.update_tracking_metric(Metric(name="test"))
         self.assertTrue(self.experiment.eval_trial(trial).df.empty)
         batch = self.experiment.new_batch_trial()
-        batch.add_arm(Arm(params={"x1": 5, "x2": 10}))
+        batch.add_arm(Arm(parameters={"x1": 5, "x2": 10}))
         self.assertEqual(self.experiment.eval_trial(batch).df["mean"][0], 15)
-        self.experiment.new_batch_trial().add_arm(Arm(params={"x1": 15, "x2": 25}))
+        self.experiment.new_batch_trial().add_arm(Arm(parameters={"x1": 15, "x2": 25}))
         self.assertAlmostEqual(self.experiment.eval().df["mean"][1], 40)
         self.assertEqual(batch.fetch_data().df["mean"][0], 15)
         self.assertAlmostEqual(self.experiment.fetch_data().df["mean"][1], 40)

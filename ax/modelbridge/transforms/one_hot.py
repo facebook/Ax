@@ -88,16 +88,16 @@ class OneHot(Transform):
         if config is not None:
             self.rounding = config.get("rounding", "strict")
         self.encoder: Dict[str, OneHotEncoder] = {}
-        self.encoded_params: Dict[str, List[str]] = {}
+        self.encoded_parameters: Dict[str, List[str]] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and not p.is_ordered and not p.is_task:
                 self.encoder[p.name] = OneHotEncoder(p.values)
                 nc = len(self.encoder[p.name].classes)
                 if nc == 2:
                     # Two levels handled in one parameter
-                    self.encoded_params[p.name] = [p.name + OH_PARAM_INFIX]
+                    self.encoded_parameters[p.name] = [p.name + OH_PARAM_INFIX]
                 else:
-                    self.encoded_params[p.name] = [
+                    self.encoded_parameters[p.name] = [
                         "{}{}_{}".format(p.name, OH_PARAM_INFIX, i) for i in range(nc)
                     ]
 
@@ -108,17 +108,18 @@ class OneHot(Transform):
             for p_name, encoder in self.encoder.items():
                 if p_name in obsf.parameters:
                     vals = encoder.transform(labels=[obsf.parameters.pop(p_name)])[0]
-                    updated_params: TParameterization = {
-                        self.encoded_params[p_name][i]: v for i, v in enumerate(vals)
+                    updated_parameters: TParameterization = {
+                        self.encoded_parameters[p_name][i]: v
+                        for i, v in enumerate(vals)
                     }
-                    obsf.parameters.update(updated_params)
+                    obsf.parameters.update(updated_parameters)
         return observation_features
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: Dict[str, Parameter] = {}
         for p in search_space.parameters.values():
-            if p.name in self.encoded_params:
-                for new_p_name in self.encoded_params[p.name]:
+            if p.name in self.encoded_parameters:
+                for new_p_name in self.encoded_parameters[p.name]:
                     transformed_parameters[new_p_name] = RangeParameter(
                         name=new_p_name,
                         parameter_type=ParameterType.FLOAT,
@@ -140,7 +141,7 @@ class OneHot(Transform):
         for obsf in observation_features:
             for p_name in self.encoder.keys():
                 x = np.array(
-                    [obsf.parameters.pop(p) for p in self.encoded_params[p_name]]
+                    [obsf.parameters.pop(p) for p in self.encoded_parameters[p_name]]
                 )
                 if self.rounding == "strict":
                     x = strict_onehot_round(x)

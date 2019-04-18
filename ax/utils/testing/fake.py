@@ -80,7 +80,7 @@ def get_branin_experiment(
     )
 
     if with_status_quo:
-        exp.status_quo = Arm(params={"x1": 0, "x2": 0})
+        exp.status_quo = Arm(parameters={"x1": 0, "x2": 0})
 
     if with_batch:
         sobol_generator = get_sobol(search_space=exp.search_space)
@@ -141,7 +141,11 @@ def get_factorial_experiment(
 
     if with_status_quo:
         exp.status_quo = Arm(
-            params={"factor1": "level11", "factor2": "level21", "factor3": "level31"}
+            parameters={
+                "factor1": "level11",
+                "factor2": "level21",
+                "factor3": "level31",
+            }
         )
 
     if with_batch:
@@ -405,31 +409,31 @@ def get_branin_outcome_constraint() -> OutcomeConstraint:
 
 def get_arm() -> Arm:
     # Expected `Dict[str, typing.Optional[typing.Union[bool, float, str]]]` for 2nd
-    # parameter `params` to call `ax.core.arm.Arm.__init__` but got
+    # parameter `parameters` to call `ax.core.arm.Arm.__init__` but got
     # `Dict[str, typing.Union[float, str]]`.
-    return Arm(params={"w": 0.75, "x": 1, "y": "foo", "z": True})
+    return Arm(parameters={"w": 0.75, "x": 1, "y": "foo", "z": True})
 
 
 def get_status_quo() -> Arm:
     return Arm(
         # Expected `Dict[str, typing.Optional[typing.Union[bool, float, str]]]` for 2nd
-        # parameter `params` to call `ax.core.arm.Arm.__init__`
+        # parameter `parameters` to call `ax.core.arm.Arm.__init__`
         # but got `Dict[str, typing.Union[float, str]]`.
-        params={"w": 0.2, "x": 1, "y": "bar", "z": False},
+        parameters={"w": 0.2, "x": 1, "y": "bar", "z": False},
         name="status_quo",
     )
 
 
 def get_arm_weights() -> MutableMapping[Arm, float]:
-    # pyre: params_dicts is declared to have type `List[Dict[str, typing.
+    # pyre: parameters_dicts is declared to have type `List[Dict[str, typing.
     # pyre: Optional[typing.Union[bool, float, str]]]]` but is used as type
     # pyre-fixme[9]: `List[Dict[str, typing.Union[float, str]]]`.
-    params_dicts: List[TParameterization] = [
+    parameters_dicts: List[TParameterization] = [
         {"w": 0.85, "x": 1, "y": "baz", "z": False},
         {"w": 0.75, "x": 1, "y": "foo", "z": True},
         {"w": 1.4, "x": 2, "y": "bar", "z": True},
     ]
-    arms = [Arm(param_dict) for param_dict in params_dicts]
+    arms = [Arm(param_dict) for param_dict in parameters_dicts]
     weights = [0.25, 0.5, 0.25]
     return OrderedDict(zip(arms, weights))
 
@@ -448,7 +452,8 @@ def get_branin_arms(n: int, seed: int) -> List[Arm]:
     x1_raw = np.random.rand(n)
     x2_raw = np.random.rand(n)
     return [
-        Arm(params={"x1": -5 + x1_raw[i] * 15, "x2": x2_raw[i] * 15}) for i in range(n)
+        Arm(parameters={"x1": -5 + x1_raw[i] * 15, "x2": x2_raw[i] * 15})
+        for i in range(n)
     ]
 
 

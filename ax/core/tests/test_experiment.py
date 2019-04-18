@@ -149,39 +149,50 @@ class ExperimentTest(TestCase):
             self.experiment.search_space = extra_param_ss
 
     def testStatusQuoSetter(self):
-        sq_params = self.experiment.status_quo.params
+        sq_parameters = self.experiment.status_quo.parameters
         self.experiment.status_quo = None
         self.assertIsNone(self.experiment.status_quo)
 
         # Verify normal update
-        sq_params["w"] = 3.5
-        self.experiment.status_quo = Arm(sq_params)
-        self.assertEqual(self.experiment.status_quo.params["w"], 3.5)
+        sq_parameters["w"] = 3.5
+        self.experiment.status_quo = Arm(sq_parameters)
+        self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
         self.assertEqual(self.experiment.status_quo.name, "status_quo")
 
         # Verify all None values
-        self.experiment.status_quo = Arm({n: None for n in sq_params.keys()})
-        self.assertIsNone(self.experiment.status_quo.params["w"])
+        self.experiment.status_quo = Arm({n: None for n in sq_parameters.keys()})
+        self.assertIsNone(self.experiment.status_quo.parameters["w"])
+
+        # Try extra param
+        sq_parameters["a"] = 4
+        with self.assertRaises(ValueError):
+            self.experiment.status_quo = Arm(sq_parameters)
 
         # Try wrong type
-        sq_params["w"] = "hello"
+        sq_parameters.pop("a")
+        sq_parameters["w"] = "hello"
         with self.assertRaises(ValueError):
-            self.experiment.status_quo = Arm(sq_params)
+            self.experiment.status_quo = Arm(sq_parameters)
 
         # Verify arms_by_signature only contains status_quo
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
 
         # Change status quo, verify still just 1 arm
-        sq_params["w"] = 3.6
-        self.experiment.status_quo = Arm(sq_params)
+        sq_parameters["w"] = 3.6
+        self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
 
         # Make a batch, then change exp status quo, verify 2 arms
         self.experiment.new_batch_trial()
-        sq_params["w"] = 3.7
-        self.experiment.status_quo = Arm(sq_params)
+        sq_parameters["w"] = 3.7
+        self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(len(self.experiment.arms_by_signature), 2)
         self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
+
+        # Try missing param
+        sq_parameters.pop("w")
+        with self.assertRaises(ValueError):
+            self.experiment.status_quo = Arm(sq_parameters)
 
         # Actually name the status quo.
         exp = Experiment(
@@ -199,7 +210,7 @@ class ExperimentTest(TestCase):
 
         # Try setting sq to existing arm with different name
         with self.assertRaises(ValueError):
-            exp.status_quo = Arm(arms[0].params, name="new_name")
+            exp.status_quo = Arm(arms[0].parameters, name="new_name")
 
     def _setupBraninExperiment(self, n: int) -> Experiment:
         exp = Experiment(

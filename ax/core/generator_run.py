@@ -211,7 +211,7 @@ class GeneratorRun(Base):
             pd.DataFrame: a dataframe with the generator run's arms.
         """
         return pd.DataFrame.from_dict(
-            {a.name_or_short_signature: a.params for a in self.arms}, orient="index"
+            {a.name_or_short_signature: a.parameters for a in self.arms}, orient="index"
         )
 
     def clone(self) -> "GeneratorRun":

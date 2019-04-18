@@ -17,4 +17,4 @@ class NumpyModelBridge(ArrayModelBridge):
 
     model: NumpyModel
     outcomes: List[str]
-    params: List[str]
+    parameters: List[str]

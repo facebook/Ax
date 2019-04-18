@@ -40,7 +40,7 @@ class IntToFloatTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(self.t.transform_params, {"a", "d"})
+        self.assertEqual(self.t.transform_parameters, {"a", "d"})
 
     def testTransformObservationFeatures(self):
         observation_features = [

@@ -27,7 +27,7 @@ class IntRangeToChoiceTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(self.t.transform_params, {"a"})
+        self.assertEqual(self.t.transform_parameters, {"a"})
 
     def testTransformObservationFeatures(self):
         observation_features = [ObservationFeatures(parameters={"a": 2, "b": "b"})]

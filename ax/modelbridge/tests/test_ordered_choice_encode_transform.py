@@ -45,7 +45,7 @@ class OrderedChoiceEncodeTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(list(self.t.encoded_params.keys()), ["b", "c"])
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
 
     def testTransformObservationFeatures(self):
         observation_features = [

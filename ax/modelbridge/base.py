@@ -613,9 +613,9 @@ def gen_arms(
     # TODO(T34225939): handle static context (which is stored on observation_features)
     arms = []
     for of in observation_features:
-        arm = Arm(params=of.parameters)
+        arm = Arm(parameters=of.parameters)
         if arms_by_signature is not None and arm.signature in arms_by_signature:
             existing_arm = arms_by_signature[arm.signature]
-            arm = Arm(name=existing_arm.name, params=existing_arm.params)
+            arm = Arm(name=existing_arm.name, parameters=existing_arm.parameters)
         arms.append(arm)
     return arms

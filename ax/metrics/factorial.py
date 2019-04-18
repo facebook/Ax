@@ -56,7 +56,7 @@ class FactorialMetric(Metric):
         for name, arm in trial.arms_by_name.items():
             weight = normalized_arm_weights[arm]
             mean, sem = evaluation_function(
-                parameterization=arm.params,
+                parameterization=arm.parameters,
                 weight=weight,
                 coefficients=self.coefficients,
                 batch_size=self.batch_size,

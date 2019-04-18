@@ -162,7 +162,11 @@ def parameter_constraint_to_dict(
 
 def arm_to_dict(arm: Arm) -> Dict[str, Any]:
     """Convert Ax arm to a dictionary."""
-    return {"__type": arm.__class__.__name__, "params": arm.params, "name": arm._name}
+    return {
+        "__type": arm.__class__.__name__,
+        "parameters": arm.parameters,
+        "name": arm._name,
+    }
 
 
 def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:

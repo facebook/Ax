@@ -54,7 +54,7 @@ class PlotInSampleArm(NamedTuple):
     """Struct for in-sample arms (both observed and predicted data)"""
 
     name: str
-    params: TParameterization
+    parameters: TParameterization
     y: Dict[str, float]
     y_hat: Dict[str, float]
     se: Dict[str, float]
@@ -66,7 +66,7 @@ class PlotOutOfSampleArm(NamedTuple):
     """Struct for out-of-sample arms (only predicted data)"""
 
     name: str
-    params: TParameterization
+    parameters: TParameterization
     y_hat: Dict[str, float]
     se_hat: Dict[str, float]
     context_stratum: Optional[Dict[str, Union[str, float]]]

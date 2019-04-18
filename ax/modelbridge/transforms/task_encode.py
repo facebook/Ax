@@ -28,17 +28,17 @@ class TaskEncode(OrderedChoiceEncode):
         config: Optional[TConfig] = None,
     ) -> None:
         # Identify parameters that should be transformed
-        self.encoded_params: Dict[str, Dict[TParamValue, int]] = {}
+        self.encoded_parameters: Dict[str, Dict[TParamValue, int]] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and p.is_task:
-                self.encoded_params[p.name] = {
+                self.encoded_parameters[p.name] = {
                     original_value: transformed_value
                     for transformed_value, original_value in enumerate(p.values)
                 }
-        self.encoded_params_inverse: Dict[str, Dict[int, TParamValue]] = {
+        self.encoded_parameters_inverse: Dict[str, Dict[int, TParamValue]] = {
             p_name: {
                 transformed_value: original_value
                 for original_value, transformed_value in transforms.items()
             }
-            for p_name, transforms in self.encoded_params.items()
+            for p_name, transforms in self.encoded_parameters.items()
         }

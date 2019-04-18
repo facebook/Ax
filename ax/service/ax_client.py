@@ -102,7 +102,7 @@ class AxClient:
         # NOTE: Could move this into log_data to save latency on this call.
         trial = self._suggest_new_trial()
         self._save_experiment_if_possible()
-        return not_none(trial.arm).params, trial.index
+        return not_none(trial.arm).parameters, trial.index
 
     def complete_trial(
         self,
@@ -158,9 +158,9 @@ class AxClient:
         Returns:
             Tuple of parameterization and trial index from newly created trial.
         """
-        trial = self.experiment.new_trial().add_arm(Arm(params=parameters))
+        trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
         self._save_experiment_if_possible()
-        return not_none(trial.arm).params, trial.index
+        return not_none(trial.arm).parameters, trial.index
 
     # TODO[T42389552]: this is currently only compatible with some models.
     def get_best_parameters(
@@ -179,7 +179,8 @@ class AxClient:
         name to a mapping of other mapping name to covariance of the two metrics.
 
         Returns:
-            Tuple of (best params, model predictions for best params). None if no data.
+            Tuple of (best parameters, model predictions for best parameters).
+            None if no data.
         """
         # Find latest trial which has a generator_run attached and get its predictions
         for _, trial in sorted(
@@ -189,7 +190,7 @@ class AxClient:
             gr = tr.generator_run
             if gr is not None and gr.best_arm_predictions is not None:
                 best_arm, best_arm_predictions = gr.best_arm_predictions
-                return best_arm.params, best_arm_predictions
+                return best_arm.parameters, best_arm_predictions
         return None
 
     def load_experiment(self, experiment_name: str) -> None:

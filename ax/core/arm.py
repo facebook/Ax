@@ -19,22 +19,23 @@ class Arm(Base):
 
     """
 
-    def __init__(self, params: TParameterization, name: Optional[str] = None) -> None:
+    def __init__(
+        self, parameters: TParameterization, name: Optional[str] = None
+    ) -> None:
         """Inits Arm.
 
         Args:
-            params: Mapping from parameter names to values.
+            parameters: Mapping from parameter names to values.
             name: Defaults to None; will be set when arm is attached to a trial
         """
-        self._params = params
+        self._parameters = parameters
         self._name = name
 
     @property
-    def params(self) -> TParameterization:
+    def parameters(self) -> TParameterization:
         """Get mapping from parameter names to values."""
-
         # Make a copy before returning so it cannot be accidentally mutated
-        return dict(self._params)
+        return dict(self._parameters)
 
     @property
     def has_name(self) -> bool:
@@ -68,27 +69,27 @@ class Arm(Base):
     @property
     def signature(self) -> str:
         """Get unique representation of a arm."""
-        return self.md5hash(self.params)
+        return self.md5hash(self.parameters)
 
     @staticmethod
-    def md5hash(params: TParameterization) -> str:
+    def md5hash(parameters: TParameterization) -> str:
         """Return unique identifier for arm's parameters.
 
         Args:
-            params: Parameterization; mapping of param name
+            parameters: Parameterization; mapping of param name
                 to value.
 
         Returns:
             Hash of arm's parameters.
 
         """
-        for k, v in params.items():
+        for k, v in parameters.items():
             if type(v) is np.int64:
-                params[k] = int(v)  # pragma: no cover
+                parameters[k] = int(v)  # pragma: no cover
             elif type(v) is np.float32:
-                params[k] = float(v)  # pragma: no cover  # pyre-ignore
-        params_str = json.dumps(params, sort_keys=True)
-        return hashlib.md5(params_str.encode("utf-8")).hexdigest()
+                parameters[k] = float(v)  # pragma: no cover  # pyre-ignore
+        parameters_str = json.dumps(parameters, sort_keys=True)
+        return hashlib.md5(parameters_str.encode("utf-8")).hexdigest()
 
     def clone(self, clear_name: bool = False) -> "Arm":
         """Create a copy of this arm.
@@ -99,14 +100,16 @@ class Arm(Base):
                 Defaults to False.
         """
         clear_name = clear_name or not self.has_name
-        return Arm(params=self.params.copy(), name=None if clear_name else self.name)
+        return Arm(
+            parameters=self.parameters.copy(), name=None if clear_name else self.name
+        )
 
     def __repr__(self) -> str:
-        params_str = f"params={self._params}"
+        parameters_str = f"parameters={self._parameters}"
         if self.has_name:
             name_str = f"name={self.name}"
-            return f"Arm({name_str}, {params_str})"
-        return f"Arm({params_str})"
+            return f"Arm({name_str}, {parameters_str})"
+        return f"Arm({parameters_str})"
 
     @equality_typechecker
     def __eq__(self, other: "Arm") -> bool:
@@ -114,11 +117,11 @@ class Arm(Base):
         because accessing the "name" attribute of Arm
         can result in an error.
         """
-        params_equal = self.params == other.params
+        parameters_equal = self.parameters == other.parameters
         names_equal = self.has_name == other.has_name
         if names_equal and self.has_name:
             names_equal = self.name == other.name
-        return params_equal and names_equal
+        return parameters_equal and names_equal
 
     def __hash__(self) -> int:
         return int(self.signature, 16)

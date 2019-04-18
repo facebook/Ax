@@ -108,15 +108,15 @@ class SimpleExperiment(Experiment):
                 return Data()  # pragma: no cover
             trial.mark_running()
             evaluations[not_none(trial.arm).name] = self.evaluation_function(
-                not_none(trial.arm).params, None
+                not_none(trial.arm).parameters, None
             )
         elif isinstance(trial, BatchTrial):
             if not trial.arms:
                 return Data()  # pragma: no cover
             trial.mark_running()
             for arm, weight in trial.normalized_arm_weights().items():
-                arm_params: TParameterization = arm.params
-                evaluations[arm.name] = self.evaluation_function(arm_params, weight)
+                arm_parameters: TParameterization = arm.parameters
+                evaluations[arm.name] = self.evaluation_function(arm_parameters, weight)
 
         data = Data.from_evaluations(evaluations, trial.index)
         self.attach_data(data)

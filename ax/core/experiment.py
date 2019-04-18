@@ -146,7 +146,7 @@ class Experiment(Base):
     @status_quo.setter
     def status_quo(self, status_quo: Optional[Arm]) -> None:
         if status_quo is not None:
-            self.search_space.check_types(status_quo.params, raise_error=True)
+            self.search_space.check_types(status_quo.parameters, raise_error=True)
 
             # Compute a unique name if "status_quo" is taken
             name = "status_quo"

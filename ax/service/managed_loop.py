@@ -199,4 +199,4 @@ class OptimizationLoop:
             if self.experiment.optimization_config.objective.minimize
             else objective_rows.loc[objective_rows["mean"].idxmax()]
         )["arm_name"]
-        return self.experiment.arms_by_name.get(best_arm).params
+        return self.experiment.arms_by_name.get(best_arm).parameters

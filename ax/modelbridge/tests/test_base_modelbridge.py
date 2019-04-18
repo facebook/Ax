@@ -170,7 +170,7 @@ class BaseModelBridgeTest(TestCase):
         return_value=([observation1(), observation2()]),
     )
     @mock.patch(
-        "ax.modelbridge.base.gen_arms", autospec=True, return_value=[Arm(params={})]
+        "ax.modelbridge.base.gen_arms", autospec=True, return_value=[Arm(parameters={})]
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
     def testModelBridge(self, mock_fit, mock_gen_arms, mock_observations_from_data):
@@ -318,7 +318,7 @@ class BaseModelBridgeTest(TestCase):
         # Alternatively, we can specify on experiment
         # Put a dummy arm with SQ name 1_1 on the dummy experiment.
         exp = get_experiment()
-        sq = Arm(name="1_1", params={"x": 3.0})
+        sq = Arm(name="1_1", parameters={"x": 3.0})
         exp._status_quo = sq
         # Check that we set SQ to arm 1_1
         modelbridge = ModelBridge(search_space_for_value(), 0, [], exp, 0)
@@ -406,9 +406,9 @@ class BaseModelBridgeTest(TestCase):
             ObservationFeatures(parameters=p2),
         ]
         arms = gen_arms(observation_features=observation_features)
-        self.assertEqual(arms[0].params, p1)
+        self.assertEqual(arms[0].parameters, p1)
 
-        arm = Arm(name="1_1", params=p1)
+        arm = Arm(name="1_1", parameters=p1)
         arms_by_signature = {arm.signature: arm}
         arms = gen_arms(
             observation_features=observation_features,

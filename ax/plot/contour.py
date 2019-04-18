@@ -54,10 +54,10 @@ def _get_contour_predictions(
 
     param_grid_obsf = []
     for i in range(density ** 2):
-        params = fixed_values.copy()
-        params[x_param_name] = grid2_x[i]
-        params[y_param_name] = grid2_y[i]
-        param_grid_obsf.append(ObservationFeatures(params))
+        parameters = fixed_values.copy()
+        parameters[x_param_name] = grid2_x[i]
+        parameters[y_param_name] = grid2_y[i]
+        param_grid_obsf.append(ObservationFeatures(parameters))
 
     mu, cov = model.predict(param_grid_obsf)
 

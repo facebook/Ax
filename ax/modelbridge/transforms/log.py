@@ -24,7 +24,7 @@ class Log(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         # Identify parameters that should be transformed
-        self.transform_params: Set[str] = {
+        self.transform_parameters: Set[str] = {
             p_name
             for p_name, p in search_space.parameters.items()
             if isinstance(p, RangeParameter)
@@ -36,7 +36,7 @@ class Log(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in self.transform_params:
+            for p_name in self.transform_parameters:
                 if p_name in obsf.parameters:
                     # pyre: param is declared to have type `float` but is used
                     # pyre-fixme[9]: as type `Optional[typing.Union[bool, float, str]]`.
@@ -46,7 +46,7 @@ class Log(Transform):
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, p in search_space.parameters.items():
-            if p_name in self.transform_params:
+            if p_name in self.transform_parameters:
                 # pyre: p_cast is declared to have type `RangeParameter` but
                 # pyre-fixme[9]: is used as type `ax.core.parameter.Parameter`.
                 p_cast: RangeParameter = p
@@ -59,7 +59,7 @@ class Log(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in self.transform_params:
+            for p_name in self.transform_parameters:
                 if p_name in obsf.parameters:
                     # pyre: param is declared to have type `float` but is used
                     # pyre-fixme[9]: as type `Optional[typing.Union[bool, float, str]]`.

@@ -85,7 +85,7 @@ class GPyGP(NumpyModel):
         self.refit_on_cv = refit_on_cv
         self.refit_on_update = refit_on_update
         self.models: List[GPy.core.gp.GP] = []
-        self.params: List[np.ndarray] = []
+        self.parameters: List[np.ndarray] = []
         self.task_features: List[int] = []
         self.Xs: List[np.ndarray] = []
         self.Ys: List[np.ndarray] = []
@@ -142,7 +142,7 @@ class GPyGP(NumpyModel):
             # pyre-fixme[6]: Expected `ndarray` for 1st param but got `Optional[Union...
             self.models = [_get_GP(**kwargs) for kwargs in fit_kwargs]
         # Store MAP parameters
-        self.params = [m.optimizer_array.copy() for m in self.models]
+        self.parameters = [m.optimizer_array.copy() for m in self.models]
         # Store data
         self.Xs = Xs
         self.Ys = Ys
@@ -161,7 +161,7 @@ class GPyGP(NumpyModel):
         Yvars_train: List[np.ndarray],
         X_test: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        params = [None] * len(self.models) if self.refit_on_cv else self.params
+        parameters = [None] * len(self.models) if self.refit_on_cv else self.parameters
         cv_models = [
             _get_GP(
                 X=Xs_train[i],
@@ -169,7 +169,7 @@ class GPyGP(NumpyModel):
                 Yvar=Yvars_train[i],
                 task_features=self.task_features,
                 map_fit_restarts=self.map_fit_restarts,
-                params=params[i],
+                parameters=parameters[i],
                 primary_task_rank=self.primary_task_rank,
                 secondary_task_rank=self.secondary_task_rank,
             )
@@ -186,7 +186,9 @@ class GPyGP(NumpyModel):
             self.Xs[i] = np.vstack((self.Xs[i], Xs[i]))
             self.Ys[i] = np.vstack((self.Ys[i], Ys[i]))
             self.Yvars[i] = np.vstack((self.Yvars[i], Yvars[i]))
-        params = [None] * len(self.models) if self.refit_on_update else self.params
+        parameters = (
+            [None] * len(self.models) if self.refit_on_update else self.parameters
+        )
         self.models = [
             _get_GP(
                 X=self.Xs[i],
@@ -194,7 +196,7 @@ class GPyGP(NumpyModel):
                 Yvar=self.Yvars[i],
                 task_features=self.task_features,
                 map_fit_restarts=self.map_fit_restarts,
-                params=params[i],
+                parameters=parameters[i],
                 primary_task_rank=self.primary_task_rank,
                 secondary_task_rank=self.secondary_task_rank,
             )
@@ -462,7 +464,7 @@ class GPyGP(NumpyModel):
                         X=fantasy_Xs[idx],
                         Y=Y_with_fantasy[j, :, None],
                         Yvar=fantasy_Yvars[idx],
-                        params=self.params[idx],
+                        parameters=self.parameters[idx],
                         **fit_kwargs,
                     )
                 )
@@ -488,7 +490,7 @@ def _get_GP(
     Yvar: np.ndarray,
     task_features: List[int],
     map_fit_restarts: int,
-    params: Optional[np.ndarray] = None,
+    parameters: Optional[np.ndarray] = None,
     primary_task_rank: Optional[int] = None,
     secondary_task_rank: Optional[int] = None,
 ) -> GPy.core.gp.GP:
@@ -504,13 +506,13 @@ def _get_GP(
     m.likelihood["het_Gauss.variance"].unconstrain()
     m.likelihood["het_Gauss.variance"].fix()
     m.het_Gauss.variance = Yvar
-    if params is None:
+    if parameters is None:
         # Do MAP fit
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=RuntimeWarning)
             m.optimize_restarts(map_fit_restarts, verbose=False)
     else:
-        m.optimizer_array = params.copy()
+        m.optimizer_array = parameters.copy()
     return m
 
 

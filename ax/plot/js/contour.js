@@ -102,8 +102,8 @@ const arm_y = [];
 const arm_text = [];
 
 Object.keys(arm_data['in_sample']).forEach(arm_name => {
-  arm_x.push(arm_data['in_sample'][arm_name]['params'][xvar]);
-  arm_y.push(arm_data['in_sample'][arm_name]['params'][yvar]);
+  arm_x.push(arm_data['in_sample'][arm_name]['parameters'][xvar]);
+  arm_y.push(arm_data['in_sample'][arm_name]['parameters'][yvar]);
   arm_text.push(arm_name);
 });
 
@@ -154,10 +154,10 @@ Object.keys(arm_data['out_of_sample']).forEach(generator_run_name => {
 
   Object.keys(arm_data['out_of_sample'][generator_run_name]).forEach(arm_name => {
     ax.push(
-      arm_data['out_of_sample'][generator_run_name][arm_name]['params'][xvar]
+      arm_data['out_of_sample'][generator_run_name][arm_name]['parameters'][xvar]
     );
     ay.push(
-      arm_data['out_of_sample'][generator_run_name][arm_name]['params'][yvar]
+      arm_data['out_of_sample'][generator_run_name][arm_name]['parameters'][yvar]
     );
     atext.push('<em>Candidate ' + arm_name + '</em>');
   });

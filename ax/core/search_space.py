@@ -208,16 +208,16 @@ class SearchSpace(Base):
         Returns:
             New casted arm.
         """
-        new_params: TParameterization = {}
-        if len(arm.params) != len(self._parameters):
+        new_parameters: TParameterization = {}
+        if len(arm.parameters) != len(self._parameters):
             raise ValueError("Given arm does not have same parameters as search space.")
 
-        for name, value in arm.params.items():
+        for name, value in arm.parameters.items():
             if name not in self._parameters:
                 raise ValueError(f"Parameter {name} is not defined in search space.")
-            new_params[name] = self._parameters[name]._cast(value)
+            new_parameters[name] = self._parameters[name]._cast(value)
 
-        return Arm(new_params, arm.name if arm.has_name else None)
+        return Arm(new_parameters, arm.name if arm.has_name else None)
 
     def out_of_design_arm(self) -> Arm:
         """Create a default out-of-design arm.
@@ -230,10 +230,10 @@ class SearchSpace(Base):
         Returns:
             New arm w/ null parameter values.
         """
-        params = {}
+        parameters = {}
         for p_name in self.parameters.keys():
-            params[p_name] = None
-        return Arm(params)
+            parameters[p_name] = None
+        return Arm(parameters)
 
     def clone(self) -> "SearchSpace":
         return SearchSpace(

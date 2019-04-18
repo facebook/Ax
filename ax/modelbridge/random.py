@@ -29,11 +29,11 @@ class RandomModelBridge(ModelBridge):
     Attributes:
         model: A RandomModel used to generate candidates
             (note: this an awkward use of the word 'model').
-        params: Params found in search space on modelbridge init.
+        parameters: Params found in search space on modelbridge init.
     """
 
     model: RandomModel
-    params: List[str]
+    parameters: List[str]
 
     def _fit(
         self,
@@ -43,8 +43,8 @@ class RandomModelBridge(ModelBridge):
         observation_data: Optional[List[ObservationData]] = None,
     ) -> None:
         self.model = model
-        # Extract and fix params from initial search space.
-        self.params = list(search_space.parameters.keys())
+        # Extract and fix parameters from initial search space.
+        self.parameters = list(search_space.parameters.keys())
 
     def _gen(
         self,
@@ -57,12 +57,12 @@ class RandomModelBridge(ModelBridge):
     ) -> Tuple[List[ObservationFeatures], List[float], Optional[ObservationFeatures]]:
         """Generate new candidates according to a search_space."""
         # Extract parameter values
-        bounds, _ = get_bounds_and_task(search_space, self.params)
+        bounds, _ = get_bounds_and_task(search_space, self.parameters)
         # Get fixed features
-        fixed_features_dict = get_fixed_features(fixed_features, self.params)
+        fixed_features_dict = get_fixed_features(fixed_features, self.parameters)
         # Extract param constraints
         linear_constraints = extract_parameter_constraints(
-            search_space.parameter_constraints, self.params
+            search_space.parameter_constraints, self.parameters
         )
 
         # Generate the candidates
@@ -72,10 +72,10 @@ class RandomModelBridge(ModelBridge):
             linear_constraints=linear_constraints,
             fixed_features=fixed_features_dict,
             model_gen_options=model_gen_options,
-            rounding_func=transform_callback(self.params, self.transforms),
+            rounding_func=transform_callback(self.parameters, self.transforms),
         )
 
-        observation_features = parse_observation_features(X, self.params)
+        observation_features = parse_observation_features(X, self.parameters)
         return observation_features, w.tolist(), None
 
     def _predict(

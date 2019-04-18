@@ -58,8 +58,8 @@ class GPyModelTest(TestCase):
             task_features=task_features,
             feature_names=feature_names,
         )
-        self.assertEqual(len(m.params), 2)
-        self.assertEqual(len(m.params[0]), 5)
+        self.assertEqual(len(m.parameters), 2)
+        self.assertEqual(len(m.parameters[0]), 5)
         self.assertEqual(len(m.models), 2)
         self.assertEqual(m.task_features, [])
         # Predict
@@ -88,7 +88,7 @@ class GPyModelTest(TestCase):
             task_features=task_features,
             feature_names=feature_names,
         )
-        self.assertEqual(len(m2.params[0]), 5)
+        self.assertEqual(len(m2.parameters[0]), 5)
         self.assertEqual(len(m2.models), 2)
 
     def testGetGP(self):

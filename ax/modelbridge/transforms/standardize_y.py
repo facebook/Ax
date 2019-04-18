@@ -44,10 +44,10 @@ class StandardizeY(Transform):
                 Ys[m].append(obsd.means[i])
         # Expected `DefaultDict[Union[str, typing.Tuple[str, Optional[Union[bool, float,
         # str]]]], List[float]]` for 1st anonymous parameter to call
-        # `ax.modelbridge.transforms.standardize_y.compute_standardization_params`
+        # `ax.modelbridge.transforms.standardize_y.compute_standardization_parameters`
         # but got `DefaultDict[str, List[float]]`.
         # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
-        self.Ymean, self.Ystd = compute_standardization_params(Ys)
+        self.Ymean, self.Ystd = compute_standardization_parameters(Ys)
 
     def transform_observation_data(
         self,
@@ -89,11 +89,12 @@ class StandardizeY(Transform):
         return observation_data
 
 
-def compute_standardization_params(
+def compute_standardization_parameters(
     Ys: DefaultDict[Union[str, Tuple[str, TParamValue]], List[float]]
 ) -> Tuple[
     Dict[Union[str, Tuple[str, str]], float], Dict[Union[str, Tuple[str, str]], float]
 ]:
+    """Compute mean and std. dev of Ys."""
     Ymean = {k: np.mean(y) for k, y in Ys.items()}
     Ystd = {k: np.std(y) for k, y in Ys.items()}
     for k, s in Ystd.items():

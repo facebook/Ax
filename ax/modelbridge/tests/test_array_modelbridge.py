@@ -110,7 +110,7 @@ class ArrayModelBridgeTest(TestCase):
     @patch(
         f"{ModelBridge.__module__}.gen_arms",
         autospec=True,
-        return_value=[Arm(params={})],
+        return_value=[Arm(parameters={})],
     )
     @patch(
         f"{ModelBridge.__module__}.ModelBridge.predict",
@@ -151,6 +151,6 @@ class ArrayModelBridgeTest(TestCase):
             ),
         )
         arm, predictions = run.best_arm_predictions
-        self.assertEqual(arm.params, {})
+        self.assertEqual(arm.parameters, {})
         self.assertEqual(predictions[0], {"m": 1.0})
         self.assertEqual(predictions[1], {"m": {"m": 2.0}})

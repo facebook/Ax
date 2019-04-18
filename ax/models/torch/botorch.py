@@ -339,7 +339,7 @@ class BotorchModel(TorchModel):
                 train_Xs=Xs_train,
                 train_Ys=[Y.view(-1) for Y in Ys_train],
                 train_Yvars=[Yvar.view(-1) for Yvar in Yvars_train],
-                keep_params=True,
+                keep_parameters=True,
             )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
@@ -363,5 +363,5 @@ class BotorchModel(TorchModel):
                 train_Xs=self.Xs,
                 train_Ys=self.Ys,
                 train_Yvars=self.Yvars,
-                keep_params=True,
+                keep_parameters=True,
             )

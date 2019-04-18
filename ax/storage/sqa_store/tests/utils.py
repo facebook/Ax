@@ -170,7 +170,7 @@ ENCODE_DECODE_FIELD_MAPS = {
         python_to_encoded={"reason": "abandoned_reason", "time": "time_abandoned"}
     ),
     "Arm": EncodeDecodeFieldsMap(
-        encoded_only=["weight"], python_to_encoded={"params": "parameters"}
+        encoded_only=["weight"], python_to_encoded={"parameters": "parameters"}
     ),
     "BatchTrial": EncodeDecodeFieldsMap(
         python_to_encoded={

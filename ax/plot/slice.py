@@ -45,7 +45,7 @@ def plot_slice(
     parameter = get_range_parameter(model, param_name)
     grid = get_grid_for_parameter(parameter, density)
 
-    plot_data, raw_data, cond_name_to_params = get_plot_data(
+    plot_data, raw_data, cond_name_to_parameters = get_plot_data(
         model=model, generator_runs_dict=generator_runs_dict, metric_names={metric_name}
     )
 
@@ -53,10 +53,10 @@ def plot_slice(
 
     prediction_features = []
     for x in grid:
-        params = fixed_values.copy()
-        params[param_name] = x
+        parameters = fixed_values.copy()
+        parameters[param_name] = x
         # Here we assume context is None
-        prediction_features.append(ObservationFeatures(parameters=params))
+        prediction_features.append(ObservationFeatures(parameters=parameters))
 
     f, cov = model.predict(prediction_features)
 
@@ -65,7 +65,7 @@ def plot_slice(
 
     config = {
         "arm_data": plot_data,
-        "arm_name_to_params": cond_name_to_params,
+        "arm_name_to_parameters": cond_name_to_parameters,
         "f": f_plt,
         "fit_data": raw_data,
         "grid": grid,

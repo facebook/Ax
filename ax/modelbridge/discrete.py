@@ -28,7 +28,7 @@ class DiscreteModelBridge(ModelBridge):
 
     model: DiscreteModel
     outcomes: List[str]
-    params: List[str]
+    parameters: List[str]
 
     def _fit(
         self,
@@ -39,7 +39,7 @@ class DiscreteModelBridge(ModelBridge):
     ) -> None:
         self.model = model
         # Convert observations to arrays
-        self.params = list(search_space.parameters.keys())
+        self.parameters = list(search_space.parameters.keys())
         all_metric_names: Set[str] = set()
         for od in observation_data:
             all_metric_names.update(od.metric_names)
@@ -49,11 +49,11 @@ class DiscreteModelBridge(ModelBridge):
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
-            params=self.params,
+            parameters=self.parameters,
         )
         self.training_in_design = in_design
         # Extract parameter values
-        parameter_values = _get_parameter_values(search_space, self.params)
+        parameter_values = _get_parameter_values(search_space, self.parameters)
         self.model.fit(
             Xs=Xs_array,
             Ys=Ys_array,
@@ -67,7 +67,7 @@ class DiscreteModelBridge(ModelBridge):
     ) -> List[ObservationData]:
         # Convert observations to array
         X = [
-            [of.parameters[param] for param in self.params]
+            [of.parameters[param] for param in self.parameters]
             for of in observation_features
         ]
         f, cov = self.model.predict(X=X)
@@ -89,10 +89,10 @@ class DiscreteModelBridge(ModelBridge):
         The outcome constraints should be transformed to no longer be relative.
         """
         # Validation
-        if not self.params:  # pragma: no cover
+        if not self.parameters:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
         # Extract parameter values
-        parameter_values = _get_parameter_values(search_space, self.params)
+        parameter_values = _get_parameter_values(search_space, self.parameters)
         # Extract objective and outcome constraints
         if self.outcomes is None or optimization_config is None:  # pragma: no cover
             objective_weights = None
@@ -109,7 +109,7 @@ class DiscreteModelBridge(ModelBridge):
 
         # Get fixed features
         fixed_features_dict = {
-            self.params.index(p_name): val
+            self.parameters.index(p_name): val
             for p_name, val in fixed_features.parameters.items()
         }
         fixed_features_dict = (
@@ -123,7 +123,7 @@ class DiscreteModelBridge(ModelBridge):
             pending_array = [[] for _ in self.outcomes]
             for metric_name, po_list in pending_observations.items():
                 pending_array[self.outcomes.index(metric_name)] = [
-                    [po.parameters[p] for p in self.params] for po in po_list
+                    [po.parameters[p] for p in self.parameters] for po in po_list
                 ]
 
         # Generate the candidates
@@ -140,7 +140,7 @@ class DiscreteModelBridge(ModelBridge):
         for x in X:
             observation_features.append(
                 ObservationFeatures(
-                    parameters={p: x[i] for i, p in enumerate(self.params)}
+                    parameters={p: x[i] for i, p in enumerate(self.parameters)}
                 )
             )
         # TODO[drfreund, bletham]: implement best_point identification and
@@ -160,10 +160,11 @@ class DiscreteModelBridge(ModelBridge):
             observation_data=obs_data,
             observation_features=obs_feats,
             outcomes=self.outcomes,
-            params=self.params,
+            parameters=self.parameters,
         )
         X_test = [
-            [obsf.parameters[param] for param in self.params] for obsf in cv_test_points
+            [obsf.parameters[param] for param in self.parameters]
+            for obsf in cv_test_points
         ]
         # Use the model to do the cross validation
         f_test, cov_test = self.model.cross_validate(
@@ -177,7 +178,7 @@ def _convert_observations(
     observation_data: List[ObservationData],
     observation_features: List[ObservationFeatures],
     outcomes: List[str],
-    params: List[str],
+    parameters: List[str],
 ) -> Tuple[
     List[List[TParamValueList]], List[List[float]], List[List[float]], List[bool]
 ]:
@@ -187,7 +188,7 @@ def _convert_observations(
     in_design = []
     for i, obsf in enumerate(observation_features):
         try:
-            x = [obsf.parameters[param] for param in params]
+            x = [obsf.parameters[param] for param in parameters]
             in_design.append(True)
         except KeyError:
             # Out of design point

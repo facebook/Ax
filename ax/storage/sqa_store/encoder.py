@@ -98,7 +98,7 @@ class Encoder:
         status_quo_parameters = None
         if experiment.status_quo is not None:
             status_quo_name = experiment.status_quo.name
-            status_quo_parameters = experiment.status_quo.params
+            status_quo_parameters = experiment.status_quo.parameters
 
         trials = [
             self.trial_to_sqa(trial=trial) for trial in experiment.trials.values()
@@ -326,7 +326,7 @@ class Encoder:
         # pyre-fixme: Expected `Base` for 1st... got `typing.Type[Arm]`.
         arm_class: SQAArm = self.config.class_to_sqa_class[Arm]
         # pyre-fixme[29]: `SQAArm` is not a function.
-        return arm_class(parameters=arm.params, name=arm._name, weight=weight)
+        return arm_class(parameters=arm.parameters, name=arm._name, weight=weight)
 
     def abandoned_arm_to_sqa(self, abandoned_arm: AbandonedArm) -> SQAAbandonedArm:
         """Convert Ax AbandonedArm to SQLAlchemy."""
@@ -368,7 +368,7 @@ class Encoder:
             best_arm = generator_run.best_arm_predictions[0]
             best_arm_predictions = list(generator_run.best_arm_predictions[1])
             best_arm_name = best_arm._name
-            best_arm_parameters = best_arm.params
+            best_arm_parameters = best_arm.parameters
         model_predictions = (
             list(generator_run.model_predictions)
             if generator_run.model_predictions is not None

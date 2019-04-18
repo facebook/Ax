@@ -100,7 +100,7 @@ param_names.forEach(param_name => {
     insample_param_values[param_name] = [];
     Object.keys(arm_data['in_sample']).forEach(arm_name => {
         insample_param_values[param_name].push(
-            arm_data['in_sample'][arm_name]['params'][param_name]
+            arm_data['in_sample'][arm_name]['parameters'][param_name]
         );
     });
 });
@@ -112,7 +112,7 @@ param_names.forEach(param_name => {
     out_of_sample_param_values[param_name][generator_run_name] = [];
     Object.keys(arm_data['out_of_sample'][generator_run_name]).forEach(arm_name => {
       out_of_sample_param_values[param_name][generator_run_name].push(
-        arm_data['out_of_sample'][generator_run_name][arm_name]['params'][param_name]
+        arm_data['out_of_sample'][generator_run_name][arm_name]['parameters'][param_name]
       );
     });
   });
@@ -126,7 +126,7 @@ Object.keys(arm_data['out_of_sample']).forEach(generator_run_name => {
     );
 });
 
-// Number of traces for each pair of params
+// Number of traces for each pair of parameters
 let trace_cnt = 4 + (Object.keys(arm_data['out_of_sample']).length * 2);
 
 let xbuttons = [];

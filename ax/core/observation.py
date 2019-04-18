@@ -58,7 +58,7 @@ class ObservationFeatures(Base):
         data as specified.
         """
         return ObservationFeatures(
-            parameters=arm.params,
+            parameters=arm.parameters,
             trial_index=trial_index,
             start_time=start_time,
             end_time=end_time,
@@ -179,12 +179,12 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
             g = [g]  # pragma: no cover
         features = dict(zip(feature_cols, g))
         obs_kwargs = {}
-        obs_params = experiment.arms_by_name[features["arm_name"]].params.copy()
-        if obs_params:
+        obs_parameters = experiment.arms_by_name[features["arm_name"]].parameters.copy()
+        if obs_parameters:
             # Wipe null values => arm is out of design.
-            if None in obs_params.values():
-                obs_params = {}
-            obs_kwargs["parameters"] = obs_params
+            if None in obs_parameters.values():
+                obs_parameters = {}
+            obs_kwargs["parameters"] = obs_parameters
         for f in ["trial_index", "start_time", "end_time", "random_split"]:
             obs_kwargs[f] = features.get(f, None)
         observations.append(

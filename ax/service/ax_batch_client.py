@@ -29,7 +29,7 @@ class AxBatchClient(AxClient):
         # Potentially move this into log_data to save latency on this call
         trial = self._suggest_new_batch_trial(n)
         self._save_experiment_if_possible()
-        return ({arm.name: arm.params for arm in trial.arms}, trial.index)
+        return ({arm.name: arm.parameters for arm in trial.arms}, trial.index)
 
     def complete_batch_trial(
         self,
@@ -75,7 +75,7 @@ class AxBatchClient(AxClient):
 
             if gr is not None and gr.best_arm_predictions is not None:
                 best_arm, best_arm_predictions = gr.best_arm_predictions
-                return best_arm.params, best_arm_predictions
+                return best_arm.parameters, best_arm_predictions
 
         return None
 

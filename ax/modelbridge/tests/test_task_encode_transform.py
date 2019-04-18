@@ -37,7 +37,7 @@ class TaskEncodeTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(list(self.t.encoded_params.keys()), ["c"])
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["c"])
 
     def testTransformObservationFeatures(self):
         observation_features = [

@@ -28,18 +28,18 @@ class SearchSpaceToChoiceTest(TestCase):
             ObservationFeatures(parameters={"a": 3, "b": "c"}),
         ]
         self.signature_to_parameterization = {
-            Arm(params=obsf.parameters).signature: obsf.parameters
+            Arm(parameters=obsf.parameters).signature: obsf.parameters
             for obsf in self.observation_features
         }
         self.transformed_features = [
             ObservationFeatures(
-                parameters={"arms": Arm(params={"a": 2, "b": "a"}).signature}
+                parameters={"arms": Arm(parameters={"a": 2, "b": "a"}).signature}
             ),
             ObservationFeatures(
-                parameters={"arms": Arm(params={"a": 3, "b": "b"}).signature}
+                parameters={"arms": Arm(parameters={"a": 3, "b": "b"}).signature}
             ),
             ObservationFeatures(
-                parameters={"arms": Arm(params={"a": 3, "b": "c"}).signature}
+                parameters={"arms": Arm(parameters={"a": 3, "b": "c"}).signature}
             ),
         ]
         self.t = SearchSpaceToChoice(

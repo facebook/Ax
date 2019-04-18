@@ -1,5 +1,5 @@
 const arm_data = {{arm_data}};
-const arm_name_to_params = {{arm_name_to_params}};
+const arm_name_to_parameters = {{arm_name_to_parameters}};
 const f = {{f}};
 const fit_data = {{fit_data}};
 const grid = {{grid}};
@@ -32,15 +32,15 @@ const arm_x = [];
 const arm_y = [];
 const arm_sem = [];
 fit_data.forEach(row => {
-    params = arm_name_to_params[row["arm_name"]];
+    parameters = arm_name_to_parameters[row["arm_name"]];
     plot = true;
     Object.keys(setx).forEach(p => {
-      if (p !== param && params[p] !== setx[p]) {
+      if (p !== param && parameters[p] !== setx[p]) {
         plot = false;
       }
     });
     if (plot === true) {
-        arm_x.push(params[param]);
+        arm_x.push(parameters[param]);
         arm_y.push(row["mean"]);
         arm_sem.push(row["sem"]);
     }
@@ -107,16 +107,16 @@ Object.keys(arm_data['out_of_sample']).forEach(generator_run_name => {
   const atext = [];
 
   Object.keys(arm_data['out_of_sample'][generator_run_name]).forEach(arm_name => {
-    const params = arm_data[
-      'out_of_sample'][generator_run_name][arm_name]['params'];
+    const parameters = arm_data[
+      'out_of_sample'][generator_run_name][arm_name]['parameters'];
     plot = true;
     Object.keys(setx).forEach(p => {
-      if (p !== param && params[p] !== setx[p]) {
+      if (p !== param && parameters[p] !== setx[p]) {
         plot = false;
       }
     });
     if (plot === true) {
-      ax.push(params[param]);
+      ax.push(parameters[param]);
       ay.push(
         arm_data['out_of_sample'][generator_run_name][arm_name]['y_hat'][metric]
       );

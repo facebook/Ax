@@ -34,7 +34,7 @@ class RemoveFixedTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(list(self.t.fixed_params.keys()), ["c"])
+        self.assertEqual(list(self.t.fixed_parameters.keys()), ["c"])
 
     def testTransformObservationFeatures(self):
         observation_features = [

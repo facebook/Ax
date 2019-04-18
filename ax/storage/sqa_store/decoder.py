@@ -93,7 +93,7 @@ class Decoder:
         )
         status_quo = (
             Arm(
-                params=experiment_sqa.status_quo_parameters,
+                parameters=experiment_sqa.status_quo_parameters,
                 name=experiment_sqa.status_quo_name,
             )
             if experiment_sqa.status_quo_parameters is not None
@@ -378,7 +378,7 @@ class Decoder:
 
     def arm_from_sqa(self, arm_sqa: SQAArm) -> Arm:
         """Convert SQLAlchemy Arm to Ax Arm."""
-        return Arm(params=arm_sqa.parameters, name=arm_sqa.name)
+        return Arm(parameters=arm_sqa.parameters, name=arm_sqa.name)
 
     def abandoned_arm_from_sqa(
         self, abandoned_arm_sqa: SQAAbandonedArm
@@ -424,7 +424,7 @@ class Decoder:
         ):
             best_arm = Arm(
                 name=generator_run_sqa.best_arm_name,
-                params=generator_run_sqa.best_arm_parameters,
+                parameters=generator_run_sqa.best_arm_parameters,
             )
             best_arm_predictions = (
                 best_arm,

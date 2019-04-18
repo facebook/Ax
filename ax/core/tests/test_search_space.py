@@ -266,7 +266,7 @@ class SearchSpaceTest(TestCase):
         # Check "b" parameter goes from float to int
         self.assertTrue(isinstance(p_dict["b"], float))
         new_arm = self.ss2.cast_arm(Arm(p_dict))
-        self.assertTrue(isinstance(new_arm.params["b"], int))
+        self.assertTrue(isinstance(new_arm.parameters["b"], int))
 
         # Incomplete param dict
         p_dict.pop("a")
@@ -300,6 +300,6 @@ class SearchSpaceTest(TestCase):
     def testOutOfDesignArm(self):
         arm1 = self.ss1.out_of_design_arm()
         arm2 = self.ss2.out_of_design_arm()
-        arm1_nones = [p is None for p in arm1.params.values()]
+        arm1_nones = [p is None for p in arm1.parameters.values()]
         self.assertTrue(all(arm1_nones))
         self.assertTrue(arm1 == arm2)
