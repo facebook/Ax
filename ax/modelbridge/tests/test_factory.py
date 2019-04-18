@@ -2,7 +2,6 @@
 
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import (
-    get_ancillary_eb_thompson,
     get_empirical_bayes_thompson,
     get_factorial,
     get_GPEI,
@@ -13,7 +12,6 @@ from ax.modelbridge.factory import (
 )
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
-from ax.models.discrete.ancillary_eb_thompson import AncillaryEBThompsonSampler
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
@@ -85,26 +83,6 @@ class ModelBridgeFactoryTest(TestCase):
         self.assertIsInstance(eb_thompson, DiscreteModelBridge)
         self.assertIsInstance(eb_thompson.model, EmpiricalBayesThompsonSampler)
         thompson_run = eb_thompson.gen(n=5)
-        self.assertEqual(len(thompson_run.arms), 5)
-
-    def test_ancillary_eb_thompson(self):
-        """Tests Ancillary EB instantiation."""
-        exp = get_factorial_experiment()
-        factorial = get_factorial(exp.search_space)
-        self.assertIsInstance(factorial, DiscreteModelBridge)
-        factorial_run = factorial.gen(n=-1)
-        exp.new_batch_trial().add_generator_run(factorial_run).run()
-        data = exp.fetch_data()
-        ancillary_eb_thompson = get_ancillary_eb_thompson(
-            experiment=exp,
-            data=data,
-            primary_outcome="success_metric",
-            secondary_outcome="secondary_metric",
-            min_weight=0.0,
-        )
-        self.assertIsInstance(ancillary_eb_thompson, DiscreteModelBridge)
-        self.assertIsInstance(ancillary_eb_thompson.model, AncillaryEBThompsonSampler)
-        thompson_run = ancillary_eb_thompson.gen(n=5)
         self.assertEqual(len(thompson_run.arms), 5)
 
     def test_thompson(self):
