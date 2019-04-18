@@ -56,6 +56,9 @@ def render_report_elements(
     Uses Jinja2 for template. Injects Plotly JS for graph rendering.
 
     Example:
+
+    ::
+
         html_elements = [
             h2_html("Subsection with plot"),
             p_html("This is an example paragraph."),
