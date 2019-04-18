@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import List, Optional, Type
 
 import torch
 from ax.core.data import Data
