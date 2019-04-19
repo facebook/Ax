@@ -104,6 +104,7 @@ class BenchmarkRunner:
         setup: BenchmarkSetup,
         generation_strategy: GenerationStrategy,
         num_runs: int = 20,
+        raise_all_errors: bool = False,
     ) -> Dict[Tuple[str, str, int], BenchmarkSetup]:
         """Run full benchmark test for the given method and problem combination.
         A benchmark test consists of repeated full benchmark runs.
@@ -145,6 +146,8 @@ class BenchmarkRunner:
                     ] = generation_strategy.generator_changes
                     break
                 except Exception as err:  # pragma: no cover
+                    if raise_all_errors:
+                        raise err
                     logger.exception(err)
                     num_failures += 1
                     self._error_messages.append(f"Error in {run_key}: {err}")
@@ -262,6 +265,7 @@ class BOBenchmarkRunner(BenchmarkRunner):
                     [setup._fetch_trial_data(idx) for idx in updated_trials]
                 ),
             )
+            updated_trials = []
             if setup.batch_size > 1:  # pragma: no cover
                 trial = setup.new_batch_trial().add_generator_run(generator_run).run()
             else:

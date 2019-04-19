@@ -51,19 +51,38 @@ class BOBenchmarkingSuite:
 
     def run(
         self,
-        num_trials: int,
+        num_runs: int,
         total_iterations: int,
         bo_strategies: List[GenerationStrategy],
         bo_problems: List[BenchmarkProblem],
         batch_size: int = 1,
+        raise_all_errors: bool = False,
     ) -> BOBenchmarkRunner:
+        """Run all standard BayesOpt benchmarks.
+
+        Args:
+            num_runs: How many time to run each test.
+            total_iterations: How many iterations to run each optimization for.
+            bo_strategies: GenerationStrategies representing each method to
+                benchmark.
+            bo_problems: Problems to benchmark the methods on.
+            batch_size: Number of arms to be generated and evaluated in optimization
+                at once.
+            raise_all_errors: Debugging setting; set to true if all encountered
+                errors should be raised right away (and interrupt the benchm arking)
+                rather than logged and recorded.
+        """
+
         setups = (
             BenchmarkSetup(problem, total_iterations, batch_size)
             for problem in bo_problems
         )
         for setup, gs in product(setups, bo_strategies):
             self._runner.run_benchmark_test(
-                setup=setup, generation_strategy=gs, num_runs=num_trials
+                setup=setup,
+                generation_strategy=gs,
+                num_runs=num_runs,
+                raise_all_errors=raise_all_errors,
             )
 
         return self._runner

@@ -21,17 +21,17 @@ def fail(*args: Any, **kwargs: Any) -> None:
 
 class TestBOBenchmarkingSuite(TestCase):
     def test_basic(self):
-        num_trials = 3
+        num_runs = 3
         total_iterations = 2
         suite = BOBenchmarkingSuite()
         runner = suite.run(
-            num_trials=num_trials,
+            num_runs=num_runs,
             total_iterations=total_iterations,
             bo_strategies=BOStrategies,
             bo_problems=BOProblems,
         )
         self.assertEqual(
-            len(runner._runs.items()), len(BOStrategies) * len(BOProblems) * num_trials
+            len(runner._runs.items()), len(BOStrategies) * len(BOProblems) * num_runs
         )
         # If run_benchmarking_trial fails, corresponding trial in '_runs' is None.
         self.assertTrue(all(x is not None for x in runner._runs.values()))
@@ -39,7 +39,7 @@ class TestBOBenchmarkingSuite(TestCase):
         runner.aggregate_results()
         # Also test that the suite works with batch trials.
         BOBenchmarkingSuite().run(
-            num_trials=num_trials,
+            num_runs=num_runs,
             total_iterations=total_iterations,
             bo_strategies=BOStrategies,
             bo_problems=BOProblems,
@@ -51,7 +51,7 @@ class TestBOBenchmarkingSuite(TestCase):
     def test_repeat_problem_method_combo(self):
         suite = BOBenchmarkingSuite()
         runner = suite.run(
-            num_trials=1,
+            num_runs=1,
             total_iterations=1,
             bo_strategies=[
                 GenerationStrategy([GenerationStep(model=Models.SOBOL, num_arms=5)])
@@ -67,7 +67,7 @@ class TestBOBenchmarkingSuite(TestCase):
     def test_run_should_fail(self):
         suite = BOBenchmarkingSuite()
         runner = suite.run(
-            num_trials=1,
+            num_runs=1,
             total_iterations=1,
             bo_strategies=[
                 GenerationStrategy([GenerationStep(model=fail, num_arms=30)])
@@ -80,7 +80,7 @@ class TestBOBenchmarkingSuite(TestCase):
     def test_sobol(self):
         suite = BOBenchmarkingSuite()
         runner = suite.run(
-            num_trials=1,
+            num_runs=1,
             total_iterations=5,
             batch_size=1,
             bo_strategies=[
@@ -123,7 +123,7 @@ class TestBOBenchmarkingSuite(TestCase):
         )
         suite = BOBenchmarkingSuite()
         suite.run(
-            num_trials=1,
+            num_runs=1,
             total_iterations=5,
             bo_strategies=[
                 GenerationStrategy([GenerationStep(model=Models.SOBOL, num_arms=5)])
@@ -161,7 +161,7 @@ class TestBOBenchmarkingSuite(TestCase):
         )
         suite = BOBenchmarkingSuite()
         suite.run(
-            num_trials=1,
+            num_runs=1,
             total_iterations=5,
             bo_strategies=[
                 GenerationStrategy([GenerationStep(model=Models.SOBOL, num_arms=5)])
