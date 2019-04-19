@@ -81,10 +81,10 @@ class TestGenerationStrategy(TestCase):
         )
         for _ in range(5):
             gs.gen(exp)
-            sobol = gs._last_model
+            sobol = gs._model
         gs.gen(exp)
         # Make sure the same model is used to generate the 6th point.
-        self.assertIs(gs._last_model, sobol)
+        self.assertIs(gs._model, sobol)
 
     @mock.patch(
         f"{TorchModelBridge.__module__}.TorchModelBridge.__init__",
@@ -217,4 +217,4 @@ class TestGenerationStrategy(TestCase):
         )
         exp = get_branin_experiment()
         gs.gen(exp, exp.fetch_data())
-        self.assertFalse(gs._last_model.model.scramble)
+        self.assertFalse(gs._model.model.scramble)

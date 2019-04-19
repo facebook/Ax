@@ -50,7 +50,7 @@ class GenerationStrategy:
     _steps: List[GenerationStep]
     _generated: List[str]  # Arms generated in the current generation step.
     _observed: List[str]  # Arms in the current step for which we observed data.
-    _last_model: Optional[ModelBridge]  # Last instantiated model.
+    _model: Optional[ModelBridge]  # Current model.
     _data: Data  # All data this strategy has been updated with.
     _curr: GenerationStep  # Current step in the strategy.
 
@@ -71,7 +71,7 @@ class GenerationStrategy:
             self._steps[idx] = step._replace(index=idx)
         self._generated = []
         self._observed = []
-        self._last_model = None
+        self._model = None
         self._data = Data()
         self._curr = steps[0]
 
@@ -136,32 +136,46 @@ class GenerationStrategy:
                 "are available."
             )
 
-        if self._last_model and (not enough_generated or not enough_observed):
-            # Using the same model and updating with new data if available.
-            if new_data:
-                self._last_model.update(experiment=experiment, data=new_data)
-        else:
-            if self._last_model:
-                if len(self._steps) == not_none(self._curr.index) + 1:
-                    raise ValueError(f"Generation strategy {self.name} is completed.")
-                self._curr = self._steps[not_none(self._curr.index) + 1]
-                # New step => reset _generated and _observed.
-                self._generated, self._observed = [], []
-            # Instantiate the new step's model from scratch with all known data.
-            self._last_model = self._curr.model(  # pyre-ignore[29] T41922457
-                **_filter_kwargs(
-                    self._curr.model,
-                    experiment=experiment,
-                    data=self._data,
-                    search_space=experiment.search_space,
-                    **(self._curr.model_kwargs or {}),
-                    **kwargs,
-                )
-            )
-        generator_run = self._last_model.gen(1)
+        if self._model is None:
+            # Instantiate the first model.
+            self._set_current_model(experiment=experiment, **kwargs)
+        elif enough_generated and enough_observed:
+            # Change to the next model.
+            self._change_model(experiment=experiment, **kwargs)
+        elif new_data is not None:
+            # We're sticking with the current model, but update with new data
+            self._model.update(experiment=experiment, data=new_data)
+
+        assert self._model is not None  # guaranteed but typecheck doesn't know
+        generator_run = self._model.gen(1)
 
         self._generated.extend(a.signature for a in generator_run.arms)
         return generator_run
+
+    def _set_current_model(self, experiment: Experiment, **kwargs: Any) -> None:
+        """Instantiate the current model with all available data.
+        """
+        self._model = self._curr.model(  # pyre-ignore[29] T41922457
+            **_filter_kwargs(
+                self._curr.model,
+                experiment=experiment,
+                data=self._data,
+                search_space=experiment.search_space,
+                **(self._curr.model_kwargs or {}),
+                **kwargs,
+            )
+        )
+
+    def _change_model(self, experiment: Experiment, **kwargs: Any) -> None:
+        """Get a new model for the next step.
+        """
+        # Increment the model
+        if len(self._steps) == not_none(self._curr.index) + 1:
+            raise ValueError(f"Generation strategy {self.name} is completed.")
+        self._curr = self._steps[not_none(self._curr.index) + 1]
+        # New step => reset _generated and _observed.
+        self._generated, self._observed = [], []
+        self._set_current_model(experiment=experiment, **kwargs)
 
     def clone_reset(self) -> "GenerationStrategy":
         """Copy this generation strategy without it's state."""
