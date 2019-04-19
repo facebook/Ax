@@ -92,7 +92,8 @@ class GeneratorRun(Base):
                 model predictions.
             type: Optional type of the run.
             fit_time: Optional number of seconds it took to fit the model that produced
-                this generator run.
+                this generator run. For models with multiple invocations of gen, this is
+                typically the fitting time since the last call to gen.
             gen_time: Optional number of seconds generation took.
         """
         self._arm_weight_table: OrderedDict[str, ArmWeight] = OrderedDict()

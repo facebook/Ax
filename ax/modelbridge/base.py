@@ -144,8 +144,10 @@ class ModelBridge(ABC):
                 observation_data=obs_data,
             )
             self.fit_time = time.time() - t_fit_start
+            self.fit_time_since_gen = float(self.fit_time)
         except NotImplementedError:
-            self.fit_time = None
+            self.fit_time = 0.0
+            self.fit_time_since_gen = 0.0
 
     def _prepare_training_data(
         self, observations: List[Observation]
@@ -371,6 +373,7 @@ class ModelBridge(ABC):
             data: data from the experiment obtained since the last update
             experiment: experiment, in which this data was obtained
         """
+        t_update_start = time.time()
         observations = (
             observations_from_data(experiment, data)
             if experiment is not None and data is not None
@@ -381,6 +384,8 @@ class ModelBridge(ABC):
             obs_feats = t.transform_observation_features(obs_feats)
             obs_data = t.transform_observation_data(obs_data, obs_feats)
         self._update(observation_features=obs_feats, observation_data=obs_data)
+        self.fit_time += time.time() - t_update_start
+        self.fit_time_since_gen += time.time() - t_update_start
 
     def _update(
         self,
@@ -487,7 +492,7 @@ class ModelBridge(ABC):
             )[0]
         )
 
-        return GeneratorRun(
+        gr = GeneratorRun(
             arms=gen_arms(
                 observation_features=observation_features,
                 arms_by_signature=self._arms_by_signature,
@@ -499,9 +504,11 @@ class ModelBridge(ABC):
             best_arm_predictions=None
             if best_arm is None
             else (best_arm, best_point_predictions),
-            fit_time=self.fit_time,
+            fit_time=self.fit_time_since_gen,
             gen_time=time.time() - t_gen_start,
         )
+        self.fit_time_since_gen = 0.0
+        return gr
 
     def _gen(
         self,
