@@ -82,6 +82,10 @@ class Trial(BaseTrial):
                 "included multiple."
             )
 
+        self.experiment.search_space.check_types(
+            generator_run.arms[0].parameters, raise_error=True
+        )
+
         self._check_existing_and_name_arm(generator_run.arms[0])
 
         self._generator_run = generator_run

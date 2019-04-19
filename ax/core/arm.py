@@ -9,6 +9,7 @@ import numpy as np
 from ax.core.base import Base
 from ax.core.types import TParameterization
 from ax.utils.common.equality import equality_typechecker
+from ax.utils.common.typeutils import numpy_type_to_python_type
 
 
 class Arm(Base):
@@ -28,7 +29,7 @@ class Arm(Base):
             parameters: Mapping from parameter names to values.
             name: Defaults to None; will be set when arm is attached to a trial
         """
-        self._parameters = parameters
+        self._parameters: TParameterization = _numpy_types_to_python_types(parameters)
         self._name = name
 
     @property
@@ -125,3 +126,15 @@ class Arm(Base):
 
     def __hash__(self) -> int:
         return int(self.signature, 16)
+
+
+def _numpy_types_to_python_types(
+    parameterization: TParameterization
+) -> TParameterization:
+    """If applicable, coerce values of the parameterization from Numpy int/float to
+    Python int/float.
+    """
+    return {
+        name: numpy_type_to_python_type(value)
+        for name, value in parameterization.items()
+    }
