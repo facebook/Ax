@@ -107,7 +107,7 @@ class Arm(Base):
     def __repr__(self) -> str:
         parameters_str = f"parameters={self._parameters}"
         if self.has_name:
-            name_str = f"name={self.name}"
+            name_str = f"name='{self.name}'"
             return f"Arm({name_str}, {parameters_str})"
         return f"Arm({parameters_str})"
 

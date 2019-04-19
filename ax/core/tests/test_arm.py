@@ -14,7 +14,8 @@ class ArmTest(TestCase):
 
         arm = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75}, name="status_quo")
         self.assertEqual(
-            str(arm), "Arm(name=status_quo, parameters={'y': 0.25, 'x': 0.75, 'z': 75})"
+            str(arm),
+            "Arm(name='status_quo', parameters={'y': 0.25, 'x': 0.75, 'z': 75})",
         )
 
     def testNameValidation(self):
