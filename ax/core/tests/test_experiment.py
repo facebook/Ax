@@ -32,6 +32,14 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.experiment_type, None)
         self.assertEqual(self.experiment.num_abandoned_arms, 0)
 
+    def testExperimentName(self):
+        self.assertTrue(self.experiment.has_name)
+        self.experiment.name = None
+        self.assertFalse(self.experiment.has_name)
+        with self.assertRaises(ValueError):
+            self.experiment.name
+        self.experiment.name = "test"
+
     def testEq(self):
         self.assertEqual(self.experiment, self.experiment)
 

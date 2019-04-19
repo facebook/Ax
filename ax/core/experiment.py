@@ -27,18 +27,12 @@ logger: logging.Logger = get_logger(__name__)
 
 
 class Experiment(Base):
-    """Base class for defining an experiment.
-
-    Attributes:
-        name: Name of the experiment.
-        description: Description of the experiment.
-        runner: The default runner for trials in this experiment.
-    """
+    """Base class for defining an experiment."""
 
     def __init__(
         self,
-        name: str,
         search_space: SearchSpace,
+        name: Optional[str] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         tracking_metrics: Optional[List[Metric]] = None,
         runner: Optional[Runner] = None,
@@ -49,8 +43,8 @@ class Experiment(Base):
         """Inits Experiment.
 
         Args:
-            name: Name of the experiment.
             search_space: Search space of the experiment.
+            name: Name of the experiment.
             optimization_config: Optimization config of the experiment.
             tracking_metrics: Additional tracking metrics not used for optimization.
             runner: Default runner used for trials on this experiment.
@@ -62,7 +56,7 @@ class Experiment(Base):
         self._search_space: SearchSpace
         self._status_quo: Optional[Arm] = None
 
-        self.name = name
+        self._name = name
         self.description = description
         self.runner = runner
         self.is_test = is_test
@@ -83,6 +77,23 @@ class Experiment(Base):
         self.status_quo = status_quo
         if optimization_config is not None:
             self.optimization_config = optimization_config
+
+    @property
+    def has_name(self) -> bool:
+        """Return true if experiment's name is not None."""
+        return self._name is not None
+
+    @property
+    def name(self) -> str:
+        """Get experiment name. Throws if name is None."""
+        if self._name is None:
+            raise ValueError("Experiment's name is None.")
+        return self._name
+
+    @name.setter
+    def name(self, name: str) -> None:
+        """Set experiment name."""
+        self._name = name
 
     @property
     def is_simple_experiment(self):

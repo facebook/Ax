@@ -12,6 +12,8 @@ def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) 
     """Save experiment (using default SQAConfig)."""
     if not isinstance(experiment, Experiment):
         raise ValueError("Can only save instances of Experiment")
+    if not experiment.has_name:
+        raise ValueError("Experiment name must be set prior to saving.")
 
     config = config or SQAConfig()
     encoder = Encoder(config=config)
