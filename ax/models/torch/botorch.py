@@ -327,20 +327,16 @@ class BotorchModel(TorchModel):
         if self.model is None:
             raise RuntimeError("Cannot cross-validate model that has not been fitted")
         if self.refit_on_cv:
-            model = self.model_constructor(  # pyre-ignore: [28]
-                Xs=Xs_train,
-                Ys=Ys_train,
-                Yvars=Yvars_train,
-                task_features=self.task_features,
-            )
+            state_dict = None
         else:
-            model = deepcopy(self.model)
-            model.reinitialize(  # pyre-ignore: [16]
-                train_Xs=Xs_train,
-                train_Ys=[Y.view(-1) for Y in Ys_train],
-                train_Yvars=[Yvar.view(-1) for Yvar in Yvars_train],
-                keep_parameters=True,
-            )
+            state_dict = deepcopy(self.model.state_dict())  # pyre-ignore: [16]
+        model = self.model_constructor(  # pyre-ignore: [28]
+            Xs=Xs_train,
+            Ys=Ys_train,
+            Yvars=Yvars_train,
+            task_features=self.task_features,
+            state_dict=state_dict,
+        )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
     @copy_doc(TorchModel.update)
@@ -352,16 +348,13 @@ class BotorchModel(TorchModel):
             self.Ys[i] = torch.cat((self.Ys[i], Ys[i]))
             self.Yvars[i] = torch.cat((self.Yvars[i], Yvars[i]))
         if self.refit_on_update:
-            self.model = self.model_constructor(  # pyre-ignore: [28]
-                Xs=self.Xs,
-                Ys=self.Ys,
-                Yvars=self.Yvars,
-                task_features=self.task_features,
-            )
+            state_dict = None
         else:
-            self.model.reinitialize(  # pyre-ignore: [16]
-                train_Xs=self.Xs,
-                train_Ys=self.Ys,
-                train_Yvars=self.Yvars,
-                keep_parameters=True,
-            )
+            state_dict = deepcopy(self.model.state_dict())  # pyre-ignore: [16]
+        self.model = self.model_constructor(  # pyre-ignore: [28]
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            task_features=self.task_features,
+            state_dict=state_dict,
+        )

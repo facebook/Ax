@@ -8,6 +8,7 @@ from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObject
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
 from botorch.fit import fit_gpytorch_model
 from botorch.models.gp_regression import FixedNoiseGP
+from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP
@@ -16,6 +17,7 @@ from botorch.utils import (
     get_objective_weights_transform,
     get_outcome_constraint_transforms,
 )
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from torch import Tensor
 
@@ -30,7 +32,7 @@ def get_and_fit_model(
     task_features: List[int],
     state_dict: Optional[Dict[str, Tensor]] = None,
     **kwargs: Any,
-) -> ModelListGP:
+) -> GPyTorchModel:
     r"""Instantiates and fits a botorch ModelListGP using the given data.
 
     Args:
@@ -44,6 +46,7 @@ def get_and_fit_model(
     Returns:
         A fitted ModelListGP.
     """
+    model = None
     if len(task_features) > 1:
         raise ValueError(
             f"This model only supports 1 task feature (got {task_features})"
@@ -52,16 +55,33 @@ def get_and_fit_model(
         task_feature = task_features[0]
     else:
         task_feature = None
-    models = [
-        _get_model(X=X, Y=Y, Yvar=Yvar, task_feature=task_feature)
-        for X, Y, Yvar in zip(Xs, Ys, Yvars)
-    ]
-    model = ModelListGP(gp_models=models)
+    if task_feature is None:
+        if len(Xs) == 1:
+            # Use single output, single task GP
+            model = _get_model(
+                X=Xs[0], Y=Ys[0], Yvar=Yvars[0], task_feature=task_feature
+            )
+        elif all(torch.equal(Xs[0], X) for X in Xs[1:]):
+            # Use batched multioutput, single task GP
+            Y = torch.cat(Ys, dim=-1)
+            Yvar = torch.cat(Yvars, dim=-1)
+            model = _get_model(X=Xs[0], Y=Y, Yvar=Yvar, task_feature=task_feature)
+    if model is None:
+        # Use model list
+        models = [
+            _get_model(X=X, Y=Y, Yvar=Yvar, task_feature=task_feature)
+            for X, Y, Yvar in zip(Xs, Ys, Yvars)
+        ]
+        model = ModelListGP(gp_models=models)
     model.to(dtype=Xs[0].dtype, device=Xs[0].device)  # pyre-ignore
     if state_dict is None:
         # TODO: Add bounds for optimization stability - requires revamp upstream
         bounds = {}
-        mll = SumMarginalLogLikelihood(model.likelihood, model)
+        if isinstance(model, ModelListGP):
+            mll = SumMarginalLogLikelihood(model.likelihood, model)
+        else:
+            # pyre-ignore: [16]
+            mll = ExactMarginalLogLikelihood(model.likelihood, model)
         mll = fit_gpytorch_model(mll, bounds=bounds)
     else:
         model.load_state_dict(state_dict)
@@ -187,11 +207,11 @@ def scipy_optimizer(
 
 def _get_model(
     X: Tensor, Y: Tensor, Yvar: Tensor, task_feature: Optional[int]
-) -> Model:
+) -> GPyTorchModel:
     """Instantiate a model of type depending on the input data."""
     Yvar = Yvar.clamp_min_(MIN_OBSERVED_NOISE_LEVEL)  # pyre-ignore: [16]
     if task_feature is None:
-        gp = FixedNoiseGP(train_X=X, train_Y=Y.view(-1), train_Yvar=Yvar.view(-1))
+        gp = FixedNoiseGP(train_X=X, train_Y=Y, train_Yvar=Yvar)
     else:
         gp = FixedNoiseMultiTaskGP(
             train_X=X,

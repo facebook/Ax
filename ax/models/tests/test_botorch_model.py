@@ -8,7 +8,7 @@ from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_defaults import get_and_fit_model
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.utils import get_infeasible_cost
-from botorch.models import ModelListGP
+from botorch.models import FixedNoiseGP, ModelListGP
 from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 
@@ -42,6 +42,36 @@ class BotorchModelTest(TestCase):
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         model = BotorchModel()
+        # Test ModelListGP
+        # make training data different for each output
+        Xs2_diff = [Xs2[0] + 0.1]
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1 + Xs2_diff,
+                Ys=Ys1 + Ys2,
+                Yvars=Yvars1 + Yvars2,
+                bounds=bounds,
+                task_features=task_features,
+                feature_names=feature_names,
+            )
+            _mock_fit_model.assert_called_once()
+        # Check attributes
+        self.assertTrue(torch.equal(model.Xs[0], Xs1[0]))
+        self.assertTrue(torch.equal(model.Xs[1], Xs2_diff[0]))
+        self.assertEqual(model.dtype, Xs1[0].dtype)
+        self.assertEqual(model.device, Xs1[0].device)
+        self.assertIsInstance(model.model, ModelListGP)
+
+        # Check fitting
+        model_list = model.model.models
+        self.assertTrue(torch.equal(model_list[0].train_inputs[0], Xs1[0]))
+        self.assertTrue(torch.equal(model_list[1].train_inputs[0], Xs2_diff[0]))
+        self.assertTrue(torch.equal(model_list[0].train_targets, Ys1[0].view(-1)))
+        self.assertTrue(torch.equal(model_list[1].train_targets, Ys2[0].view(-1)))
+        self.assertIsInstance(model_list[0].likelihood, _GaussianLikelihoodBase)
+        self.assertIsInstance(model_list[1].likelihood, _GaussianLikelihoodBase)
+
+        # Test batched multi-output FixedNoiseGP
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 Xs=Xs1 + Xs2,
@@ -58,16 +88,23 @@ class BotorchModelTest(TestCase):
         self.assertTrue(torch.equal(model.Xs[1], Xs2[0]))
         self.assertEqual(model.dtype, Xs1[0].dtype)
         self.assertEqual(model.device, Xs1[0].device)
-        self.assertIsInstance(model.model, ModelListGP)
+        self.assertIsInstance(model.model, FixedNoiseGP)
 
         # Check fitting
-        model_list = model.model.models
-        self.assertTrue(torch.equal(model_list[0].train_inputs[0], Xs1[0]))
-        self.assertTrue(torch.equal(model_list[1].train_inputs[0], Xs2[0]))
-        self.assertTrue(torch.equal(model_list[0].train_targets, Ys1[0].view(-1)))
-        self.assertTrue(torch.equal(model_list[1].train_targets, Ys2[0].view(-1)))
-        self.assertIsInstance(model_list[0].likelihood, _GaussianLikelihoodBase)
-        self.assertIsInstance(model_list[1].likelihood, _GaussianLikelihoodBase)
+        # train inputs should be `o x n x 1`
+        self.assertTrue(
+            torch.equal(
+                model.model.train_inputs[0],
+                Xs1[0].unsqueeze(0).expand(torch.Size([2]) + Xs1[0].shape),
+            )
+        )
+        # train targets should be `o x n`
+        self.assertTrue(
+            torch.equal(
+                model.model.train_targets, torch.cat(Ys1 + Ys2, dim=-1).permute(1, 0)
+            )
+        )
+        self.assertIsInstance(model.model.likelihood, _GaussianLikelihoodBase)
 
         # Check infeasible cost can be computed on the model
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -213,17 +250,13 @@ class BotorchModelTest(TestCase):
         # Test loading state dict
         tkwargs = {"device": device, "dtype": dtype}
         true_state_dict = {
-            "models.0.likelihood.noise_covar.noise": [1.0, 1.0],
-            "models.0.mean_module.constant": [[3.5004]],
-            "models.0.covar_module.raw_outputscale": [2.2438],
-            "models.0.covar_module.base_kernel.raw_lengthscale": [
-                [[-0.9274, -0.9274, -0.9274]]
-            ],
-            "models.0.covar_module.base_kernel.lengthscale_prior.concentration": 3.0,
-            "models.0.covar_module.base_kernel.lengthscale_prior.rate": 6.0,
-            "models.0.covar_module.outputscale_prior.concentration": 2.0,
-            "models.0.covar_module.outputscale_prior.rate": 0.15,
-            "likelihood.likelihoods.0.noise_covar.noise": [1.0, 1.0],
+            "mean_module.constant": [[3.5004]],
+            "covar_module.raw_outputscale": [2.2438],
+            "covar_module.base_kernel.raw_lengthscale": [[[-0.9274, -0.9274, -0.9274]]],
+            "covar_module.base_kernel.lengthscale_prior.concentration": 3.0,
+            "covar_module.base_kernel.lengthscale_prior.rate": 6.0,
+            "covar_module.outputscale_prior.concentration": 2.0,
+            "covar_module.outputscale_prior.rate": 0.15,
         }
         true_state_dict = {
             key: torch.tensor(val, **tkwargs) for key, val in true_state_dict.items()
