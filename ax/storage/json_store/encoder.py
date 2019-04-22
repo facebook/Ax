@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 from ax.exceptions.storage import JSONEncodeError
 from ax.storage.json_store.registry import ENCODER_REGISTRY
+from ax.utils.common.typeutils import numpy_type_to_python_type
 
 
 def object_to_json(object: Any) -> Any:
@@ -25,6 +26,7 @@ def object_to_json(object: Any) -> Any:
     We then pass each item of the dictionary back into this function to
     recursively convert the entire object.
     """
+    object = numpy_type_to_python_type(object)
     _type = type(object)
     if _type in (str, int, float, bool, type(None)):
         return object
