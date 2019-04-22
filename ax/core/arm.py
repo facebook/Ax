@@ -5,7 +5,6 @@ import hashlib
 import json
 from typing import Optional
 
-import numpy as np
 from ax.core.base import Base
 from ax.core.types import TParameterization
 from ax.utils.common.equality import equality_typechecker
@@ -85,10 +84,7 @@ class Arm(Base):
 
         """
         for k, v in parameters.items():
-            if type(v) is np.int64:
-                parameters[k] = int(v)  # pragma: no cover
-            elif type(v) is np.float32:
-                parameters[k] = float(v)  # pragma: no cover  # pyre-ignore
+            parameters[k] = numpy_type_to_python_type(v)
         parameters_str = json.dumps(parameters, sort_keys=True)
         return hashlib.md5(parameters_str.encode("utf-8")).hexdigest()
 
