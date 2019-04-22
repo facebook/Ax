@@ -54,8 +54,8 @@ class AxClient:
     def create_experiment(
         self,
         parameters: List[Dict[str, Union[TParamValue, List[TParamValue]]]],
-        objective_name: str,
         name: Optional[str] = None,
+        objective_name: Optional[str] = None,
         minimize: bool = False,
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
@@ -116,8 +116,9 @@ class AxClient:
     def complete_trial(
         self,
         trial_index: int,
-        # `raw_data` argument format: {metric_name -> (mean, standard error)}
-        raw_data: Dict[str, Tuple[float, float]],
+        # `raw_data` argument format: {metric_name -> (mean, standard error)} OR
+        # (mean, standard error) and we assume metric name == objective name
+        raw_data: TEvaluationOutcome,
         metadata: Optional[Dict[str, str]] = None,
     ) -> None:
         """
@@ -137,7 +138,22 @@ class AxClient:
         if metadata is not None:
             trial._run_metadata = metadata
 
-        data = Data.from_evaluations({not_none(trial.arm).name: raw_data}, trial.index)
+        if isinstance(raw_data, dict):
+            evaluations = {not_none(trial.arm).name: raw_data}
+        elif isinstance(raw_data, tuple):
+            evaluations = {
+                not_none(trial.arm).name: {
+                    self.experiment.optimization_config.objective.metric.name: raw_data
+                }
+            }
+        else:
+            raise Exception(  # pragma: no cover
+                "Raw_data has an invalid type. The data must either be in the form "
+                "of a dictionary of metric names to mean, sem tuples, "
+                "or a single mean, sem tuple."
+            )
+
+        data = Data.from_evaluations(evaluations, trial.index)
         self.experiment.attach_data(data)
         self._updated_trials.append(trial_index)
         self._save_experiment_if_possible()

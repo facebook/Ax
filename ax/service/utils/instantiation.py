@@ -21,6 +21,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
+from ax.core.simple_experiment import DEFAULT_OBJECTIVE_NAME
 from ax.core.types import ComparisonOp, TParamValue
 from ax.utils.common.typeutils import not_none
 
@@ -203,8 +204,8 @@ def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
 
 def make_experiment(
     parameters: List[TParameterRepresentation],
-    objective_name: str,
     name: Optional[str] = None,
+    objective_name: Optional[str] = None,
     minimize: bool = False,
     parameter_constraints: Optional[List[str]] = None,
     outcome_constraints: Optional[List[str]] = None,
@@ -223,7 +224,10 @@ def make_experiment(
             else [constraint_from_str(c, parameter_map) for c in parameter_constraints],
         ),
         optimization_config=OptimizationConfig(
-            objective=Objective(metric=Metric(name=objective_name), minimize=minimize),
+            objective=Objective(
+                metric=Metric(name=objective_name or DEFAULT_OBJECTIVE_NAME),
+                minimize=minimize,
+            ),
             outcome_constraints=None
             if outcome_constraints is None
             else [outcome_constraint_from_str(c) for c in outcome_constraints],

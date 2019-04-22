@@ -94,9 +94,9 @@ class OptimizationLoop:
     @staticmethod
     def with_evaluation_function(
         parameters: List[TParameterRepresentation],
-        objective_name: str,
         evaluation_function: TEvaluationFunction,
         experiment_name: Optional[str] = None,
+        objective_name: Optional[str] = None,
         minimize: bool = False,
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
@@ -134,10 +134,10 @@ class OptimizationLoop:
     def with_runners_and_metrics(
         cls,
         parameters: List[TParameterRepresentation],
-        objective_name: str,
         path_to_runner: str,
         paths_to_metrics: List[str],
         experiment_name: Optional[str] = None,
+        objective_name: Optional[str] = None,
         minimize: bool = False,
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
@@ -207,9 +207,9 @@ class OptimizationLoop:
 
 def optimize(
     parameters: List[TParameterRepresentation],
-    objective_name: str,
     evaluation_function: TEvaluationFunction,
     experiment_name: Optional[str] = None,
+    objective_name: Optional[str] = None,
     minimize: bool = False,
     parameter_constraints: Optional[List[str]] = None,
     outcome_constraints: Optional[List[str]] = None,

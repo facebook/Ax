@@ -19,7 +19,7 @@ from ax.utils.common.testutils import TestCase
 class TestServiceAPI(TestCase):
     """Tests service-like API functionality."""
 
-    def test_default_generation_strategy(self):
+    def testDefaultGenerationStrategy(self) -> None:
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
         ax = AxClient()
         ax.create_experiment(
@@ -40,7 +40,7 @@ class TestServiceAPI(TestCase):
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
             ax.complete_trial(trial_index, raw_data={"branin": (branin(x1, x2), 0.0)})
 
-    def test_create_experiment(self):
+    def testCreateExperiment(self) -> None:
         """Test basic experiment creation."""
         ax = AxClient(
             GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
@@ -138,7 +138,7 @@ class TestServiceAPI(TestCase):
         )
         self.assertTrue(ax._experiment.optimization_config.objective.minimize)
 
-    def test_constraint_same_as_objective(self):
+    def testConstraintSameAsObjective(self):
         """Check that we do not allow constraints on the objective metric."""
         ax = AxClient(
             GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
@@ -152,3 +152,17 @@ class TestServiceAPI(TestCase):
                 objective_name="test_objective",
                 outcome_constraints=["test_objective >= 3"],
             )
+
+    def testRawDataFormat(self):
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        for _ in range(6):
+            parameterization, trial_index = ax.get_next_trial()
+            x1, x2 = parameterization.get("x1"), parameterization.get("x2")
+            ax.complete_trial(trial_index, raw_data=(branin(x1, x2), 0.0))
