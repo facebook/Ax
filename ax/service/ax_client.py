@@ -116,8 +116,11 @@ class AxClient:
     def complete_trial(
         self,
         trial_index: int,
-        # `raw_data` argument format: {metric_name -> (mean, standard error)} OR
-        # (mean, standard error) and we assume metric name == objective name
+        # acceptable `raw_data` argument formats:
+        # 1) {metric_name -> (mean, standard error)}
+        # 2) (mean, standard error) and we assume metric name == objective name
+        # 3) only the mean, and we assume metric name == objective name and
+        #    standard error == 0
         raw_data: TEvaluationOutcome,
         metadata: Optional[Dict[str, str]] = None,
     ) -> None:
@@ -146,11 +149,20 @@ class AxClient:
                     self.experiment.optimization_config.objective.metric.name: raw_data
                 }
             }
+        elif isinstance(raw_data, float) or isinstance(raw_data, int):
+            evaluations = {
+                not_none(trial.arm).name: {
+                    self.experiment.optimization_config.objective.metric.name: (
+                        raw_data,
+                        0.0,
+                    )
+                }
+            }
         else:
             raise Exception(  # pragma: no cover
                 "Raw_data has an invalid type. The data must either be in the form "
                 "of a dictionary of metric names to mean, sem tuples, "
-                "or a single mean, sem tuple."
+                "or a single mean, sem tuple, or a single mean."
             )
 
         data = Data.from_evaluations(evaluations, trial.index)

@@ -45,7 +45,7 @@ class SimpleExperiment(Experiment):
         evaluation_function: function that evaluates
             mean and standard error for a parameter configuration. This
             function should accept a dictionary of parameter names to parameter
-            values (TParametrization) and an optional weight, and return a
+            values (TParametrization) and optionally a weight, and return a
             dictionary of metric names to a tuple of means and standard errors
             (TEvaluationOutcome). The function can also return a single tuple,
             in which case we assume the metric is the objective.
@@ -165,17 +165,19 @@ class SimpleExperiment(Experiment):
         self._evaluation_function = evaluation_function
 
     def evaluation_function_outer(
-        self, parameters: TParameterization, weight: Optional[float] = None
+        self, parameterization: TParameterization, weight: Optional[float] = None
     ) -> Dict[str, Tuple[float, float]]:
-        evaluation = self._evaluation_function(parameters, weight)
+        evaluation = self._evaluation_function(parameterization, weight)
         if isinstance(evaluation, dict):
             return evaluation
         elif isinstance(evaluation, tuple):
             return {self.optimization_config.objective.metric.name: evaluation}
+        elif isinstance(evaluation, float) or isinstance(evaluation, int):
+            return {self.optimization_config.objective.metric.name: (evaluation, 0.0)}
         raise Exception(  # pragma: no cover
             "Evaluation function returned an invalid type. The function must "
             "either return a dictionary of metric names to mean, sem tuples "
-            "or a single mean, sem tuple."
+            "or a single mean, sem tuple, or a single mean."
         )
 
     @copy_doc(Experiment.fetch_data)

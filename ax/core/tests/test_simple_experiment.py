@@ -31,6 +31,16 @@ def sum_evaluation_function_v2(
     return (x1 + x2, 0.0)
 
 
+def sum_evaluation_function_v3(
+    parameterization: TParameterization, weight: Optional[float] = None
+) -> TEvaluationOutcome:
+    param_names = list(parameterization.keys())
+    if any(param_name not in param_names for param_name in ["x1", "x2"]):
+        raise ValueError("Parametrization does not contain x1 or x2")
+    x1, x2 = parameterization["x1"], parameterization["x2"]
+    return x1 + x2
+
+
 class SimpleExperimentTest(TestCase):
     def setUp(self) -> None:
         self.experiment = SimpleExperiment(
@@ -86,6 +96,18 @@ class SimpleExperimentTest(TestCase):
             search_space=get_branin_search_space(),
             objective_name="sum",
             evaluation_function=sum_evaluation_function_v2,
+        )
+
+        for i in range(len(self.arms)):
+            experiment.new_trial(generator_run=GeneratorRun(arms=[self.arms[i]]))
+        self.assertFalse(experiment.eval().df.empty)
+
+    def testEvaluationFunctionV3(self) -> None:
+        experiment = SimpleExperiment(
+            name="test_branin",
+            search_space=get_branin_search_space(),
+            objective_name="sum",
+            evaluation_function=sum_evaluation_function_v3,
         )
 
         for i in range(len(self.arms)):
