@@ -22,8 +22,9 @@ TModelPredict = Tuple[TModelMean, TModelCov]
 TModelPredictArm = Tuple[Dict[str, float], Dict[str, Dict[str, float]]]
 
 # Format for trasmitting externally evaluated data to Ax
-# {metric_name -> (mean, standard error)}
-TEvaluationOutcome = Dict[str, Tuple[float, float]]
+# {metric_name -> (mean, standard error)} OR
+# (mean, standard error) and we assume metric name == objective name
+TEvaluationOutcome = Union[Dict[str, Tuple[float, float]], Tuple[float, float]]
 
 TConfig = Dict[str, Union[int, float, str, AcquisitionFunction]]
 TBucket = List[Dict[str, List[str]]]

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
 from hashlib import md5
-from typing import Dict, Iterable, Optional, Set, Type
+from typing import Dict, Iterable, Optional, Set, Tuple, Type
 
 import numpy as np
 import pandas as pd
 from ax.core.base import Base
-from ax.core.types import TEvaluationOutcome
 
 
 TPdTimestamp = pd.Timestamp  # pyre-ignore[16]: Pyre doesn't recognize this type
@@ -113,7 +112,7 @@ class Data(Base):
 
     @staticmethod
     def from_evaluations(
-        evaluations: Dict[str, TEvaluationOutcome], trial_index: int
+        evaluations: Dict[str, Dict[str, Tuple[float, float]]], trial_index: int
     ) -> "Data":
         """
         Convert dict of evaluations to Ax data object.

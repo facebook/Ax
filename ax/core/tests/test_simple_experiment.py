@@ -21,8 +21,18 @@ def sum_evaluation_function(
     return {"sum": (x1 + x2, 0.0)}
 
 
+def sum_evaluation_function_v2(
+    parameterization: TParameterization, weight: Optional[float] = None
+) -> TEvaluationOutcome:
+    param_names = list(parameterization.keys())
+    if any(param_name not in param_names for param_name in ["x1", "x2"]):
+        raise ValueError("Parametrization does not contain x1 or x2")
+    x1, x2 = parameterization["x1"], parameterization["x2"]
+    return (x1 + x2, 0.0)
+
+
 class SimpleExperimentTest(TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.experiment = SimpleExperiment(
             name="test_branin",
             search_space=get_branin_search_space(),
@@ -36,7 +46,7 @@ class SimpleExperimentTest(TestCase):
             Arm(parameters={"x1": -2, "x2": 10}),
         ]
 
-    def test_basic(self):
+    def testBasic(self) -> None:
         self.assertTrue(self.experiment.is_simple_experiment)
         trial = self.experiment.new_trial()
         with self.assertRaises(NotImplementedError):
@@ -54,18 +64,41 @@ class SimpleExperimentTest(TestCase):
         self.assertEqual(batch.fetch_data().df["mean"][0], 15)
         self.assertAlmostEqual(self.experiment.fetch_data().df["mean"][1], 40)
 
-    def test_trial(self):
+    def testTrial(self) -> None:
         for i in range(len(self.arms)):
             self.experiment.new_trial(generator_run=GeneratorRun(arms=[self.arms[i]]))
         self.assertFalse(self.experiment.eval().df.empty)
 
-    def test_unimplemented_evaluation_function(self):
+    def testUnimplementedEvaluationFunction(self) -> None:
         experiment = SimpleExperiment(
             name="test_branin",
             search_space=get_branin_search_space(),
             objective_name="sum",
         )
         with self.assertRaises(Exception):
-            experiment.evaluation_function(parameters={})
+            experiment.evaluation_function(parameterization={})
 
         experiment.evaluation_function = sum_evaluation_function
+
+    def testEvaluationFunctionV2(self) -> None:
+        experiment = SimpleExperiment(
+            name="test_branin",
+            search_space=get_branin_search_space(),
+            objective_name="sum",
+            evaluation_function=sum_evaluation_function_v2,
+        )
+
+        for i in range(len(self.arms)):
+            experiment.new_trial(generator_run=GeneratorRun(arms=[self.arms[i]]))
+        self.assertFalse(experiment.eval().df.empty)
+
+    def testOptionalObjectiveName(self) -> None:
+        experiment = SimpleExperiment(
+            name="test_branin",
+            search_space=get_branin_search_space(),
+            evaluation_function=sum_evaluation_function_v2,
+        )
+
+        for i in range(len(self.arms)):
+            experiment.new_trial(generator_run=GeneratorRun(arms=[self.arms[i]]))
+        self.assertFalse(experiment.eval().df.empty)
