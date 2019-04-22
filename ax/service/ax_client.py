@@ -53,9 +53,9 @@ class AxClient:
 
     def create_experiment(
         self,
-        name: str,
         parameters: List[Dict[str, Union[TParamValue, List[TParamValue]]]],
         objective_name: str,
+        name: Optional[str] = None,
         minimize: bool = False,
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
@@ -63,7 +63,6 @@ class AxClient:
         """Create a new experiment and save it if DBSettings available.
 
         Args:
-            name: Name of the experiment to be created.
             parameters: List of dictionaries representing parameters in the
                 experiment search space. Required elements in the dictionaries
                 are: "name" (name of this parameter, string), "type" (type of the
@@ -73,12 +72,18 @@ class AxClient:
                 fixed parameters (single value).
             objective: Name of the metric used as objective in this experiment.
                 This metric must be present in `raw_data` argument to `log_data`.
+            name: Name of the experiment to be created.
             minimize: Whether this experiment represents a minimization problem.
             parameter_constraints: List of string representation of parameter
                 constraints, such as "x3 >= x4" or "x3 + x4 >= 2".
             outcome_constraints: List of string representation of outcome
                 constraints of form "metric_name >= bound", like "m1 <= 3."
         """
+        if self.db_settings and not name:
+            raise ValueError(
+                "Must give the experiment a name if `db_settings` is not None."
+            )
+
         self._experiment = make_experiment(
             name=name,
             parameters=parameters,

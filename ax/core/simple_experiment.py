@@ -36,10 +36,10 @@ class SimpleExperiment(Experiment):
     Simplified experiment class with defaults.
 
     Args:
-        name: name of this experiment
         search_space: parameter space
         objective_name: which of the metrics computed by the evaluation
             function is the objective
+        name: name of this experiment
         evaluation_function: function that evaluates
             mean and standard error for a parameter configuration. This
             function should accept a dictionary of parameter names to parameter
@@ -57,9 +57,9 @@ class SimpleExperiment(Experiment):
 
     def __init__(
         self,
-        name: str,
         search_space: SearchSpace,
         objective_name: str,
+        name: Optional[str] = None,
         evaluation_function: TEvaluationFunction = unimplemented_evaluation_function,
         minimize: bool = False,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,

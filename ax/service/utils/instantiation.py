@@ -202,9 +202,9 @@ def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
 
 
 def make_experiment(
-    name: str,
     parameters: List[TParameterRepresentation],
     objective_name: str,
+    name: Optional[str] = None,
     minimize: bool = False,
     parameter_constraints: Optional[List[str]] = None,
     outcome_constraints: Optional[List[str]] = None,
