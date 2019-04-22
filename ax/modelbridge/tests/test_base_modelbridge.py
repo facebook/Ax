@@ -32,8 +32,17 @@ def search_space_for_range_value(min: float = 3.0, max: float = 6.0) -> SearchSp
     return SearchSpace([RangeParameter("x", ParameterType.FLOAT, min, max)])
 
 
+def search_space_for_range_values(min: float = 3.0, max: float = 6.0) -> SearchSpace:
+    return SearchSpace(
+        [
+            RangeParameter("x", ParameterType.FLOAT, min, max),
+            RangeParameter("y", ParameterType.FLOAT, min, max),
+        ]
+    )
+
+
 def get_experiment() -> Experiment:
-    return Experiment("test", search_space_for_value())
+    return Experiment(search_space_for_value(), "test")
 
 
 def get_optimization_config() -> OptimizationConfig:
@@ -456,7 +465,8 @@ class BaseModelBridgeTest(TestCase):
     def test_update(self, _mock_update, _mock_gen):
         exp = get_experiment()
         exp.optimization_config = get_optimization_config()
-        ss = search_space_for_range_value()
+        ss = search_space_for_range_values()
+        exp.search_space = ss
         modelbridge = ModelBridge(ss, None, [Log], exp)
         exp.new_trial(generator_run=modelbridge.gen(1))
         modelbridge._set_training_data(

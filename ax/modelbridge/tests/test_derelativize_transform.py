@@ -86,7 +86,7 @@ class DerelativizeTransformTest(TestCase):
             search_space=search_space,
             model=None,
             transforms=[],
-            experiment=Experiment("test", search_space),
+            experiment=Experiment(search_space, "test"),
             data=Data(),
             status_quo_name="1_1",
         )
@@ -138,7 +138,7 @@ class DerelativizeTransformTest(TestCase):
             search_space=search_space,
             model=None,
             transforms=[],
-            experiment=Experiment("test", search_space),
+            experiment=Experiment(search_space, "test"),
             data=Data(),
             status_quo_name="1_2",
         )
@@ -184,7 +184,7 @@ class DerelativizeTransformTest(TestCase):
             oc = t.transform_optimization_config(oc, g, None)
 
         # Raises error with relative constraint, no status quo
-        exp = Experiment("name", search_space)
+        exp = Experiment(search_space, "name")
         g = ModelBridge(search_space, None, [], exp)
         with self.assertRaises(ValueError):
             oc = t.transform_optimization_config(oc, g, None)

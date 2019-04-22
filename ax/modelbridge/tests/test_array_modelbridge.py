@@ -138,7 +138,7 @@ class ArrayModelBridgeTest(TestCase):
         _mock_unwrap,
         _mock_obs_from_data,
     ):
-        exp = Experiment("test", search_space_for_range_value())
+        exp = Experiment(search_space_for_range_value(), "test")
         modelbridge = ArrayModelBridge(
             search_space_for_range_value(), NumpyModel(), [t1, t2], exp, 0
         )
