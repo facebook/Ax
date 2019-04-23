@@ -28,6 +28,7 @@ __all__ = [
     "SimpleExperiment",
     "SumConstraint",
     "Trial",
+    "optimize",
     "save",
     "load",
     "sqa_store",

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import inspect
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ax.core.arm import Arm
@@ -167,7 +168,19 @@ class SimpleExperiment(Experiment):
     def evaluation_function_outer(
         self, parameterization: TParameterization, weight: Optional[float] = None
     ) -> Dict[str, Tuple[float, float]]:
-        evaluation = self._evaluation_function(parameterization, weight)
+        signature = inspect.signature(self._evaluation_function)
+        num_evaluation_function_params = len(signature.parameters.items())
+        if num_evaluation_function_params == 1:
+            # pyre-fixme[20]: Anonymous call expects argument `$1`.
+            evaluation = self._evaluation_function(parameterization)
+        elif num_evaluation_function_params == 2:
+            evaluation = self._evaluation_function(parameterization, weight)
+        else:
+            raise ValueError(  # pragma: no cover
+                "Evaluation function must take either one parameter "
+                "(parameterization) or two parameters (parameterization and weight)."
+            )
+
         if isinstance(evaluation, dict):
             return evaluation
         elif isinstance(evaluation, tuple):
