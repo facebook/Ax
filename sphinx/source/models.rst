@@ -75,18 +75,10 @@ ax.models.discrete.thompson module
 NumPy Models
 ----------------
 
-ax.models.numpy.gpy module
+ax.models.numpy.randomforest module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.models.numpy.gpy
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-ax.models.numpy.gpy\_nei module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.numpy.gpy_nei
+.. automodule:: ax.models.numpy.randomforest
     :members:
     :undoc-members:
     :show-inheritance:
