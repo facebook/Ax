@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 # necessary to import this file so SQLAlchemy knows about the event listeners
 # see https://fburl.com/8mn7yjt2

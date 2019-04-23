@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
 window.MathJax = {
   tex2jax: {
     inlineMath: [['$', '$'], ['\\(', '\\)']],
