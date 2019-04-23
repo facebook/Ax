@@ -76,7 +76,7 @@ NumPy Models
 ----------------
 
 ax.models.numpy.randomforest module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.models.numpy.randomforest
     :members:
