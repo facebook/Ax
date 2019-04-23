@@ -136,7 +136,7 @@ class ObservationsTest(TestCase):
         self.assertNotEqual(obs, 1)
 
     def testObservationsFromData(self):
-        in_design_truth = [
+        truth = [
             {
                 "arm_name": "0_0",
                 "parameters": {"x": 0, "y": "a"},
@@ -162,66 +162,34 @@ class ObservationsTest(TestCase):
                 "metric_name": "b",
             },
         ]
-        ood_truth = [
-            {
-                "arm_name": "control",
-                "parameters": {"x": None, "y": "a"},
-                "mean": 4.0,
-                "sem": 4.0,
-                "trial_index": 1,
-                "metric_name": "a",
-            }
-        ]
-        arms = {
-            obs["arm_name"]: Arm(parameters=obs["parameters"])
-            for obs in in_design_truth
-        }
-        ood_arms = {
-            obs["arm_name"]: Arm(parameters=obs["parameters"]) for obs in ood_truth
-        }
-
+        arms = {obs["arm_name"]: Arm(parameters=obs["parameters"]) for obs in truth}
         experiment = Mock()
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
-        df = pd.DataFrame(in_design_truth)[
+
+        df = pd.DataFrame(truth)[
             ["arm_name", "trial_index", "mean", "sem", "metric_name"]
         ]
         data = Data(df=df)
-        in_design_observations = observations_from_data(experiment, data)
+        observations = observations_from_data(experiment, data)
 
-        type(experiment).arms_by_name = PropertyMock(return_value=ood_arms)
-        ood_df = pd.DataFrame(ood_truth)[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name"]
-        ]
-        ood_data = Data(df=ood_df)
-        ood_observation = observations_from_data(experiment, ood_data)[0]
-
-        self.assertEqual(len(in_design_observations), 2)
+        self.assertEqual(len(observations), 2)
         # Get them in the order we want for tests below
-        if in_design_observations[0].features.parameters["x"] == 1:
-            in_design_observations.reverse()
+        if observations[0].features.parameters["x"] == 1:
+            observations.reverse()
 
         obsd_truth = {
-            "metric_names": [["a", "b"], ["a"], ["a"]],
-            "means": [np.array([2.0, 4.0]), np.array([3]), np.array([3.0])],
-            "covariance": [np.diag([4.0, 16.0]), np.array([[9.0]]), np.array([[16.0]])],
+            "metric_names": [["a", "b"], ["a"]],
+            "means": [np.array([2.0, 4.0]), np.array([3])],
+            "covariance": [np.diag([4.0, 16.0]), np.array([[9.0]])],
         }
-        arm_name_truth = ["0_0", "0_1"]
+        cname_truth = ["0_0", "0_1"]
 
-        for i, obs in enumerate(in_design_observations):
-            self.assertEqual(obs.features.parameters, in_design_truth[i]["parameters"])
-            self.assertEqual(
-                obs.features.trial_index, in_design_truth[i]["trial_index"]
-            )
+        for i, obs in enumerate(observations):
+            self.assertEqual(obs.features.parameters, truth[i]["parameters"])
+            self.assertEqual(obs.features.trial_index, truth[i]["trial_index"])
             self.assertEqual(obs.data.metric_names, obsd_truth["metric_names"][i])
             self.assertTrue(np.array_equal(obs.data.means, obsd_truth["means"][i]))
             self.assertTrue(
                 np.array_equal(obs.data.covariance, obsd_truth["covariance"][i])
             )
-            self.assertEqual(obs.arm_name, arm_name_truth[i])
-
-        ood_metric_names = ["a"]
-        ood_arm_name_truth = "control"
-
-        self.assertEqual(ood_observation.features.parameters, {})
-        self.assertEqual(ood_observation.data.metric_names, ood_metric_names)
-        self.assertEqual(ood_observation.arm_name, ood_arm_name_truth)
+            self.assertEqual(obs.arm_name, cname_truth[i])

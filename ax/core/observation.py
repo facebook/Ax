@@ -187,9 +187,6 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
         obs_kwargs = {}
         obs_parameters = experiment.arms_by_name[features["arm_name"]].parameters.copy()
         if obs_parameters:
-            # Wipe null values => arm is out of design.
-            if None in obs_parameters.values():
-                obs_parameters = {}
             obs_kwargs["parameters"] = obs_parameters
         for f in ["trial_index", "start_time", "end_time", "random_split"]:
             obs_kwargs[f] = features.get(f, None)

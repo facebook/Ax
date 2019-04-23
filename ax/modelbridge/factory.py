@@ -23,6 +23,7 @@ from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.one_hot import OneHot
 from ax.modelbridge.transforms.ordered_choice_encode import OrderedChoiceEncode
+from ax.modelbridge.transforms.out_of_design import OutOfDesign
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
@@ -63,6 +64,7 @@ optimization model for subsequent trials).
 
 
 Cont_X_trans: List[Type[Transform]] = [
+    OutOfDesign,
     RemoveFixed,
     OrderedChoiceEncode,
     OneHot,
@@ -70,7 +72,7 @@ Cont_X_trans: List[Type[Transform]] = [
     Log,
     UnitX,
 ]
-Discrete_X_trans: List[Type[Transform]] = [RemoveFixed, IntRangeToChoice]
+Discrete_X_trans: List[Type[Transform]] = [IntRangeToChoice]
 Y_trans: List[Type[Transform]] = [IVW, Derelativize, StandardizeY]
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
