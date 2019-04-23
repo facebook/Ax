@@ -111,8 +111,8 @@ class Index extends React.Component {
     const pre = "```";
 
     const codeExample = `${pre}python
->>> from ax.service.managed_loop import OptimizationLoop
->>> loop = OptimizationLoop.with_evaluation_function(
+>>> from ax import optimize
+>>> optimize(
         parameters=[
           {
             "name": "x1",
@@ -125,14 +125,8 @@ class Index extends React.Component {
             "bounds": [-10.0, 10.0],
           },
         ],
-        experiment_name="test",
-        objective_name="objective",
-        evaluation_function=lambda p, _: {
-          "objective": (
-            (p["x1"] + 2*p["x2"] - 7)**2 + (2*p["x1"] + p["x2"] - 5),  # mean (Booth function)
-            0.0  # sem
-          )
-        },
+        # Booth function
+        evaluation_function=lambda p: (p["x1"] + 2*p["x2"] - 7)**2 + (2*p["x1"] + p["x2"] - 5)**2,
         minimize=True,
     )
 
