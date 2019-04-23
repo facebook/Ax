@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np

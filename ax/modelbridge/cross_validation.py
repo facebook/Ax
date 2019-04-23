@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 from collections import defaultdict
 from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 

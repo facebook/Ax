@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 # necessary to import this file so SQLAlchemy knows about the event listeners
 # see https://fburl.com/8mn7yjt2
 from ax.storage.sqa_store import validation

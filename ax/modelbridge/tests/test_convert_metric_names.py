@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 from copy import copy
 
 from ax.core.observation import observations_from_data

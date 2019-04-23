@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric

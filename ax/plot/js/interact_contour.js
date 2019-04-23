@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+ */
+
 const arm_data = {{arm_data}};
 const density = {{density}};
 const grid_dict = {{grid_dict}};

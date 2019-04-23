@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 

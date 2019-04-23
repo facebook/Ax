@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
 # flake8: noqa F401
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial

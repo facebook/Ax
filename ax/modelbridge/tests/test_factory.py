@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import (
     get_empirical_bayes_thompson,

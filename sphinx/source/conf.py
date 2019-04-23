@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
 # fmt: off
 #
 # Ax documentation build configuration file, created by

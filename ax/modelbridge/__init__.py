@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
 # flake8: noqa F401
 from ax.modelbridge import transforms
 from ax.modelbridge.base import ModelBridge

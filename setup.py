@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 import numpy
 from Cython.Build import cythonize
 from setuptools import find_packages, setup

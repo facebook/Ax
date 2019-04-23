@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 import numpy as np
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.utils.common.testutils import TestCase

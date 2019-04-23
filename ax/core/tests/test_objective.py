@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
 from ax.utils.common.testutils import TestCase

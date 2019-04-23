@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
 import mock
 import torch
 from ax.models.torch.botorch_defaults import _get_model, get_and_fit_model

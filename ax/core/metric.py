@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 from typing import TYPE_CHECKING, Any, Iterable, Optional
 
 from ax.core.base import Base

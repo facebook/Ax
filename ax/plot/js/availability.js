@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+ */
+
 const TOP_MARGIN = 40;
 const BOTTOM_MARGIN = 50;
 const RIGHT_MARGIN = 80;

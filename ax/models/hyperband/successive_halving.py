@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
 # pyre-strict
 
 # The graphs in this note are rendered by http://ditaa.sourceforge.net/

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
+
 from datetime import datetime
 
 from ax.utils.common.equality import datetime_equals, equality_typechecker, list_equals

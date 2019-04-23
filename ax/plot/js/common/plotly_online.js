@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+ */
+
 requirejs.config({
   paths: {
     plotly: ['https://cdn.plot.ly/plotly-latest.min'],

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+
 from typing import Any
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, branin
