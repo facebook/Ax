@@ -383,7 +383,7 @@ class BatchTrial(BaseTrial):
     def __repr__(self) -> str:
         return (
             "BatchTrial("
-            f"experiment_name='{self._experiment.name}', "
+            f"experiment_name='{self._experiment._name}', "
             f"index={self._index}, "
             f"status={self._status})"
         )

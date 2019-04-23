@@ -499,7 +499,7 @@ class Experiment(Base):
             self._arms_by_signature[arm.signature] = arm
 
     def __repr__(self) -> str:
-        return self.__class__.__name__ + f"({self.name})"
+        return self.__class__.__name__ + f"({self._name})"
 
     # --- MultiTypeExperiment convenience functions ---
     #

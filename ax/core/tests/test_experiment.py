@@ -302,3 +302,15 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp.arms_by_name), 1)
         trial.mark_arm_abandoned(trial.arms[0].name)
         self.assertEqual(exp.num_abandoned_arms, 1)
+
+    def testExperimentWithoutName(self) -> Experiment:
+        exp = Experiment(
+            search_space=get_branin_search_space(),
+            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
+            runner=SyntheticRunner(),
+        )
+        self.assertEqual("Experiment(None)", str(exp))
+        batch = exp.new_batch_trial()
+        batch.add_arms_and_weights(arms=get_branin_arms(n=5, seed=0))
+        batch.run()
+        self.assertEqual(batch.run_metadata, {"name": "0"})
