@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from ax.plot.base import AxPlotConfig
 from ax.plot.render import _js_requires, _wrap_js, plot_config_to_html

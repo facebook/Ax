@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
 function getPlotData() {
   const arm_data = {
     metrics: ['metric_a'],

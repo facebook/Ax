@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
 const arm_data = {{arm_data}};
 const arm_name_to_parameters = {{arm_name_to_parameters}};
 const f = {{f}};

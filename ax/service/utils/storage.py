@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 from ax.core.experiment import Experiment
 from ax.storage.sqa_store.db import init_engine_and_session_factory
 from ax.storage.sqa_store.load import _load_experiment
