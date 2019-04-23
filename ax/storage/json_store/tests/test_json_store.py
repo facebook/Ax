@@ -9,8 +9,9 @@ from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.load import load_experiment
-from ax.storage.json_store.registry import register_metric, register_runner
 from ax.storage.json_store.save import save_experiment
+from ax.storage.metric_registry import register_metric
+from ax.storage.runner_registry import register_runner
 from ax.storage.utils import EncodeDecodeFieldsMap, remove_prefix
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.fake import (

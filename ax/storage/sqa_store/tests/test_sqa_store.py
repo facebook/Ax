@@ -13,9 +13,9 @@ from ax.core.runner import Runner
 from ax.core.types import ComparisonOp
 from ax.exceptions.storage import ImmutabilityError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
-from ax.metrics.registry import METRIC_REGISTRY, register_metric
-from ax.runners.registry import RUNNER_REGISTRY, register_runner
 from ax.runners.synthetic import SyntheticRunner
+from ax.storage.metric_registry import METRIC_REGISTRY, register_metric
+from ax.storage.runner_registry import RUNNER_REGISTRY, register_runner
 from ax.storage.sqa_store.db import (
     SQABase,
     get_engine,

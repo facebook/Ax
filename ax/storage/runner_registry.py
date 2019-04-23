@@ -4,6 +4,8 @@ from typing import Dict, Optional, Type
 
 from ax.core.runner import Runner
 from ax.runners.synthetic import SyntheticRunner
+from ax.storage.json_store.encoders import runner_to_dict
+from ax.storage.json_store.registry import DECODER_REGISTRY, ENCODER_REGISTRY
 
 
 """
@@ -23,9 +25,12 @@ REVERSE_RUNNER_REGISTRY: Dict[int, Type[Runner]] = {
 
 
 def register_runner(runner_cls: Type[Runner], val: Optional[int] = None) -> None:
-    """Add a custom runner class to the registries.
-    If no int is specified, use a hash of the class name.
+    """Add a custom runner class to the SQA and JSON registries.
+    For the SQA registry, if no int is specified, use a hash of the class name.
     """
     registered_val = val or abs(hash(runner_cls.__name__)) % (10 ** 5)
     RUNNER_REGISTRY[runner_cls] = registered_val
     REVERSE_RUNNER_REGISTRY[registered_val] = runner_cls
+
+    ENCODER_REGISTRY[runner_cls] = runner_to_dict
+    DECODER_REGISTRY[runner_cls.__name__] = runner_cls

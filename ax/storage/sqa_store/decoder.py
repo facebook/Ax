@@ -28,8 +28,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
-from ax.metrics.registry import REVERSE_METRIC_REGISTRY
-from ax.runners.registry import REVERSE_RUNNER_REGISTRY
+from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
+from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,

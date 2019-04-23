@@ -24,8 +24,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
-from ax.metrics.registry import METRIC_REGISTRY
-from ax.runners.registry import RUNNER_REGISTRY
+from ax.storage.metric_registry import METRIC_REGISTRY
+from ax.storage.runner_registry import RUNNER_REGISTRY
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,

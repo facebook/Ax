@@ -7,6 +7,8 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.noisy_function import NoisyFunctionMetric
+from ax.storage.json_store.encoders import metric_to_dict
+from ax.storage.json_store.registry import DECODER_REGISTRY, ENCODER_REGISTRY
 
 
 """
@@ -32,9 +34,12 @@ REVERSE_METRIC_REGISTRY: Dict[int, Type[Metric]] = {
 
 
 def register_metric(metric_cls: Type[Metric], val: Optional[int] = None) -> None:
-    """Add a custom metric class to the registries.
-    If no int is specified, use a hash of the class name.
+    """Add a custom metric class to the SQA and JSON registries.
+    For the SQA registry, if no int is specified, use a hash of the class name.
     """
     registered_val = val or abs(hash(metric_cls.__name__)) % (10 ** 5)
     METRIC_REGISTRY[metric_cls] = registered_val
     REVERSE_METRIC_REGISTRY[registered_val] = metric_cls
+
+    ENCODER_REGISTRY[metric_cls] = metric_to_dict
+    DECODER_REGISTRY[metric_cls.__name__] = metric_cls
