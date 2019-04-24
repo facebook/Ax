@@ -165,7 +165,6 @@ def evaluate(
             outputs = net(inputs)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
-            # pyre-fixme[16]: `bool` has no attribute `sum`.
             correct += (predicted == labels).sum().item()
 
     return correct / total
