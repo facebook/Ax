@@ -112,12 +112,23 @@ class TestGenerationStrategy(TestCase):
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
         self.assertEqual(sobol_GPEI_generation_strategy.generator_changes, [5])
-        for i in range(7):
-            g = sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())
-            exp.new_trial(generator_run=g).run()
-            if i > 4:
-                mock_GPEI_init.assert_called()
-        with self.assertRaises(ValueError):
+        exp.new_trial(generator_run=sobol_GPEI_generation_strategy.gen(exp)).run()
+        for i in range(1, 8):
+            if i == 7:
+                # Check completeness error message.
+                with self.assertRaisesRegex(ValueError, "Generation strategy"):
+                    g = sobol_GPEI_generation_strategy.gen(
+                        exp, exp._fetch_trial_data(trial_index=i - 1)
+                    )
+            else:
+                g = sobol_GPEI_generation_strategy.gen(
+                    exp, exp._fetch_trial_data(trial_index=i - 1)
+                )
+                exp.new_trial(generator_run=g).run()
+                if i > 4:
+                    mock_GPEI_init.assert_called()
+        # Check for "seen data" error message.
+        with self.assertRaisesRegex(ValueError, "Data for arm"):
             sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())
 
     @mock.patch(
@@ -147,8 +158,16 @@ class TestGenerationStrategy(TestCase):
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "sobol+GPEI")
         self.assertEqual(sobol_GPEI_generation_strategy.generator_changes, [5])
-        for i in range(15):
-            g = sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())
+        exp.new_trial(generator_run=sobol_GPEI_generation_strategy.gen(exp)).run()
+        for i in range(1, 15):
+            # Passing in all experiment data should cause an error as only
+            # new data should be passed into `gen`.
+            if i > 1:
+                with self.assertRaisesRegex(ValueError, "Data for arm"):
+                    g = sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())
+            g = sobol_GPEI_generation_strategy.gen(
+                exp, exp._fetch_trial_data(trial_index=i - 1)
+            )
             exp.new_trial(generator_run=g).run()
             if i > 4:
                 mock_GPEI_init.assert_called()
@@ -173,15 +192,16 @@ class TestGenerationStrategy(TestCase):
         factorial_thompson_generation_strategy = GenerationStrategy(
             steps=[
                 GenerationStep(model=Models.FACTORIAL, num_arms=1),
-                GenerationStep(model=Models.THOMPSON, num_arms=2),
+                GenerationStep(model=Models.THOMPSON, num_arms=-1),
             ]
         )
         self.assertEqual(
             factorial_thompson_generation_strategy.name, "factorial+thompson"
         )
         self.assertEqual(factorial_thompson_generation_strategy.generator_changes, [1])
-        for i in range(3):
-            factorial_thompson_generation_strategy.gen(exp, get_data())
+        for i in range(2):
+            data = get_data() if i > 0 else None
+            factorial_thompson_generation_strategy.gen(experiment=exp, new_data=data)
             exp.new_batch_trial().add_arm(Arm(parameters={"x1": i, "x2": i}))
             if i < 1:
                 mock_discrete.assert_called()
@@ -218,3 +238,64 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
         gs.gen(exp, exp.fetch_data())
         self.assertFalse(gs._model.model.scramble)
+
+    @mock.patch(
+        f"{TorchModelBridge.__module__}.TorchModelBridge.__init__",
+        autospec=True,
+        return_value=None,
+    )
+    @mock.patch(
+        f"{TorchModelBridge.__module__}.TorchModelBridge.update",
+        autospec=True,
+        return_value=None,
+    )
+    @mock.patch(
+        f"{TorchModelBridge.__module__}.TorchModelBridge.gen",
+        autospec=True,
+        return_value=GeneratorRun(
+            arms=[
+                Arm(parameters={"x1": 1, "x2": 2}),
+                Arm(parameters={"x1": 3, "x2": 4}),
+            ]
+        ),
+    )
+    def test_sobol_GPEI_strategy_batches(
+        self, mock_GPEI_gen, mock_GPEI_update, mock_GPEI_init
+    ):
+        exp = get_branin_experiment()
+        sobol_GPEI_generation_strategy = GenerationStrategy(
+            name="Sobol+GPEI",
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_arms=5),
+                GenerationStep(model=Models.GPEI, num_arms=8),
+            ],
+        )
+        self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
+        self.assertEqual(sobol_GPEI_generation_strategy.generator_changes, [5])
+        exp.new_batch_trial(
+            generator_run=sobol_GPEI_generation_strategy.gen(exp, n=2)
+        ).run()
+        for i in range(1, 8):
+            if i == 2:
+                with self.assertRaisesRegex(ValueError, "Cannot generate 2 new"):
+                    g = sobol_GPEI_generation_strategy.gen(
+                        exp, exp._fetch_trial_data(trial_index=i - 1), n=2
+                    )
+                g = sobol_GPEI_generation_strategy.gen(
+                    exp, exp._fetch_trial_data(trial_index=i - 1)
+                )
+            elif i == 7:
+                # Check completeness error message.
+                with self.assertRaisesRegex(ValueError, "Generation strategy"):
+                    g = sobol_GPEI_generation_strategy.gen(
+                        exp, exp._fetch_trial_data(trial_index=i - 1), n=2
+                    )
+            else:
+                g = sobol_GPEI_generation_strategy.gen(
+                    exp, exp._fetch_trial_data(trial_index=i - 1), n=2
+                )
+            exp.new_batch_trial(generator_run=g).run()
+            if i > 4:
+                mock_GPEI_init.assert_called()
+        with self.assertRaises(ValueError):
+            sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())

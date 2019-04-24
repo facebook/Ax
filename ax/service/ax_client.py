@@ -291,13 +291,7 @@ class AxClient:
         new_data = Data.from_multiple_data(
             [self.experiment.lookup_data_for_trial(idx) for idx in self._updated_trials]
         )
-        try:
-            generator_run = not_none(self.generation_strategy).gen(
-                experiment=self.experiment, new_data=new_data
-            )
-        except ValueError as err:
-            raise ValueError(
-                f"Error getting next trial: {err} Likely cause of the error is "
-                "that more trials need to be completed with data."
-            )
+        generator_run = not_none(self.generation_strategy).gen(
+            experiment=self.experiment, new_data=new_data
+        )
         return self.experiment.new_trial(generator_run=generator_run)

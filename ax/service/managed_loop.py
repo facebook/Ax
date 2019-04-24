@@ -14,6 +14,7 @@ from ax.service.utils.instantiation import (
     parameter_from_json,
 )
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -90,6 +91,7 @@ class OptimizationLoop:
             search_space=experiment.search_space
         )
         self.current_step = 0
+        self._last_trial = None
 
     @staticmethod
     def with_evaluation_function(
@@ -158,7 +160,11 @@ class OptimizationLoop:
                 trial = self.experiment.new_trial(
                     generator_run=self.generation_strategy.gen(
                         experiment=self.experiment,
-                        new_data=self.experiment.fetch_data(),
+                        new_data=self.experiment._fetch_trial_data(
+                            not_none(self._last_trial)
+                        )
+                        if self._last_trial
+                        else None,
                     )
                 )
             elif step.arms_per_trial > 1:  # TODO[drfreund] T41922457
@@ -171,7 +177,8 @@ class OptimizationLoop:
                     f"Invalid number of arms per trial: {step.arms_per_trial}"
                 )
             trial.fetch_data()
-            self.current_step += 1
+            self._last_trial = trial.index
+        self.current_step += 1
 
     def run(self, iterations: Optional[int]) -> None:
         """Runs a given number of iterations of this optimization loop."""

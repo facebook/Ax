@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 from inspect import signature
-from typing import Any, Callable, List, NamedTuple, Optional
+from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
+import pandas as pd
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -32,7 +33,10 @@ class GenerationStep(NamedTuple):
     min_arms_observed: int = 0
     max_async_parallelism: Optional[int] = None  # TODO[drfreund, T41983558]: use
     enforce_num_arms: bool = True
-    model_kwargs: Any = None  # Kwargs to pass into the Models factory function.
+    # Kwargs to pass into the Models factory function.
+    model_kwargs: Dict[str, Any] = None
+    # Kwargs to pass into the Model's `.gen` function.
+    model_gen_kwargs: Dict[str, Any] = None
     index: Optional[int] = None  # Index of this step, set internally.
 
 
@@ -102,31 +106,23 @@ class GenerationStrategy:
         self,
         experiment: Experiment,
         new_data: Optional[Data] = None,  # Take in just the new data.
+        n: int = 1,
         **kwargs: Any,
     ) -> GeneratorRun:
         """Produce the next points in the experiment."""
-        # TODO[drfreund, T41983558]: add `n` arg. and handle generating batches.
-
-        # Add new data to data we already have.
-        if new_data is not None:
-            self._data = Data.from_multiple_data(data=[self._data, new_data])
-            for _, row in new_data.df.iterrows():
-                if (
-                    row["arm_name"] in experiment.arms_by_name
-                    and not experiment.trials.get(row["trial_index"]).status.is_failed
-                ):
-                    # NOTE: if this arm was suggested multiple times, in the
-                    # current step and before, and the data passed includes its
-                    # evaluation not for the current step, it will still be
-                    # counted as observed for the current step.
-                    self._observed.append(
-                        experiment.arms_by_name.get(row["arm_name"]).signature
-                    )
-
-        enough_observed = len(self._observed) >= self._curr.min_arms_observed
-        enough_generated = (  # If num arms is -1, model should be used indefinitely.
-            self._curr.num_arms != -1 and len(self._generated) >= self._curr.num_arms
+        # Get arm signatures for each entry in new_data that is indeed new.
+        new_arms = self._get_new_arm_signatures(
+            experiment=experiment, new_data=new_data
         )
+
+        enough_observed = (
+            len(self._observed) + len(new_arms)
+        ) >= self._curr.min_arms_observed
+        unlimited_arms = self._curr.num_arms == -1
+        enough_generated = (
+            not unlimited_arms and len(self._generated) >= self._curr.num_arms
+        )
+        remaining_arms = self._curr.num_arms - len(self._generated)
 
         # Check that minimum observed_arms is satisfied if it's enforced.
         if self._curr.enforce_num_arms and enough_generated and not enough_observed:
@@ -136,37 +132,61 @@ class GenerationStrategy:
                 "are available."
             )
 
+        if (
+            self._curr.enforce_num_arms
+            and not unlimited_arms
+            and 0 < remaining_arms < n
+        ):
+            raise ValueError(
+                f"Cannot generate {n} new arms as there are only {remaining_arms} "
+                "remaining arms to generate using the current model."
+            )
+
+        all_data = (
+            Data.from_multiple_data(data=[self._data, new_data])
+            if new_data
+            else self._data
+        )
+
         if self._model is None:
             # Instantiate the first model.
-            self._set_current_model(experiment=experiment, **kwargs)
+            self._set_current_model(experiment=experiment, data=all_data, **kwargs)
         elif enough_generated and enough_observed:
             # Change to the next model.
-            self._change_model(experiment=experiment, **kwargs)
+            self._change_model(experiment=experiment, data=all_data, **kwargs)
         elif new_data is not None:
             # We're sticking with the current model, but update with new data
             self._model.update(experiment=experiment, data=new_data)
 
-        assert self._model is not None  # guaranteed but typecheck doesn't know
-        generator_run = self._model.gen(1)
+        gen_run = not_none(self._model).gen(n=n, **(self._curr.model_gen_kwargs or {}))
 
-        self._generated.extend(a.signature for a in generator_run.arms)
-        return generator_run
+        # If nothing failed, update known data, _generated, and _observed.
+        self._data = all_data
+        self._observed.extend(new_arms)
+        self._generated.extend(a.signature for a in gen_run.arms)
+        return gen_run
 
-    def _set_current_model(self, experiment: Experiment, **kwargs: Any) -> None:
+    def clone_reset(self) -> "GenerationStrategy":
+        """Copy this generation strategy without it's state."""
+        return GenerationStrategy(name=self.name, steps=self._steps)
+
+    def _set_current_model(
+        self, experiment: Experiment, data: Data, **kwargs: Any
+    ) -> None:
         """Instantiate the current model with all available data.
         """
         self._model = self._curr.model(  # pyre-ignore[29] T41922457
             **_filter_kwargs(
                 self._curr.model,
                 experiment=experiment,
-                data=self._data,
+                data=data,
                 search_space=experiment.search_space,
                 **(self._curr.model_kwargs or {}),
                 **kwargs,
             )
         )
 
-    def _change_model(self, experiment: Experiment, **kwargs: Any) -> None:
+    def _change_model(self, experiment: Experiment, data: Data, **kwargs: Any) -> None:
         """Get a new model for the next step.
         """
         # Increment the model
@@ -175,8 +195,36 @@ class GenerationStrategy:
         self._curr = self._steps[not_none(self._curr.index) + 1]
         # New step => reset _generated and _observed.
         self._generated, self._observed = [], []
-        self._set_current_model(experiment=experiment, **kwargs)
+        self._set_current_model(experiment=experiment, data=data, **kwargs)
 
-    def clone_reset(self) -> "GenerationStrategy":
-        """Copy this generation strategy without it's state."""
-        return GenerationStrategy(name=self.name, steps=self._steps)
+    def _get_new_arm_signatures(
+        self, experiment: Experiment, new_data: Optional[Data]
+    ) -> List[str]:
+        new_signatures = []
+        if new_data is not None:
+            for _, row in new_data.df.iterrows():
+                # If a row with the same trial index, arm name, and metric name
+                # has already been seen in this generation strategy, the
+                # data passed into this function is not entirely new.
+                if not self._data.df.empty:
+                    if not pd.merge(
+                        new_data.df,
+                        self._data.df,
+                        on=["arm_name", "metric_name", "trial_index"],
+                    ).empty:
+                        arm = row["arm_name"]
+                        trial = row["trial_index"]
+                        metric = row["metric_name"]
+                        raise ValueError(
+                            f"Data for arm {arm} in trial {trial} for metric "
+                            f"{metric} has already been seen. Please only pass "
+                            "new data to `GenerationStrategy.gen`."
+                        )
+                if (
+                    row["arm_name"] in experiment.arms_by_name
+                    and not experiment.trials.get(row["trial_index"]).status.is_failed
+                ):
+                    new_signatures.append(
+                        experiment.arms_by_name.get(row["arm_name"]).signature
+                    )
+        return new_signatures
