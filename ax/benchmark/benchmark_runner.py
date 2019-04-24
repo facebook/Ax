@@ -256,14 +256,13 @@ class BOBenchmarkRunner(BenchmarkRunner):
         remaining_iterations = setup.total_iterations
         updated_trials = []
         while remaining_iterations > 0:
-            if setup.batch_size != 1:  # TODO[drfreund]: T41983558
-                raise ValueError(f"Generation strategy does not yet support batches.")
             num_suggestions = min(remaining_iterations, setup.batch_size)
             generator_run = generation_strategy.gen(
                 experiment=setup,
                 new_data=Data.from_multiple_data(
                     [setup._fetch_trial_data(idx) for idx in updated_trials]
                 ),
+                n=setup.batch_size,
             )
             updated_trials = []
             if setup.batch_size > 1:  # pragma: no cover
