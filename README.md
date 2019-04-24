@@ -1,4 +1,7 @@
+<img width="300" src="./ax_logo_lockup.svg" alt="Ax Logo" />
+
 # Ax (Adaptive Experiment)
+
 [![Build Status](https://travis-ci.com/facebook/Ax.svg?token=m8nxq4QpA9U383aZWDyF&branch=master)](https://travis-ci.com/facebook/Ax)
 
 Ax is a platform for optimizing expensive-to-evaluate configurations using machine learning and experimentation.
