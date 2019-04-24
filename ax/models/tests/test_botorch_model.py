@@ -137,7 +137,7 @@ class BotorchModelTest(TestCase):
             torch.tensor([[0.0, 1.0]], dtype=dtype, device=device),
             torch.tensor([[5.0]], dtype=dtype, device=device),
         )
-        linear_constraints = None
+        linear_constraints = (torch.tensor([[0.0, 1.0, 1.0]]), torch.tensor([[100.0]]))
         fixed_features = None
         pending_observations = [
             torch.tensor([[1.0, 3.0, 4.0]], dtype=dtype, device=device),
@@ -180,7 +180,7 @@ class BotorchModelTest(TestCase):
                 bounds=bounds,
                 objective_weights=objective_weights,
                 outcome_constraints=None,
-                linear_constraints=linear_constraints,
+                linear_constraints=None,
                 fixed_features=fixed_features,
                 pending_observations=pending_observations,
                 model_gen_options={"optimizer_kwargs": {"joint_optimization": True}},

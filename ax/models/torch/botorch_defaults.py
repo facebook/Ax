@@ -169,6 +169,7 @@ def scipy_optimizer(
     acq_function: AcquisitionFunction,
     bounds: Tensor,
     n: int,
+    inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
     **kwargs: Any,
@@ -180,6 +181,9 @@ def scipy_optimizer(
         bounds: A `2 x d`-dim tensor, where `bounds[0]` (`bounds[1]`) are the
             lower (upper) bounds of the feasible hyperrectangle.
         n: The number of candidates to generate.
+        inequality constraints: A list of tuples (indices, coefficients, rhs),
+            with each tuple encoding an inequality constraint of the form
+            `\sum_i (X[indices[i]] * coefficients[i]) >= rhs`
         fixed_features: A map {feature_index: value} for features that should
             be fixed to a particular value during generation.
         rounding_func: A function that rounds an optimization result
@@ -201,6 +205,7 @@ def scipy_optimizer(
         num_restarts=num_restarts,
         raw_samples=raw_samples,
         options=kwargs,
+        inequality_constraints=inequality_constraints,
         fixed_features=fixed_features,
         post_processing_func=rounding_func,
     )
