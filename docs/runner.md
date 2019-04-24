@@ -12,7 +12,7 @@ There are 2 paradigms for evaluating trials:
 In the synchronous paradigm, the user specifies an evaluation function which takes in parameters and outputs metric outcomes. This use case is supported by the ```SimpleExperiment``` class:
 
 ```python
-from ax.api import SimpleExperiment, SearchSpace, RangeParameter
+from ax import *
 
 def dummy_evaluation_function(
     parameterization, # dict of parameter names to values of those parameters
@@ -28,8 +28,8 @@ exp = SimpleExperiment(
     name="simple_experiment",
     search_space=SearchSpace(
       parameters=[
-        RangeParameter("x", ...),
-        RangeParameter("y", ...)
+        RangeParameter(name="x", lower=0.0, upper=1.0, parameter_type=ParameterType.FLOAT),
+        RangeParameter(name="y", lower=0.0, upper=1.0, parameter_type=ParameterType.FLOAT),
       ]
     ),
     evaluation_function=dummy_evaluation_function,
@@ -57,14 +57,13 @@ An example implementation is given below:
 
 ```python
 from foo_system import deploy_to_foo
-from ae.core.runner import Runner
-from ae.core.base_trial import BaseTrial
+from ax import Runner
 
 class FooRunner(Runner):
-    def __init__(self, foo_param: string) -> None:
+    def __init__(self, foo_param):
         self.foo_param = foo_param
 
-    def run(self, trial) -> Dict[str, Any]:
+    def run(self, trial):
         name_to_params = {
             arm.name: arm.params for arm in trial.arms
         }
@@ -72,7 +71,7 @@ class FooRunner(Runner):
         return run_metadata
 
     @property
-    def staging_required(self) -> bool:
+    def staging_required(self):
         return False
 ```
 

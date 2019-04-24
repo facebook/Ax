@@ -14,8 +14,10 @@ Here is a comparison of the three APIs in the case of evaluating the synthetic B
 <!--DOCUSAURUS_CODE_TABS-->
 <!--Loop-->
 ```py
-from ax.service.managed_loop import OptimizationLoop
-loop = OptimizationLoop.with_evaluation_function(
+from ax import optimize
+from ax.metrics.branin import branin
+
+optimize(
     parameters=[
         {
             "name": "x1",
@@ -28,18 +30,16 @@ loop = OptimizationLoop.with_evaluation_function(
             "bounds": [0.0, 10.0],
         },
     ],
-    experiment_name="test",
-    objective_name="branin",
-    evaluation_function=branin_evaluation_function,
+    evaluation_function=lambda p: branin(p["x1"], p["x2"]),
     minimize=True,
 )
-loop.full_run()
-
-best_parameters = loop.get_best_point()
 ```
 
 <!--Service-->
 ```py
+from ax.service.ax_client import AxClient
+from ax.metrics.branin import branin
+
 ax = AxClient()
 ax.create_experiment(
     name="branin_test_experiment",
@@ -62,7 +62,7 @@ ax.create_experiment(
 
 for _ in range(15):
     parameters, trial_index = ax.get_next_trial()
-    ax.complete_trial(trial_index=trial_index, raw_data=evaluate(parameters))
+    ax.complete_trial(trial_index=trial_index, raw_data=branin(parameters["x1"], parameters["x2"]))
 
 best_parameters, metrics = ax.get_best_parameters()
 ```
@@ -70,6 +70,7 @@ best_parameters, metrics = ax.get_best_parameters()
 <!--Developer-->
 ```py
 from ax import *
+
 branin_search_space = SearchSpace(
     parameters=[
         RangeParameter(
@@ -83,18 +84,18 @@ branin_search_space = SearchSpace(
 exp = SimpleExperiment(
     name="test_branin",
     search_space=branin_search_space,
-    evaluation_function=branin_evaluation_function,
+    evaluation_function=lambda p: branin(p["x1"], p["x2"]),
     objective_name="branin",
     minimize=True,
 )
 
-sobol = modelbridge.get_sobol(exp.search_space)
+sobol = Models.SOBOL(exp.search_space)
 for i in range(5):
     exp.new_trial(generator_run=sobol.gen(1))
 
 best_arm = None
 for i in range(15):
-    gpei = modelbridge.get_GPEI(experiment=exp, data=exp.eval())
+    gpei = Models.GPEI(experiment=exp, data=exp.eval())
     generator_run = gpei.gen(1)
     best_arm, _ = generator_run.best_arm_predictions
     exp.new_trial(generator_run=generator_run)

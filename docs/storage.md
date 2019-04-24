@@ -12,12 +12,11 @@ Ax has extensible support for saving and loading experiments in both JSON and My
 To save an experiment to JSON, specify the filepath:
 
 ```
-from ax import Experiment
-from ax.storage.json_store.save import save_experiment
+from ax import Experiment, save
 
 experiment = Experiment(...)
 filepath = "experiments/experiment.json"
-save_experiment(experiment, filepath)
+save(experiment, filepath)
 ```
 
 The experiment (including attached data) will be serialized and saved to the specified file.
@@ -31,7 +30,7 @@ To update a JSON-backed experiment, re-save to the same file.
 To load an experiment from JSON, specify the filepath again:
 
 ```
-from ax.storage.json_store.load import load_experiment
+from ax import load
 experiment = load_experiment(filepath)
 ```
 
@@ -40,7 +39,8 @@ experiment = load_experiment(filepath)
 If you add a custom Metric or Runner and want to ensure it is saved to JSON properly, simply call `register_metric` or `register_runner`:
 
 ```
-from ax.storage.json_store.registry import register_metric, register_runner
+from ax.storage.metric_registry import register_metric
+from ax.storage.runner_registry import register_runner
 
 class MyRunner(Runner):
     def run():
@@ -76,10 +76,10 @@ create_all_tables(engine)
 Then save your experiment:
 ```
 from ax import Experiment
-from ax.storage.sqa_store.save import save_experiment
+from ax.sqa_store import save
 
 experiment = Experiment(...)
-save_experiment(experiment)
+save(experiment)
 ```
 
 The experiment (including attached data) will be converted to SQLAlchemy classes and saved to the corresponding tables.
@@ -87,13 +87,12 @@ The experiment (including attached data) will be converted to SQLAlchemy classes
 Alternatively, you can pass a [creator function](https://docs.sqlalchemy.org/en/latest/core/engines.html#sqlalchemy.create_engine.params.creator) instead of a url to `init_engine_and_session_factory`:
 
 ```
-from ax import Experiment
+from ax import Experiment, sqa_store
 from ax.storage.sqa_store.db import init_engine_and_session_factory
-from ax.storage.sqa_store.save import save_experiment
 
 init_engine_and_session_factory(creator=creator)
 experiment = Experiment(...)
-save_experiment(experiment)
+sqa_store.save(experiment)
 ```
 
 ### Updating
@@ -105,17 +104,35 @@ To update a MySQL-backed experiment, call `save_experiment(experiment)` again. T
 To load an experiment from MySQL, specify the name:
 
 ```
-from ax import Experiment
+from ax import Experiment, sqa_store
 from ax.storage.sqa_store.db import init_engine_and_session_factory
-from ax.storage.sqa_store.load import load_experiment
 
 init_engine_and_session_factory(url=dialect+driver://username:password@host:port/database)
-experiment = load_experiment(experiment_name)
+experiment = sqa_store.load(experiment_name)
 ```
 
 ### Customizing
 
-You can add custom storage functionality as follows:
+**Adding a new metric or runner:**
+
+If you add a custom Metric or Runner and want to ensure it is saved to JSON properly, simply call `register_metric` or `register_runner`:
+
+```
+from ax.storage.metric_registry import register_metric
+from ax.storage.runner_registry import register_runner
+
+class MyRunner(Runner):
+    def run():
+        pass
+
+class MyMetric(Metric):
+    pass
+
+register_metric(MyMetric)
+register_runner(MyRunner)
+```
+
+**Custom storage functionality:**
 
 1. Instantiate an instance of `SQAConfig` (defined in `ax.storage.sqa_store.sqa_config`) with custom parameters (see the sections below for more details).
 2. Instantiating instances of `Encoder` (defined in `ax.storage.sqa_store.encoder`) and `Decoder` (defined in `ax.storage.sqa_store.base_decoder`) with your custom config.
@@ -128,18 +145,6 @@ decoder = Decoder(config=config)
 
 save_experiment_with_encoder(experiment, encoder=encoder)
 load_experiment_with_decoder(experiment, decoder=decoder)
-```
-
-**Adding a new metric or runner:**
-
-If you add a custom metric (or runner) to Ax, instantiate an instance of `MetricRegistry` (`RunnerRegistry`), defined in `ax/metrics/registry.py `(`ax/runners/registry.py`) with a `class_to_type` dictionary that includes a mapping from the new class to an integer representation. Pass this registry to `SQAConfig`:
-
-```
-class MyMetric(Metric):
-    ...
-
-metric_registry = MetricRegistry(class_to_type={MyMetric: 0})
-config = SQAConfig(metric_registry=metric_registry)
 ```
 
 **Specifying experiment types:**
