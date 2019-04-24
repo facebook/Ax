@@ -12,6 +12,10 @@ from ax.core.types import ComparisonOp
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
+from ax.utils.measurement.synthetic_functions import (
+    branin as branin_function,
+    hartmann6 as hartmann6_function,
+)
 from ax.utils.testing.fake import get_branin_search_space
 
 
@@ -35,8 +39,8 @@ class BenchmarkProblem(NamedTuple):
 
 # Branin problems
 branin = BenchmarkProblem(
-    name="branin",
-    fbest=0.397_887,
+    name=branin_function.name,
+    fbest=branin_function.fmin,
     optimization_config=OptimizationConfig(
         objective=Objective(
             metric=BraninMetric(
@@ -50,8 +54,8 @@ branin = BenchmarkProblem(
 
 
 branin_max = BenchmarkProblem(
-    name="branin_max",
-    fbest=0.397_887,
+    name=branin_function.name,
+    fbest=branin_function.fmax,
     optimization_config=OptimizationConfig(
         objective=Objective(
             metric=NegativeBraninMetric(
@@ -67,12 +71,14 @@ branin_max = BenchmarkProblem(
 # Hartmann 6 problems
 
 hartmann6 = BenchmarkProblem(
-    name="hartmann6",
-    fbest=-3.32237,
+    name=hartmann6_function.name,
+    fbest=hartmann6_function.fmin,
     optimization_config=OptimizationConfig(
         objective=Objective(
             metric=Hartmann6Metric(
-                name="hartmann6", param_names=[f"x{i}" for i in range(6)], noise_sd=0.2
+                name=hartmann6_function.name,
+                param_names=[f"x{i}" for i in range(6)],
+                noise_sd=0.2,
             ),
             minimize=True,
         )
@@ -80,17 +86,20 @@ hartmann6 = BenchmarkProblem(
     search_space=SearchSpace(
         parameters=[
             RangeParameter(
-                name=f"x{i}", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+                name=f"x{i}",
+                parameter_type=ParameterType.FLOAT,
+                lower=param_domain[0],
+                upper=param_domain[1],
             )
-            for i in range(6)
+            for i, param_domain in enumerate(hartmann6_function.domain)
         ]
     ),
 )
 
 
 hartmann6_constrained = BenchmarkProblem(
-    name="hartmann6",
-    fbest=-3.32237,
+    name=hartmann6_function.name,
+    fbest=hartmann6_function.fmin,
     optimization_config=OptimizationConfig(
         objective=Objective(
             metric=Hartmann6Metric(
@@ -112,9 +121,12 @@ hartmann6_constrained = BenchmarkProblem(
     search_space=SearchSpace(
         parameters=[
             RangeParameter(
-                name=f"x{i}", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+                name=f"x{i}",
+                parameter_type=ParameterType.FLOAT,
+                lower=param_domain[0],
+                upper=param_domain[1],
             )
-            for i in range(6)
+            for i, param_domain in enumerate(hartmann6_function.domain)
         ]
     ),
 )
