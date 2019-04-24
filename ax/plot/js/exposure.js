@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
 const allocations = {{qe_allocations}};
 const experiment_name = {{experiment_name}};
 const exposures = {{cumulative_exposures}};

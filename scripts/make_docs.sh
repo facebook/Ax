@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+#
 
 usage() {
   echo "Usage: $0 [-b]"
