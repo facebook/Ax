@@ -271,7 +271,7 @@ def relativize(
     cov_means: Union[np.ndarray, List[float], float] = 0.0,
     as_percent: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Ratio estimator based on the delta method. Adapted from Deltoid3
+    """Ratio estimator based on the delta method.
 
     This uses the delta method (i.e. a Taylor series approximation) to estimate
     the mean and standard deviation of the sampling distribution of the ratio
@@ -323,7 +323,7 @@ def relativize(
             distribution of rel_hat -- i.e. the standard error.
 
     """
-    # if mean_c is too small, bail (taken from Deltoid3)
+    # if mean_c is too small, bail
     epsilon = 1e-10
     if np.any(np.abs(mean_c) < epsilon):
         raise ValueError(
