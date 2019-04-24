@@ -7,21 +7,17 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast, not_none
 
 
-class not_none_class_property(object):
-    """Gets property from class rather than from instance. Fails with
-    `class X does not specify property Y` is the property does not exist.
-    """
-
-    def __init__(self, f: Callable) -> None:
-        self.f = f
-
-    def __get__(self, obj: Any, owner: Any) -> Any:
-        attr = self.f(owner)
-        if attr is None:
+def informative_failure_on_none(func: Callable) -> Any:
+    def function_wrapper(*args, **kwargs) -> Any:
+        res = func(*args, **kwargs)
+        if res is None:
             raise NotImplementedError(
-                f'{owner.__name__} does not specify property "{self.f.__name__}".'
+                f"{args[0].__class__.__name__} does not specify property "
+                f'"{func.__name__}".'
             )
-        return not_none(attr)
+        return not_none(res)
+
+    return function_wrapper
 
 
 class SyntheticFunction(ABC):
@@ -34,8 +30,9 @@ class SyntheticFunction(ABC):
     _fmax = None
 
     @property
+    @informative_failure_on_none
     def name(self) -> str:
-        return f"{self.__name__}"  # pyre-ignore[16]
+        return f"{self.__class__.__name__}"
 
     def __call__(
         self,
@@ -99,11 +96,13 @@ class SyntheticFunction(ABC):
             return np.array([self._f(X=x) for x in X])
 
     @property
+    @informative_failure_on_none
     def required_dimensionality(self) -> Optional[int]:
         """Required dimensionality of input to this function."""
         return self._required_dimensionality
 
     @property
+    @informative_failure_on_none
     def domain(self) -> List[Tuple[float, ...]]:
         """Domain on which function is evaluated.
 
@@ -111,35 +110,39 @@ class SyntheticFunction(ABC):
         where each element of the list is a tuple corresponding to the min
         and max of the domain for that dimension.
         """
-        return not_none(self._domain)
+        return self._domain  # pyre-ignore[7]: will not be None b/c decorator
 
     @property
+    @informative_failure_on_none
     def minimums(self) -> List[Tuple[float, ...]]:
         """List of global minimums.
 
         Each element of the list is a d-tuple, where d is the dimensionality
         of the inputs. There may be more than one global minimums.
         """
-        return not_none(self._minimums)
+        return self._minimums  # pyre-ignore[7]: will not be None b/c decorator
 
     @property
+    @informative_failure_on_none
     def maximums(self) -> List[Tuple[float, ...]]:
         """List of global minimums.
 
         Each element of the list is a d-tuple, where d is the dimensionality
         of the inputs. There may be more than one global minimums.
         """
-        return not_none(self._maximums)
+        return self._maximums  # pyre-ignore[7]: will not be None b/c decorator
 
     @property
+    @informative_failure_on_none
     def fmin(self) -> float:
         """Value at global minimum(s)."""
-        return not_none(self._fmin)
+        return self._fmin  # pyre-ignore[7]: will not be None b/c decorator
 
     @property
+    @informative_failure_on_none
     def fmax(self) -> float:
         """Value at global minimum(s)."""
-        return not_none(self._fmax)
+        return self._fmax  # pyre-ignore[7]: will not be None b/c decorator
 
     @classmethod
     @abstractmethod
@@ -190,7 +193,7 @@ class Hartmann6(SyntheticFunction):
             for k in range(6):
                 t += A[j, k] * ((X[k] - P[j, k]) ** 2)
             y -= alpha_j * np.exp(-t)
-        return y
+        return float(y)
 
 
 class Branin(SyntheticFunction):
@@ -206,7 +209,7 @@ class Branin(SyntheticFunction):
     def _f(self, X: np.ndarray) -> float:
         x_1 = X[0]
         x_2 = X[1]
-        return (
+        return float(
             (x_2 - 5.1 / (4 * np.pi ** 2) * x_1 ** 2 + 5.0 / np.pi * x_1 - 6.0) ** 2
             + 10 * (1 - 1.0 / (8 * np.pi)) * np.cos(x_1)
             + 10

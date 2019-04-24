@@ -40,7 +40,7 @@ class TestTestUtils(TestCase):
         with self.assertRaisesOn(RuntimeError) as cm:
             _f()
         self.assertEqual(cm.filename, __file__)
-        self.assertEqual(cm.lineno, 11)
+        self.assertEqual(cm.lineno, 12)
 
     def test_silence_warning_normal(self):
         new_stderr = io.StringIO()
