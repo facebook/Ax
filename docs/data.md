@@ -27,19 +27,21 @@ Our base Metric class is meant to be subclassed, as you will need to provide a c
 An example of a custom metric:
 
 ```python
+import pandas as pd
+from ax import Metric
+
 class CustomMetric(Metric):
 
-    def fetch_trial_data(self, trial: BaseTrial, kwargs: Dict[str, Any]) → Data:    
+    def fetch_trial_data(self, trial, kwargs):    
         records = []
         for arm_name, arm in trial.arms_by_name.items():
             records.append({
                 "arm_name": arm_name,
                 "metric_name": self.name,
-                "mean": # mean value of this metric when this arm is used
-                "sem": # standard error of the above mean
+                "mean": 0.0,  # mean value of this metric when this arm is used
+                "sem": 0.0,  # standard error of the above mean
                 "trial_index": trial.index,
             })
-        )
         return Data(df=pd.DataFrame.from_records(records))
 ```
 

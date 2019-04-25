@@ -130,9 +130,6 @@ class Index extends React.Component {
         minimize=True,
     )
 
->>> loop.full_run()
-
->>> loop.get_best_point()
 {'x1': 1.02, 'x2': 2.97}  # global min is (1, 3)
     `;
 
