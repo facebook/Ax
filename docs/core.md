@@ -1,9 +1,7 @@
 ---
-id: experiment
-title: Experiment
+id: core
+title: Core
 ---
-
-## Building Blocks of an Experiment
 
 ### Experiment
 
