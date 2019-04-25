@@ -51,14 +51,6 @@ ax.storage.json\_store.load module
     :undoc-members:
     :show-inheritance:
 
-ax.storage.json\_store.registry module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.storage.json_store.registry
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 ax.storage.json\_store.save module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -158,6 +150,18 @@ ax.storage.sqa\_store.validation module
     :undoc-members:
     :show-inheritance:
 
+Registries
+-----------------
+
+.. automodule:: ax.storage.metric_registry
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: ax.storage.runner_registry
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Utilities
 -----------------
