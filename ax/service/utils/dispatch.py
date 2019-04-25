@@ -15,7 +15,9 @@ logger: logging.Logger = get_logger(__name__)
 
 
 def choose_generation_strategy(
-    search_space: SearchSpace, arms_per_trial: int = 1
+    search_space: SearchSpace,
+    arms_per_trial: int = 1,
+    enforce_sequential_optimization: bool = True,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space."""
@@ -43,6 +45,7 @@ def choose_generation_strategy(
                     model=Models.SOBOL,
                     num_arms=sobol_arms,
                     min_arms_observed=ceil(sobol_arms / 2),
+                    enforce_num_arms=enforce_sequential_optimization,
                 ),
                 GenerationStep(model=Models.GPEI, num_arms=-1),
             ],

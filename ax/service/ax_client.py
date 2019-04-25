@@ -36,16 +36,35 @@ class AxClient:
     Two custom types used in this class for convenience are `TParamValue` and
     `TParameterization`. Those are shortcuts for `Union[str, bool, float, int]`
     and `Dict[str, Union[str, bool, float, int]]`, respectively.
+
+    Args:
+        generation_strategy: Optional generation strategy. If not set, one is
+            intelligently chosen based on properties of search space.
+
+        db_settings: Settings for saving and reloading the underlying experiment
+            to a database.
+
+        enforce_sequential_optimization: Whether to enforce that when it is
+            reasonable to switch models during the optimization (as prescribed
+            by `num_arms` in generation strategy), Ax will wait for enough trials
+            to be completed with data to proceed. Defaults to True. If set to
+            False, Ax will keep generating new trials from the previous model
+            until enough data is gathered. Use this only if necessary;
+            otherwise, it is more resource-efficient to
+            optimize sequentially, by waiting until enough data is available to
+            use the next model.
     """
 
     def __init__(
         self,
         generation_strategy: Optional[GenerationStrategy] = None,
         db_settings: Optional[DBSettings] = None,
+        enforce_sequential_optimization: bool = True,
     ) -> None:
         self.generation_strategy = generation_strategy
         self.db_settings = db_settings
         self._experiment: Optional[Experiment] = None
+        self._enforce_sequential_optimization = enforce_sequential_optimization
         # Trials, for which we received data since last `GenerationStrategy.gen`,
         # used to make sure that generation strategy is updated with new data.
         self._updated_trials: List[int] = []
@@ -95,7 +114,8 @@ class AxClient:
         )
         if self.generation_strategy is None:
             self.generation_strategy = choose_generation_strategy(
-                search_space=self._experiment.search_space
+                search_space=self._experiment.search_space,
+                enforce_sequential_optimization=self._enforce_sequential_optimization,
             )
         self._save_experiment_if_possible()
 
