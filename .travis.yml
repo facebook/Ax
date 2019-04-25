@@ -16,6 +16,10 @@ matrix:
       python: "3.6"
       install:
         - pip install cython numpy
+        # TODO: Remove once GPyTorch 0.3.2 is released and marked a dep. of botorch
+        - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@32911e3b51901917c0f14101972581c1295b5edb
+        # TODO: Remove once PyTorch 1.1 is released and marked a dep. of botorch
+        - pip install -q torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
         - pip install git+ssh://git@github.com/facebookexternal/botorch.git
         - pip install -q -e .[dev,mysql,notebook,gpy]
       script:
@@ -27,6 +31,10 @@ matrix:
       dist: xenial
       install:
         - pip install cython numpy
+        # TODO: Remove once GPyTorch 0.3.2 is released and marked a dep. of botorch
+        - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@32911e3b51901917c0f14101972581c1295b5edb
+        # TODO: Remove once PyTorch 1.1 is released and marked a dep. of botorch
+        - pip install -q torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
         - pip install git+ssh://git@github.com/facebookexternal/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
       script:
@@ -48,6 +56,10 @@ matrix:
       python: "3.6"
       install:
         - pip install cython numpy
+        # TODO: Remove once GPyTorch 0.3.2 is released and marked a dep. of botorch
+        - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@32911e3b51901917c0f14101972581c1295b5edb
+        # TODO: Remove once PyTorch 1.1 is released and marked a dep. of botorch
+        - pip install -q torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
         - pip install git+ssh://git@github.com/facebookexternal/botorch.git
         - pip install -q -e .[dev,mysql,notebook,gpy]
       script:
