@@ -51,6 +51,14 @@ ax.storage.json\_store.load module
     :undoc-members:
     :show-inheritance:
 
+ax.storage.json\_store.registry module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.storage.json_store.registry
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.storage.json\_store.save module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
