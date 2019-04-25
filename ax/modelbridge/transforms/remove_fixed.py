@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Dict, List, Optional, Union
 
@@ -26,7 +27,7 @@ class RemoveFixed(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         # Identify parameters that should be transformed
-        self.fixed_params: Dict[str, FixedParameter] = {
+        self.fixed_parameters: Dict[str, FixedParameter] = {
             p_name: p
             for p_name, p in search_space.parameters.items()
             if isinstance(p, FixedParameter)
@@ -36,7 +37,7 @@ class RemoveFixed(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in self.fixed_params:
+            for p_name in self.fixed_parameters:
                 if p_name in obsf.parameters:
                     obsf.parameters.pop(p_name)
         return observation_features
@@ -44,8 +45,8 @@ class RemoveFixed(Transform):
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         tunable_parameters: List[Union[ChoiceParameter, RangeParameter]] = []
         for p in search_space.parameters.values():
-            if p.name not in self.fixed_params:
-                # If it's not in fixed_params, it must be a tunable param.
+            if p.name not in self.fixed_parameters:
+                # If it's not in fixed_parameters, it must be a tunable param.
                 # pyre: p_ is declared to have type `Union[ChoiceParameter,
                 # pyre: RangeParameter]` but is used as type `ax.core.
                 # pyre-fixme[9]: parameter.Parameter`.
@@ -66,6 +67,6 @@ class RemoveFixed(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name, p in self.fixed_params.items():
+            for p_name, p in self.fixed_parameters.items():
                 obsf.parameters[p_name] = p.value
         return observation_features

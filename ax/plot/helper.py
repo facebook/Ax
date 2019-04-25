@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from collections import Counter
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
@@ -125,9 +126,9 @@ def _get_in_sample_arms(
     observations = model.get_training_data()
     # Calculate raw data
     raw_data = []
-    cond_name_to_params = {}
+    cond_name_to_parameters = {}
     for obs in observations:
-        cond_name_to_params[obs.arm_name] = obs.features.parameters
+        cond_name_to_parameters[obs.arm_name] = obs.features.parameters
         for j, metric_name in enumerate(obs.data.metric_names):
             if metric_name in metric_names:
                 raw_data.append(
@@ -140,7 +141,7 @@ def _get_in_sample_arms(
                 )
     # Check that we have one ObservationFeatures per arm name since we
     # key by arm name.
-    if len(cond_name_to_params) != len(observations):
+    if len(cond_name_to_parameters) != len(observations):
         logger.error(
             "Have observations of arms with different features but same"
             " name. Arbitrary one will be plotted."
@@ -174,12 +175,12 @@ def _get_in_sample_arms(
             name=obs.arm_name,
             y=obs_y,
             se=obs_se,
-            params=obs.features.parameters,
+            parameters=obs.features.parameters,
             y_hat=pred_y,
             se_hat=pred_se,
             context_stratum=None,
         )
-    return in_sample_plot, raw_data, cond_name_to_params
+    return in_sample_plot, raw_data, cond_name_to_parameters
 
 
 def _predict_at_point(
@@ -246,7 +247,7 @@ def _get_out_of_sample_arms(
             arm_name = arm.name_or_short_signature
             out_of_sample_plot[generator_run_name][arm_name] = PlotOutOfSampleArm(
                 name=arm_name,
-                params=obsf.parameters,
+                parameters=obsf.parameters,
                 y_hat=pred_y,
                 se_hat=pred_se,
                 context_stratum=None,
@@ -287,7 +288,7 @@ def get_plot_data(
         - Mapping from arm name to parameters.
     """
     metrics_plot = model.metric_names if metric_names is None else metric_names
-    in_sample_plot, raw_data, cond_name_to_params = _get_in_sample_arms(
+    in_sample_plot, raw_data, cond_name_to_parameters = _get_in_sample_arms(
         model=model, metric_names=metrics_plot
     )
     out_of_sample_plot = _get_out_of_sample_arms(
@@ -300,7 +301,7 @@ def get_plot_data(
         out_of_sample=out_of_sample_plot,
         status_quo_name=status_quo_name,
     )
-    return plot_data, raw_data, cond_name_to_params
+    return plot_data, raw_data, cond_name_to_parameters
 
 
 def get_range_parameter(model: ModelBridge, param_name: str) -> RangeParameter:

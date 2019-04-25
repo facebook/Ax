@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -170,7 +171,7 @@ ENCODE_DECODE_FIELD_MAPS = {
         python_to_encoded={"reason": "abandoned_reason", "time": "time_abandoned"}
     ),
     "Arm": EncodeDecodeFieldsMap(
-        encoded_only=["weight"], python_to_encoded={"params": "parameters"}
+        encoded_only=["weight"], python_to_encoded={"parameters": "parameters"}
     ),
     "BatchTrial": EncodeDecodeFieldsMap(
         python_to_encoded={
@@ -278,8 +279,8 @@ ENCODE_DECODE_FIELD_MAPS = {
         ],
     ),
     "OrderConstraint": EncodeDecodeFieldsMap(
-        python_only=["lower_name", "upper_name"],
         encoded_only=["constraint_dict", "type"],
+        python_only=["lower_parameter", "upper_parameter"],
     ),
     "OutcomeConstraint": EncodeDecodeFieldsMap(
         python_only=["metric"],
@@ -321,7 +322,8 @@ ENCODE_DECODE_FIELD_MAPS = {
         python_to_encoded={"data_by_trial": "data", "tracking_metrics": "metrics"},
     ),
     "SumConstraint": EncodeDecodeFieldsMap(
-        python_only=["parameter_names", "is_upper_bound"], encoded_only=["type"]
+        python_only=["is_upper_bound", "parameters", "parameter_names"],
+        encoded_only=["type"],
     ),
     "Trial": EncodeDecodeFieldsMap(
         python_to_encoded={

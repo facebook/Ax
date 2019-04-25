@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from unittest import mock
 
@@ -75,7 +76,7 @@ class DiscreteModelBridgeTest(TestCase):
             self.observation_features + [sq_feat],
             self.observation_data + [sq_data],
         )
-        self.assertEqual(ma.params, ["x", "y", "z"])
+        self.assertEqual(ma.parameters, ["x", "y", "z"])
         self.assertEqual(sorted(ma.outcomes), ["a", "b"])
         self.assertEqual(ma.training_in_design, [True, True, True, False])
         Xs = {
@@ -107,7 +108,7 @@ class DiscreteModelBridgeTest(TestCase):
             ),
         )
         ma.model = model
-        ma.params = ["x", "y", "z"]
+        ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
         observation_data = ma._predict(self.observation_features)
         X = [[0, "foo", True], [1, "foo", True], [1, "bar", False]]
@@ -130,7 +131,7 @@ class DiscreteModelBridgeTest(TestCase):
         model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
         model.gen.return_value = ([[0.0, 2.0, 3.0], [1.0, 1.0, 3.0]], [1.0, 2.0])
         ma.model = model
-        ma.params = ["x", "y", "z"]
+        ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
         observation_features, weights, best_observation = ma._gen(
             n=3,
@@ -168,7 +169,7 @@ class DiscreteModelBridgeTest(TestCase):
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])
         optimization_config.outcome_constraints = []
-        ma.params = ["x", "y"]
+        ma.parameters = ["x", "y"]
         ma._gen(
             n=3,
             search_space=search_space,
@@ -212,7 +213,7 @@ class DiscreteModelBridgeTest(TestCase):
             ),
         )
         ma.model = model
-        ma.params = ["x", "y", "z"]
+        ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
         observation_data = ma._cross_validate(
             self.observation_features, self.observation_data, self.observation_features

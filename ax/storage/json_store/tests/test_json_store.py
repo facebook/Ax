@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import os
 import tempfile
@@ -9,8 +10,9 @@ from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.load import load_experiment
-from ax.storage.json_store.registry import register_metric, register_runner
 from ax.storage.json_store.save import save_experiment
+from ax.storage.metric_registry import register_metric
+from ax.storage.runner_registry import register_runner
 from ax.storage.utils import EncodeDecodeFieldsMap, remove_prefix
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.fake import (
@@ -79,11 +81,19 @@ ENCODE_DECODE_FIELD_MAPS = {
     "GeneratorRun": EncodeDecodeFieldsMap(
         encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
     ),
-    "OrderConstraint": EncodeDecodeFieldsMap(python_only=["bound"]),
+    "OrderConstraint": EncodeDecodeFieldsMap(
+        python_only=["bound"],
+        python_to_encoded={
+            "lower_parameter": "lower_name",
+            "upper_parameter": "upper_name",
+        },
+    ),
     "SimpleExperiment": EncodeDecodeFieldsMap(
         python_only=["arms_by_signature", "evaluation_function"]
     ),
-    "SumConstraint": EncodeDecodeFieldsMap(python_only=["constraint_dict"]),
+    "SumConstraint": EncodeDecodeFieldsMap(
+        python_only=["constraint_dict", "parameters"]
+    ),
     "Trial": EncodeDecodeFieldsMap(python_only=["experiment"]),
 }
 
@@ -106,6 +116,10 @@ class JSONStoreTest(TestCase):
             self.assertEqual(loaded_experiment, self.experiment)
             os.remove(f.name)
 
+    def testSaveValidation(self):
+        with self.assertRaises(ValueError):
+            save_experiment(self.experiment.trials[0], "test.json")
+
     def testValidateFilename(self):
         bad_filename = "test"
         self.assertRaises(ValueError, save_experiment, self.experiment, bad_filename)
@@ -115,6 +129,10 @@ class JSONStoreTest(TestCase):
             # Can't load trials from JSON, because a batch needs an experiment
             # in order to be initialized
             if class_ == "BatchTrial" or class_ == "Trial":
+                continue
+            # Can't load parameter constraints from JSON, because they require
+            # a SearchSpace in order to be initialized
+            if class_ == "OrderConstraint" or class_ == "SumConstraint":
                 continue
             original_object = fake_func()
             json_object = object_to_json(original_object)

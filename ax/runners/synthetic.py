@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Any, Dict, Optional
 
@@ -16,7 +17,12 @@ class SyntheticRunner(Runner):
         self.dummy_metadata = dummy_metadata
 
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
-        metadata = {"name": trial.experiment.name + "_" + str(trial.index)}
+        deployed_name = (
+            trial.experiment.name + "_" + str(trial.index)
+            if trial.experiment.has_name
+            else str(trial.index)
+        )
+        metadata = {"name": deployed_name}
 
         # Add dummy metadata if needed for testing
         if self.dummy_metadata:

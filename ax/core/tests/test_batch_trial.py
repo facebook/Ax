@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from unittest.mock import PropertyMock, patch
 
@@ -80,9 +81,9 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(self.batch.generator_run_structs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
 
-        arm_params = get_arm().params
-        arm_params["w"] = 5.0
-        self.batch.add_arm(Arm(arm_params), 3)
+        arm_parameters = get_arm().parameters
+        arm_parameters["w"] = 5.0
+        self.batch.add_arm(Arm(arm_parameters), 3)
 
         self.assertEqual(self.batch.arms_by_name["0_2"], self.batch.arms[2])
         self.assertEqual(len(self.batch.arms), len(self.arms) + 1)
@@ -97,8 +98,8 @@ class BatchTrialTest(TestCase):
         # one of these arms already exists on the BatchTrial,
         # so we should just update its weight
         new_arms = [
-            Arm(params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
-            Arm(params={"w": 1.4, "x": 5, "y": "bar", "z": False}),
+            Arm(parameters={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+            Arm(parameters={"w": 1.4, "x": 5, "y": "bar", "z": False}),
         ]
         new_weights = [0.75, 0.25]
         gr = GeneratorRun(arms=new_arms, weights=new_weights)
@@ -119,11 +120,11 @@ class BatchTrialTest(TestCase):
 
     def testStatusQuoOverlap(self):
         tot_weight = sum(self.batch.weights)
-        new_sq = Arm(params={"w": 0.95, "x": 1, "y": "foo", "z": True})
+        new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
 
         # Set status quo to existing arm
         self.batch.set_status_quo_with_weight(self.arms[0], self.sq_weight)
-        self.assertTrue(self.batch.status_quo.params == self.arms[0].params)
+        self.assertTrue(self.batch.status_quo.parameters == self.arms[0].parameters)
         self.assertEqual(self.batch.status_quo.name, self.batch.arms[0].name)
         self.assertEqual(
             self.batch.arm_weights[self.batch.arms[0]], self.weights[0] + self.sq_weight
@@ -143,7 +144,7 @@ class BatchTrialTest(TestCase):
         tot_weight = sum(self.batch.weights)
         num_arms = len(self.batch.arms)
         avg_weight = float(tot_weight) / num_arms
-        new_sq = Arm(params={"w": 0.95, "x": 1, "y": "foo", "z": True})
+        new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
 
         # Test negative weight
         with self.assertRaises(ValueError):
@@ -166,7 +167,7 @@ class BatchTrialTest(TestCase):
 
         # Try setting sq to existing arm with different name
         with self.assertRaises(ValueError):
-            self.batch.status_quo = Arm(self.arms[0].params, name="new_name")
+            self.batch.status_quo = Arm(self.arms[0].parameters, name="new_name")
 
     def testBatchLifecycle(self):
         staging_mock = PropertyMock()
@@ -242,7 +243,9 @@ class BatchTrialTest(TestCase):
 
         # Fail to abandon arm not in BatchTrial
         with self.assertRaises(ValueError):
-            self.batch.mark_arm_abandoned(Arm(params={"x": 3, "y": "fooz", "z": False}))
+            self.batch.mark_arm_abandoned(
+                Arm(parameters={"x": 3, "y": "fooz", "z": False})
+            )
 
     def testClone(self):
         new_batch_trial = self.batch.clone()
@@ -293,9 +296,9 @@ class BatchTrialTest(TestCase):
         new_batch_trial = self.experiment.new_batch_trial()
         new_batch_trial.add_arms_and_weights(
             arms=[
-                Arm(params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
-                Arm(params={"w": 0.75, "x": 2, "y": "foo", "z": True}),
-                Arm(params={"w": 0.77, "x": 1, "y": "foo", "z": True}),
+                Arm(parameters={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+                Arm(parameters={"w": 0.75, "x": 2, "y": "foo", "z": True}),
+                Arm(parameters={"w": 0.77, "x": 1, "y": "foo", "z": True}),
             ]
         )
         self.assertFalse(new_batch_trial.is_factorial)
@@ -303,10 +306,10 @@ class BatchTrialTest(TestCase):
         new_batch_trial = self.experiment.new_batch_trial()
         new_batch_trial.add_arms_and_weights(
             arms=[
-                Arm(params={"w": 0.77, "x": 1, "y": "foo", "z": True}),
-                Arm(params={"w": 0.77, "x": 2, "y": "foo", "z": True}),
-                Arm(params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
-                Arm(params={"w": 0.75, "x": 2, "y": "foo", "z": True}),
+                Arm(parameters={"w": 0.77, "x": 1, "y": "foo", "z": True}),
+                Arm(parameters={"w": 0.77, "x": 2, "y": "foo", "z": True}),
+                Arm(parameters={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+                Arm(parameters={"w": 0.75, "x": 2, "y": "foo", "z": True}),
             ]
         )
         self.assertTrue(new_batch_trial.is_factorial)
@@ -317,36 +320,36 @@ class BatchTrialTest(TestCase):
             {"w": 0.75, "x": 1, "y": "foo", "z": True},
             {"w": 0.77, "x": 2, "y": "foo", "z": True},
         ]
-        arms = [Arm(params=p) for i, p in enumerate(parameterizations)]
+        arms = [Arm(parameters=p) for i, p in enumerate(parameterizations)]
         new_batch_trial.add_arms_and_weights(arms=arms, weights=[2, 1])
 
         # test normalizing to 1
         arm_weights = new_batch_trial.normalized_arm_weights()
         # self.assertEqual(list(arm_weights.keys()), arms)
-        batch_arm_params = [arm.params for arm in list(arm_weights.keys())]
-        arm_params = [arm.params for arm in arms]
-        self.assertEqual(batch_arm_params, arm_params)
+        batch_arm_parameters = [arm.parameters for arm in list(arm_weights.keys())]
+        arm_parameters = [arm.parameters for arm in arms]
+        self.assertEqual(batch_arm_parameters, arm_parameters)
         self.assertTrue(np.allclose(list(arm_weights.values()), [2 / 3, 1 / 3]))
 
         # test normalizing to 100
         arm_weights = new_batch_trial.normalized_arm_weights(total=100)
-        batch_arm_params = [arm.params for arm in list(arm_weights.keys())]
-        arm_params = [arm.params for arm in arms]
-        self.assertEqual(batch_arm_params, arm_params)
+        batch_arm_parameters = [arm.parameters for arm in list(arm_weights.keys())]
+        arm_parameters = [arm.parameters for arm in arms]
+        self.assertEqual(batch_arm_parameters, arm_parameters)
         self.assertTrue(np.allclose(list(arm_weights.values()), [200 / 3, 100 / 3]))
 
         # test normalizing with truncation
         arm_weights = new_batch_trial.normalized_arm_weights(total=1, trunc_digits=2)
-        batch_arm_params = [arm.params for arm in list(arm_weights.keys())]
-        arm_params = [arm.params for arm in arms]
-        self.assertEqual(batch_arm_params, arm_params)
+        batch_arm_parameters = [arm.parameters for arm in list(arm_weights.keys())]
+        arm_parameters = [arm.parameters for arm in arms]
+        self.assertEqual(batch_arm_parameters, arm_parameters)
         self.assertTrue(np.allclose(list(arm_weights.values()), [0.67, 0.33]))
 
     def testAddGeneratorRunValidation(self):
         new_batch_trial = self.experiment.new_batch_trial()
         new_arms = [
-            Arm(name="0_1", params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
-            Arm(name="0_2", params={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+            Arm(name="0_1", parameters={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+            Arm(name="0_2", parameters={"w": 0.75, "x": 1, "y": "foo", "z": True}),
         ]
         gr = GeneratorRun(arms=new_arms)
         with self.assertRaises(ValueError):

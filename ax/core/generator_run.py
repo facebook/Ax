@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import copy
 from collections import OrderedDict
@@ -92,7 +93,8 @@ class GeneratorRun(Base):
                 model predictions.
             type: Optional type of the run.
             fit_time: Optional number of seconds it took to fit the model that produced
-                this generator run.
+                this generator run. For models with multiple invocations of gen, this is
+                typically the fitting time since the last call to gen.
             gen_time: Optional number of seconds generation took.
         """
         self._arm_weight_table: OrderedDict[str, ArmWeight] = OrderedDict()
@@ -211,7 +213,7 @@ class GeneratorRun(Base):
             pd.DataFrame: a dataframe with the generator run's arms.
         """
         return pd.DataFrame.from_dict(
-            {a.name_or_short_signature: a.params for a in self.arms}, orient="index"
+            {a.name_or_short_signature: a.parameters for a in self.arms}, orient="index"
         )
 
     def clone(self) -> "GeneratorRun":

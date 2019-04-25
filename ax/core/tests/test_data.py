@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import pandas as pd
 from ax.core.data import REQUIRED_COLUMNS, Data, custom_data_class, set_single_trial

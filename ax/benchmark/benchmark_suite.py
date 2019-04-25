@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 # pyre-strict
 
 from itertools import product
@@ -14,8 +15,8 @@ from ax.benchmark.benchmark_runner import (
     BenchmarkSetup,
     BOBenchmarkRunner,
 )
-from ax.modelbridge.factory import get_GPEI, get_sobol
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.factory import Models
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.plot.base import AxPlotConfig
 from ax.plot.render import plot_config_to_html
 from ax.plot.trace import (
@@ -27,9 +28,17 @@ from ax.utils.report.render import h2_html, h3_html, p_html, render_report_eleme
 
 
 BOStrategies: List[GenerationStrategy] = [
-    GenerationStrategy(model_factories=[get_sobol], arms_per_model=[50]),  # pyre-ignore
+    GenerationStrategy(
+        name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_arms=50)]
+    ),
     # Generation strategy to use Sobol for first 5 arms and GP+EI for next 45:
-    GenerationStrategy(model_factories=[get_sobol, get_GPEI], arms_per_model=[5, 45]),
+    GenerationStrategy(
+        name="Sobol+GPEI",
+        steps=[
+            GenerationStep(model=Models.SOBOL, num_arms=5, min_arms_observed=5),
+            GenerationStep(model=Models.GPEI, num_arms=-1),
+        ],
+    ),
 ]
 
 BOProblems: List[BenchmarkProblem] = [hartmann6_constrained, branin_max]
@@ -43,12 +52,28 @@ class BOBenchmarkingSuite:
 
     def run(
         self,
-        num_trials: int,
+        num_runs: int,
         total_iterations: int,
         bo_strategies: List[GenerationStrategy],
         bo_problems: List[BenchmarkProblem],
         batch_size: int = 1,
+        raise_all_errors: bool = False,
     ) -> BOBenchmarkRunner:
+        """Run all standard BayesOpt benchmarks.
+
+        Args:
+            num_runs: How many time to run each test.
+            total_iterations: How many iterations to run each optimization for.
+            bo_strategies: GenerationStrategies representing each method to
+                benchmark.
+            bo_problems: Problems to benchmark the methods on.
+            batch_size: Number of arms to be generated and evaluated in optimization
+                at once.
+            raise_all_errors: Debugging setting; set to true if all encountered
+                errors should be raised right away (and interrupt the benchm arking)
+                rather than logged and recorded.
+        """
+
         setups = (
             BenchmarkSetup(problem, total_iterations, batch_size)
             for problem in bo_problems
@@ -56,8 +81,9 @@ class BOBenchmarkingSuite:
         for setup, gs in product(setups, bo_strategies):
             self._runner.run_benchmark_test(
                 setup=setup,
-                model_factory=gs.get_model,  # pyre-ignore
-                num_runs=num_trials,
+                generation_strategy=gs,
+                num_runs=num_runs,
+                raise_all_errors=raise_all_errors,
             )
 
         return self._runner

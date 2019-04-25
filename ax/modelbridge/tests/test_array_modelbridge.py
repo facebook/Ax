@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from unittest.mock import patch
 
@@ -110,7 +111,7 @@ class ArrayModelBridgeTest(TestCase):
     @patch(
         f"{ModelBridge.__module__}.gen_arms",
         autospec=True,
-        return_value=[Arm(params={})],
+        return_value=[Arm(parameters={})],
     )
     @patch(
         f"{ModelBridge.__module__}.ModelBridge.predict",
@@ -138,7 +139,7 @@ class ArrayModelBridgeTest(TestCase):
         _mock_unwrap,
         _mock_obs_from_data,
     ):
-        exp = Experiment("test", search_space_for_range_value())
+        exp = Experiment(search_space_for_range_value(), "test")
         modelbridge = ArrayModelBridge(
             search_space_for_range_value(), NumpyModel(), [t1, t2], exp, 0
         )
@@ -151,6 +152,6 @@ class ArrayModelBridgeTest(TestCase):
             ),
         )
         arm, predictions = run.best_arm_predictions
-        self.assertEqual(arm.params, {})
+        self.assertEqual(arm.parameters, {})
         self.assertEqual(predictions[0], {"m": 1.0})
         self.assertEqual(predictions[1], {"m": {"m": 2.0}})

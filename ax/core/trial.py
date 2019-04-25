@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
@@ -82,6 +83,10 @@ class Trial(BaseTrial):
                 "included multiple."
             )
 
+        self.experiment.search_space.check_types(
+            generator_run.arms[0].parameters, raise_error=True
+        )
+
         self._check_existing_and_name_arm(generator_run.arms[0])
 
         self._generator_run = generator_run
@@ -136,7 +141,7 @@ class Trial(BaseTrial):
     def __repr__(self) -> str:
         return (
             "Trial("
-            f"experiment_name='{self._experiment.name}', "
+            f"experiment_name='{self._experiment._name}', "
             f"index={self._index}, "
             f"status={self._status})"
         )

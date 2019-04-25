@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from abc import ABC, abstractmethod, abstractproperty
 from datetime import datetime
@@ -65,6 +66,11 @@ class TrialStatus(Enum):
     def is_deployed(self) -> bool:
         """True if trial has been deployed but not completed."""
         return self == TrialStatus.STAGED or self == TrialStatus.RUNNING
+
+    @property
+    def is_failed(self) -> bool:
+        """True if this trial is a failed one."""
+        return self == TrialStatus.FAILED
 
 
 def immutable_once_run(func: Callable) -> Callable:

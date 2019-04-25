@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from ax.core.metric import Metric
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -10,8 +11,8 @@ from ax.core.parameter import (
 )
 from ax.core.types import ComparisonOp
 from ax.metrics.branin import branin
-from ax.modelbridge.factory import get_GPEI, get_sobol
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.factory import Models
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.service.ax_client import AxClient
 from ax.utils.common.testutils import TestCase
 
@@ -19,7 +20,7 @@ from ax.utils.common.testutils import TestCase
 class TestServiceAPI(TestCase):
     """Tests service-like API functionality."""
 
-    def test_default_generation_strategy(self):
+    def test_default_generation_strategy(self) -> None:
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
         ax = AxClient()
         ax.create_experiment(
@@ -31,15 +32,20 @@ class TestServiceAPI(TestCase):
             objective_name="branin",
             minimize=True,
         )
-        self.assertEqual(ax.generation_strategy._model_factories, [get_sobol, get_GPEI])
+        self.assertEqual(
+            [s.model for s in ax.generation_strategy._steps],
+            [Models.SOBOL, Models.GPEI],
+        )
         for _ in range(6):
             parameterization, trial_index = ax.get_next_trial()
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
             ax.complete_trial(trial_index, raw_data={"branin": (branin(x1, x2), 0.0)})
 
-    def test_create_experiment(self):
+    def test_create_experiment(self) -> None:
         """Test basic experiment creation."""
-        ax = AxClient(GenerationStrategy([get_sobol], [30]))
+        ax = AxClient(
+            GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
+        )
         ax.create_experiment(
             name="test_experiment",
             parameters=[
@@ -76,6 +82,7 @@ class TestServiceAPI(TestCase):
             outcome_constraints=["some_metric >= 3", "some_metric <= 4.0"],
             parameter_constraints=["x3 >= x4", "x3 + x4 >= 2"],
         )
+        assert ax._experiment is not None
         self.assertEqual(
             ax._experiment.search_space.parameters["x1"],
             RangeParameter(
@@ -135,7 +142,9 @@ class TestServiceAPI(TestCase):
 
     def test_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""
-        ax = AxClient(GenerationStrategy([get_sobol], [30]))
+        ax = AxClient(
+            GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
+        )
         with self.assertRaises(ValueError):
             ax.create_experiment(
                 name="test_experiment",
@@ -145,3 +154,44 @@ class TestServiceAPI(TestCase):
                 objective_name="test_objective",
                 outcome_constraints=["test_objective >= 3"],
             )
+
+    def test_raw_data_format(self):
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        for _ in range(6):
+            parameterization, trial_index = ax.get_next_trial()
+            x1, x2 = parameterization.get("x1"), parameterization.get("x2")
+            ax.complete_trial(trial_index, raw_data=(branin(x1, x2), 0.0))
+
+    def test_keep_generating_without_data(self):
+        # Check that normally numebr of arms to generate is enforced.
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        for _ in range(5):
+            parameterization, trial_index = ax.get_next_trial()
+        with self.assertRaisesRegex(ValueError, "All trials for current model"):
+            ax.get_next_trial()
+        # Check thatwith enforce_sequential_optimization off, we can keep
+        # generating.
+        ax = AxClient(enforce_sequential_optimization=False)
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        for _ in range(10):
+            parameterization, trial_index = ax.get_next_trial()

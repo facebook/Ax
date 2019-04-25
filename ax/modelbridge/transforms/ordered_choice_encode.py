@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Dict, List, Optional
 
@@ -29,28 +30,28 @@ class OrderedChoiceEncode(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         # Identify parameters that should be transformed
-        self.encoded_params: Dict[str, Dict[TParamValue, int]] = {}
+        self.encoded_parameters: Dict[str, Dict[TParamValue, int]] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and p.is_ordered and not p.is_task:
-                self.encoded_params[p.name] = {
+                self.encoded_parameters[p.name] = {
                     original_value: transformed_value
                     for transformed_value, original_value in enumerate(p.values)
                 }
-        self.encoded_params_inverse: Dict[str, Dict[int, TParamValue]] = {
+        self.encoded_parameters_inverse: Dict[str, Dict[int, TParamValue]] = {
             p_name: {
                 transformed_value: original_value
                 for original_value, transformed_value in transforms.items()
             }
-            for p_name, transforms in self.encoded_params.items()
+            for p_name, transforms in self.encoded_parameters.items()
         }
 
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in self.encoded_params:
+            for p_name in self.encoded_parameters:
                 if p_name in obsf.parameters:
-                    obsf.parameters[p_name] = self.encoded_params[p_name][
+                    obsf.parameters[p_name] = self.encoded_parameters[p_name][
                         obsf.parameters[p_name]
                     ]
         return observation_features
@@ -58,7 +59,7 @@ class OrderedChoiceEncode(Transform):
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: Dict[str, Parameter] = {}
         for p in search_space.parameters.values():
-            if p.name in self.encoded_params:
+            if p.name in self.encoded_parameters:
                 # TypeAssert. Only ChoiceParameters present here.
                 # pyre: p_ is declared to have type `ChoiceParameter` but is
                 # pyre-fixme[9]: used as type `Parameter`.
@@ -83,7 +84,7 @@ class OrderedChoiceEncode(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name, reverse_transform in self.encoded_params_inverse.items():
+            for p_name, reverse_transform in self.encoded_parameters_inverse.items():
                 # pyre: pval is declared to have type `int` but is used as
                 # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
                 pval: int = obsf.parameters[p_name]

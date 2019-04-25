@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import inspect
 from collections import OrderedDict, defaultdict
@@ -28,6 +29,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
+from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
+from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -93,7 +96,7 @@ class Decoder:
         )
         status_quo = (
             Arm(
-                params=experiment_sqa.status_quo_parameters,
+                parameters=experiment_sqa.status_quo_parameters,
                 name=experiment_sqa.status_quo_name,
             )
             if experiment_sqa.status_quo_parameters is not None
@@ -204,9 +207,12 @@ class Decoder:
             )
 
     def parameter_constraint_from_sqa(
-        self, parameter_constraint_sqa: SQAParameterConstraint
+        self,
+        parameter_constraint_sqa: SQAParameterConstraint,
+        parameters: List[Parameter],
     ) -> ParameterConstraint:
         """Convert SQLAlchemy ParameterConstraint to Ax ParameterConstraint."""
+        parameter_map = {p.name: p for p in parameters}
         if parameter_constraint_sqa.type == ParameterConstraintType.ORDER:
             lower_name = None
             upper_name = None
@@ -220,9 +226,23 @@ class Decoder:
                     "Cannot decode SQAParameterConstraint because `lower_name` or "
                     "`upper_name` was not found."
                 )
-            return OrderConstraint(lower_name=lower_name, upper_name=upper_name)
+            lower_parameter = parameter_map[lower_name]
+            upper_parameter = parameter_map[upper_name]
+            return OrderConstraint(
+                lower_parameter=lower_parameter, upper_parameter=upper_parameter
+            )
         elif parameter_constraint_sqa.type == ParameterConstraintType.SUM:
+            # This operation is potentially very inefficient.
+            # It is O(#constrained_parameters * #total_parameters)
             parameter_names = list(parameter_constraint_sqa.constraint_dict.keys())
+            constraint_parameters = [
+                next(
+                    search_space_param
+                    for search_space_param in parameters
+                    if search_space_param.name == c_p_name
+                )
+                for c_p_name in parameter_names
+            ]
             a_values = list(parameter_constraint_sqa.constraint_dict.values())
             if len(a_values) == 0:
                 raise SQADecodeError(
@@ -233,7 +253,7 @@ class Decoder:
             is_upper_bound = a == 1
             bound = parameter_constraint_sqa.bound * a
             return SumConstraint(
-                parameter_names=parameter_names,
+                parameters=constraint_parameters,
                 is_upper_bound=is_upper_bound,
                 bound=bound,
             )
@@ -257,7 +277,7 @@ class Decoder:
         ]
         parameter_constraints = [
             self.parameter_constraint_from_sqa(
-                parameter_constraint_sqa=parameter_constraint_sqa
+                parameter_constraint_sqa=parameter_constraint_sqa, parameters=parameters
             )
             for parameter_constraint_sqa in parameter_constraints_sqa
         ]
@@ -277,8 +297,9 @@ class Decoder:
         """
         args = dict(getattr(object_sqa, "properties", None) or {})
         signature = inspect.signature(class_.__init__)
+        exclude_args = ["self", "args", "kwargs"]
         for arg, info in signature.parameters.items():
-            if arg == "self" or arg in args:
+            if arg in exclude_args or arg in args:
                 continue
             value = getattr(object_sqa, arg, None)
             if value is None:
@@ -298,9 +319,7 @@ class Decoder:
         self, metric_sqa: SQAMetric
     ) -> Union[Metric, Objective, OutcomeConstraint]:
         """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
-        metric_class = self.config.metric_registry.type_to_class.get(
-            metric_sqa.metric_type
-        )
+        metric_class = REVERSE_METRIC_REGISTRY.get(metric_sqa.metric_type)
         if metric_class is None:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
@@ -317,8 +336,21 @@ class Decoder:
         if metric_sqa.intent == MetricIntent.TRACKING:
             return metric
         elif metric_sqa.intent == MetricIntent.OBJECTIVE:
+            if metric_sqa.minimize is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to Objective because minimize is None."
+                )
             return Objective(metric=metric, minimize=metric_sqa.minimize)
         elif metric_sqa.intent == MetricIntent.OUTCOME_CONSTRAINT:
+            if (
+                metric_sqa.bound is None
+                or metric_sqa.op is None
+                or metric_sqa.relative is None
+            ):
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to OutcomeConstraint because "
+                    "bound, op, or relative is None."
+                )
             return OutcomeConstraint(
                 metric=metric,
                 bound=metric_sqa.bound,
@@ -361,7 +393,7 @@ class Decoder:
 
     def arm_from_sqa(self, arm_sqa: SQAArm) -> Arm:
         """Convert SQLAlchemy Arm to Ax Arm."""
-        return Arm(params=arm_sqa.parameters, name=arm_sqa.name)
+        return Arm(parameters=arm_sqa.parameters, name=arm_sqa.name)
 
     def abandoned_arm_from_sqa(
         self, abandoned_arm_sqa: SQAAbandonedArm
@@ -407,7 +439,7 @@ class Decoder:
         ):
             best_arm = Arm(
                 name=generator_run_sqa.best_arm_name,
-                params=generator_run_sqa.best_arm_parameters,
+                parameters=generator_run_sqa.best_arm_parameters,
             )
             best_arm_predictions = (
                 best_arm,
@@ -439,9 +471,7 @@ class Decoder:
 
     def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
         """Convert SQLAlchemy Runner to Ax Runner."""
-        runner_class = self.config.runner_registry.type_to_class.get(
-            runner_sqa.runner_type
-        )
+        runner_class = REVERSE_RUNNER_REGISTRY.get(runner_sqa.runner_type)
         if runner_class is None:
             raise SQADecodeError(
                 f"Cannot decode SQARunner because {runner_sqa.runner_type} "

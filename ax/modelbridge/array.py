@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
@@ -35,7 +36,7 @@ class ArrayModelBridge(ModelBridge):
 
     model: Any
     outcomes: List[str]
-    params: List[str]
+    parameters: List[str]
 
     def _fit(
         self,
@@ -45,7 +46,7 @@ class ArrayModelBridge(ModelBridge):
         observation_data: List[ObservationData],
     ) -> None:
         # Convert observations to arrays
-        self.params = list(search_space.parameters.keys())
+        self.parameters = list(search_space.parameters.keys())
         all_metric_names: Set[str] = set()
         for od in observation_data:
             all_metric_names.update(od.metric_names)
@@ -55,11 +56,11 @@ class ArrayModelBridge(ModelBridge):
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
-            params=self.params,
+            parameters=self.parameters,
         )
         self.training_in_design = in_design
         # Extract bounds and task features
-        bounds, task_features = get_bounds_and_task(search_space, self.params)
+        bounds, task_features = get_bounds_and_task(search_space, self.parameters)
 
         # Fit
         self._model_fit(
@@ -69,7 +70,7 @@ class ArrayModelBridge(ModelBridge):
             Yvars=Yvars_array,
             bounds=bounds,
             task_features=task_features,
-            feature_names=self.params,
+            feature_names=self.parameters,
         )
 
     def _model_fit(
@@ -104,7 +105,7 @@ class ArrayModelBridge(ModelBridge):
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
-            params=self.params,
+            parameters=self.parameters,
         )
         # Update in-design status for these new points.
         self.training_in_design[-len(observation_features) :] = in_design
@@ -120,7 +121,7 @@ class ArrayModelBridge(ModelBridge):
     ) -> List[ObservationData]:
         # Convert observations to array
         X = np.array(
-            [[of.parameters[p] for p in self.params] for of in observation_features]
+            [[of.parameters[p] for p in self.parameters] for of in observation_features]
         )
         f, cov = self._model_predict(X=X)
         # Convert arrays to observations
@@ -146,10 +147,10 @@ class ArrayModelBridge(ModelBridge):
         The outcome constraints should be transformed to no longer be relative.
         """
         # Validation
-        if not self.params:  # pragma: no cover
+        if not self.parameters:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
         # Extract bounds
-        bounds, _ = get_bounds_and_task(search_space, self.params)
+        bounds, _ = get_bounds_and_task(search_space, self.parameters)
         if optimization_config is None:
             raise ValueError(
                 "ArrayModelBridge requires an OptimizationConfig to be specified"
@@ -166,11 +167,11 @@ class ArrayModelBridge(ModelBridge):
             outcomes=self.outcomes,
         )
         linear_constraints = extract_parameter_constraints(
-            search_space.parameter_constraints, self.params
+            search_space.parameter_constraints, self.parameters
         )
-        fixed_features_dict = get_fixed_features(fixed_features, self.params)
+        fixed_features_dict = get_fixed_features(fixed_features, self.parameters)
         pending_array = get_pending_observations(
-            pending_observations, self.outcomes, self.params
+            pending_observations, self.outcomes, self.parameters
         )
         # Generate the candidates
         X, w = self._model_gen(
@@ -182,10 +183,10 @@ class ArrayModelBridge(ModelBridge):
             fixed_features=fixed_features_dict,
             pending_observations=pending_array,
             model_gen_options=model_gen_options,
-            rounding_func=transform_callback(self.params, self.transforms),
+            rounding_func=transform_callback(self.parameters, self.transforms),
         )
         # Transform array to observations
-        observation_features = parse_observation_features(X, self.params)
+        observation_features = parse_observation_features(X, self.parameters)
         xbest = self._model_best_point(
             bounds=bounds,
             objective_weights=objective_weights,
@@ -198,7 +199,7 @@ class ArrayModelBridge(ModelBridge):
             None
             if xbest is None
             else ObservationFeatures(
-                parameters={p: float(xbest[i]) for i, p in enumerate(self.params)}
+                parameters={p: float(xbest[i]) for i, p in enumerate(self.parameters)}
             )
         )
         return observation_features, w.tolist(), best_obsf
@@ -261,10 +262,10 @@ class ArrayModelBridge(ModelBridge):
             observation_data=obs_data,
             observation_features=obs_feats,
             outcomes=self.outcomes,
-            params=self.params,
+            parameters=self.parameters,
         )
         X_test = np.array(
-            [[obsf.parameters[p] for p in self.params] for obsf in cv_test_points]
+            [[obsf.parameters[p] for p in self.parameters] for obsf in cv_test_points]
         )
         # Use the model to do the cross validation
         f_test, cov_test = self._model_cross_validate(
@@ -291,7 +292,7 @@ class ArrayModelBridge(ModelBridge):
         # apply reverse terminal transform to turn array to ObservationFeatures
         observation_features = [
             ObservationFeatures(
-                parameters={p: float(x[i]) for i, p in enumerate(self.params)}
+                parameters={p: float(x[i]) for i, p in enumerate(self.parameters)}
             )
         ]
         # reverse loop through the transforms and do untransform
@@ -307,7 +308,7 @@ class ArrayModelBridge(ModelBridge):
             )
         new_x: List[float] = [
             float(observation_features[0].parameters[p])  # pyre-ignore
-            for p in self.params
+            for p in self.parameters
         ]
         # turn it back into an array
         return np.array(new_x)
@@ -341,7 +342,7 @@ def _convert_observations(
     observation_data: List[ObservationData],
     observation_features: List[ObservationFeatures],
     outcomes: List[str],
-    params: List[str],
+    parameters: List[str],
 ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[bool]]:
     Xs: List[List[List[float]]] = [[] for _ in outcomes]
     Ys: List[List[float]] = [[] for _ in outcomes]
@@ -349,7 +350,9 @@ def _convert_observations(
     in_design: List[bool] = []
     for i, of in enumerate(observation_features):
         try:
-            x: List[float] = [float(of.parameters[p]) for p in params]  # pyre-ignore
+            x: List[float] = [
+                float(of.parameters[p]) for p in parameters  # pyre-ignore
+            ]
             in_design.append(True)
         except (KeyError, TypeError):
             # out-of-design point; leave out.

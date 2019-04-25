@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import logging
 from typing import Any, Dict, List, Optional
@@ -21,7 +22,13 @@ logger: logging.Logger = get_logger(__name__)
 class MultiTypeExperiment(Experiment):
     """Class for experiment with multiple trial types.
 
-    TODO add details.
+    A canonical use case for this is tuning a large production system
+    with limited evaluation budget and a simulator which approximates
+    evaluations on the main system. Trial deployment and data fetching
+    is separate for the two systems, but the final data is combined and
+    fed into multi-task models.
+
+    See the Multi-Task Modeling tutorial for more details.
 
     Attributes:
         name: Name of the experiment.

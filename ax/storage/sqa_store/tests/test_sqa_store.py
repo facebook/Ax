@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from datetime import datetime
 from unittest.mock import MagicMock, Mock
@@ -14,6 +15,8 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.storage import ImmutabilityError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
+from ax.storage.metric_registry import METRIC_REGISTRY, register_metric
+from ax.storage.runner_registry import RUNNER_REGISTRY, register_runner
 from ax.storage.sqa_store.db import (
     SQABase,
     get_engine,
@@ -59,8 +62,9 @@ from ax.utils.testing.fake import (
     get_optimization_config,
     get_outcome_constraint,
     get_range_parameter,
+    get_range_parameter2,
     get_search_space,
-    get_sum_constraint1,
+    get_sum_constraint2,
     get_synthetic_runner,
 )
 
@@ -72,6 +76,10 @@ class SQAStoreTest(TestCase):
         self.encoder = Encoder(config=self.config)
         self.decoder = Decoder(config=self.config)
         self.experiment = get_experiment_with_batch_trial()
+        self.dummy_parameters = [
+            get_range_parameter(),  # w
+            get_range_parameter2(),  # x
+        ]
 
     def testCreationOfTestDB(self):
         init_test_engine_and_session_factory(tier_or_path=":memory:", force_init=True)
@@ -116,13 +124,17 @@ class SQAStoreTest(TestCase):
     def testListEquals(self):
         self.assertTrue(SQABase.list_equals([1, 2, 3], [1, 2, 3]))
         self.assertFalse(SQABase.list_equals([4], ["foo"]))
+        self.assertFalse(SQABase.list_equals([4], []))
 
         with self.assertRaises(ValueError):
             SQABase.list_equals([[4]], [[4]])
 
     def testListUpdate(self):
         self.assertEqual(SQABase.list_update([1, 2, 3], [1, 2, 3]), [1, 2, 3])
-        self.assertEqual(SQABase.list_update([4], ["foo"]), ["foo"])
+        self.assertEqual(SQABase.list_update([4], [5]), [5])
+
+        with self.assertRaises(ValueError):
+            self.assertEqual(SQABase.list_update([4], ["foo"]), ["foo"])
 
         with self.assertRaises(ValueError):
             SQABase.list_update([[4]], [[4]])
@@ -157,6 +169,15 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(loaded_experiment, self.experiment)
 
+    def testSaveValidation(self):
+        with self.assertRaises(ValueError):
+            save_experiment(self.experiment.trials[0])
+
+        experiment = get_experiment_with_batch_trial()
+        experiment.name = None
+        with self.assertRaises(ValueError):
+            save_experiment(experiment)
+
     def testEncodeDecode(self):
         for class_, fake_func, unbound_encode_func, unbound_decode_func in TEST_CASES:
             # Can't load trials from SQL, because a trial needs an experiment
@@ -167,7 +188,14 @@ class SQAStoreTest(TestCase):
             encode_func = unbound_encode_func.__get__(self.encoder)
             decode_func = unbound_decode_func.__get__(self.decoder)
             sqa_object = encode_func(original_object)
-            converted_object = decode_func(sqa_object)
+            if (
+                class_ == "OrderConstraint"
+                or class_ == "ParameterConstraint"
+                or class_ == "SumConstraint"
+            ):
+                converted_object = decode_func(sqa_object, self.dummy_parameters)
+            else:
+                converted_object = decode_func(sqa_object)
 
             if class_ == "SimpleExperiment":
                 # Evaluation functions will be different, so need to do
@@ -242,7 +270,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
 
         experiment.status_quo = Arm(
-            params={"w": 0.0, "x": 1, "y": "y", "z": True}, name="new_status_quo"
+            parameters={"w": 0.0, "x": 1, "y": "y", "z": True}, name="new_status_quo"
         )
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
@@ -300,14 +328,14 @@ class SQAStoreTest(TestCase):
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
-            get_session().query(SQAParameterConstraint).count(),  # 1
-            len(experiment.search_space.parameter_constraints),  # 1
+            get_session().query(SQAParameterConstraint).count(),  # 3
+            len(experiment.search_space.parameter_constraints),  # 3
         )
 
         # add a parameter constraint
         search_space = experiment.search_space
         existing_constraint = experiment.search_space.parameter_constraints[0]
-        new_constraint = get_sum_constraint1()
+        new_constraint = get_sum_constraint2()
         search_space.add_parameter_constraints([new_constraint])
         experiment.search_space = search_space
         save_experiment(experiment)
@@ -630,20 +658,24 @@ class SQAStoreTest(TestCase):
             type=ParameterConstraintType.ORDER, constraint_dict={}, bound=0
         )
         with self.assertRaises(SQADecodeError):
-            self.decoder.parameter_constraint_from_sqa(sqa_parameter)
+            self.decoder.parameter_constraint_from_sqa(
+                sqa_parameter, self.dummy_parameters
+            )
 
     def testDecodeSumParameterConstraintFailure(self):
         sqa_parameter = SQAParameterConstraint(
             type=ParameterConstraintType.SUM, constraint_dict={}, bound=0
         )
         with self.assertRaises(SQADecodeError):
-            self.decoder.parameter_constraint_from_sqa(sqa_parameter)
+            self.decoder.parameter_constraint_from_sqa(
+                sqa_parameter, self.dummy_parameters
+            )
 
     def testMetricValidation(self):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=self.config.metric_registry.class_to_type[BraninMetric],
+            metric_type=METRIC_REGISTRY[BraninMetric],
         )
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -660,7 +692,7 @@ class SQAStoreTest(TestCase):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=self.config.metric_registry.class_to_type[BraninMetric],
+            metric_type=METRIC_REGISTRY[BraninMetric],
             generator_run_id=0,
         )
         with session_scope() as session:
@@ -683,7 +715,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
 
-        sqa_metric.metric_type = self.config.metric_registry.class_to_type[BraninMetric]
+        sqa_metric.metric_type = METRIC_REGISTRY[BraninMetric]
         sqa_metric.intent = "foobar"
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
@@ -701,9 +733,7 @@ class SQAStoreTest(TestCase):
             self.decoder.runner_from_sqa(sqa_runner)
 
     def testRunnerValidation(self):
-        sqa_runner = SQARunner(
-            runner_type=self.config.runner_registry.class_to_type[SyntheticRunner]
-        )
+        sqa_runner = SQARunner(runner_type=RUNNER_REGISTRY[SyntheticRunner])
         with self.assertRaises(ValueError):
             with session_scope() as session:
                 session.add(sqa_runner)
@@ -716,10 +746,7 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_runner)
 
-        sqa_runner = SQARunner(
-            runner_type=self.config.runner_registry.class_to_type[SyntheticRunner],
-            trial_id=0,
-        )
+        sqa_runner = SQARunner(runner_type=RUNNER_REGISTRY[SyntheticRunner], trial_id=0)
         with session_scope() as session:
             session.add(sqa_runner)
         with self.assertRaises(ValueError):
@@ -740,3 +767,24 @@ class SQAStoreTest(TestCase):
 
         properties = get_object_properties(Metric(name="foo", lower_is_better=True))
         self.assertEqual(properties, {"name": "foo", "lower_is_better": True})
+
+    def testRegistryAdditions(self):
+        class MyRunner(Runner):
+            def run():
+                pass
+
+            def staging_required():
+                return False
+
+        class MyMetric(Metric):
+            pass
+
+        register_metric(MyMetric)
+        register_runner(MyRunner)
+
+        experiment = get_experiment_with_batch_trial()
+        experiment.runner = MyRunner()
+        experiment.add_tracking_metric(MyMetric(name="my_metric"))
+        save_experiment(experiment)
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(loaded_experiment, experiment)

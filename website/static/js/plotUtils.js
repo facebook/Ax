@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
 // helper functions used across multiple plots
 function rgb(rgb_array) {
   return 'rgb(' + rgb_array.join() + ')';

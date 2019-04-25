@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Dict, Tuple
 
@@ -95,7 +96,7 @@ def load_mnist(
 
 def train(
     train_loader: DataLoader,
-    params: Dict[str, float],
+    parameters: Dict[str, float],
     dtype: torch.dtype,
     device: torch.device,
 ) -> nn.Module:
@@ -104,7 +105,7 @@ def train(
 
     Args:
         train_loader: DataLoader containing training set
-        params: dictionary containing parameters to be passed to the optimizer.
+        parameters: dictionary containing parameters to be passed to the optimizer.
             - lr: default (0.001)
             - momentum: default (0.9)
         dtype: torch dtype
@@ -119,8 +120,8 @@ def train(
     criterion = nn.NLLLoss(reduction="sum")
     optimizer = optim.SGD(
         net.parameters(),
-        lr=params.get("lr", 0.001),
-        momentum=params.get("momentum", 0.9),
+        lr=parameters.get("lr", 0.001),
+        momentum=parameters.get("momentum", 0.9),
     )
 
     # Train Network
@@ -165,7 +166,6 @@ def evaluate(
             outputs = net(inputs)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
-            # pyre-fixme[16]: `bool` has no attribute `sum`.
             correct += (predicted == labels).sum().item()
 
     return correct / total

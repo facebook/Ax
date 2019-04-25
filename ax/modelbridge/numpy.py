@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import List
 
@@ -17,4 +18,4 @@ class NumpyModelBridge(ArrayModelBridge):
 
     model: NumpyModel
     outcomes: List[str]
-    params: List[str]
+    parameters: List[str]

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import List, Optional
 
@@ -28,7 +29,7 @@ class SearchSpaceToChoice(Transform):
     ) -> None:
         self.choice_parameter_name = "arms"
         self.signature_to_parameterization = {
-            Arm(params=obsf.parameters).signature: obsf.parameters
+            Arm(parameters=obsf.parameters).signature: obsf.parameters
             for obsf in observation_features
         }
 
@@ -47,7 +48,7 @@ class SearchSpaceToChoice(Transform):
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
             obsf.parameters = {
-                self.choice_parameter_name: Arm(params=obsf.parameters).signature
+                self.choice_parameter_name: Arm(parameters=obsf.parameters).signature
             }
         return observation_features
 

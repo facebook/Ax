@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from copy import deepcopy
 
@@ -34,7 +35,7 @@ class RemoveFixedTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(list(self.t.fixed_params.keys()), ["c"])
+        self.assertEqual(list(self.t.fixed_parameters.keys()), ["c"])
 
     def testTransformObservationFeatures(self):
         observation_features = [

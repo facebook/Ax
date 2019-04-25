@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 # pyre-strict
 
 from typing import Dict, List, Union
 
 from ax.core.base import Base
+from ax.core.parameter import ChoiceParameter, Parameter, RangeParameter
 from ax.core.types import ComparisonOp
 
 
@@ -57,9 +59,9 @@ class ParameterConstraint(Base):
         Returns:
             Whether the constraint is satisfied.
         """
-        for parameter in self.constraint_dict.keys():
-            if parameter not in parameter_dict.keys():
-                raise ValueError(f"`{parameter}` not present in param_dict.")
+        for parameter_name in self.constraint_dict.keys():
+            if parameter_name not in parameter_dict.keys():
+                raise ValueError(f"`{parameter_name}` not present in param_dict.")
 
         weighted_sum = sum(
             float(parameter_dict[param]) * weight
@@ -71,6 +73,7 @@ class ParameterConstraint(Base):
         return weighted_sum <= self._bound
 
     def clone(self) -> "ParameterConstraint":
+        """Clone."""
         return ParameterConstraint(
             constraint_dict=self._constraint_dict, bound=self._bound
         )
@@ -88,39 +91,53 @@ class OrderConstraint(ParameterConstraint):
 
     _bound: float
 
-    def __init__(self, lower_name: str, upper_name: str) -> None:
+    def __init__(self, lower_parameter: Parameter, upper_parameter: Parameter) -> None:
         """Initialize OrderConstraint
 
         Args:
-            lower_name: Name of parameter that should have the lower value.
-            upper_name: Name of parameter that should have the higher value.
+            lower_parameter: Parameter that should have the lower value.
+            upper_parameter: Parameter that should have the higher value.
 
         Note:
             The constraint p1 <= p2 can be expressed in matrix notation as
             [1, -1] * [p1, p2]^T <= 0.
         """
+        validate_constraint_parameters([lower_parameter, upper_parameter])
 
-        self._lower_name = lower_name
-        self._upper_name = upper_name
+        self._lower_parameter = lower_parameter
+        self._upper_parameter = upper_parameter
         self._bound = 0.0
 
     @property
-    def lower_name(self) -> str:
-        return self._lower_name
+    def lower_parameter(self) -> Parameter:
+        """Parameter with lower value."""
+        return self._lower_parameter
 
     @property
-    def upper_name(self) -> str:
-        return self._upper_name
+    def upper_parameter(self) -> Parameter:
+        """Parameter with higher value."""
+        return self._upper_parameter
+
+    @property
+    def parameters(self) -> List[Parameter]:
+        """Parameters."""
+        return [self.lower_parameter, self.upper_parameter]
 
     @property
     def constraint_dict(self) -> Dict[str, float]:
-        return {self._lower_name: 1.0, self._upper_name: -1.0}
+        """Weights on parameters for linear constraint representation."""
+        return {self.lower_parameter.name: 1.0, self.upper_parameter.name: -1.0}
 
     def clone(self) -> "OrderConstraint":
-        return OrderConstraint(lower_name=self._lower_name, upper_name=self._upper_name)
+        """Clone."""
+        return OrderConstraint(
+            lower_parameter=self.lower_parameter, upper_parameter=self._upper_parameter
+        )
 
     def __repr__(self) -> str:
-        return "OrderConstraint({} <= {})".format(self._lower_name, self._upper_name)
+        return "OrderConstraint({} <= {})".format(
+            self.lower_parameter.name, self.upper_parameter.name
+        )
 
 
 class SumConstraint(ParameterConstraint):
@@ -128,27 +145,33 @@ class SumConstraint(ParameterConstraint):
     """
 
     def __init__(
-        self, parameter_names: List[str], is_upper_bound: bool, bound: float
+        self, parameters: List[Parameter], is_upper_bound: bool, bound: float
     ) -> None:
         """Initialize SumConstraint
 
         Args:
-            parameter_names: List of parameters whose sum to constrain on.
+            parameters: List of parameters whose sum to constrain on.
             is_upper_bound: Whether the bound is an upper or lower bound on the sum.
             bound: The bound on the sum.
         """
-        if len(set(parameter_names)) < len(parameter_names):
-            raise ValueError("Parameter names are not unique.")
+        validate_constraint_parameters(parameters)
 
+        self._parameters = parameters
         self._is_upper_bound: bool = is_upper_bound
-        self._parameter_names: List[str] = parameter_names
+        self._parameter_names: List[str] = [parameter.name for parameter in parameters]
         self._bound: float = self._inequality_weight * bound
         self._constraint_dict: Dict[str, float] = {
             name: self._inequality_weight for name in self._parameter_names
         }
 
     @property
+    def parameters(self) -> List[Parameter]:
+        """Parameters."""
+        return self._parameters
+
+    @property
     def constraint_dict(self) -> Dict[str, float]:
+        """Weights on parameters for linear constraint representation."""
         return self._constraint_dict
 
     @property
@@ -157,8 +180,9 @@ class SumConstraint(ParameterConstraint):
         return ComparisonOp.LEQ if self._is_upper_bound else ComparisonOp.GEQ
 
     def clone(self) -> "SumConstraint":
+        """Clone."""
         return SumConstraint(
-            parameter_names=self._parameter_names,
+            parameters=self._parameters,
             is_upper_bound=self._is_upper_bound,
             bound=self._bound,
         )
@@ -177,8 +201,41 @@ class SumConstraint(ParameterConstraint):
         symbol = ">=" if self.op == ComparisonOp.GEQ else "<="
         return (
             "SumConstraint("
-            + " + ".join(self.constraint_dict.keys())
+            + " + ".join(self._parameter_names)
             + " {} {})".format(
                 symbol, self._bound if self.op == ComparisonOp.LEQ else -self._bound
             )
         )
+
+
+def validate_constraint_parameters(parameters: List[Parameter]) -> None:
+    """Basic validation of parameters used in a constraint.
+
+    Args:
+        parameters: Parameters used in constraint.
+
+    Raises:
+        ValueError if the parameters are not valid for use.
+    """
+    unique_parameter_names = {p.name for p in parameters}
+    if len(unique_parameter_names) != len(parameters):
+        raise ValueError("Duplicate parameter in constraint.")
+
+    for parameter in parameters:
+        if not parameter.is_numeric:
+            raise ValueError(
+                "Parameter constraints only supported for numeric parameters."
+            )
+
+        # ChoiceParameters are transformed either using OneHotEncoding
+        # or the OrderedChoice transform. Both are non-linear, and
+        # Ax models only support linear constraints.
+        if isinstance(parameter, ChoiceParameter):
+            raise ValueError("Parameter constraints not supported for ChoiceParameter.")
+
+        # Log parameters require a non-linear transformation, and Ax
+        # models only support linear constraints.
+        if isinstance(parameter, RangeParameter) and parameter.log_scale is True:
+            raise ValueError(
+                f"Parameter constraints not allowed on log scale parameters."
+            )

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from collections import OrderedDict
 from unittest import mock
@@ -15,14 +16,13 @@ from ax.utils.common.testutils import TestCase
 
 class RandomModelBridgeTest(TestCase):
     def setUp(self):
-        self.parameters = [
-            RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1),
-            RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2),
-            RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5),
-        ]
+        x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
+        y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2)
+        z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)
+        self.parameters = [x, y, z]
         parameter_constraints = [
-            OrderConstraint("x", "y"),
-            SumConstraint(["x", "z"], False, 3.5),
+            OrderConstraint(x, y),
+            SumConstraint([x, z], False, 3.5),
         ]
 
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
@@ -34,14 +34,14 @@ class RandomModelBridgeTest(TestCase):
         modelbridge = RandomModelBridge()
         model = mock.create_autospec(RandomModel, instance=True)
         modelbridge._fit(model, self.search_space, None, None)
-        self.assertEqual(modelbridge.params, ["x", "y", "z"])
+        self.assertEqual(modelbridge.parameters, ["x", "y", "z"])
         self.assertTrue(isinstance(modelbridge.model, RandomModel))
 
     @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
     def testPredict(self, mock_init):
         modelbridge = RandomModelBridge()
         modelbridge.transforms = OrderedDict()
-        modelbridge.params = ["x", "y", "z"]
+        modelbridge.parameters = ["x", "y", "z"]
         with self.assertRaises(NotImplementedError):
             modelbridge._predict([])
 
@@ -49,7 +49,7 @@ class RandomModelBridgeTest(TestCase):
     def testCrossValidate(self, mock_init):
         modelbridge = RandomModelBridge()
         modelbridge.transforms = OrderedDict()
-        modelbridge.params = ["x", "y", "z"]
+        modelbridge.parameters = ["x", "y", "z"]
         with self.assertRaises(NotImplementedError):
             modelbridge._cross_validate([], [], [])
 
@@ -65,7 +65,7 @@ class RandomModelBridgeTest(TestCase):
     def testGen(self, mock_init, mock_gen):
         # Test with constraints
         modelbridge = RandomModelBridge()
-        modelbridge.params = ["x", "y", "z"]
+        modelbridge.parameters = ["x", "y", "z"]
         modelbridge.transforms = OrderedDict()
         modelbridge.model = RandomModel()
         observation_features, weights, best_obsf = modelbridge._gen(
@@ -100,7 +100,7 @@ class RandomModelBridgeTest(TestCase):
 
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])
-        modelbridge.params = ["x", "y"]
+        modelbridge.parameters = ["x", "y"]
         modelbridge._gen(
             n=3,
             search_space=search_space,

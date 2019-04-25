@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from collections import OrderedDict
 from unittest import mock
@@ -20,14 +21,13 @@ from ax.utils.common.testutils import TestCase
 
 class NumpyModelBridgeTest(TestCase):
     def setUp(self):
-        self.parameters = [
-            RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1),
-            RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2),
-            RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5),
-        ]
+        x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
+        y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2)
+        z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)
+        self.parameters = [x, y, z]
         parameter_constraints = [
-            OrderConstraint("x", "y"),
-            SumConstraint(["x", "z"], False, 3.5),
+            OrderConstraint(x, y),
+            SumConstraint([x, z], False, 3.5),
         ]
 
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
@@ -83,7 +83,7 @@ class NumpyModelBridgeTest(TestCase):
             self.observation_features + [sq_feat],
             self.observation_data + [sq_data],
         )
-        self.assertEqual(ma.params, ["x", "y", "z"])
+        self.assertEqual(ma.parameters, ["x", "y", "z"])
         self.assertEqual(sorted(ma.outcomes), ["a", "b"])
         self.assertEqual(ma.training_in_design, [True, True, True, False])
         Xs = {
@@ -131,7 +131,7 @@ class NumpyModelBridgeTest(TestCase):
     @mock.patch("ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None)
     def testPredict(self, mock_init, mock_predict):
         ma = NumpyModelBridge()
-        ma.params = ["x", "y", "z"]
+        ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
         observation_data = ma._predict(self.observation_features)
         X = np.array([[0.2, 1.2, 3.0], [0.4, 1.4, 3.0], [0.6, 1.6, 3]])
@@ -162,7 +162,7 @@ class NumpyModelBridgeTest(TestCase):
             ],
         )
         ma = NumpyModelBridge()
-        ma.params = ["x", "y", "z"]
+        ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
         ma.transforms = OrderedDict()
         observation_features, weights, best_obsf = ma._gen(
@@ -236,7 +236,7 @@ class NumpyModelBridgeTest(TestCase):
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])
         optimization_config.outcome_constraints = []
-        ma.params = ["x", "y"]
+        ma.parameters = ["x", "y"]
         ma._gen(3, search_space, {}, ObservationFeatures({}), None, optimization_config)
         gen_args = mock_gen.mock_calls[2][2]
         self.assertEqual(gen_args["bounds"], [(0.0, 1.0), (1.0, 2.0)])
@@ -286,7 +286,7 @@ class NumpyModelBridgeTest(TestCase):
     @mock.patch("ax.modelbridge.numpy.NumpyModelBridge.__init__", return_value=None)
     def testCrossValidate(self, mock_init, mock_cv):
         ma = NumpyModelBridge()
-        ma.params = ["x", "y", "z"]
+        ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
         observation_data = ma._cross_validate(
             self.observation_features, self.observation_data, self.observation_features

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Any, List, Optional
 
@@ -56,7 +57,7 @@ class NoisyFunctionMetric(Metric):
         mean = []
         for name, arm in trial.arms_by_name.items():
             arm_names.append(name)
-            x = np.array([arm.params[p] for p in self.param_names])
+            x = np.array([arm.parameters[p] for p in self.param_names])
             mean.append(self.f(x) + np.random.randn() * noise_sd)
         df = pd.DataFrame(
             {

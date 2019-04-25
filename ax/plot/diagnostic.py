@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -276,7 +277,7 @@ def _get_batch_comparison_plot_data(
             "name": arm_name,
             "y": {},
             "se": {},
-            "params": x_observation.features.parameters,
+            "parameters": x_observation.features.parameters,
             "y_hat": {},
             "se_hat": {},
             "context_stratum": None,
@@ -322,7 +323,7 @@ def _get_cv_plot_data(cv_results: List[CVResult]) -> PlotData:
             "name": cv_result.observed.arm_name,
             "y": {},
             "se": {},
-            "params": cv_result.observed.features.parameters,
+            "parameters": cv_result.observed.features.parameters,
             "y_hat": {},
             "se_hat": {},
             "context_stratum": None,
@@ -372,7 +373,7 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
                 "name": arm.name_or_short_signature,
                 "y": {},
                 "se": {},
-                "params": arm.params,
+                "parameters": arm.parameters,
                 "y_hat": {},
                 "se_hat": {},
                 "context_stratum": None,

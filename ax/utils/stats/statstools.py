@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Dict, List, NamedTuple, Tuple, Union
 
@@ -271,7 +272,7 @@ def relativize(
     cov_means: Union[np.ndarray, List[float], float] = 0.0,
     as_percent: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Ratio estimator based on the delta method. Adapted from Deltoid3
+    """Ratio estimator based on the delta method.
 
     This uses the delta method (i.e. a Taylor series approximation) to estimate
     the mean and standard deviation of the sampling distribution of the ratio
@@ -323,7 +324,7 @@ def relativize(
             distribution of rel_hat -- i.e. the standard error.
 
     """
-    # if mean_c is too small, bail (taken from Deltoid3)
+    # if mean_c is too small, bail
     epsilon = 1e-10
     if np.any(np.abs(mean_c) < epsilon):
         raise ValueError(
@@ -592,12 +593,10 @@ def ancillary_james_stein(
     unbiased means (weighted by the weights argument).
     Args:
         means_unbiased: Unbiased means
-        sems_unbiased: SEMs for
-            unbiased means
+        sems_unbiased: SEMs for unbiased means
         means_biased: Biased means
         sems_biased: SEMs for biased means
-        ns: weights for calculation of
-            bias term
+        ns: weights for calculation of bias term
 
     Returns:
         means: Empirical bayes estimate of underlying mean

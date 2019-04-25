@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import numbers
 from collections import OrderedDict
@@ -175,7 +176,7 @@ def _error_scatter_trace(
         )
 
         parameterization = (
-            _format_dict(arms[i].params, "Parameterization")
+            _format_dict(arms[i].parameters, "Parameterization")
             if show_arm_details_on_hover
             else ""
         )

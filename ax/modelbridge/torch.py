@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Callable, Dict, List, Optional, Tuple, Type
 
@@ -33,8 +34,8 @@ class TorchModelBridge(ArrayModelBridge):
     model: Optional[TorchModel]
     # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: Optional[List[str]]
-    # pyre-fixme[13]: Attribute `params` is never initialized.
-    params: Optional[List[str]]
+    # pyre-fixme[13]: Attribute `parameters` is never initialized.
+    parameters: Optional[List[str]]
 
     def __init__(
         self,

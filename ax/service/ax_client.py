@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -35,24 +36,46 @@ class AxClient:
     Two custom types used in this class for convenience are `TParamValue` and
     `TParameterization`. Those are shortcuts for `Union[str, bool, float, int]`
     and `Dict[str, Union[str, bool, float, int]]`, respectively.
+
+    Args:
+        generation_strategy: Optional generation strategy. If not set, one is
+            intelligently chosen based on properties of search space.
+
+        db_settings: Settings for saving and reloading the underlying experiment
+            to a database.
+
+        enforce_sequential_optimization: Whether to enforce that when it is
+            reasonable to switch models during the optimization (as prescribed
+            by `num_arms` in generation strategy), Ax will wait for enough trials
+            to be completed with data to proceed. Defaults to True. If set to
+            False, Ax will keep generating new trials from the previous model
+            until enough data is gathered. Use this only if necessary;
+            otherwise, it is more resource-efficient to
+            optimize sequentially, by waiting until enough data is available to
+            use the next model.
     """
 
     def __init__(
         self,
         generation_strategy: Optional[GenerationStrategy] = None,
         db_settings: Optional[DBSettings] = None,
+        enforce_sequential_optimization: bool = True,
     ) -> None:
         self.generation_strategy = generation_strategy
         self.db_settings = db_settings
         self._experiment: Optional[Experiment] = None
+        self._enforce_sequential_optimization = enforce_sequential_optimization
+        # Trials, for which we received data since last `GenerationStrategy.gen`,
+        # used to make sure that generation strategy is updated with new data.
+        self._updated_trials: List[int] = []
 
     # ------------------------ Public API methods. ------------------------
 
     def create_experiment(
         self,
-        name: str,
         parameters: List[Dict[str, Union[TParamValue, List[TParamValue]]]],
-        objective_name: str,
+        name: Optional[str] = None,
+        objective_name: Optional[str] = None,
         minimize: bool = False,
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
@@ -60,7 +83,6 @@ class AxClient:
         """Create a new experiment and save it if DBSettings available.
 
         Args:
-            name: Name of the experiment to be created.
             parameters: List of dictionaries representing parameters in the
                 experiment search space. Required elements in the dictionaries
                 are: "name" (name of this parameter, string), "type" (type of the
@@ -70,12 +92,18 @@ class AxClient:
                 fixed parameters (single value).
             objective: Name of the metric used as objective in this experiment.
                 This metric must be present in `raw_data` argument to `log_data`.
+            name: Name of the experiment to be created.
             minimize: Whether this experiment represents a minimization problem.
             parameter_constraints: List of string representation of parameter
                 constraints, such as "x3 >= x4" or "x3 + x4 >= 2".
             outcome_constraints: List of string representation of outcome
                 constraints of form "metric_name >= bound", like "m1 <= 3."
         """
+        if self.db_settings and not name:
+            raise ValueError(
+                "Must give the experiment a name if `db_settings` is not None."
+            )
+
         self._experiment = make_experiment(
             name=name,
             parameters=parameters,
@@ -86,7 +114,8 @@ class AxClient:
         )
         if self.generation_strategy is None:
             self.generation_strategy = choose_generation_strategy(
-                search_space=self._experiment.search_space
+                search_space=self._experiment.search_space,
+                enforce_sequential_optimization=self._enforce_sequential_optimization,
             )
         self._save_experiment_if_possible()
 
@@ -101,14 +130,19 @@ class AxClient:
         """
         # NOTE: Could move this into log_data to save latency on this call.
         trial = self._suggest_new_trial()
+        self._updated_trials = []
         self._save_experiment_if_possible()
-        return not_none(trial.arm).params, trial.index
+        return not_none(trial.arm).parameters, trial.index
 
     def complete_trial(
         self,
         trial_index: int,
-        # `raw_data` argument format: {metric_name -> (mean, standard error)}
-        raw_data: Dict[str, Tuple[float, float]],
+        # acceptable `raw_data` argument formats:
+        # 1) {metric_name -> (mean, standard error)}
+        # 2) (mean, standard error) and we assume metric name == objective name
+        # 3) only the mean, and we assume metric name == objective name and
+        #    standard error == 0
+        raw_data: TEvaluationOutcome,
         metadata: Optional[Dict[str, str]] = None,
     ) -> None:
         """
@@ -128,8 +162,33 @@ class AxClient:
         if metadata is not None:
             trial._run_metadata = metadata
 
-        data = Data.from_evaluations({not_none(trial.arm).name: raw_data}, trial.index)
+        if isinstance(raw_data, dict):
+            evaluations = {not_none(trial.arm).name: raw_data}
+        elif isinstance(raw_data, tuple):
+            evaluations = {
+                not_none(trial.arm).name: {
+                    self.experiment.optimization_config.objective.metric.name: raw_data
+                }
+            }
+        elif isinstance(raw_data, float) or isinstance(raw_data, int):
+            evaluations = {
+                not_none(trial.arm).name: {
+                    self.experiment.optimization_config.objective.metric.name: (
+                        raw_data,
+                        0.0,
+                    )
+                }
+            }
+        else:
+            raise Exception(  # pragma: no cover
+                "Raw_data has an invalid type. The data must either be in the form "
+                "of a dictionary of metric names to mean, sem tuples, "
+                "or a single mean, sem tuple, or a single mean."
+            )
+
+        data = Data.from_evaluations(evaluations, trial.index)
         self.experiment.attach_data(data)
+        self._updated_trials.append(trial_index)
         self._save_experiment_if_possible()
 
     def log_trial_failure(
@@ -158,9 +217,9 @@ class AxClient:
         Returns:
             Tuple of parameterization and trial index from newly created trial.
         """
-        trial = self.experiment.new_trial().add_arm(Arm(params=parameters))
+        trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
         self._save_experiment_if_possible()
-        return not_none(trial.arm).params, trial.index
+        return not_none(trial.arm).parameters, trial.index
 
     # TODO[T42389552]: this is currently only compatible with some models.
     def get_best_parameters(
@@ -179,7 +238,8 @@ class AxClient:
         name to a mapping of other mapping name to covariance of the two metrics.
 
         Returns:
-            Tuple of (best params, model predictions for best params). None if no data.
+            Tuple of (best parameters, model predictions for best parameters).
+            None if no data.
         """
         # Find latest trial which has a generator_run attached and get its predictions
         for _, trial in sorted(
@@ -189,7 +249,7 @@ class AxClient:
             gr = tr.generator_run
             if gr is not None and gr.best_arm_predictions is not None:
                 best_arm, best_arm_predictions = gr.best_arm_predictions
-                return best_arm.params, best_arm_predictions
+                return best_arm.parameters, best_arm_predictions
         return None
 
     def load_experiment(self, experiment_name: str) -> None:
@@ -249,14 +309,10 @@ class AxClient:
         Returns:
             Trial with candidate.
         """
-        try:
-            generator = not_none(self.generation_strategy).get_model(
-                self.experiment, data=self.experiment.fetch_data()
-            )
-            generator_run = generator.gen(n=1)
-        except ValueError as err:
-            raise ValueError(
-                f"Error getting next trial: {err} Likely cause of the error is "
-                "that more trials need to be completed with data."
-            )
+        new_data = Data.from_multiple_data(
+            [self.experiment.lookup_data_for_trial(idx) for idx in self._updated_trials]
+        )
+        generator_run = not_none(self.generation_strategy).gen(
+            experiment=self.experiment, new_data=new_data
+        )
         return self.experiment.new_trial(generator_run=generator_run)

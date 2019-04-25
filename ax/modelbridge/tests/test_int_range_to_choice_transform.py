@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from copy import deepcopy
 
@@ -27,7 +28,7 @@ class IntRangeToChoiceTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(self.t.transform_params, {"a"})
+        self.assertEqual(self.t.transform_parameters, {"a"})
 
     def testTransformObservationFeatures(self):
         observation_features = [ObservationFeatures(parameters={"a": 2, "b": "b"})]

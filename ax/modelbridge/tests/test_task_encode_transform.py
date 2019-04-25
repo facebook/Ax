@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from copy import deepcopy
 
@@ -37,7 +38,7 @@ class TaskEncodeTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(list(self.t.encoded_params.keys()), ["c"])
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["c"])
 
     def testTransformObservationFeatures(self):
         observation_features = [

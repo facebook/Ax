@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from copy import deepcopy
 
@@ -45,7 +46,7 @@ class OrderedChoiceEncodeTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(list(self.t.encoded_params.keys()), ["b", "c"])
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
 
     def testTransformObservationFeatures(self):
         observation_features = [

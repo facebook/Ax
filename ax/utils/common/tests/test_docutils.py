@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.testutils import TestCase

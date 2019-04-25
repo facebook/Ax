@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Callable, Dict, List, MutableMapping, Optional, Tuple
 
@@ -156,7 +157,7 @@ def transform_callback(
             observation_features = t.transform_observation_features(
                 observation_features
             )
-        # params are guaranteed to be float compatible here, but pyre doesn't know
+        # parameters are guaranteed to be float compatible here, but pyre doesn't know
         new_x: List[float] = [
             float(observation_features[0].parameters[p])  # pyre-ignore
             for p in param_names

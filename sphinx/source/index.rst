@@ -21,6 +21,7 @@ Ax API Reference
    plot
    runners
    storage
+   utils
 
 
 Indices and tables

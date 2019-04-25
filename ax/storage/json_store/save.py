@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import json
 
@@ -12,6 +13,9 @@ def save_experiment(experiment: Experiment, filepath: str) -> None:
     1) Convert Ax experiment to JSON-serializable dictionary.
     2) Write to file.
     """
+    if not isinstance(experiment, Experiment):
+        raise ValueError("Can only save instances of Experiment")
+
     if not filepath.endswith(".json"):
         raise ValueError("Filepath must end in .json")
 

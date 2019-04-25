@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import datetime
 import enum
 from collections import OrderedDict
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data  # noqa F401
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.parameter import Parameter
+from ax.core.parameter_constraint import (
+    OrderConstraint,
+    ParameterConstraint,
+    SumConstraint,
+)
+from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import (
     SimpleExperiment,
     unimplemented_evaluation_function,
@@ -64,6 +72,8 @@ def object_from_json(object_json: Any) -> Any:
             return simple_experiment_from_json(object_json=object_json)
         elif _class == Experiment:
             return experiment_from_json(object_json=object_json)
+        elif _class == SearchSpace:
+            return search_space_from_json(search_space_json=object_json)
 
         return _class(**{k: object_from_json(v) for k, v in object_json.items()})
     else:
@@ -86,6 +96,62 @@ def generator_run_from_json(object_json: Dict[str, Any]) -> GeneratorRun:
     generator_run._generator_run_type = object_from_json(type_json)
     generator_run._index = object_from_json(index_json)
     return generator_run
+
+
+def search_space_from_json(search_space_json: Dict[str, Any]) -> SearchSpace:
+    """Load a SearchSpace from JSON.
+
+    This function is necessary due to the coupled loading of SearchSpace
+    and parameter constraints.
+    """
+    parameters = object_from_json(search_space_json.pop("parameters"))
+    json_param_constraints = search_space_json.pop("parameter_constraints")
+    return SearchSpace(
+        parameters=parameters,
+        parameter_constraints=parameter_constraints_from_json(
+            parameter_constraint_json=json_param_constraints, parameters=parameters
+        ),
+    )
+
+
+def parameter_constraints_from_json(
+    parameter_constraint_json: List[Dict[str, Any]], parameters: List[Parameter]
+) -> List[ParameterConstraint]:
+    """Load ParameterConstraints from JSON.
+
+    Order and SumConstraint are tied to a search space,
+    and require that SearchSpace's parameters to be passed in for decoding.
+
+    Args:
+        parameter_constraint_json: JSON representation of parameter constraints.
+        parameters: Parameter definitions for decoding via parameter names.
+
+    Returns:
+        parameter_constraints: Python classes for parameter constraints.
+    """
+    parameter_constraints = []
+    parameter_map = {p.name: p for p in parameters}
+    for constraint in parameter_constraint_json:
+        if constraint["__type"] == "OrderConstraint":
+            lower_parameter = parameter_map[constraint["lower_name"]]
+            upper_parameter = parameter_map[constraint["upper_name"]]
+            parameter_constraints.append(
+                OrderConstraint(
+                    lower_parameter=lower_parameter, upper_parameter=upper_parameter
+                )
+            )
+        elif constraint["__type"] == "SumConstraint":
+            parameters = [parameter_map[name] for name in constraint["parameter_names"]]
+            parameter_constraints.append(
+                SumConstraint(
+                    parameters=parameters,
+                    is_upper_bound=constraint["is_upper_bound"],
+                    bound=constraint["bound"],
+                )
+            )
+        else:
+            parameter_constraints.append(object_from_json(constraint))
+    return parameter_constraints
 
 
 def trials_from_json(

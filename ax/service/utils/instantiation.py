@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 from typing import Dict, List, Optional, Union, cast
 
 from ax.core.experiment import Experiment
@@ -21,6 +22,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
+from ax.core.simple_experiment import DEFAULT_OBJECTIVE_NAME
 from ax.core.types import ComparisonOp, TParamValue
 from ax.utils.common.typeutils import not_none
 
@@ -148,7 +150,7 @@ def parameter_from_json(
 
 
 def constraint_from_str(
-    representation: str, parameter_names: List[str]
+    representation: str, parameters: Dict[str, Parameter]
 ) -> ParameterConstraint:
     """Parse string representation of a parameter constraint."""
     tokens = representation.split()
@@ -160,14 +162,19 @@ def constraint_from_str(
         "x is a float bound, and acceptable comparison operators are >= and <=."
     )
     one, other = tokens[0], tokens[2]
+    parameter_names = parameters.keys()
     assert one in parameter_names, f"Parameter {one} not in {parameter_names}."
     assert other in parameter_names, f"Parameter {other} not in {parameter_names}."
 
     if len(tokens) == 3:  # Case "x1 >= x2" => order constraint.
         return (
-            OrderConstraint(lower_name=one, upper_name=other)
+            OrderConstraint(
+                lower_parameter=parameters[one], upper_parameter=parameters[other]
+            )
             if COMPARISON_OPS[tokens[1]] is ComparisonOp.LEQ
-            else OrderConstraint(lower_name=other, upper_name=one)
+            else OrderConstraint(
+                lower_parameter=parameters[other], upper_parameter=parameters[one]
+            )
         )
 
     try:  # Case "x1 + x3 >= 2" => sum constraint.
@@ -175,7 +182,7 @@ def constraint_from_str(
     except ValueError:
         raise ValueError(f"Bound for sum constraint must be a number; got {tokens[4]}")
     return SumConstraint(
-        parameter_names=[one, other],
+        parameters=[parameters[one], parameters[other]],
         is_upper_bound=COMPARISON_OPS[tokens[3]] is ComparisonOp.LEQ,
         bound=bound,
     )
@@ -197,9 +204,9 @@ def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
 
 
 def make_experiment(
-    name: str,
     parameters: List[TParameterRepresentation],
-    objective_name: str,
+    name: Optional[str] = None,
+    objective_name: Optional[str] = None,
     minimize: bool = False,
     parameter_constraints: Optional[List[str]] = None,
     outcome_constraints: Optional[List[str]] = None,
@@ -208,17 +215,20 @@ def make_experiment(
     importing or instantiating any Ax classes."""
 
     exp_parameters: List[Parameter] = [parameter_from_json(p) for p in parameters]
-    names = [p.name for p in exp_parameters]
+    parameter_map = {p.name: p for p in exp_parameters}
     return Experiment(
         name=name,
         search_space=SearchSpace(
             parameters=exp_parameters,
             parameter_constraints=None
             if parameter_constraints is None
-            else [constraint_from_str(c, names) for c in parameter_constraints],
+            else [constraint_from_str(c, parameter_map) for c in parameter_constraints],
         ),
         optimization_config=OptimizationConfig(
-            objective=Objective(metric=Metric(name=objective_name), minimize=minimize),
+            objective=Objective(
+                metric=Metric(name=objective_name or DEFAULT_OBJECTIVE_NAME),
+                minimize=minimize,
+            ),
             outcome_constraints=None
             if outcome_constraints is None
             else [outcome_constraint_from_str(c) for c in outcome_constraints],

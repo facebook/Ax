@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Any, Dict
 
@@ -130,8 +131,8 @@ def order_parameter_constraint_to_dict(
     """Convert Ax order parameter constraint to a dictionary."""
     return {
         "__type": parameter_constraint.__class__.__name__,
-        "lower_name": parameter_constraint.lower_name,
-        "upper_name": parameter_constraint.upper_name,
+        "lower_name": parameter_constraint.lower_parameter.name,
+        "upper_name": parameter_constraint.upper_parameter.name,
     }
 
 
@@ -162,7 +163,11 @@ def parameter_constraint_to_dict(
 
 def arm_to_dict(arm: Arm) -> Dict[str, Any]:
     """Convert Ax arm to a dictionary."""
-    return {"__type": arm.__class__.__name__, "params": arm.params, "name": arm._name}
+    return {
+        "__type": arm.__class__.__name__,
+        "parameters": arm.parameters,
+        "name": arm._name,
+    }
 
 
 def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:

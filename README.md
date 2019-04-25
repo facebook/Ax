@@ -13,7 +13,7 @@ At the moment, Ax does not build on Python 3.7 because of GPy (however, this is 
 
 ### pip
 
-NOTE: Both botorch and Ax are currently private repositories. This means that to download them, using `pip`, you need to make sure that you have an [SSH key is registered with GitHub](https://help.github.com/articles/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent/).
+NOTE: Both BoTorch and Ax are currently private repositories. This means that to download them, using `pip`, you need to make sure that you have an [SSH key is registered with GitHub](https://help.github.com/articles/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent/).
 
 1) Install numpy and cython, if you don't have them:
 
@@ -21,12 +21,21 @@ NOTE: Both botorch and Ax are currently private repositories. This means that to
 pip3 install cython numpy
 ```
 
-They are needed for parsing the `setup.py` files for both botorch and Ax.
+They are needed for parsing the `setup.py` files for both BoTorch and Ax.
 
-2) Download and install botorch from the [GitHub repo](https://github.com/facebookexternal/botorch):
+2) Install PyTorch
+
+BoTorch uses advanced PyTorch features and thus currently requires PyTorch's
+nightly build (the requirement upon beta release will be PyTorch 1.1).
+You will want to have you PyTorch build link against **MKL** for optimal performance (the non-optimized
+version of BoTorch can be up to an order of magnitude slower). Setting this up
+manually can be tricky - to ensure this works properly please follow the
+[PyTorch installation instructions](https://pytorch.org/get-started/locally/).
+
+3) Download and install BoTorch from the [GitHub repo](https://github.com/facebookexternal/botorch):
 `pip3 install git+ssh://git@github.com/facebookexternal/botorch.git`
 
-3) Download and install Ax from the [GitHub repo](https://github.com/facebook/Ax):
+4) Download and install Ax from the [GitHub repo](https://github.com/facebook/Ax):
 `pip3 install git+ssh://git@github.com/facebook/Ax.git`
 
 If you are interesting in contributing to Ax, you will also need to install the

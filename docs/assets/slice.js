@@ -1,10 +1,14 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
 function getPlotData() {
   const arm_data = {
     metrics: ['metric_a'],
     in_sample: {
       '0_0': {
         name: '0_0',
-        params: {x1: 2.5, x2: 7.5},
+        parameters: {x1: 2.5, x2: 7.5},
         y: {metric_a: 24.129964413622268},
         y_hat: {metric_a: 23.954282593022686},
         se: {metric_a: 2.0},
@@ -13,7 +17,7 @@ function getPlotData() {
       },
       '0_1': {
         name: '0_1',
-        params: {x1: 6.25, x2: 3.75},
+        parameters: {x1: 6.25, x2: 3.75},
         y: {metric_a: 26.624171220014905},
         y_hat: {metric_a: 26.487960178840346},
         se: {metric_a: 2.0},
@@ -22,7 +26,7 @@ function getPlotData() {
       },
       '0_10': {
         name: '0_10',
-        params: {x1: 1.5625, x2: 8.4375},
+        parameters: {x1: 1.5625, x2: 8.4375},
         y: {metric_a: 31.321658517480987},
         y_hat: {metric_a: 31.206781430356646},
         se: {metric_a: 2.0},
@@ -31,7 +35,7 @@ function getPlotData() {
       },
       '0_11': {
         name: '0_11',
-        params: {x1: -0.3125, x2: 2.8125},
+        parameters: {x1: -0.3125, x2: 2.8125},
         y: {metric_a: 32.8083830521407},
         y_hat: {metric_a: 33.08446828896634},
         se: {metric_a: 2.0},
@@ -40,7 +44,7 @@ function getPlotData() {
       },
       '0_12': {
         name: '0_12',
-        params: {x1: 7.1875, x2: 10.3125},
+        parameters: {x1: 7.1875, x2: 10.3125},
         y: {metric_a: 98.34760790686913},
         y_hat: {metric_a: 98.48545144809549},
         se: {metric_a: 2.0},
@@ -49,7 +53,7 @@ function getPlotData() {
       },
       '0_13': {
         name: '0_13',
-        params: {x1: 3.4375, x2: 6.5625},
+        parameters: {x1: 3.4375, x2: 6.5625},
         y: {metric_a: 21.127854002025494},
         y_hat: {metric_a: 21.328860131845442},
         se: {metric_a: 2.0},
@@ -58,7 +62,7 @@ function getPlotData() {
       },
       '0_14': {
         name: '0_14',
-        params: {x1: -4.0625, x2: 14.0625},
+        parameters: {x1: -4.0625, x2: 14.0625},
         y: {metric_a: 4.47623958200588},
         y_hat: {metric_a: 4.700647450830054},
         se: {metric_a: 2.0},
@@ -67,7 +71,7 @@ function getPlotData() {
       },
       '0_15': {
         name: '0_15',
-        params: {x1: -3.59375, x2: 7.03125},
+        parameters: {x1: -3.59375, x2: 7.03125},
         y: {metric_a: 41.77178986158392},
         y_hat: {metric_a: 43.77522497690436},
         se: {metric_a: 2.0},
@@ -76,7 +80,7 @@ function getPlotData() {
       },
       '0_16': {
         name: '0_16',
-        params: {x1: 3.90625, x2: 14.53125},
+        parameters: {x1: 3.90625, x2: 14.53125},
         y: {metric_a: 166.3236985012143},
         y_hat: {metric_a: 165.46807321090958},
         se: {metric_a: 2.0},
@@ -85,7 +89,7 @@ function getPlotData() {
       },
       '0_17': {
         name: '0_17',
-        params: {x1: 7.65625, x2: 3.28125},
+        parameters: {x1: 7.65625, x2: 3.28125},
         y: {metric_a: 15.473497571024838},
         y_hat: {metric_a: 15.893875534568402},
         se: {metric_a: 2.0},
@@ -94,7 +98,7 @@ function getPlotData() {
       },
       '0_18': {
         name: '0_18',
-        params: {x1: 0.15625, x2: 10.78125},
+        parameters: {x1: 0.15625, x2: 10.78125},
         y: {metric_a: 44.753611366285824},
         y_hat: {metric_a: 45.02461204157245},
         se: {metric_a: 2.0},
@@ -103,7 +107,7 @@ function getPlotData() {
       },
       '0_19': {
         name: '0_19',
-        params: {x1: 2.03125, x2: 1.40625},
+        parameters: {x1: 2.03125, x2: 1.40625},
         y: {metric_a: 9.320218587634006},
         y_hat: {metric_a: 9.414259231158432},
         se: {metric_a: 2.0},
@@ -112,7 +116,7 @@ function getPlotData() {
       },
       '0_2': {
         name: '0_2',
-        params: {x1: -1.25, x2: 11.25},
+        parameters: {x1: -1.25, x2: 11.25},
         y: {metric_a: 22.383482484999874},
         y_hat: {metric_a: 22.4229539561332},
         se: {metric_a: 2.0},
@@ -121,7 +125,7 @@ function getPlotData() {
       },
       '0_20': {
         name: '0_20',
-        params: {x1: 9.53125, x2: 8.90625},
+        parameters: {x1: 9.53125, x2: 8.90625},
         y: {metric_a: 40.64753379393727},
         y_hat: {metric_a: 40.5704623207798},
         se: {metric_a: 2.0},
@@ -130,7 +134,7 @@ function getPlotData() {
       },
       '0_21': {
         name: '0_21',
-        params: {x1: 5.78125, x2: 5.15625},
+        parameters: {x1: 5.78125, x2: 5.15625},
         y: {metric_a: 34.736739987996074},
         y_hat: {metric_a: 34.475989925184955},
         se: {metric_a: 2.0},
@@ -139,7 +143,7 @@ function getPlotData() {
       },
       '0_22': {
         name: '0_22',
-        params: {x1: -1.71875, x2: 12.65625},
+        parameters: {x1: -1.71875, x2: 12.65625},
         y: {metric_a: 21.110094161886266},
         y_hat: {metric_a: 20.846900541617153},
         se: {metric_a: 2.0},
@@ -148,7 +152,7 @@ function getPlotData() {
       },
       '0_23': {
         name: '0_23',
-        params: {x1: -2.65625, x2: 2.34375},
+        parameters: {x1: -2.65625, x2: 2.34375},
         y: {metric_a: 78.863835999175},
         y_hat: {metric_a: 79.80967320564336},
         se: {metric_a: 2.0},
@@ -157,7 +161,7 @@ function getPlotData() {
       },
       '0_24': {
         name: '0_24',
-        params: {x1: 4.84375, x2: 9.84375},
+        parameters: {x1: 4.84375, x2: 9.84375},
         y: {metric_a: 83.88052752898044},
         y_hat: {metric_a: 83.57547388294162},
         se: {metric_a: 2.0},
@@ -166,7 +170,7 @@ function getPlotData() {
       },
       '0_25': {
         name: '0_25',
-        params: {x1: 8.59375, x2: 6.09375},
+        parameters: {x1: 8.59375, x2: 6.09375},
         y: {metric_a: 21.424386764652148},
         y_hat: {metric_a: 21.229231411310828},
         se: {metric_a: 2.0},
@@ -175,7 +179,7 @@ function getPlotData() {
       },
       '0_26': {
         name: '0_26',
-        params: {x1: 1.09375, x2: 13.59375},
+        parameters: {x1: 1.09375, x2: 13.59375},
         y: {metric_a: 98.68064045456067},
         y_hat: {metric_a: 98.14689670208656},
         se: {metric_a: 2.0},
@@ -184,7 +188,7 @@ function getPlotData() {
       },
       '0_27': {
         name: '0_27',
-        params: {x1: -0.78125, x2: 4.21875},
+        parameters: {x1: -0.78125, x2: 4.21875},
         y: {metric_a: 26.449512503021804},
         y_hat: {metric_a: 26.36713210102177},
         se: {metric_a: 2.0},
@@ -193,7 +197,7 @@ function getPlotData() {
       },
       '0_28': {
         name: '0_28',
-        params: {x1: 6.71875, x2: 11.71875},
+        parameters: {x1: 6.71875, x2: 11.71875},
         y: {metric_a: 130.64996148022834},
         y_hat: {metric_a: 130.55049030644375},
         se: {metric_a: 2.0},
@@ -202,7 +206,7 @@ function getPlotData() {
       },
       '0_29': {
         name: '0_29',
-        params: {x1: 2.96875, x2: 0.46875},
+        parameters: {x1: 2.96875, x2: 0.46875},
         y: {metric_a: 4.323605035294334},
         y_hat: {metric_a: 4.4251498301327175},
         se: {metric_a: 2.0},
@@ -211,7 +215,7 @@ function getPlotData() {
       },
       '0_3': {
         name: '0_3',
-        params: {x1: 0.625, x2: 5.625},
+        parameters: {x1: 0.625, x2: 5.625},
         y: {metric_a: 18.111011269006838},
         y_hat: {metric_a: 18.210431712993607},
         se: {metric_a: 2.0},
@@ -220,7 +224,7 @@ function getPlotData() {
       },
       '0_30': {
         name: '0_30',
-        params: {x1: -4.53125, x2: 7.96875},
+        parameters: {x1: -4.53125, x2: 7.96875},
         y: {metric_a: 70.60758289753784},
         y_hat: {metric_a: 69.88626691833579},
         se: {metric_a: 2.0},
@@ -229,7 +233,7 @@ function getPlotData() {
       },
       '0_31': {
         name: '0_31',
-        params: {x1: -4.296875, x2: 3.984375},
+        parameters: {x1: -4.296875, x2: 3.984375},
         y: {metric_a: 132.44958166552067},
         y_hat: {metric_a: 130.6862637772996},
         se: {metric_a: 2.0},
@@ -238,7 +242,7 @@ function getPlotData() {
       },
       '0_32': {
         name: '0_32',
-        params: {x1: 3.203125, x2: 11.484375},
+        parameters: {x1: 3.203125, x2: 11.484375},
         y: {metric_a: 86.10574699756219},
         y_hat: {metric_a: 87.29877055461004},
         se: {metric_a: 2.0},
@@ -247,7 +251,7 @@ function getPlotData() {
       },
       '0_33': {
         name: '0_33',
-        params: {x1: 6.953125, x2: 0.234375},
+        parameters: {x1: 6.953125, x2: 0.234375},
         y: {metric_a: 18.419596839926022},
         y_hat: {metric_a: 18.13390309112501},
         se: {metric_a: 2.0},
@@ -256,7 +260,7 @@ function getPlotData() {
       },
       '0_34': {
         name: '0_34',
-        params: {x1: -0.546875, x2: 7.734375},
+        parameters: {x1: -0.546875, x2: 7.734375},
         y: {metric_a: 18.882901179508327},
         y_hat: {metric_a: 18.327379729554814},
         se: {metric_a: 2.0},
@@ -265,7 +269,7 @@ function getPlotData() {
       },
       '0_35': {
         name: '0_35',
-        params: {x1: 1.328125, x2: 2.109375},
+        parameters: {x1: 1.328125, x2: 2.109375},
         y: {metric_a: 16.326252826011096},
         y_hat: {metric_a: 16.17614054510517},
         se: {metric_a: 2.0},
@@ -274,7 +278,7 @@ function getPlotData() {
       },
       '0_36': {
         name: '0_36',
-        params: {x1: 8.828125, x2: 9.609375},
+        parameters: {x1: 8.828125, x2: 9.609375},
         y: {metric_a: 59.69046760890842},
         y_hat: {metric_a: 60.38405497187411},
         se: {metric_a: 2.0},
@@ -283,7 +287,7 @@ function getPlotData() {
       },
       '0_37': {
         name: '0_37',
-        params: {x1: 5.078125, x2: 5.859375},
+        parameters: {x1: 5.078125, x2: 5.859375},
         y: {metric_a: 34.68741610290739},
         y_hat: {metric_a: 34.691850354221835},
         se: {metric_a: 2.0},
@@ -292,7 +296,7 @@ function getPlotData() {
       },
       '0_38': {
         name: '0_38',
-        params: {x1: -2.421875, x2: 13.359375},
+        parameters: {x1: -2.421875, x2: 13.359375},
         y: {metric_a: 10.325915083003967},
         y_hat: {metric_a: 10.620592335500412},
         se: {metric_a: 2.0},
@@ -301,7 +305,7 @@ function getPlotData() {
       },
       '0_39': {
         name: '0_39',
-        params: {x1: -1.484375, x2: 1.171875},
+        parameters: {x1: -1.484375, x2: 1.171875},
         y: {metric_a: 66.7077438958342},
         y_hat: {metric_a: 65.9021467817675},
         se: {metric_a: 2.0},
@@ -310,7 +314,7 @@ function getPlotData() {
       },
       '0_4': {
         name: '0_4',
-        params: {x1: 8.125, x2: 13.125},
+        parameters: {x1: 8.125, x2: 13.125},
         y: {metric_a: 140.32747319783857},
         y_hat: {metric_a: 139.68454943395102},
         se: {metric_a: 2.0},
@@ -319,7 +323,7 @@ function getPlotData() {
       },
       '0_5': {
         name: '0_5',
-        params: {x1: 4.375, x2: 1.875},
+        parameters: {x1: 4.375, x2: 1.875},
         y: {metric_a: 6.954951737223514},
         y_hat: {metric_a: 7.201748742878472},
         se: {metric_a: 2.0},
@@ -328,7 +332,7 @@ function getPlotData() {
       },
       '0_6': {
         name: '0_6',
-        params: {x1: -3.125, x2: 9.375},
+        parameters: {x1: -3.125, x2: 9.375},
         y: {metric_a: 8.57972117932429},
         y_hat: {metric_a: 8.39349515187719},
         se: {metric_a: 2.0},
@@ -337,7 +341,7 @@ function getPlotData() {
       },
       '0_7': {
         name: '0_7',
-        params: {x1: -2.1875, x2: 4.6875},
+        parameters: {x1: -2.1875, x2: 4.6875},
         y: {metric_a: 33.738344621143135},
         y_hat: {metric_a: 34.13698538141282},
         se: {metric_a: 2.0},
@@ -346,7 +350,7 @@ function getPlotData() {
       },
       '0_8': {
         name: '0_8',
-        params: {x1: 5.3125, x2: 12.1875},
+        parameters: {x1: 5.3125, x2: 12.1875},
         y: {metric_a: 136.34953133391176},
         y_hat: {metric_a: 136.4830772271403},
         se: {metric_a: 2.0},
@@ -355,7 +359,7 @@ function getPlotData() {
       },
       '0_9': {
         name: '0_9',
-        params: {x1: 9.0625, x2: 0.9375},
+        parameters: {x1: 9.0625, x2: 0.9375},
         y: {metric_a: 2.5808075578294103},
         y_hat: {metric_a: 2.735688351636938},
         se: {metric_a: 2.0},
@@ -366,7 +370,7 @@ function getPlotData() {
     out_of_sample: {},
     status_quo_name: null,
   };
-  const arm_name_to_params = {
+  const arm_name_to_parameters = {
     '0_0': {x1: 2.5, x2: 7.5},
     '0_1': {x1: 6.25, x2: 3.75},
     '0_10': {x1: 1.5625, x2: 8.4375},
@@ -834,15 +838,15 @@ function getPlotData() {
   const arm_y = [];
   const arm_sem = [];
   fit_data.forEach(row => {
-    params = arm_name_to_params[row['arm_name']];
+    parameters = arm_name_to_parameters[row['arm_name']];
     plot = true;
     Object.keys(setx).forEach(p => {
-      if (p !== param && params[p] !== setx[p]) {
+      if (p !== param && parameters[p] !== setx[p]) {
         plot = false;
       }
     });
     if (plot === true) {
-      arm_x.push(params[param]);
+      arm_x.push(parameters[param]);
       arm_y.push(row['mean']);
       arm_sem.push(row['sem']);
     }
@@ -904,16 +908,16 @@ function getPlotData() {
 
     Object.keys(arm_data['out_of_sample'][generator_run_name]).forEach(
       arm_name => {
-        const params =
-          arm_data['out_of_sample'][generator_run_name][arm_name]['params'];
+        const parameters =
+          arm_data['out_of_sample'][generator_run_name][arm_name]['parameters'];
         plot = true;
         Object.keys(setx).forEach(p => {
-          if (p !== param && params[p] !== setx[p]) {
+          if (p !== param && parameters[p] !== setx[p]) {
             plot = false;
           }
         });
         if (plot === true) {
-          ax.push(params[param]);
+          ax.push(parameters[param]);
           ay.push(
             arm_data['out_of_sample'][generator_run_name][arm_name]['y_hat'][
               metric

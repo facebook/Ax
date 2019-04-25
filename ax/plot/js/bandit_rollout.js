@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
 const data = {{data}};
 const categories = {{categories}};
 const colors = {{colors}};

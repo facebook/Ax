@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 # pyre-strict
 
 from typing import Dict, List, Optional
 
 from ax.core.arm import Arm
 from ax.core.base import Base
-from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
-from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.parameter import FixedParameter, Parameter
+from ax.core.parameter_constraint import (
+    OrderConstraint,
+    ParameterConstraint,
+    SumConstraint,
+)
 from ax.core.types import TParameterization
 
 
@@ -204,16 +209,16 @@ class SearchSpace(Base):
         Returns:
             New casted arm.
         """
-        new_params: TParameterization = {}
-        if len(arm.params) != len(self._parameters):
+        new_parameters: TParameterization = {}
+        if len(arm.parameters) != len(self._parameters):
             raise ValueError("Given arm does not have same parameters as search space.")
 
-        for name, value in arm.params.items():
+        for name, value in arm.parameters.items():
             if name not in self._parameters:
                 raise ValueError(f"Parameter {name} is not defined in search space.")
-            new_params[name] = self._parameters[name]._cast(value)
+            new_parameters[name] = self._parameters[name]._cast(value)
 
-        return Arm(new_params, arm.name if arm.has_name else None)
+        return Arm(new_parameters, arm.name if arm.has_name else None)
 
     def out_of_design_arm(self) -> Arm:
         """Create a default out-of-design arm.
@@ -226,10 +231,10 @@ class SearchSpace(Base):
         Returns:
             New arm w/ null parameter values.
         """
-        params = {}
+        parameters = {}
         for p_name in self.parameters.keys():
-            params[p_name] = None
-        return Arm(params)
+            parameters[p_name] = None
+        return Arm(parameters)
 
     def clone(self) -> "SearchSpace":
         return SearchSpace(
@@ -241,35 +246,25 @@ class SearchSpace(Base):
         self, parameter_constraints: List[ParameterConstraint]
     ) -> None:
         for constraint in parameter_constraints:
-            for parameter_name in constraint.constraint_dict.keys():
-                if parameter_name not in self._parameters.keys():
-                    raise ValueError(
-                        f"`{parameter_name}` does not exist in search space."
-                    )
-
-                parameter = self._parameters[parameter_name]
-                if not parameter.is_numeric:
-                    raise ValueError(
-                        f"Parameter constraints only supported for types int and float."
-                    )
-
-                # ChoiceParameters are transformed either using OneHotEncoding
-                # or the OrderedChoice transform. Both are non-linear, and
-                # Ax models only support linear constraints.
-                if isinstance(parameter, ChoiceParameter):
-                    raise ValueError(
-                        f"Parameter constraints not supported for ChoiceParameter."
-                    )
-
-                # Log parameters require a non-linear transformation, and Ax
-                # models only support linear constraints.
-                if (
-                    isinstance(parameter, RangeParameter)
-                    and parameter.log_scale is True
-                ):
-                    raise ValueError(
-                        f"Parameter constraints not allowed on log scale parameters."
-                    )
+            if isinstance(constraint, OrderConstraint) or isinstance(
+                constraint, SumConstraint
+            ):
+                for parameter in constraint.parameters:
+                    if parameter.name not in self._parameters.keys():
+                        raise ValueError(
+                            f"`{parameter.name}` does not exist in search space."
+                        )
+                    if parameter != self._parameters[parameter.name]:
+                        raise ValueError(
+                            f"Parameter constraint's definition of '{parameter.name}' "
+                            "does not match the SearchSpace's definition"
+                        )
+            else:
+                for parameter_name in constraint.constraint_dict.keys():
+                    if parameter_name not in self._parameters.keys():
+                        raise ValueError(
+                            f"`{parameter_name}` does not exist in search space."
+                        )
 
     def __repr__(self) -> str:
         return (

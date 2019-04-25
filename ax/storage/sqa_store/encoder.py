@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -24,6 +25,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
+from ax.storage.metric_registry import METRIC_REGISTRY
+from ax.storage.runner_registry import RUNNER_REGISTRY
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
@@ -98,7 +101,7 @@ class Encoder:
         status_quo_parameters = None
         if experiment.status_quo is not None:
             status_quo_name = experiment.status_quo.name
-            status_quo_parameters = experiment.status_quo.params
+            status_quo_parameters = experiment.status_quo.parameters
 
         trials = [
             self.trial_to_sqa(trial=trial) for trial in experiment.trials.values()
@@ -234,12 +237,12 @@ class Encoder:
 
     def get_metric_type_and_properties(
         self, metric: Metric
-    ) -> Tuple[str, Dict[str, Any]]:
+    ) -> Tuple[int, Dict[str, Any]]:
         """Given an Ax Metric, convert its type into a member of MetricType enum,
         and construct a dictionary to be stored in the database `properties`
         json blob.
         """
-        metric_type = self.config.metric_registry.class_to_type.get(type(metric))
+        metric_type = METRIC_REGISTRY.get(type(metric))
         if metric_type is None:
             raise SQAEncodeError(
                 "Cannot encode metric to SQLAlchemy because metric's "
@@ -326,7 +329,7 @@ class Encoder:
         # pyre-fixme: Expected `Base` for 1st... got `typing.Type[Arm]`.
         arm_class: SQAArm = self.config.class_to_sqa_class[Arm]
         # pyre-fixme[29]: `SQAArm` is not a function.
-        return arm_class(parameters=arm.params, name=arm._name, weight=weight)
+        return arm_class(parameters=arm.parameters, name=arm._name, weight=weight)
 
     def abandoned_arm_to_sqa(self, abandoned_arm: AbandonedArm) -> SQAAbandonedArm:
         """Convert Ax AbandonedArm to SQLAlchemy."""
@@ -368,7 +371,7 @@ class Encoder:
             best_arm = generator_run.best_arm_predictions[0]
             best_arm_predictions = list(generator_run.best_arm_predictions[1])
             best_arm_name = best_arm._name
-            best_arm_parameters = best_arm.params
+            best_arm_parameters = best_arm.parameters
         model_predictions = (
             list(generator_run.model_predictions)
             if generator_run.model_predictions is not None
@@ -404,7 +407,7 @@ class Encoder:
 
     def runner_to_sqa(self, runner: Runner) -> SQARunner:
         """Convert Ax Runner to SQLAlchemy."""
-        runner_type = self.config.runner_registry.class_to_type.get(type(runner))
+        runner_type = RUNNER_REGISTRY.get(type(runner))
         if runner_type is None:
             raise SQAEncodeError(
                 "Cannot encode runner to SQLAlchemy because runner's "

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import Any, Callable, Dict, Type
 
@@ -119,15 +120,3 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "Trial": Trial,
     "TrialStatus": TrialStatus,
 }
-
-
-def register_metric(metric_cls: Type) -> None:
-    """Add a custom metric class to the registries."""
-    ENCODER_REGISTRY[metric_cls] = metric_to_dict
-    DECODER_REGISTRY[metric_cls.__name__] = metric_cls
-
-
-def register_runner(runner_cls: Type) -> None:
-    """Add a custom runner class to the registries."""
-    ENCODER_REGISTRY[runner_cls] = runner_to_dict
-    DECODER_REGISTRY[runner_cls.__name__] = runner_cls

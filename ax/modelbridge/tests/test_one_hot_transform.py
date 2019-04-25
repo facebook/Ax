@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from copy import deepcopy
 
@@ -64,8 +65,8 @@ class OneHotTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(list(self.t.encoded_params.keys()), ["b", "c"])
-        self.assertEqual(list(self.t2.encoded_params.keys()), ["b", "c"])
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
+        self.assertEqual(list(self.t2.encoded_parameters.keys()), ["b", "c"])
 
     def testTransformObservationFeatures(self):
         observation_features = [self.observation_features]

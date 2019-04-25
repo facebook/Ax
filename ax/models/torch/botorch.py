@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -21,7 +22,7 @@ from botorch.models.model import Model
 from torch import Tensor
 
 
-TModelConstuctor = Callable[
+TModelConstructor = Callable[
     [
         List[Tensor],
         List[Tensor],
@@ -49,6 +50,7 @@ TOptimizer = Callable[
         AcquisitionFunction,
         Tensor,
         int,
+        Optional[List[Tuple[Tensor, Tensor, float]]],
         Optional[Dict[int, float]],
         Optional[Callable[[Tensor], Tensor]],
         Any,
@@ -133,6 +135,7 @@ class BotorchModel(TorchModel):
             acq_function,
             bounds,
             n,
+            inequality_constraints,
             fixed_features,
             rounding_func,
             **kwargs,
@@ -140,7 +143,8 @@ class BotorchModel(TorchModel):
 
     Here `acq_function` is a botorch `AcquisitionFunciton`, `bounds` is a
     tensor containing bounds on the parameters, `n` is the number of
-    candidates to be generated, `fixed_features` specifies features that
+    candidates to be generated, `inequality_constraints` are inequality
+    constraints on parameter values, `fixed_features` specifies features that
     should be fixed during generation, and `rounding_func` is a callback
     that rounds an optimization result appropriately. `candidates` is
     a tensor of generated candidates. For additional details on the
@@ -159,7 +163,7 @@ class BotorchModel(TorchModel):
         #  List[Tensor], List[Tensor], List[int], Optional[Dict[str, Tensor]], Any],
         #  Model]`; used as `Callable[[List[Tensor], List[Tensor], List[Tensor],
         #  List[int], Optional[Dict[str, Tensor]], **(Any)], MultiOutputGP]`.
-        model_constructor: TModelConstuctor = get_and_fit_model,
+        model_constructor: TModelConstructor = get_and_fit_model,
         model_predictor: TModelPredictor = predict_from_model,
         # pyre-fixme[9]: acqf_constructor has type `Callable[[Model, Tensor,
         #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any],
@@ -242,12 +246,11 @@ class BotorchModel(TorchModel):
                 A f(x) <= b. (Not used by single task models)
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b. (Not used by single task models)
+                A x <= b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
             pending_observations:  A list of m (k_i x d) feature tensors X
                 for m outcomes and k_i pending observations for outcome i.
-                (Only used if n > 1).
             model_gen_options: A config dictionary that can contain
                 model-specific options.
             rounding_func: A function that rounds an optimization result
@@ -282,11 +285,23 @@ class BotorchModel(TorchModel):
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
+        if linear_constraints is not None:
+            A, b = linear_constraints
+            inequality_constraints = []
+            k, d = A.shape
+            for i in range(k):
+                indicies = A[i, :].nonzero().squeeze()
+                coefficients = -A[i, indicies]
+                rhs = -b[i, 0]
+                inequality_constraints.append((indicies, coefficients, rhs))
+        else:
+            inequality_constraints = None
 
         candidates = self.acqf_optimizer(  # pyre-ignore: [28]
             acq_function=checked_cast(AcquisitionFunction, acquisition_function),
             bounds=bounds_,
             n=n,
+            inequality_constraints=inequality_constraints,
             fixed_features=fixed_features,
             rounding_func=rounding_func,
             **optimizer_options,
@@ -327,20 +342,16 @@ class BotorchModel(TorchModel):
         if self.model is None:
             raise RuntimeError("Cannot cross-validate model that has not been fitted")
         if self.refit_on_cv:
-            model = self.model_constructor(  # pyre-ignore: [28]
-                Xs=Xs_train,
-                Ys=Ys_train,
-                Yvars=Yvars_train,
-                task_features=self.task_features,
-            )
+            state_dict = None
         else:
-            model = deepcopy(self.model)
-            model.reinitialize(  # pyre-ignore: [16]
-                train_Xs=Xs_train,
-                train_Ys=[Y.view(-1) for Y in Ys_train],
-                train_Yvars=[Yvar.view(-1) for Yvar in Yvars_train],
-                keep_params=True,
-            )
+            state_dict = deepcopy(self.model.state_dict())  # pyre-ignore: [16]
+        model = self.model_constructor(  # pyre-ignore: [28]
+            Xs=Xs_train,
+            Ys=Ys_train,
+            Yvars=Yvars_train,
+            task_features=self.task_features,
+            state_dict=state_dict,
+        )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
     @copy_doc(TorchModel.update)
@@ -352,16 +363,13 @@ class BotorchModel(TorchModel):
             self.Ys[i] = torch.cat((self.Ys[i], Ys[i]))
             self.Yvars[i] = torch.cat((self.Yvars[i], Yvars[i]))
         if self.refit_on_update:
-            self.model = self.model_constructor(  # pyre-ignore: [28]
-                Xs=self.Xs,
-                Ys=self.Ys,
-                Yvars=self.Yvars,
-                task_features=self.task_features,
-            )
+            state_dict = None
         else:
-            self.model.reinitialize(  # pyre-ignore: [16]
-                train_Xs=self.Xs,
-                train_Ys=self.Ys,
-                train_Yvars=self.Yvars,
-                keep_params=True,
-            )
+            state_dict = deepcopy(self.model.state_dict())  # pyre-ignore: [16]
+        self.model = self.model_constructor(  # pyre-ignore: [28]
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            task_features=self.task_features,
+            state_dict=state_dict,
+        )

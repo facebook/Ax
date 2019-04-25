@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import mock
 import torch
 from ax.models.torch.botorch_defaults import _get_model, get_and_fit_model
@@ -18,7 +19,7 @@ class BotorchDefaultsTest(TestCase):
         self.assertTrue(isinstance(model, FixedNoiseMultiTaskGP))
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", autospec=True)
-    @mock.patch("ax.models.torch.botorch_defaults.MultiOutputGP", autospec=True)
+    @mock.patch("ax.models.torch.botorch_defaults.ModelListGP", autospec=True)
     def test_task_feature(self, gp_mock, get_model_mock):
         x = [torch.zeros(2, 2)]
         y = [torch.zeros(2, 1)]

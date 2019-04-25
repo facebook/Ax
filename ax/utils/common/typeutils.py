@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-# pyre-strict
-from typing import List, Optional, Type, TypeVar
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+from typing import Any, List, Optional, Type, TypeVar
+
+import numpy as np
 
 
 T = TypeVar("T")
@@ -64,3 +66,14 @@ def checked_cast_list(typ: Type[V], l: List[V]) -> List[T]:
         val = checked_cast(typ, val)
         new_l.append(val)
     return l
+
+
+def numpy_type_to_python_type(value: Any) -> Any:
+    """If `value` is a Numpy int or float, coerce to a Python int or float.
+    This is necessary because some of our transforms return Numpy values.
+    """
+    if type(value) == np.int64:
+        value = int(value)  # pragma: nocover (covered by generator tests)
+    if type(value) == np.float64:
+        value = float(value)  # pragma: nocover  (covered by generator tests)
+    return value

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import io
 import sys
@@ -39,7 +40,7 @@ class TestTestUtils(TestCase):
         with self.assertRaisesOn(RuntimeError) as cm:
             _f()
         self.assertEqual(cm.filename, __file__)
-        self.assertEqual(cm.lineno, 11)
+        self.assertEqual(cm.lineno, 12)
 
     def test_silence_warning_normal(self):
         new_stderr = io.StringIO()

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-from typing import Any, Callable, List, Optional
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+import inspect
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -17,12 +19,14 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 
 
+DEFAULT_OBJECTIVE_NAME = "objective"
+
 # Function that evaluates one parameter configuration.
 TEvaluationFunction = Callable[[TParameterization, Optional[float]], TEvaluationOutcome]
 
 
 def unimplemented_evaluation_function(
-    parameters: TParameterization, weight: Optional[float] = None
+    parameterization: TParameterization, weight: Optional[float] = None
 ) -> TEvaluationOutcome:
     """
     Default evaluation function used if none is provided during initialization.
@@ -36,16 +40,17 @@ class SimpleExperiment(Experiment):
     Simplified experiment class with defaults.
 
     Args:
-        name: name of this experiment
         search_space: parameter space
+        name: name of this experiment
         objective_name: which of the metrics computed by the evaluation
             function is the objective
         evaluation_function: function that evaluates
             mean and standard error for a parameter configuration. This
             function should accept a dictionary of parameter names to parameter
-            values (TParametrization) and an optional weight, and return a tuple
-            of a dictionary of metric names to means and a dictionary of metric
-            names to standard errors (TEvaluationOutcome)
+            values (TParametrization) and optionally a weight, and return a
+            dictionary of metric names to a tuple of means and standard errors
+            (TEvaluationOutcome). The function can also return a single tuple,
+            in which case we assume the metric is the objective.
         minimize: whether the objective should be minimized,
             defaults to False
         outcome_constraints: constraints on the outcome,
@@ -57,16 +62,19 @@ class SimpleExperiment(Experiment):
 
     def __init__(
         self,
-        name: str,
         search_space: SearchSpace,
-        objective_name: str,
+        name: Optional[str] = None,
+        objective_name: Optional[str] = None,
         evaluation_function: TEvaluationFunction = unimplemented_evaluation_function,
         minimize: bool = False,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
         status_quo: Optional[Arm] = None,
     ) -> None:
         optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name=objective_name), minimize=minimize),
+            objective=Objective(
+                metric=Metric(name=objective_name or DEFAULT_OBJECTIVE_NAME),
+                minimize=minimize,
+            ),
             outcome_constraints=outcome_constraints,
         )
         super().__init__(
@@ -107,16 +115,18 @@ class SimpleExperiment(Experiment):
             if not trial.arm:
                 return Data()  # pragma: no cover
             trial.mark_running()
-            evaluations[not_none(trial.arm).name] = self.evaluation_function(
-                not_none(trial.arm).params, None
+            evaluations[not_none(trial.arm).name] = self.evaluation_function_outer(
+                not_none(trial.arm).parameters, None
             )
         elif isinstance(trial, BatchTrial):
             if not trial.arms:
                 return Data()  # pragma: no cover
             trial.mark_running()
             for arm, weight in trial.normalized_arm_weights().items():
-                arm_params: TParameterization = arm.params
-                evaluations[arm.name] = self.evaluation_function(arm_params, weight)
+                arm_parameters: TParameterization = arm.parameters
+                evaluations[arm.name] = self.evaluation_function_outer(
+                    arm_parameters, weight
+                )
 
         data = Data.from_evaluations(evaluations, trial.index)
         self.attach_data(data)
@@ -138,7 +148,7 @@ class SimpleExperiment(Experiment):
 
     @property
     def has_evaluation_function(self) -> bool:
-        """Whether this `SimpleExperiment` has a valid evalutation function
+        """Whether this `SimpleExperiment` has a valid evaluation function
         attached."""
         return self._evaluation_function is not unimplemented_evaluation_function
 
@@ -155,6 +165,34 @@ class SimpleExperiment(Experiment):
         Set the evaluation function.
         """
         self._evaluation_function = evaluation_function
+
+    def evaluation_function_outer(
+        self, parameterization: TParameterization, weight: Optional[float] = None
+    ) -> Dict[str, Tuple[float, float]]:
+        signature = inspect.signature(self._evaluation_function)
+        num_evaluation_function_params = len(signature.parameters.items())
+        if num_evaluation_function_params == 1:
+            # pyre-fixme[20]: Anonymous call expects argument `$1`.
+            evaluation = self._evaluation_function(parameterization)
+        elif num_evaluation_function_params == 2:
+            evaluation = self._evaluation_function(parameterization, weight)
+        else:
+            raise ValueError(  # pragma: no cover
+                "Evaluation function must take either one parameter "
+                "(parameterization) or two parameters (parameterization and weight)."
+            )
+
+        if isinstance(evaluation, dict):
+            return evaluation
+        elif isinstance(evaluation, tuple):
+            return {self.optimization_config.objective.metric.name: evaluation}
+        elif isinstance(evaluation, float) or isinstance(evaluation, int):
+            return {self.optimization_config.objective.metric.name: (evaluation, 0.0)}
+        raise Exception(  # pragma: no cover
+            "Evaluation function returned an invalid type. The function must "
+            "either return a dictionary of metric names to mean, sem tuples "
+            "or a single mean, sem tuple, or a single mean."
+        )
 
     @copy_doc(Experiment.fetch_data)
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:

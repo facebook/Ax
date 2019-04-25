@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import json
 from typing import List, Optional
@@ -58,7 +59,7 @@ class ObservationFeatures(Base):
         data as specified.
         """
         return ObservationFeatures(
-            parameters=arm.params,
+            parameters=arm.parameters,
             trial_index=trial_index,
             start_time=start_time,
             end_time=end_time,
@@ -77,9 +78,15 @@ class ObservationFeatures(Base):
         return repr_str
 
     def __hash__(self) -> int:
+        parameters = self.parameters.copy()
+        for k, v in parameters.items():
+            if type(v) is np.int64:
+                parameters[k] = int(v)  # pragma: no cover
+            elif type(v) is np.float32:
+                parameters[k] = float(v)  # pragma: no cover  # pyre-ignore
         return hash(
             (
-                json.dumps(self.parameters, sort_keys=True),
+                json.dumps(parameters, sort_keys=True),
                 self.trial_index,
                 self.start_time,
                 self.end_time,
@@ -179,12 +186,9 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
             g = [g]  # pragma: no cover
         features = dict(zip(feature_cols, g))
         obs_kwargs = {}
-        obs_params = experiment.arms_by_name[features["arm_name"]].params.copy()
-        if obs_params:
-            # Wipe null values => arm is out of design.
-            if None in obs_params.values():
-                obs_params = {}
-            obs_kwargs["parameters"] = obs_params
+        obs_parameters = experiment.arms_by_name[features["arm_name"]].parameters.copy()
+        if obs_parameters:
+            obs_kwargs["parameters"] = obs_parameters
         for f in ["trial_index", "start_time", "end_time", "random_split"]:
             obs_kwargs[f] = features.get(f, None)
         observations.append(

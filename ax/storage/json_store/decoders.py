@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional

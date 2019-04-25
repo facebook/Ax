@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from collections import defaultdict
 from typing import TYPE_CHECKING, DefaultDict, List, Optional, Tuple
@@ -10,7 +11,7 @@ from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig, TParamValue
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.standardize_y import compute_standardization_params
+from ax.modelbridge.transforms.standardize_y import compute_standardization_parameters
 from ax.utils.common.logger import get_logger
 
 
@@ -56,21 +57,21 @@ class StratifiedStandardizeY(Transform):
                 raise ValueError(f"{self.p_name} not a ChoiceParameter")
         else:
             # See if there is a task parameter
-            task_params = [
+            task_parameters = [
                 p.name
                 for p in search_space.parameters.values()
                 if isinstance(p, ChoiceParameter) and p.is_task
             ]
-            if len(task_params) == 0:
+            if len(task_parameters) == 0:
                 raise ValueError(
                     "Must specify parameter for stratified standardization"
                 )
-            elif len(task_params) != 1:
+            elif len(task_parameters) != 1:
                 raise ValueError(
                     "Must specify which task parameter to use for stratified "
                     "standardization"
                 )
-            self.p_name = task_params[0]
+            self.p_name = task_parameters[0]
         # Compute means and SDs
         Ys: DefaultDict[Tuple[str, TParamValue], List[float]] = defaultdict(list)
         for j, obsd in enumerate(observation_data):
@@ -80,11 +81,11 @@ class StratifiedStandardizeY(Transform):
         # Expected `DefaultDict[typing.Union[str, typing.Tuple[str,
         # Optional[typing.Union[bool, float, str]]]], List[float]]` for 1st anonymous
         # parameter to call
-        # `ax.modelbridge.transforms.standardize_y.compute_standardization_params`
+        # `ax.modelbridge.transforms.standardize_y.compute_standardization_parameters`
         # but got `DefaultDict[typing.Tuple[str, Optional[typing.Union[bool, float,
         # str]]], List[float]]`.
         # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
-        self.Ymean, self.Ystd = compute_standardization_params(Ys)
+        self.Ymean, self.Ystd = compute_standardization_parameters(Ys)
 
     def transform_observation_data(
         self,

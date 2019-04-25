@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from datetime import datetime
-from typing import Any
 
 import numpy as np
 import pandas as pd
 from ax.utils.common.equality import datetime_equals, equality_typechecker, list_equals
+from ax.utils.common.typeutils import numpy_type_to_python_type
 
 
 class Base(object):
@@ -17,8 +18,8 @@ class Base(object):
             self_val = getattr(self, field)
             other_val = getattr(other, field)
 
-            self_val = _numpy_type_to_python_type(self_val)
-            other_val = _numpy_type_to_python_type(other_val)
+            self_val = numpy_type_to_python_type(self_val)
+            other_val = numpy_type_to_python_type(other_val)
 
             if type(self_val) != type(other_val):
                 return False
@@ -39,14 +40,3 @@ class Base(object):
             if not equal:
                 return False
         return True
-
-
-def _numpy_type_to_python_type(value: Any) -> Any:
-    """If `value` is a numpy int or float, coerce to a python int or float.
-    This is necessary because some of our transforms return numpy values.
-    """
-    if type(value) == np.int64:
-        value = int(value)  # pragma: nocover (covered by generator tests)
-    if type(value) == np.float64:
-        value = float(value)  # pragma: nocover  (covered by generator tests)
-    return value

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from typing import List, Optional, Set
 
@@ -23,7 +24,7 @@ class IntRangeToChoice(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         # Identify parameters that should be transformed
-        self.transform_params: Set[str] = {
+        self.transform_parameters: Set[str] = {
             p_name
             for p_name, p in search_space.parameters.items()
             if isinstance(p, RangeParameter) and p.parameter_type == ParameterType.INT
@@ -32,7 +33,7 @@ class IntRangeToChoice(Transform):
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: List[Parameter] = []
         for p in search_space.parameters.values():
-            if p.name in self.transform_params:
+            if p.name in self.transform_parameters:
                 # pyre: p_cast is declared to have type `RangeParameter` but
                 # pyre-fixme[9]: is used as type `Parameter`.
                 p_cast: RangeParameter = p

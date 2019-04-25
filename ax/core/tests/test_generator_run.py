@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
@@ -106,8 +107,8 @@ class GeneratorRunTest(TestCase):
         self.assertEqual(self.unweighted_run, self.unweighted_run)
 
         arms = [
-            Arm(params={"w": 0.5, "x": 15, "y": "foo", "z": False}),
-            Arm(params={"w": 1.4, "x": 2, "y": "bar", "z": True}),
+            Arm(parameters={"w": 0.5, "x": 15, "y": "foo", "z": False}),
+            Arm(parameters={"w": 1.4, "x": 2, "y": "bar", "z": True}),
         ]
         unweighted_run_2 = GeneratorRun(
             arms=arms,

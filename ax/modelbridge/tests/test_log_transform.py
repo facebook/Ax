@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import math
 from copy import deepcopy
@@ -34,7 +35,7 @@ class LogTransformTest(TestCase):
         )
 
     def testInit(self):
-        self.assertEqual(self.t.transform_params, {"x"})
+        self.assertEqual(self.t.transform_parameters, {"x"})
 
     def testTransformObservationFeatures(self):
         observation_features = [
