@@ -1,113 +1,44 @@
 ---
-id: thompson
+id: banditopt
 title: Bandit Optimization
 ---
 
-[Bayesian optimization](bayesopt.md) provides a solution for parameter tuning in spaces with continuous parameters. 
-However, many decision problems begin with a fixed set of discrete candidates. 
-Most ordinary A/B tests fall into this category--there are a handful of discrete choices, which are being evaluated against each other.
+[Bayesian optimization](bayesopt.md) provides a solution for parameter tuning in problems with continuous parameters. 
+However, many decision problems simply require choosing from among a set of discrete candidates, rather than finding points in a continuous space.  Most ordinary A/B tests fall into this category—there are a handful of choices to evaluate against each other. A fixed percentage of traffic goes to each of these choices, and after a few days/weeks of splitting traffic, a winner is chosen. With more than a few choices, however, A/B tests quickly become prohibitively resource-intensive. With a large number of choices, each candidate receives a small amount of traffic, even if it appears to be the best choice.
 
-Bandit optimization aims to provide a smarter way of evaluating the performance of these discrete choices. 
-When aiming to identify the best choice, there is an inherent tradeoff between exploration and exploitation. 
-Initially, there is no information about the performance of each choice, and there is no choice but to explore, sending traffic to each choice with the sole purpose of learning more.
-However, as more information comes in, the option to exploit becomes available--choosing the best performing choices thus far.
-The formal goal of bandit optimization has a satisfying intuition, closely aligned with that of product users.
-Over the duration of experimentation, minimize the amount of traffic/users which experience a suboptimal choice. 
+Bandit optimization aims to provide a smarter way of evaluating the performance of these discrete choices. Ordinary A/B testing sets a fixed split of traffic among candidates. Bandit optimization, on the other hand, sequentially updates the allocation of traffic to each candidate, based on its performance so far. The key problem for these algorithms is balancing exploration—sending traffic to candidates that have the potential to perform well—with exploitation, sending traffic to candidates that already appear to perform well. This trade-off is very similar to the underlying exploration problem highlighted in Bayesian Optimization [acquisition functions](bayesopt.md#acquisition-functions).  However, while modeling the relationships between parameters in the search space is a necessity in Bayesian optimization, bandit optimization typically treats each arm as independent. This makes bandit optimization more sample efficient and simpler to analyze on discrete-choice problems. 
+
+Bandit optimization can be more sample efficient than traditional A/B tests, where the number of samples by treatment group is set beforehand and is generally balanced. Consequently, it is safer with larger cohorts because the samples are automatically diverted towards the good parameter values. They are also suitable for test beds in production applications that are used for continuous evaluation of newly introduced features.
 
 
-Bandit algorithms accomplish this by balancing traffic between candidates with uncertainty, that have the *potential* to perform well (think high variance metric estimates), and candidates that already perform well (think high mean metric values).
-This is very similar to the underlying exploration problem highlighted in the [acquisition functions](bayesopt.md#acquisition-functions) section.
-Overall, bandit optimization can be thought of as a method for sequentially running experiments, that handles this tradeoff. However, rather than modeling the relationships between arms in the search space, as in Bayesian optimization, bandit optimization treats each arm as independent. As a result, bandit optimization is simpler to analyze than the model-based BayesOpt.
+## How does it work?
+
+Ax relies on a simple and effective algorithm for performing bandit optimization: Thompson sampling. This method has a clear intuition: select a parameter configuration with a probability proportional to that value being the best. This algorithm is simple to implement and has strong guarantees of converging to a set of arms or parameter configuration that is close to the best — all without any human intervention. To understand how this works, we describe an advertising optimization problem where we want to choose parameter configurations that maximize the click-through (CTR) or conversion rate and the rewards are binary - either clicks (successes) or views without clicks (failures).
+
+Let's assume that the probability for each arm to be successful has a beta prior distribution. Given a set of clicks and views without clicks for any arm, a Bayesian update leads to a beta posterior distribution and an updated estimate of the probability of selecting that arm. In Thompson sampling, a sample is drawn from the posterior distribution for each arm and the arm with the largest sampled value is selected for the next evaluation. This process is repeated by updating the selection probabilities based on observed CTRs in predefined time windows and over many iterations, the algorithm converges on a few arms that lead to better CTRs.
+
+The following figure is a simulated example of how the assignment probabilities for an experiment with 10 arms or experimental conditions may evolve over 20 iterations:
+
+![Bandit Optimization Allocations](assets/mab_probs.png)
+
+Starting with equal assignment probabilities for each arm, every round of bandit optimization produces an updated set of assignment probabilities (represented here by the height of the colored bars in each column) based on the average CTR from 10 users per round. Since the true CTR is highest for the second arm followed by the first arm in this simulated example, the assignment probabilities of these arms have clearly dominate the other arms over 20 rounds of bandit optimization.  
+
+The spread of the posterior distribution depicts the uncertainty around the true CTR for each arm and allows the bandit optimization algorithm to quickly sample or explore the arms in the initial rounds. This causes the uncertainty in all the arms to drop sufficiently to pave the way for exploitation. The following figure animates the average observed CTRs (blue x), the assignment probabilities (solid round symbol) and the uncertainties (gray error bars) based on the posterior distributions after each round of experimentation for the previous example. The arms 3 through 8 are sampled just enough to get a rough estimate of the low CTRs, before converging on the first two arms with high CTRs. This example can be viewed as a discretized version of the animated example of [Bayesian optimization](bayesopt.md).
+
+![Bandit Optimization: Posteriors](assets/mab_animate.gif)
 
 
------
-A/B Testing
------
+## Regret
 
-In an ordinary A/B test, the relative proportion of users allocated to the test and control groups is typically fixed before beginning an experiment, and does not change throughout the duration of the experiment.
-For example, experiments may be designed as follows:
+We want a bandit algorithm to maximize the total rewards over time or alternatively, minimize the regret, which is defined as the cumulative difference between the highest possible reward and the actual reward at point in time. A smaller regret is a measure of how well the algorithm is able to balance the exploration vs. exploitation trade-off - too much of either exploration (as in factorial experiments), or exploitation (as in purely greedy algorithms) increases the regret. We ideally want the regret to increase slowly with successive rounds of experimentation. In this sense, it can be used as a performance metric to evaluate different bandit algorithms.
 
+The following figure compares the average regret of three different approaches to bandit optimization for a 10 arm bandit problem over 200 rounds of experimentation:
 
-**Experiment**
+1. Thompson sampling 
+2. Greedy: select the arm with the current best reward
+3. Eepsilon-greedy: approach that either picks an arm randomly with probability e or proceeds greedily with probability 1 - e. Setting e = 0 leads to a the purely greedy approach and setting e = 1 leads to a purely exploratory approach.
 
-  *Test Group 1*: 20% of users in the experiment
-  
-  *Test Group 2*: 20% of users in the experiment
+![Bandit Optimization: Regret](assets/mab_regret.png)
 
-  *Test Group 3*: 20% of users in the experiment
+The regret of the purely greedy approach is the highest amongst the three approaches and a little bit of exploration as in the epsilon-greedy approach with e = 0.1 leads to a much smaller regret over time. Thompson sampling balances the tradeoff between exploration and exploitation very well, and out-performs the other two approaches.
 
-  *Control Group*: 40% of users in the experiment
-
-
-The test runs for a period of time, and then experimenters manually decide how to proceed. Frequently, a single high performing group may be selected for a wider launch.
-
------
-Bandit optimization 
------
-
-In contrast, bandit optimization treats the relative allocation of users as *dynamic*, changing it throughout the duration of an experiment. This enables experiments to gather data more effectively than vanilla A/B testing. 
-
-A series of experiments in bandit optimization might look like this:
-
-![Bandit Optimization Allocations](assets/bandit_allocation.png)
-
-The outcome of bandit optimization can be slightly different from A/B testing. Since bandit optimization aims to optimally reallocate users between the potential arms of an experiment, the final result of a sequence of bandit optimization is typically an allocation of users to arms, e.g. the result of Round 12 above.
-
-
-Unlike the vanilla A/B test, bandit optimization algorithms adaptively select the amount of data we will receive about each test group.
-In our example, if Round 1 results indicate that *Test Group 2* is 20% worse than our *Control Group*, we don't need much data to confirm that it's not a good choice, so why waste samples measuring it precisely?
-However, if Round 1 results indicate that *Test Group 1* represents a 20% *improvement* over *Control*, we should definitely allocate more data to confirming the effect from that group, additionally ensuring that users do not end up stuck in a poorly performing choice.
-
-
------
-Thompson Sampling
------
-
-Thompson Sampling is a particularly successful algorithm for solving bandit optimization problems. As shown above, the key output of any bandit optimization algorithm is a policy mapping users to probabilities of assignment to experimental arms. So, how does Thompson Sampling choose these probabilities? Simple: the assignment probabilities are proportional to the probability of the arm being the best arm.
-
-Let's start with a simple example. Consider showing a button to a single user, and seeing if they click the button. Imagine we have three different designs of this button. 
-The user has an innate probability of enjoying each of these designs enough to click through.
-
-**True View Probability**
-
-  *Button 1*: 30% chance of clicking
-
-  *Button 2*: 90% chance of clicking
-
-  *Button 3*: 0% chance of clicking
-
-
-There are two key components to Thompson Sampling, and they are the key beliefs of any Bayesian algorithm. 
-1. A probabilistic model for the outcome of interest
-1. A prior on the parameters of that model
-
-In this case, our outcome is whether the user clicks the button or not. A simple model for this is the Bernoulli distribution (the same as a biased coin flip). The distribution has a single parameter, *p*, the probability of success.
-Typically, Thompson Sampling starts out with a prior belief that each arm has the same probability of success.
-
-**Thompson Sampling Probabilities: Prior**
-
-  *Button 1*: 50% chance of clicking
-
-  *Button 2*: 50% chance of clicking
-
-  *Button 3*: 50% chance of clicking
-
-
-In Round 1, the user sees each button design, and clicks on the first 2, but not the 3rd..
-
-**Thompson Sampling Probabilities: After Round 1**
-
-  *Button 1*: 56% chance of clicking
-
-  *Button 2*: 56% chance of clicking
-
-  *Button 3*: 44% chance of clicking
-
-
-This refinement continues, balancing the uncertainty we have in our estimation in the probability of success against our desire to show users the best experience.
-
-------
-A note on consistent experiences
-------
-
-For applications like UI design where consistent experiences are important, Ax's sequential management of trials can be used to ensure that new experimental allocations only affect users who are new to the experiment, holding allocations for users who have already seen the experiment fixed.
