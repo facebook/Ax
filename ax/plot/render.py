@@ -6,9 +6,10 @@ import json
 import os
 import pkgutil
 import uuid
+from typing import Dict
 
 import plotly.offline as plotly_offline
-from ax import plot as plot_module
+from ax import plot as PLOT_MODULE
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from jinja2 import Template
 
@@ -31,10 +32,8 @@ class _AxPlotJSResources(enum.Enum):
 
 
 # JS-based plots that are supported in Ax should be registered here
-Ax_PLOT_REGISTRY = {
-    AxPlotTypes.DATA_AVAILABILITY: "availability.js",
+Ax_PLOT_REGISTRY: Dict[enum.Enum, str] = {
     AxPlotTypes.CONTOUR: "contour.js",
-    AxPlotTypes.EXPOSURE: "exposure.js",
     AxPlotTypes.GENERIC: "generic_plotly.js",
     AxPlotTypes.INTERACT_CONTOUR: "interact_contour.js",
     AxPlotTypes.SLICE: "slice.js",
@@ -45,7 +44,7 @@ Ax_PLOT_REGISTRY = {
 def _load_js_resource(resource_type: _AxPlotJSResources) -> str:
     """Convert plot config to corresponding JS code."""
     resource = pkgutil.get_data(
-        plot_module.__name__, os.path.join("js", "common", resource_type.value + ".js")
+        PLOT_MODULE.__name__, os.path.join("js", "common", resource_type.value + ".js")
     )
     if resource is None:
         raise ValueError(f"Cannot find JS resource {resource_type.value}.")
@@ -53,7 +52,7 @@ def _load_js_resource(resource_type: _AxPlotJSResources) -> str:
 
 
 def _load_css_resource() -> str:
-    resource = pkgutil.get_data(plot_module.__name__, os.path.join("css", "base.css"))
+    resource = pkgutil.get_data(PLOT_MODULE.__name__, os.path.join("css", "base.css"))
     assert resource is not None
     return resource.decode("utf8")
 
@@ -78,17 +77,20 @@ def _js_requires(offline: bool = False) -> str:
     return script + helper_fxns
 
 
-def _get_plot_js(config: AxPlotConfig, plotdivid: str) -> str:
+def _get_plot_js(
+    config: AxPlotConfig,
+    plot_module_name: str,
+    plot_resources: Dict[enum.Enum, str],
+    plotdivid: str,
+) -> str:
     """Convert plot config to corresponding JS code."""
     if not isinstance(config, AxPlotConfig):
         raise ValueError("Config must be instance of AxPlotConfig.")
     js_template = pkgutil.get_data(
-        plot_module.__name__, os.path.join("js", Ax_PLOT_REGISTRY[config.plot_type])
+        plot_module_name, os.path.join("js", plot_resources[config.plot_type])
     )
     if js_template is None:
-        raise ValueError(
-            f"Cannot find JS template {Ax_PLOT_REGISTRY[config.plot_type]}."
-        )
+        raise ValueError(f"Cannot find JS template {plot_resources[config.plot_type]}.")
     return Template(js_template.decode("utf8")).render(
         id=json.dumps(plotdivid), **{k: json.dumps(v) for k, v in config.data.items()}
     )
@@ -120,10 +122,15 @@ def _plot_js_to_html(js_script: str, plotdivid: str) -> str:
     return plot_div + _wrap_js(plot_js)
 
 
-def plot_config_to_html(plot_config: AxPlotConfig, inject_helpers: bool = False) -> str:
+def plot_config_to_html(
+    plot_config: AxPlotConfig,
+    plot_module_name: str = PLOT_MODULE.__name__,
+    plot_resources: Dict[enum.Enum, str] = Ax_PLOT_REGISTRY,
+    inject_helpers: bool = False,
+) -> str:
     """Generate HTML + JS corresponding from a plot config."""
     plotdivid = uuid.uuid4().hex
-    plot_js = _get_plot_js(plot_config, plotdivid)
+    plot_js = _get_plot_js(plot_config, plot_module_name, plot_resources, plotdivid)
     if inject_helpers:
         helper_fxns = _load_js_resource(_AxPlotJSResources.HELPER_FXNS)
         plot_js = helper_fxns + plot_js

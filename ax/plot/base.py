@@ -18,25 +18,23 @@ Z = 1.96
 class AxPlotTypes(enum.Enum):
     """Enum of Ax plot types."""
 
-    DATA_AVAILABILITY = 0
-    CONTOUR = 1
-    EXPOSURE = 2
-    GENERIC = 3
-    SLICE = 4
-    INTERACT_CONTOUR = 5
-    BANDIT_ROLLOUT = 6
+    CONTOUR = 0
+    GENERIC = 1
+    SLICE = 2
+    INTERACT_CONTOUR = 3
+    BANDIT_ROLLOUT = 4
 
 
 # Configuration for all plots
 class _AxPlotConfigBase(NamedTuple):
     data: Dict[str, Any]
-    plot_type: AxPlotTypes
+    plot_type: enum.Enum
 
 
 class AxPlotConfig(_AxPlotConfigBase):
     """Config for plots"""
 
-    def __new__(cls, data: Dict[str, Any], plot_type: AxPlotTypes) -> "AxPlotConfig":
+    def __new__(cls, data: Dict[str, Any], plot_type: enum.Enum) -> "AxPlotConfig":
         # Convert data to json-encodable form (strips out NamedTuple and numpy
         # array). This is a lossy conversion.
         dict_data = simplejson.loads(
