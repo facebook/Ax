@@ -39,11 +39,3 @@ Noisy Functions
     :members:
     :undoc-members:
     :show-inheritance:
-
-Metric Registry
-~~~~~~~~~~~~~~~
-
-.. automodule:: ax.metrics.registry
-    :members:
-    :undoc-members:
-    :show-inheritance:
