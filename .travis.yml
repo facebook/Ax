@@ -20,7 +20,7 @@ matrix:
         - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@32911e3b51901917c0f14101972581c1295b5edb
         # TODO: Remove once PyTorch 1.1 is released and marked a dep. of botorch
         - pip install -q torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
-        - pip install git+ssh://git@github.com/facebookexternal/botorch.git
+        - pip install git+ssh://git@github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook,gpy]
       script:
         - pytest -ra
@@ -35,7 +35,7 @@ matrix:
         - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@32911e3b51901917c0f14101972581c1295b5edb
         # TODO: Remove once PyTorch 1.1 is released and marked a dep. of botorch
         - pip install -q torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
-        - pip install git+ssh://git@github.com/facebookexternal/botorch.git
+        - pip install git+ssh://git@github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
       script:
         - pytest -ra  --ignore=ax/models/tests/test_gpy.py   --ignore=ax/models/tests/test_gpy_nei.py
@@ -60,7 +60,7 @@ matrix:
         - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@32911e3b51901917c0f14101972581c1295b5edb
         # TODO: Remove once PyTorch 1.1 is released and marked a dep. of botorch
         - pip install -q torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
-        - pip install git+ssh://git@github.com/facebookexternal/botorch.git
+        - pip install git+ssh://git@github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook,gpy]
       script:
         # warnings treated as errors

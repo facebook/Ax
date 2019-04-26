@@ -32,8 +32,8 @@ version of BoTorch can be up to an order of magnitude slower). Setting this up
 manually can be tricky - to ensure this works properly please follow the
 [PyTorch installation instructions](https://pytorch.org/get-started/locally/).
 
-3) Download and install BoTorch from the [GitHub repo](https://github.com/facebookexternal/botorch):
-`pip3 install git+ssh://git@github.com/facebookexternal/botorch.git`
+3) Download and install BoTorch from the [GitHub repo](https://github.com/pytorch/botorch):
+`pip3 install git+ssh://git@github.com/pytorch/botorch.git`
 
 4) Download and install Ax from the [GitHub repo](https://github.com/facebook/Ax):
 `pip3 install git+ssh://git@github.com/facebook/Ax.git`
