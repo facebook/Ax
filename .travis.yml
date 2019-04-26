@@ -12,7 +12,7 @@ before_install:
 
 matrix:
   include:
-    - name: "Tests: Python 3.6 with GPy"
+    - name: "Tests: Python 3.6"
       python: "3.6"
       install:
         - pip install cython numpy
@@ -21,7 +21,7 @@ matrix:
         # TODO: Remove once PyTorch 1.1 is released and marked a dep. of botorch
         - pip install -q torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
         - pip install git+ssh://git@github.com/pytorch/botorch.git
-        - pip install -q -e .[dev,mysql,notebook,gpy]
+        - pip install -q -e .[dev,mysql,notebook]
       script:
         - pytest -ra
     - name: "Tests: Python 3.7"
@@ -38,7 +38,7 @@ matrix:
         - pip install git+ssh://git@github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
       script:
-        - pytest -ra  --ignore=ax/models/tests/test_gpy.py   --ignore=ax/models/tests/test_gpy_nei.py
+        - pytest -ra
     - name: "Lint: black (Python 3.6)"
       python: "3.6"
       install:

@@ -34,9 +34,6 @@ MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
 
-GPY_REQUIRES = ["GPy==1.9.6", "matplotlib"]  # NOTE: GPy does not work with py3.7
-
-
 setup(
     name="ax",
     version="pre-alpha",
@@ -63,6 +60,5 @@ setup(
         "dev": DEV_REQUIRES,
         "mysql": MYSQL_REQUIRES,
         "notebook": NOTEBOOK_REQUIRES,
-        "gpy": GPY_REQUIRES,
     },
 )
