@@ -9,7 +9,12 @@ from ax.core.objective import Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.discrete import DiscreteModelBridge, _get_parameter_values
 from ax.models.discrete_base import DiscreteModel
@@ -21,7 +26,7 @@ class DiscreteModelBridgeTest(TestCase):
         self.parameters = [
             ChoiceParameter("x", ParameterType.FLOAT, values=[0, 1]),
             ChoiceParameter("y", ParameterType.STRING, values=["foo", "bar"]),
-            ChoiceParameter("z", ParameterType.BOOL, values=[True, False]),
+            FixedParameter("z", ParameterType.BOOL, value=True),
         ]
         parameter_constraints = []
 
@@ -30,7 +35,7 @@ class DiscreteModelBridgeTest(TestCase):
         self.observation_features = [
             ObservationFeatures(parameters={"x": 0, "y": "foo", "z": True}),
             ObservationFeatures(parameters={"x": 1, "y": "foo", "z": True}),
-            ObservationFeatures(parameters={"x": 1, "y": "bar", "z": False}),
+            ObservationFeatures(parameters={"x": 1, "y": "bar", "z": True}),
         ]
         self.observation_data = [
             ObservationData(
@@ -56,7 +61,7 @@ class DiscreteModelBridgeTest(TestCase):
             for i in range(3)
         ]
         self.pending_observations = {
-            "b": [ObservationFeatures(parameters={"x": 0, "y": "foo", "z": False})]
+            "b": [ObservationFeatures(parameters={"x": 0, "y": "foo", "z": True})]
         }
         self.model_gen_options = {"option": "yes"}
 
@@ -80,12 +85,12 @@ class DiscreteModelBridgeTest(TestCase):
         self.assertEqual(sorted(ma.outcomes), ["a", "b"])
         self.assertEqual(ma.training_in_design, [True, True, True, False])
         Xs = {
-            "a": [[0, "foo", True], [1, "foo", True], [1, "bar", False]],
+            "a": [[0, "foo", True], [1, "foo", True], [1, "bar", True]],
             "b": [[0, "foo", True], [1, "foo", True]],
         }
         Ys = {"a": [[1.0], [2.0], [3.0]], "b": [[-1.0], [-2.0]]}
         Yvars = {"a": [[1.0], [2.0], [3.0]], "b": [[6.0], [7.0]]}
-        parameter_values = [[0.0, 1.0], ["foo", "bar"], [True, False]]
+        parameter_values = [[0.0, 1.0], ["foo", "bar"], [True]]
         model_fit_args = model.fit.mock_calls[0][2]
         for i, x in enumerate(model_fit_args["Xs"]):
             self.assertEqual(x, Xs[ma.outcomes[i]])
@@ -111,7 +116,7 @@ class DiscreteModelBridgeTest(TestCase):
         ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
         observation_data = ma._predict(self.observation_features)
-        X = [[0, "foo", True], [1, "foo", True], [1, "bar", False]]
+        X = [[0, "foo", True], [1, "foo", True], [1, "bar", True]]
         self.assertTrue(model.predict.mock_calls[0][2]["X"], X)
         for i, od in enumerate(observation_data):
             self.assertEqual(od, self.observation_data[i])
@@ -144,7 +149,7 @@ class DiscreteModelBridgeTest(TestCase):
         gen_args = model.gen.mock_calls[0][2]
         self.assertEqual(gen_args["n"], 3)
         self.assertEqual(
-            gen_args["parameter_values"], [[0.0, 1.0], ["foo", "bar"], [True, False]]
+            gen_args["parameter_values"], [[0.0, 1.0], ["foo", "bar"], [True]]
         )
         self.assertTrue(
             np.array_equal(gen_args["objective_weights"], np.array([-1.0, 0.0]))
@@ -156,7 +161,7 @@ class DiscreteModelBridgeTest(TestCase):
             np.array_equal(gen_args["outcome_constraints"][1], np.array([[-2]]))
         )
         self.assertEqual(gen_args["pending_observations"][0], [])
-        self.assertEqual(gen_args["pending_observations"][1], [[0, "foo", False]])
+        self.assertEqual(gen_args["pending_observations"][1], [[0, "foo", True]])
         self.assertEqual(gen_args["model_gen_options"], {"option": "yes"})
         self.assertEqual(
             observation_features[0].parameters, {"x": 0.0, "y": 2.0, "z": 3.0}
@@ -219,12 +224,12 @@ class DiscreteModelBridgeTest(TestCase):
             self.observation_features, self.observation_data, self.observation_features
         )
         Xs = [
-            [[0, "foo", True], [1, "foo", True], [1, "bar", False]],
+            [[0, "foo", True], [1, "foo", True], [1, "bar", True]],
             [[0, "foo", True], [1, "foo", True]],
         ]
         Ys = [[[1.0], [2.0], [3.0]], [[-1.0], [-2.0]]]
         Yvars = [[[1.0], [2.0], [3.0]], [[6.0], [7.0]]]
-        Xtest = [[0, "foo", True], [1, "foo", True], [1, "bar", False]]
+        Xtest = [[0, "foo", True], [1, "foo", True], [1, "bar", True]]
         # Transform to arrays:
         model_cv_args = model.cross_validate.mock_calls[0][2]
         for i, x in enumerate(model_cv_args["Xs_train"]):
@@ -240,7 +245,7 @@ class DiscreteModelBridgeTest(TestCase):
 
     def testGetParameterValues(self):
         parameter_values = _get_parameter_values(self.search_space, ["x", "y", "z"])
-        self.assertEqual(parameter_values, [[0.0, 1.0], ["foo", "bar"], [True, False]])
+        self.assertEqual(parameter_values, [[0.0, 1.0], ["foo", "bar"], [True]])
         search_space = SearchSpace(self.parameters)
         search_space._parameters["x"] = RangeParameter(
             "x", ParameterType.FLOAT, 0.1, 0.4
