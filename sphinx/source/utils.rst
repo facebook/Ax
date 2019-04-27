@@ -68,30 +68,6 @@ Render
 Stats
 ---------------
 
-Constraint Power
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.utils.stats.constraint_power
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Deltoid Power
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.utils.stats.deltoid_power
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-No Effects
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.utils.stats.no_effects
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Statstools
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
