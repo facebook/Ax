@@ -4,21 +4,7 @@
 import numpy as np
 import pandas as pd
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import (
-    benjamini_hochberg,
-    inverse_variance_weight,
-    marginal_effects,
-)
-
-
-class BenjaminiHochbergTest(TestCase):
-    def test_benjamini_hochberg(self):
-        indcs = benjamini_hochberg(p_values=[0.01, 0.5, 0.3, 0.05], alpha=0.1)
-        self.assertEqual(indcs, [0, 3])
-
-    def test_benjamini_hochberg_invalid(self):
-        with self.assertRaises(ValueError):
-            benjamini_hochberg(p_values=[2], alpha=0.1)
+from ax.utils.stats.statstools import inverse_variance_weight, marginal_effects
 
 
 class InverseVarianceWeightingTest(TestCase):
