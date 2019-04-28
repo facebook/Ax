@@ -5,7 +5,12 @@ from copy import deepcopy
 
 from ax.core.arm import Arm
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.utils.common.testutils import TestCase
@@ -48,6 +53,11 @@ class SearchSpaceToChoiceTest(TestCase):
             observation_features=self.observation_features,
             observation_data=None,
         )
+        self.t2 = SearchSpaceToChoice(
+            search_space=self.search_space,
+            observation_features=[self.observation_features[0]],
+            observation_data=None,
+        )
 
     def testTransformSearchSpace(self):
         ss2 = self.search_space.clone()
@@ -57,6 +67,17 @@ class SearchSpaceToChoiceTest(TestCase):
             name="arms",
             parameter_type=ParameterType.STRING,
             values=list(self.t.signature_to_parameterization.keys()),
+        )
+        self.assertEqual(ss2.parameters.get("arms"), expected_parameter)
+
+    def testTransformSearchSpaceWithFixedParam(self):
+        ss2 = self.search_space.clone()
+        ss2 = self.t2.transform_search_space(ss2)
+        self.assertEqual(len(ss2.parameters), 1)
+        expected_parameter = FixedParameter(
+            name="arms",
+            parameter_type=ParameterType.STRING,
+            value=list(self.t2.signature_to_parameterization.keys())[0],
         )
         self.assertEqual(ss2.parameters.get("arms"), expected_parameter)
 
