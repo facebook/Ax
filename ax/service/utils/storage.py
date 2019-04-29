@@ -30,7 +30,7 @@ def load_experiment(name: str, db_settings: DBSettings) -> Experiment:
         db_settings: Specifies decoder and xdb tier where experiment is stored.
 
     Returns:
-        Experiment: created `SimpleExperiment` object.
+        ax.core.Experiment: Loaded experiment.
     """
     initialize_db(db_settings)
     experiment = _load_experiment(name, db_settings.decoder)
