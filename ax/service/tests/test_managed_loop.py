@@ -26,6 +26,16 @@ def _branin_evaluation_function_v2(parameterization, weight=None):
     return (branin(x1, x2), 0.0)
 
 
+# Patch the Models enum to replace GPEI with Sobol.
+def get_experiment_data_sobol(experiment, data):
+    return get_sobol(experiment.search_space)
+
+
+class FakeModels(Enum):
+    SOBOL = get_sobol
+    GPEI = get_experiment_data_sobol
+
+
 class TestManagedLoop(TestCase):
     """Check functionality of optimization loop."""
 
@@ -75,17 +85,9 @@ class TestManagedLoop(TestCase):
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
 
+    @patch("ax.service.utils.dispatch.Models", FakeModels)
     def test_branin_batch(self) -> None:
         """Basic async synthetic function managed loop case."""
-        # Patch the Models enum to replace GPEI with Sobol.
-        def get_experiment_data_sobol(experiment, data):
-            return get_sobol(experiment.search_space)
-
-        class FakeModels(Enum):
-            SOBOL = get_sobol
-            GPEI = get_experiment_data_sobol
-
-        patch("ax.service.utils.dispatch.Models", FakeModels).start()
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[
                 {

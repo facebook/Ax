@@ -1,13 +1,15 @@
 ---
-id: experiment
-title: Experiment
+id: core
+title: Core
 ---
 
-## Building Blocks of an Experiment
+In Ax, an [experiment](glossary.md#experiment) keeps track of the whole optimization process. It contains a search space, optimization config, metadata, information on what metrics to track and how to run iterations, etc. An [experiment](glossary.md#experiment) is composed of a sequence of [trials](glossary.md#trial) — evaluations of a point in the search space, called an [arm](glossary.md#arm) in Ax.  A [trial](glossary.md#trial) is added to the experiment when a new arm is proposed by the optimization algorithm for evaluation, and it is completed with [objective](glossary.md#objective) and [metric](glossary.md#metric) values when observation data for that point is attached back to the experiment. For cases where multiple [arms](glossary.md#arm) should be evaluated at the same time, Ax supports [batched trials](glossary.md#trial).
 
 ### Experiment
 
 In Ax, an [experiment](glossary.md#experiment) keeps track of the whole optimization process. It contains a search space, optimization config, metadata, information on what metrics to track and how to run iterations, etc. An [experiment](glossary.md#experiment) is composed of a sequence of [trials](glossary.md#trial) — evaluations of a point in the search space, called an [arm](glossary.md#arm) in Ax.  A [trial](glossary.md#trial) is added to the experiment when a new arm is proposed by the optimization algorithm for evaluation, and it is completed with [objective](glossary.md#objective) and [metric](glossary.md#metric) values when observation data for that point is attached back to the experiment. For cases where multiple [arms](glossary.md#arm) should be evaluated at the same time, Ax supports [batched trials](glossary.md#trial).
+
+For a simple case of synchronous optimization (common in hyperparameter optimization tasks), where [trials](glossary.md#trial) can be evaluated right away via an [evaluation function](glossary.md#evaluation-function), Ax offers a simplified [simple experiment](glossary.md#simple-experiment) abstraction.
 
 ### Search Space and Parameters
 

@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from ax.core.arm import Arm
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
+from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
@@ -27,28 +27,34 @@ class SearchSpaceToChoice(Transform):
         observation_data: List[ObservationData],
         config: Optional[TConfig] = None,
     ) -> None:
-        self.choice_parameter_name = "arms"
+        self.parameter_name = "arms"
         self.signature_to_parameterization = {
             Arm(parameters=obsf.parameters).signature: obsf.parameters
             for obsf in observation_features
         }
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        parameters: List[Parameter] = [
-            ChoiceParameter(
-                name=self.choice_parameter_name,
+        values = list(self.signature_to_parameterization.keys())
+        if len(values) > 1:
+            parameter = ChoiceParameter(
+                name=self.parameter_name,
                 parameter_type=ParameterType.STRING,
-                values=list(self.signature_to_parameterization.keys()),
+                values=values,
             )
-        ]
-        return SearchSpace(parameters=parameters)
+        else:
+            parameter = FixedParameter(
+                name=self.parameter_name,
+                parameter_type=ParameterType.STRING,
+                value=values[0],
+            )
+        return SearchSpace(parameters=[parameter])
 
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
             obsf.parameters = {
-                self.choice_parameter_name: Arm(parameters=obsf.parameters).signature
+                self.parameter_name: Arm(parameters=obsf.parameters).signature
             }
         return observation_features
 
@@ -56,6 +62,6 @@ class SearchSpaceToChoice(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            signature = obsf.parameters[self.choice_parameter_name]
+            signature = obsf.parameters[self.parameter_name]
             obsf.parameters = self.signature_to_parameterization[signature]
         return observation_features

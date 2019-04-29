@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import ChoiceParameter
+from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig, TParamValueList
 from ax.modelbridge.array import (
@@ -212,8 +212,11 @@ def _get_parameter_values(
     for p_name in param_names:
         p = search_space.parameters[p_name]
         # Validation
-        if not isinstance(p, ChoiceParameter):
-            raise ValueError(f"{p} not ChoiceParameter")
-        # Set values
-        parameter_values.append(p.values)
+        if isinstance(p, ChoiceParameter):
+            # Set values
+            parameter_values.append(p.values)
+        elif isinstance(p, FixedParameter):
+            parameter_values.append([p.value])
+        else:
+            raise ValueError(f"{p} not ChoiceParameter or FixedParameter")
     return parameter_values

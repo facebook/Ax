@@ -16,7 +16,7 @@ REQUIRES = [
     "scipy",
     "simplejson",
     "sklearn",
-    "plotly==2.4.1",
+    "plotly>=2.2.1,<3.0",
 ]
 
 # pytest-cov requires pytest >= 3.6
@@ -33,9 +33,6 @@ DEV_REQUIRES = [
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
-
-GPY_REQUIRES = ["GPy==1.9.6", "matplotlib"]  # NOTE: GPy does not work with py3.7
-
 
 setup(
     name="ax",
@@ -63,6 +60,5 @@ setup(
         "dev": DEV_REQUIRES,
         "mysql": MYSQL_REQUIRES,
         "notebook": NOTEBOOK_REQUIRES,
-        "gpy": GPY_REQUIRES,
     },
 )
