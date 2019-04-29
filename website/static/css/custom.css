@@ -10,6 +10,10 @@ html body {
   overflow-x: hidden;
 }
 
+.fixedHeaderContainer {
+    background-color: #222222
+}
+
 .fixedHeaderContainer header img {
   margin-right: 0px;
 }
@@ -22,13 +26,22 @@ html body {
   font-weight: 400;
 }
 
+.navigationSlider .slidingNav ul li a {
+  color: #c7d4fd
+}
+
+.navigationSlider .slidingNav ul li a:hover {
+  color: #ffffff
+}
+
 .homeContainer {
-  background: #353d47;
+  background: rgb(2,0,36);
+  background: linear-gradient(0deg, rgba(2,0,36,1), rgba(91,24,97,1) 0%, rgba(72,114,249,1) 100%);
   padding: 50px 0px;
 }
 
 .projectTitle {
-  color: #66fcf1;
+  color: #ffffff;
   font-variant: small-caps;
   font-weight: 300;
 }
@@ -41,14 +54,14 @@ html body {
 }
 
 .promoSection .button {
-  border: 1px solid #45a29e;
-  color: #66fcf1;
+  border: 1px solid #c7d4fd;
+  color: #c7d4fd;
 }
 
 .promoSection .button:hover {
-  background: #45a29e;
-  border: 1px solid #c5c6c7;
-  color: #353d47;
+  background: inherit;
+  border: 1px solid #ffffff;
+  color: #ffffff;
 }
 
 .landingPage {
@@ -75,7 +88,19 @@ div.productShowcaseSection {
 }
 
 .blockContent > h2 {
-  color: #45a29e;
+  color: #5b1861;
+}
+
+.blockContent {
+  color: #6C6C6C;
+}
+
+.productShowcaseSection {
+  color: #6C6C6C;
+}
+
+.productShowcaseSection h2 {
+  color: #4872f9;
 }
 
 .productShowcaseSection li {
@@ -91,7 +116,7 @@ div.productShowcaseSection {
 }
 
 div#quickstart {
-  background: #f1f1f2;
+  background: #EFEFEF;
 }
 
 div#quickstart ol {
@@ -107,13 +132,65 @@ p a:hover {
   border-bottom: 1px dotted #45a29e;
 }
 
+/* Style docs */
+.toc .toggleNav .navGroup .navGroupCategoryTitle {
+  color: #222222;
+}
+
+.toc .toggleNav ul li a {
+  color: #6C6C6C;
+}
+
+.toc .toggleNav ul li a:hover {
+  color: #5b1861;
+}
+
+.toc .toggleNav .navGroup .navListItemActive a {
+  color: #4872f9;
+}
+
+.mainContainer .wrapper .post .postHeaderTitle {
+  color: #222222;
+}
+
+.mainContainer .wrapper .post h1 {
+  color: #222222;
+}
+
+.mainContainer .wrapper .post {
+  color: #6C6C6C;
+}
+
+.mainContainer .wrapper .post strong {
+  color: #222222;
+}
+
+
+.mainContainer .wrapper .post a {
+  color: #4872f9;
+}
+
 /* Style tutorials */
 .tutorialBody {
   margin-top: -20px;
+  color: #6C6C6C;
 }
 
 .tutorialBody h1 {
   margin: 0px;
+}
+
+.tutorialBody h1, .tutorialBody h2, .tutorialBody h3 {
+  color: #222222
+}
+
+.tutorialBody a {
+  color: #4872f9;
+}
+
+.tutorialBody a:hover {
+  color: #4872f9;
+  border: 0px;
 }
 
 .tutorialBody pre {
@@ -157,23 +234,20 @@ p a:hover {
 }
 
 .tutorialButton {
-  color: #45a29e;
+  color: #4872f9;
+  border: 1px solid #4872f9;
 }
 
 .tutorialButton svg {
   height: 15px;
   margin-right: 5px;
-  fill: #45a29e;
 }
 
 .tutorialButton:hover {
-  background-color: #353d47;
-  color: #66fcf1;
+  color: #4872f9;
+  background-color: inherit;
 }
 
-.tutorialButton:hover svg path {
-  fill: #66fcf1;
-}
 
 @media only screen and (min-device-width: 360px) and (max-device-width: 736px) {
 }
