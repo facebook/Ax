@@ -83,11 +83,11 @@ div#quickstart ol {
   margin-bottom: 0px;
 }
 
-p a {
+p a, .post a {
   color: #45a29e;
 }
 
-p a:hover {
+p a:hover, .post a:hover {
   color: #45a29e;
   border-bottom: 1px dotted #45a29e;
 }
