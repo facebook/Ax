@@ -29,9 +29,6 @@ from ax.modelbridge.factory import get_GPEI
 m = get_GPEI(experiment, data)
 gr = m.gen(n=5, optimization_config=optimization_config)
 ```
-[FIXME: have we introduced optimization_config earlier in the documentation?]
-
-[TODO: Include here the plot of all of the arms plus the new generated arms?]
 
 In contrast to `get_sobol`, the GP requires data and is able to make predictions. We make predictions by constructing a list of ObservationFeatures objects with the parameter values for which we want predictions:
 ```Python
@@ -87,7 +84,8 @@ from ax.plot.diagnostic import interact_cross_validation
 
 render(interact_cross_validation(cv))
 ```
-[INSERT HERE A CROSS VALIDATION PLOT]
+
+<div id="cv" style="width: 100%;"></div>
 
 A good-performing model will have values that lie along the diagonal. Poor GP fits tend to produce cross validation plots that are flat with high predictive uncertainty - such fits are unlikely to produce good values in `gen`.
 
@@ -116,11 +114,9 @@ We can generate a plot that shows the predictions for each arm with the shrinkag
 from ax.plot.scatter import plot_fitted
 
 render(plot_fitted(m, metric="metric_a", rel=False))
-# TODO this should be changed to default to rel=False, otherwise it errors out
-# when you don't have a SQ set.
-# "metric_name" would also be a more consistent argument name.
 ```
-[INSERT HERE FITTED PLOT]
+
+<div id="fitted" style="width: 100%;"></div>
 
 #### Factorial designs
 [Actually I'm not certain we want to include this, since Sobol can also be used for discrete spaces]
@@ -203,3 +199,5 @@ If none of the existing Model interfaces work are suitable for the new model typ
 
 <script type="text/javascript" src="assets/slice.js"></script>
 <script type="text/javascript" src="assets/contour.js"></script>
+<script type="text/javascript" src="assets/cv.js"></script>
+<script type="text/javascript" src="assets/fitted.js"></script>
