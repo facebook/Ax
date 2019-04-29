@@ -16,7 +16,7 @@ REQUIRES = [
     "scipy",
     "simplejson",
     "sklearn",
-    "plotly==2.4.1",
+    "plotly>=2.2.1,<3.0",
 ]
 
 # pytest-cov requires pytest >= 3.6

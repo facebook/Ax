@@ -34,7 +34,7 @@ The required Python dependencies are:
 * scipy
 * simplejson
 * sklearn
-* plotly==2.4.1  **# TODO!**
+* plotly>=2.2.1,<3.0
 
 ### pip [PRIOR TO LAUNCH]
 
