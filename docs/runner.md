@@ -48,11 +48,11 @@ A default runner is specified on the experiment, which is attached to each trial
 
 ### Service-like
 
-Aside from those 2 paradigms, it is also possible to use Ax in a service-like
-manner, where Ax just suggests [Arms](glossary.md#arm), which the client application
-tries and logs the results back to Ax. In this case, no runner or evaluation
-function is needed, since the evaluation is done on the client side. For more
-information, refer to [```Service```](/api/core.html#module-ax.service) module
+It is also possible to use Ax in a service-like manner, where Ax just suggests
+[Arms](glossary.md#arm), which the client application evaluates and logs the results
+back to Ax. In this case, no runner or evaluation function is needed,
+since the evaluation is done on the client side. For more information,
+refer to [```Service```](/api/core.html#module-ax.service) module
 reference and the [API docs](api.md).
 
 
