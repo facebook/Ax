@@ -2,11 +2,16 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import logging
-from typing import Dict, List, Optional, Union
+from typing import List, Optional
 
 from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationFunction
+from ax.core.types import TParameterization
+from ax.service.utils.best_point import (
+    get_best_from_model_predictions,
+    get_best_raw_objective_point,
+)
 from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import (
     TParameterRepresentation,
@@ -144,21 +149,17 @@ class OptimizationLoop:
             self.run_trial()
         return self
 
-    def get_best_point(self) -> Dict[str, Union[str, float, bool, int]]:
+    def get_best_point(self) -> TParameterization:
         """Obtains the best point encountered in the course
         of this optimization."""
-        # TODO[drfreund]: Use models' best_point function. T42389552
-        dat = self.experiment.fetch_data()
-        objective_rows = dat.df.loc[
-            dat.df["metric_name"]
-            == self.experiment.optimization_config.objective.metric.name
-        ]
-        best_arm = (
-            objective_rows.loc[objective_rows["mean"].idxmin()]
-            if self.experiment.optimization_config.objective.minimize
-            else objective_rows.loc[objective_rows["mean"].idxmax()]
-        )["arm_name"]
-        return self.experiment.arms_by_name.get(best_arm).parameters
+        # Find latest trial which has a generator_run attached and get its predictions
+        model_predictions = get_best_from_model_predictions(experiment=self.experiment)
+        if model_predictions is not None:
+            return model_predictions[0]
+
+        # Could not find through model, default to using raw objective.
+        parameterization, _ = get_best_raw_objective_point(experiment=self.experiment)
+        return parameterization
 
 
 def optimize(
@@ -172,7 +173,7 @@ def optimize(
     total_trials: int = 20,
     arms_per_trial: int = 1,
     wait_time: int = 0,
-) -> Dict[str, Union[str, float, bool, int]]:
+) -> TParameterization:
     """Construct and run a full optimization loop."""
     loop = OptimizationLoop.with_evaluation_function(
         parameters=parameters,

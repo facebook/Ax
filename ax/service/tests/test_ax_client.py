@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+from ax.core.arm import Arm
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
@@ -46,6 +48,8 @@ class TestServiceAPI(TestCase):
         ax = AxClient(
             GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
         )
+        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
+            ax.experiment
         ax.create_experiment(
             name="test_experiment",
             parameters=[
@@ -83,6 +87,7 @@ class TestServiceAPI(TestCase):
             parameter_constraints=["x3 >= x4", "x3 + x4 >= 2"],
         )
         assert ax._experiment is not None
+        self.assertEqual(ax._experiment, ax.experiment)
         self.assertEqual(
             ax._experiment.search_space.parameters["x1"],
             RangeParameter(
@@ -168,6 +173,10 @@ class TestServiceAPI(TestCase):
             parameterization, trial_index = ax.get_next_trial()
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
             ax.complete_trial(trial_index, raw_data=(branin(x1, x2), 0.0))
+        with self.assertRaisesRegex(ValueError, "Raw data has an invalid type"):
+            ax.complete_trial(
+                trial_index, raw_data=[(branin(x1, x2), 0.0), (branin(x1, x2), 0.0)]
+            )
 
     def test_keep_generating_without_data(self):
         # Check that normally numebr of arms to generate is enforced.
@@ -195,3 +204,72 @@ class TestServiceAPI(TestCase):
         )
         for _ in range(10):
             parameterization, trial_index = ax.get_next_trial()
+
+    def test_trial_completion(self):
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        params, idx = ax.get_next_trial()
+        ax.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
+        self.assertEqual(ax.get_best_parameters()[0], params)
+        params2, idx2 = ax.get_next_trial()
+        ax.complete_trial(trial_index=idx2, raw_data=(-1, 0.0))
+        self.assertEqual(ax.get_best_parameters()[0], params2)
+        params3, idx3 = ax.get_next_trial()
+        ax.complete_trial(trial_index=idx3, raw_data=-2, metadata={"dummy": "test"})
+        self.assertEqual(ax.get_best_parameters()[0], params3)
+        self.assertEqual(ax.experiment.trials.get(2).run_metadata.get("dummy"), "test")
+
+    def test_fail_on_batch(self):
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        batch_trial = ax.experiment.new_batch_trial(
+            generator_run=GeneratorRun(
+                arms=[
+                    Arm(parameters={"x1": 0, "x2": 1}),
+                    Arm(parameters={"x1": 0, "x2": 1}),
+                ]
+            )
+        )
+        with self.assertRaises(NotImplementedError):
+            ax.complete_trial(batch_trial.index, 0)
+
+    def test_log_failure(self):
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        _, idx = ax.get_next_trial()
+        ax.log_trial_failure(idx, metadata={"dummy": "test"})
+        self.assertTrue(ax.experiment.trials.get(idx).status.is_failed)
+        self.assertEqual(
+            ax.experiment.trials.get(idx).run_metadata.get("dummy"), "test"
+        )
+
+    def test_attach_trial(self):
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        params, idx = ax.attach_trial(parameters={"x1": 0, "x2": 1})
+        ax.complete_trial(trial_index=idx, raw_data=5)
+        self.assertEqual(ax.get_best_parameters()[0], params)
