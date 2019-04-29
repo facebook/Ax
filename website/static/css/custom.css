@@ -87,20 +87,16 @@ div.productShowcaseSection {
   height: 80px;
 }
 
-.blockContent > h2 {
-  color: #5b1861;
-}
-
-.blockContent {
-  color: #6C6C6C;
-}
-
 .productShowcaseSection {
   color: #6C6C6C;
 }
 
 .productShowcaseSection h2 {
-  color: #4872f9;
+  color: #5b1861;
+}
+
+.container .wrapper .alignCenter h2 {
+  color: #6C6C6C;
 }
 
 .productShowcaseSection li {
@@ -121,6 +117,18 @@ div#quickstart {
 
 div#quickstart ol {
   margin-bottom: 0px;
+}
+
+.nav-footer {
+  background-color: #222222;
+}
+
+.nav-footer .sitemap a {
+  color: #c7d4fd;
+}
+
+.nav-footer .sitemap a:hover {
+  color: #ffffff;
 }
 
 p a {
@@ -168,6 +176,11 @@ p a:hover {
 
 .mainContainer .wrapper .post a {
   color: #4872f9;
+}
+
+.mainContainer .wrapper .post a:hover {
+  color: #4872f9;
+  border: 0px;
 }
 
 /* Style tutorials */
