@@ -10,7 +10,15 @@ html body {
   overflow-x: hidden;
 }
 
+.fixedHeaderContainer header img {
+  margin-right: 0px;
+}
+
 .headerTitle {
+  font-weight: 400;
+}
+
+.headerTitleWithLogo {
   font-weight: 400;
 }
 
@@ -23,6 +31,13 @@ html body {
   color: #66fcf1;
   font-variant: small-caps;
   font-weight: 300;
+}
+
+.splashLogo{
+  display: block;
+  margin: 0 auto;
+  height: 100px;
+  width: 100px;
 }
 
 .promoSection .button {
