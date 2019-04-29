@@ -173,7 +173,6 @@ p a:hover {
   color: #222222;
 }
 
-
 .mainContainer .wrapper .post a {
   color: #4872f9;
 }
@@ -260,7 +259,6 @@ p a:hover {
   color: #4872f9;
   background-color: inherit;
 }
-
 
 @media only screen and (min-device-width: 360px) and (max-device-width: 736px) {
 }
