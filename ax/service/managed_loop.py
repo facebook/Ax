@@ -135,7 +135,7 @@ class OptimizationLoop:
                     experiment=self.experiment, new_data=dat, n=arms_per_trial
                 )
             )
-        else:
+        else:  # pragma: no cover
             raise ValueError(f"Invalid number of arms per trial: {arms_per_trial}")
         trial.fetch_data()
         self.current_trial += 1

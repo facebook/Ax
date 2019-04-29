@@ -4,9 +4,11 @@
 from enum import Enum
 from unittest.mock import patch
 
+from ax.core.arm import Arm
+from ax.core.generator_run import GeneratorRun
 from ax.metrics.branin import branin
 from ax.modelbridge.factory import get_sobol
-from ax.service.managed_loop import OptimizationLoop
+from ax.service.managed_loop import OptimizationLoop, optimize
 from ax.utils.common.testutils import TestCase
 
 
@@ -40,7 +42,26 @@ class FakeModels(Enum):
 class TestManagedLoop(TestCase):
     """Check functionality of optimization loop."""
 
-    def test_branin(self) -> None:
+    @patch(
+        "ax.modelbridge.torch.TorchModelBridge.gen",
+        return_value=GeneratorRun(
+            arms=[Arm(parameters={"x1": -2.73, "x2": 1.33})],
+            best_arm_predictions=(
+                Arm(name="1_0", parameters={"x1": 4.34, "x2": 2.60}),
+                (
+                    {"branin": 7.76, "constrained_metric": -7.76},
+                    {
+                        "branin": {"branin": 0.1, "constrained_metric": 0.0},
+                        "constrained_metric": {
+                            "branin": 0.0,
+                            "constrained_metric": 0.1,
+                        },
+                    },
+                ),
+            ),
+        ),
+    )
+    def test_branin(self, _) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[
@@ -59,11 +80,13 @@ class TestManagedLoop(TestCase):
             evaluation_function=_branin_evaluation_function,
             parameter_constraints=["x1 + x2 <= 20"],
             outcome_constraints=["constrained_metric <= 10"],
-            total_trials=5,
+            total_trials=6,
         )
         bp = loop.full_run().get_best_point()
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
+        with self.assertRaisesRegex(ValueError, "Optimization is complete"):
+            loop.run_trial()
 
     def test_branin_without_objective_name(self) -> None:
         loop = OptimizationLoop.with_evaluation_function(
@@ -115,3 +138,19 @@ class TestManagedLoop(TestCase):
         # Check that all total_trials * arms_per_trial * 2 metrics evaluations
         # are present in the dataframe.
         self.assertEqual(len(loop.experiment.fetch_data().df.index), 30)
+
+    def test_optimize(self) -> None:
+        """Tests optimization as a single call."""
+        best = optimize(
+            parameters=[  # pyre-fixme[6]
+                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
+            ],
+            # Booth function.
+            evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
+            + (2 * p["x1"] + p["x2"] - 5) ** 2,
+            minimize=True,
+            total_trials=5,
+        )
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
