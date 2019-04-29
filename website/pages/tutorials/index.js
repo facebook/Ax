@@ -82,10 +82,10 @@ class TutorialHome extends React.Component {
                 </li>
               </ul>
               <p>
-                Finally, each of our 3 API tutorials:&nbsp;
+                Finally, our 3 API tutorials:&nbsp;
                 <a href="gpei_hartmann_loop.html">Loop</a>,&nbsp;
                 <a href="gpei_hartmann_service.html">Service</a>, and&nbsp;
-                <a href="gpei_hartmann_developer.html">Developer</a> –– showcases
+                <a href="gpei_hartmann_developer.html">Developer</a> –– showcase
                 optimization on a constrained Hartmann6 problem, with each
                 respective API.
               </p>
