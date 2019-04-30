@@ -163,7 +163,8 @@ class TestBOBenchmarkingSuite(TestCase):
         suite = BOBenchmarkingSuite()
         suite.run(
             num_runs=1,
-            total_iterations=5,
+            batch_size=2,
+            total_iterations=4,
             bo_strategies=[
                 GenerationStrategy([GenerationStep(model=Models.SOBOL, num_arms=5)])
             ],

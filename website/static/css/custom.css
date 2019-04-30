@@ -37,11 +37,11 @@ html body {
   padding: 50px 0px;
 }
 
-.splashLogo{
+.splashLogo {
   display: block;
   margin: 0 auto;
-  height: 100px;
-  width: 100px;
+  height: 200px;
+  width: 200px;
 }
 
 .projectTitle {
@@ -175,7 +175,7 @@ a.docs-next:hover, a.docs-prev:hover {
 }
 
 /* Style tutorials */
-.tutorialBody
+.tutorialBody {
   margin-top: -20px;
   color: #6C6C6C;
 }

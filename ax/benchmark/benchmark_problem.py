@@ -78,7 +78,7 @@ hartmann6 = BenchmarkProblem(
             metric=Hartmann6Metric(
                 name=hartmann6_function.name,
                 param_names=[f"x{i}" for i in range(6)],
-                noise_sd=0.2,
+                noise_sd=0.01,
             ),
             minimize=True,
         )
