@@ -45,8 +45,8 @@ const siteConfig = {
   users,
 
   /* path to images for header/footer */
-  headerIcon: null,
-  footerIcon: null,
+  headerIcon: 'img/ax_lockup_white.svg',
+  footerIcon: 'img/ax.svg',
   favicon: 'img/favicon.png',
 
   /* Colors for website */
@@ -75,8 +75,8 @@ const siteConfig = {
   cleanUrl: false,
 
   // Open Graph and Twitter card images.
-  ogImage: 'img/docusaurus.png',
-  twitterImage: 'img/docusaurus.png',
+  ogImage: 'img/ax.svg',
+  twitterImage: 'img/ax.svg',
 
   // Show documentation's last contributor's name.
   // enableUpdateBy: true,

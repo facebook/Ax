@@ -4,6 +4,7 @@
 import argparse
 import json
 import os
+import tarfile
 
 import nbformat
 from bs4 import BeautifulSoup
@@ -19,7 +20,7 @@ class TutorialPage extends React.Component {{
   render() {{
       const {{config: siteConfig}} = this.props;
       const {{baseUrl}} = siteConfig;
-      return <Tutorial baseUrl={{baseUrl}} tutorialID="{}"/>;
+      return <Tutorial baseUrl={{baseUrl}} tutorialDir="{t_dir}" tutorialID="{tid}"/>;
   }}
 }}
 
@@ -44,15 +45,44 @@ def gen_tutorials(repo_dir: str) -> None:
     with open(os.path.join(repo_dir, "website", "tutorials.json"), "r") as infile:
         tutorial_config = json.loads(infile.read())
 
-    tutorial_ids = {x["id"] for v in tutorial_config.values() for x in v}
+    tutorial_ids = [x["id"] for v in tutorial_config.values() for x in v]
+    tutorial_dirs = [x.get("dir") for v in tutorial_config.values() for x in v]
 
-    for tid in tutorial_ids:
+    for tid, t_dir in zip(tutorial_ids, tutorial_dirs):
         print("Generating {} tutorial".format(tid))
 
+        if t_dir is not None:
+            tutorial_dir = os.path.join(repo_dir, "tutorials", t_dir)
+            html_dir = os.path.join(repo_dir, "website", "_tutorials", t_dir)
+            js_dir = os.path.join(repo_dir, "website", "pages", "tutorials", t_dir)
+            py_dir = os.path.join(repo_dir, "website", "static", "files", t_dir)
+
+            for d in [tutorial_dir, html_dir, js_dir, py_dir]:
+                os.makedirs(d, exist_ok=True)
+
+            tutorial_path = os.path.join(tutorial_dir, "{}.ipynb".format(tid))
+            html_path = os.path.join(html_dir, "{}.html".format(tid))
+            js_path = os.path.join(js_dir, "{}.js".format(tid))
+            ipynb_path = os.path.join(py_dir, "{}.ipynb".format(tid))
+            py_path = os.path.join(py_dir, "{}.py".format(tid))
+            tar_path = os.path.join(py_dir, "{}.tar.gz".format(tid))
+        else:
+            tutorial_path = os.path.join(repo_dir, "tutorials", "{}.ipynb".format(tid))
+            html_path = os.path.join(
+                repo_dir, "website", "_tutorials", "{}.html".format(tid)
+            )
+            js_path = os.path.join(
+                repo_dir, "website", "pages", "tutorials", "{}.js".format(tid)
+            )
+            ipynb_path = os.path.join(
+                repo_dir, "website", "static", "files", "{}.ipynb".format(tid)
+            )
+            py_path = os.path.join(
+                repo_dir, "website", "static", "files", "{}.py".format(tid)
+            )
+
         # convert notebook to HTML
-        with open(
-            os.path.join(repo_dir, "tutorials", "{}.ipynb".format(tid)), "r"
-        ) as infile:
+        with open(tutorial_path, "r") as infile:
             nb_str = infile.read()
             nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
 
@@ -78,36 +108,28 @@ def gen_tutorials(repo_dir: str) -> None:
 
         html_out = "".join([JS_SCRIPT_TAGS.format(src) for src in SRCS]) + str(nb_meat)
 
-        with open(
-            os.path.join(repo_dir, "website", "_tutorials", "{}.html".format(tid)), "w"
-        ) as html_outfile:
+        # generate HTML file
+        with open(html_path, "w") as html_outfile:
             html_outfile.write(html_out)
 
         # generate JS file
-        script = TEMPLATE.format(tid)
-        with open(
-            os.path.join(
-                repo_dir, "website", "pages", "tutorials", "{}.js".format(tid)
-            ),
-            "w",
-        ) as js_outfile:
+        t_dir_js = t_dir if t_dir else ""
+        script = TEMPLATE.format(t_dir=t_dir_js, tid=tid)
+        with open(js_path, "w") as js_outfile:
             js_outfile.write(script)
 
         # output tutorial in both ipynb & py form
-        with open(
-            os.path.join(
-                repo_dir, "website", "static", "files", "{}.ipynb".format(tid)
-            ),
-            "w",
-        ) as ipynb_outfile:
+        with open(ipynb_path, "w") as ipynb_outfile:
             ipynb_outfile.write(nb_str)
         exporter = ScriptExporter()
         script, meta = exporter.from_notebook_node(nb)
-        with open(
-            os.path.join(repo_dir, "website", "static", "files", "{}.py".format(tid)),
-            "w",
-        ) as py_outfile:
+        with open(py_path, "w") as py_outfile:
             py_outfile.write(script)
+
+        # create .tar archive (if necessary)
+        if t_dir is not None:
+            with tarfile.open(tar_path, "w:gz") as tar:
+                tar.add(tutorial_dir, arcname=os.path.basename(tutorial_dir))
 
 
 if __name__ == "__main__":

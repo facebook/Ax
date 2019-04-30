@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Type
 
 from ax.core.arm import Arm
 from ax.core.base import Base
-from ax.core.base_trial import BaseTrial
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
@@ -313,21 +313,26 @@ class Experiment(Base):
                 "this experiment, and none were passed in to `fetch_data`."
             )
         try:
-            return Data.from_multiple_data(
-                [
-                    metric_cls.fetch_experiment_data_multi(self, metric_list, **kwargs)
-                    for metric_cls, metric_list in self._metrics_by_class(
-                        metrics=metrics
-                    ).items()
-                ]
-            )
-        # If some of the metrics do not implement data fetching, we should
-        # check if looking up trial data logic in 'fetch_trial_data' might work,
-        # since trial data might've been attached instead of provided through
-        # fetching from metrics.
+            data_list = [
+                metric_cls.fetch_experiment_data_multi(self, metric_list, **kwargs)
+                for metric_cls, metric_list in self._metrics_by_class(
+                    metrics=metrics
+                ).items()
+            ]
+
+            # For trials in candidate phase, append any attached data
+            for trial in self.trials.values():
+                if trial.status == TrialStatus.CANDIDATE:
+                    trial_data = self.lookup_data_for_trial(trial_index=trial.index)
+                    if not trial_data.df.empty:
+                        data_list.append(trial_data)
+
+            return Data.from_multiple_data(data_list)
         except NotImplementedError:
+            # If some of the metrics do not implement data fetching, we should
+            # fall back to data that has been attached.
             return Data.from_multiple_data(
-                [self._fetch_trial_data(trial_index=idx) for idx in self.trials]
+                [self.lookup_data_for_trial(trial_index=idx) for idx in self.trials]
             )
 
     @copy_doc(BaseTrial.fetch_data)
@@ -340,6 +345,12 @@ class Experiment(Base):
                 "this experiment, and none were passed in to `fetch_trial_data`."
             )
         trial = self.trials[trial_index]
+
+        if trial.status == TrialStatus.CANDIDATE:
+            return self.lookup_data_for_trial(trial_index=trial_index)
+        elif not trial.status.expecting_data:
+            return Data()
+
         try:
             return Data.from_multiple_data(
                 [
@@ -350,8 +361,8 @@ class Experiment(Base):
                 ]
             )
         except NotImplementedError:
-            # Data might've been attached for this trial, bypassing metrics'
-            # data-fetching logic.
+            # If some of the metrics do not implement data fetching, we should
+            # fall back to data that has been attached.
             return self.lookup_data_for_trial(trial_index=trial_index)
 
     def attach_data(self, data: Data) -> int:
@@ -397,13 +408,14 @@ class Experiment(Base):
 
         return Data.from_multiple_data(trial_datas)
 
-    def lookup_data_for_trial(self, trial_index: int, data_index: int = 0) -> Data:
+    def lookup_data_for_trial(self, trial_index: int) -> Data:
         """Lookup stored data for a specific trial.
+
+        Returns latest data object present for this trial.
+        Returns empty data if no data present.
 
         Args:
             trial_index: The index of the trial to lookup data for.
-            data_index: The index within the list of data to retrieve.
-                Default is the first stored data for this trial.
 
         Returns:
             Requested data object.
@@ -411,11 +423,8 @@ class Experiment(Base):
         if trial_index not in self._data_by_trial:
             return Data()
 
-        try:
-            trial_data_list = list(self._data_by_trial[trial_index].values())
-            return trial_data_list[data_index]
-        except IndexError:  # Invalid data_index
-            return Data()
+        trial_data_list = list(self._data_by_trial[trial_index].values())
+        return trial_data_list[-1] if len(trial_data_list) > 0 else Data()
 
     @property
     def num_trials(self) -> int:

@@ -29,9 +29,6 @@ from ax.modelbridge.factory import get_GPEI
 m = get_GPEI(experiment, data)
 gr = m.gen(n=5, optimization_config=optimization_config)
 ```
-[FIXME: have we introduced optimization_config earlier in the documentation?]
-
-[TODO: Include here the plot of all of the arms plus the new generated arms?]
 
 In contrast to `get_sobol`, the GP requires data and is able to make predictions. We make predictions by constructing a list of ObservationFeatures objects with the parameter values for which we want predictions:
 ```Python
@@ -71,7 +68,8 @@ render(plot_contour(
     metric_name='metric_a',
 ))
 ```
-[INSERT HERE A CONTOUR]
+
+<div id="contour" style="width: 100%;"></div>
 
 Ax also includes utilities for cross validation to assess model predictive performance. Leave-one-out cross validation can be done like so:
 ```Python
@@ -86,7 +84,8 @@ from ax.plot.diagnostic import interact_cross_validation
 
 render(interact_cross_validation(cv))
 ```
-[INSERT HERE A CROSS VALIDATION PLOT]
+
+<div id="cv" style="width: 100%;"></div>
 
 A good-performing model will have values that lie along the diagonal. Poor GP fits tend to produce cross validation plots that are flat with high predictive uncertainty - such fits are unlikely to produce good values in `gen`.
 
@@ -115,11 +114,9 @@ We can generate a plot that shows the predictions for each arm with the shrinkag
 from ax.plot.scatter import plot_fitted
 
 render(plot_fitted(m, metric="metric_a", rel=False))
-# TODO this should be changed to default to rel=False, otherwise it errors out
-# when you don't have a SQ set.
-# "metric_name" would also be a more consistent argument name.
 ```
-[INSERT HERE FITTED PLOT]
+
+<div id="fitted" style="width: 100%;"></div>
 
 #### Factorial designs
 [Actually I'm not certain we want to include this, since Sobol can also be used for discrete spaces]
@@ -201,3 +198,6 @@ The ModelBridge object `m` can then be used with plotting and cross validation u
 If none of the existing Model interfaces work are suitable for the new model type, then a new interface will have to be created. This involves two steps: creating the new model interface and creating the new model bridge. The new model bridge must be a subclass of `ModelBridge`  that implements `ModelBridge._fit`,  `ModelBridge._predict`, `ModelBridge._gen`, and  `ModelBridge._cross_validate`. The implementation of each of these methods will transform the Ax objects in the inputs into objects required for the interface with the new model type. The model bridge will then call out to the new model interface to do the actual modeling work. All of the ModelBridge/Model pairs in the table above provide examples of how this interface can be defined. The main key is that the inputs on the ModelBridge side are fixed, but those inputs can then be transformed in whatever way is desired for the downstream Model interface to be that which is most convenient for implementing the model.
 
 <script type="text/javascript" src="assets/slice.js"></script>
+<script type="text/javascript" src="assets/contour.js"></script>
+<script type="text/javascript" src="assets/cv.js"></script>
+<script type="text/javascript" src="assets/fitted.js"></script>

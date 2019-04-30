@@ -39,10 +39,38 @@ function renderDownloadIcon() {
 
 class Tutorial extends React.Component {
   render() {
-    const {baseUrl, tutorialID} = this.props;
+    const {baseUrl, tutorialDir, tutorialID} = this.props;
 
-    const htmlFile = `${CWD}/_tutorials/${tutorialID}.html`;
+    let htmlFile = null;
+    let pyFile = null;
+    let ipynbFile = null;
+    let directoryDownloadButton = null;
+
+    if (tutorialDir != null && tutorialDir !== '') {
+      htmlFile = `${CWD}/_tutorials/${tutorialDir}/${tutorialID}.html`;
+      ipynbFile = `${baseUrl}files/${tutorialDir}/${tutorialID}.ipynb`;
+      pyFile = `${baseUrl}files/${tutorialDir}/${tutorialID}.py`;
+      directoryDownloadButton = (
+        <div className="tutorialButtonWrapper buttonWrapper">
+          <a
+            className="tutorialButton button"
+            download
+            href={`${baseUrl}files/${tutorialDir}/${tutorialID}.tar.gz`}
+            target="_blank">
+            {renderDownloadIcon()}
+            {'Download Tutorial Archive (.tar.gz): Notebook, Source and Data'}
+          </a>
+        </div>
+      );
+    }
+    else {
+      htmlFile = `${CWD}/_tutorials/${tutorialID}.html`;
+      ipynbFile = `${baseUrl}files/${tutorialID}.ipynb`;
+      pyFile = `${baseUrl}files/${tutorialDir}/${tutorialID}.py`;
+    }
     const normalizedHtmlFile = path.normalize(htmlFile);
+
+
 
     return (
       <div className="docMainWrapper wrapper">
@@ -54,11 +82,12 @@ class Tutorial extends React.Component {
               __html: fs.readFileSync(normalizedHtmlFile, {encoding: 'utf8'}),
             }}
           />
+          {directoryDownloadButton}
           <div className="tutorialButtonWrapper buttonWrapper">
             <a
               className="tutorialButton button"
               download
-              href={`${baseUrl}files/${tutorialID}.ipynb`}
+              href={ipynbFile}
               target="_blank">
               {renderDownloadIcon()}
               {'Download Tutorial Jupyter Notebook'}
@@ -68,7 +97,7 @@ class Tutorial extends React.Component {
             <a
               className="tutorialButton button"
               download
-              href={`${baseUrl}files/${tutorialID}.py`}
+              href={pyFile}
               target="_blank">
               {renderDownloadIcon()}
               {'Download Tutorial Source Code'}

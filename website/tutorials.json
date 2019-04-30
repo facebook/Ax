@@ -25,7 +25,8 @@
       "title": "Bandit Optimization"
     },
     {
-      "id": "human_loop",
+      "dir": "human_in_the_loop",
+      "id": "human_in_the_loop",
       "title": "Human-in-the-Loop Optimization"
     }
   ],

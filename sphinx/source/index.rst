@@ -20,6 +20,7 @@ Ax API Reference
    models
    plot
    runners
+   service
    storage
    utils
 

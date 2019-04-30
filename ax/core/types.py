@@ -20,7 +20,7 @@ TModelCov = Dict[str, Dict[str, List[float]]]
 TModelPredict = Tuple[TModelMean, TModelCov]
 # Model predictions for a single arm:
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
-TModelPredictArm = Tuple[Dict[str, float], Dict[str, Dict[str, float]]]
+TModelPredictArm = Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]
 
 # Format for trasmitting externally evaluated data to Ax is either:
 # 1) {metric_name -> (mean, standard error)}

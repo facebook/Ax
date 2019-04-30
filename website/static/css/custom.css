@@ -10,30 +10,55 @@ html body {
   overflow-x: hidden;
 }
 
-.headerTitle {
-  font-weight: 400;
+.fixedHeaderContainer {
+    background-color: #222222;
+}
+
+.fixedHeaderContainer header .headerTitleWithLogo {
+  display: none;
+}
+
+.navigationSlider .slidingNav ul li a {
+  color: #c7d4fd;
+}
+
+.navigationSlider .slidingNav ul li a:hover {
+  color: #ffffff;
+  background-color: inherit;
+}
+
+.navigationSlider .slidingNav ul li.siteNavItemActive > a, .navigationSlider .slidingNav ul li.siteNavGroupActive > a {
+  background-color: inherit;
 }
 
 .homeContainer {
-  background: #353d47;
+  background: rgb(2,0,36);
+  background: linear-gradient(0deg, rgba(2,0,36,1), rgba(91,24,97,1) 0%, rgba(72,114,249,1) 100%);
   padding: 50px 0px;
 }
 
+.splashLogo{
+  display: block;
+  margin: 0 auto;
+  height: 100px;
+  width: 100px;
+}
+
 .projectTitle {
-  color: #66fcf1;
+  color: #ffffff;
   font-variant: small-caps;
   font-weight: 300;
 }
 
 .promoSection .button {
-  border: 1px solid #45a29e;
-  color: #66fcf1;
+  border: 1px solid #fff;
+  color: #ffffff;
 }
 
 .promoSection .button:hover {
-  background: #45a29e;
-  border: 1px solid #c5c6c7;
-  color: #353d47;
+  background: inherit;
+  border: 1px solid #ffffff;
+  color: #ffffff;
 }
 
 .landingPage {
@@ -41,6 +66,7 @@ html body {
 }
 
 div.productShowcaseSection {
+  color: #6C6C6C;
   padding-top: 40px;
 }
 
@@ -49,6 +75,7 @@ div.productShowcaseSection {
   font-weight: 300;
   margin: 0px;
   padding: 0px;
+  color: #5b1861;
 }
 
 .productShowcaseSection div.container {
@@ -57,10 +84,6 @@ div.productShowcaseSection {
 
 .productShowcaseSection div.blockImage {
   height: 80px;
-}
-
-.blockContent > h2 {
-  color: #45a29e;
 }
 
 .productShowcaseSection li {
@@ -75,30 +98,94 @@ div.productShowcaseSection {
   background: #fff;
 }
 
+.container .wrapper .alignCenter h2 {
+  color: #4872f9;
+}
+
 div#quickstart {
-  background: #f1f1f2;
+  background: #EFEFEF;
 }
 
 div#quickstart ol {
   margin-bottom: 0px;
 }
 
-p a {
-  color: #45a29e;
+.nav-footer {
+  background-color: #222222;
 }
 
-p a:hover {
-  color: #45a29e;
-  border-bottom: 1px dotted #45a29e;
+.nav-footer .sitemap a {
+  color: #c7d4fd;
+}
+
+.nav-footer .sitemap a:hover {
+  color: #ffffff;
+}
+
+a, p a {
+  color: #4872f9;
+}
+
+a:hover, p a:hover {
+  color: #4872f9;
+}
+
+/* Style docs */
+.toc .toggleNav .navGroup .navGroupCategoryTitle {
+  color: #222222;
+}
+
+.toc .toggleNav ul li a {
+  color: #6C6C6C;
+}
+
+.toc .toggleNav ul li a:hover {
+  color: #5b1861;
+}
+
+.toc .toggleNav .navGroup .navListItemActive a {
+  color: #4872f9;
+}
+
+.mainContainer .wrapper .post .postHeaderTitle {
+  color: #222222;
+}
+
+.mainContainer .wrapper .post h1, .mainContainer .wrapper .post h2, .mainContainer .wrapper .post h3 {
+  color: #222222;
+}
+
+.mainContainer .wrapper .post {
+  color: #6C6C6C;
+}
+
+.mainContainer .wrapper .post strong {
+  color: #222222;
+}
+
+a.docs-next, a.docs-prev {
+  color: #4872f9;
+  border: 1px solid #4872f9;
+}
+
+a.docs-next:hover, a.docs-prev:hover {
+  color: #4872f9;
+  border: 1px solid #4872f9;
+  background-color: inherit;
 }
 
 /* Style tutorials */
-.tutorialBody {
+.tutorialBody
   margin-top: -20px;
+  color: #6C6C6C;
 }
 
 .tutorialBody h1 {
   margin: 0px;
+}
+
+.tutorialBody h1, .tutorialBody h2, .tutorialBody h3 {
+  color: #222222
 }
 
 .tutorialBody pre {
@@ -142,22 +229,18 @@ p a:hover {
 }
 
 .tutorialButton {
-  color: #45a29e;
+  color: #4872f9;
+  border: 1px solid #4872f9;
 }
 
 .tutorialButton svg {
   height: 15px;
   margin-right: 5px;
-  fill: #45a29e;
 }
 
 .tutorialButton:hover {
-  background-color: #353d47;
-  color: #66fcf1;
-}
-
-.tutorialButton:hover svg path {
-  fill: #66fcf1;
+  color: #4872f9;
+  background-color: inherit;
 }
 
 @media only screen and (min-device-width: 360px) and (max-device-width: 736px) {
