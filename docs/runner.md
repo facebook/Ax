@@ -5,18 +5,18 @@ title: Runner
 
 ## Function Evaluation in Ax
 
-There are 2 paradigms for evaluating trials:
+There are 3 paradigms for evaluating [trials](glossary.md#trial):
 
 ### Synchronous
 
-In the synchronous paradigm, the user specifies an evaluation function which takes in parameters and outputs metric outcomes. This use case is supported by the ```SimpleExperiment``` class:
+In the synchronous paradigm, the user specifies an evaluation function which takes in parameters and outputs metric outcomes. This use case is supported by the [```SimpleExperiment```](/api/core.html#module-ax.core.simple_experiment) class:
 
 ```python
 from ax import *
 
 def dummy_evaluation_function(
     parameterization, # dict of parameter names to values of those parameters
-    weight=None, # evaluation function signature requires a weight argument
+    weight=None, # optional outcome weight argument
 ):
     # given parameterization, compute a value for each metric
     x = parameterization["x"]
@@ -39,11 +39,22 @@ exp = SimpleExperiment(
 
 ### Asynchronous
 
-In the asynchronous paradigm, the trial is first deployed and the data is fetched at a later time. This is useful when evaluation happens on an external system and takes a long time to complete, such as for A/B tests. This is supported by the ```Experiment``` class. In this paradigm, the user specifies:
+In the asynchronous paradigm, the trial is first deployed and the data is fetched at a later time. This is useful when evaluation happens on an external system and takes a long time to complete, such as for A/B tests. This is supported by the [```Experiment```](/api/core.html#module-ax.core.experiment) class. In this paradigm, the user specifies:
   * Runner: Defines how to deploy the experiment.
   * List of metrics: Each defining how to compute/fetch data for a given metric.
 
 A default runner is specified on the experiment, which is attached to each trial right before deployment. Runners can also be manually added to a trial to override the experiment default.
+
+
+### Service-like
+
+It is also possible to use Ax in a service-like manner, where Ax just suggests
+[Arms](glossary.md#arm), which the client application evaluates and logs the results
+back to Ax. In this case, no runner or evaluation function is needed,
+since the evaluation is done on the client side. For more information,
+refer to [```Service```](/api/service.html) module
+reference and the [API docs](api.md).
+
 
 ## Adding Your Own Runner
 
