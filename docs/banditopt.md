@@ -3,42 +3,64 @@ id: banditopt
 title: Bandit Optimization
 ---
 
-[Bayesian optimization](bayesopt.md) provides a solution for parameter tuning in problems with continuous parameters. 
-However, many decision problems simply require choosing from among a set of discrete candidates, rather than finding points in a continuous space.  Most ordinary A/B tests fall into this category—there are a handful of choices to evaluate against each other. A fixed percentage of traffic goes to each of these choices, and after a few days/weeks of splitting traffic, a winner is chosen. With more than a few choices, however, A/B tests quickly become prohibitively resource-intensive. With a large number of choices, each candidate receives a small amount of traffic, even if it appears to be the best choice.
+Many decision problems require choosing from among a discrete set of candidates; for these problems we turn to bandit optimization. [Bayesian optimization](bayesopt.md), on the other hand, provides a solution for parameter tuning in problems with continuous parameters. Most ordinary A/B tests fall into the category of bandit optimization. There are typically a handful of choices to evaluate against each other, a fixed percentage of traffic goes to each choice, and after a few days/weeks of splitting traffic, a winner is chosen. With more than a few choices, however, A/B tests quickly become prohibitively resource-intensive, largely because all choices -- no matter how good or bad they appear -- receive the same traffic allocation.
 
-Bandit optimization aims to provide a smarter way of evaluating the performance of these discrete choices. Ordinary A/B testing sets a fixed split of traffic among candidates. Bandit optimization, on the other hand, sequentially updates the allocation of traffic to each candidate, based on its performance so far. The key problem for these algorithms is balancing exploration—sending traffic to candidates that have the potential to perform well—with exploitation, sending traffic to candidates that already appear to perform well. This trade-off is very similar to the underlying exploration problem highlighted in Bayesian Optimization [acquisition functions](bayesopt.md#acquisition-functions).  However, while modeling the relationships between parameters in the search space is a necessity in Bayesian optimization, bandit optimization typically treats each arm as independent. This makes bandit optimization more sample efficient and simpler to analyze on discrete-choice problems. 
+Bandit optimization aims to provide a smarter way of allocating units among these discrete choices by sequentially updating the allocation of traffic to each candidate, based on its performance so far. The key problem for these algorithms is balancing exploration—sending traffic to candidates that have the potential to perform well—with exploitation, sending traffic to candidates that already appear to perform well. This trade-off is very similar to the underlying exploration problem highlighted in Bayesian Optimization [acquisition functions](bayesopt.md#acquisition-functions).
 
-Bandit optimization can be more sample efficient than traditional A/B tests, where the number of samples by treatment group is set beforehand and is generally balanced. Consequently, it is safer with larger cohorts because the samples are automatically diverted towards the good parameter values. They are also suitable for test beds in production applications that are used for continuous evaluation of newly introduced features.
+Bandit optimization is more sample efficient than traditional static A/B tests. Consequently, it is safer with larger cohorts because the samples are automatically diverted towards the good parameter values (and away from the bad ones).
 
 
 ## How does it work?
 
-Ax relies on a simple and effective algorithm for performing bandit optimization: Thompson sampling. This method has a clear intuition: select a parameter configuration with a probability proportional to that value being the best. This algorithm is simple to implement and has strong guarantees of converging to a set of arms or parameter configuration that is close to the best — all without any human intervention. To understand how this works, we describe an advertising optimization problem where we want to choose parameter configurations that maximize the click-through (CTR) or conversion rate and the rewards are binary - either clicks (successes) or views without clicks (failures).
+Ax relies on a simple and effective algorithm for performing bandit optimization: [Thompson sampling](https://en.wikipedia.org/wiki/Thompson_sampling). This method has a clear intuition: select a parameter configuration with a probability proportional to that value being the best. This algorithm is simple to implement and has strong guarantees of converging to a set of arms or parameter configuration that is close to the best — all without any human intervention. To understand how this works, we describe an advertising optimization problem where we want to choose parameter configurations that maximize the click-through (CTR) or conversion rate and the rewards are binary - either clicks (successes) or views without clicks (failures).
 
-Let's assume that the probability for each arm to be successful has a beta prior distribution. Given a set of clicks and views without clicks for any arm, a Bayesian update leads to a beta posterior distribution and an updated estimate of the probability of selecting that arm. In Thompson sampling, a sample is drawn from the posterior distribution for each arm and the arm with the largest sampled value is selected for the next evaluation. This process is repeated by updating the selection probabilities based on observed CTRs in predefined time windows and over many iterations, the algorithm converges on a few arms that lead to better CTRs.
+As we run the experiment, we develop more precise esimates of the performance of each arm. In Thompson sampling, we draw samples from the distribution of plausible effects for each arm and the largest sampled value is recorded. We repeat this process many times and the resulting distribution of maximal arms is how we assign users to arms in the future. This rapidly winnows down arms to only the very best.
 
-The following figure is a simulated example of how the assignment probabilities for an experiment with 10 arms or experimental conditions may evolve over 20 iterations:
+The following figure is an example of how assignment probabilities for an experiment with 10 arms may evolve over 20 iterations of batch-based Thompson sampling:
 
 ![Bandit Optimization Allocations](assets/mab_probs.png)
 
-Starting with equal assignment probabilities for each arm, every round of bandit optimization produces an updated set of assignment probabilities (represented here by the height of the colored bars in each column) based on the average CTR from 10 users per round. Since the true CTR is highest for the second arm followed by the first arm in this simulated example, the assignment probabilities of these arms have clearly dominate the other arms over 20 rounds of bandit optimization.  
+The process starts by assigning all arms equally likely. Bandit optimizaiton then produces updated assignment probabilities (represented here by the height of the colored bars in each column) based on the average CTR observed up until that point. Since the true CTR is highest for the second arm followed by the first arm in this simulated example, those arms are given subsequently larger allocations over 20 rounds of bandit optimization.
 
-The spread of the posterior distribution depicts the uncertainty around the true CTR for each arm and allows the bandit optimization algorithm to quickly sample or explore the arms in the initial rounds. This causes the uncertainty in all the arms to drop sufficiently to pave the way for exploitation. The following figure animates the average observed CTRs (blue x), the assignment probabilities (solid round symbol) and the uncertainties (gray error bars) based on the posterior distributions after each round of experimentation for the previous example. The arms 3 through 8 are sampled just enough to get a rough estimate of the low CTRs, before converging on the first two arms with high CTRs. This example can be viewed as a discretized version of the animated example of [Bayesian optimization](bayesopt.md).
+Early in the process, the uncertainty in our estimates of CTR means that the bandit optimization spreads samples around among a diversity of arms. This, in turn, helps us better estimate *all* of the arms and start focusing in on the arms which perform well. The following figure animates how estimates evolve under bandit optimization. The small blue x indicates the observed CTRs within each round, while the solid round symbol (and gray error bars) indicate our aggregated estimates across all rounds. Arms 3 through 8 are sampled just often enough to get a rough estimate that their CTRs are low, as the algorithm focuses exploration on the first two arms to better identify which is the best. This example can be viewed as a discretized version of the animated example of [Bayesian optimization](bayesopt.md).
 
 ![Bandit Optimization: Posteriors](assets/mab_animate.gif)
 
+## How well does it work?
 
-## Regret
+We want a bandit algorithm to maximize the total rewards over time or equivalently, minimize the regret, which is defined as the cumulative difference between the highest possible reward and the actual reward at a point in time. In our running example, regret is the number of clicks we "left on the table" through our choice of allocation procedure. We can imagine two extremes:
 
-We want a bandit algorithm to maximize the total rewards over time or alternatively, minimize the regret, which is defined as the cumulative difference between the highest possible reward and the actual reward at point in time. A smaller regret is a measure of how well the algorithm is able to balance the exploration vs. exploitation trade-off - too much of either exploration (as in factorial experiments), or exploitation (as in purely greedy algorithms) increases the regret. We ideally want the regret to increase slowly with successive rounds of experimentation. In this sense, it can be used as a performance metric to evaluate different bandit algorithms.
+1. Pure exploration, in which we just always allocate users evenly across all conditions. This is the standard approach to A/B tests.
+2. Pure exploitation, in which we simply allocate all users to the arm we think is most likely to be best.
 
-The following figure compares the average regret of three different approaches to bandit optimization for a 10 arm bandit problem over 200 rounds of experimentation:
+Both of these extremes will do a poor job of minimizing our regret, so our aim is to try and smartly balance them.
 
-1. Thompson sampling 
+The following figure compares the cumulative regret of three different approaches to bandit optimization for 200 rounds of experimentation on our running example:
+
+1. Thompson sampling: the primary approach used by Ax, described above
 2. Greedy: select the arm with the current best reward
-3. Eepsilon-greedy: approach that either picks an arm randomly with probability e or proceeds greedily with probability 1 - e. Setting e = 0 leads to a the purely greedy approach and setting e = 1 leads to a purely exploratory approach.
+3. Epsilon-greedy: Randomly picks an arm e percent of the time, picks the current best arm 100-e% of the time.
 
 ![Bandit Optimization: Regret](assets/mab_regret.png)
 
-The regret of the purely greedy approach is the highest amongst the three approaches and a little bit of exploration as in the epsilon-greedy approach with e = 0.1 leads to a much smaller regret over time. Thompson sampling balances the tradeoff between exploration and exploitation very well, and out-performs the other two approaches.
+The regret of the purely greedy approach is the highest amongst the three approaches. A little bit of exploration as in the epsilon-greedy approach with e = 10 leads to much smaller regret over time. Thompson sampling balances the tradeoff between exploration and exploitation very well, and out-performs the other two approaches.
 
+It turns out, we can do even better than this by applying a simple model.
+
+## Empirical Bayes
+
+In short, our empirical Bayes model consists of taking noisy estimates from a bunch of arms and "shrinking" the outlying ones a bit towards the overall central tendency across all arms.
+
+The specific method we use is [James-Stein estimation](https://en.wikipedia.org/wiki/James%E2%80%93Stein_estimator). This method is linear, which means that if multiple arms have estimates with similar levels of precision, they will be moved towards the middle of the effect distribution proportionally to their distance from the middle. Doing this turns out to be optimal in the case of a Gaussian distribution of effects, but will improve accuracy even if that isn't the case (so long as there are [at least three means](https://projecteuclid.org/download/pdf_1/euclid.bsmsp/1200501656)).
+
+Below are two experiments and how their estimates change as a result of applying the empirical Bayes estimator.
+
+![Shrinkage in two representative experiments](assets/example_shrinkage.png)
+
+The experiment on the left had large effects relative to estimation variability and so shrinkage (visualized here as distance from the dashed $y=x$ line) was very small. On the right side, however, we can see an experiment where shrinkage makes a real difference. Effects far from the center of the distribution result in fairly substantial shrinkage, reducing the range of effects by nearly half. While effect estimates in the middle were largely unchanged, the largest observed effects went from around 17% before shrinkage to around 8% afterwards.
+
+The vast majority of experimental groups are estimated more accurately using empirical Bayes. The arms which tend to have increases in error are those with the largest effects. Understating the effects of such arms is usually not a very big deal when making launch decisions, however, as one is usually most interested in *which* arm is the best rather than exactly how good it is.
+
+Empirical Bayes does a better job of playing the best arm than does using the raw effect estimates. It does this by concentrating exploration early in the experiment. In particular, it concentrates that exploration on the *set* of arms that look good, rather than over-exploiting the single best performing arm. By spreading exploration out a little bit more when effect estimates are noisy (and playing the best arm a little less), it is able to identify the best arm with more confidence later in the experiment.
+
+We have a lot more of the [details in our paper](https://ddimmery.com/publication/experiment-shrinkage/).

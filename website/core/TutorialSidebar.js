@@ -54,14 +54,19 @@ class TutorialSidebar extends React.Component {
     const normJsonFile = path.normalize(jsonFile);
     const json = JSON.parse(fs.readFileSync(normJsonFile, {encoding: 'utf8'}));
 
+
     Object.keys(json).forEach(category => {
       const categoryItems = json[category];
       const items = [];
       categoryItems.map(item => {
+        let permalink = `tutorials/${item.id}.html`;
+        if ("dir" in item) {
+          permalink = `tutorials/${item.dir}/${item.id}.html`;
+        }
         items.push({
           type: 'LINK',
           item: {
-            permalink: `tutorials/${item.id}.html`,
+            permalink: permalink,
             id: item.id,
             title: item.title,
           },

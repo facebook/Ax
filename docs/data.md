@@ -9,7 +9,7 @@ Metrics provide an interface for fetching data for an experiment or trial. Exper
 
 Each metric is responsible for fetching its own data. Thus, all metric classes must implement the method `fetch_trial_data`, which accepts a Trial and returns an instance of Data, a wrapper around a Pandas dataframe.
 
-To fetch data for an experiment or trial, use `exp.fetch_data` or `trial.fetch_data`. These methods fetch data for metric and then combine the results into a new aggregate Data instance.
+To fetch data for an experiment or trial, use `exp.fetch_data` or `trial.fetch_data`. These methods fetch data for all metrics on the experiment and then combine the results into a new aggregate Data instance.
 
 Each row of the final dataframe represents the evaluation of an arm on a metric. As such, the required columns are: arm_name, metric_name, mean, and sem. Additional optional columns are also supported: trial_index, start_time, and end_time.
 
