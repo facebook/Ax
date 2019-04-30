@@ -11,39 +11,30 @@ html body {
 }
 
 .fixedHeaderContainer {
-    background-color: #222222
+    background-color: #222222;
 }
 
-.fixedHeaderContainer header img {
-  margin-right: 0px;
-}
-
-.headerTitle {
-  font-weight: 400;
-}
-
-.headerTitleWithLogo {
-  font-weight: 400;
+.fixedHeaderContainer header .headerTitleWithLogo {
+  display: none;
 }
 
 .navigationSlider .slidingNav ul li a {
-  color: #c7d4fd
+  color: #c7d4fd;
 }
 
 .navigationSlider .slidingNav ul li a:hover {
-  color: #ffffff
+  color: #ffffff;
+  background-color: inherit;
+}
+
+.navigationSlider .slidingNav ul li.siteNavItemActive > a, .navigationSlider .slidingNav ul li.siteNavGroupActive > a {
+  background-color: inherit;
 }
 
 .homeContainer {
   background: rgb(2,0,36);
   background: linear-gradient(0deg, rgba(2,0,36,1), rgba(91,24,97,1) 0%, rgba(72,114,249,1) 100%);
   padding: 50px 0px;
-}
-
-.projectTitle {
-  color: #ffffff;
-  font-variant: small-caps;
-  font-weight: 300;
 }
 
 .splashLogo{
@@ -53,9 +44,15 @@ html body {
   width: 100px;
 }
 
+.projectTitle {
+  color: #ffffff;
+  font-variant: small-caps;
+  font-weight: 300;
+}
+
 .promoSection .button {
-  border: 1px solid #c7d4fd;
-  color: #c7d4fd;
+  border: 1px solid #fff;
+  color: #ffffff;
 }
 
 .promoSection .button:hover {
@@ -69,6 +66,7 @@ html body {
 }
 
 div.productShowcaseSection {
+  color: #6C6C6C;
   padding-top: 40px;
 }
 
@@ -77,6 +75,7 @@ div.productShowcaseSection {
   font-weight: 300;
   margin: 0px;
   padding: 0px;
+  color: #5b1861;
 }
 
 .productShowcaseSection div.container {
@@ -85,18 +84,6 @@ div.productShowcaseSection {
 
 .productShowcaseSection div.blockImage {
   height: 80px;
-}
-
-.productShowcaseSection {
-  color: #6C6C6C;
-}
-
-.productShowcaseSection h2 {
-  color: #5b1861;
-}
-
-.container .wrapper .alignCenter h2 {
-  color: #6C6C6C;
 }
 
 .productShowcaseSection li {
@@ -109,6 +96,10 @@ div.productShowcaseSection {
 
 .productShowcaseSection code {
   background: #fff;
+}
+
+.container .wrapper .alignCenter h2 {
+  color: #4872f9;
 }
 
 div#quickstart {
@@ -132,12 +123,11 @@ div#quickstart ol {
 }
 
 p a {
-  color: #45a29e;
+  color: #4872f9;
 }
 
 p a:hover {
-  color: #45a29e;
-  border-bottom: 1px dotted #45a29e;
+  color: #4872f9;
 }
 
 /* Style docs */
@@ -161,7 +151,7 @@ p a:hover {
   color: #222222;
 }
 
-.mainContainer .wrapper .post h1 {
+.mainContainer .wrapper .post h1, .mainContainer .wrapper .post h2, .mainContainer .wrapper .post h3 {
   color: #222222;
 }
 
@@ -173,17 +163,19 @@ p a:hover {
   color: #222222;
 }
 
-.mainContainer .wrapper .post a {
+a.docs-next, a.docs-prev {
   color: #4872f9;
+  border: 1px solid #4872f9;
 }
 
-.mainContainer .wrapper .post a:hover {
+a.docs-next:hover, a.docs-prev:hover {
   color: #4872f9;
-  border: 0px;
+  border: 1px solid #4872f9;
+  background-color: inherit;
 }
 
 /* Style tutorials */
-.tutorialBody {
+.tutorialBody
   margin-top: -20px;
   color: #6C6C6C;
 }
@@ -194,15 +186,6 @@ p a:hover {
 
 .tutorialBody h1, .tutorialBody h2, .tutorialBody h3 {
   color: #222222
-}
-
-.tutorialBody a {
-  color: #4872f9;
-}
-
-.tutorialBody a:hover {
-  color: #4872f9;
-  border: 0px;
 }
 
 .tutorialBody pre {
