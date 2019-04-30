@@ -187,7 +187,12 @@ class BenchmarkRunner:
             # Extract iterations for this pmr
             names = []
             for trial in setup.trials.values():
-                names.extend([c.name for c in trial.arms])
+                for i, arm in enumerate(trial.arms):
+                    if isinstance(trial, BatchTrial):
+                        reps = int(trial.weights[i])
+                    else:
+                        reps = 1
+                    names.extend([arm.name] * reps)
             # Make sure every run has the same number of iterations, so we can safely
             # stack them in a matrix.
             if (p, m) in n_iters:
@@ -204,7 +209,8 @@ class BenchmarkRunner:
             true_values = {}
             for metric in metrics:
                 df_m = data_df[data_df["metric_name"] == metric]
-                assert df_m.shape[0] == iters_df.shape[0]
+                # Get one row per arm
+                df_m = df_m.groupby("arm_name").first().reset_index()
                 df_b = pd.merge(iters_df, df_m, how="left", on="arm_name")
                 true_values[metric] = df_b["mean"].values
             # Compute the things we care about
