@@ -73,7 +73,7 @@ class TutorialHome extends React.Component {
             </ul>
             <ul>
               <li>
-                <a href="human_in_the_loop.html">
+                <a href="human_in_the_loop/human_in_the_loop.html">
                   Human-in-the-Loop Optimization
                 </a>
                 &nbsp; walks through manually influencing the course of
