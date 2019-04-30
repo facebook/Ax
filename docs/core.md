@@ -3,13 +3,15 @@ id: core
 title: Core
 ---
 
-In Ax, an [experiment](glossary.md#experiment) keeps track of the whole optimization process. It contains a search space, optimization config, metadata, information on what metrics to track and how to run iterations, etc. An [experiment](glossary.md#experiment) is composed of a sequence of [trials](glossary.md#trial) — evaluations of a point in the search space, called an [arm](glossary.md#arm) in Ax.  A [trial](glossary.md#trial) is added to the experiment when a new arm is proposed by the optimization algorithm for evaluation, and it is completed with [objective](glossary.md#objective) and [metric](glossary.md#metric) values when observation data for that point is attached back to the experiment. For cases where multiple [arms](glossary.md#arm) should be evaluated at the same time, Ax supports [batched trials](glossary.md#trial).
+### Overview
 
-For a simple case of synchronous optimization (common in hyperparameter optimization tasks), where [trials](glossary.md#trial) can be evaluated right away via an [evaluation function](glossary.md#evaluation-function), Ax offers a simplified [simple experiment](glossary.md#simple-experiment) abstraction.
+In Ax, an [experiment](glossary.md#experiment) keeps track of the whole optimization process. It contains a search space, optimization config, metadata, information on what metrics to track and how to run iterations, etc. An [experiment](glossary.md#experiment) is composed of a sequence of [trials](glossary.md#trial) each of which has a set of points (or [arms](glossary.md#arm)) to be evaluated. A [trial](glossary.md#trial) is added to the experiment when a new set of arms are proposed by the optimization algorithm. The trial is then evaluated to compute the values of each [metric](glossary.md#metric) for each arm, which are fed into the algorithms to create a new trial. Most applications have one arm per trial, which is the default implementation.
+
+The core constructs that define the experiment are detailed below.
 
 ### Search Space and Parameters
 
-A [search space](glossary.md#search-space) is composed of a set of [parameters](glossary.md#parameter) to be tuned in the experiment, and optionally a set of [parameter constraints](glossary.md#parameter-constraint) that define restrictions across these parameters (e.g. p_a < p_b). Each parameter has a name, a type (```int```, ```float```, ```bool```, or ```string```), and a domain, which is a representation of the possible values the parameter can take.
+A [search space](glossary.md#search-space) is composed of a set of [parameters](glossary.md#parameter) to be tuned in the experiment, and optionally a set of [parameter constraints](glossary.md#parameter-constraint) that define restrictions across these parameters (e.g. p_a < p_b). Each parameter has a name, a type (```int```, ```float```, ```bool```, or ```string```), and a domain, which is a representation of the possible values the parameter can take. The search space is used by the optimization algorithms to know which arms are valid to suggest.
 
 Ax supports three types of parameters:
 
@@ -24,7 +26,7 @@ range_param = RangeParameter(name="x", parameter_type=ParameterType.FLOAT, lower
 
 ```python
 from ax import ChoiceParameter, ParameterType
-choice_param = ChoiceParameter(name="y", parameter_type=ParameterType.STRING, value=["foo", "bar"](glossary.md))
+choice_param = ChoiceParameter(name="y", parameter_type=ParameterType.STRING, value=["foo", "bar"])
 ```
 
 * **Fixed parameters**: domain is a single value
@@ -34,14 +36,14 @@ from ax import FixedParameter, ParameterType
 fixed_param = ChoiceParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
 ```
 
-Ax supports three types of parameter constraints, each of which can only be used on in or float parameters:
+Ax supports three types of parameter constraints, each of which can only be used on int or float parameters:
 
 * **Linear constraints**: e.g. w * v <= b where w is the vector of parameter weights, v is a vector of parameter values, and b is the specified bound
 
 ```python
 from ax import ParameterConstraint
 
-# 1.0*x * 0.5*y <= 1.0
+# 1.0*x + 0.5*y <= 1.0
 ParameterConstraint(constraint_dict={"x": 1.0, "y": 0.5}, bound=1.0)
 ```
 
@@ -50,8 +52,11 @@ ParameterConstraint(constraint_dict={"x": 1.0, "y": 0.5}, bound=1.0)
 ```python
 from ax import OrderConstraint
 
+param_a = RangeParameter(name="a", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0)
+param_b = RangeParameter(name="b", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0)
+
 # x <= a
-OrderConstraint(lower_parameter=range_param, upper_parameter=RangeParameter(name='a', parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0)
+OrderConstraint(lower_parameter=param_a, upper_parameter=param_b)
 ```
 
 * **Sum constraints**: a type of linear constraint, which specifies that the sum of the parameters must be greater or less than a bound
@@ -59,8 +64,8 @@ OrderConstraint(lower_parameter=range_param, upper_parameter=RangeParameter(name
 ```python
 from ax import SumConstraint
 
-# x + y <= 3
-SumConstraint(parameter_names=["x", "y"], is_upper_bound=False, bound=-3.0)
+# a + b <= 1.5
+SumConstraint(parameters=[param_a, param_b], is_upper_bound=False, bound=1.5)
 ```
 
 Given parameters and parameter constraints, you can construct a search space:
@@ -73,13 +78,13 @@ SearchSpace(parameters=[...], parameter_constraints=[...])
 
 ### Optimization Config
 
-An [optimization config](glossary.md#optimization-config) is composed of an [objective metric](glossary.md#objective) to be minimized or maximized in the experiment, and optionally a set of [outcome constraints](glossary.md#outcome-constraint) that place restrictions on how other metrics can be moved by the experiment. Note that you cannot constrain the objective metric.
+An [optimization config](glossary.md#optimization-config) is composed of an [objective metric](glossary.md#objective) to be minimized or maximized, and optionally a set of [outcome constraints](glossary.md#outcome-constraint) that place restrictions on how other metrics can be moved by the experiment. Note that you cannot constrain the objective metric.
 
 ```python
 from ax import Metric
 from ax import Objective
 
-Objective(metric=Metric(name="m1"), minimize=True)
+objective = Objective(metric=Metric(name="m1"), minimize=True)
 ```
 
 There is no minimum or maximum number of outcome constraints, but an individual metric can have at most two constraints — which is how we represent metrics with both upper and lower bounds.
@@ -91,7 +96,15 @@ from ax import Metric
 from ax import OutcomeConstraint
 
 # m2 cannot regress the status quo by more than 5%
-OutcomeConstraint(metric=Metric(name="m2"), op = ComparisonOp.GEQ, bound=-5.0, relative=True)
+oc = OutcomeConstraint(metric=Metric(name="m2"), op = ComparisonOp.GEQ, bound=-5.0, relative=True)
+```
+
+Finally, create the optimization config to attach to the experiment.
+
+```python
+from ax import OptimizationConfig
+
+oc = OptimizationConfig(objective=objective, outcome_constraints=[oc])
 ```
 
 ### Arm
@@ -103,6 +116,10 @@ Create an arm as follows:
 ```python
 from ax import Arm
 
+Arm(parameters={"x": 0, "y": "Foo", z: True})
+
+# Names are automatically assigned by the experiment
+# but can also be specified by the user
 Arm(parameters={"x": 0, "y": "Foo", z: True}, name="arm1")
 ```
 
@@ -116,18 +133,20 @@ If the status quo is specified on the experiment, it will be automatically added
 
 ## Experiment Lifecycle
 
-An experiment consists of a sequence of trials, each of which evaluates one or more arms. Based on this evaluation, our optimization algorithms suggest a new set of one or more arms to evaluate. You then create a second trial containing these suggested arms, evaluate this trial, and repeat.
+An experiment consists of a sequence of trials, each of which evaluates one or more arms. For more details on the  implementating the evaluation, see the [runner](runner.md) and [metric](data.md) references.
 
-You can directly add arm(s) to a new trial, or you can add the output of the optimization algorithm, which is a [GeneratorRun](glossary.md#generator-run):
+Based on the evaluation results, our optimization algorithms suggest one or more arms to evaluate. You then create a new trial containing these suggested arms, evaluate this trial, and repeat.
+
+You can directly add arm(s) to a new trial, or you can add the output of the optimization algorithm, which is a [GeneratorRun](glossary.md#generator-run) (recommended):
 
 ```python
-# If only one arm should be evaluated:
+# If only one arm should be evaluated
 experiment.new_trial().add_arm(Arm(...))
 
-# If multiple arms should be evaluated:
+# If multiple arms should be evaluate
 experiment.new_batch_trial().add_arms_and_weights(arms=[Arm(...), Arm(...)])
 
-# To evaluate the arms suggested by a GeneratorRun:
+# To evaluate the arms suggested by a GeneratorRun
 experiment.new_batch_trial().add_generator_run(generator_run=GeneratorRun(...))
 ```
 
@@ -144,6 +163,6 @@ When a trial is first created, its status is "candidate". If applicable, we can 
 to run the trial, which moves it into the "running" stage. We can then call
 `trial.mark_completed`, `trial.mark_failed`, or `trial.mark_abandoned` to end the trial.
 
-Note that if the trial's [runner](runner.md#runner) has "staging_required" = True,
+Note that if the trial's [runner](runner.md) has "staging_required" = True,
 then `trial.run` will first mark the trial as "staged", and we can later call
 `trial.mark_running` explicitly to move the trial to "running".
