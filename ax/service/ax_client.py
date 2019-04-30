@@ -15,11 +15,14 @@ from ax.core.types import (
     TParamValue,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.service.utils.best_point import (
+    get_best_from_model_predictions,
+    get_best_raw_objective_point,
+)
 from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import make_experiment
-from ax.service.utils.storage import load_experiment, save_experiment
 from ax.storage.sqa_store.structs import DBSettings
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import not_none
 
 
 class AxClient:
@@ -29,9 +32,8 @@ class AxClient:
     calls to this client to get next suggestion in the experiment and log back
     data from the evaluation of that suggestion.
 
-    Note: `AxClient` expects to only propose 1 arm (suggestion) per trial; for
-    use cases that require use of batches (multiple suggestions per trial), use
-    `AxBatchClient`.
+    Note: `AxClient` expects to only propose 1 arm (suggestion) per trial; support
+    for use cases that require use of batches is coming soon.
 
     Two custom types used in this class for convenience are `TParamValue` and
     `TParameterization`. Those are shortcuts for `Union[str, bool, float, int]`
@@ -100,7 +102,7 @@ class AxClient:
                 constraints of form "metric_name >= bound", like "m1 <= 3."
         """
         if self.db_settings and not name:
-            raise ValueError(
+            raise ValueError(  # pragma: no cover
                 "Must give the experiment a name if `db_settings` is not None."
             )
 
@@ -123,7 +125,7 @@ class AxClient:
         """
         Generate trial with the next set of parameters to try in the iteration process.
 
-        Use `get_next_batch_trial` to generate multiple points at once.
+        Note: Service API currently supports only 1-arm trials.
 
         Returns:
             Tuple of trial parameterization, trial index
@@ -151,12 +153,20 @@ class AxClient:
 
         Args:
             trial_index: Index of trial within the experiment.
-            raw_data: Map from metric name to (mean, standard_error).
+            raw_data: Evaluation data for the trial. Can be a mapping from
+                metric name to a tuple of mean and SEM, just a tuple of mean and
+                SEM if only one metric in optimization, or just the mean if there
+                is no SEM.
             metadata: Additional metadata to track about this run.
         """
+        assert isinstance(
+            trial_index, int
+        ), f"Trial index must be an int, got: {trial_index}."  # pragma: no cover
         trial = self.experiment.trials[trial_index]
         if not isinstance(trial, Trial):
-            raise ValueError("To log data for BatchTrial use `AxBatchClient`.")
+            raise NotImplementedError(
+                "Batch trial functionality is not yet available through Service API."
+            )
 
         trial._status = TrialStatus.COMPLETED
         if metadata is not None:
@@ -180,8 +190,8 @@ class AxClient:
                 }
             }
         else:
-            raise Exception(  # pragma: no cover
-                "Raw_data has an invalid type. The data must either be in the form "
+            raise ValueError(
+                "Raw data has an invalid type. The data must either be in the form "
                 "of a dictionary of metric names to mean, sem tuples, "
                 "or a single mean, sem tuple, or a single mean."
             )
@@ -233,8 +243,8 @@ class AxClient:
         return none.
 
         Custom type `TModelPredictArm` is defined as
-        `Tuple[Dict[str, float], Dict[str, Dict[str, float]]]`, and stands
-        for tuple of two mappings: metric name to its mean value and metric
+        `Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]`, and
+        stands for tuple of two mappings: metric name to its mean value and metric
         name to a mapping of other mapping name to covariance of the two metrics.
 
         Returns:
@@ -242,18 +252,21 @@ class AxClient:
             None if no data.
         """
         # Find latest trial which has a generator_run attached and get its predictions
-        for _, trial in sorted(
-            list(self.experiment.trials.items()), key=lambda x: x[0], reverse=True
-        ):
-            tr = checked_cast(Trial, trial)
-            gr = tr.generator_run
-            if gr is not None and gr.best_arm_predictions is not None:
-                best_arm, best_arm_predictions = gr.best_arm_predictions
-                return best_arm.parameters, best_arm_predictions
-        return None
+        model_predictions = get_best_from_model_predictions(experiment=self.experiment)
+        if model_predictions is not None:  # pragma: no cover
+            return model_predictions
+
+        # Could not find through model, default to using raw objective.
+        parameterization, (mean, sem) = get_best_raw_objective_point(
+            experiment=self.experiment
+        )
+        return (
+            parameterization,
+            ({self.experiment.optimization_config.objective.metric.name: mean}, None),
+        )
 
     def load_experiment(self, experiment_name: str) -> None:
-        """Load an existing experiment.
+        """[Work in progress] Load an existing experiment.
 
         Args:
             experiment_name: Name of the experiment.
@@ -261,17 +274,20 @@ class AxClient:
         Returns:
             Experiment object.
         """
-        if not self.db_settings:
-            raise ValueError("Need to set db_settings on handler to load experiment.")
-        self.experiment = load_experiment(experiment_name, self.db_settings)
+        raise NotImplementedError(  # pragma: no cover
+            "Saving and loading experiment in `AxClient` functionality currently "
+            "under development."
+        )
 
     def get_report(self) -> str:
         """Returns HTML of a generated report containing vizualizations."""
-        raise NotImplementedError("Report generation not supported for `AxClient` yet.")
+        raise NotImplementedError(  # pragma: no cover
+            "Report generation not supported for `AxClient` yet."
+        )
 
     def should_stop_early(self, trial_index: int, data: TEvaluationOutcome) -> bool:
         """Whether to stop the given parameterization given early data."""
-        raise NotImplementedError(
+        raise NotImplementedError(  # pragma: no cover
             "Early stopping of trials not supported for `AxClient` yet."
         )
 
@@ -288,15 +304,17 @@ class AxClient:
         return self._experiment
 
     def _save_experiment_if_possible(self) -> bool:
-        """Saves attached experiment if DB settings are set on this AxClient
+        """[Work in progress] Saves attached experiment if DB settings are set on this AxClient
         instance.
 
         Returns:
             bool: Whether the experiment was saved.
         """
         if self.db_settings and self._experiment:
-            save_experiment(self._experiment, self.db_settings)
-            return True
+            raise NotImplementedError(  # pragma: no cover
+                "Saving and loading experiment in `AxClient` functionality "
+                "currently under development."
+            )
         return False
 
     def _suggest_new_trial(self) -> Trial:
