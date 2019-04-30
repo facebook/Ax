@@ -122,11 +122,11 @@ div#quickstart ol {
   color: #ffffff;
 }
 
-p a {
+a, p a {
   color: #4872f9;
 }
 
-p a:hover {
+a:hover, p a:hover {
   color: #4872f9;
 }
 
