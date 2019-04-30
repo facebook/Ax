@@ -2,6 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.parameter import FixedParameter, ParameterType
@@ -252,6 +253,9 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp_data.df), 4 * n)
         self.assertEqual(len(exp.arms_by_name), 4 * n)
 
+        # Verify data lookup is empty
+        self.assertEqual(len(exp.lookup_data_for_trial(0).df), 0)
+
         # Test local storage
         t1 = exp.attach_data(batch_data)
 
@@ -268,15 +272,21 @@ class ExperimentTest(TestCase):
         # Test retrieving full exp data
         self.assertEqual(len(exp.lookup_data_for_ts(t2).df), 4 * n)
 
-        # Test custom data_index
-        self.assertEqual(len(exp.lookup_data_for_trial(1, 0).df), 3 * n)
-        self.assertEqual(len(exp.lookup_data_for_trial(0, 1).df), n)
-        self.assertEqual(len(exp.lookup_data_for_trial(0, -1).df), n)
-        self.assertEqual(len(exp.lookup_data_for_trial(0, 2).df), 0)
-        self.assertEqual(len(exp.lookup_data_for_trial(2, 0).df), 0)
+        # Verify we don't get the data if the trial is abandoned
+        batch._status = TrialStatus.ABANDONED
+        self.assertEqual(len(batch.fetch_data().df), 0)
+        self.assertEqual(len(exp.fetch_data().df), 3 * n)
 
-        # Check that we get this data in fetch.
-        self.assertFalse(batch.fetch_data().df.empty)
+        # Verify we do get the data if the trial is a candidate
+        batch._status = TrialStatus.CANDIDATE
+        self.assertEqual(len(batch.fetch_data().df), n)
+        self.assertEqual(len(exp.fetch_data().df), 4 * n)
+
+        # Verify we do get the stored data if there is an unimplemented metric
+        batch._status = TrialStatus.RUNNING
+        exp.add_tracking_metric(Metric(name='m'))
+        self.assertEqual(len(batch.fetch_data().df), n)
+        self.assertEqual(len(exp.fetch_data().df), 4 * n)
 
     def testEmptyMetrics(self):
         empty_experiment = Experiment(
@@ -291,7 +301,6 @@ class ExperimentTest(TestCase):
             batch.fetch_data()
         empty_experiment.add_tracking_metric(Metric(name="some_metric"))
         empty_experiment.attach_data(get_data())
-        empty_experiment.trials[0].mark_staged()
         self.assertFalse(empty_experiment.fetch_data().df.empty)
 
     def testNumArmsNoDeduplication(self):

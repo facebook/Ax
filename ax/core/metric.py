@@ -70,12 +70,7 @@ class Metric(Base):
         Subclasses should override this to trial data computation for multiple metrics.
         """
         return Data.from_multiple_data(
-            [
-                metric.fetch_trial_data(trial, **kwargs)
-                if trial.status.expecting_data
-                else Data()
-                for metric in metrics
-            ]
+            [metric.fetch_trial_data(trial, **kwargs) for metric in metrics]
         )
 
     @classmethod

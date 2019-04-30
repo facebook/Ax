@@ -179,7 +179,7 @@ class BatchTrialTest(TestCase):
             self.assertEqual(self.batch.status, TrialStatus.STAGED)
             self.assertIsNotNone(self.batch.time_staged)
             self.assertTrue(self.batch.status.is_deployed)
-            self.assertTrue(self.batch.status.expecting_data)
+            self.assertFalse(self.batch.status.expecting_data)
 
             # Cannot change arms or runner once run
             with self.assertRaises(ValueError):
@@ -191,6 +191,7 @@ class BatchTrialTest(TestCase):
             self.batch.mark_running()
             self.assertEqual(self.batch.status, TrialStatus.RUNNING)
             self.assertIsNotNone(self.batch.time_run_started)
+            self.assertTrue(self.batch.status.expecting_data)
 
             self.batch.mark_completed()
             self.assertEqual(self.batch.status, TrialStatus.COMPLETED)

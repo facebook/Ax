@@ -56,11 +56,7 @@ class TrialStatus(Enum):
     @property
     def expecting_data(self) -> bool:
         """True if trial is expecting data."""
-        return (
-            self == TrialStatus.STAGED
-            or self == TrialStatus.RUNNING
-            or self == TrialStatus.COMPLETED
-        )
+        return self == TrialStatus.RUNNING or self == TrialStatus.COMPLETED
 
     @property
     def is_deployed(self) -> bool:
