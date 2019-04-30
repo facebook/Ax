@@ -21,9 +21,9 @@ Here is a comparison of the three APIs in the simple case of evaluating the unco
 <!--Loop-->
 ```py
 from ax import optimize
-from ax.metrics.branin import branin
+from ax.utils.measurement.synthetic_functions import branin
 
-optimize(
+best_parameters, experiment, model = optimize(
     parameters=[
         {
             "name": "x1",
@@ -44,7 +44,7 @@ optimize(
 <!--Service-->
 ```py
 from ax.service.ax_client import AxClient
-from ax.metrics.branin import branin
+from ax.utils.measurement.synthetic_functions import branin
 
 ax = AxClient()
 ax.create_experiment(
