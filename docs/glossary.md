@@ -26,7 +26,7 @@ Contains information necessary to run an optimization, i.e. [objective](glossary
 ### Outcome constraint
 Constraint on [metric](glossary.md#metric) values, can be an order constraint or a sum constraint; violating [arms](glossary.md#arm) will be considered infeasible. [```[OutcomeConstraint]```](/api/core.html#module-ax.core.outcome_constraint)
 ### Parameter
-Configurable quantity that can be assigned one of multiple possible values, can be continuous (`RangeParameter`), discrete (`ChoiceParameter`) or fixed (`FixedParameter`). [```[Parameter]```](/api/core.html#module-ax.core.parameter)
+Configurable quantity that can be assigned one of multiple possible values, can be continuous ([`RangeParameter`](../api/core.html#ax.core.parameter.RangeParameter)), discrete ([`ChoiceParameter`](../api/core.html#ax.core.parameter.ChoiceParameter)) or fixed ([`FixedParameter`](../api/core.html#ax.core.parameter.FixedParameter)). [```[Parameter]```](/api/core.html#module-ax.core.parameter)
 ### Parameter constraint
 Places restrictions on the relationships between [parameters](glossary.md#parameter).  For example `buffer_size1 < buffer_size2` or `buffer_size_1 + buffer_size_2 < 1024`. [```[ParameterConstraint]```](/api/core.html#module-ax.core.parameter_constraint)
 ### Relative outcome constraint
