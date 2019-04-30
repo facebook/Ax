@@ -129,8 +129,8 @@ class Index extends React.Component {
         evaluation_function=lambda p: (p["x1"] + 2*p["x2"] - 7)**2 + (2*p["x1"] + p["x2"] - 5)**2,
         minimize=True,
     )
-    best_parameters
 
+>>> best_parameters
 {'x1': 1.02, 'x2': 2.97}  # global min is (1, 3)
     `;
 
