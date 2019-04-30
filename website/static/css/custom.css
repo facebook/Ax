@@ -37,7 +37,7 @@ html body {
   padding: 50px 0px;
 }
 
-.splashLogo{
+.splashLogo {
   display: block;
   margin: 0 auto;
   height: 100px;
@@ -175,7 +175,7 @@ a.docs-next:hover, a.docs-prev:hover {
 }
 
 /* Style tutorials */
-.tutorialBody
+.tutorialBody {
   margin-top: -20px;
   color: #6C6C6C;
 }
