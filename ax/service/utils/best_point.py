@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 def get_best_raw_objective_point(
     experiment: Experiment, optimization_config: Optional[OptimizationConfig] = None
-) -> Tuple[TParameterization, Tuple[float, float]]:
+) -> Tuple[TParameterization, Dict[str, Tuple[float, float]]]:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
@@ -26,8 +26,8 @@ def get_best_raw_objective_point(
             the one stored on the experiment.
 
     Returns:
-        Tuple of parameterization and a tuple of the corresponding objective
-            mean and SEM.
+        Tuple of parameterization and a mapping from metric name to a tuple of
+            the corresponding objective mean and SEM.
     """
     dat = experiment.fetch_data()
     if dat.df.empty:
@@ -47,22 +47,31 @@ def get_best_raw_objective_point(
         else objective_rows.loc[objective_rows["mean"].idxmax()]
     )
     best_arm = experiment.arms_by_name.get(best_row["arm_name"])
-    mean, sem = best_row["mean"], best_row["sem"]
-    return not_none(best_arm).parameters, (mean, sem)
+    objective_rows = dat.df.loc[
+        (dat.df["arm_name"] == best_row["arm_name"])
+        & (dat.df["trial_index"] == best_row["trial_index"])
+    ]
+    vals = {
+        row["metric_name"]: (row["mean"], row["sem"])
+        for _, row in objective_rows.iterrows()
+    }
+    return not_none(best_arm).parameters, vals
 
 
 def get_best_from_model_predictions(
     experiment: Experiment
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the best arm according to the outputs
-    of models used in optimization.
+    of models used in optimization and its corresponding predictions if available.
+
+    TModelPredictArm is of the form:
+        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
 
     Returns:
-        Tuple of parameterization and a tuple of the corresponding objective
-            mean and SEM.
+        Tuple of parameterization and model predictions for it.
     """
     for _, trial in sorted(
         list(experiment.trials.items()), key=lambda x: x[0], reverse=True

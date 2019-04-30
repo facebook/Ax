@@ -2,12 +2,13 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationFunction
-from ax.core.types import TParameterization
+from ax.core.types import TModelPredictArm, TParameterization
+from ax.modelbridge.base import ModelBridge
 from ax.service.utils.best_point import (
     get_best_from_model_predictions,
     get_best_raw_objective_point,
@@ -149,17 +150,30 @@ class OptimizationLoop:
             self.run_trial()
         return self
 
-    def get_best_point(self) -> TParameterization:
+    def get_best_point(self) -> Tuple[TParameterization, Optional[TModelPredictArm]]:
         """Obtains the best point encountered in the course
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
         model_predictions = get_best_from_model_predictions(experiment=self.experiment)
         if model_predictions is not None:
-            return model_predictions[0]
+            return model_predictions
 
         # Could not find through model, default to using raw objective.
-        parameterization, _ = get_best_raw_objective_point(experiment=self.experiment)
-        return parameterization
+        parameterization, values = get_best_raw_objective_point(
+            experiment=self.experiment
+        )
+        # For values, grab just the means to conform to TModelPredictArm format.
+        return (
+            parameterization,
+            (
+                {k: v[0] for k, v in values.items()},  # v[0] is mean
+                {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
+            ),
+        )
+
+    def get_current_model(self) -> Optional[ModelBridge]:
+        """Obtain the most recently used model in optimization."""
+        return self.generation_strategy.model
 
 
 def optimize(
@@ -173,7 +187,9 @@ def optimize(
     total_trials: int = 20,
     arms_per_trial: int = 1,
     wait_time: int = 0,
-) -> TParameterization:
+) -> Tuple[
+    TParameterization, Optional[TModelPredictArm], Experiment, Optional[ModelBridge]
+]:
     """Construct and run a full optimization loop."""
     loop = OptimizationLoop.with_evaluation_function(
         parameters=parameters,
@@ -188,4 +204,5 @@ def optimize(
         wait_time=wait_time,
     )
     loop.full_run()
-    return loop.get_best_point()
+    parameterization, values = loop.get_best_point()
+    return parameterization, values, loop.experiment, loop.get_current_model()

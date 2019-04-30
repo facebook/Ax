@@ -257,12 +257,15 @@ class AxClient:
             return model_predictions
 
         # Could not find through model, default to using raw objective.
-        parameterization, (mean, sem) = get_best_raw_objective_point(
+        parameterization, values = get_best_raw_objective_point(
             experiment=self.experiment
         )
         return (
             parameterization,
-            ({self.experiment.optimization_config.objective.metric.name: mean}, None),
+            (
+                {k: v[0] for k, v in values.items()},  # v[0] is mean
+                {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
+            ),
         )
 
     def load_experiment(self, experiment_name: str) -> None:

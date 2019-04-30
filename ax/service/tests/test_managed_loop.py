@@ -82,7 +82,7 @@ class TestManagedLoop(TestCase):
             outcome_constraints=["constrained_metric <= 10"],
             total_trials=6,
         )
-        bp = loop.full_run().get_best_point()
+        bp, _ = loop.full_run().get_best_point()
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
         with self.assertRaisesRegex(ValueError, "Optimization is complete"):
@@ -105,7 +105,7 @@ class TestManagedLoop(TestCase):
             parameter_constraints=["x1 + x2 <= 20"],
             total_trials=5,
         )
-        bp = loop.full_run().get_best_point()
+        bp, _ = loop.full_run().get_best_point()
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
 
@@ -132,16 +132,20 @@ class TestManagedLoop(TestCase):
             total_trials=5,
             arms_per_trial=3,
         )
-        bp = loop.full_run().get_best_point()
+        bp, vals = loop.full_run().get_best_point()
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
+        assert vals is not None
+        self.assertIn("branin", vals[0])
+        self.assertIn("branin", vals[1])
+        self.assertIn("branin", vals[1]["branin"])
         # Check that all total_trials * arms_per_trial * 2 metrics evaluations
         # are present in the dataframe.
         self.assertEqual(len(loop.experiment.fetch_data().df.index), 30)
 
     def test_optimize(self) -> None:
         """Tests optimization as a single call."""
-        best = optimize(
+        best, vals, exp, model = optimize(
             parameters=[  # pyre-fixme[6]
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
@@ -154,3 +158,7 @@ class TestManagedLoop(TestCase):
         )
         self.assertIn("x1", best)
         self.assertIn("x2", best)
+        assert vals is not None
+        self.assertIn("objective", vals[0])
+        self.assertIn("objective", vals[1])
+        self.assertIn("objective", vals[1]["objective"])

@@ -10,7 +10,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.factory import Models
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 TModelFactory = Callable[..., ModelBridge]
@@ -87,14 +87,12 @@ class GenerationStrategy:
         if self._name:
             return self._name
 
-        factory_names = (
-            step.model.__name__[4:]  # pyre-ignore[16] T41922457
-            # Trim the "get_" beginning of the factory function if it's there.
-            # pyre-ignore[16] T41922457
-            if step.model.__name__[:4] == "get_" else step.model.__name__
-            for step in self._steps
-        )
-        return "+".join(factory_names)  # pyre-ignore[6]
+        # pyre-ignore[16]: "`Models` have to attribute `__name__`", but they do.
+        factory_names = (checked_cast(str, step.model.__name__) for step in self._steps)
+        # Trim the "get_" beginning of the factory function if it's there.
+        factory_names = (n[4:] if n[:4] == "get_" else n for n in factory_names)
+
+        return "+".join(factory_names)
 
     @property
     def generator_changes(self) -> List[int]:
@@ -102,6 +100,11 @@ class GenerationStrategy:
         another."""
         gen_changes = [step.num_arms for step in self._steps]
         return [sum(gen_changes[: i + 1]) for i in range(len(gen_changes))][:-1]
+
+    @property
+    def model(self) -> Optional[ModelBridge]:
+        """Current model in this strategy."""
+        return self._model  # pragma: no cover
 
     def gen(
         self,

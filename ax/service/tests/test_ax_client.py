@@ -224,6 +224,10 @@ class TestServiceAPI(TestCase):
         ax.complete_trial(trial_index=idx3, raw_data=-2, metadata={"dummy": "test"})
         self.assertEqual(ax.get_best_parameters()[0], params3)
         self.assertEqual(ax.experiment.trials.get(2).run_metadata.get("dummy"), "test")
+        self.assertEqual(
+            ax.get_best_parameters()[1],
+            ({"objective": -2.0}, {"objective": {"objective": 0.0}}),
+        )
 
     def test_fail_on_batch(self):
         ax = AxClient()
