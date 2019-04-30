@@ -284,7 +284,7 @@ class ExperimentTest(TestCase):
 
         # Verify we do get the stored data if there is an unimplemented metric
         batch._status = TrialStatus.RUNNING
-        exp.add_tracking_metric(Metric(name='m'))
+        exp.add_tracking_metric(Metric(name="m"))
         self.assertEqual(len(batch.fetch_data().df), n)
         self.assertEqual(len(exp.fetch_data().df), 4 * n)
 

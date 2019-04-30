@@ -109,11 +109,11 @@ def gen_tutorials(repo_dir: str) -> None:
         html_out = "".join([JS_SCRIPT_TAGS.format(src) for src in SRCS]) + str(nb_meat)
 
         # generate HTML file
-        with open(html_path, 'w') as html_outfile:
+        with open(html_path, "w") as html_outfile:
             html_outfile.write(html_out)
 
         # generate JS file
-        t_dir_js = t_dir if t_dir else ''
+        t_dir_js = t_dir if t_dir else ""
         script = TEMPLATE.format(t_dir=t_dir_js, tid=tid)
         with open(js_path, "w") as js_outfile:
             js_outfile.write(script)
@@ -128,8 +128,8 @@ def gen_tutorials(repo_dir: str) -> None:
 
         # create .tar archive (if necessary)
         if t_dir is not None:
-	        with tarfile.open(tar_path, "w:gz") as tar:
-	            tar.add(tutorial_dir, arcname=os.path.basename(tutorial_dir))
+            with tarfile.open(tar_path, "w:gz") as tar:
+                tar.add(tutorial_dir, arcname=os.path.basename(tutorial_dir))
 
 
 if __name__ == "__main__":
