@@ -1,4 +1,4 @@
-<img width="300" src="./ax_logo_lockup.svg" alt="Ax Logo" />
+<img width="300" src="website/static/img/ax_logo_lockup.svg" alt="Ax Logo" />
 
 <hr/>
 
@@ -18,98 +18,63 @@ optimization and bandit optimization as exploration strategies. Bayesian
 optimization in Ax is powered by [BoTorch](https://github.com/facebookexternal/botorch),
 a modern library for Bayesian optimization research built on PyTorch.
 
-For full documentation and tutorials, see the Ax website [TODO: add link].
+For full documentation and tutorials, see the [Ax website](https://ax.dev)
 
 ## Installation
 
 ### Requirements
-
-You need **Python 3.6 or later** to run Ax.
+You need Python 3.6 or later to run Ax.
 
 The required Python dependencies are:
 
-* botorch
+* [botorch](https://www.botorch.org)
 * jinja2
 * pandas
 * scipy
 * simplejson
 * sklearn
-* plotly>=2.2.1,<3.0
+* plotly >=2.2.1, <3.0
 
-### pip [PRIOR TO LAUNCH]
+### Installation via pip
+We recommend installing Ax via pip.
+To do so, run:
 
-NOTE: Both BoTorch and Ax are currently private repositories.
-This means that to download them, using `pip`, you need to make sure that
-you have an [SSH key is registered with GitHub](https://help.github.com/articles/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent/).
-
-1) Install numpy and cython, if you don't already have them, since they are
-needed for parsing the `setup.py` files for Ax:
-
-```
-pip3 install cython numpy
-```
-
-2) Install PyTorch nightly build
-
-See installation instructions via pip or conda [here](https://pytorch.org/get-started/locally/).
-
-BoTorch uses advanced PyTorch features and thus currently requires PyTorch's
-nightly build (the requirement upon beta release will be PyTorch 1.1).
-
-*Recommendation for MacOS users*: install PyTorch before installing BoTorch
-using the [Anaconda package manager](https://pytorch.org/get-started/locally/#anaconda-1)
-to get up to an order-of-magnitude speed-up for Bayesian optimization. At the
-moment, installing PyTorch from pip does not link against [MKL](https://github.com/intel/mkl-dnn),
-a library that optimizes mathematical computation for Intel processors.
-
-
-3) Download and install BoTorch from the [GitHub repo](https://github.com/pytorch/botorch):
-```
-pip3 install git+ssh://git@github.com/pytorch/botorch.git
-```
-
-
-4) Download and install Ax from the [GitHub repo](https://github.com/facebook/Ax):
-```
-pip3 install git+ssh://git@github.com/facebook/Ax.git
-```
-
-
-### pip (post-launch; TODO: set up wheels)
-
-Install Ax via pip:
 ```
 pip3 install ax-platform
 ```
 
-*Recommendation for MacOS users*: install PyTorch before Ax by using the
-[Anaconda package manager](https://pytorch.org/get-started/locally/#anaconda-1)
-to get up to an order-of-magnitude speed-up for Bayesian optimization. At the
-moment, installing PyTorch from pip does not link against
-[MKL](https://software.intel.com/en-us/mkl), a library that optimizes
-mathematical computation for Intel processors.
+*Recommendation for MacOS users*: PyTorch is a required dependency of BoTorch, and can be automatically installed via pip.
+However, we recommend you install PyTorch manually before installing Ax, using the Anaconda package manager.
+Installing from Anaconda will link against MKL (a library that optimizes mathematical computation for Intel processors).
+This will result in up to an order-of-magnitude speed-up for Bayesian optimization, as at the moment, installing PyTorch from pip does not link against MKL.
+
+### Installing from source
+To install from source:
+1. Make sure you have [installed the botorch dependency](https://www.botorch.org/docs/getting_started/#installing-botorch).
+1. Download Ax from the [Git repository](https://github.com/facebook/Ax).
+1. `cd` into the `ax` project and run:
+
+```
+pip3 install -e .
+```
+
+*Note:* When installing from source, Ax requires a compiler for Cython code.
 
 ### Optional Dependencies
-
-Depending on your intended use of Ax, you may want to install Ax with optional
-dependencies.
+Depending on your intended use of Ax, you may want to install Ax with optional dependencies.
 
 If using Ax in Jupyter notebooks:
 ```
 pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=Ax[notebook]
 ```
-
 If storing Ax experiments via SQLAlchemy in MySQL or SQLite:
+
 ```
 pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=Ax[mysql]
 ```
+Note that instead of installation from Git, you can also clone a local version of the repo and then pip install with desired flags from the root of the local repo, e.g.:
 
-Note that instead of installation from Git, you can also clone
-a local version of the repo and then pip install with desired
-flags from the root of the local repo, e.g.:
-```
-pip3 install -e .[mysql]
-```
+`pip3 install -e .[mysql]`
 
 ## Getting Started
 
@@ -119,7 +84,7 @@ artificial evaluation function):
 
 ```
 >>> from ax import optimize
->>> optimize(
+>>> best_parameters, best_values, experiment, model = optimize(
         parameters=[
           {
             "name": "x1",

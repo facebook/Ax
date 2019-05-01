@@ -114,7 +114,7 @@ class Index extends React.Component {
 
     const codeExample = `${pre}python
 >>> from ax import optimize
->>> best_parameters, values, experiment, model = optimize(
+>>> best_parameters, best_values, experiment, model = optimize(
         parameters=[
           {
             "name": "x1",
