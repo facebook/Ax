@@ -143,20 +143,18 @@ class Index extends React.Component {
         style={{textAlign: 'center'}}>
         <h2>Get Started</h2>
         <Container>
-              <ol>
-                <li>
-                  Install Ax via pip:
-                  <MarkdownBlock>
-                    {pip3 install ax-platform}
-                  </MarkdownBlock>
-                </li>
-                <li>
-                  Run an optimization:
-                  <MarkdownBlock>{codeExample}</MarkdownBlock>
-                </li>
-              </ol>
-          </Container>
-        </div>
+          <ol>
+            <li>
+              Install Ax via pip:
+              <MarkdownBlock>{bash`pip3 install ax-platform`}</MarkdownBlock>
+            </li>
+            <li>
+              Run an optimization:
+              <MarkdownBlock>{codeExample}</MarkdownBlock>
+            </li>
+          </ol>
+        </Container>
+      </div>
     );
 
     const Features = () => (
