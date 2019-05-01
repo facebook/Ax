@@ -76,10 +76,10 @@ create_all_tables(engine)
 Then save your experiment:
 ```py
 from ax import Experiment
-from ax import sqa_store
+from ax.storage.sqa_store.save import save_experiment
 
 experiment = Experiment(...)
-sqa_store.save(experiment)
+save_experiment(experiment)
 ```
 
 The experiment (including attached data) will be saved to the corresponding tables.
@@ -87,28 +87,30 @@ The experiment (including attached data) will be saved to the corresponding tabl
 Alternatively, you can pass a [creator function](https://docs.sqlalchemy.org/en/latest/core/engines.html#sqlalchemy.create_engine.params.creator) instead of a url to `init_engine_and_session_factory`:
 
 ```py
-from ax import Experiment, sqa_store
+from ax import Experiment
 from ax.storage.sqa_store.db import init_engine_and_session_factory
+from ax.storage.sqa_store.save import save_experiment
 
 init_engine_and_session_factory(creator=creator)
 experiment = Experiment(...)
-sqa_store.save(experiment)
+save_experiment(experiment)
 ```
 
 ### Updating
 
-To update a SQL-backed experiment, call `sqa_store.save(experiment)` again. Ax will determine what updates to perform.
+To update a SQL-backed experiment, call `save_experiment(experiment)` again. Ax will determine what updates to perform.
 
 ### Loading
 
 To load an experiment from SQL, specify the name:
 
 ```py
-from ax import Experiment, sqa_store
+from ax import Experiment
 from ax.storage.sqa_store.db import init_engine_and_session_factory
+from ax.storage.sqa_store.load import load_experiment
 
 init_engine_and_session_factory(url=dialect+driver://username:password@host:port/database)
-experiment = sqa_store.load(experiment_name)
+experiment = load_experiment(experiment_name)
 ```
 
 ### Customizing
@@ -138,7 +140,8 @@ If you choose to add types to your experiments, create an enum mapping experimen
 
 
 ```py
-from ax import Experiment, sqa_store
+from ax import Experiment
+from ax.storage.sqa_store.save import save_experiment
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from enum import Enum
 
@@ -146,7 +149,7 @@ class ExperimentType(Enum):
     DEFAULT: 0
 
 config = SQAConfig(experiment_type_enum=ExperimentType)
-sqa_store.save(experiment, config=config)
+save_experiment(experiment, config=config)
 ```
 
 **Specifying generator run types:**
@@ -155,7 +158,8 @@ If you choose to add types to your generator runs (beyond the existing `status_q
 
 
 ```py
-from ax import Experiment, sqa_store
+from ax import Experiment
+from ax.storage.sqa_store.save import save_experiment
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from enum import Enum
 
@@ -164,5 +168,5 @@ class GeneratorRunType(Enum):
     STATUS_QUO: 1
 
 config = SQAConfig(generator_run_type_enum=GeneratorRunType)
-sqa_store.save(experiment, config=config)
+save_experiment(experiment, config=config)
 ```
