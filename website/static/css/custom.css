@@ -26,7 +26,7 @@ html body {
   color: #c7d4fd;
 }
 
-.navigationSlider .slidingNav ul li a:hover {
+.navigationSlider .slidingNav ul li a:hover, .navigationSlider .slidingNav ul li a:focus {
   color: #ffffff;
   background-color: inherit;
 }
