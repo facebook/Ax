@@ -144,8 +144,9 @@ class Index extends React.Component {
         <Container>
           <ol>
             <li>
-              Install Ax via pip:
-              <MarkdownBlock>{bash`pip3 install ax-platform`}</MarkdownBlock>
+              Install Ax:
+              <MarkdownBlock>{bash`conda install pytorch torchvision -c pytorch  # OSX only`}</MarkdownBlock>
+              <MarkdownBlock>{bash`pip3 install ax-platform  # all systems`}</MarkdownBlock>
             </li>
             <li>
               Run an optimization:
