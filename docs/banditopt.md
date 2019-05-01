@@ -63,4 +63,4 @@ The vast majority of experimental groups are estimated more accurately using emp
 
 Empirical Bayes does a better job of playing the best arm than does using the raw effect estimates. It does this by concentrating exploration early in the experiment. In particular, it concentrates that exploration on the *set* of arms that look good, rather than over-exploiting the single best performing arm. By spreading exploration out a little bit more when effect estimates are noisy (and playing the best arm a little less), it is able to identify the best arm with more confidence later in the experiment.
 
-See more [details in our paper](https://ddimmery.com/publication/experiment-shrinkage/).
+See more [details in our paper](https://arxiv.org/abs/1904.12918).
