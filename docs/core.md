@@ -138,7 +138,7 @@ An experiment consists of a sequence of trials, each of which evaluates one or m
 
 Based on the evaluation results, the optimization algorithm suggest one or more arms to evaluate. You then create a new trial containing these suggested arms, evaluate this trial, and repeat.
 
-You can directly add arm(s) to a new trial, or you can add the output of the optimization algorithm, which is a [GeneratorRun](glossary.md#generator-run) (recommended):
+You can directly add arm(s) to a new trial, or you can add a [generator run](glossary.md#generator-run) –– output of the optimization algorithm:
 
 ```python
 # If only one arm should be evaluated

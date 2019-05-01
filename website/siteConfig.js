@@ -18,11 +18,8 @@ const users = [];
 const siteConfig = {
   title: 'Ax',
   tagline: 'Automated optimization and experimentation',
-  url: 'https://ax-platform.org',
+  url: 'https://ax.dev/',
   baseUrl: baseUrl,
-  // For github.io type URLs, you would set the url and baseUrl like:
-  //   url: 'https://facebook.github.io',
-  //   baseUrl: '/test-site/',
 
   // Used for publishing and more
   projectName: 'Ax',
