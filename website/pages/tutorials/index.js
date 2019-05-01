@@ -35,7 +35,7 @@ class TutorialHome extends React.Component {
               Our 3 API tutorials:&nbsp;
               <a href="gpei_hartmann_loop.html">Loop</a>,&nbsp;
               <a href="gpei_hartmann_service.html">Service</a>, and&nbsp;
-              <a href="gpei_hartmann_developer.html">Developer</a> &mdash; are a good place to start.
+              <a href="gpei_hartmann_developer.html">Developer</a> &mdash; .
               They showcase optimization on a constrained Hartmann6
               problem with each respective API and will help select the most
               useful API for your case.
