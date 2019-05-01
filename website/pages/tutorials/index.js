@@ -32,14 +32,23 @@ class TutorialHome extends React.Component {
               examples.
             </p>
             <p>
-              <a href="building_blocks.html">Building Block of Ax</a>&nbsp; is a
-              good place to start, as it teaches about the architecture of Ax
-              and explains the experimentation/optimization process.
+              Our 3 API tutorials:&nbsp;
+              <a href="gpei_hartmann_loop.html">Loop</a>,&nbsp;
+              <a href="gpei_hartmann_service.html">Service</a>, and&nbsp;
+              <a href="gpei_hartmann_developer.html">Developer</a> &mdash; are a good place to start.
+              They showcase optimization on a constrained Hartmann6
+              problem with each respective API and will help select the most
+              useful API for your case.
             </p>
-            <p>Furtner, our Bayesian Optimization tutorials include:</p>
+            <p>
+              <a href="building_blocks.html">Building Block of Ax</a>&nbsp;
+              teaches about the architecture of Ax and explains the
+              experimentation/optimization process.
+            </p>
+            <p>Further, our Bayesian Optimization tutorials include:</p>
             <ul>
               <li>
-                <a href="tune_cnn.html">HPO for PyTorch</a>
+                <a href="tune_cnn.html">Hyperparameter Optimization for PyTorch</a>
                 &nbsp; provides an example of hyperparameter optimization with
                 Ax and integration with an external ML library.
               </li>
@@ -80,14 +89,6 @@ class TutorialHome extends React.Component {
                 optimization in real-time.
               </li>
             </ul>
-            <p>
-              Finally, our 3 API tutorials:&nbsp;
-              <a href="gpei_hartmann_loop.html">Loop</a>,&nbsp;
-              <a href="gpei_hartmann_service.html">Service</a>, and&nbsp;
-              <a href="gpei_hartmann_developer.html">Developer</a> &mdash;
-              showcase optimization on a constrained Hartmann6 problem, with
-              each respective API.
-            </p>
           </div>
         </Container>
       </div>

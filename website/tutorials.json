@@ -8,7 +8,7 @@
   "BayesOpt": [
     {
       "id": "tune_cnn",
-      "title": "HPO for PyTorch"
+      "title": "Hyperparameter Optimization for PyTorch"
     },
     {
       "id": "multi_task",
