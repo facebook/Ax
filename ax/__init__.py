@@ -34,5 +34,4 @@ __all__ = [
     "optimize",
     "save",
     "load",
-    "sqa_store",
 ]
