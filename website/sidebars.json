@@ -2,7 +2,7 @@
   "docs": {
     "Introduction": ["why-ax"],
     "Getting Started": ["installation", "api", "glossary"],
-    "Algorithms": ["bayesopt", "eb", "banditopt"],
+    "Algorithms": ["bayesopt", "banditopt"],
     "Components": ["core", "runner", "data", "models", "storage"]
   }
 }
