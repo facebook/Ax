@@ -16,7 +16,7 @@ The required Python dependencies are:
 * sklearn
 * plotly >=2.2.1, <3.0
 
-### Installation via pip 
+### Installation via pip
 We recommend installing Ax via pip.
 To do so, run:
 
@@ -25,8 +25,8 @@ pip3 install ax-platform
 ```
 
 *Recommendation for MacOS users*: PyTorch is a required dependency of BoTorch, and can be automatically installed via pip.
-However, we recommend you install PyTorch manually before installing Ax, using the Anaconda package manager. 
-Installing from Anaconda will link against MKL (a library that optimizes mathematical computation for Intel processors). 
+However, we recommend you install PyTorch manually before installing Ax, using the Anaconda package manager.
+Installing from Anaconda will link against MKL (a library that optimizes mathematical computation for Intel processors).
 This will result in up to an order-of-magnitude speed-up for Bayesian optimization, as at the moment, installing PyTorch from pip does not link against MKL.
 
 ### Installing from source
