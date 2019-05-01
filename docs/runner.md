@@ -40,8 +40,8 @@ exp = SimpleExperiment(
 ### Asynchronous
 
 In the asynchronous paradigm, the trial is first deployed and the data is fetched at a later time. This is useful when evaluation happens on an external system and takes a long time to complete, such as for A/B tests. This is supported by the [```Experiment```](/api/core.html#module-ax.core.experiment) class. In this paradigm, the user specifies:
-  * Runner: Defines how to deploy the experiment.
-  * List of metrics: Each defining how to compute/fetch data for a given metric.
+  * [`Runner`](../api/core.html#ax.core.runner.Runner): Defines how to deploy the experiment.
+  * List of [`Metrics`](../api/core.html#ax.core.metric.Metric): Each defining how to compute/fetch data for a given metric.
 
 A default runner is specified on the experiment, which is attached to each trial right before deployment. Runners can also be manually added to a trial to override the experiment default.
 
@@ -58,11 +58,11 @@ reference and the [API docs](api.md).
 
 ## Adding Your Own Runner
 
-To add your own runner, subclass `Runner` and implement the `run` method and `staging_required` property.
+To add your own runner, subclass [`Runner`](../api/core.html#ax.core.runner.Runner) and implement the [`run`](../api/core.html#ax.core.runner.Runner.run) method and [`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required) property.
 
-The `run` method accepts a Trial and returns a JSON-serializable dictionary of any necessary tracking info to fetch data later from this external system. A unique identifier or name for this trial in the external system should be stored in this dictionary with the key "name", can then be accessed via trial.deployed_name.
+The [`run`](../api/core.html#ax.core.runner.Runner.run) method accepts a Trial and returns a JSON-serializable dictionary of any necessary tracking info to fetch data later from this external system. A unique identifier or name for this trial in the external system should be stored in this dictionary with the key "name", can then be accessed via trial.deployed_name.
 
-The `staging_required` indicates whether the trial requires an intermediate staging period before evaluation begins. This property returns False by default.
+The [`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required) indicates whether the trial requires an intermediate staging period before evaluation begins. This property returns False by default.
 
 An example implementation is given below:
 
