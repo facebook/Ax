@@ -169,9 +169,9 @@ a.docs-next, a.docs-prev {
 }
 
 a.docs-next:hover, a.docs-prev:hover {
-  color: #4872f9;
+  background-color: #4872f9;
   border: 1px solid #4872f9;
-  background-color: inherit;
+  color: #fff;
 }
 
 /* Style tutorials */
