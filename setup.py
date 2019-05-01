@@ -34,18 +34,25 @@ MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
 setup(
     name="ax",
-    version="pre-alpha",
+    version="0.1.0",
     description="Adaptive Experimentation",
     author="Facebook, Inc.",
     license="MIT",
     url="https://github.com/facebook/Ax",
     keywords=["Experimentation", "Optimization"],
     classifiers=[
-        "Development Status :: 2 - Pre-Alpha",
+        "Development Status :: 4 - Beta",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: MacOS :: MacOS X",
         "Programming Language :: Python :: 3",
     ],
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     python_requires=">=3.6",
     setup_requires=["cython", "numpy"],
     install_requires=REQUIRES,
