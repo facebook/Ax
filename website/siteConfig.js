@@ -17,16 +17,13 @@ const users = [];
 
 const siteConfig = {
   title: 'Ax',
-  tagline: 'Automated optimization and experimentation',
+  tagline: 'Adaptive Experimentation Platform',
   url: 'https://ax.dev/',
   baseUrl: baseUrl,
 
   // Used for publishing and more
   projectName: 'Ax',
   organizationName: 'facebook',
-  // For top-level user or org sites, the organization is still the same.
-  // e.g., for the https://JoelMarcey.github.io site, it would be set like...
-  //   organizationName: 'JoelMarcey'
 
   // For no header links in the top nav bar -> headerLinks: [],
   headerLinks: [
@@ -80,6 +77,9 @@ const siteConfig = {
 
   // Show documentation's last update time.
   // enableUpdateTime: true,
+
+  // enable scroll to top button a the bottom of the site
+  scrollToTop: true,
 
   wrapPagesHTML: true,
 };

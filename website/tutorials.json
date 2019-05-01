@@ -1,5 +1,19 @@
 {
-  "BayesOpt": [
+  "API Comparison": [
+    {
+      "id": "gpei_hartmann_loop",
+      "title": "Loop API"
+    },
+    {
+      "id": "gpei_hartmann_service",
+      "title": "Service API"
+    },
+    {
+      "id": "gpei_hartmann_developer",
+      "title": "Developer API"
+    }
+  ],
+  "Bayesian Optimization": [
     {
       "id": "tune_cnn",
       "title": "Hyperparameter Optimization for PyTorch"
@@ -24,28 +38,10 @@
       "title": "Human-in-the-Loop Optimization"
     }
   ],
-  "API Comparison": [
-    {
-      "id": "gpei_hartmann_loop",
-      "title": "Loop API"
-    },
-    {
-      "id": "gpei_hartmann_service",
-      "title": "Service API"
-    },
-    {
-      "id": "gpei_hartmann_developer",
-      "title": "Developer API"
-    }
-  ],
   "Deep Dives": [
     {
       "id": "building_blocks",
       "title": "Building Blocks of Ax"
-    },
-    {
-      "id": "visualizations",
-      "title": "Visualizations"
     }
   ]
 }

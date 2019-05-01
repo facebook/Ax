@@ -69,7 +69,7 @@ class HomeSplash extends React.Component {
           <PromoSection>
             <Button href={docUrl('why-ax.html')}>Why Ax?</Button>
             <Button href={'#quickstart'}>Get Started</Button>
-            <Button href={'tutorials'}>Tutorials</Button>
+            <Button href={`${baseUrl}tutorials/`}>Tutorials</Button>
           </PromoSection>
         </div>
       </SplashContainer>
@@ -108,7 +108,6 @@ class Index extends React.Component {
         ]}
       </Block>
     );
-    //getStartedSection
 
     const pre = '```';
 
@@ -133,7 +132,7 @@ class Index extends React.Component {
     )
 
 >>> best_parameters
-{'x1': 1.02, 'x2': 2.97}  # global min is (1, 3)
+{'x1': 1.02, 'x2': 2.97}  # true min is (1, 3)
     `;
 
     const QuickStart = () => (
@@ -180,7 +179,7 @@ class Index extends React.Component {
             },
             {
               content:
-                'Support for enterprise-level experimentation ' +
+                'Support for industry-grade experimentation ' +
                 'and optimization management, including MySQL storage.',
               image: `${baseUrl}img/database-solid.svg`,
               imageAlign: 'top',

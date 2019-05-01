@@ -88,17 +88,12 @@ class TutorialHome extends React.Component {
             </ul>
             <p>
               Finally, we explore the different components available in Ax in
-              more detail, both for setting up the experiment and visualizing
-              results.
+              more detail.
             </p>
             <ul>
               <a href="building_blocks.html">Building Blocks of Ax</a>&nbsp;
               examines the architecture of Ax and the
               experimentation/optimization process.
-            </ul>
-            <ul>
-              <a href="visualizations.html">Visualizations</a>&nbsp; illustrates
-              the different plots available to view and understand your results.
             </ul>
           </div>
         </Container>
