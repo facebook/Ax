@@ -82,7 +82,7 @@ To run a simple optimization loop in Ax (using the
 [Booth response surface](https://www.sfu.ca/~ssurjano/booth.html) as the
 artificial evaluation function):
 
-```
+```python
 >>> from ax import optimize
 >>> best_parameters, best_values, experiment, model = optimize(
         parameters=[
@@ -102,7 +102,7 @@ artificial evaluation function):
         minimize=True,
     )
 
-{'x1': 1.02, 'x2': 2.97}  # global min is (1, 3)
+# best_parameters contains {'x1': 1.02, 'x2': 2.97}; the global min is (1, 3)
 ```
 
 ## Join the Ax community
