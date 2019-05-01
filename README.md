@@ -20,6 +20,44 @@ a modern library for Bayesian optimization research built on PyTorch.
 
 For full documentation and tutorials, see the [Ax website](https://ax.dev)
 
+## Why Ax?
+
+* **Versatility**: Ax supports different kinds of experiments, from dynamic ML-assisted A/B testing, to hyperparameter optimization in machine learning.
+* **Customization**: Ax makes it easy to add new modeling and decision algorithms, enabling research and development with minimal overhead.
+* **Production-completeness**: Ax comes with storage integration and ability to fully save and reload experiments.
+* **Support for multi-modal and constrained experimentation**: Ax allows for running and combining multiple experiments (e.g. simulation with a real-world "online" A/B test) and for constrained optimization (e.g. improving classification accuracy without signifant increase in resource-utilization).
+* **Efficiency in high-noise setting**: Ax offers state-of-the-art algorithms specifically geared to noisy experiments, such as simulations with reinforcement-learning agents.
+* **Ease of use**: Ax includes 3 different APIs that strike different balances between lightweight structure and flexibility. Using the most concise Loop API, a whole optimization can be done in just one function call. The Service API integrates easily with external schedulers. The most elaborate Developer API affords full algorithm customization and experiment introspection.
+
+## Getting Started
+
+To run a simple optimization loop in Ax (using the
+[Booth response surface](https://www.sfu.ca/~ssurjano/booth.html) as the
+artificial evaluation function):
+
+```python
+>>> from ax import optimize
+>>> best_parameters, best_values, experiment, model = optimize(
+        parameters=[
+          {
+            "name": "x1",
+            "type": "range",
+            "bounds": [-10.0, 10.0],
+          },
+          {
+            "name": "x2",
+            "type": "range",
+            "bounds": [-10.0, 10.0],
+          },
+        ],
+        # Booth function
+        evaluation_function=lambda p: p["x1"] + 2*p["x2"] - 7)**2 + (2*p["x1"] + p["x2"] - 5,
+        minimize=True,
+    )
+
+# best_parameters contains {'x1': 1.02, 'x2': 2.97}; the global min is (1, 3)
+```
+
 ## Installation
 
 ### Requirements
@@ -75,35 +113,6 @@ pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=Ax[mysql]
 Note that instead of installation from Git, you can also clone a local version of the repo and then pip install with desired flags from the root of the local repo, e.g.:
 
 `pip3 install -e .[mysql]`
-
-## Getting Started
-
-To run a simple optimization loop in Ax (using the
-[Booth response surface](https://www.sfu.ca/~ssurjano/booth.html) as the
-artificial evaluation function):
-
-```python
->>> from ax import optimize
->>> best_parameters, best_values, experiment, model = optimize(
-        parameters=[
-          {
-            "name": "x1",
-            "type": "range",
-            "bounds": [-10.0, 10.0],
-          },
-          {
-            "name": "x2",
-            "type": "range",
-            "bounds": [-10.0, 10.0],
-          },
-        ],
-        # Booth function
-        evaluation_function=lambda p: p["x1"] + 2*p["x2"] - 7)**2 + (2*p["x1"] + p["x2"] - 5,
-        minimize=True,
-    )
-
-# best_parameters contains {'x1': 1.02, 'x2': 2.97}; the global min is (1, 3)
-```
 
 ## Join the Ax community
 
