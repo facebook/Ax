@@ -32,14 +32,20 @@ class TutorialHome extends React.Component {
               examples.
             </p>
             <p>
-              <a href="building_blocks.html">Building Block of Ax</a>&nbsp; is a
-              good place to start, as it teaches about the architecture of Ax
-              and explains the experimentation/optimization process.
+              Our 3 API tutorials:&nbsp;
+              <a href="gpei_hartmann_loop.html">Loop</a>,&nbsp;
+              <a href="gpei_hartmann_service.html">Service</a>, and&nbsp;
+              <a href="gpei_hartmann_developer.html">Developer</a> &mdash;
+              are a good place to start. Each tutorial showcases optimization on
+              a constrained Hartmann6 problem, with the Loop API being the
+              simplest to use and the Developer API being the most customizable.
             </p>
-            <p>Furtner, our Bayesian Optimization tutorials include:</p>
+            <p>Further, our Bayesian Optimization tutorials include:</p>
             <ul>
               <li>
-                <a href="tune_cnn.html">HPO for PyTorch</a>
+                <a href="tune_cnn.html">
+                  Hyperparameter Optimization for PyTorch
+                </a>
                 &nbsp; provides an example of hyperparameter optimization with
                 Ax and integration with an external ML library.
               </li>
@@ -81,13 +87,20 @@ class TutorialHome extends React.Component {
               </li>
             </ul>
             <p>
-              Finally, our 3 API tutorials:&nbsp;
-              <a href="gpei_hartmann_loop.html">Loop</a>,&nbsp;
-              <a href="gpei_hartmann_service.html">Service</a>, and&nbsp;
-              <a href="gpei_hartmann_developer.html">Developer</a> &mdash;
-              showcase optimization on a constrained Hartmann6 problem, with
-              each respective API.
+              Finally, we explore the different components available in Ax in
+              more detail, both for setting up the experiment and
+              visualizing results.
             </p>
+            <ul>
+              <a href="building_blocks.html">Building Blocks of Ax</a>&nbsp;
+              goes in depth about the architecture of Ax and the
+              experimentation/optimization process.
+            </ul>
+            <ul>
+              <a href="visualizations.html">Visualizations</a>&nbsp;
+              illustrates the different plots available to view and understand
+              your results.
+            </ul>
           </div>
         </Container>
       </div>

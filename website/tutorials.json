@@ -1,10 +1,4 @@
 {
-  "Introduction": [
-    {
-      "id": "building_blocks",
-      "title": "Building Blocks of Ax"
-    }
-  ],
   "BayesOpt": [
     {
       "id": "tune_cnn",
@@ -42,6 +36,16 @@
     {
       "id": "gpei_hartmann_developer",
       "title": "Developer API"
+    }
+  ],
+  "Deep Dives": [
+    {
+      "id": "building_blocks",
+      "title": "Building Blocks of Ax"
+    },
+    {
+      "id": "visualizations",
+      "title": "Visualizations"
     }
   ]
 }
