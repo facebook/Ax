@@ -76,10 +76,14 @@ div.productShowcaseSection {
 
 .productShowcaseSection > h2 {
   font-variant: small-caps;
-  font-weight: 300;
+  font-weight: 360;
   margin: 0px;
   padding: 0px;
   color: #5b1861;
+}
+
+.productShowcaseSection p {
+  font-weight: 360;
 }
 
 .productShowcaseSection div.container {
@@ -103,7 +107,7 @@ div.productShowcaseSection {
 }
 
 .container .wrapper .alignCenter h2 {
-  color: #4872f9;
+  color: #222222;
 }
 
 div#quickstart {
