@@ -141,12 +141,9 @@ class Index extends React.Component {
         <Container>
               <ol>
                 <li>
-                  Download and install botorch from the Github repo.
-                </li>
-                <li>
-                  Download Ax from the Github repo and install with pip:
+                  Install Ax via pip:
                   <MarkdownBlock>
-                    {bash`cd ax && pip3 install -e .`}
+                    {pip3 install ax-platform}
                   </MarkdownBlock>
                 </li>
                 <li>
