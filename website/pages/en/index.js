@@ -3,6 +3,8 @@
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
+ *
+ * @format
  */
 
 const React = require('react');
@@ -61,13 +63,13 @@ class HomeSplash extends React.Component {
 
     return (
       <SplashContainer>
-        <Logo img_src={baseUrl+'img/ax_wireframe.svg'}/>
+        <Logo img_src={baseUrl + 'img/ax_wireframe.svg'} />
         <div className="inner">
           <ProjectTitle siteConfig={siteConfig} />
           <PromoSection>
             <Button href={docUrl('why-ax.html')}>Why Ax?</Button>
-            <Button href={"#quickstart"}>Get Started</Button>
-            <Button href={"tutorials"}>Tutorials</Button>
+            <Button href={'#quickstart'}>Get Started</Button>
+            <Button href={'tutorials'}>Tutorials</Button>
           </PromoSection>
         </div>
       </SplashContainer>
@@ -108,11 +110,11 @@ class Index extends React.Component {
     );
     //getStartedSection
 
-    const pre = "```";
+    const pre = '```';
 
     const codeExample = `${pre}python
 >>> from ax import optimize
->>> optimize(
+>>> best_parameters, values, experiment, model = optimize(
         parameters=[
           {
             "name": "x1",
@@ -130,12 +132,14 @@ class Index extends React.Component {
         minimize=True,
     )
 
+>>> best_parameters
 {'x1': 1.02, 'x2': 2.97}  # global min is (1, 3)
     `;
 
     const QuickStart = () => (
       <div
-        className="productShowcaseSection" id="quickstart"
+        className="productShowcaseSection"
+        id="quickstart"
         style={{textAlign: 'center'}}>
         <h2>Get Started</h2>
         <Container>
@@ -156,41 +160,36 @@ class Index extends React.Component {
     );
 
     const Features = () => (
-      <div
-        className="productShowcaseSection"
-        style={{textAlign: 'center'}}>
+      <div className="productShowcaseSection" style={{textAlign: 'center'}}>
         <h2>Key Features</h2>
-      <Block layout="fourColumn">
-        {[
-          {
-            content: (
-              'Easy to plug in new algorithms and use the library across ' +
-              'different domains.'
-            ),
-            image: `${baseUrl}img/th-large-solid.svg`,
-            imageAlign: 'top',
-            title: 'Modular',
-          },
-          {
-            content: (
-              'Field experiments require a range of considerations ' +
-              'beyond standard optimization problems.'
-            ),
-            image: `${baseUrl}img/dice-solid.svg`,
-            imageAlign: 'top',
-            title: 'Supports A/B Tests',
-          },
-          {
-            content: (
-              'Support for enterprise-level experimentation ' +
-              'and optimization management, including MySQL storage.'
-            ),
-            image: `${baseUrl}img/database-solid.svg`,
-            imageAlign: 'top',
-            title: 'Production-Ready',
-          },
-        ]}
-      </Block>
+        <Block layout="fourColumn">
+          {[
+            {
+              content:
+                'Easy to plug in new algorithms and use the library across ' +
+                'different domains.',
+              image: `${baseUrl}img/th-large-solid.svg`,
+              imageAlign: 'top',
+              title: 'Modular',
+            },
+            {
+              content:
+                'Field experiments require a range of considerations ' +
+                'beyond standard optimization problems.',
+              image: `${baseUrl}img/dice-solid.svg`,
+              imageAlign: 'top',
+              title: 'Supports A/B Tests',
+            },
+            {
+              content:
+                'Support for enterprise-level experimentation ' +
+                'and optimization management, including MySQL storage.',
+              image: `${baseUrl}img/database-solid.svg`,
+              imageAlign: 'top',
+              title: 'Production-Ready',
+            },
+          ]}
+        </Block>
       </div>
     );
 

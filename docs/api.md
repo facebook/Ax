@@ -17,7 +17,7 @@ Here is a comparison of the three APIs in the simple case of evaluating the unco
 from ax import optimize
 from ax.utils.measurement.synthetic_functions import branin
 
-best_parameters, experiment, model = optimize(
+best_parameters, values, experiment, model = optimize(
     parameters=[
         {
             "name": "x1",
