@@ -1,0 +1,207 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+body {
+    background-color: #E9EBF4;
+    font-family: SF Optimized, system-ui, -apple-system,
+      BlinkMacSystemFont, '.SFNSText-Regular', sans-serif;
+    font-size: 14px;
+    font-weight: 200;
+    margin: 20px 0px;
+    padding: 0;
+}
+
+.left {
+    float: left;
+    margin: 0;
+    padding: 0;
+}
+
+.middle {
+    display: inline-block;
+}
+
+.right {
+    float: right;
+    margin: 0;
+    padding: 0;
+    text-align: right;
+}
+
+.report {
+    background-color: var(--fig-white);
+    margin: 0px auto;
+    width: 1100px;
+}
+
+.report_title_section {
+    background-color: #3b5998;
+    color: white;
+    margin: 50px 0px 0px;
+    overflow: hidden;
+    padding: 15px 25px;
+}
+
+.report_footer {
+    margin-bottom: 50px;
+}
+
+.report_title {
+    font-size: 26px;
+    font-weight: 200;
+    margin: 0px 0px 10px 0px;
+}
+
+.report_subtitle {
+    font-size: 14px;
+    font-weight: 200;
+    margin: 0px;
+}
+
+.report_content {
+    background-color: white;
+    padding: 25px;
+}
+
+/* CELL FORMATTING */
+
+.cell_header {
+  background-color: #CED0D4;
+  color: #4B4F56;
+  cursor: pointer;
+  margin: 25px 0px 0px;
+  padding: 5px 25px;
+}
+
+.cell_header:after {
+  color: #4B4F56;
+  content: "+";
+  font-weight: bold;
+  float: right;
+  margin: -20px 0px 0px 5px;
+}
+
+.cell_header.show:after {
+  content: "-";
+}
+
+.cell_header h2 {
+  font-weight: 200;
+  margin: 0;
+}
+
+.cell_body {
+  border: 1px solid #CED0D4;
+  overflow-x: auto;
+  padding: 0px 25px;
+}
+
+.cell_body.hidden {
+  display: none;
+}
+
+.message {
+  padding: 10px 25px;
+  margin-bottom: 10px;
+}
+
+.message.error {
+  background-color: #fde1e9;
+  border: #9a0a33 1px solid;
+  text-align: inherit;
+  margin: inherit;
+  margin-bottom: 10px;
+}
+
+.message.error p {
+  font-size: inherit;
+}
+
+.message.warning {
+  background-color: #fef9da;
+  border: #dec74a 1px solid;
+}
+
+.message.info {
+  background-color: #d3e0fc;
+  border: #5186f7 1px solid;
+}
+
+.tldr-warning img {
+  display: inline;
+}
+
+pre {
+  background-color: #eee;
+  padding: 10px;
+}
+
+/* TABLE */
+table {
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 10px auto;
+}
+
+table, th, td {
+  border: 1px solid #4B4F56;
+}
+
+th {
+  padding: 5px;
+  text-align: center;
+}
+
+td {
+  padding: 5px;
+  text-align: left;
+}
+
+tr:hover {background-color: #f5f5f5}
+
+/* TOOLTIP */
+.report-tooltip {
+    border-bottom: 1px dotted #4B4F56;
+    display: inline-block;
+    position: relative;
+}
+
+.report-tooltip .report-tooltiptext {
+    background-color: #555555;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 200;
+    min-width: 120px;
+    padding: 10px;
+    position: absolute;
+    text-align: center;
+    visibility: hidden;
+    z-index: 1;
+}
+
+.report-tooltip .report-tooltiptext.top-tooltip {
+    bottom: 100%;
+    left: 50%;
+    margin-left: -60px;
+    min-width: 120px;
+}
+
+.report-tooltip:hover .report-tooltiptext {
+    visibility: visible;
+}
+
+table.tooltip-arm {
+  border: 0px;
+  color: #fff;
+  font-size: 12px;
+}
+
+.tooltip-arm th, .tooltip-arm td{
+  border: 0px;
+}
+
+.tooltip-arm tr:hover {
+  background-color: #4B4F56
+}

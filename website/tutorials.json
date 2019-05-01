@@ -1,0 +1,51 @@
+{
+  "BayesOpt": [
+    {
+      "id": "tune_cnn",
+      "title": "Hyperparameter Optimization for PyTorch"
+    },
+    {
+      "id": "multi_task",
+      "title": "Multi-Task Modeling"
+    },
+    {
+      "id": "benchmarking_suite_example",
+      "title": "Benchmarking Suite"
+    }
+  ],
+  "Field Experiments": [
+    {
+      "id": "factorial",
+      "title": "Bandit Optimization"
+    },
+    {
+      "dir": "human_in_the_loop",
+      "id": "human_in_the_loop",
+      "title": "Human-in-the-Loop Optimization"
+    }
+  ],
+  "API Comparison": [
+    {
+      "id": "gpei_hartmann_loop",
+      "title": "Loop API"
+    },
+    {
+      "id": "gpei_hartmann_service",
+      "title": "Service API"
+    },
+    {
+      "id": "gpei_hartmann_developer",
+      "title": "Developer API"
+    }
+  ],
+  "Deep Dives": [
+    {
+      "id": "building_blocks",
+      "title": "Building Blocks of Ax"
+    },
+    {
+      "id": "visualizations",
+      "title": "Visualizations"
+    }
+  ]
+}

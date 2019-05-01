@@ -1,0 +1,11 @@
+[flake8]
+
+# E704: the linter doesn't parse types properly
+# T499, T484: silence mypy since using pyre for typechecking
+# W503: black and flake8 disagree on how to place operators
+# E231: black and flake8 disagree on whitespace after ','
+# E203: black and flake8 disagree on whitespace before ':'
+ignore = T484, T499, W503, E704, E231, E203
+
+# Black really wants lines to be 88 chars...
+max-line-length = 88

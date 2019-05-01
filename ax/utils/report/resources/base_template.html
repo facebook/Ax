@@ -1,0 +1,37 @@
+<!--
+    Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+-->
+<html lang="en">
+<head>
+    <title>{{experiment_name}}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+    <style>{{css}}</style>
+    <script type='text/javascript'>{{js_requires}}</script>
+</head>
+<body>
+    <base target="_parent">
+    <div class="report">
+        {% if headfoot %}
+        <div class="report_title_section">
+          <h1 class="report_title">
+            {% if trial_index is none %}
+            Report for <code>{{experiment_name}}</code>
+            {% else %}
+            Report for {{ batch_noun }} #{{ trial_index }} of
+            <code>{{experiment_name}}</code>
+            {% endif %}
+          </h1>
+          <h2 class="report_subtitle">Powered by Ax</h2>
+        </div>
+        {% endif %}
+        <div class="report_content">
+          {% block content %}
+          {% endblock %}
+        </div>
+        {% if headfoot %}
+        <div class="report_footer"></div>
+        {% endif %}
+    </div>
+</body>
+</html>
