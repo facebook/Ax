@@ -51,7 +51,7 @@ artificial evaluation function):
           },
         ],
         # Booth function
-        evaluation_function=lambda p: p["x1"] + 2*p["x2"] - 7)**2 + (2*p["x1"] + p["x2"] - 5,
+        evaluation_function=lambda p: (p["x1"] + 2*p["x2"] - 7)**2 + (2*p["x1"] + p["x2"] - 5)**2,
         minimize=True,
     )
 
