@@ -3,24 +3,12 @@ language: python
 python:
   - 3.6
 
-before_install:
-  # decrypting ssh key to be able to access private botorch repo
-  - openssl aes-256-cbc -K $encrypted_39ecd60da1dc_key -iv $encrypted_39ecd60da1dc_iv -in botorch_key.enc -out botorch_key -d
-  - chmod 600 botorch_key
-  - eval "$(ssh-agent -s)"
-  - ssh-add botorch_key
-
 matrix:
   include:
     - name: "Tests: Python 3.6"
       python: "3.6"
       install:
         - pip install cython numpy
-        # TODO: Remove once GPyTorch 0.3.2 is released and marked a dep. of botorch
-        - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@32911e3b51901917c0f14101972581c1295b5edb
-        # TODO: Remove once PyTorch 1.1 is released and marked a dep. of botorch
-        - pip install -q torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
-        - pip install git+ssh://git@github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
       script:
         - pytest -ra
@@ -31,11 +19,6 @@ matrix:
       dist: xenial
       install:
         - pip install cython numpy
-        # TODO: Remove once GPyTorch 0.3.2 is released and marked a dep. of botorch
-        - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@32911e3b51901917c0f14101972581c1295b5edb
-        # TODO: Remove once PyTorch 1.1 is released and marked a dep. of botorch
-        - pip install -q torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
-        - pip install git+ssh://git@github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
       script:
         - pytest -ra
@@ -56,11 +39,6 @@ matrix:
       python: "3.6"
       install:
         - pip install cython numpy
-        # TODO: Remove once GPyTorch 0.3.2 is released and marked a dep. of botorch
-        - pip install -q git+https://github.com/cornellius-gp/gpytorch.git@32911e3b51901917c0f14101972581c1295b5edb
-        # TODO: Remove once PyTorch 1.1 is released and marked a dep. of botorch
-        - pip install -q torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
-        - pip install git+ssh://git@github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook,gpy]
       script:
         # warnings treated as errors
