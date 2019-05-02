@@ -35,9 +35,9 @@ class TutorialHome extends React.Component {
               Our 3 API tutorials:&nbsp;
               <a href="gpei_hartmann_loop.html">Loop</a>,&nbsp;
               <a href="gpei_hartmann_service.html">Service</a>, and&nbsp;
-              <a href="gpei_hartmann_developer.html">Developer</a> &mdash; are a
-              good place to start. Each tutorial showcases optimization on a
-              constrained Hartmann6 problem, with the Loop API being the
+              <a href="gpei_hartmann_developer.html">Developer</a> &mdash;
+              are a good place to start. Each tutorial showcases optimization on
+              a constrained Hartmann6 problem, with the Loop API being the
               simplest to use and the Developer API being the most customizable.
             </p>
             <p>Further, our Bayesian Optimization tutorials include:</p>
@@ -88,12 +88,18 @@ class TutorialHome extends React.Component {
             </ul>
             <p>
               Finally, we explore the different components available in Ax in
-              more detail.
+              more detail, both for setting up the experiment and
+              visualizing results.
             </p>
             <ul>
               <a href="building_blocks.html">Building Blocks of Ax</a>&nbsp;
               examines the architecture of Ax and the
               experimentation/optimization process.
+            </ul>
+            <ul>
+              <a href="visualizations.html">Visualizations</a>&nbsp;
+              illustrates the different plots available to view and understand
+              your results.
             </ul>
           </div>
         </Container>

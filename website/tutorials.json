@@ -42,6 +42,10 @@
     {
       "id": "building_blocks",
       "title": "Building Blocks of Ax"
+    },
+    {
+      "id": "visualizations",
+      "title": "Visualizations"
     }
   ]
 }
