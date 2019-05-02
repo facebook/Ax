@@ -400,7 +400,7 @@ def get_fixed_values(
             if isinstance(parameter, FixedParameter):
                 setx[p_name] = parameter.value
             elif isinstance(parameter, ChoiceParameter):
-                setx[p_name] = Counter(vals).most_common(1)[0][1]
+                setx[p_name] = Counter(vals).most_common(1)[0][0]
             elif isinstance(parameter, RangeParameter):
                 setx[p_name] = parameter._cast(np.mean(vals))
 
