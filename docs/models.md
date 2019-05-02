@@ -140,7 +140,7 @@ Model objects are only used in Ax via a [`ModelBridge`](../api/modelbridge.html#
 
 | ModelBridge         | Model         | Example implementation        |
 | ------------------- | ------------- | ----------------------------- |
-| [`TorchModelBridge`](../api/modelbridge.html#module-ax.modelbridge.torch)    | [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel)   | [`BotorchModel`](api/models.html#ax.models.torch.botorch.BotorchModel)                  |
+| [`TorchModelBridge`](../api/modelbridge.html#module-ax.modelbridge.torch)    | [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel)   | [`BotorchModel`](../api/models.html#ax.models.torch.botorch.BotorchModel)                  |
 | [`NumpyModelBridge`](../api/modelbridge.html#module-ax.modelbridge.numpy)    | [`NumpyModel`](../api/models.html#ax.models.numpy_base.NumpyModel)    | [`RandomForest`](../api/models.html#ax.models.numpy.randomforest.RandomForest)                  |
 | [`DiscreteModelBridge`](../api/modelbridge.html#module-ax.modelbridge.discrete) | [`DiscreteModel`](../api/models.html#ax.models.discrete_base.DiscreteModel) | [`ThompsonSampler`](../api/models.html#ax.models.discrete.thompson.ThompsonSampler)               |
 | [`RandomModelBridge`](../api/modelbridge.html#module-ax.modelbridge.random)   | [`RandomModel`](../api/models.html#ax.models.random.base.RandomModel)  | [`SobolGenerator`](../api/models.html#ax.models.random.sobol.SobolGenerator)                |
