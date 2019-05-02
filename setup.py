@@ -38,8 +38,8 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name="ax",
-    version="0.1.0",
+    name="ax-platform",
+    version="0.1.1",
     description="Adaptive Experimentation",
     author="Facebook, Inc.",
     license="MIT",
