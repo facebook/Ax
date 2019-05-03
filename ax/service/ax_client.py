@@ -320,6 +320,17 @@ class AxClient:
             )
         return False
 
+    def _get_new_data(self) -> Data:
+        """
+        Returns new data since the last run of the generator.
+
+        Returns:
+            Latest data.
+        """
+        return Data.from_multiple_data(
+            [self.experiment.lookup_data_for_trial(idx) for idx in self._updated_trials]
+        )
+
     def _suggest_new_trial(self) -> Trial:
         """
         Suggest new candidate for this experiment.
@@ -330,9 +341,7 @@ class AxClient:
         Returns:
             Trial with candidate.
         """
-        new_data = Data.from_multiple_data(
-            [self.experiment.lookup_data_for_trial(idx) for idx in self._updated_trials]
-        )
+        new_data = self._get_new_data()
         generator_run = not_none(self.generation_strategy).gen(
             experiment=self.experiment, new_data=new_data
         )
