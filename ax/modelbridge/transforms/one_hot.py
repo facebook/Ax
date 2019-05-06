@@ -151,6 +151,8 @@ class OneHot(Transform):
                 val = self.encoder[p_name].inverse_transform(encoded_labels=x[None, :])[
                     0
                 ]
+                if isinstance(val, np.str_):
+                    val = str(val)
                 if isinstance(val, np.bool_):
                     val = bool(val)  # Numpy bools don't serialize
                 obsf.parameters[p_name] = val
