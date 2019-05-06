@@ -33,7 +33,7 @@ choice_param = ChoiceParameter(name="y", parameter_type=ParameterType.STRING, va
 
 ```python
 from ax import FixedParameter, ParameterType
-fixed_param = ChoiceParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
+fixed_param = FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
 ```
 
 Ax supports three types of parameter constraints, each of which can only be used on int or float parameters:
