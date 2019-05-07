@@ -3,6 +3,7 @@
 
 import math
 
+import pandas as pd
 import plotly.graph_objs as go
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -15,7 +16,7 @@ from ax.plot.scatter import _error_scatter_data
 COLOR_SCALE = ["#ffaaa5", "#ffd3b6", "#ffffff", "#dcedc1", "#a8e6cf"]
 
 
-def get_color(x: float, ci: float, rel: bool):
+def get_color(x: float, ci: float, rel: bool, reverse: bool):
     """Determine the color of the table cell."""
     if not rel:
         # Color coding is meant to be relative to the status quo,
@@ -23,11 +24,18 @@ def get_color(x: float, ci: float, rel: bool):
         return "#ffffff"
 
     r = min(math.floor(abs(x) / ci), 2) if ci > 0 else 2
-    return COLOR_SCALE[int(2 + r * math.copysign(1, x))]
+    index = int(2 + r * math.copysign(1, x))
+    color_scale = list(COLOR_SCALE)
+    if reverse:
+        color_scale = list(reversed(color_scale))
+    return color_scale[index]
 
 
 def table_view_plot(
-    experiment: Experiment, data: Data, use_empirical_bayes: bool = True
+    experiment: Experiment,
+    data: Data,
+    use_empirical_bayes: bool = True,
+    only_data_frame: bool = False,
 ):
     """Table of means and confidence intervals.
 
@@ -44,8 +52,10 @@ def table_view_plot(
     """
     model_func = get_empirical_bayes_thompson if use_empirical_bayes else get_thompson
     model = model_func(experiment=experiment, data=data)
+    metric_name_to_lower_is_better = {
+        metric.name: metric.lower_is_better for metric in experiment.metrics.values()
+    }
 
-    results = {}
     plot_data, _, _ = get_plot_data(
         model=model, generator_runs_dict={}, metric_names=model.metric_names
     )
@@ -57,6 +67,9 @@ def table_view_plot(
         status_quo_arm = None
         rel = False
 
+    results = {}
+    records_with_mean = []
+    records_with_ci = []
     for metric_name in model.metric_names:
         arms, _, ys, ys_se = _error_scatter_data(
             arms=list(plot_data.in_sample.values()),
@@ -65,10 +78,18 @@ def table_view_plot(
             rel=rel,
             status_quo_arm=status_quo_arm,
         )
-        # add spaces to metric name to it wraps
-        metric_name = metric_name.replace(":", " : ")
         # results[metric] will hold a list of tuples, one tuple per arm
-        results[metric_name] = list(zip(arms, ys, ys_se))
+        tuples = list(zip(arms, ys, ys_se))
+        results[metric_name] = tuples
+        # used if only_data_frame == True
+        records_with_mean.append({arm: y for (arm, y, _) in tuples})
+        records_with_ci.append({arm: y_se for (arm, _, y_se) in tuples})
+
+    if only_data_frame:
+        return tuple(
+            pd.DataFrame.from_records(records, index=model.metric_names).transpose()
+            for records in [records_with_mean, records_with_ci]
+        )
 
     # cells and colors are both lists of lists
     # each top-level list corresponds to a column,
@@ -83,8 +104,19 @@ def table_view_plot(
                 for (_, y, y_se) in list_of_tuples
             ]
         )
-        metric_names.append(metric_name)
-        colors.append([get_color(y, Z * y_se, rel) for (_, y, y_se) in list_of_tuples])
+        metric_names.append(metric_name.replace(":", " : "))
+
+        color_vec = []
+        for (_, y, y_se) in list_of_tuples:
+            color_vec.append(
+                get_color(
+                    x=y,
+                    ci=Z * y_se,
+                    rel=rel,
+                    reverse=metric_name_to_lower_is_better[metric_name],
+                )
+            )
+        colors.append(color_vec)
 
     header = ["arms"] + metric_names
     header = [f"<b>{x}</b>" for x in header]
