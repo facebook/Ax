@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -21,8 +21,13 @@ from ax.service.utils.best_point import (
 )
 from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import make_experiment
-from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.typeutils import not_none
+
+
+try:  # We don't require SQLAlchemy by default.
+    from ax.storage.sqa_store.structs import DBSettings
+except ModuleNotFoundError:  # pragma: no cover
+    DBSettings = None
 
 
 class AxClient:
@@ -60,10 +65,16 @@ class AxClient:
     def __init__(
         self,
         generation_strategy: Optional[GenerationStrategy] = None,
-        db_settings: Optional[DBSettings] = None,
+        db_settings: Any = None,
         enforce_sequential_optimization: bool = True,
     ) -> None:
         self.generation_strategy = generation_strategy
+        if db_settings and (not DBSettings or not isinstance(db_settings, DBSettings)):
+            raise ValueError(
+                "`db_settings` argument should be of type ax.storage.sqa_store."
+                "structs.DBSettings. To use `DBSettings`, you will need SQLAlchemy "
+                "installed in your environment (can be installed through pip)."
+            )
         self.db_settings = db_settings
         self._experiment: Optional[Experiment] = None
         self._enforce_sequential_optimization = enforce_sequential_optimization
@@ -293,7 +304,7 @@ class AxClient:
         Returns:
             Mapping of form {num_trials -> max_parallelism_setting}.
         """
-        if not (self.experiment and self.generation_strategy):
+        if not (self._experiment and self.generation_strategy):
             # Auto-selected generation strategy is set on experiment creation.
             raise ValueError(
                 "`get_recommended_max_parallelism` requires an experiment to be "

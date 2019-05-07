@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import sys
 from enum import Enum
 from math import ceil
 from typing import List, Tuple
@@ -21,6 +22,7 @@ from ax.metrics.branin import branin
 from ax.modelbridge.factory import Models, get_sobol
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.service.ax_client import AxClient
+from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
 
 
@@ -352,3 +354,24 @@ class TestServiceAPI(TestCase):
         )
         with self.assertRaisesRegex(ValueError, "All trials for current model "):
             run_trials_using_recommended_parallelism(ax, [(6, 6), (-1, 3)], 20)
+
+    @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
+    def test_no_sqa(self):
+        # Pretend we couldn't import sqa_store.structs (this could happen when
+        # SQLAlchemy is not installed).
+        patcher = patch("ax.service.ax_client.DBSettings", None)
+        patcher.start()
+        with self.assertRaises(ModuleNotFoundError):
+            import ax.storage.sqa_store.structs  # noqa F401
+        AxClient()  # Make sure we still can instantiate client w/o db settings.
+        # Even with correctly typed DBSettings, `AxClient` instantiation should
+        # fail here, because `DBSettings` are mocked to None in `ax_client`.
+        db_settings = DBSettings(encoder=None, decoder=None)
+        self.assertIsInstance(db_settings, DBSettings)
+        with self.assertRaisesRegex(ValueError, "`db_settings` argument should "):
+            AxClient(db_settings=db_settings)
+        patcher.stop()
+        # DBSettings should be defined in `ax_client` now, but incorrectly typed
+        # `db_settings` argument should still make instantiation fail.
+        with self.assertRaisesRegex(ValueError, "`db_settings` argument should "):
+            AxClient(db_settings="badly_typed_db_settings")
