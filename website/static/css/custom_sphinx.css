@@ -1,4 +1,6 @@
 /*
+Custom styling for Sphinx, based on Alabaster theme.
+
 Alabaster theme forked from https://github.com/bitprophet/alabaster/. See
 original license below.
 
@@ -38,13 +40,15 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS THEME, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 
-@import url('basic.css');
+@import url('base_sphinx.css');
 
 /* -- page layout ----------------------------------------------------------- */
 
 div.sphinx div.document {
-  width: 940px;
   margin: 30px auto;
+  max-width: 1400px;
+  padding: 0px 20px;
+  width: 100%;
 }
 
 div.sphinx div.documentwrapper {
@@ -69,7 +73,8 @@ div.sphinx hr {
 div.sphinx div.body {
   background-color: #fff;
   color: #3e4349;
-  padding: 0 30px 0 30px;
+  max-width: none;
+  padding: 0 60px 0 60px;
 }
 
 div.sphinx div.body > .section {
@@ -158,6 +163,10 @@ div.sphinx div.sphinxsidebar ul {
 
 div.sphinx div.sphinxsidebar ul li.toctree-l1 > a {
   font-size: 120%;
+}
+
+div.sphinx div.sphinxsidebar ul li.toctree-l2 {
+  margin-left: 25px;
 }
 
 div.sphinx div.sphinxsidebar ul li.toctree-l2 > a {
@@ -356,12 +365,14 @@ div.sphinx p.admonition-title:after {
   content: ':';
 }
 
+/* Code styling */
 div.sphinx pre,
 div.sphinx tt,
 div.sphinx code {
-  font-family: 'Consolas', 'Menlo', 'DejaVu Sans Mono',
-    'Bitstream Vera Sans Mono', monospace;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
   font-size: 0.9em;
+  background-color: #f5f5f5;
 }
 
 div.sphinx .hll {
@@ -375,18 +386,40 @@ div.sphinx tt.descname,
 div.sphinx tt.descclassname,
 div.sphinx code.descname,
 div.sphinx code.descclassname {
-  font-size: 0.95em;
+  font-size: 0.9em;
 }
 
 div.sphinx tt.descname,
 div.sphinx code.descname {
+  font-weight: bold;
   padding-right: 0.08em;
+  padding-left: 0px;
 }
 
+div.sphinx tt.descclassname,
+div.sphinx code.descclassname {
+  background-color: transparent;
+  padding-right: 0px;
+}
+
+/* Screenshot */
 div.sphinx img.screenshot {
   -moz-box-shadow: 2px 2px 4px #eee;
   -webkit-box-shadow: 2px 2px 4px #eee;
   box-shadow: 2px 2px 4px #eee;
+}
+
+/* Table */
+div.sphinx table {
+  overflow: hidden;
+}
+
+div.sphinx table tr {
+  border-top: none;
+}
+
+div.sphinx table .field-even {
+  background-color: transparent;
 }
 
 div.sphinx table.docutils {
@@ -455,8 +488,52 @@ div.sphinx table.footnote td {
 }
 
 div.sphinx dl {
-  margin: 0;
+  margin: 15px 0 0px 0;
   padding: 0;
+}
+
+div.sphinx dl.class,
+div.sphinx dl.function,
+div.sphinx,
+dl.exception {
+  margin-bottom: 50px;
+  padding: 0;
+}
+
+div.sphinx dl.class > dt,
+div.sphinx dl.function > dt,
+div.sphinx dl.exception > dt {
+  background-color: #f5f5f5;
+  border-top: 3px solid #4872f9;
+  padding: 5px 0px 5px 5px;
+}
+
+div.sphinx dl.class > dt > em:not(.property),
+div.sphinx dl.exception > dt > em:not(.property),
+div.sphinx dl.function > dt > em:not(.property),
+div.sphinx dl.method > dt > em:not(.property),
+div.sphinx dl.staticmethod > dt > em:not(.property) {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+div.sphinx dl.class > dt > em.property,
+div.sphinx dl.exception > dt > em.property,
+div.sphinx dl.staticmethod > dt > .property,
+div.sphinx dl.classmethod > dt > .property {
+  color: #4872f9;
+  font-style: normal;
+  font-variant: small-caps;
+}
+
+div.sphinx dl.method > dt,
+div.sphinx dl.attribute > dt,
+div.sphinx dl.staticmethod > dt,
+div.sphinx dl.classmethod > dt {
+  background-color: #f5f5f5;
+  border-left: 3px solid #4872f9;
+  padding: 3px 0px 3px 5px;
 }
 
 div.sphinx dl dd {
@@ -482,8 +559,32 @@ div.sphinx pre {
   line-height: 1.3em;
 }
 
+div.sphinx span.viewcode-link {
+  color: #6c6c6c;
+  font-size: 0.8em;
+  margin-right: 5px;
+  margin-top: 2px;
+}
+
+div.sphinx a.viewcode-back {
+  color: #6c6c6c;
+  font-size: 0.8em;
+}
+
+div.sphinx div.highlight {
+  max-width: 850px;
+}
+
+div.sphinx div.highlight pre {
+  background: #f5f5f5;
+  padding-left: 15px;
+  padding-top: 15px;
+}
+
 div.sphinx div.viewcode-block:target {
-  background: #ffd;
+  background: #ffffe3;
+  margin: -1px -10px;
+  padding: 5px 10px;
 }
 
 div.sphinx dl pre,
@@ -495,21 +596,24 @@ div.sphinx li pre {
 
 div.sphinx tt,
 div.sphinx code {
-  background-color: #ecf0f3;
+  background-color: #f5f5f5;
   color: #222;
-  /* padding: 1px 2px; */
 }
 
 div.sphinx tt.xref,
 div.sphinx code.xref,
 div.sphinx a tt {
-  background-color: #fbfbfb;
+  background-color: #f5f5f5;
   border-bottom: 1px solid #fff;
 }
 
 div.sphinx a.reference {
   text-decoration: none;
   border-bottom: 1px dotted #004b6b;
+}
+
+div.sphinx a.reference > code {
+  color: #4872f9;
 }
 
 /* Don't put an underline on images */
@@ -520,6 +624,10 @@ div.sphinx a.image-reference:hover {
 
 div.sphinx a.reference:hover {
   border-bottom: 1px solid #6d4100;
+}
+
+div.sphinx a.reference:hover > code {
+  color: #5b1861;
 }
 
 div.sphinx a.footnote-reference {
@@ -621,11 +729,6 @@ div.sphinx a:hover code {
 
   div.sphinx div.bodywrapper {
     margin: 0;
-  }
-
-  div.sphinx div.body {
-    min-height: 0;
-    padding: 0;
   }
 
   div.sphinx .rtd_doc_footer {

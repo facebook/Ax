@@ -217,52 +217,7 @@ table.modindextable td {
 
 div.body {
     min-width: 450px;
-    max-width: 900px;
-}
-
-table {
-  overflow: hidden;
-}
-
-dl {
-     margin-bottom: 15px;
- }
-
-dl.class > dt  {
-  background-color: #f8f8f8;
-  border-left: 3px solid #4872f9;
-  padding: 2px 0px 2px 5px;
-}
-
-dl.class > dt > code  {
-  background: none;
-}
-
-dl.class > dt > em.property {
-  color: #4872f9;
-  font-style: normal;
-  font-variant: small-caps;
-}
-
-dl.class em.property {
-  color: #4872f9;
-  font-style: normal;
-  font-variant: small-caps;
-}
-
-dl.function > dt  {
-  background-color: #f8f8f8;
-  border-left: 3px solid #4872f9;
-  padding: 2px 0px 2px 5px;
-}
-
-dl.function > dt > code  {
-  background: none;
-}
-
-dd {
-    padding-top: 10px;
-    padding-bottom: 5px;
+    max-width: 800px;
 }
 
 div.body p, div.body dd, div.body li, div.body blockquote {
@@ -407,6 +362,9 @@ table caption span.caption-number {
     font-style: italic;
 }
 
+table caption span.caption-text {
+}
+
 table.docutils td, table.docutils th {
     padding: 1px 8px 1px 5px;
     border-top: 0;
@@ -446,6 +404,9 @@ div.figure p.caption {
 
 div.figure p.caption span.caption-number {
     font-style: italic;
+}
+
+div.figure p.caption span.caption-text {
 }
 
 /* -- field list styles ----------------------------------------------------- */
@@ -628,6 +589,9 @@ div.code-block-caption span.caption-number {
     font-style: italic;
 }
 
+div.code-block-caption span.caption-text {
+}
+
 div.literal-block-wrapper {
     padding: 1em 1em 0;
 }
@@ -691,22 +655,6 @@ span.eqno a.headerlink {
 
 div.math:hover a.headerlink {
     visibility: visible;
-}
-
-/* -- source ---------------------------------------------------------- */
-
-
-div.sphinx div.highlight {
-  width: 120%;
-}
-
-div.sphinx div.highlight pre {
-  background-color: #fff;
-  padding: 7px 0 0 0;
-}
-
-div.sphinx div.viewcode-block:target {
-  background: #fff;
 }
 
 /* -- printout stylesheet --------------------------------------------------- */
