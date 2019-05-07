@@ -268,6 +268,44 @@ class AxClient:
             ),
         )
 
+    def get_recommended_max_parallelism(self) -> List[Tuple[int, int]]:
+        """Recommends maximum number of trials that can be scheduled in parallel
+        at different stages of optimization.
+
+        Some optimization algorithms profit significantly from sequential
+        optimization (e.g. suggest a few points, get updated with data for them,
+        repeat). This setting indicates how many trials should be in flight
+        (generated, but not yet completed with data).
+
+        The output of this method is mapping of form
+        {num_trials -> max_parallelism_setting}, where the max_parallelism_setting
+        is used for num_trials trials. If max_parallelism_setting is -1, as
+        many of the trials can be ran in parallel, as necessary. If num_trials
+        in a tuple is -1, then the corresponding max_parallelism_setting
+        should be used for all subsequent trials.
+
+        For example, if the returned list is [(5, -1), (12, 6), (-1, 3)],
+        the schedule could be: run 5 trials in parallel, run 6 trials in
+        parallel twice, run 3 trials in parallel for as long as needed. Here,
+        'running' a trial means obtaining a next trial from `AxClient` through
+        get_next_trials and completing it with data when available.
+
+        Returns:
+            Mapping of form {num_trials -> max_parallelism_setting}.
+        """
+        if not (self.experiment and self.generation_strategy):
+            # Auto-selected generation strategy is set on experiment creation.
+            raise ValueError(
+                "`get_recommended_max_parallelism` requires an experiment to be "
+                "set on AxClient first."
+            )
+        parallelism_settings = []
+        for step in self.generation_strategy._steps:
+            parallelism_settings.append(
+                (step.num_arms, step.recommended_max_parallelism or step.num_arms)
+            )
+        return parallelism_settings
+
     def load_experiment(self, experiment_name: str) -> None:
         """[Work in progress] Load an existing experiment.
 

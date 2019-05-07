@@ -22,7 +22,7 @@ def choose_generation_strategy(
     """Select an appropriate generation strategy based on the properties of
     the search space."""
     num_continuous_parameters, num_discrete_choices = 0, 0
-    for parameter in search_space.parameters:
+    for parameter in search_space.parameters.values():
         if isinstance(parameter, ChoiceParameter):
             num_discrete_choices += len(parameter.values)
         if isinstance(parameter, RangeParameter):
@@ -47,7 +47,9 @@ def choose_generation_strategy(
                     min_arms_observed=ceil(sobol_arms / 2),
                     enforce_num_arms=enforce_sequential_optimization,
                 ),
-                GenerationStep(model=Models.GPEI, num_arms=-1),
+                GenerationStep(
+                    model=Models.GPEI, num_arms=-1, recommended_max_parallelism=3
+                ),
             ],
         )
     else:

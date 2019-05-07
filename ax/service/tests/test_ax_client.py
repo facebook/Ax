@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+from enum import Enum
+from math import ceil
+from typing import List, Tuple
+from unittest.mock import patch
+
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -13,10 +18,39 @@ from ax.core.parameter import (
 )
 from ax.core.types import ComparisonOp
 from ax.metrics.branin import branin
-from ax.modelbridge.factory import Models
+from ax.modelbridge.factory import Models, get_sobol
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.service.ax_client import AxClient
 from ax.utils.common.testutils import TestCase
+
+
+class FakeModels(Enum):
+    SOBOL = get_sobol
+    GPEI = get_sobol
+
+
+def run_trials_using_recommended_parallelism(
+    ax_client: AxClient,
+    recommended_parallelism: List[Tuple[int, int]],
+    total_trials: int,
+) -> int:
+    remaining_trials = total_trials
+    for num_trials, parallelism_setting in recommended_parallelism:
+        if num_trials == -1:
+            num_trials = remaining_trials
+        for _ in range(ceil(num_trials / parallelism_setting)):
+            in_flight_trials = []
+            if parallelism_setting > remaining_trials:
+                parallelism_setting = remaining_trials
+            for _ in range(parallelism_setting):
+                params, idx = ax_client.get_next_trial()
+                in_flight_trials.append((params, idx))
+                remaining_trials -= 1
+            for _ in range(parallelism_setting):
+                params, idx = in_flight_trials.pop()
+                ax_client.complete_trial(idx, branin(params["x1"], params["x2"]))
+    # If all went well and no errors were raised, remaining_trials should be 0.
+    return remaining_trials
 
 
 class TestServiceAPI(TestCase):
@@ -26,7 +60,6 @@ class TestServiceAPI(TestCase):
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
         ax = AxClient()
         ax.create_experiment(
-            name="test_branin",
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
@@ -42,6 +75,18 @@ class TestServiceAPI(TestCase):
             parameterization, trial_index = ax.get_next_trial()
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
             ax.complete_trial(trial_index, raw_data={"branin": (branin(x1, x2), 0.0)})
+        # Test that Sobol is chosen when all parameters are choice.
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "choice", "values": [1, 2, 3]},
+                {"name": "x2", "type": "choice", "values": [1, 2, 3]},
+            ]
+        )
+        self.assertEqual(
+            [s.model for s in ax.generation_strategy._steps], [Models.SOBOL]
+        )
+        self.assertEqual(ax.get_recommended_max_parallelism(), [(-1, -1)])
 
     def test_create_experiment(self) -> None:
         """Test basic experiment creation."""
@@ -277,3 +322,33 @@ class TestServiceAPI(TestCase):
         params, idx = ax.attach_trial(parameters={"x1": 0, "x2": 1})
         ax.complete_trial(trial_index=idx, raw_data=5)
         self.assertEqual(ax.get_best_parameters()[0], params)
+
+    @patch("ax.service.utils.dispatch.Models", FakeModels)
+    def test_recommended_parallelism(self):
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        self.assertEqual(ax.get_recommended_max_parallelism(), [(5, 5), (-1, 3)])
+        self.assertEqual(
+            run_trials_using_recommended_parallelism(
+                ax, ax.get_recommended_max_parallelism(), 20
+            ),
+            0,
+        )
+        # With incorrect parallelism setting, the 'need more data' error should
+        # still be raised.
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        with self.assertRaisesRegex(ValueError, "All trials for current model "):
+            run_trials_using_recommended_parallelism(ax, [(6, 6), (-1, 3)], 20)

@@ -32,7 +32,7 @@ class GenerationStep(NamedTuple):
     model: Models
     num_arms: int
     min_arms_observed: int = 0
-    max_async_parallelism: Optional[int] = None  # TODO[drfreund, T41983558]: use
+    recommended_max_parallelism: Optional[int] = None
     enforce_num_arms: bool = True
     # Kwargs to pass into the Models factory function.
     model_kwargs: Dict[str, Any] = None
@@ -118,7 +118,6 @@ class GenerationStrategy:
         new_arms = self._get_new_arm_signatures(
             experiment=experiment, new_data=new_data
         )
-
         enough_observed = (
             len(self._observed) + len(new_arms)
         ) >= self._curr.min_arms_observed
@@ -135,7 +134,8 @@ class GenerationStrategy:
                 "data has been observed to fit next model. Try again when more data "
                 "are available."
             )
-
+            # TODO[Lena, T44021164]: take into account failed trials. Potentially
+            # reduce `_generated` count when a trial mentioned in new data failed.
         if (
             self._curr.enforce_num_arms
             and not unlimited_arms
