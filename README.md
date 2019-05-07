@@ -78,13 +78,14 @@ We recommend installing Ax via pip.
 To do so, run:
 
 ```
-pip3 install ax-platform
+conda install pytorch torchvision -c pytorch  # OSX only
+pip3 install ax-platform  # all systems
 ```
 
 *Recommendation for MacOS users*: PyTorch is a required dependency of BoTorch, and can be automatically installed via pip.
 However, we recommend you install PyTorch manually before installing Ax, using the Anaconda package manager.
 Installing from Anaconda will link against MKL (a library that optimizes mathematical computation for Intel processors).
-This will result in up to an order-of-magnitude speed-up for Bayesian optimization, as at the moment, installing PyTorch from pip does not link against MKL.
+This will result in up to an order-of-magnitude speed-up for Bayesian optimization, as at the moment, installing PyTorch from pip does not link against MKL. **Currently, installation through Anaconda is temporarily required for OSX, as the pip installation of PyTorch is broken.**
 
 ### Installing from source
 To install from source:
