@@ -15,6 +15,7 @@ from ax.core.types import (
 )
 from ax.storage.sqa_store.db import (
     LONG_STRING_FIELD_LENGTH,
+    LONGTEXT_BYTES,
     NAME_OR_TYPE_FIELD_LENGTH,
     Base,
 )
@@ -187,7 +188,7 @@ class SQAData(Base):
     __tablename__: str = "data_v2"
 
     id: int = Column(Integer, primary_key=True)
-    data_json: str = Column(Text, nullable=False)
+    data_json: str = Column(Text(LONGTEXT_BYTES), nullable=False)
     description: Optional[str] = Column(String(LONG_STRING_FIELD_LENGTH))
     experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"), nullable=False)
     time_created: int = Column(BigInteger, nullable=False)
