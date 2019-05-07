@@ -62,15 +62,12 @@ class Tutorial extends React.Component {
           </a>
         </div>
       );
-    }
-    else {
+    } else {
       htmlFile = `${CWD}/_tutorials/${tutorialID}.html`;
       ipynbFile = `${baseUrl}files/${tutorialID}.ipynb`;
       pyFile = `${baseUrl}files/${tutorialDir}/${tutorialID}.py`;
     }
     const normalizedHtmlFile = path.normalize(htmlFile);
-
-
 
     return (
       <div className="docMainWrapper wrapper">
