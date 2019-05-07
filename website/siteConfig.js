@@ -25,6 +25,9 @@ const siteConfig = {
   projectName: 'Ax',
   organizationName: 'facebook',
 
+  // Google analytics
+  gaTrackingId: 'UA-139570076-1',
+
   // For no header links in the top nav bar -> headerLinks: [],
   headerLinks: [
     {doc: 'why-ax', label: 'Docs'},
