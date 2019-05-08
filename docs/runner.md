@@ -1,9 +1,7 @@
 ---
 id: runner
-title: Runner
+title: Trial Evaluation
 ---
-
-## Function Evaluation in Ax
 
 There are 3 paradigms for evaluating [trials](glossary.md#trial):
 
@@ -16,7 +14,7 @@ from ax import *
 
 def dummy_evaluation_function(
     parameterization, # dict of parameter names to values of those parameters
-    weight=None, # optional outcome weight argument
+    weight=None, # optional weight argument
 ):
     # given parameterization, compute a value for each metric
     x = parameterization["x"]
@@ -56,6 +54,45 @@ refer to [```Service```](/api/core.html#module-ax.service) module
 reference and the [API docs](api.md).
 
 
+## Evaluation Function
+
+In synchronous cases where a parameterization can be evaluated right away (for example, when optimizing ML models locally or using a synthetic function), evaluation function is a convenient way to automate evaluation. The arguments to an evaluation function must be:
+- `parameterization`, a mapping of parameter names to their values,
+- optionally a `weight` of the parameterization –– nullable `float` representing the fraction of available data on which the parameterization should be evaluated. For example, this could be a downsampling rate in case of hyperparameter optimization (what portion of data the ML model should be trained on for evaluation) or the percentage of users exposed to a given configuration in A/B testing. This `weight` is not used in unweighted experiments and defaults to `None`.
+
+An evaluation function can return:
+- A dictionary of metric names to tuples of (mean and [SEM](glossary.md#sem)
+- A single (mean, SEM) tuple
+- A single mean
+
+In the second case, Ax will assume that the mean and the SEM are for the experiment objective, and in the third case, that the mean is for the objective and that SEM is 0.
+
+For example, this evaluation function computes mean and SEM for [Hartmann6](https://www.sfu.ca/~ssurjano/hart6.html) function and for the L2-norm:
+
+```python
+from ax.utils.measurement.synthetic_functions import hartmann6
+def hartmann_evaluation_function(parameterization):
+    x = np.array([parameterization.get(f"x{i+1}") for i in range(6)])
+    # Standard error is 0, since we are computing a synthetic function.
+    return {"hartmann6": (hartmann6(x), 0.0), "l2norm": (np.sqrt((x ** 2).sum()), 0.0)}
+```
+
+This function computes just the objective mean and SEM, assuming [Branin](https://www.sfu.ca/~ssurjano/branin.html) function is the objective on the experiment:
+
+```python
+from ax.utils.measurement.synthetic_functions import branin
+def branin_evaluation_function(parameterization):
+    # Standard error is 0, since we are computing a synthetic function.
+    return (branin(parameterization.get("x1"), parameterization.get("x2")), 0.0)
+```
+
+This form would be equivalent to the above, since SEM is 0:
+
+```python
+lambda parameterization: branin(parameterization.get("x1"), parameterization.get("x2"))
+```
+
+For an example of an evaluation function that makes use of the `weight` argument, refer to the "Bandit Optimization" tutorial.
 ## Adding Your Own Runner
 
 To add your own runner, subclass [`Runner`](../api/core.html#ax.core.runner.Runner) and implement the [`run`](../api/core.html#ax.core.runner.Runner.run) method and [`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required) property.
