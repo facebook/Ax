@@ -13,7 +13,7 @@ from ax.plot.helper import get_plot_data
 from ax.plot.scatter import _error_scatter_data
 
 
-COLOR_SCALE = ["#ffaaa5", "#ffd3b6", "#ffffff", "#dcedc1", "#a8e6cf"]
+COLOR_SCALE = ["#ff3333", "#ff6666", "#ffffff", "#99ff99", "#33ff33"]
 
 
 def get_color(x: float, ci: float, rel: bool, reverse: bool):
