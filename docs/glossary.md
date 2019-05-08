@@ -9,6 +9,8 @@ Mapping from [Parameter](glossary.md#parameter) to value. This provides the conf
 Machine learning-driven version of A/B testing that dynamically allocates traffic to [arms](glossary.md#arm) that are performing well, in search of the best [arm](glossary.md#arm) among a given set.
 ### Bayesian optimization
 Sequential optimization strategy for finding an optimal [arm](glossary.md#arm) in a continuous [search space](glossary.md#search-space).
+### Evaluation function
+Function that, given a parameterization and optionally a weight, computes a set of metric evaluations. Used in [simple experiment](glossary.md#simple-experiment) and in the [Loop API](api.md).
 ### Experiment
 Object that keeps track of the whole optimization process. Contains a [search space](glossary.md#search-space), [optimization config](glossary.md#optimization-config), and other metadata. [```[Experiment]```](/api/core.html#module-ax.core.experiment)
 ### Generator run
