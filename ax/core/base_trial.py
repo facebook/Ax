@@ -26,6 +26,7 @@ class TrialStatus(Enum):
         CANDIDATE --> STAGED --> RUNNING --> COMPLETED
                   ------------->         --> FAILED (machine failure)
                   -------------------------> ABANDONED (human-initiated action)
+                  --> DISPATCHED ---------->
 
     Trials may be abandoned at any time prior to completion or failure
     via human intervention. The difference between abandonment and failure
@@ -35,6 +36,11 @@ class TrialStatus(Enum):
     Additionally, when trials are deployed, they may be in an intermediate
     staged state (e.g. scheduled but waiting for resources) or immediately
     transition to running.
+
+    When used though the service API, Ax proposes trials and expects the client
+    application to compelete them with evaluation data when available. In this
+    case, a trial is set to 'dispatched' right after the trial is created, and
+    when user completes the trial with data, its status is set to 'completed'.
     """
 
     CANDIDATE = 0
@@ -43,6 +49,7 @@ class TrialStatus(Enum):
     COMPLETED = 3
     RUNNING = 4
     ABANDONED = 5
+    DISPATCHED = 6
 
     @property
     def is_terminal(self) -> bool:
@@ -61,7 +68,11 @@ class TrialStatus(Enum):
     @property
     def is_deployed(self) -> bool:
         """True if trial has been deployed but not completed."""
-        return self == TrialStatus.STAGED or self == TrialStatus.RUNNING
+        return (
+            self == TrialStatus.STAGED
+            or self == TrialStatus.RUNNING
+            or self == TrialStatus.DISPATCHED
+        )
 
     @property
     def is_failed(self) -> bool:
@@ -356,8 +367,13 @@ class BaseTrial(ABC, Base):
         Returns:
             The trial instance.
         """
-        if self._status != TrialStatus.RUNNING:
-            raise ValueError("Can only complete trial that is currently running.")
+        if (
+            self._status != TrialStatus.RUNNING
+            and self._status != TrialStatus.DISPATCHED
+        ):
+            raise ValueError(
+                "Can only complete trial that is currently running or dispatched."
+            )
         self._status = TrialStatus.COMPLETED
         self._time_completed = datetime.now()
         return self
@@ -386,11 +402,25 @@ class BaseTrial(ABC, Base):
         Returns:
             The trial instance.
         """
-        if self._status != TrialStatus.RUNNING:
+        if (
+            self._status != TrialStatus.RUNNING
+            and self._status != TrialStatus.DISPATCHED
+        ):
             raise ValueError(
-                "Can only mark as failed a trial that is currently running."
+                "Can only mark failed a trial that is currently running or dispatched."
             )
 
         self._status = TrialStatus.FAILED
         self._time_completed = datetime.now()
+        return self
+
+    def mark_dispatched(self) -> "BaseTrial":
+        """Mark trial as dispatched through the service API to await completion.
+
+        Returns:
+            The trial instance.
+        """
+        if self._status != TrialStatus.CANDIDATE:
+            raise ValueError("Can only mark a candidate trial as dispatched.")
+        self._status = TrialStatus.DISPATCHED
         return self

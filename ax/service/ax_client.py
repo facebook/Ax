@@ -4,7 +4,6 @@
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.trial import Trial
@@ -143,6 +142,7 @@ class AxClient:
         """
         # NOTE: Could move this into log_data to save latency on this call.
         trial = self._suggest_new_trial()
+        trial.mark_dispatched()
         self._updated_trials = []
         self._save_experiment_if_possible()
         return not_none(trial.arm).parameters, trial.index
@@ -179,7 +179,6 @@ class AxClient:
                 "Batch trial functionality is not yet available through Service API."
             )
 
-        trial._status = TrialStatus.COMPLETED
         if metadata is not None:
             trial._run_metadata = metadata
 
@@ -208,6 +207,7 @@ class AxClient:
             )
 
         data = Data.from_evaluations(evaluations, trial.index)
+        trial.mark_completed()
         self.experiment.attach_data(data)
         self._updated_trials.append(trial_index)
         self._save_experiment_if_possible()
@@ -222,7 +222,7 @@ class AxClient:
             metadata: Additional metadata to track about this run.
         """
         trial = self.experiment.trials[trial_index]
-        trial._status = TrialStatus.FAILED
+        trial.mark_failed()
         if metadata is not None:
             trial._run_metadata = metadata
         self._save_experiment_if_possible()
@@ -239,6 +239,7 @@ class AxClient:
             Tuple of parameterization and trial index from newly created trial.
         """
         trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
+        trial.mark_dispatched()
         self._save_experiment_if_possible()
         return not_none(trial.arm).parameters, trial.index
 

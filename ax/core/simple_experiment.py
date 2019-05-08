@@ -127,7 +127,7 @@ class SimpleExperiment(Experiment):
                 evaluations[arm.name] = self.evaluation_function_outer(
                     arm_parameters, weight
                 )
-
+        trial.mark_completed()
         data = Data.from_evaluations(evaluations, trial.index)
         self.attach_data(data)
         return data
