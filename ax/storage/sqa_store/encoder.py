@@ -465,6 +465,7 @@ class Encoder:
         # pyre-fixme[29]: `SQATrial` is not a function.
         return trial_class(
             abandoned_reason=trial.abandoned_reason,
+            deployed_name=trial.deployed_name,
             index=trial.index,
             is_batch=isinstance(trial, BatchTrial),
             num_arms_created=trial._num_arms_created,

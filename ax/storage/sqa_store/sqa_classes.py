@@ -201,6 +201,7 @@ class SQATrial(Base):
     __tablename__: str = "trial_v2"
 
     abandoned_reason: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    deployed_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"))
     id: int = Column(Integer, primary_key=True)
     index: int = Column(Integer, index=True, nullable=False)
