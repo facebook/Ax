@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from unittest.mock import MagicMock, Mock
-
-from ax.service.utils.storage import initialize_db, load_experiment, save_experiment
-
-# from ax.service.utils.storage import *
+from ax.service.utils.storage import load_experiment, save_experiment
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -15,25 +11,8 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.fake import get_experiment, get_simple_experiment
 
 
-def MockDBAPI():
-    connection = Mock()
-
-    def connect(*args, **kwargs):
-        return connection
-
-    return MagicMock(connect=Mock(side_effect=connect))
-
-
 class TestStorageUtils(TestCase):
     """Tests saving/loading functionality of AxClient."""
-
-    def test_initialize_db(self):
-        db_settings = DBSettings(
-            encoder=Encoder(config=SQAConfig()),
-            decoder=Decoder(config=SQAConfig()),
-            creator=lambda: MockDBAPI().connect(),
-        )
-        initialize_db(db_settings)
 
     def test_save_load_experiment(self):
         exp = get_experiment()

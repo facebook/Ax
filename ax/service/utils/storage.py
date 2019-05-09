@@ -10,7 +10,7 @@ from ax.storage.sqa_store.structs import DBSettings
 """Utilities for storing experiment to the database for AxClient."""
 
 
-def initialize_db(db_settings: DBSettings) -> None:
+def initialize_db(db_settings: DBSettings) -> None:  # pragma: no cover
     """
     Initialize db connections given settings.
 
