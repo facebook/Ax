@@ -32,18 +32,19 @@ def get_best_raw_objective_point(
     dat = experiment.fetch_data()
     if dat.df.empty:
         raise ValueError("Cannot identify best point if experiment contains no data.")
-    objective_name = experiment.optimization_config.objective.metric.name
+    opt_config = optimization_config or experiment.optimization_config
+    objective_name = opt_config.objective.metric.name
     objective_rows = dat.df.loc[dat.df["metric_name"] == objective_name]
     if objective_rows.empty:
         raise ValueError('No data has been logged for objective "{objective_name}".')
-    optimization_config = optimization_config or experiment.optimization_config
+    optimization_config = optimization_config or opt_config
     assert optimization_config is not None, (
         "Cannot identify the best point without an optimization config, but no "
         "optimization config was provided on the experiment or as an argument."
     )
     best_row = (
         objective_rows.loc[objective_rows["mean"].idxmin()]
-        if experiment.optimization_config.objective.minimize
+        if opt_config.objective.minimize
         else objective_rows.loc[objective_rows["mean"].idxmax()]
     )
     best_arm = experiment.arms_by_name.get(best_row["arm_name"])

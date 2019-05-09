@@ -15,7 +15,7 @@ def initialize_db(db_settings: DBSettings) -> None:
     Initialize db connections given settings.
 
     Args:
-        db_settings: Optional[DBSettings] = None
+        db_settings: Specifies decoder and xdb tier where experiment is stored.
     """
     if db_settings.creator is not None:
         init_engine_and_session_factory(creator=db_settings.creator)
@@ -34,7 +34,7 @@ def load_experiment(name: str, db_settings: DBSettings) -> Experiment:
     """
     initialize_db(db_settings)
     experiment = _load_experiment(name, db_settings.decoder)
-    if not isinstance(experiment, Experiment):
+    if not isinstance(experiment, Experiment) or experiment.is_simple_experiment:
         raise ValueError("Service API only supports Experiment")
     return experiment
 

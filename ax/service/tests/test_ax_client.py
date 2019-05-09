@@ -328,6 +328,8 @@ class TestServiceAPI(TestCase):
     @patch("ax.service.utils.dispatch.Models", FakeModels)
     def test_recommended_parallelism(self):
         ax = AxClient()
+        with self.assertRaisesRegex(ValueError, "`get_recommended_max_parallelism`"):
+            ax.get_recommended_max_parallelism()
         ax.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
