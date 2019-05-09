@@ -22,7 +22,7 @@ TModelPredict = Tuple[TModelMean, TModelCov]
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
 TModelPredictArm = Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]
 
-# Format for trasmitting externally evaluated data to Ax is either:
+# Format for trasmitting evaluation data to Ax is either:
 # 1) {metric_name -> (mean, standard error)}
 # 2) (mean, standard error) and we assume metric name == objective name
 # 3) only the mean, and we assume metric name == objective name and standard error == 0
