@@ -91,6 +91,7 @@ class AxClient:
         minimize: bool = False,
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
+        status_quo: Optional[TParameterization] = None,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -110,6 +111,9 @@ class AxClient:
                 constraints, such as "x3 >= x4" or "x3 + x4 >= 2".
             outcome_constraints: List of string representation of outcome
                 constraints of form "metric_name >= bound", like "m1 <= 3."
+            status_quo: Parameterization of the current state of the system.
+                If set, this will be added to each trial to be evaluated alongside
+                test configurations.
         """
         if self.db_settings and not name:
             raise ValueError(  # pragma: no cover
@@ -123,6 +127,7 @@ class AxClient:
             minimize=minimize,
             parameter_constraints=parameter_constraints,
             outcome_constraints=outcome_constraints,
+            status_quo=status_quo,
         )
         if self.generation_strategy is None:
             self.generation_strategy = choose_generation_strategy(

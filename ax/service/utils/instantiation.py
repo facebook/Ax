@@ -2,6 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 from typing import Dict, List, Optional, Union, cast
 
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -23,7 +24,7 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import DEFAULT_OBJECTIVE_NAME
-from ax.core.types import ComparisonOp, TParamValue
+from ax.core.types import ComparisonOp, TParameterization, TParamValue
 from ax.utils.common.typeutils import not_none
 
 
@@ -212,11 +213,13 @@ def make_experiment(
     minimize: bool = False,
     parameter_constraints: Optional[List[str]] = None,
     outcome_constraints: Optional[List[str]] = None,
+    status_quo: Optional[TParameterization] = None,
 ) -> Experiment:
     """Instantiation wrapper that allows for creation of SimpleExperiment without
     importing or instantiating any Ax classes."""
 
     exp_parameters: List[Parameter] = [parameter_from_json(p) for p in parameters]
+    status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
     parameter_map = {p.name: p for p in exp_parameters}
     return Experiment(
         name=name,
@@ -235,4 +238,5 @@ def make_experiment(
             if outcome_constraints is None
             else [outcome_constraint_from_str(c) for c in outcome_constraints],
         ),
+        status_quo=status_quo_arm,
     )
