@@ -6,6 +6,7 @@
 [![Build Status](https://img.shields.io/pypi/pyversions/ax-platform.svg)](https://pypi.org/project/ax-platform/)
 [![Build Status](https://img.shields.io/pypi/wheel/ax-platform.svg)](https://pypi.org/project/ax-platform/)
 [![Build Status](https://travis-ci.com/facebook/Ax.svg?token=m8nxq4QpA9U383aZWDyF&branch=master)](https://travis-ci.com/facebook/Ax)
+[![codecov](https://codecov.io/gh/facebook/Ax/branch/master/graph/badge.svg)](https://codecov.io/gh/facebook/Ax)
 [![Build Status](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
 Ax is an accessible, general-purpose platform for understanding, managing,
