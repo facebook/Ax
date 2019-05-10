@@ -5,13 +5,13 @@ python:
 
 matrix:
   include:
-    - name: "Tests: Python 3.6"
+    - name: "Tests + Coverage: Python 3.6"
       python: "3.6"
       install:
         - pip install cython numpy
         - pip install -q -e .[dev,mysql,notebook]
       script:
-        - pytest -ra
+        - pytest -ra --cov=ax
     - name: "Tests: Python 3.7"
       # Enable Python 3.7 w/o without globally enabling sudo and xenial dist
       # See https://github.com/travis-ci/travis-ci/issues/9815
@@ -45,3 +45,6 @@ matrix:
         - sphinx-build -WT sphinx/source sphinx/build
         # since -W flag breaks on first error, re-run without it to print all
         - sphinx-build sphinx/source sphinx/build
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
