@@ -103,7 +103,7 @@ class AxClient:
                 "values" for choice parameters (list of values), and "value" for
                 fixed parameters (single value).
             objective: Name of the metric used as objective in this experiment.
-                This metric must be present in `raw_data` argument to `log_data`.
+                This metric must be present in `raw_data` argument to `complete_trial`.
             name: Name of the experiment to be created.
             minimize: Whether this experiment represents a minimization problem.
             parameter_constraints: List of string representation of parameter
@@ -140,7 +140,7 @@ class AxClient:
         Returns:
             Tuple of trial parameterization, trial index
         """
-        # NOTE: Could move this into log_data to save latency on this call.
+        # NOTE: Could move this into complete_trial to save latency on this call.
         trial = self._suggest_new_trial()
         trial.mark_dispatched()
         self._updated_trials = []
