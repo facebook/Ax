@@ -98,6 +98,8 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
 
 # Instead of showing a warning (like in the standard library) we throw an error when
 # deprecated functions are called.
+# pyre-fixme[3]: Return annotation cannot contain `Any`.
+# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def _deprecate(original_func: Callable) -> Callable:
     def _deprecated_func(*args: List[Any], **kwargs: Dict[str, Any]) -> None:
         raise RuntimeError(
@@ -138,7 +140,6 @@ class TestCase(unittest.TestCase):
             sys.stderr = new_err
             yield
         except Exception:
-            # pyre-fixme[6]: Expected `Optional[_Writer]` for 2nd param but got `Text...
             print(new_err.getvalue(), file=old_err, flush=True)
             raise
         finally:

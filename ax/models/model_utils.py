@@ -352,7 +352,6 @@ def as_array(
     elif isinstance(x, np.ndarray):
         return x
     elif torch.is_tensor(x):
-        # pyre-fixme[16]: `torch.Tensor` has no attribute `detach`
         return x.detach().cpu().double().numpy()
     else:
         raise ValueError(

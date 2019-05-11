@@ -221,8 +221,6 @@ class Encoder:
         ParameterConstraints.
         """
         if search_space is None:
-            # pyre-fixme[7]: Expected `Tuple[List[SQAParameter],
-            #  List[SQAParameterConstraint]]` but got `Tuple[List[_T], List[_T]]`.
             return [], []
 
         parameters = [

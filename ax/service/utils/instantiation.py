@@ -70,6 +70,8 @@ def _make_range_param(
     return RangeParameter(
         name=name,
         parameter_type=_to_parameter_type(bounds, parameter_type, name, "bounds"),
+        # pyre-fixme[6]: Expected `float` for 3rd param but got
+        #  `Optional[Union[bool, float, int, str]]`.
         lower=bounds[0],
         upper=bounds[1],
         log_scale=representation.get("log_scale", False),
@@ -89,6 +91,9 @@ def _make_choice_param(
         name=name,
         parameter_type=_to_parameter_type(values, parameter_type, name, "values"),
         values=values,
+        # pyre-fixme[6]: Expected `bool` for 4th param but got
+        #  `Optional[Union[List[Optional[Union[bool, float, int, str]]], bool, float,
+        #  int, str]]`.
         is_ordered=representation.get("is_ordered", False),
     )
 
