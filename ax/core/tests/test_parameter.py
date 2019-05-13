@@ -19,6 +19,7 @@ class RangeParameterTest(TestCase):
             upper=3,
             log_scale=True,
             digits=5,
+            is_fidelity=True,
         )
         self.param1_repr = (
             "RangeParameter(name='x', parameter_type=FLOAT, "
@@ -40,6 +41,7 @@ class RangeParameterTest(TestCase):
             upper=3,
             log_scale=True,
             digits=5,
+            is_fidelity=True,
         )
         self.assertEqual(self.param1, param2)
         self.assertNotEqual(self.param1, self.param2)
@@ -53,6 +55,8 @@ class RangeParameterTest(TestCase):
         self.assertTrue(self.param1.log_scale)
         self.assertFalse(self.param2.log_scale)
         self.assertTrue(self.param1.is_numeric)
+        self.assertTrue(self.param1.is_fidelity)
+        self.assertFalse(self.param2.is_fidelity)
 
     def testValidate(self):
         self.assertFalse(self.param1.validate(None))

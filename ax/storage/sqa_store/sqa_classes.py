@@ -53,6 +53,7 @@ class SQAParameter(Base):
     generator_run_id: Optional[int] = Column(Integer, ForeignKey("generator_run_v2.id"))
     name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
     parameter_type: ParameterType = Column(IntEnum(ParameterType), nullable=False)
+    is_fidelity: Optional[bool] = Column(Boolean)
 
     # Attributes for Range Parameters
     digits: Optional[int] = Column(Integer)

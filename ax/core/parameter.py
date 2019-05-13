@@ -41,6 +41,8 @@ PARAMETER_PYTHON_TYPE_MAP: Dict[ParameterType, TParameterType] = {
 
 
 class Parameter(Base, metaclass=ABCMeta):
+    _is_fidelity: bool = False
+
     def _cast(self, value: TParamValue) -> TParamValue:
         if value is None:
             return None
@@ -67,6 +69,10 @@ class Parameter(Base, metaclass=ABCMeta):
     def is_numeric(self) -> bool:
         return self.parameter_type.is_numeric
 
+    @property
+    def is_fidelity(self) -> bool:
+        return self._is_fidelity
+
     @abstractproperty
     def parameter_type(self) -> ParameterType:
         pass  # pragma: no cover
@@ -90,6 +96,7 @@ class RangeParameter(Parameter):
         upper: float,
         log_scale: bool = False,
         digits: Optional[int] = None,
+        is_fidelity: bool = False,
     ) -> None:
         """Initialize RangeParameter
 
@@ -102,6 +109,7 @@ class RangeParameter(Parameter):
             log_scale: Whether to sample in the log space when drawing
                 random values of the parameter.
             digits: Number of digits to round values to for float type.
+            is_fidelity: Whether this parameter is a fidelity parameter.
         """
         self._name = name
         self._parameter_type = parameter_type
@@ -109,6 +117,7 @@ class RangeParameter(Parameter):
         self._lower = self._cast(lower)
         self._upper = self._cast(upper)
         self._log_scale = log_scale
+        self._is_fidelity = is_fidelity
 
         self._validate_range_param(
             parameter_type=parameter_type, lower=lower, upper=upper, log_scale=log_scale
@@ -260,6 +269,7 @@ class RangeParameter(Parameter):
             upper=self._upper,
             log_scale=self._log_scale,
             digits=self._digits,
+            is_fidelity=self._is_fidelity,
         )
 
     def _cast(self, value: TParamValue) -> TParamValue:
@@ -295,6 +305,7 @@ class ChoiceParameter(Parameter):
         values: List[TParamValue],
         is_ordered: bool = False,
         is_task: bool = False,
+        is_fidelity: bool = False,
     ) -> None:
         """Initialize ChoiceParameter.
 
@@ -308,6 +319,7 @@ class ChoiceParameter(Parameter):
         """
         self._is_ordered = is_ordered
         self._is_task = is_task
+        self._is_fidelity = is_fidelity
         self._name = name
         self._parameter_type = parameter_type
         # A choice parameter with only one value is a FixedParameter.
@@ -380,6 +392,7 @@ class ChoiceParameter(Parameter):
             parameter_type=self._parameter_type,
             values=self._values,
             is_task=self._is_task,
+            is_fidelity=self._is_fidelity,
         )
 
     def __repr__(self) -> str:
@@ -395,7 +408,11 @@ class FixedParameter(Parameter):
     """Parameter object that specifies a single fixed value."""
 
     def __init__(
-        self, name: str, parameter_type: ParameterType, value: TParamValue
+        self,
+        name: str,
+        parameter_type: ParameterType,
+        value: TParamValue,
+        is_fidelity: bool = False,
     ) -> None:
         """Initialize FixedParameter
 
@@ -408,6 +425,7 @@ class FixedParameter(Parameter):
         self._name = name
         self._parameter_type = parameter_type
         self._value = self._cast(value)
+        self._is_fidelity = is_fidelity
 
     @property
     def value(self) -> TParamValue:
@@ -438,7 +456,10 @@ class FixedParameter(Parameter):
 
     def clone(self) -> "FixedParameter":
         return FixedParameter(
-            name=self._name, parameter_type=self._parameter_type, value=self._value
+            name=self._name,
+            parameter_type=self._parameter_type,
+            value=self._value,
+            is_fidelity=self._is_fidelity,
         )
 
     def __repr__(self) -> str:

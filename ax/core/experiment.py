@@ -242,7 +242,7 @@ class Experiment(Base):
         """
         if metric.name in self._tracking_metrics:
             raise ValueError(
-                f"Metric `{metric.name}` already defined on experiment."
+                f"Metric `{metric.name}` already defined on experiment. "
                 "Use `update_tracking_metric` to update an existing metric definition."
             )
 
