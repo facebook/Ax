@@ -26,7 +26,7 @@ from ax.utils.testing.fake import (
     get_outcome_constraint,
     get_parameter_constraint,
     get_range_parameter,
-    get_simple_experiment,
+    get_simple_experiment_with_batch_trial,
     get_sum_constraint1,
     get_sum_constraint2,
     get_synthetic_runner,
@@ -138,7 +138,7 @@ TEST_CASES = [
     ),
     (
         "SimpleExperiment",
-        get_simple_experiment,
+        get_simple_experiment_with_batch_trial,
         Encoder.experiment_to_sqa,
         Decoder.experiment_from_sqa,
     ),

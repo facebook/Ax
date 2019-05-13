@@ -159,11 +159,22 @@ def get_factorial_experiment(
 
 def get_simple_experiment() -> SimpleExperiment:
     experiment = SimpleExperiment(
-        name="test_branin", search_space=get_branin_search_space(), objective_name="sum"
+        name="test_branin",
+        search_space=get_branin_search_space(),
+        status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}),
+        objective_name="sum",
     )
 
     experiment.description = "foobar"
 
+    return experiment
+
+
+def get_simple_experiment_with_batch_trial() -> SimpleExperiment:
+    experiment = get_simple_experiment()
+    generator = get_sobol(experiment.search_space)
+    generator_run = generator.gen(10)
+    experiment.new_batch_trial(generator_run=generator_run)
     return experiment
 
 

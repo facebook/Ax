@@ -52,7 +52,9 @@ def object_from_json(object_json: Any) -> Any:
                 [(k, object_from_json(v)) for k, v in object_json["value"]]
             )
         elif _type == "DataFrame":
-            return pd.read_json(object_json["value"])
+            # Need dtype=False, otherwise infers arm_names like "4_1"
+            # should be int 41
+            return pd.read_json(object_json["value"], dtype=False)
         elif _type not in DECODER_REGISTRY:
             err = (
                 f"The JSON dictionary passed to `object_from_json` has a type "
@@ -210,6 +212,12 @@ def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment
     experiment.is_test = object_from_json(is_test_json)
     experiment._time_created = object_from_json(time_created_json)
     experiment._trials = trials_from_json(experiment, trials_json)
+    for trial in experiment._trials.values():
+        for arm in trial.arms:
+            experiment._arms_by_signature[arm.signature] = arm
+    if experiment.status_quo is not None:
+        sq_sig = experiment.status_quo.signature
+        experiment._arms_by_signature[sq_sig] = experiment.status_quo
     experiment._experiment_type = object_from_json(experiment_type_json)
     experiment._data_by_trial = data_from_json(data_by_trial_json)
     return experiment
