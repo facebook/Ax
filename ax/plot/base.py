@@ -2,10 +2,11 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import enum
+import json
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
-import simplejson
 from ax.core.types import TParameterization
+from ax.utils.common.serialization import named_tuple_to_dict
 from plotly import utils
 
 
@@ -37,12 +38,8 @@ class AxPlotConfig(_AxPlotConfigBase):
     def __new__(cls, data: Dict[str, Any], plot_type: enum.Enum) -> "AxPlotConfig":
         # Convert data to json-encodable form (strips out NamedTuple and numpy
         # array). This is a lossy conversion.
-        dict_data = simplejson.loads(
-            simplejson.dumps(
-                data,
-                cls=utils.PlotlyJSONEncoder,
-                namedtuple_as_object=True,  # uses NamesTuple's `_asdict()`
-            )
+        dict_data = json.loads(
+            json.dumps(named_tuple_to_dict(data), cls=utils.PlotlyJSONEncoder)
         )
         # pyre-fixme[7]: Expected `AxPlotConfig` but got `_AxPlotConfigBase`.
         return super(AxPlotConfig, cls).__new__(cls, dict_data, plot_type)

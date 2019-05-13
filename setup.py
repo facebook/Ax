@@ -14,7 +14,6 @@ REQUIRES = [
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
-    "simplejson",
     "sklearn",
     "plotly>=2.2.1,<3.0",
 ]
