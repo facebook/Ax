@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 from ax.exceptions.storage import JSONEncodeError
 from ax.storage.json_store.registry import ENCODER_REGISTRY
+from ax.utils.common.serialization import _is_named_tuple
 from ax.utils.common.typeutils import numpy_type_to_python_type
 
 
@@ -65,15 +66,3 @@ def object_to_json(object: Any) -> Any:
         raise JSONEncodeError(err)
     object_dict = ENCODER_REGISTRY[_type](object)
     return {k: object_to_json(v) for k, v in object_dict.items()}
-
-
-# https://stackoverflow.com/a/2166841
-def _is_named_tuple(x: Any) -> bool:
-    t = type(x)
-    b = t.__bases__
-    if len(b) != 1 or b[0] != tuple:
-        return False
-    f = getattr(t, "_fields", None)
-    if not isinstance(f, tuple):
-        return False  # pragma nocover
-    return all(type(n) == str for n in f)
