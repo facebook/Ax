@@ -3,8 +3,7 @@
 
 from typing import Callable, NamedTuple, Optional
 
-from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.encoder import Encoder
+from ax.storage.sqa_store.sqa_config import SQAConfig
 
 
 class DBSettings(NamedTuple):
@@ -12,6 +11,6 @@ class DBSettings(NamedTuple):
     Defines behavior for loading/saving experiment to/from db.
     """
 
-    decoder: Decoder
-    encoder: Encoder
+    config: Optional[SQAConfig] = SQAConfig()
     creator: Optional[Callable] = None
+    url: Optional[str] = None

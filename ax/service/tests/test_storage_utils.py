@@ -3,9 +3,6 @@
 
 from ax.service.utils.storage import load_experiment, save_experiment
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
-from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.encoder import Encoder
-from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.fake import get_experiment, get_simple_experiment
@@ -16,12 +13,8 @@ class TestStorageUtils(TestCase):
 
     def test_save_load_experiment(self):
         exp = get_experiment()
-        init_test_engine_and_session_factory(force_init=True)
-        db_settings = DBSettings(
-            encoder=Encoder(config=SQAConfig()),
-            decoder=Decoder(config=SQAConfig()),
-            creator=None,
-        )
+        init_test_engine_and_session_factory()
+        db_settings = DBSettings(url="sqlite://")
         save_experiment(exp, db_settings)
         load_experiment(exp.name, db_settings)
 

@@ -368,7 +368,7 @@ class TestServiceAPI(TestCase):
         AxClient()  # Make sure we still can instantiate client w/o db settings.
         # Even with correctly typed DBSettings, `AxClient` instantiation should
         # fail here, because `DBSettings` are mocked to None in `ax_client`.
-        db_settings = DBSettings(encoder=None, decoder=None)
+        db_settings = DBSettings()
         self.assertIsInstance(db_settings, DBSettings)
         with self.assertRaisesRegex(ValueError, "`db_settings` argument should "):
             AxClient(db_settings=db_settings)
