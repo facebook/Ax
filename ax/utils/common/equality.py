@@ -19,7 +19,7 @@ def equality_typechecker(eq_func: Callable) -> Callable:
     return _type_safe_equals
 
 
-def list_equals(list1: List[Any], list2: List[Any]) -> bool:
+def same_elements(list1: List[Any], list2: List[Any]) -> bool:
     """Compare equality of two lists of core Ax objects.
 
     Assumptions:

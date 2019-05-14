@@ -3,7 +3,11 @@
 
 from datetime import datetime
 
-from ax.utils.common.equality import datetime_equals, equality_typechecker, list_equals
+from ax.utils.common.equality import (
+    datetime_equals,
+    equality_typechecker,
+    same_elements,
+)
 from ax.utils.common.testutils import TestCase
 
 
@@ -17,9 +21,9 @@ class EqualityTest(TestCase):
         self.assertTrue(eq(5, 5))
 
     def testListsEquals(self):
-        self.assertFalse(list_equals([0], [0, 1]))
-        self.assertFalse(list_equals([1, 0], [0, 2]))
-        self.assertTrue(list_equals([1, 0], [0, 1]))
+        self.assertFalse(same_elements([0], [0, 1]))
+        self.assertFalse(same_elements([1, 0], [0, 2]))
+        self.assertTrue(same_elements([1, 0], [0, 1]))
 
     def testDatetimeEquals(self):
         now = datetime.now()

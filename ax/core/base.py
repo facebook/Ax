@@ -5,7 +5,11 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from ax.utils.common.equality import datetime_equals, equality_typechecker, list_equals
+from ax.utils.common.equality import (
+    datetime_equals,
+    equality_typechecker,
+    same_elements,
+)
 from ax.utils.common.typeutils import numpy_type_to_python_type
 
 
@@ -28,7 +32,7 @@ class Base(object):
                 # prevent infinite loop when checking equality of Trials
                 equal = self_val.name == other_val.name
             elif isinstance(self_val, list):
-                equal = list_equals(self_val, other_val)
+                equal = same_elements(self_val, other_val)
             elif isinstance(self_val, np.ndarray):
                 equal = np.array_equal(self_val, other_val)
             elif isinstance(self_val, datetime):
