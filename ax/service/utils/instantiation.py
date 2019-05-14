@@ -163,36 +163,50 @@ def constraint_from_str(
 ) -> ParameterConstraint:
     """Parse string representation of a parameter constraint."""
     tokens = representation.split()
-    assert (len(tokens) == 3 and tokens[1] in COMPARISON_OPS) or (
-        len(tokens) == 5 and tokens[3] in COMPARISON_OPS
-    ), (
-        "Parameter constraint should be of form `metric_name` >= `other_metric_name` "
-        "for order constraints or `metric_name` + `other_metric_name` >= x, where "
-        "x is a float bound, and acceptable comparison operators are >= and <=."
-    )
-    one, other = tokens[0], tokens[2]
     parameter_names = parameters.keys()
-    assert one in parameter_names, f"Parameter {one} not in {parameter_names}."
-    assert other in parameter_names, f"Parameter {other} not in {parameter_names}."
+    order_const = len(tokens) == 3 and tokens[1] in COMPARISON_OPS
+    sum_const = (
+        len(tokens) >= 5 and len(tokens) % 2 == 1 and tokens[-2] in COMPARISON_OPS
+    )
+    if not (order_const or sum_const):
+        raise ValueError(
+            "Parameter constraint should be of form <parameter_name> >= "
+            "<other_parameter_name> for order constraints or `<parameter_name> "
+            "+ <other_parameter_name> >= x, where any number of parameters can be "
+            "summed up and `x` is a float bound. Acceptable comparison operators "
+            'are ">=" and "<=".'
+        )
 
     if len(tokens) == 3:  # Case "x1 >= x2" => order constraint.
+        left, right = tokens[0], tokens[2]
+        assert left in parameter_names, f"Parameter {left} not in {parameter_names}."
+        assert right in parameter_names, f"Parameter {right} not in {parameter_names}."
         return (
             OrderConstraint(
-                lower_parameter=parameters[one], upper_parameter=parameters[other]
+                lower_parameter=parameters[left], upper_parameter=parameters[right]
             )
             if COMPARISON_OPS[tokens[1]] is ComparisonOp.LEQ
             else OrderConstraint(
-                lower_parameter=parameters[other], upper_parameter=parameters[one]
+                lower_parameter=parameters[right], upper_parameter=parameters[left]
             )
         )
 
     try:  # Case "x1 + x3 >= 2" => sum constraint.
-        bound = float(tokens[4])
+        bound = float(tokens[-1])
     except ValueError:
-        raise ValueError(f"Bound for sum constraint must be a number; got {tokens[4]}")
+        raise ValueError(f"Bound for sum constraint must be a number; got {tokens[-1]}")
+    used_parameters = []
+    for idx, token in enumerate(tokens[:-2]):
+        if idx % 2 == 0:
+            assert (
+                token in parameter_names
+            ), f"Parameter {token} not in {parameter_names}."
+            used_parameters.append(token)
+        else:
+            assert token == "+", f"Expected a sum constraint, found operator {token}."
     return SumConstraint(
-        parameters=[parameters[one], parameters[other]],
-        is_upper_bound=COMPARISON_OPS[tokens[3]] is ComparisonOp.LEQ,
+        parameters=[parameters[p] for p in parameters if p in used_parameters],
+        is_upper_bound=COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ,
         bound=bound,
     )
 
