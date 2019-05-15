@@ -15,7 +15,7 @@ REQUIRES = [
     "pandas",
     "scipy",
     "sklearn",
-    "plotly>=2.2.1,<3.0",
+    "plotly",
 ]
 
 # pytest-cov requires pytest >= 3.6

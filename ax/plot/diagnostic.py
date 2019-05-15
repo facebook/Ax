@@ -66,7 +66,7 @@ def _diagonal_trace(min_: float, max_: float, visible: bool = True) -> Dict[str,
     return go.Scatter(  # pyre-ignore[16]
         x=[min_, max_],
         y=[min_, max_],
-        line=go.Line(color="black", width=2, dash="dot"),  # pyre-ignore[16]
+        line=dict(color="black", width=2, dash="dot"),  # noqa: C408
         mode="lines",
         hoverinfo="none",
         visible=visible,

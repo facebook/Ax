@@ -72,7 +72,7 @@ The required Python dependencies are:
 * scipy
 * simplejson
 * sklearn
-* plotly >=2.2.1, <3.0
+* plotly
 
 ### Installation via pip
 We recommend installing Ax via pip.
