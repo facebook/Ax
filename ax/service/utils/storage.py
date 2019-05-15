@@ -2,8 +2,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 from ax.core.experiment import Experiment
 from ax.storage.sqa_store.db import init_engine_and_session_factory
-from ax.storage.sqa_store.load import load_experiment as _load_experiment
-from ax.storage.sqa_store.save import save_experiment as _save_experiment
+from ax.storage.sqa_store.load import _load_experiment
+from ax.storage.sqa_store.save import _save_experiment
 from ax.storage.sqa_store.structs import DBSettings
 
 
@@ -22,7 +22,7 @@ def load_experiment(name: str, db_settings: DBSettings) -> Experiment:
         ax.core.Experiment: Loaded experiment.
     """
     init_engine_and_session_factory(creator=db_settings.creator, url=db_settings.url)
-    experiment = _load_experiment(name, db_settings.config)
+    experiment = _load_experiment(name, decoder=db_settings.decoder)
     if not isinstance(experiment, Experiment) or experiment.is_simple_experiment:
         raise ValueError("Service API only supports Experiment")
     return experiment
@@ -37,4 +37,4 @@ def save_experiment(experiment: Experiment, db_settings: DBSettings) -> None:
         db_settings: Defines behavior for loading/saving experiment to/from db.
     """
     init_engine_and_session_factory(creator=db_settings.creator, url=db_settings.url)
-    _save_experiment(experiment, db_settings.config)
+    _save_experiment(experiment, encoder=db_settings.encoder)
