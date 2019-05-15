@@ -6,6 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Generator, List, Optional, TypeVar
 
+import numpy as np
 from ax.exceptions.storage import ImmutabilityError
 from ax.storage.sqa_store.utils import is_foreign_key_field
 from ax.utils.common.equality import datetime_equals, equality_typechecker
@@ -199,10 +200,7 @@ class SQABase:
         elif isinstance(self_val, SQABase) and isinstance(other_val, SQABase):
             self_val.update(other_val)
             other_val = self_val
-        elif isinstance(self_val, datetime) and isinstance(other_val, datetime):
-            if datetime_equals(self_val, other_val):
-                return
-        elif self_val == other_val:
+        elif self.fields_equal(other, field):
             return
         setattr(self, field, other_val)
 
@@ -218,6 +216,8 @@ class SQABase:
             return self_val.equals(other_val)
         elif isinstance(self_val, datetime):
             return datetime_equals(self_val, other_val)
+        elif isinstance(self_val, float):
+            return np.isclose(self_val, other_val)
         else:
             return self_val == other_val
 
