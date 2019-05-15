@@ -26,7 +26,7 @@ range_param = RangeParameter(name="x", parameter_type=ParameterType.FLOAT, lower
 
 ```python
 from ax import ChoiceParameter, ParameterType
-choice_param = ChoiceParameter(name="y", parameter_type=ParameterType.STRING, value=["foo", "bar"])
+choice_param = ChoiceParameter(name="y", parameter_type=ParameterType.STRING, values=["foo", "bar"])
 ```
 
 * **Fixed parameters**: domain is a single value
