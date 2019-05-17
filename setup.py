@@ -38,7 +38,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="ax-platform",
-    version="0.1.1",
+    version="0.1.2",
     description="Adaptive Experimentation",
     author="Facebook, Inc.",
     license="MIT",
