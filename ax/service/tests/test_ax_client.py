@@ -24,6 +24,7 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from ax.service.ax_client import AxClient
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 class FakeModels(Enum):
@@ -62,7 +63,7 @@ class TestServiceAPI(TestCase):
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
         ax = AxClient()
         ax.create_experiment(
-            parameters=[
+            parameters=[  # pyre-fixme[6]: expected union that should include
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
             ],
@@ -70,23 +71,41 @@ class TestServiceAPI(TestCase):
             minimize=True,
         )
         self.assertEqual(
-            [s.model for s in ax.generation_strategy._steps],
+            [s.model for s in not_none(ax.generation_strategy)._steps],
             [Models.SOBOL, Models.GPEI],
         )
-        for _ in range(6):
+        with self.assertRaisesRegex(ValueError, ".* no trials."):
+            ax.get_optimization_trace(objective_optimum=branin.fmin)
+        for i in range(6):
             parameterization, trial_index = ax.get_next_trial()
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
-            ax.complete_trial(trial_index, raw_data={"branin": (branin(x1, x2), 0.0)})
+            ax.complete_trial(
+                trial_index,
+                raw_data={
+                    "branin": (
+                        checked_cast(
+                            float,
+                            branin(checked_cast(float, x1), checked_cast(float, x2)),
+                        ),
+                        0.0,
+                    )
+                },
+            )
+            if i < 5:
+                with self.assertRaisesRegex(ValueError, "Could not obtain contour"):
+                    ax.get_contour_plot(param_x="x1", param_y="x2")
+        ax.get_optimization_trace(objective_optimum=branin.fmin)
+        ax.get_contour_plot()
         # Test that Sobol is chosen when all parameters are choice.
         ax = AxClient()
         ax.create_experiment(
-            parameters=[
+            parameters=[  # pyre-fixme[6]: expected union that should include
                 {"name": "x1", "type": "choice", "values": [1, 2, 3]},
                 {"name": "x2", "type": "choice", "values": [1, 2, 3]},
             ]
         )
         self.assertEqual(
-            [s.model for s in ax.generation_strategy._steps], [Models.SOBOL]
+            [s.model for s in not_none(ax.generation_strategy)._steps], [Models.SOBOL]
         )
         self.assertEqual(ax.get_recommended_max_parallelism(), [(-1, -1)])
 
@@ -377,3 +396,36 @@ class TestServiceAPI(TestCase):
         # `db_settings` argument should still make instantiation fail.
         with self.assertRaisesRegex(ValueError, "`db_settings` argument should "):
             AxClient(db_settings="badly_typed_db_settings")
+
+    def test_plotting_validation(self):
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x3", "type": "fixed", "value": 2, "value_type": "int"}
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, ".* there are no trials"):
+            ax.get_contour_plot()
+        ax.get_next_trial()
+        with self.assertRaisesRegex(ValueError, ".* less than 2 parameters"):
+            ax.get_contour_plot()
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ]
+        )
+        ax.get_next_trial()
+        with self.assertRaisesRegex(ValueError, "If `param_x` is provided"):
+            ax.get_contour_plot(param_x="x2")
+        with self.assertRaisesRegex(ValueError, "If `param_x` is provided"):
+            ax.get_contour_plot(param_y="x2")
+        with self.assertRaisesRegex(ValueError, 'Parameter "x3"'):
+            ax.get_contour_plot(param_x="x3", param_y="x3")
+        with self.assertRaisesRegex(ValueError, 'Parameter "x4"'):
+            ax.get_contour_plot(param_x="x1", param_y="x4")
+        with self.assertRaisesRegex(ValueError, 'Metric "nonexistent"'):
+            ax.get_contour_plot(param_x="x1", param_y="x2", metric_name="nonexistent")
+        with self.assertRaisesRegex(ValueError, "Could not obtain contour"):
+            ax.get_contour_plot(param_x="x1", param_y="x2", metric_name="objective")

@@ -3,6 +3,7 @@
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -14,13 +15,20 @@ from ax.core.types import (
     TParamValue,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.plot.base import AxPlotConfig
+from ax.plot.contour import plot_contour
+from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.best_point import (
     get_best_from_model_predictions,
     get_best_raw_objective_point,
 )
 from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import make_experiment
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import checked_cast, not_none
+
+
+logger = get_logger(__name__)
 
 
 try:  # We don't require SQLAlchemy by default.
@@ -250,7 +258,6 @@ class AxClient:
         self._save_experiment_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
-    # TODO[T42389552]: this is currently only compatible with some models.
     def get_best_parameters(
         self
     ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
@@ -324,6 +331,114 @@ class AxClient:
                 (step.num_arms, step.recommended_max_parallelism or step.num_arms)
             )
         return parallelism_settings
+
+    def get_optimization_trace(
+        self, objective_optimum: Optional[float] = None
+    ) -> AxPlotConfig:
+        """Retrieves the plot configuration for optimization trace, which shows
+        the evolution of the objective mean over iterations.
+
+        Args:
+            objective_optimum: Optimal objective, if known, for display in the
+                visualization.
+        """
+        if not self.experiment.trials:
+            raise ValueError("Cannot generate plot as there are no trials.")
+        objective_name = self.experiment.optimization_config.objective.metric.name
+        best_objectives = np.array(
+            [
+                [
+                    checked_cast(Trial, trial).objective_mean
+                    for trial in self.experiment.trials.values()
+                ]
+            ]
+        )
+        return optimization_trace_single_method(
+            y=(
+                np.minimum.accumulate(best_objectives, axis=1)
+                if self.experiment.optimization_config.objective.minimize
+                else np.maximum.accumulate(best_objectives, axis=1)
+            ),
+            optimum=objective_optimum,
+            title="Model performance vs. # of iterations",
+            ylabel=objective_name.capitalize(),
+        )
+
+    def get_contour_plot(
+        self,
+        param_x: Optional[str] = None,
+        param_y: Optional[str] = None,
+        metric_name: Optional[str] = None,
+    ) -> AxPlotConfig:
+        """Retrieves a plot configuration for a contour plot of the response
+        surface. For response surfaces with more than two parameters,
+        selected two parameters will appear on the axes, and remaining parameters
+        will be affixed to the middle of their range. If contour params arguments
+        are not provided, the first two parameters in the search space will be
+        used. If contour metrics are not provided, objective will be used.
+
+        Args:
+            param_x: name of parameters to use on x-axis for
+                the contour response surface plots.
+            param_y: name of parameters to use on y-axis for
+                the contour response surface plots.
+            metric_name: Name of the metric, for which to plot the response
+                surface.
+        """
+        if not self.experiment.trials:
+            raise ValueError("Cannot generate plot as there are no trials.")
+        assert (
+            self.generation_strategy
+        ), "Cannot plot response surface without generation strategy."
+        if len(self.experiment.parameters) < 2:
+            raise ValueError(
+                "Cannot create a contour plot as experiment has less than 2 "
+                "parameters, but a contour-related argument was provided."
+            )
+        if (param_x or param_y) and not (param_x and param_y):
+            raise ValueError(
+                "If `param_x` is provided, `param_y` is "
+                "required as well, and vice-versa."
+            )
+        objective_name = self.experiment.optimization_config.objective.metric.name
+        if not metric_name:
+            metric_name = objective_name
+
+        if not param_x or not param_y:
+            parameter_names = list(self.experiment.parameters.keys())
+            param_x = parameter_names[0]
+            param_y = parameter_names[1]
+
+        if param_x not in self.experiment.parameters:
+            raise ValueError(
+                f'Parameter "{param_x}" not found in the optimization search space.'
+            )
+        if param_y not in self.experiment.parameters:
+            raise ValueError(
+                f'Parameter "{param_y}" not found in the optimization search space.'
+            )
+        if metric_name not in self.experiment.metrics:
+            raise ValueError(
+                f'Metric "{metric_name}" is not associated with this optimization.'
+            )
+        if self.generation_strategy.model is not None:
+            try:
+                return plot_contour(
+                    model=self.generation_strategy.model,
+                    param_x=param_x,
+                    param_y=param_y,
+                    metric_name=metric_name,
+                )
+            except NotImplementedError:
+                # Some models don't implement '_predict', which is needed
+                # for the contour plots.
+                pass
+        raise ValueError(
+            f'Could not obtain contour plot of "{metric_name}" for parameters '
+            f'"{param_x}" and "{param_y}", as a model with predictive ability, '
+            "such as a Gaussian Process, has not yet been trained in the course "
+            "of this optimization."
+        )
 
     def load_experiment(self, experiment_name: str) -> None:
         """[Work in progress] Load an existing experiment.
