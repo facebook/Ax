@@ -219,11 +219,16 @@ def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
         "float bound and comparison operator is >= or <=."
     )
     op = COMPARISON_OPS[tokens[1]]
+    rel = False
     try:
-        bound = float(tokens[2])
+        bound_repr = tokens[2]
+        if bound_repr[-1] == "%":
+            rel = True
+            bound_repr = bound_repr[:-1]
+        bound = float(bound_repr)
     except ValueError:
         raise ValueError("Outcome constraint bound should be a float.")
-    return OutcomeConstraint(Metric(name=tokens[0]), op=op, bound=bound, relative=False)
+    return OutcomeConstraint(Metric(name=tokens[0]), op=op, bound=bound, relative=rel)
 
 
 def make_experiment(
@@ -241,6 +246,9 @@ def make_experiment(
     exp_parameters: List[Parameter] = [parameter_from_json(p) for p in parameters]
     status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
     parameter_map = {p.name: p for p in exp_parameters}
+    ocs = [outcome_constraint_from_str(c) for c in (outcome_constraints or [])]
+    if status_quo_arm is None and any(oc.relative for oc in ocs):
+        raise ValueError("Must set status_quo to have relative outcome constraints.")
     return Experiment(
         name=name,
         search_space=SearchSpace(
@@ -254,9 +262,7 @@ def make_experiment(
                 metric=Metric(name=objective_name or DEFAULT_OBJECTIVE_NAME),
                 minimize=minimize,
             ),
-            outcome_constraints=None
-            if outcome_constraints is None
-            else [outcome_constraint_from_str(c) for c in outcome_constraints],
+            outcome_constraints=ocs,
         ),
         status_quo=status_quo_arm,
     )

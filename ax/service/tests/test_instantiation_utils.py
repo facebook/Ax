@@ -12,7 +12,7 @@ from ax.utils.common.testutils import TestCase
 
 class TestInstantiationtUtils(TestCase):
     """Testing the instantiation utilities functionality that is not tested in
-    main `AxClient` testing suite (`TestSErviceAPI`)."""
+    main `AxClient` testing suite (`TestServiceAPI`)."""
 
     def test_parameter_type_validation(self):
         with self.assertRaisesRegex(ValueError, "No AE parameter type"):

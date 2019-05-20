@@ -344,6 +344,21 @@ class TestServiceAPI(TestCase):
         ax.complete_trial(trial_index=idx, raw_data=5)
         self.assertEqual(ax.get_best_parameters()[0], params)
 
+    def test_relative_oc_without_sq(self):
+        """Must specify status quo to have relative outcome constraint."""
+        ax = AxClient()
+        with self.assertRaises(ValueError):
+            ax.create_experiment(
+                name="test_experiment",
+                parameters=[
+                    {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                    {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                ],
+                objective_name="test_objective",
+                minimize=True,
+                outcome_constraints=["some_metric <= 4.0%"],
+            )
+
     @patch("ax.service.utils.dispatch.Models", FakeModels)
     def test_recommended_parallelism(self):
         ax = AxClient()
