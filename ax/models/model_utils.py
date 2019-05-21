@@ -436,8 +436,6 @@ def filter_constraints_and_fixed_features(
             feas &= X_np[:, idx] == val
     X_feas = X_np[feas, :]
     if isinstance(X, torch.Tensor):
-        return torch.from_numpy(X_feas).to(
-            device=X.device, dtype=X.dtype  # pyre-ignore
-        )
+        return torch.from_numpy(X_feas).to(device=X.device, dtype=X.dtype)
     else:
         return X_feas

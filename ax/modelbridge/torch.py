@@ -45,7 +45,6 @@ class TorchModelBridge(ArrayModelBridge):
         model: TorchModel,
         transforms: List[Type[Transform]],
         transform_configs: Optional[Dict[str, TConfig]] = None,
-        # pyre-fixme[11]: Type `dtype` is not defined.
         torch_dtype: Optional[torch.dtype] = None,  # noqa T484
         torch_device: Optional[torch.device] = None,
         status_quo_name: Optional[str] = None,

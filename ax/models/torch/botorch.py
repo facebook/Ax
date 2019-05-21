@@ -205,7 +205,7 @@ class BotorchModel(TorchModel):
         task_features: List[int],
         feature_names: List[str],
     ) -> None:
-        self.dtype = Xs[0].dtype  # pyre-ignore [16]
+        self.dtype = Xs[0].dtype
         self.device = Xs[0].device
         self.Xs = Xs
         self.Ys = Ys
