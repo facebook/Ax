@@ -7,8 +7,13 @@ from setuptools import find_packages, setup
 from setuptools.extension import Extension
 
 
-EXTENSIONS = [Extension("ax.utils.stats.sobol", ["ax/utils/stats/sobol.pyx"],
-                        include_dirs=[numpy.get_include()])]
+EXTENSIONS = [
+    Extension(
+        "ax.utils.stats.sobol",
+        ["ax/utils/stats/sobol.pyx"],
+        include_dirs=[numpy.get_include()],
+    )
+]
 
 REQUIRES = [
     "botorch",
