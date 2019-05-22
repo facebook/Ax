@@ -85,6 +85,12 @@ const siteConfig = {
   scrollToTop: true,
 
   wrapPagesHTML: true,
+
+  algolia: {
+    apiKey: '467d4f1f6cace3ecb36ab551cb44905b',
+    indexName: 'ax',
+    algoliaOptions: {} // Optional, if provided by Algolia
+  },
 };
 
 module.exports = siteConfig;
