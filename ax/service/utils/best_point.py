@@ -3,6 +3,7 @@
 
 from typing import Dict, Optional, Tuple
 
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
@@ -77,15 +78,53 @@ def get_best_from_model_predictions(
     for _, trial in sorted(
         list(experiment.trials.items()), key=lambda x: x[0], reverse=True
     ):
-        if not isinstance(trial, Trial):
-            logger.warn(
-                "While looking for best arm based on model predictions, "
-                "encontered a batch trial. Best arm model predictions are not "
-                "supported for it yet, and will be disregarded."
-            )
-            continue
-        gr = trial.generator_run
+        gr = None
+        if isinstance(trial, Trial):
+            gr = trial.generator_run
+        elif isinstance(trial, BatchTrial):
+            if len(trial.generator_run_structs) > 0:
+                # In theory batch_trial can have >1 gr, grab the first
+                gr = trial.generator_run_structs[0].generator_run
+
         if gr is not None and gr.best_arm_predictions is not None:
             best_arm, best_arm_predictions = gr.best_arm_predictions
             return not_none(best_arm).parameters, best_arm_predictions
     return None
+
+
+def get_best_parameters(
+    experiment: Experiment
+) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+    """Given an experiment, identifies the best arm.
+
+    First attempts according to do so with models used in optimization and
+    its corresponding predictions if available. Falls back to the best raw
+    objective based on the data fetched from the experiment.
+
+    TModelPredictArm is of the form:
+        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
+
+    Args:
+        experiment: Experiment, on which to identify best raw objective arm.
+
+    Returns:
+        Tuple of parameterization and model predictions for it.
+    """
+
+    # Find latest trial which has a generator_run attached and get its predictions
+    model_predictions = get_best_from_model_predictions(experiment=experiment)
+    if model_predictions is not None:  # pragma: no cover
+        return model_predictions
+
+    # Could not find through model, default to using raw objective.
+    try:
+        parameterization, values = get_best_raw_objective_point(experiment=experiment)
+    except ValueError:
+        return None
+    return (
+        parameterization,
+        (
+            {k: v[0] for k, v in values.items()},  # v[0] is mean
+            {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
+        ),
+    )

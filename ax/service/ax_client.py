@@ -3,6 +3,7 @@
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import ax.service.utils.best_point as best_point_utils
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
@@ -18,12 +19,9 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.trace import optimization_trace_single_method
-from ax.service.utils.best_point import (
-    get_best_from_model_predictions,
-    get_best_raw_objective_point,
-)
 from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import make_experiment
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -258,41 +256,11 @@ class AxClient:
         self._save_experiment_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
+    @copy_doc(best_point_utils.get_best_parameters)
     def get_best_parameters(
         self
     ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
-        """
-        Return the best set of parameters the experiment has knowledge of.
-
-        If experiment is in the optimization phase, return the best point
-        determined by the model used in the latest optimization round, otherwise
-        return none.
-
-        Custom type `TModelPredictArm` is defined as
-        `Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]`, and
-        stands for tuple of two mappings: metric name to its mean value and metric
-        name to a mapping of other mapping name to covariance of the two metrics.
-
-        Returns:
-            Tuple of (best parameters, model predictions for best parameters).
-            None if no data.
-        """
-        # Find latest trial which has a generator_run attached and get its predictions
-        model_predictions = get_best_from_model_predictions(experiment=self.experiment)
-        if model_predictions is not None:  # pragma: no cover
-            return model_predictions
-
-        # Could not find through model, default to using raw objective.
-        parameterization, values = get_best_raw_objective_point(
-            experiment=self.experiment
-        )
-        return (
-            parameterization,
-            (
-                {k: v[0] for k, v in values.items()},  # v[0] is mean
-                {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
-            ),
-        )
+        return best_point_utils.get_best_parameters(self.experiment)
 
     def get_recommended_max_parallelism(self) -> List[Tuple[int, int]]:
         """Recommends maximum number of trials that can be scheduled in parallel
