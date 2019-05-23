@@ -307,8 +307,7 @@ class ArrayModelBridge(ModelBridge):
                 observation_features
             )
         new_x: List[float] = [
-            float(observation_features[0].parameters[p])  # pyre-ignore
-            for p in self.parameters
+            float(observation_features[0].parameters[p]) for p in self.parameters
         ]
         # turn it back into an array
         return np.array(new_x)

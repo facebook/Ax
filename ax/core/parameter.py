@@ -46,6 +46,8 @@ class Parameter(Base, metaclass=ABCMeta):
     def _cast(self, value: TParamValue) -> TParamValue:
         if value is None:
             return None
+        # pyre-fixme[29]: `Union[Type[bool], Type[float], Type[int], Type[str]]` is
+        #  not a function.
         return self.python_type(value)
 
     @abstractmethod
@@ -135,10 +137,8 @@ class RangeParameter(Parameter):
             ParameterType.FLOAT,
         ):
             raise ValueError("RangeParameter type must be int or float.")
-        # pyre-fixme[16]: Optional type has no attribute `__ge__`.
         if lower >= upper:
             raise ValueError("max must be strictly larger than min.")
-        # pyre-fixme[16]: Optional type has no attribute `__gt__`.
         if log_scale and lower <= 0:
             raise ValueError("Cannot take log when min <= 0.")
         if not (self.is_valid_type(lower)) or not (self.is_valid_type(upper)):
@@ -216,7 +216,6 @@ class RangeParameter(Parameter):
         # Re-scale min and max to new digits definition
         casted_lower = self._cast(self._lower)
         casted_upper = self._cast(self._upper)
-        # pyre-fixme[16]: Optional type has no attribute `__ge__`.
         if casted_lower >= casted_upper:
             raise ValueError(
                 f"Lower bound {casted_lower} is >= upper bound {casted_upper}."
@@ -277,6 +276,8 @@ class RangeParameter(Parameter):
             return None
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
             return round(float(value), self._digits)
+        # pyre-fixme[29]: `Union[Type[bool], Type[float], Type[int], Type[str]]` is
+        #  not a function.
         return self.python_type(value)
 
     def __repr__(self) -> str:

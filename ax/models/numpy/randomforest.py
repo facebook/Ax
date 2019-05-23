@@ -106,7 +106,7 @@ def _get_rf(
     for estimator in r.estimators_:  # pyre-ignore
         # Parametric bootstrap
         y = np.random.normal(loc=Y[:, 0], scale=np.sqrt(Yvar[:, 0]))
-        estimator.fit(X, y)  # pyre-ignore
+        estimator.fit(X, y)
     return r
 
 

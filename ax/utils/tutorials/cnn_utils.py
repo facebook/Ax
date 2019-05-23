@@ -51,8 +51,6 @@ def load_mnist(
     # Specify transforms
     # pyre-fixme[16]: Module `transforms` has no attribute `Compose`.
     transform = transforms.Compose(
-        # pyre-fixme[16]: Module `transforms` has no attribute `ToTensor`.
-        # pyre-fixme[16]: Module `transforms` has no attribute `Normalize`.
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
     # Load training set

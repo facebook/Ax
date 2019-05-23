@@ -159,8 +159,7 @@ def transform_callback(
             )
         # parameters are guaranteed to be float compatible here, but pyre doesn't know
         new_x: List[float] = [
-            float(observation_features[0].parameters[p])  # pyre-ignore
-            for p in param_names
+            float(observation_features[0].parameters[p]) for p in param_names
         ]
         # turn it back into an array
         return np.array(new_x)

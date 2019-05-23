@@ -111,6 +111,6 @@ class TrialAsTask(Transform):
             for p_name in self.trial_level_map:
                 pval = obsf.parameters.pop(p_name)
             if self.inverse_map is not None:
-                # pyre-fixme[6, 18]: Global name `pval` is undefined.
+                # pyre-fixme[18]: Global name `pval` is undefined.
                 obsf.trial_index = np.int64(self.inverse_map[pval])
         return observation_features

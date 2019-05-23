@@ -226,9 +226,11 @@ class GenerationStrategy:
                         )
                 if (
                     row["arm_name"] in experiment.arms_by_name
+                    # pyre-fixme[16]: `Optional` has no attribute `status`.
                     and not experiment.trials.get(row["trial_index"]).status.is_failed
                 ):
                     new_signatures.append(
+                        # pyre-fixme[16]: `Optional` has no attribute `signature`.
                         experiment.arms_by_name.get(row["arm_name"]).signature
                     )
         return new_signatures

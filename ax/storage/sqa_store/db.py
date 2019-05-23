@@ -74,6 +74,10 @@ class SQABase:
                     # pyre-fixme[6]: Expected `SQABase` for 1st param but got `T`.
                     equal = x.equals(y)
                 elif isinstance(x, (int, float, str, bool, dict, Enum)):
+                    # pyre-fixme[29]: `Union[Callable[[object], bool],
+                    #  Callable[[object], bool], Callable[[object], bool],
+                    #  Callable[[object], bool], Callable[[object], bool],
+                    #  Callable[[object], bool]]` is not a function.
                     equal = x == y
                 else:
                     raise ValueError(
