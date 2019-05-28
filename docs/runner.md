@@ -50,7 +50,7 @@ It is also possible to use Ax in a service-like manner, where Ax just suggests
 [Arms](glossary.md#arm), which the client application evaluates and logs the results
 back to Ax. In this case, no runner or evaluation function is needed,
 since the evaluation is done on the client side. For more information,
-refer to [```Service```](/api/core.html#module-ax.service) module
+refer to [```Service```](/api/service.html) module
 reference and the [API docs](api.md).
 
 
