@@ -95,7 +95,6 @@ def load_mnist(
 def train(
     train_loader: DataLoader,
     parameters: Dict[str, float],
-    dtype: torch.dtype,
     device: torch.device,
 ) -> nn.Module:
     """
