@@ -143,7 +143,7 @@ def evaluate(
     net: nn.Module, data_loader: DataLoader, dtype: torch.dtype, device: torch.device
 ) -> float:
     """
-    Compute classification ccuracy on provided dataset.
+    Compute classification accuracy on provided dataset.
 
     Args:
         net: trained model
