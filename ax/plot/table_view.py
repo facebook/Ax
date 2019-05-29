@@ -53,12 +53,29 @@ def table_view_plot(
     """
     model_func = get_empirical_bayes_thompson if use_empirical_bayes else get_thompson
     model = model_func(experiment=experiment, data=data)
+
+    # We don't want to include metrics from a collection,
+    # or the chart will be too big to read easily.
+    # Example:
+    # experiment.metrics = {
+    #   'regular_metric': Metric(),
+    #   'collection_metric: CollectionMetric()', # collection_metric =[metric1, metric2]
+    # }
+    # model.metric_names = [regular_metric, metric1, metric2] # "exploded" out
+    # We want to filter model.metric_names and get rid of metric1, metric2
+    metric_names = [
+        metric_name
+        for metric_name in model.metric_names
+        if metric_name in experiment.metrics
+    ]
+
     metric_name_to_lower_is_better = {
-        metric.name: metric.lower_is_better for metric in experiment.metrics.values()
+        metric_name: experiment.metrics[metric_name].lower_is_better
+        for metric_name in metric_names
     }
 
     plot_data, _, _ = get_plot_data(
-        model=model, generator_runs_dict={}, metric_names=model.metric_names
+        model=model, generator_runs_dict={}, metric_names=metric_names
     )
 
     if plot_data.status_quo_name:
@@ -71,7 +88,7 @@ def table_view_plot(
     results = {}
     records_with_mean = []
     records_with_ci = []
-    for metric_name in model.metric_names:
+    for metric_name in metric_names:
         arms, _, ys, ys_se = _error_scatter_data(
             arms=list(plot_data.in_sample.values()),
             y_axis_var=PlotMetric(metric_name, True),
@@ -88,7 +105,7 @@ def table_view_plot(
 
     if only_data_frame:
         return tuple(
-            pd.DataFrame.from_records(records, index=model.metric_names).transpose()
+            pd.DataFrame.from_records(records, index=metric_names).transpose()
             for records in [records_with_mean, records_with_ci]
         )
 
