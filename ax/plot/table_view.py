@@ -36,6 +36,7 @@ def table_view_plot(
     data: Data,
     use_empirical_bayes: bool = True,
     only_data_frame: bool = False,
+    arm_noun: str = "arm",
 ):
     """Table of means and confidence intervals.
 
@@ -118,7 +119,7 @@ def table_view_plot(
             )
         colors.append(color_vec)
 
-    header = ["arms"] + metric_names
+    header = [f"{arm_noun}s"] + metric_names
     header = [f"<b>{x}</b>" for x in header]
     trace = go.Table(
         header={"values": header, "align": ["left"]},

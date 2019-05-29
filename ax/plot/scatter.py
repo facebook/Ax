@@ -105,6 +105,7 @@ def _error_scatter_trace(
     hoverinfo: str = "text",
     show_arm_details_on_hover: bool = True,
     show_context: bool = False,
+    arm_noun: str = "arm",
 ) -> Dict[str, Any]:
     """Plot scatterplot with error bars.
 
@@ -141,6 +142,7 @@ def _error_scatter_trace(
             parameterizations of arms on hover. Default is True.
         show_context: if True and show_arm_details_on_hover,
             context will be included in the hover.
+        arm_noun: noun to use instead of "arm" (e.g. group)
     """
     x, x_se, y, y_se = _error_scatter_data(
         arms=arms,
@@ -153,7 +155,7 @@ def _error_scatter_trace(
 
     arm_names = [a.name for a in arms]
     for i in range(len(arm_names)):
-        heading = "<b>Arm {}</b><br>".format(arm_names[i])
+        heading = f"<b>{arm_noun.title()} {arm_names[i]}</b><br>"
         x_lab = (
             "{name}: {estimate}{perc} {ci}<br>".format(
                 name=x_axis_var.metric if x_axis_label is None else x_axis_label,
@@ -897,6 +899,7 @@ def _single_metric_traces(
     show_arm_details_on_hover: bool = True,
     showlegend: bool = True,
     show_CI: bool = True,
+    arm_noun: str = "arm",
 ) -> Traces:
     """Plot scatterplots with errors for a single metric (y-axis).
 
@@ -912,6 +915,7 @@ def _single_metric_traces(
             parameterizations of arms on hover. Default is True.
         show_legend: if True, show legend for trace.
         show_CI: if True, render confidence intervals.
+        arm_noun: noun to use instead of "arm" (e.g. group)
 
     """
     plot_data, _, _ = get_plot_data(model, generator_runs_dict or {}, {metric})
@@ -938,6 +942,7 @@ def _single_metric_traces(
             showlegend=showlegend,
             show_arm_details_on_hover=show_arm_details_on_hover,
             show_CI=show_CI,
+            arm_noun=arm_noun,
         )
     ]
 
@@ -958,6 +963,7 @@ def _single_metric_traces(
                 showlegend=showlegend,
                 show_arm_details_on_hover=show_arm_details_on_hover,
                 show_CI=show_CI,
+                arm_noun=arm_noun,
             )
         )
     return traces
@@ -1091,6 +1097,7 @@ def tile_fitted(
     rel: bool = True,
     show_arm_details_on_hover: bool = False,
     show_CI: bool = True,
+    arm_noun: str = "arm",
 ) -> AxPlotConfig:
     """Tile version of fitted outcome plots.
 
@@ -1102,6 +1109,7 @@ def tile_fitted(
         show_arm_details_on_hover: if True, display
             parameterizations of arms on hover. Default is False.
         show_CI: if True, render confidence intervals.
+        arm_noun: noun to use instead of "arm" (e.g. group)
 
     """
     metrics = model.metric_names
@@ -1133,6 +1141,7 @@ def tile_fitted(
             showlegend=i == 0,
             show_arm_details_on_hover=show_arm_details_on_hover,
             show_CI=show_CI,
+            arm_noun=arm_noun,
         )
 
         # order arm name sorting arm numbers within batch
@@ -1206,7 +1215,7 @@ def tile_fitted(
             "xanchor": "left",
             "yanchor": "middle",
         },
-        **name_order_axes
+        **name_order_axes,
     )
 
     # append dropdown annotations
@@ -1244,6 +1253,7 @@ def interact_fitted(
     rel: bool = True,
     show_arm_details_on_hover: bool = True,
     show_CI: bool = True,
+    arm_noun: str = "arm",
 ) -> AxPlotConfig:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
@@ -1257,6 +1267,7 @@ def interact_fitted(
         show_arm_details_on_hover: if True, display
             parameterizations of arms on hover. Default is True.
         show_CI: if True, render confidence intervals.
+        arm_noun: noun to use instead of "arm" (e.g. group)
 
     """
     traces_per_metric = (
@@ -1276,6 +1287,7 @@ def interact_fitted(
             showlegend=i == 0,
             show_arm_details_on_hover=show_arm_details_on_hover,
             show_CI=show_CI,
+            arm_noun=arm_noun,
         )
 
         for d in data:
@@ -1294,7 +1306,7 @@ def interact_fitted(
         )
 
     layout = go.Layout(  # pyre-ignore[16]
-        xaxis={"title": "Arm", "zeroline": False},
+        xaxis={"title": arm_noun.title(), "zeroline": False},
         yaxis={
             "ticksuffix": "%" if rel else "",
             "title": ("Relative " if rel else "") + "Effect",
