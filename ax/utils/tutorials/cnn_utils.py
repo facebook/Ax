@@ -93,9 +93,7 @@ def load_mnist(
 
 
 def train(
-    train_loader: DataLoader,
-    parameters: Dict[str, float],
-    device: torch.device,
+    train_loader: DataLoader, parameters: Dict[str, float], device: torch.device
 ) -> nn.Module:
     """
     Train CNN on provided data set.
