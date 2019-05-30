@@ -27,6 +27,16 @@ class Runner(Base, ABC):
         """
         pass  # pragma: no cover
 
+    def stop(self, trial: "core.base_trial.BaseTrial") -> None:
+        """Stop a trial based on custom runner subclass implementation.
+
+        Optional to implement
+
+        Args:
+            trial: The trial to deploy.
+        """
+        pass
+
     @property
     def staging_required(self) -> bool:
         """Whether the trial goes to staged or running state once deployed."""

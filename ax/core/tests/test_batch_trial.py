@@ -188,12 +188,21 @@ class BatchTrialTest(TestCase):
             with self.assertRaises(ValueError):
                 self.batch.runner = None
 
+            # Cannot run batch that was already run
+            with self.assertRaises(ValueError):
+                self.batch.run()
+
             self.batch.mark_running()
             self.assertEqual(self.batch.status, TrialStatus.RUNNING)
             self.assertIsNotNone(self.batch.time_run_started)
             self.assertTrue(self.batch.status.expecting_data)
 
-            self.batch.mark_completed()
+            self.batch.complete()
+            # Cannot complete that which is already completed
+            with self.assertRaises(ValueError):
+                self.batch.complete()
+
+            # Verify trial is completed
             self.assertEqual(self.batch.status, TrialStatus.COMPLETED)
             self.assertIsNotNone(self.batch.time_completed)
             self.assertTrue(self.batch.status.is_terminal)

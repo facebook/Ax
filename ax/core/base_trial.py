@@ -11,6 +11,7 @@ from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.metric import Metric
 from ax.core.runner import Runner
+from ax.utils.common.typeutils import not_none
 
 
 if TYPE_CHECKING:
@@ -228,6 +229,8 @@ class BaseTrial(ABC, Base):
         Returns:
             The trial instance.
         """
+        if self.status != TrialStatus.CANDIDATE:
+            raise ValueError("Can only run a candidate trial.")
 
         # Default to experiment runner if trial doesn't have one
         self.assign_runner()
@@ -241,6 +244,20 @@ class BaseTrial(ABC, Base):
             self.mark_staged()
         else:
             self.mark_running()
+        return self
+
+    def complete(self) -> "BaseTrial":
+        """Stops the trial if functionality is defined on runner
+            and marks trial completed.
+
+        Returns:
+            The trial instance.
+        """
+        if self.status != TrialStatus.RUNNING:
+            raise ValueError("Can only stop a running trial.")
+
+        not_none(self._runner).stop(self)
+        self.mark_completed()
         return self
 
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
