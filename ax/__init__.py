@@ -5,7 +5,7 @@ from ax.core import *
 from ax.modelbridge import Models
 from ax.service import *
 from ax.storage import *
-
+from ax.version import version as __version__
 
 __all__ = [
     "Arm",
