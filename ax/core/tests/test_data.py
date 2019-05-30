@@ -8,7 +8,7 @@ from ax.utils.common.testutils import TestCase
 
 class DataTest(TestCase):
     def setUp(self):
-        self.df_hash = "43144a18d49fbeb499fdfb68033e7caa"
+        self.df_hash = "ffa0d87c9f570a31dc58e732ebe9e5f8"
         self.df = pd.DataFrame(
             [
                 {

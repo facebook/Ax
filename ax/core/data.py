@@ -14,14 +14,14 @@ TPdTimestamp = pd.Timestamp
 COLUMN_DATA_TYPES = {
     "arm_name": str,
     "metric_name": str,
-    "trial_index": np.int64,
-    "n": np.int64,
-    "frac_nonnull": np.float64,
     "mean": np.float64,
     "sem": np.float64,
-    "random_split": np.int64,
+    "trial_index": np.int64,
     "start_time": TPdTimestamp,
     "end_time": TPdTimestamp,
+    "n": np.int64,
+    "frac_nonnull": np.float64,
+    "random_split": np.int64,
 }
 REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
 
@@ -68,7 +68,11 @@ class Data(Base):
                 raise ValueError(f"Columns {list(extra_columns)} are not supported.")
 
             df = df.dropna(axis=0, how="all").reset_index(drop=True)
-            self._df = self._safecast_df(df=df)
+            df = self._safecast_df(df=df)
+
+            # Reorder the columns for easier viewing
+            col_order = [c for c in self.column_data_types() if c in df.columns]
+            self._df = df[col_order]
         self.description = description
 
     def _safecast_df(self, df: pd.DataFrame) -> pd.DataFrame:
