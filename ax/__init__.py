@@ -5,7 +5,11 @@ from ax.core import *
 from ax.modelbridge import Models
 from ax.service import *
 from ax.storage import *
-from ax.version import version as __version__
+
+try:
+    from ax.version import version as __version__
+except:
+    pass
 
 __all__ = [
     "Arm",
