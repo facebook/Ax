@@ -70,7 +70,7 @@ def write_version_py():
 
 # THIS FILE IS GENERATED FROM AX SETUP.PY
 
-version = '%s'
+version = "%s"
 """
     f = open('ax/version.py', 'w')
     try:

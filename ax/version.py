@@ -3,4 +3,4 @@
 
 # THIS FILE IS GENERATED FROM AX SETUP.PY
 
-version = '0.1.2'
+version = "0.1.2"
