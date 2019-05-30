@@ -41,7 +41,7 @@ MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 NOTEBOOK_REQUIRES = ["jupyter"]
 
 def get_git_version():
-    """Gets the latest tag (as a string), e.g. 0.1.2.
+    """Gets the latest Git tag (as a string), e.g. 0.1.2.
 
     Note that `git describe --tags` works as follows:
     - Finds the most recent tag that is reachable from a commit.
@@ -60,6 +60,11 @@ def get_git_version():
         return "Unknown"
 
 def write_version_py():
+    """Write the current package version to a Python file (ax/version.py)
+
+    This file will be imported by ax/__init__.py, so that users can determine
+    the current version by running `from ax import __version__`.
+    """
     content = """#!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
@@ -75,10 +80,17 @@ version = '%s'
 
 
 def setup_package():
-    # Rewrite the version file everytime
+    """Used for installing the Ax package.
+
+    First, we determine the current version by getting the latest tag from Git.
+    We write this version to a file (ax/version.py), which is imported by
+    __init__.py. We also pass this version to setuptools below.
+    """
+
+    # Grab current version from Git and write to version.py.
     write_version_py()
 
-    # Get the current version from Git
+    # Grab current version from Git for use below.
     version = get_git_version()
 
     with open("README.md", "r") as fh:
