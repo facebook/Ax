@@ -73,7 +73,7 @@ def get_and_fit_model(
             _get_model(X=X, Y=Y, Yvar=Yvar, task_feature=task_feature)
             for X, Y, Yvar in zip(Xs, Ys, Yvars)
         ]
-        model = ModelListGP(gp_models=models)
+        model = ModelListGP(*models)
     model.to(dtype=Xs[0].dtype, device=Xs[0].device)  # pyre-ignore
     if state_dict is None:
         # TODO: Add bounds for optimization stability - requires revamp upstream

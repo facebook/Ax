@@ -18,4 +18,4 @@ class TorchModelUtilsTest(TestCase):
         model = HeteroskedasticSingleTaskGP(x, y, se)
         self.assertFalse(is_noiseless(model))
         with self.assertRaises(ModelError):
-            is_noiseless(ModelListGP([]))
+            is_noiseless(ModelListGP())
