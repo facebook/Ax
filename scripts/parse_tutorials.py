@@ -28,12 +28,23 @@ module.exports = TutorialPage;
 
 """
 
-SRCS = [
-    "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js",
-]
+# we already load Plotly within html head on the site (just using <script>); this causes
+# problems when trying to use requires within the notebook body, so we basically mock
+# require to return already-loaded Plotly library
+MOCK_JS_REQUIRES = """
+<script>
+const requirejs = Object();
+requirejs.config = function() { };
 
-JS_SCRIPT_TAGS = """<script src="{}"></script>"""
+const dependencyMap = {
+    'plotly': Plotly,
+}
+
+function require(deps, fxn) {
+    return fxn(...deps.map(dep => dependencyMap[dep]));
+};
+</script>
+"""
 
 
 def gen_tutorials(repo_dir: str) -> None:
@@ -106,7 +117,7 @@ def gen_tutorials(repo_dir: str) -> None:
                 iframe.attrs["src"] = iframe.attrs["src"].replace("#", "%23")
                 html_div.contents = [iframe]
 
-        html_out = "".join([JS_SCRIPT_TAGS.format(src) for src in SRCS]) + str(nb_meat)
+        html_out = MOCK_JS_REQUIRES + str(nb_meat)
 
         # generate HTML file
         with open(html_path, "w") as html_outfile:
