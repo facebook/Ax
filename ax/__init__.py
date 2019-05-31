@@ -7,6 +7,12 @@ from ax.service import *
 from ax.storage import *
 
 
+try:
+    # pyre-fixme[21]: Could not find a module... to import `ax.version`.
+    from ax.version import version as __version__
+except:
+    __version__ = "Unknown"
+
 __all__ = [
     "Arm",
     "BatchTrial",

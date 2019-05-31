@@ -149,3 +149,6 @@ website/static/js/*
 !website/static/js/plotUtils.js
 !website/static/js/plots/*
 website/static/_sphinx-sources/
+
+# Versioning
+ax/version.py
