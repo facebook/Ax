@@ -123,8 +123,8 @@ class SobolGenerator(RandomModel):
                 particular value.
         """
         if self.engine is None:
-            raise ValueError(
+            raise ValueError(  # pragma nocover
                 "Sobol Engine must be initialized before "
-                "candidate generation."  # pragma nocover
+                "candidate generation."
             )
         return self.engine.draw(n)

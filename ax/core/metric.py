@@ -82,11 +82,16 @@ class Metric(Base):
     ) -> Data:
         """Fetch multiple metrics data for an experiment.
 
-        Default behavior calls `fetch_experiment_data` for each metric.
-        Subclasses should override this to batch data computation for multiple metrics.
+        Default behavior calls `fetch_trial_data_multi` for each trial.
+        Subclasses should override to batch data computation across trials + metrics.
         """
         return Data.from_multiple_data(
-            [metric.fetch_experiment_data(experiment, **kwargs) for metric in metrics]
+            [
+                cls.fetch_trial_data_multi(trial, metrics, **kwargs)
+                if trial.status.expecting_data
+                else Data()
+                for trial in experiment.trials.values()
+            ]
         )
 
     def clone(self) -> "Metric":

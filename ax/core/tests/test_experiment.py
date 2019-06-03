@@ -250,6 +250,8 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(batch_data.df), n)
 
         exp_data = exp.fetch_data()
+        exp_data2 = exp.metrics["b"].fetch_experiment_data(exp)
+        self.assertEqual(len(exp_data2.df), 4 * n)
         self.assertEqual(len(exp_data.df), 4 * n)
         self.assertEqual(len(exp.arms_by_name), 4 * n)
 
