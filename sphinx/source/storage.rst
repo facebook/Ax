@@ -93,6 +93,7 @@ ax.storage.sqa\_store.db module
     :members:
     :undoc-members:
     :show-inheritance:
+    :exclude-members: Base
 
 ax.storage.sqa\_store.json module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
