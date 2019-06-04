@@ -125,7 +125,7 @@ def train(
     # Train Network
     for inputs, labels in train_loader:
         # move data to proper dtype and device
-        inputs = inputs.to(device=device)
+        inputs = inputs.to(dtype=dtype, device=device)
         labels = labels.to(device=device)
 
         # zero the parameter gradients
