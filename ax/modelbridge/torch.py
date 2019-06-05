@@ -8,6 +8,7 @@ import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.array import FIT_MODEL_ERROR, ArrayModelBridge
@@ -49,6 +50,7 @@ class TorchModelBridge(ArrayModelBridge):
         torch_device: Optional[torch.device] = None,
         status_quo_name: Optional[str] = None,
         status_quo_features: Optional[ObservationFeatures] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
     ) -> None:
         if torch_dtype is None:  # pragma: no cover
             torch_dtype = torch.float  # noqa T484
@@ -63,6 +65,7 @@ class TorchModelBridge(ArrayModelBridge):
             transform_configs=transform_configs,
             status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
+            optimization_config=optimization_config,
         )
 
     def _fit(

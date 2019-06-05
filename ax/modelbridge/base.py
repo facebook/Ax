@@ -62,6 +62,7 @@ class ModelBridge(ABC):
         transform_configs: Optional[Dict[str, TConfig]] = None,
         status_quo_name: Optional[str] = None,
         status_quo_features: Optional[ObservationFeatures] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
     ) -> None:
         """
         Applies transforms and fits model.
@@ -83,11 +84,13 @@ class ModelBridge(ABC):
                 that arm.
             status_quo_features: ObservationFeatures to use as status quo.
                 Either this or status_quo_name should be specified, not both.
+            optimization_config: Optimization config defining how to optimize
+                the model.
         """
         t_fit_start = time.time()
         self._metric_names: Set[str] = set()
         self._training_data: List[Observation] = []
-        self._optimization_config: Optional[OptimizationConfig] = None
+        self._optimization_config: Optional[OptimizationConfig] = optimization_config
         self._training_in_design: List[bool] = []
         self._status_quo: Optional[Observation] = None
         self._arms_by_signature: Optional[Dict[str, Arm]] = None
@@ -95,7 +98,8 @@ class ModelBridge(ABC):
 
         self._model_space = search_space.clone()
         if experiment is not None:
-            self._optimization_config = experiment.optimization_config
+            if self._optimization_config is None:
+                self._optimization_config = experiment.optimization_config
             self._arms_by_signature = experiment.arms_by_signature
 
         # Get observation features and data

@@ -8,6 +8,7 @@ import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.multi_type_experiment import MultiTypeExperiment
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
@@ -156,6 +157,7 @@ def get_botorch(
     acqf_optimizer: TOptimizer = scipy_optimizer,  # pyre-ignore[9]
     refit_on_cv: bool = False,
     refit_on_update: bool = True,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> TorchModelBridge:
     """Instantiates a BotorchModel."""
     if search_space is None:
@@ -175,6 +177,7 @@ def get_botorch(
         transforms=transforms,
         torch_dtype=dtype,
         torch_device=device,
+        optimization_config=optimization_config,
     )
 
 
