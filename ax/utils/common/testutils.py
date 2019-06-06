@@ -64,6 +64,7 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
         )
         self.lineno = None
         self.filename = None
+        # pyre-fixme[28]: Unexpected keyword argument `expected`.
         super().__init__(
             expected=expected, test_case=test_case, expected_regex=expected_regex
         )

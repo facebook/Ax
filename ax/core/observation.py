@@ -83,7 +83,7 @@ class ObservationFeatures(Base):
             if type(v) is np.int64:
                 parameters[k] = int(v)  # pragma: no cover
             elif type(v) is np.float32:
-                parameters[k] = float(v)  # pragma: no cover  # pyre-ignore
+                parameters[k] = float(v)  # pragma: no cover
         return hash(
             (
                 json.dumps(parameters, sort_keys=True),

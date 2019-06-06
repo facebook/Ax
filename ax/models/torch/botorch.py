@@ -329,6 +329,7 @@ class BotorchModel(TorchModel):
         )
         if x_best is None:
             return None
+        # pyre-fixme[19]: Expected 0 positional arguments.
         return x_best.to(dtype=self.dtype, device=torch.device("cpu"))
 
     @copy_doc(TorchModel.cross_validate)

@@ -94,6 +94,7 @@ MTGP_trans: List[Type[Transform]] = [
 ]
 
 
+# pyre-fixme[19]: Expected 0 positional arguments.
 DEFAULT_TORCH_DEVICE = torch.device("cpu")
 
 
