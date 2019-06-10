@@ -85,66 +85,63 @@ def table_view_plot(
         status_quo_arm = None
         rel = False
 
-    results = {}
+    records = []
+    colors = []
     records_with_mean = []
     records_with_ci = []
     for metric_name in metric_names:
-        arms, _, ys, ys_se = _error_scatter_data(
+        arm_names, _, ys, ys_se = _error_scatter_data(
             arms=list(plot_data.in_sample.values()),
             y_axis_var=PlotMetric(metric_name, True),
             x_axis_var=None,
             rel=rel,
             status_quo_arm=status_quo_arm,
         )
-        # results[metric] will hold a list of tuples, one tuple per arm
-        tuples = list(zip(arms, ys, ys_se))
-        results[metric_name] = tuples
-        # used if only_data_frame == True
-        records_with_mean.append({arm: y for (arm, y, _) in tuples})
-        records_with_ci.append({arm: y_se for (arm, _, y_se) in tuples})
 
-    if only_data_frame:
-        return tuple(
-            pd.DataFrame.from_records(records, index=metric_names).transpose()
-            for records in [records_with_mean, records_with_ci]
-        )
-
-    # cells and colors are both lists of lists
-    # each top-level list corresponds to a column,
-    # so the first is a list of arms
-    cells = [[f"<b>{x}</b>" for x in arms]]
-    colors = [["#ffffff"] * len(arms)]
-    metric_names = []
-    for metric_name, list_of_tuples in sorted(results.items()):
-        cells.append(
+        results_by_arm = list(zip(arm_names, ys, ys_se))
+        colors.append(
             [
-                "{:.3f} &plusmn; {:.3f}".format(y, Z * y_se)
-                for (_, y, y_se) in list_of_tuples
-            ]
-        )
-        metric_names.append(metric_name.replace(":", " : "))
-
-        color_vec = []
-        for (_, y, y_se) in list_of_tuples:
-            color_vec.append(
                 get_color(
                     x=y,
                     ci=Z * y_se,
                     rel=rel,
                     reverse=metric_name_to_lower_is_better[metric_name],
                 )
-            )
-        colors.append(color_vec)
+                for (_, y, y_se) in results_by_arm
+            ]
+        )
+        records.append(
+            [
+                "{:.3f} &plusmn; {:.3f}".format(y, Z * y_se)
+                for (_, y, y_se) in results_by_arm
+            ]
+        )
+        records_with_mean.append({arm_name: y for (arm_name, y, _) in results_by_arm})
+        records_with_ci.append(
+            {arm_name: Z * y_se for (arm_name, _, y_se) in results_by_arm}
+        )
 
-    header = [f"{arm_noun}s"] + metric_names
-    header = [f"<b>{x}</b>" for x in header]
+    if only_data_frame:
+        return tuple(
+            pd.DataFrame.from_records(records, index=metric_names)
+            for records in [records_with_mean, records_with_ci]
+        )
+
+    def transpose(m):
+        return [[m[j][i] for j in range(len(m))] for i in range(len(m[0]))]
+
+    records = [[name.replace(":", " : ") for name in metric_names]] + transpose(records)
+    colors = [["#ffffff"] * len(metric_names)] + transpose(colors)
+    header = [f"<b>{x}</b>" for x in [f"{arm_noun}s"] + arm_names]
+    column_widths = [300] + [150] * len(arm_names)
+
     trace = go.Table(
         header={"values": header, "align": ["left"]},
-        cells={"values": cells, "align": ["left"], "fill": {"color": colors}},
+        cells={"values": records, "align": ["left"], "fill": {"color": colors}},
+        columnwidth=column_widths,
     )
     layout = go.Layout(
-        height=min([400, len(arms) * 20 + 200]),
-        width=175 * len(header),
+        width=sum(column_widths),
         margin=go.Margin(l=0, r=20, b=20, t=20, pad=4),  # noqa E741
     )
     fig = go.Figure(data=[trace], layout=layout)
