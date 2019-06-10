@@ -23,7 +23,7 @@ from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import make_experiment
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast, not_none, numpy_type_to_python_type
 
 
 logger = get_logger(__name__)
@@ -203,11 +203,20 @@ class AxClient:
                     self.experiment.optimization_config.objective.metric.name: raw_data
                 }
             }
-        elif isinstance(raw_data, float) or isinstance(raw_data, int):
+        elif isinstance(raw_data, (float, int)):
             evaluations = {
                 not_none(trial.arm).name: {
                     self.experiment.optimization_config.objective.metric.name: (
                         raw_data,
+                        0.0,
+                    )
+                }
+            }
+        elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
+            evaluations = {
+                not_none(trial.arm).name: {
+                    self.experiment.optimization_config.objective.metric.name: (
+                        numpy_type_to_python_type(raw_data),
                         0.0,
                     )
                 }

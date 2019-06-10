@@ -2,6 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 from typing import Optional
 
+import numpy as np
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -27,11 +28,25 @@ def sum_evaluation_function(
     return {"sum": (sum, 0.0)}
 
 
+def sum_evaluation_function_numpy(
+    parameterization: TParameterization, weight: Optional[float] = None
+) -> TEvaluationOutcome:
+    sum = np.float32(_get_sum(parameterization))
+    return {"sum": (sum, np.float32(0.0))}
+
+
 def sum_evaluation_function_v2(
     parameterization: TParameterization, weight: Optional[float] = None
 ) -> TEvaluationOutcome:
     sum = _get_sum(parameterization)
     return (sum, 0.0)
+
+
+def sum_evaluation_function_v2_numpy(
+    parameterization: TParameterization, weight: Optional[float] = None
+) -> TEvaluationOutcome:
+    sum = np.float32(_get_sum(parameterization))
+    return (sum, np.float32(0.0))
 
 
 def sum_evaluation_function_v3(
@@ -40,10 +55,22 @@ def sum_evaluation_function_v3(
     return _get_sum(parameterization)
 
 
+def sum_evaluation_function_v3_numpy(
+    parameterization: TParameterization, weight: Optional[float] = None
+) -> TEvaluationOutcome:
+    return np.float32(_get_sum(parameterization))
+
+
 def sum_evaluation_function_v4(
     parameterization: TParameterization
 ) -> TEvaluationOutcome:
     return _get_sum(parameterization)
+
+
+def sum_evaluation_function_v4_numpy(
+    parameterization: TParameterization
+) -> TEvaluationOutcome:
+    return np.float32(_get_sum(parameterization))
 
 
 class SimpleExperimentTest(TestCase):
@@ -95,12 +122,36 @@ class SimpleExperimentTest(TestCase):
 
         experiment.evaluation_function = sum_evaluation_function
 
+    def testEvaluationFunctionNumpy(self) -> None:
+        experiment = SimpleExperiment(
+            name="test_branin",
+            search_space=get_branin_search_space(),
+            objective_name="sum",
+            evaluation_function=sum_evaluation_function_numpy,
+        )
+
+        for i in range(len(self.arms)):
+            experiment.new_trial(generator_run=GeneratorRun(arms=[self.arms[i]]))
+        self.assertFalse(experiment.eval().df.empty)
+
     def testEvaluationFunctionV2(self) -> None:
         experiment = SimpleExperiment(
             name="test_branin",
             search_space=get_branin_search_space(),
             objective_name="sum",
             evaluation_function=sum_evaluation_function_v2,
+        )
+
+        for i in range(len(self.arms)):
+            experiment.new_trial(generator_run=GeneratorRun(arms=[self.arms[i]]))
+        self.assertFalse(experiment.eval().df.empty)
+
+    def testEvaluationFunctionV2Numpy(self) -> None:
+        experiment = SimpleExperiment(
+            name="test_branin",
+            search_space=get_branin_search_space(),
+            objective_name="sum",
+            evaluation_function=sum_evaluation_function_v2_numpy,
         )
 
         for i in range(len(self.arms)):
@@ -119,12 +170,36 @@ class SimpleExperimentTest(TestCase):
             experiment.new_trial(generator_run=GeneratorRun(arms=[self.arms[i]]))
         self.assertFalse(experiment.eval().df.empty)
 
+    def testEvaluationFunctionV3Numpy(self) -> None:
+        experiment = SimpleExperiment(
+            name="test_branin",
+            search_space=get_branin_search_space(),
+            objective_name="sum",
+            evaluation_function=sum_evaluation_function_v3_numpy,
+        )
+
+        for i in range(len(self.arms)):
+            experiment.new_trial(generator_run=GeneratorRun(arms=[self.arms[i]]))
+        self.assertFalse(experiment.eval().df.empty)
+
     def testEvaluationFunctionV4(self) -> None:
         experiment = SimpleExperiment(
             name="test_branin",
             search_space=get_branin_search_space(),
             objective_name="sum",
             evaluation_function=sum_evaluation_function_v4,
+        )
+
+        for i in range(len(self.arms)):
+            experiment.new_trial(generator_run=GeneratorRun(arms=[self.arms[i]]))
+        self.assertFalse(experiment.eval().df.empty)
+
+    def testEvaluationFunctionV4Numpy(self) -> None:
+        experiment = SimpleExperiment(
+            name="test_branin",
+            search_space=get_branin_search_space(),
+            objective_name="sum",
+            evaluation_function=sum_evaluation_function_v4_numpy,
         )
 
         for i in range(len(self.arms)):

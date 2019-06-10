@@ -7,6 +7,7 @@ from math import ceil
 from typing import List, Tuple
 from unittest.mock import patch
 
+import numpy as np
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -342,6 +343,19 @@ class TestServiceAPI(TestCase):
         )
         params, idx = ax.attach_trial(parameters={"x1": 0, "x2": 1})
         ax.complete_trial(trial_index=idx, raw_data=5)
+        self.assertEqual(ax.get_best_parameters()[0], params)
+
+    def test_attach_trial_numpy(self):
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        params, idx = ax.attach_trial(parameters={"x1": 0, "x2": 1})
+        ax.complete_trial(trial_index=idx, raw_data=np.int32(5))
         self.assertEqual(ax.get_best_parameters()[0], params)
 
     def test_relative_oc_without_sq(self):

@@ -3,6 +3,7 @@
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import numpy as np
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
@@ -16,7 +17,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import not_none, numpy_type_to_python_type
 
 
 DEFAULT_OBJECTIVE_NAME = "objective"
@@ -186,8 +187,15 @@ class SimpleExperiment(Experiment):
             return evaluation
         elif isinstance(evaluation, tuple):
             return {self.optimization_config.objective.metric.name: evaluation}
-        elif isinstance(evaluation, float) or isinstance(evaluation, int):
+        elif isinstance(evaluation, (float, int)):
             return {self.optimization_config.objective.metric.name: (evaluation, 0.0)}
+        elif isinstance(evaluation, (np.float32, np.float64, np.int32, np.int64)):
+            return {
+                self.optimization_config.objective.metric.name: (
+                    numpy_type_to_python_type(evaluation),
+                    0.0,
+                )
+            }
         raise Exception(  # pragma: no cover
             "Evaluation function returned an invalid type. The function must "
             "either return a dictionary of metric names to mean, sem tuples "
