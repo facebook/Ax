@@ -34,6 +34,11 @@ LONGTEXT_BYTES: int = 2 ** 32 - 1
 Ax_PROD_TIER: str = "xdb.adaptive_experiment"
 SESSION_FACTORY: Optional[Session] = None
 
+# set this to false to prevent SQLAlchemy for automatically expiring objects
+# on commit, which essentially makes them unusable outside of a session
+# see e.g. https://stackoverflow.com/a/50272761
+EXPIRE_ON_COMMIT = False
+
 T = TypeVar("T")
 
 
@@ -332,7 +337,9 @@ def init_engine_and_session_factory(
         engine = create_mysql_engine_from_creator(creator=creator, echo=echo, **kwargs)
     else:
         raise ValueError("Must specify either `url` or `creator`.")  # pragma: no cover
-    SESSION_FACTORY = scoped_session(sessionmaker(bind=engine))
+    SESSION_FACTORY = scoped_session(
+        sessionmaker(bind=engine, expire_on_commit=EXPIRE_ON_COMMIT)
+    )
 
 
 def init_test_engine_and_session_factory(
@@ -367,7 +374,9 @@ def init_test_engine_and_session_factory(
     engine = create_test_engine(path=tier_or_path, echo=echo)
     create_all_tables(engine)
 
-    SESSION_FACTORY = scoped_session(sessionmaker(bind=engine))
+    SESSION_FACTORY = scoped_session(
+        sessionmaker(bind=engine, expire_on_commit=EXPIRE_ON_COMMIT)
+    )
 
 
 def create_all_tables(engine: Engine) -> None:

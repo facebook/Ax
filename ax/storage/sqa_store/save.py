@@ -32,13 +32,21 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
         existing SQLAlchemy object, and then letting SQLAlchemy handle the
         actual DB updates.
     """
+    # Convert user-facing class to SQA outside of session scope to avoid timeouts
+    new_sqa_experiment = encoder.experiment_to_sqa(experiment)
+    exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
     with session_scope() as session:
-        new_sqa_experiment = encoder.experiment_to_sqa(experiment)
-        exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
         existing_sqa_experiment = (
             session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
         )
-        if existing_sqa_experiment is None:
-            session.add(new_sqa_experiment)
-        else:
-            existing_sqa_experiment.update(new_sqa_experiment)
+
+    if existing_sqa_experiment is not None:
+        # Update the SQA object outside of session scope to avoid timeouts.
+        # This object is detached from the session, but contains a database
+        # identity marker, so when we do `session.add` below, SQA knows to
+        # perform an update rather than an insert.
+        existing_sqa_experiment.update(new_sqa_experiment)
+        new_sqa_experiment = existing_sqa_experiment
+
+    with session_scope() as session:
+        session.add(new_sqa_experiment)

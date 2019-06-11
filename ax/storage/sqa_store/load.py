@@ -31,4 +31,6 @@ def _load_experiment(experiment_name: str, decoder: Decoder) -> Experiment:
         )
         if sqa_experiment is None:
             raise ValueError(f"Experiment `{experiment_name}` not found.")
-        return decoder.experiment_from_sqa(sqa_experiment)
+
+    # Convert SQA to user-facing class outside of session scope to avoid timeouts
+    return decoder.experiment_from_sqa(sqa_experiment)
