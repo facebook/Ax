@@ -52,5 +52,11 @@ matrix:
         # since -W flag breaks on first error, re-run without it to print all
         - sphinx-build sphinx/source sphinx/build
 
+deploy:
+  provider: script
+  script: bash scripts/publish_site.sh
+  on:
+    branch: master
+
 after_success:
   - bash <(curl -s https://codecov.io/bash)
