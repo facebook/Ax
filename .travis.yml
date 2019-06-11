@@ -52,20 +52,11 @@ matrix:
         # since -W flag breaks on first error, re-run without it to print all
         - sphinx-build sphinx/source sphinx/build
 
-deploy_website:
-  language: node_js
-  node_js:
-    - '8'
-  branches:
-    only:
-      - master
-  cache:
-    yarn: true
-  script:
-    - git config --global user.name "${GH_NAME}"
-    - git config --global user.email "${GH_EMAIL}"
-    - echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
-    - cd website && yarn install && GIT_USER="${GH_NAME}" yarn run publish-gh-pages
+deploy:
+  provider: script
+  script: bash scripts/publish_site.sh
+  on:
+    branch: master
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

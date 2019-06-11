@@ -44,6 +44,11 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WORK_DIR=$(mktemp -d)
 cd "${WORK_DIR}" || exit
 
+# Setup git credentials
+git config --global user.name "${GH_NAME}"
+git config --global user.email "${GH_EMAIL}"
+echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
+
 # Clone both master & gh-pages branches
 git clone git@github.com:facebook/Ax.git Ax-master
 git clone --branch gh-pages git@github.com:facebook/Ax.git Ax-gh-pages
