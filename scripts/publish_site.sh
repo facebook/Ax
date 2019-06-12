@@ -50,8 +50,9 @@ git config --global user.email "docusaurus-bot@users.noreply.github.com"
 echo "machine github.com login docusaurus-bot password ${DOCUSAURUS_PUBLISH_TOKEN}" > ~/.netrc
 
 # Clone both master & gh-pages branches
-git clone git@github.com:facebook/Ax.git Ax-master
-git clone --branch gh-pages git@github.com:facebook/Ax.git Ax-gh-pages
+git clone https://docusaurus-bot@github.com/facebook/Ax.git Ax-master
+git clone --branch gh-pages https://docusaurus-bot@github.com/facebook/Ax.git Ax-gh-pages
+
 
 # A few notes about the script below:
 # * Docusaurus versioning was designed to *only* version the markdown
