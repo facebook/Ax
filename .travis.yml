@@ -3,9 +3,10 @@ language: python
 python:
   - 3.6
 
-matrix:
+jobs:
   include:
     - name: "Tests + Coverage: Python 3.6"
+      stage: Test
       python: "3.6"
       install:
         - pip install cython numpy
@@ -51,12 +52,16 @@ matrix:
         - sphinx-build -WT sphinx/source sphinx/build
         # since -W flag breaks on first error, re-run without it to print all
         - sphinx-build sphinx/source sphinx/build
+    - stage: Deploy Website
+      python: "3.6"
+      script:
+        - bash scripts/publish_site.sh
 
-deploy:
-  provider: script
-  script: bash scripts/publish_site.sh
-  on:
-    branch: master
+stages:
+  - name: Test
+  - name: Deploy Website
+    # require the branch name to be master
+    if: branch = master
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
