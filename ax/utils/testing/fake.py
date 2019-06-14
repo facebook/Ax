@@ -15,6 +15,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
@@ -564,3 +565,20 @@ def get_data() -> Data:
         "n": [100, 100, 100, 100, 100],
     }
     return Data(df=pd.DataFrame.from_records(df_dict))
+
+
+# Observations
+
+
+def get_observation() -> Observation:
+    return Observation(
+        features=ObservationFeatures(
+            parameters={"x": 2.0, "y": 10.0}, trial_index=np.int64(0)
+        ),
+        data=ObservationData(
+            means=np.array([2.0, 4.0]),
+            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
+            metric_names=["a", "b"],
+        ),
+        arm_name="1_1",
+    )
