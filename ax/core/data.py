@@ -75,7 +75,8 @@ class Data(Base):
             self._df = df[col_order]
         self.description = description
 
-    def _safecast_df(self, df: pd.DataFrame) -> pd.DataFrame:
+    @classmethod
+    def _safecast_df(cls, df: pd.DataFrame) -> pd.DataFrame:
         """Function for safely casting df to standard data types.
 
         Needed because numpy does not support NaNs in integer arrays.
@@ -90,10 +91,10 @@ class Data(Base):
         dtype = {
             # Pandas timestamp handlng is weird
             col: "datetime64[ns]" if coltype is TPdTimestamp else coltype
-            for col, coltype in self.column_data_types().items()
+            for col, coltype in cls.column_data_types().items()
             if col in df.columns.values
             and not (
-                self.column_data_types()[col] is np.int64
+                cls.column_data_types()[col] is np.int64
                 and df.loc[:, col].isnull().any()
             )
         }
