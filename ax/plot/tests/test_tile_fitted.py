@@ -62,7 +62,7 @@ class TileFittedTest(TestCase):
 
         # Layout
         for key in [
-            # "xaxis1",
+            # "xaxis1",  it seems that in plotly 3, this is just `xaxis`
             # "yaxis1",
             "xaxis2",
             "yaxis2",
