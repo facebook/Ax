@@ -4,10 +4,12 @@
 import datetime
 import enum
 from collections import OrderedDict
-from typing import Any
+from inspect import isclass
+from typing import Any, Type
 
 import pandas as pd
 from ax.exceptions.storage import JSONEncodeError
+from ax.modelbridge.transforms.base import Transform
 from ax.storage.json_store.registry import ENCODER_REGISTRY
 from ax.utils.common.serialization import _is_named_tuple
 from ax.utils.common.typeutils import numpy_type_to_python_type
@@ -17,8 +19,8 @@ def object_to_json(object: Any) -> Any:
     """Convert an Ax object to a JSON-serializable dictionary.
 
     The root node passed to this function should always be an instance of a
-    core Ax class. The sub-fields of this object will then be recursively
-    passed to this function.
+    core Ax class or a JSON-compatible python builtin. The sub-fields of the
+    input will then be recursively passed to this function.
 
     e.g. if we pass an instance of Experiment, we will first fall through
     to the line `object_dict = ENCODER_REGISTRY[_type](object)`, which
@@ -57,11 +59,14 @@ def object_to_json(object: Any) -> Any:
         }
     elif issubclass(_type, enum.Enum):
         return {"__type": _type.__name__, "name": object.name}
+    elif isclass(object) and issubclass(object, Transform):
+        # There is no other way to check is object is of type Type[Transform].
+        _type = Type[Transform]
 
     if _type not in ENCODER_REGISTRY:
         err = (
-            f"Object passed to `object_to_json` (of type {_type}) is not "
-            f"registered with a corresponding encoder in ENCODER_REGISTRY."
+            f"Object {object} passed to `object_to_json` (of type {_type}) is "
+            f"not registered with a corresponding encoder in ENCODER_REGISTRY."
         )
         raise JSONEncodeError(err)
     object_dict = ENCODER_REGISTRY[_type](object)

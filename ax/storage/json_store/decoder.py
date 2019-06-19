@@ -4,7 +4,7 @@
 import datetime
 import enum
 from collections import OrderedDict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Type
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial
@@ -23,8 +23,10 @@ from ax.core.simple_experiment import (
     unimplemented_evaluation_function,
 )
 from ax.exceptions.storage import JSONDecodeError
+from ax.modelbridge.transforms.base import Transform
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
 from ax.storage.json_store.registry import DECODER_REGISTRY
+from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
 
 
 def object_from_json(object_json: Any) -> Any:
@@ -76,6 +78,8 @@ def object_from_json(object_json: Any) -> Any:
             return experiment_from_json(object_json=object_json)
         elif _class == SearchSpace:
             return search_space_from_json(search_space_json=object_json)
+        elif _class == Type[Transform]:
+            return transform_type_from_json(object_json=object_json)
 
         return _class(**{k: object_from_json(v) for k, v in object_json.items()})
     else:
@@ -241,3 +245,11 @@ def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
     experiment._experiment_type = object_from_json(experiment_type_json)
     experiment._data_by_trial = data_from_json(data_by_trial_json)
     return experiment
+
+
+def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
+    """Load the transform type from JSON."""
+    index_in_registry = object_json.pop("index_in_registry")
+    if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:  # pragma: no cover
+        raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
+    return REVERSE_TRANSFORM_REGISTRY[index_in_registry]

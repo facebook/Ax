@@ -33,6 +33,7 @@ from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
+from ax.modelbridge.transforms.base import Transform
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.json_store.encoders import (
     arm_to_dict,
@@ -53,6 +54,7 @@ from ax.storage.json_store.encoders import (
     search_space_to_dict,
     simple_experiment_to_dict,
     sum_parameter_constraint_to_dict,
+    transform_type_to_dict,
     trial_to_dict,
 )
 from ax.storage.utils import DomainType, ParameterConstraintType
@@ -84,6 +86,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     SumConstraint: sum_parameter_constraint_to_dict,
     SyntheticRunner: runner_to_dict,
     Trial: trial_to_dict,
+    Type[Transform]: transform_type_to_dict,
 }
 
 DECODER_REGISTRY: Dict[str, Type] = {
@@ -119,4 +122,5 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "SyntheticRunner": SyntheticRunner,
     "Trial": Trial,
     "TrialStatus": TrialStatus,
+    "Type[Transform]": Type[Transform],
 }

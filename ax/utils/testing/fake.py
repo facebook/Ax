@@ -3,7 +3,7 @@
 
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, MutableMapping
+from typing import Dict, List, MutableMapping, Type
 
 import numpy as np
 import pandas as pd
@@ -44,6 +44,8 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.factory import get_factorial, get_sobol
+from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.runners.synthetic import SyntheticRunner
 
 
@@ -582,3 +584,10 @@ def get_observation() -> Observation:
         ),
         arm_name="1_1",
     )
+
+
+# Modeling layer
+
+
+def get_transform_type() -> Type[Transform]:
+    return IntToFloat

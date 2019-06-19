@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import Any, Dict
+from typing import Any, Dict, Type
 
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
@@ -21,7 +21,9 @@ from ax.core.parameter_constraint import (
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
+from ax.modelbridge.transforms.base import Transform
 from ax.runners.synthetic import SyntheticRunner
+from ax.storage.transform_registry import TRANSFORM_REGISTRY
 from ax.storage.utils import get_object_properties
 
 
@@ -251,4 +253,13 @@ def data_to_dict(data: Data) -> Dict[str, Any]:
         "__type": data.__class__.__name__,
         "df": data.df,
         "description": data.description,
+    }
+
+
+def transform_type_to_dict(transform_type: Type[Transform]) -> Dict[str, Any]:
+    """Convert a transform class to a dictionary."""
+    return {
+        "__type": "Type[Transform]",
+        "index_in_registry": TRANSFORM_REGISTRY[transform_type],
+        "transform_type": f"{transform_type}",
     }

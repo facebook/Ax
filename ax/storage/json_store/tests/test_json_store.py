@@ -38,6 +38,7 @@ from ax.utils.testing.fake import (
     get_sum_constraint1,
     get_sum_constraint2,
     get_synthetic_runner,
+    get_transform_type,
     get_trial,
 )
 
@@ -65,6 +66,7 @@ TEST_CASES = [
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
     ("SyntheticRunner", get_synthetic_runner),
+    ("Type[Transform]", get_transform_type),
     ("Trial", get_trial),
 ]
 
@@ -95,6 +97,17 @@ ENCODE_DECODE_FIELD_MAPS = {
         python_only=["constraint_dict", "parameters"]
     ),
     "Trial": EncodeDecodeFieldsMap(python_only=["experiment"]),
+    "Type[Transform]": EncodeDecodeFieldsMap(
+        python_only=[
+            "transform_observation_features",
+            "_module__",
+            "_init__",
+            "_doc__",
+            "transform_search_space",
+            "untransform_observation_features",
+        ],
+        encoded_only=["transform_type", "index_in_registry"],
+    ),
 }
 
 
