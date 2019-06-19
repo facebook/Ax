@@ -1219,7 +1219,7 @@ def tile_fitted(
     )
 
     # append dropdown annotations
-    fig["layout"]["annotations"] += [
+    fig["layout"]["annotations"] += (
         {
             "x": 0.5,
             "y": 1 + 0.40 / nrows,
@@ -1241,7 +1241,7 @@ def tile_fitted(
             "xanchor": "left",
             "yanchor": "middle",
         },
-    ]
+    )
 
     fig = resize_subtitles(figure=fig, size=10)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
