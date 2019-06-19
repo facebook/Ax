@@ -4,6 +4,7 @@
 import datetime
 import enum
 from collections import OrderedDict
+from inspect import isclass
 from typing import Any, Dict, List, Type
 
 import pandas as pd
@@ -67,7 +68,7 @@ def object_from_json(object_json: Any) -> Any:
 
         _class = DECODER_REGISTRY[_type]
 
-        if issubclass(_class, enum.Enum):
+        if isclass(_class) and issubclass(_class, enum.Enum):
             # to access enum members by name, use item access
             return _class[object_json["name"]]
         elif _class == GeneratorRun:
