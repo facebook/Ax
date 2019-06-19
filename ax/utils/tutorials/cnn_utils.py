@@ -33,7 +33,7 @@ class CNN(nn.Module):
 
 
 def load_mnist(
-    downsample_pct: float = 0.5, train_pct: float = 0.8
+    downsample_pct: float = 0.5, train_pct: float = 0.8, data_path: str = "./data"
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Load MNIST dataset (download if necessary) and split data into training,
@@ -56,7 +56,7 @@ def load_mnist(
     # Load training set
     # pyre-fixme[16]: Module `datasets` has no attribute `MNIST`.
     train_valid_set = torchvision.datasets.MNIST(
-        root="./data", train=True, download=True, transform=transform
+        root=data_path, train=True, download=True, transform=transform
     )
 
     # Partition into training/validation
@@ -77,7 +77,7 @@ def load_mnist(
     # Load test set
     # pyre-fixme[16]: Module `datasets` has no attribute `MNIST`.
     test_set_all = torchvision.datasets.MNIST(
-        root="./data", train=False, download=True, transform=transform
+        root=data_path, train=False, download=True, transform=transform
     )
     downsampled_num_test_examples = int(downsample_pct * len(test_set_all))
     test_set, _ = torch.utils.data.random_split(
