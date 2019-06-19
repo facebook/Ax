@@ -107,7 +107,7 @@ if [[ $VERSION == false ]]; then
   # Build site, tagged with "latest" version; baseUrl set to /versions/latest/
   yarn
   yarn run version latest
-  sed -i '' "s/baseUrl = '\/'/baseUrl = '\/versions\/latest\/'/g" siteConfig.js
+  sed -i "s/baseUrl = '\/'/baseUrl = '\/versions\/latest\/'/g" siteConfig.js
 
   # disable search for non-stable version (can't use sed b/c of newline)
   python3 -c "$REMOVE_ALGOLIA_CMD"
@@ -177,7 +177,7 @@ else
   # we build this now so that in the future, we can just bump version and not move
   # previous stable to versions
   cd Ax-master/website || exit
-  sed -i '' "s/baseUrl = '\/'/baseUrl = '\/versions\/${VERSION}\/'/g" siteConfig.js
+  sed -i "s/baseUrl = '\/'/baseUrl = '\/versions\/${VERSION}\/'/g" siteConfig.js
 
   # disable search for non-stable version (can't use sed b/c of newline)
   python3 -c "$REMOVE_ALGOLIA_CMD"
