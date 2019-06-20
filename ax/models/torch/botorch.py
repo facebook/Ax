@@ -261,7 +261,7 @@ class BotorchModel(TorchModel):
             Tensor: `n`-dim Tensor of weights for each point.
         """
         options = model_gen_options or {}
-        acf_options = options.get("acqiusition_function_kwargs", {})
+        acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
 
         X_pending, X_observed = _get_X_pending_and_observed(
