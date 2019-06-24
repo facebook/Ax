@@ -54,6 +54,7 @@ class SQAParameter(Base):
     name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
     parameter_type: ParameterType = Column(IntEnum(ParameterType), nullable=False)
     is_fidelity: Optional[bool] = Column(Boolean)
+    target_value: Optional[TParamValue] = Column(JSONEncodedObject)
 
     # Attributes for Range Parameters
     digits: Optional[int] = Column(Integer)

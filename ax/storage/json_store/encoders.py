@@ -103,6 +103,7 @@ def range_parameter_to_dict(parameter: RangeParameter) -> Dict[str, Any]:
         "log_scale": parameter.log_scale,
         "digits": parameter.digits,
         "is_fidelity": parameter.is_fidelity,
+        "target_value": parameter.target_value,
     }
 
 
@@ -116,6 +117,7 @@ def choice_parameter_to_dict(parameter: ChoiceParameter) -> Dict[str, Any]:
         "parameter_type": parameter.parameter_type,
         "values": parameter.values,
         "is_fidelity": parameter.is_fidelity,
+        "target_value": parameter.target_value,
     }
 
 
@@ -127,6 +129,7 @@ def fixed_parameter_to_dict(parameter: FixedParameter) -> Dict[str, Any]:
         "parameter_type": parameter.parameter_type,
         "value": parameter.value,
         "is_fidelity": parameter.is_fidelity,
+        "target_value": parameter.target_value,
     }
 
 

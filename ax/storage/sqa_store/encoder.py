@@ -160,6 +160,7 @@ class Encoder:
                 log_scale=parameter.log_scale,
                 digits=parameter.digits,
                 is_fidelity=parameter.is_fidelity,
+                target_value=parameter.target_value,
             )
         elif isinstance(parameter, ChoiceParameter):
             # pyre-fixme[29]: `SQAParameter` is not a function.
@@ -171,6 +172,7 @@ class Encoder:
                 is_ordered=parameter.is_ordered,
                 is_task=parameter.is_task,
                 is_fidelity=parameter.is_fidelity,
+                target_value=parameter.target_value,
             )
         elif isinstance(parameter, FixedParameter):
             # pyre-fixme[29]: `SQAParameter` is not a function.
@@ -180,6 +182,7 @@ class Encoder:
                 parameter_type=parameter.parameter_type,
                 fixed_value=parameter.value,
                 is_fidelity=parameter.is_fidelity,
+                target_value=parameter.target_value,
             )
         else:
             raise SQAEncodeError(

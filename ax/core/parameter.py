@@ -42,6 +42,7 @@ PARAMETER_PYTHON_TYPE_MAP: Dict[ParameterType, TParameterType] = {
 
 class Parameter(Base, metaclass=ABCMeta):
     _is_fidelity: bool = False
+    _target_value: Optional[TParamValue] = None
 
     def _cast(self, value: TParamValue) -> TParamValue:
         if value is None:
@@ -75,6 +76,10 @@ class Parameter(Base, metaclass=ABCMeta):
     def is_fidelity(self) -> bool:
         return self._is_fidelity
 
+    @property
+    def target_value(self) -> Optional[TParamValue]:
+        return self._target_value
+
     @abstractproperty
     def parameter_type(self) -> ParameterType:
         pass  # pragma: no cover
@@ -99,6 +104,7 @@ class RangeParameter(Parameter):
         log_scale: bool = False,
         digits: Optional[int] = None,
         is_fidelity: bool = False,
+        target_value: Optional[TParamValue] = None,
     ) -> None:
         """Initialize RangeParameter
 
@@ -112,6 +118,7 @@ class RangeParameter(Parameter):
                 random values of the parameter.
             digits: Number of digits to round values to for float type.
             is_fidelity: Whether this parameter is a fidelity parameter.
+            target_value: Target value of this parameter if it's fidelity.
         """
         self._name = name
         self._parameter_type = parameter_type
@@ -120,6 +127,7 @@ class RangeParameter(Parameter):
         self._upper = self._cast(upper)
         self._log_scale = log_scale
         self._is_fidelity = is_fidelity
+        self._target_value = target_value
 
         self._validate_range_param(
             parameter_type=parameter_type, lower=lower, upper=upper, log_scale=log_scale
@@ -293,6 +301,11 @@ class RangeParameter(Parameter):
         if self._digits:
             ret_val += f", digits={self._digits}"
 
+        if self.is_fidelity:
+            ret_val += (
+                f", fidelity={self.is_fidelity}, target_value={self.target_value}"
+            )
+
         return ret_val + ")"
 
 
@@ -307,6 +320,7 @@ class ChoiceParameter(Parameter):
         is_ordered: bool = False,
         is_task: bool = False,
         is_fidelity: bool = False,
+        target_value: Optional[TParamValue] = None,
     ) -> None:
         """Initialize ChoiceParameter.
 
@@ -317,10 +331,12 @@ class ChoiceParameter(Parameter):
             values: List of allowed values for the parameter.
             is_ordered: If False, the parameter is a categorical variable.
             is_task: Treat the parameter as a task parameter for modeling.
+            target_value: Target value of this parameter if it's fidelity.
         """
         self._is_ordered = is_ordered
         self._is_task = is_task
         self._is_fidelity = is_fidelity
+        self._target_value = target_value
         self._name = name
         self._parameter_type = parameter_type
         # A choice parameter with only one value is a FixedParameter.
@@ -414,6 +430,7 @@ class FixedParameter(Parameter):
         parameter_type: ParameterType,
         value: TParamValue,
         is_fidelity: bool = False,
+        target_value: Optional[TParamValue] = None,
     ) -> None:
         """Initialize FixedParameter
 
@@ -422,11 +439,13 @@ class FixedParameter(Parameter):
             parameter_type: Enum indicating the type of parameter
                 value (e.g. string, int).
             value: The fixed value of the parameter.
+            target_value: Target value of this parameter if it's fidelity.
         """
         self._name = name
         self._parameter_type = parameter_type
         self._value = self._cast(value)
         self._is_fidelity = is_fidelity
+        self._target_value = target_value
 
     @property
     def value(self) -> TParamValue:
