@@ -240,6 +240,9 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
         "index": generator_run.index,
         "fit_time": generator_run.fit_time,
         "gen_time": generator_run.gen_time,
+        "model_key": generator_run._model_key,
+        "model_kwargs": generator_run._model_kwargs,
+        "bridge_kwargs": generator_run._bridge_kwargs,
     }
 
 

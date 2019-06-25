@@ -219,13 +219,17 @@ class BaseModelBridgeTest(TestCase):
             return_value=([observation1trans().features], [2], None),
         )
         oc = OptimizationConfig(objective=Objective(metric=Metric(name="test_metric")))
-        modelbridge.gen(
+        modelbridge._set_kwargs_to_save(
+            model_key="TestModel", model_kwargs={}, bridge_kwargs={}
+        )
+        gr = modelbridge.gen(
             n=1,
             search_space=search_space_for_value(),
             optimization_config=oc,
             pending_observations={"a": [observation2().features]},
             fixed_features=ObservationFeatures({"x": 5}),
         )
+        self.assertEqual(gr._model_key, "TestModel")
         modelbridge._gen.assert_called_with(
             n=1,
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),

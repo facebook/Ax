@@ -43,7 +43,7 @@ from ax.core.types import (
 from ax.metrics.branin import BraninMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
-from ax.modelbridge.factory import get_factorial, get_sobol
+from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.runners.synthetic import SyntheticRunner
@@ -494,6 +494,9 @@ def get_generator_run() -> GeneratorRun:
         best_arm_predictions=(arms[0], arm_predictions[arms[0].signature]),
         fit_time=10.0,
         gen_time=5.0,
+        model_key="Sobol",
+        model_kwargs={"scramble": False},
+        bridge_kwargs={"transforms": Cont_X_trans},
     )
 
 

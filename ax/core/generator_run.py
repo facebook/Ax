@@ -5,7 +5,7 @@ import copy
 from collections import OrderedDict
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, MutableMapping, NamedTuple, Optional, Tuple
+from typing import Any, Dict, List, MutableMapping, NamedTuple, Optional, Tuple
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -76,6 +76,9 @@ class GeneratorRun(Base):
         type: Optional[str] = None,
         fit_time: Optional[float] = None,
         gen_time: Optional[float] = None,
+        model_key: Optional[str] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        bridge_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Inits GeneratorRun.
@@ -96,12 +99,28 @@ class GeneratorRun(Base):
                 this generator run. For models with multiple invocations of gen, this is
                 typically the fitting time since the last call to gen.
             gen_time: Optional number of seconds generation took.
+            model_key: Optional name of the model that was used to produce this
+                generator run.
+            model_kwargs: Optional dictionary of keyword arguments to the model
+                that was used to produce this generator run.
+            bridge_kwargs: Optional dictionary of keyword arguments to the model
+                bridge that was used to produce this generator run.
         """
         self._arm_weight_table: OrderedDict[str, ArmWeight] = OrderedDict()
         if weights is None:
             weights = [1.0 for i in range(len(arms))]
         if len(arms) != len(weights):
             raise ValueError("Weights and arms must have the same length.")
+        if bridge_kwargs is not None or model_kwargs is not None:
+            if model_key is None:
+                raise ValueError(
+                    "Model key is required if model or bridge kwargs are provided."
+                )
+            if bridge_kwargs is None or model_kwargs is None:
+                raise ValueError(
+                    "Both model kwargs and bridge kwargs are required if either "
+                    "one is provided."
+                )
         for arm, weight in zip(arms, weights):
             existing_cw = self._arm_weight_table.get(arm.signature)
             if existing_cw:
@@ -122,6 +141,9 @@ class GeneratorRun(Base):
         self._index: Optional[int] = None
         self._fit_time = fit_time
         self._gen_time = gen_time
+        self._model_key = model_key
+        self._model_kwargs = model_kwargs
+        self._bridge_kwargs = bridge_kwargs
 
     @property
     def arms(self) -> List[Arm]:
@@ -137,7 +159,6 @@ class GeneratorRun(Base):
     def arm_weights(self) -> MutableMapping[Arm, float]:
         """Mapping from arms to weights (order matches order in
         `arms` property).
-
         """
         return OrderedDict(zip(self.arms, self.weights))
 

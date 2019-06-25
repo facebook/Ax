@@ -263,6 +263,9 @@ ENCODE_DECODE_FIELD_MAPS = {
             "optimization_config",
             "search_space",
             "best_arm_predictions",
+            "model_key",
+            "model_kwargs",
+            "bridge_kwargs",
         ],
     ),
     "Objective": EncodeDecodeFieldsMap(

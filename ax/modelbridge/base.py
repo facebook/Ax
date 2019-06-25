@@ -95,6 +95,9 @@ class ModelBridge(ABC):
         self._status_quo: Optional[Observation] = None
         self._arms_by_signature: Optional[Dict[str, Arm]] = None
         self.transforms: MutableMapping[str, Transform] = OrderedDict()
+        self._model_key: Optional[str] = None
+        self._model_kwargs: Optional[Dict[str, Any]] = None
+        self._bridge_kwargs: Optional[Dict[str, Any]] = None
 
         self._model_space = search_space.clone()
         if experiment is not None:
@@ -511,6 +514,9 @@ class ModelBridge(ABC):
             else (best_arm, best_point_predictions),
             fit_time=self.fit_time_since_gen,
             gen_time=time.time() - t_gen_start,
+            model_key=self._model_key,
+            model_kwargs=self._model_kwargs,
+            bridge_kwargs=self._bridge_kwargs,
         )
         self.fit_time_since_gen = 0.0
         return gr
@@ -593,6 +599,21 @@ class ModelBridge(ABC):
             if not self.training_in_design[i]:
                 ood_obs_data.append(obs)
         return unwrap_observation_data(ood_obs_data)
+
+    def _set_kwargs_to_save(
+        self,
+        model_key: str,
+        model_kwargs: Dict[str, Any],
+        bridge_kwargs: Dict[str, Any],
+    ) -> None:
+        """Set properties used to save the model that created a given generator
+        run, on the `GeneratorRun` object. Each generator run produced by the
+        `gen` method of this model bridge will have the model key and kwargs
+        fields set as provided in arguments to this function.
+        """
+        self._model_key = model_key
+        self._model_kwargs = model_kwargs
+        self._bridge_kwargs = bridge_kwargs
 
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:

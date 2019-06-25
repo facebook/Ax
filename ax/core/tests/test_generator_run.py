@@ -64,6 +64,11 @@ class GeneratorRunTest(TestCase):
                 search_space=self.search_space,
             )
 
+        with self.assertRaises(ValueError):
+            GeneratorRun(arms=self.arms, model_kwargs={"a": 1})
+        with self.assertRaises(ValueError):
+            GeneratorRun(arms=self.arms, model_key="b", bridge_kwargs={"a": 1})
+
     def testClone(self):
         weighted_run2 = self.weighted_run.clone()
         self.assertEqual(

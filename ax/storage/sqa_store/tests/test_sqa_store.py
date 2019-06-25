@@ -206,6 +206,12 @@ class SQAStoreTest(TestCase):
                 original_object.evaluation_function = None
                 converted_object.evaluation_function = None
 
+            # TODO[Lena]: remove when SQA is updated w/these new fields T46190605
+            if class_ == "GeneratorRun":
+                original_object._model_key = None
+                original_object._model_kwargs = None
+                original_object._bridge_kwargs = None
+
             self.assertEqual(
                 original_object,
                 converted_object,
