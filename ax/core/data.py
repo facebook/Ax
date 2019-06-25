@@ -118,32 +118,36 @@ class Data(Base):
 
     @staticmethod
     def from_evaluations(
-        evaluations: Dict[str, Dict[str, Tuple[float, float]]], trial_index: int
+        evaluations: Dict[str, Dict[str, Tuple[float, float]]],
+        trial_index: int,
+        sample_sizes: Optional[Dict[str, int]] = None,
     ) -> "Data":
         """
         Convert dict of evaluations to Ax data object.
 
         Args:
             evaluations: Map from condition name to metric outcomes.
+            trial_index: Trial index to which this data belongs.
+            sample_sizes: Number of samples collected for each arm.
 
         Returns:
             Ax Data object.
         """
-        return Data(
-            df=pd.DataFrame(
-                [
-                    {
-                        "arm_name": name,
-                        "metric_name": metric_name,
-                        "mean": evaluation[metric_name][0],
-                        "sem": evaluation[metric_name][1],
-                        "trial_index": trial_index,
-                    }
-                    for name, evaluation in evaluations.items()
-                    for metric_name in evaluation.keys()
-                ]
-            )
-        )
+        records = [
+            {
+                "arm_name": name,
+                "metric_name": metric_name,
+                "mean": evaluation[metric_name][0],
+                "sem": evaluation[metric_name][1],
+                "trial_index": trial_index,
+            }
+            for name, evaluation in evaluations.items()
+            for metric_name in evaluation.keys()
+        ]
+        if sample_sizes:
+            for record in records:
+                record["n"] = sample_sizes[record["arm_name"]]
+        return Data(df=pd.DataFrame(records))
 
     @property
     def df(self) -> pd.DataFrame:

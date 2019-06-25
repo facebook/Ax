@@ -170,6 +170,7 @@ class AxClient:
         #    standard error == 0
         raw_data: TEvaluationOutcome,
         metadata: Optional[Dict[str, str]] = None,
+        sample_size: Optional[int] = None,
     ) -> None:
         """
         Completes the trial with given metric values and adds optional metadata
@@ -195,17 +196,18 @@ class AxClient:
         if metadata is not None:
             trial._run_metadata = metadata
 
+        arm_name = not_none(trial.arm).name
         if isinstance(raw_data, dict):
-            evaluations = {not_none(trial.arm).name: raw_data}
+            evaluations = {arm_name: raw_data}
         elif isinstance(raw_data, tuple):
             evaluations = {
-                not_none(trial.arm).name: {
+                arm_name: {
                     self.experiment.optimization_config.objective.metric.name: raw_data
                 }
             }
         elif isinstance(raw_data, (float, int)):
             evaluations = {
-                not_none(trial.arm).name: {
+                arm_name: {
                     self.experiment.optimization_config.objective.metric.name: (
                         raw_data,
                         0.0,
@@ -214,7 +216,7 @@ class AxClient:
             }
         elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
             evaluations = {
-                not_none(trial.arm).name: {
+                arm_name: {
                     self.experiment.optimization_config.objective.metric.name: (
                         numpy_type_to_python_type(raw_data),
                         0.0,
@@ -228,7 +230,8 @@ class AxClient:
                 "or a single mean, sem tuple, or a single mean."
             )
 
-        data = Data.from_evaluations(evaluations, trial.index)
+        sample_sizes = {arm_name: sample_size} if sample_size else {}
+        data = Data.from_evaluations(evaluations, trial.index, sample_sizes)
         trial.mark_completed()
         self.experiment.attach_data(data)
         self._updated_trials.append(trial_index)

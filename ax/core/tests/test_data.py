@@ -118,3 +118,11 @@ class DataTest(TestCase):
         # Try making regular data with extra column
         with self.assertRaises(ValueError):
             Data(df=pd.DataFrame([data_entry2]))
+
+    def testFromEvaluations(self):
+        data = Data.from_evaluations(
+            evaluations={"0_1": {"b": (3.7, 0.5)}},
+            trial_index=0,
+            sample_sizes={"0_1": 2},
+        )
+        self.assertEqual(len(data.df), 1)

@@ -91,6 +91,7 @@ class TestServiceAPI(TestCase):
                         0.0,
                     )
                 },
+                sample_size=i,
             )
             if i < 5:
                 with self.assertRaisesRegex(ValueError, "Could not obtain contour"):
