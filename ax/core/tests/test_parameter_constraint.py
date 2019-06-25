@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import (
     ComparisonOp,
     OrderConstraint,
@@ -91,6 +96,10 @@ class OrderConstraintTest(TestCase):
         )
 
     def testInvalidSetup(self):
+        z = FixedParameter("z", ParameterType.INT, 0)
+        with self.assertRaises(ValueError):
+            self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)
+
         z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
         with self.assertRaises(ValueError):
             self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)

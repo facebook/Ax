@@ -148,11 +148,17 @@ class TestServiceAPI(TestCase):
                     "values": ["one", "two", "three"],
                     "value_type": "str",
                 },
+                {
+                    "name": "x6",
+                    "type": "range",
+                    "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
             ],
             objective_name="test_objective",
             minimize=True,
             outcome_constraints=["some_metric >= 3", "some_metric <= 4.0"],
-            parameter_constraints=["x3 >= x4", "x3 + x4 >= 2"],
+            parameter_constraints=["x4 <= x6"],
         )
         assert ax._experiment is not None
         self.assertEqual(ax._experiment, ax.experiment)

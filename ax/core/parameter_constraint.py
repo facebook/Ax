@@ -5,7 +5,7 @@
 from typing import Dict, List, Union
 
 from ax.core.base import Base
-from ax.core.parameter import ChoiceParameter, Parameter, RangeParameter
+from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.types import ComparisonOp
 
 
@@ -226,6 +226,10 @@ def validate_constraint_parameters(parameters: List[Parameter]) -> None:
             raise ValueError(
                 "Parameter constraints only supported for numeric parameters."
             )
+
+        # Constraints on FixedParameters are non-sensical.
+        if isinstance(parameter, FixedParameter):
+            raise ValueError("Parameter constraints not supported for FixedParameter.")
 
         # ChoiceParameters are transformed either using OneHotEncoding
         # or the OrderedChoice transform. Both are non-linear, and
