@@ -143,5 +143,6 @@ class Trial(BaseTrial):
             "Trial("
             f"experiment_name='{self._experiment._name}', "
             f"index={self._index}, "
-            f"status={self._status})"
+            f"status={self._status}, "
+            f"arm={self.arm})"
         )

@@ -118,5 +118,9 @@ class TrialTest(TestCase):
         self.assertIsNone(self.trial.objective_mean)
 
     def testRepr(self):
-        repr_ = "Trial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)"
+        repr_ = (
+            "Trial(experiment_name='test', index=0, "
+            "status=TrialStatus.CANDIDATE, arm=Arm(name='0_0', "
+            "parameters={'w': 0.85, 'x': 1, 'y': 'baz', 'z': False}))"
+        )
         self.assertEqual(str(self.trial), repr_)
