@@ -146,7 +146,7 @@ class Data(Base):
         ]
         if sample_sizes:
             for record in records:
-                record["n"] = sample_sizes[record["arm_name"]]
+                record["n"] = sample_sizes[str(record["arm_name"])]
         return Data(df=pd.DataFrame(records))
 
     @property
