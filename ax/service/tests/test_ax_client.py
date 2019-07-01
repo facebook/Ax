@@ -20,8 +20,9 @@ from ax.core.parameter import (
 )
 from ax.core.types import ComparisonOp
 from ax.metrics.branin import branin
-from ax.modelbridge.factory import Models, get_sobol
+from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.registry import Models
 from ax.service.ax_client import AxClient
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase

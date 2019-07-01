@@ -2,15 +2,19 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from inspect import signature
-from typing import Any, Callable, Dict, List, NamedTuple, Optional
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Union
 
 import pandas as pd
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.factory import Models
+from ax.modelbridge.registry import Models
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
+
+
+logger = get_logger(__name__)
 
 
 TModelFactory = Callable[..., ModelBridge]
@@ -29,12 +33,12 @@ class GenerationStep(NamedTuple):
     minimum number of observations is required to proceed to the next model, etc.
     """
 
-    model: Models
+    model: Union[Models, Callable[..., ModelBridge]]
     num_arms: int
     min_arms_observed: int = 0
     recommended_max_parallelism: Optional[int] = None
     enforce_num_arms: bool = True
-    # Kwargs to pass into the Models factory function.
+    # Kwargs to pass into the Models constructor (or factory function).
     model_kwargs: Dict[str, Any] = None
     # Kwargs to pass into the Model's `.gen` function.
     model_gen_kwargs: Dict[str, Any] = None
@@ -87,8 +91,14 @@ class GenerationStrategy:
         if self._name:
             return self._name
 
-        # pyre-ignore[16]: "`Models` have to attribute `__name__`", but they do.
-        factory_names = (checked_cast(str, step.model.__name__) for step in self._steps)
+        # Model can be defined as member of Models enum or as a factory function,
+        # so we use Models member (str) value if former and function name if latter.
+        factory_names = (
+            checked_cast(str, step.model.value)
+            if isinstance(step.model, Models)
+            else step.model.__name__  # pyre-ignore[16]
+            for step in self._steps
+        )
         # Trim the "get_" beginning of the factory function if it's there.
         factory_names = (n[4:] if n[:4] == "get_" else n for n in factory_names)
 
@@ -179,7 +189,42 @@ class GenerationStrategy:
     ) -> None:
         """Instantiate the current model with all available data.
         """
-        self._model = self._curr.model(  # pyre-ignore[29] T41922457
+        if isinstance(self._curr.model, Models):
+            self._set_current_model_from_models_enum(
+                experiment=experiment, data=data, **kwargs
+            )
+        else:
+            # If model was not specified as Models member, it was specified as a
+            # factory function.
+            self._set_current_model_from_factory_function(
+                experiment=experiment, data=data, **kwargs
+            )
+
+    def _set_current_model_from_models_enum(
+        self, experiment: Experiment, data: Data, **kwargs: Any
+    ) -> None:
+        """Instantiate the current model, provided through a Models enum member
+        function, with all available data."""
+        self._model = self._curr.model(
+            experiment=experiment,
+            data=data,
+            search_space=experiment.search_space,
+            **(self._curr.model_kwargs or {}),
+            **kwargs,
+        )
+
+    def _set_current_model_from_factory_function(
+        self, experiment: Experiment, data: Data, **kwargs: Any
+    ) -> None:
+        """Instantiate the current model, provided through a callable factory
+        function, with all available data."""
+        logger.info(
+            f"Using a custom model provided through a callable function "
+            "`{self._curr.model.__name__}`"
+            ". Note that Ax cannot save models provided through functions, "
+            "so this optimization will not be resumable if interrupted."
+        )
+        self._model = self._curr.model(
             **_filter_kwargs(
                 self._curr.model,
                 experiment=experiment,

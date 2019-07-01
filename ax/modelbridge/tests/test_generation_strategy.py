@@ -7,12 +7,14 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.discrete import DiscreteModelBridge
-from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.random import RandomModelBridge
+from ax.modelbridge.registry import Cont_X_trans, Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
+from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.fake import get_branin_experiment, get_choice_parameter, get_data
 
@@ -88,7 +90,7 @@ class TestGenerationStrategy(TestCase):
         self.assertIs(gs._model, sobol)
 
     @mock.patch(
-        f"{TorchModelBridge.__module__}.TorchModelBridge.__init__",
+        f"{TorchModelBridge.__module__}.TorchModelBridge",
         autospec=True,
         return_value=None,
     )
@@ -127,13 +129,36 @@ class TestGenerationStrategy(TestCase):
                 )
                 exp.new_trial(generator_run=g).run()
                 if i > 4:
-                    mock_GPEI_init.assert_called()
+                    self.assertIsInstance(
+                        sobol_GPEI_generation_strategy.model, TorchModelBridge
+                    )
+                else:
+                    self.assertEqual(g._model_key, "Sobol")
+                    self.assertEqual(
+                        g._model_kwargs,
+                        {
+                            "seed": None,
+                            "deduplicate": False,
+                            "init_position": 0,
+                            "scramble": True,
+                        },
+                    )
+                    self.assertEqual(
+                        g._bridge_kwargs,
+                        {
+                            "optimization_config": None,
+                            "status_quo_features": None,
+                            "status_quo_name": None,
+                            "transform_configs": None,
+                            "transforms": Cont_X_trans,
+                        },
+                    )
         # Check for "seen data" error message.
         with self.assertRaisesRegex(ValueError, "Data for arm"):
             sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())
 
     @mock.patch(
-        f"{TorchModelBridge.__module__}.TorchModelBridge.__init__",
+        f"{TorchModelBridge.__module__}.TorchModelBridge",
         autospec=True,
         return_value=None,
     )
@@ -157,7 +182,7 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(model=Models.GPEI, num_arms=-1),
             ]
         )
-        self.assertEqual(sobol_GPEI_generation_strategy.name, "sobol+GPEI")
+        self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
         self.assertEqual(sobol_GPEI_generation_strategy.generator_changes, [5])
         exp.new_trial(generator_run=sobol_GPEI_generation_strategy.gen(exp)).run()
         for i in range(1, 15):
@@ -171,7 +196,9 @@ class TestGenerationStrategy(TestCase):
             )
             exp.new_trial(generator_run=g).run()
             if i > 4:
-                mock_GPEI_init.assert_called()
+                self.assertIsInstance(
+                    sobol_GPEI_generation_strategy.model, TorchModelBridge
+                )
 
     @mock.patch(
         f"{DiscreteModelBridge.__module__}.DiscreteModelBridge.__init__",
@@ -197,7 +224,7 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         self.assertEqual(
-            factorial_thompson_generation_strategy.name, "factorial+thompson"
+            factorial_thompson_generation_strategy.name, "Factorial+Thompson"
         )
         self.assertEqual(factorial_thompson_generation_strategy.generator_changes, [1])
         for i in range(2):
@@ -241,7 +268,7 @@ class TestGenerationStrategy(TestCase):
         self.assertFalse(gs._model.model.scramble)
 
     @mock.patch(
-        f"{TorchModelBridge.__module__}.TorchModelBridge.__init__",
+        f"{TorchModelBridge.__module__}.TorchModelBridge",
         autospec=True,
         return_value=None,
     )
@@ -296,7 +323,27 @@ class TestGenerationStrategy(TestCase):
                     exp, exp._fetch_trial_data(trial_index=i - 1), n=2
                 )
             exp.new_batch_trial(generator_run=g).run()
-            if i > 4:
-                mock_GPEI_init.assert_called()
         with self.assertRaises(ValueError):
             sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())
+        self.assertIsInstance(sobol_GPEI_generation_strategy.model, TorchModelBridge)
+
+    def test_with_factory_function(self):
+        """Checks that generation strategy works with custom factory functions.
+        No information about the model should be saved on generator run."""
+
+        def get_sobol(search_space: SearchSpace) -> RandomModelBridge:
+            return RandomModelBridge(
+                search_space=search_space,
+                model=SobolGenerator(),
+                transforms=Cont_X_trans,
+            )
+
+        exp = get_branin_experiment()
+        sobol_generation_strategy = GenerationStrategy(
+            steps=[GenerationStep(model=get_sobol, num_arms=5)]
+        )
+        g = sobol_generation_strategy.gen(exp)
+        self.assertIsInstance(sobol_generation_strategy.model, RandomModelBridge)
+        self.assertIsNone(g._model_key)
+        self.assertIsNone(g._model_kwargs)
+        self.assertIsNone(g._bridge_kwargs)

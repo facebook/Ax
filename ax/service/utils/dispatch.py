@@ -6,8 +6,8 @@ from math import ceil
 
 from ax.core.parameter import ChoiceParameter, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.registry import Models
 from ax.utils.common.logger import get_logger
 
 

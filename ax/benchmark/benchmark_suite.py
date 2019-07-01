@@ -15,8 +15,8 @@ from ax.benchmark.benchmark_runner import (
     BenchmarkSetup,
     BOBenchmarkRunner,
 )
-from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.registry import Models
 from ax.plot.base import AxPlotConfig
 from ax.plot.render import plot_config_to_html
 from ax.plot.trace import (
