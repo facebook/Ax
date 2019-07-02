@@ -42,8 +42,9 @@ def updateVersionHTML(base_path, base_url=BASE_URL):
 
         # version link
         t = soup.find("h2", {"class": "headerTitleWithLogo"}).find_next("a")
-        t.string = v
         t.attrs["href"] = prepend_url(t, base_url, v)
+        h3 = t.find("h3")
+        h3.string = v
 
         # output files
         with open(
