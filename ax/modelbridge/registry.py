@@ -183,7 +183,6 @@ class Models(str, Enum):  # String enum.
         silently_filter_kwargs: bool = True,  # TODO[Lena]: default to False
         **kwargs: Any,
     ) -> ModelBridge:
-        print(self.value)
         assert self.value in MODEL_KEY_TO_MODEL_SETUP
         # All model bridges require either a search space or an experiment.
         assert search_space or experiment, "Search space or experiment required."
@@ -191,7 +190,6 @@ class Models(str, Enum):  # String enum.
         model_class = model_setup_info.model_class
         bridge_class = model_setup_info.bridge_class
         if not silently_filter_kwargs:
-            #
             validate_kwarg_typing(  # TODO[Lena]: T46467254, pragma: no cover
                 typed_callables=[model_class, bridge_class],
                 search_space=search_space,

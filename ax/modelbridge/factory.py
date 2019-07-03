@@ -142,6 +142,7 @@ def get_botorch(
             acqf_optimizer=acqf_optimizer,
             refit_on_cv=refit_on_cv,
             refit_on_update=refit_on_update,
+            optimization_config=optimization_config,
         ),
     )
 
