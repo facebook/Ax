@@ -11,7 +11,13 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.registry import Cont_X_trans, Models, MTGP_trans, Y_trans
+from ax.modelbridge.registry import (
+    Cont_X_trans,
+    Models,
+    MT_MTGP_trans,
+    ST_MTGP_trans,
+    Y_trans,
+)
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.convert_metric_names import tconfig_from_mt_experiment
@@ -173,27 +179,50 @@ def get_GPEI(
     )
 
 
-# TODO[Lena]: how to instantiate MTGP through the enum? It requires a
-# MultiTypeExperiment, so we would need validation for that, but more importantly,
+# TODO[Lena]: how to instantiate MTGP through the enum? The Multi-type MTGP requires
+# a MultiTypeExperiment, so we would need validation for that, but more importantly,
 # we need to create `trial_index_to_type` as in the factory function below.
 # Maybe `MultiTypeExperiment` could have that mapping as a property?
 def get_MTGP(
-    experiment: MultiTypeExperiment,
+    experiment: Experiment,
     data: Data,
+    is_multi_type: bool = True,
     search_space: Optional[SearchSpace] = None,
 ) -> TorchModelBridge:
-    """Instantiates a Multi-task GP model that generates points with EI."""
-    trial_index_to_type = {t.index: t.trial_type for t in experiment.trials.values()}
+    """Instantiates a Multi-task GP model that generates points with EI.
+
+    Args:
+        is_multi_type: If is_multi_type is True then experiment should be a
+            MultiTypeExperiment and a Multi-type Multi-task GP model will be
+            instantiated.
+            Otherwise, the model will be a Single-type Multi-task GP.
+    """
+
+    if is_multi_type and isinstance(experiment, MultiTypeExperiment):
+        trial_index_to_type = {
+            t.index: t.trial_type for t in experiment.trials.values()
+        }
+        transforms = MT_MTGP_trans
+        transform_configs = {
+            "TrialAsTask": {"trial_level_map": {"trial_type": trial_index_to_type}},
+            "ConvertMetricNames": tconfig_from_mt_experiment(experiment),
+        }
+    elif is_multi_type:
+        raise ValueError(
+            "If is_multi_type is True, the input experiment type should be "
+            "MultiTypeExperiment."
+        )
+    else:
+        transforms = ST_MTGP_trans
+        transform_configs = None
+
     return TorchModelBridge(
         experiment=experiment,
         search_space=search_space or experiment.search_space,
         data=data,
         model=BotorchModel(),
-        transforms=MTGP_trans,
-        transform_configs={
-            "TrialAsTask": {"trial_level_map": {"trial_type": trial_index_to_type}},
-            "ConvertMetricNames": tconfig_from_mt_experiment(experiment),
-        },
+        transforms=transforms,
+        transform_configs=transform_configs,
         torch_dtype=torch.double,
         torch_device=DEFAULT_TORCH_DEVICE,
     )

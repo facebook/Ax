@@ -70,7 +70,9 @@ Y_trans: List[Type[Transform]] = [IVW, Derelativize, StandardizeY]
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
 TS_trans: List[Type[Transform]] = Discrete_X_trans + Y_trans + [SearchSpaceToChoice]
-MTGP_trans: List[Type[Transform]] = [
+
+# Multi-type MTGP transforms
+MT_MTGP_trans: List[Type[Transform]] = [
     RemoveFixed,
     OrderedChoiceEncode,
     OneHot,
@@ -79,6 +81,20 @@ MTGP_trans: List[Type[Transform]] = [
     UnitX,
     Derelativize,
     ConvertMetricNames,
+    TrialAsTask,
+    StratifiedStandardizeY,
+    TaskEncode,
+]
+
+# Single-type MTGP transforms
+ST_MTGP_trans: List[Type[Transform]] = [
+    RemoveFixed,
+    OrderedChoiceEncode,
+    OneHot,
+    IntToFloat,
+    Log,
+    UnitX,
+    Derelativize,
     TrialAsTask,
     StratifiedStandardizeY,
     TaskEncode,
