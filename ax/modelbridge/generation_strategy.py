@@ -10,6 +10,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models
+from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -25,6 +26,26 @@ def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
     """Filter out kwargs that are not applicable for a given function.
     Return a copy of given kwargs dict with only the required kwargs."""
     return {k: v for k, v in kwargs.items() if k in signature(function).parameters}
+
+
+def get_model_from_generator_run(
+    generator_run: GeneratorRun, experiment: Experiment, data: Data
+) -> ModelBridge:
+    """Reinstantiate a model from model key and kwargs stored on a given generator
+    run, with the given experiment and the data to initialize the model with.
+    """
+    if not generator_run._model_key:  # pragma: no cover
+        raise ValueError(
+            "Cannot restore model from generator run as no model key was "
+            "on the generator run stored."
+        )
+    model = Models(generator_run._model_key)
+    return model(
+        experiment=experiment,
+        data=data,
+        **(generator_run._model_kwargs or {}),
+        **(generator_run._bridge_kwargs or {}),
+    )
 
 
 class GenerationStep(NamedTuple):
@@ -62,11 +83,17 @@ class GenerationStrategy:
     _model: Optional[ModelBridge]  # Current model.
     _data: Data  # All data this strategy has been updated with.
     _curr: GenerationStep  # Current step in the strategy.
+    # Whether all models in this GS are in Models registry enum.
+    _uses_registered_models: bool
+    # Latest generator run produced by this GS (used to restore current model
+    # when decoding a serialized GS).
+    _last_generator_run: Optional[GeneratorRun]
 
     def __init__(self, steps: List[GenerationStep], name: Optional[str] = None) -> None:
         self._name = name
         self._steps = steps
         assert isinstance(self._steps, list), "Steps must be a GenerationStep list."
+        self._uses_registered_models = True
         for idx, step in enumerate(self._steps):
             if step.num_arms == -1:
                 if idx < len(self._steps) - 1:
@@ -78,11 +105,14 @@ class GenerationStrategy:
             elif step.num_arms < 1:
                 raise ValueError("`num_arms` must be positive or -1 for all models.")
             self._steps[idx] = step._replace(index=idx)
+            if not isinstance(step.model, Models):
+                self._uses_registered_models = False
         self._generated = []
         self._observed = []
         self._model = None
         self._data = Data()
         self._curr = steps[0]
+        self._last_generator_run = None
 
     @property
     def name(self) -> str:
@@ -115,6 +145,12 @@ class GenerationStrategy:
     def model(self) -> Optional[ModelBridge]:
         """Current model in this strategy."""
         return self._model  # pragma: no cover
+
+    @property
+    def uses_non_registered_models(self) -> bool:
+        """Whether this generation strategy involves models that are not
+        registered and therefore cannot be stored."""
+        return not self._uses_registered_models
 
     def gen(
         self,
@@ -178,11 +214,38 @@ class GenerationStrategy:
         self._data = all_data
         self._observed.extend(new_arms)
         self._generated.extend(a.signature for a in gen_run.arms)
+        self._last_generator_run = gen_run
         return gen_run
 
     def clone_reset(self) -> "GenerationStrategy":
         """Copy this generation strategy without it's state."""
         return GenerationStrategy(name=self.name, steps=self._steps)
+
+    @equality_typechecker
+    def __eq__(self, other: "GenerationStrategy") -> bool:
+        """Need to override the default __eq__ method, because the default
+        checks equality of memory addresses of the objects.
+        """
+        data_equals = (
+            self._data.df.empty and other._data.df.empty
+        ) or self._data.df.sort_index(axis=1).equals(other._data.df.sort_index(axis=1))
+        return (
+            self._generated == other._generated
+            and self._observed == other._observed
+            and data_equals
+            and self._curr == other._curr
+        )
+
+    def __repr__(self) -> str:
+        """String representation of this generation strategy."""
+        repr = f"GenerationStrategy(name='{self.name}', steps=["
+        for step in self._steps:
+            num_arms = f"{step.num_arms}" if step.num_arms != -1 else "subsequent"
+            if isinstance(step.model, Models):
+                repr += f"{step.model.value} for {num_arms} arms, "
+        repr = repr[:-2]
+        repr += f"], generated {len(self._generated)} arm(s))"
+        return repr
 
     def _set_current_model(
         self, experiment: Experiment, data: Data, **kwargs: Any
@@ -233,6 +296,14 @@ class GenerationStrategy:
                 **(self._curr.model_kwargs or {}),
                 **kwargs,
             )
+        )
+
+    def _restore_model_from_generator_run(self, experiment: Experiment) -> None:
+        generator_run = self._last_generator_run
+        if generator_run is None:
+            raise ValueError("No generator run was stored on generation strategy.")
+        self._model = get_model_from_generator_run(
+            generator_run=generator_run, experiment=experiment, data=self._data
         )
 
     def _change_model(self, experiment: Experiment, data: Data, **kwargs: Any) -> None:

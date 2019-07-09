@@ -24,6 +24,7 @@ from ax.core.simple_experiment import (
     unimplemented_evaluation_function,
 )
 from ax.exceptions.storage import JSONDecodeError
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
 from ax.storage.json_store.registry import DECODER_REGISTRY
@@ -254,3 +255,23 @@ def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
     if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:  # pragma: no cover
         raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
     return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
+
+
+def generation_strategy_from_json(
+    experiment: Experiment, generation_strategy_json: Dict[str, Any]
+) -> GenerationStrategy:
+    """Load generation strategy from JSON."""
+    gs = GenerationStrategy(
+        steps=object_from_json(generation_strategy_json.pop("steps")),
+        name=generation_strategy_json.pop("name"),
+    )
+    gs._generated = generation_strategy_json.pop("generated")
+    gs._observed = generation_strategy_json.pop("observed")
+    gs._data = object_from_json(generation_strategy_json.pop("data"))
+    gs._curr = object_from_json(generation_strategy_json.pop("curr"))
+    gs._last_generator_run = object_from_json(
+        generation_strategy_json.pop("last_generator_run")
+    )
+    if generation_strategy_json.pop("had_initialized_model"):  # pragma: no cover
+        gs._restore_model_from_generator_run(experiment=experiment)
+    return gs

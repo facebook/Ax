@@ -44,9 +44,11 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.runners.synthetic import SyntheticRunner
+from ax.service.utils.dispatch import choose_generation_strategy
 
 
 # Experiments
@@ -572,6 +574,17 @@ def get_data() -> Data:
     return Data(df=pd.DataFrame.from_records(df_dict))
 
 
+def get_branin_data() -> Data:
+    df_dict = {
+        "trial_index": 0,
+        "metric_name": "branin",
+        "arm_name": ["0_0"],
+        "mean": [5.0],
+        "sem": [0.0],
+    }
+    return Data(df=pd.DataFrame.from_records(df_dict))
+
+
 # Observations
 
 
@@ -590,6 +603,10 @@ def get_observation() -> Observation:
 
 
 # Modeling layer
+
+
+def get_generation_strategy() -> GenerationStrategy:
+    return choose_generation_strategy(search_space=get_search_space())
 
 
 def get_transform_type() -> Type[Transform]:

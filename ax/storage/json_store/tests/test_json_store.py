@@ -7,7 +7,12 @@ import tempfile
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
-from ax.storage.json_store.decoder import object_from_json
+from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.registry import Models
+from ax.storage.json_store.decoder import (
+    generation_strategy_from_json,
+    object_from_json,
+)
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
@@ -18,12 +23,15 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.fake import (
     get_arm,
     get_batch_trial,
+    get_branin_data,
+    get_branin_experiment,
     get_branin_metric,
     get_choice_parameter,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_data,
     get_factorial_metric,
     get_fixed_parameter,
+    get_generation_strategy,
     get_generator_run,
     get_hartmann_metric,
     get_metric,
@@ -53,6 +61,7 @@ TEST_CASES = [
     ("FactorialMetric", get_factorial_metric),
     ("FixedParameter", get_fixed_parameter),
     ("Hartmann6Metric", get_hartmann_metric),
+    ("GenerationStrategy", get_generation_strategy),
     ("GeneratorRun", get_generator_run),
     ("Metric", get_metric),
     ("Objective", get_objective),
@@ -80,6 +89,10 @@ TEST_CASES = [
 ENCODE_DECODE_FIELD_MAPS = {
     "Experiment": EncodeDecodeFieldsMap(python_only=["arms_by_signature"]),
     "BatchTrial": EncodeDecodeFieldsMap(python_only=["experiment"]),
+    "GenerationStrategy": EncodeDecodeFieldsMap(
+        python_only=["model", "uses_registered_models"],
+        encoded_only=["had_initialized_model"],
+    ),
     "GeneratorRun": EncodeDecodeFieldsMap(
         encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
     ),
@@ -143,11 +156,21 @@ class JSONStoreTest(TestCase):
             # in order to be initialized
             if class_ == "BatchTrial" or class_ == "Trial":
                 continue
+
             # Can't load parameter constraints from JSON, because they require
             # a SearchSpace in order to be initialized
             if class_ == "OrderConstraint" or class_ == "SumConstraint":
                 continue
             original_object = fake_func()
+
+            # Can't load generation strategy from JSON, because it requires an
+            # experiment to reload.
+            if class_ == "GenerationStrategy":
+                with self.assertRaisesRegex(ValueError, ".* custom .* cannot "):
+                    original_object._uses_registered_models = False
+                    object_to_json(original_object)
+                continue
+
             json_object = object_to_json(original_object)
             converted_object = object_from_json(json_object)
 
@@ -178,6 +201,7 @@ class JSONStoreTest(TestCase):
                 continue
 
             json_object = object_to_json(original_object)
+
             object_keys = {
                 remove_prefix(key, "_") for key in original_object.__dict__.keys()
             }
@@ -200,6 +224,44 @@ class JSONStoreTest(TestCase):
                 json_keys,
                 msg=f"Mismatch between Python and JSON representation in {class_}.",
             )
+
+    def testDecodeGenerationStrategy(self):
+        generation_strategy = get_generation_strategy()
+        experiment = get_branin_experiment()
+        gs_json = object_to_json(generation_strategy)
+        new_generation_strategy = generation_strategy_from_json(experiment, gs_json)
+        self.assertEqual(generation_strategy, new_generation_strategy)
+        self.assertGreater(len(new_generation_strategy._steps), 0)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        # Model has not yet been initialized on this GS since it hasn't generated
+        # anything yet.
+        self.assertIsNone(new_generation_strategy.model)
+
+        # Check that we can encode and decode the generation strategy after
+        # it has generated some trials.
+        generation_strategy = new_generation_strategy
+        experiment.new_trial(generator_run=generation_strategy.gen(experiment))
+        gs_json = object_to_json(generation_strategy)
+        new_generation_strategy = generation_strategy_from_json(experiment, gs_json)
+        self.assertEqual(generation_strategy, new_generation_strategy)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        # Since this GS has now generated one generator run, model should have
+        # been initialized and restored when decoding from JSON.
+        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
+
+        # Check that we can encode and decode the generation strategy after
+        # it has generated some trials and been updated with some data.
+        generation_strategy = new_generation_strategy
+        experiment.new_trial(
+            generation_strategy.gen(experiment, new_data=get_branin_data())
+        )
+        self.assertGreater(len(generation_strategy._generated), 0)
+        self.assertGreater(len(generation_strategy._observed), 0)
+        gs_json = object_to_json(generation_strategy)
+        new_generation_strategy = generation_strategy_from_json(experiment, gs_json)
+        self.assertEqual(generation_strategy, new_generation_strategy)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
 
     def testRegistryAdditions(self):
         class MyRunner(Runner):

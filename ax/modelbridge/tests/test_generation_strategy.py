@@ -51,16 +51,70 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaises(ValueError):
             factorial_thompson_generation_strategy.gen(exp)
 
+    def test_string_representation(self):
+        gs1 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_arms=5),
+                GenerationStep(model=Models.GPEI, num_arms=-1),
+            ]
+        )
+        self.assertEqual(
+            str(gs1),
+            (
+                "GenerationStrategy(name='Sobol+GPEI', steps=[Sobol for 5 arms,"
+                " GPEI for subsequent arms], generated 0 arm(s))"
+            ),
+        )
+
+    def test_equality(self):
+        gs1 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_arms=5),
+                GenerationStep(model=Models.GPEI, num_arms=-1),
+            ]
+        )
+        gs2 = gs1.clone_reset()
+        self.assertEqual(gs1, gs2)
+        gs1._data = get_data()
+        self.assertNotEqual(gs1, gs2)
+        gs2._data = get_data()
+        self.assertEqual(gs1, gs2)
+        gs1 = gs1.clone_reset()
+        gs2 = gs2.clone_reset()
+        gs1.gen(experiment=get_branin_experiment())
+        self.assertNotEqual(gs1, gs2)
+        gs2.gen(experiment=get_branin_experiment())
+        # Each generation strategy generated a different arm, so they are not
+        # equal even though they have the same setup and generated the same
+        # number of arms.
+        self.assertNotEqual(gs1, gs2)
+
+    def test_restore_from_generator_run(self):
+        gs = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_arms=5),
+                GenerationStep(model=Models.GPEI, num_arms=-1),
+            ]
+        )
+        with self.assertRaises(ValueError):
+            gs._restore_model_from_generator_run(experiment=get_branin_experiment())
+        gs.gen(experiment=get_branin_experiment())
+        model = gs.model
+        gs._restore_model_from_generator_run(experiment=get_branin_experiment())
+        # Model should be reset.
+        self.assertIsNot(model, gs.model)
+
     def test_min_observed(self):
         # We should fail to transition the next model if there is not
         # enough data observed.
-        exp = get_branin_experiment()
+        exp = get_branin_experiment(get_branin_experiment())
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(model=Models.SOBOL, num_arms=5, min_arms_observed=5),
                 GenerationStep(model=Models.GPEI, num_arms=1),
             ]
         )
+        self.assertFalse(gs.uses_non_registered_models)
         for _ in range(5):
             gs.gen(exp)
         with self.assertRaises(ValueError):

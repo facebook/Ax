@@ -21,6 +21,7 @@ from ax.core.parameter_constraint import (
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
@@ -268,4 +269,25 @@ def transform_type_to_dict(transform_type: Type[Transform]) -> Dict[str, Any]:
         "__type": "Type[Transform]",
         "index_in_registry": TRANSFORM_REGISTRY[transform_type],
         "transform_type": f"{transform_type}",
+    }
+
+
+def generation_strategy_to_dict(
+    generation_strategy: GenerationStrategy
+) -> Dict[str, Any]:
+    if generation_strategy.uses_non_registered_models:
+        raise ValueError(
+            "Generation strategies that use custom models provided through "
+            "callables cannot be serialized and stored."
+        )
+    return {
+        "__type": generation_strategy.__class__.__name__,
+        "name": generation_strategy.name,
+        "steps": generation_strategy._steps,
+        "generated": generation_strategy._generated,
+        "observed": generation_strategy._observed,
+        "data": generation_strategy._data,
+        "curr": generation_strategy._curr,
+        "last_generator_run": generation_strategy._last_generator_run,
+        "had_initialized_model": generation_strategy.model is not None,
     }

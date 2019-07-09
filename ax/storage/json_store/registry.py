@@ -33,6 +33,8 @@ from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
+from ax.modelbridge.factory import Models
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.json_store.encoders import (
@@ -42,6 +44,7 @@ from ax.storage.json_store.encoders import (
     data_to_dict,
     experiment_to_dict,
     fixed_parameter_to_dict,
+    generation_strategy_to_dict,
     generator_run_to_dict,
     metric_to_dict,
     objective_to_dict,
@@ -69,6 +72,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
     FixedParameter: fixed_parameter_to_dict,
+    GenerationStrategy: generation_strategy_to_dict,
     GeneratorRun: generator_run_to_dict,
     Hartmann6Metric: metric_to_dict,
     L2NormMetric: metric_to_dict,
@@ -101,11 +105,14 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "Experiment": Experiment,
     "FactorialMetric": FactorialMetric,
     "FixedParameter": FixedParameter,
+    "GenerationStrategy": GenerationStrategy,
+    "GenerationStep": GenerationStep,
     "GeneratorRun": GeneratorRun,
     "GeneratorRunStruct": GeneratorRunStruct,
     "Hartmann6Metric": Hartmann6Metric,
     "L2NormMetric": L2NormMetric,
     "Metric": Metric,
+    "Models": Models,
     "NegativeBraninMetric": NegativeBraninMetric,
     "NoisyFunctionMetric": NoisyFunctionMetric,
     "Objective": Objective,
