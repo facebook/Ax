@@ -159,17 +159,22 @@ class SQAGeneratorRun(Base):
     gen_time: Optional[float] = Column(Float)
 
     # relationships
+    # Use selectin loading for collections to prevent idle timeout errors
+    # (https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#selectin-eager-loading)
     arms: List[SQAArm] = relationship(
-        "SQAArm", cascade="all, delete-orphan", lazy=False, order_by=lambda: SQAArm.id
+        "SQAArm",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by=lambda: SQAArm.id,
     )
     metrics: List[SQAMetric] = relationship(
-        "SQAMetric", cascade="all, delete-orphan", lazy=False
+        "SQAMetric", cascade="all, delete-orphan", lazy="selectin"
     )
     parameters: List[SQAParameter] = relationship(
-        "SQAParameter", cascade="all, delete-orphan", lazy=False
+        "SQAParameter", cascade="all, delete-orphan", lazy="selectin"
     )
     parameter_constraints: List[SQAParameterConstraint] = relationship(
-        "SQAParameterConstraint", cascade="all, delete-orphan", lazy=False
+        "SQAParameterConstraint", cascade="all, delete-orphan", lazy="selectin"
     )
 
     immutable_fields = ["time_created"]
@@ -224,11 +229,13 @@ class SQATrial(Base):
     # Trials and experiments are mutable, so the children relationships need
     # cascade="all, delete-orphan", which means if we remove or replace
     # a child, the old one will be deleted.
+    # Use selectin loading for collections to prevent idle timeout errors
+    # (https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#selectin-eager-loading)
     abandoned_arms: List[SQAAbandonedArm] = relationship(
-        "SQAAbandonedArm", cascade="all, delete-orphan", lazy=False
+        "SQAAbandonedArm", cascade="all, delete-orphan", lazy="selectin"
     )
     generator_runs: List[SQAGeneratorRun] = relationship(
-        "SQAGeneratorRun", cascade="all, delete-orphan", lazy=False
+        "SQAGeneratorRun", cascade="all, delete-orphan", lazy="selectin"
     )
     runner: SQARunner = relationship(
         "SQARunner", uselist=False, cascade="all, delete-orphan", lazy=False
@@ -255,23 +262,25 @@ class SQAExperiment(Base):
     # Trials and experiments are mutable, so the children relationships need
     # cascade="all, delete-orphan", which means if we remove or replace
     # a child, the old one will be deleted.
+    # Use selectin loading for collections to prevent idle timeout errors
+    # (https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#selectin-eager-loading)
     data: List[SQAData] = relationship(
-        "SQAData", cascade="all, delete-orphan", lazy=False
+        "SQAData", cascade="all, delete-orphan", lazy="selectin"
     )
     metrics: List[SQAMetric] = relationship(
-        "SQAMetric", cascade="all, delete-orphan", lazy=False
+        "SQAMetric", cascade="all, delete-orphan", lazy="selectin"
     )
     parameters: List[SQAParameter] = relationship(
-        "SQAParameter", cascade="all, delete-orphan", lazy=False
+        "SQAParameter", cascade="all, delete-orphan", lazy="selectin"
     )
     parameter_constraints: List[SQAParameterConstraint] = relationship(
-        "SQAParameterConstraint", cascade="all, delete-orphan", lazy=False
+        "SQAParameterConstraint", cascade="all, delete-orphan", lazy="selectin"
     )
     runner: SQARunner = relationship(
         "SQARunner", uselist=False, cascade="all, delete-orphan", lazy=False
     )
     trials: List[SQATrial] = relationship(
-        "SQATrial", cascade="all, delete-orphan", lazy=False
+        "SQATrial", cascade="all, delete-orphan", lazy="selectin"
     )
 
     immutable_fields = ["name", "time_created"]
