@@ -132,7 +132,7 @@ def get_NEI(
             that have been submitted for evaluation) present for all objective
             outcomes and outcomes that appear in the outcome constraints (if
             there are any).
-        mc_samples: The number of MC samples to use (default: 500).
+        mc_samples: The number of MC samples to use (default: 512).
         qmc: If True, use qMC instead of MC (default: True).
 
     Returns:
@@ -157,7 +157,7 @@ def get_NEI(
         objective=objective,
         X_observed=X_observed,
         X_pending=X_pending,
-        mc_samples=kwargs.get("mc_samples", 500),
+        mc_samples=kwargs.get("mc_samples", 512),
         qmc=kwargs.get("qmc", True),
         seed=torch.randint(1, 10000, (1,)).item(),
     )
