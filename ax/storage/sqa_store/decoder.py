@@ -482,6 +482,7 @@ class Decoder:
             object_sqa=runner_sqa,
             class_=runner_class,
         )
+        # pyre-fixme[45]: Cannot instantiate abstract class `Runner`.
         return runner_class(**args)
 
     def trial_from_sqa(self, trial_sqa: SQATrial, experiment: Experiment) -> BaseTrial:

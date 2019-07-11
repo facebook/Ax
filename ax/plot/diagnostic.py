@@ -285,12 +285,9 @@ def _get_batch_comparison_plot_data(
         for i, mname in enumerate(x_observation.data.metric_names):
             # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["y"][mname] = x_observation.data.means[i]
-            # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["se"][mname] = np.sqrt(x_observation.data.covariance[i][i])
         for i, mname in enumerate(y_observation.data.metric_names):
-            # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["y_hat"][mname] = y_observation.data.means[i]
-            # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["se_hat"][mname] = np.sqrt(y_observation.data.covariance[i][i])
         # Expected `str` for 2nd anonymous parameter to call `dict.__setitem__` but got
         # `Optional[str]`.
@@ -331,12 +328,9 @@ def _get_cv_plot_data(cv_results: List[CVResult]) -> PlotData:
         for i, mname in enumerate(cv_result.observed.data.metric_names):
             # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["y"][mname] = cv_result.observed.data.means[i]
-            # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["se"][mname] = np.sqrt(cv_result.observed.data.covariance[i][i])
         for i, mname in enumerate(cv_result.predicted.metric_names):
-            # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["y_hat"][mname] = cv_result.predicted.means[i]
-            # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["se_hat"][mname] = np.sqrt(cv_result.predicted.covariance[i][i])
 
         # Expected `str` for 2nd anonymous parameter to call `dict.__setitem__` but got
@@ -385,11 +379,8 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
                 metric_name = row["metric_name"]
                 # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
                 arm_data["y"][metric_name] = row["mean"]
-                # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
                 arm_data["se"][metric_name] = row["sem"]
-                # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
                 arm_data["y_hat"][metric_name] = predictions[0][metric_name][i]
-                # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
                 arm_data["se_hat"][metric_name] = predictions[1][metric_name][
                     metric_name
                 ][i]

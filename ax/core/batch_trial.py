@@ -336,10 +336,9 @@ class BatchTrial(BaseTrial):
         weights = np.array(self.weights)
         if trunc_digits is not None:
             atomic_weight = 10 ** -trunc_digits
+            # pyre-fixme[16]: `float` has no attribute `astype`.
             int_weights = (
-                # pyre-fixme[16]: `float` has no attribute `astype`.
-                (total / atomic_weight)
-                * (weights / np.sum(weights))
+                (total / atomic_weight) * (weights / np.sum(weights))
             ).astype(int)
             n_leftover = int(total / atomic_weight) - np.sum(int_weights)
             int_weights[:n_leftover] += 1

@@ -103,6 +103,7 @@ class RandomModel:
             rounding_func=rounding_func,
             existing_points=self.generated_points,
         )
+        # pyre-fixme[16]: `RandomModel` has no attribute `attempted_draws`.
         self.attempted_draws = attempted_draws
         if self.deduplicate:
             if self.generated_points is None:

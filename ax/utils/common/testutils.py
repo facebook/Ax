@@ -40,7 +40,8 @@ def _get_tb_lines(tb: types.TracebackType) -> List[Tuple[str, int, str]]:
     return res
 
 
-# pyre-fixme[11]: Type `_AssertRaisesContext` is not defined.
+# pyre-fixme[24]: Generic type `unittest.case._AssertRaisesContext` expects 1 type
+#  parameter.
 class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
     """
     Attributes:
@@ -78,7 +79,6 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
         """This is called when the context closes. If an exception was raised
         `exc_type`, `exc_value` and `tb` will be set.
         """
-        # pyre-fixme[16]: `object` has no attribute `__exit__`.
         if not super().__exit__(exc_type, exc_value, tb):
             return False  # reraise
         # super().__exit__ will throw if exc_type is None
