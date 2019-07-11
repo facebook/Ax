@@ -47,6 +47,11 @@ class ArrayModelBridge(ModelBridge):
     ) -> None:
         # Convert observations to arrays
         self.parameters = list(search_space.parameters.keys())
+        # move fidelity parameters to the last columns
+        for para in search_space.parameters:
+            if search_space.parameters[para].is_fidelity:
+                self.parameters.remove(para)
+                self.parameters.append(para)
         all_metric_names: Set[str] = set()
         for od in observation_data:
             all_metric_names.update(od.metric_names)
@@ -60,7 +65,9 @@ class ArrayModelBridge(ModelBridge):
         )
         self.training_in_design = in_design
         # Extract bounds and task features
-        bounds, task_features = get_bounds_and_task(search_space, self.parameters)
+        bounds, task_features, fidelity_features = get_bounds_and_task(
+            search_space, self.parameters
+        )
 
         # Fit
         self._model_fit(
@@ -71,6 +78,7 @@ class ArrayModelBridge(ModelBridge):
             bounds=bounds,
             task_features=task_features,
             feature_names=self.parameters,
+            fidelity_features=fidelity_features,
         )
 
     def _model_fit(
@@ -82,6 +90,7 @@ class ArrayModelBridge(ModelBridge):
         bounds: List[Tuple[float, float]],
         task_features: List[int],
         feature_names: List[str],
+        fidelity_features: List[int],
     ) -> None:
         """Fit the model, given numpy types.
         """
@@ -93,6 +102,7 @@ class ArrayModelBridge(ModelBridge):
             bounds=bounds,
             task_features=task_features,
             feature_names=feature_names,
+            fidelity_features=fidelity_features,
         )
 
     def _update(
@@ -150,7 +160,7 @@ class ArrayModelBridge(ModelBridge):
         if not self.parameters:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
         # Extract bounds
-        bounds, _ = get_bounds_and_task(search_space, self.parameters)
+        bounds, _, _ = get_bounds_and_task(search_space, self.parameters)
         if optimization_config is None:
             raise ValueError(
                 "ArrayModelBridge requires an OptimizationConfig to be specified"

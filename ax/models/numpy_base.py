@@ -22,6 +22,7 @@ class NumpyModel:
         bounds: List[Tuple[float, float]],
         task_features: List[int],
         feature_names: List[str],
+        fidelity_features: List[int],
     ) -> None:
         """Fit model to m outcomes.
 
@@ -35,6 +36,8 @@ class NumpyModel:
             task_features: Columns of X that take integer values and should be
                 treated as task parameters.
             feature_names: Names of each column of X.
+            fidelity_features: Columns of X that should be treated as fidelity
+                parameters.
         """
         pass
 

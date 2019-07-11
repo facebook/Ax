@@ -31,12 +31,13 @@ def extract_parameter_constraints(
 
 def get_bounds_and_task(
     search_space: SearchSpace, param_names: List[str]
-) -> Tuple[List[Tuple[float, float]], List[int]]:
+) -> Tuple[List[Tuple[float, float]], List[int], List[int]]:
     """Extract box bounds from a search space in the usual Scipy format.
     Identify integer parameters as task features.
     """
     bounds: List[Tuple[float, float]] = []
     task_features: List[int] = []
+    fidelity_features: List[int] = []
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
         # Validation
@@ -48,7 +49,10 @@ def get_bounds_and_task(
         bounds.append((p.lower, p.upper))
         if p.parameter_type == ParameterType.INT:
             task_features.append(i)
-    return bounds, task_features
+        if p.is_fidelity:
+            fidelity_features.append(i)
+
+    return bounds, task_features, fidelity_features
 
 
 def get_fixed_features(

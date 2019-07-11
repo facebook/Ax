@@ -26,11 +26,23 @@ class BotorchDefaultsTest(TestCase):
         x = [torch.zeros(2, 2)]
         y = [torch.zeros(2, 1)]
         yvars = [torch.ones(2, 1)]
-        get_and_fit_model(Xs=x, Ys=y, Yvars=yvars, task_features=[1], state_dict=[])
+        get_and_fit_model(
+            Xs=x,
+            Ys=y,
+            Yvars=yvars,
+            task_features=[1],
+            fidelity_features=[],
+            state_dict=[],
+        )
         # Check that task feature was correctly passed to _get_model
         self.assertEqual(get_model_mock.mock_calls[0][2]["task_feature"], 1)
 
         with self.assertRaises(ValueError):
             get_and_fit_model(
-                Xs=x, Ys=y, Yvars=yvars, task_features=[0, 1], state_dict=[]
+                Xs=x,
+                Ys=y,
+                Yvars=yvars,
+                task_features=[0, 1],
+                fidelity_features=[],
+                state_dict=[],
             )

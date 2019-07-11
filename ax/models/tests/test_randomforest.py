@@ -20,6 +20,7 @@ class RandomForestTest(TestCase):
             bounds=[(0, 1)] * 2,
             task_features=[],
             feature_names=["x1", "x2"],
+            fidelity_features=[],
         )
         self.assertEqual(len(m.models), 2)
         self.assertEqual(len(m.models[0].estimators_), 5)

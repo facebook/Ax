@@ -91,14 +91,21 @@ class BotorchModel(TorchModel):
     ::
 
         model_constructor(
-            Xs, Ys, Yvars, task_features, state_dict, **kwargs
+            Xs,
+            Ys,
+            Yvars,
+            task_features,
+            state_dict,
+            fidelity_features,
+            **kwargs
         ) -> model
 
     Here `Xs`, `Ys`, `Yvars` are lists of tensors (one element per outcome),
     `task_features` identifies columns of Xs that should be modeled
-    as a task, `state_dict` is a pytorch module state dict, and `model` is a
-    botorch `Model`. Optional kwargs are being passed through from the
-    `BotorchModel` constructor. This callable is assumed to return a fitted
+    as a task, `state_dict` is a pytorch module state dict, 'fidelity_features' is
+    a list of ints that specify the positions of fidelity parameters in 'Xs',
+    and `model` is a botorch `Model`. Optional kwargs are being passed through
+    from the `BotorchModel` constructor. This callable is assumed to return a fitted
     botorch model that has the same dtype and lives on the same device as the
     input tensors.
 
@@ -194,6 +201,7 @@ class BotorchModel(TorchModel):
         self.dtype = None
         self.device = None
         self.task_features: List[int] = []
+        self.fidelity_features: List[int] = []
 
     @copy_doc(TorchModel.fit)
     def fit(
@@ -204,6 +212,7 @@ class BotorchModel(TorchModel):
         bounds: List[Tuple[float, float]],
         task_features: List[int],
         feature_names: List[str],
+        fidelity_features: List[int],
     ) -> None:
         self.dtype = Xs[0].dtype
         self.device = Xs[0].device
@@ -211,8 +220,13 @@ class BotorchModel(TorchModel):
         self.Ys = Ys
         self.Yvars = Yvars
         self.task_features = task_features
+        self.fidelity_features = fidelity_features
         self.model = self.model_constructor(  # pyre-ignore [28]
-            Xs=Xs, Ys=Ys, Yvars=Yvars, task_features=self.task_features
+            Xs=Xs,
+            Ys=Ys,
+            Yvars=Yvars,
+            task_features=self.task_features,
+            fidelity_features=self.fidelity_features,
         )
 
     @copy_doc(TorchModel.predict)
@@ -352,6 +366,7 @@ class BotorchModel(TorchModel):
             Yvars=Yvars_train,
             task_features=self.task_features,
             state_dict=state_dict,
+            fidelity_features=self.fidelity_features,
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
@@ -373,4 +388,5 @@ class BotorchModel(TorchModel):
             Yvars=self.Yvars,
             task_features=self.task_features,
             state_dict=state_dict,
+            fidelity_features=self.fidelity_features,
         )

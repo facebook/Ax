@@ -54,6 +54,7 @@ class BotorchModelTest(TestCase):
                 bounds=bounds,
                 task_features=task_features,
                 feature_names=feature_names,
+                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
         # Check attributes
@@ -81,6 +82,7 @@ class BotorchModelTest(TestCase):
                 bounds=bounds,
                 task_features=task_features,
                 feature_names=feature_names,
+                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 
@@ -263,7 +265,12 @@ class BotorchModelTest(TestCase):
             key: torch.tensor(val, **tkwargs) for key, val in true_state_dict.items()
         }
         model = get_and_fit_model(
-            Xs=Xs1, Ys=Ys1, Yvars=Yvars1, task_features=[], state_dict=true_state_dict
+            Xs=Xs1,
+            Ys=Ys1,
+            Yvars=Yvars1,
+            task_features=[],
+            fidelity_features=[],
+            state_dict=true_state_dict,
         )
         for k, v in chain(model.named_parameters(), model.named_buffers()):
             self.assertTrue(torch.equal(true_state_dict[k], v))
@@ -292,6 +299,7 @@ class BotorchModelTest(TestCase):
                 bounds=bounds,
                 task_features=task_features,
                 feature_names=feature_names,
+                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
         X = torch.rand(2, 3, dtype=torch.float)
@@ -321,6 +329,7 @@ class BotorchModelTest(TestCase):
                 bounds=bounds,
                 task_features=task_features,
                 feature_names=feature_names,
+                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 

@@ -65,7 +65,7 @@ class RandomModelBridge(ModelBridge):
     ) -> Tuple[List[ObservationFeatures], List[float], Optional[ObservationFeatures]]:
         """Generate new candidates according to a search_space."""
         # Extract parameter values
-        bounds, _ = get_bounds_and_task(search_space, self.parameters)
+        bounds, _, _ = get_bounds_and_task(search_space, self.parameters)
         # Get fixed features
         fixed_features_dict = get_fixed_features(fixed_features, self.parameters)
         # Extract param constraints
