@@ -196,6 +196,9 @@ def scipy_optimizer(
         optimize = joint_optimize
     else:
         optimize = sequential_optimize
+        # use SLSQP by default for small problems since it yields faster wall times
+        if "method" not in kwargs:
+            kwargs["method"] = "SLSQP"
     return optimize(
         acq_function=acq_function,
         bounds=bounds,
