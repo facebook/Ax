@@ -239,7 +239,7 @@ class GeneratorRun(Base):
 
     def clone(self) -> "GeneratorRun":
         """Return a deep copy of a GeneratorRun."""
-        return GeneratorRun(
+        generator_run = GeneratorRun(
             arms=[a.clone() for a in self.arms],
             weights=self.weights[:] if self.weights is not None else None,
             optimization_config=self.optimization_config.clone()
@@ -254,6 +254,16 @@ class GeneratorRun(Base):
             fit_time=self.fit_time,
             gen_time=self.gen_time,
         )
+        generator_run._time_created = self._time_created
+        generator_run._index = self._index
+        generator_run._model_key = self._model_key
+        generator_run._model_kwargs = (
+            self._model_kwargs.copy() if self._model_kwargs is not None else None
+        )
+        generator_run._bridge_kwargs = (
+            self._bridge_kwargs.copy() if self._bridge_kwargs is not None else None
+        )
+        return generator_run
 
     def __repr__(self) -> str:
         class_name = self.__class__.__name__
