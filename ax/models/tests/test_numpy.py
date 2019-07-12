@@ -19,6 +19,7 @@ class NumpyModelTest(TestCase):
             bounds=[(0, 1)],
             task_features=[],
             feature_names=["x"],
+            fidelity_features=[],
         )
 
     def testNumpyModelPredict(self):

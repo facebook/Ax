@@ -22,7 +22,7 @@ from ax.utils.common.testutils import TestCase
 class NumpyModelBridgeTest(TestCase):
     def setUp(self):
         x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
-        y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2)
+        y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2, is_fidelity=True)
         z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)
         self.parameters = [x, y, z]
         parameter_constraints = [
@@ -83,16 +83,17 @@ class NumpyModelBridgeTest(TestCase):
             self.observation_features + [sq_feat],
             self.observation_data + [sq_data],
         )
-        self.assertEqual(ma.parameters, ["x", "y", "z"])
+        self.assertEqual(ma.parameters, ["x", "z", "y"])
         self.assertEqual(sorted(ma.outcomes), ["a", "b"])
         self.assertEqual(ma.training_in_design, [True, True, True, False])
         Xs = {
-            "a": np.array([[0.2, 1.2, 3.0], [0.4, 1.4, 3.0], [0.6, 1.6, 3]]),
-            "b": np.array([[0.2, 1.2, 3.0], [0.4, 1.4, 3.0]]),
+            "a": np.array([[0.2, 3.0, 1.2], [0.4, 3.0, 1.4], [0.6, 3.0, 1.6]]),
+            "b": np.array([[0.2, 3.0, 1.2], [0.4, 3.0, 1.4]]),
         }
         Ys = {"a": np.array([[1.0], [2.0], [3.0]]), "b": np.array([[-1.0], [-2.0]])}
         Yvars = {"a": np.array([[1.0], [2.0], [3.0]]), "b": np.array([[6.0], [7.0]])}
-        bounds = [(0.0, 1.0), (1.0, 2.0), (0.0, 5.0)]
+        # put fidelity parameter to the last column
+        bounds = [(0.0, 1.0), (0.0, 5.0), (1.0, 2.0)]
         model_fit_args = model.fit.mock_calls[0][2]
         for i, x in enumerate(model_fit_args["Xs"]):
             self.assertTrue(np.array_equal(x, Xs[ma.outcomes[i]]))
@@ -101,7 +102,7 @@ class NumpyModelBridgeTest(TestCase):
         for i, v in enumerate(model_fit_args["Yvars"]):
             self.assertTrue(np.array_equal(v, Yvars[ma.outcomes[i]]))
         self.assertEqual(model_fit_args["bounds"], bounds)
-        self.assertEqual(model_fit_args["feature_names"], ["x", "y", "z"])
+        self.assertEqual(model_fit_args["feature_names"], ["x", "z", "y"])
 
         # And update
         ma.training_in_design.extend([True, True, True, True])
@@ -312,15 +313,24 @@ class NumpyModelBridgeTest(TestCase):
             self.assertEqual(od, self.observation_data[i])
 
     def testGetBoundsAndTask(self):
-        bounds, task_features = get_bounds_and_task(self.search_space, ["x", "y", "z"])
+        bounds, task_features, fidelity_features = get_bounds_and_task(
+            self.search_space, ["x", "y", "z"]
+        )
         self.assertEqual(bounds, [(0.0, 1.0), (1.0, 2.0), (0.0, 5.0)])
         self.assertEqual(task_features, [])
+        self.assertEqual(fidelity_features, [1])
+        bounds, task_features, fidelity_features = get_bounds_and_task(
+            self.search_space, ["x", "z"]
+        )
+        self.assertEqual(fidelity_features, [])
         # Test that Int param is treated as task feature
         search_space = SearchSpace(self.parameters)
         search_space._parameters["x"] = RangeParameter(
             "x", ParameterType.INT, lower=1, upper=4
         )
-        bounds, task_features = get_bounds_and_task(search_space, ["x", "y", "z"])
+        bounds, task_features, fidelity_features = get_bounds_and_task(
+            search_space, ["x", "y", "z"]
+        )
         self.assertEqual(task_features, [0])
         # Test validation
         search_space._parameters["x"] = ChoiceParameter(

@@ -43,6 +43,7 @@ class TorchModelBridgeTest(TestCase):
             bounds=None,
             feature_names=[],
             task_features=[],
+            fidelity_features=[],
         )
         model_fit_args = model.fit.mock_calls[0][2]
         self.assertTrue(
@@ -111,7 +112,6 @@ class TorchModelBridgeTest(TestCase):
         gen_args = model.gen.mock_calls[0][2]
         self.assertEqual(gen_args["n"], 3)
         self.assertEqual(gen_args["bounds"], [(0, 1)])
-        print(gen_args["objective_weights"])
         self.assertTrue(
             torch.equal(
                 gen_args["objective_weights"],

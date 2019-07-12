@@ -19,6 +19,7 @@ class TorchModelTest(TestCase):
             bounds=[(0, 1)],
             task_features=[],
             feature_names=["x1"],
+            fidelity_features=[],
         )
 
     def testTorchModelPredict(self):

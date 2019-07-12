@@ -31,6 +31,7 @@ def get_and_fit_model(
     Ys: List[Tensor],
     Yvars: List[Tensor],
     task_features: List[int],
+    fidelity_features: List[int],
     state_dict: Optional[Dict[str, Tensor]] = None,
     **kwargs: Any,
 ) -> GPyTorchModel:
@@ -41,6 +42,7 @@ def get_and_fit_model(
         Ys: List of Y data, one tensor per outcome
         Yvars: List of observed variance of Ys.
         task_features: List of columns of X that are tasks.
+        fidelity_features: List of columns of X that are fidelity parameters.
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
 
