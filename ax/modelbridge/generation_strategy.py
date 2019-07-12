@@ -281,11 +281,18 @@ class GenerationStrategy:
     ) -> None:
         """Instantiate the current model, provided through a callable factory
         function, with all available data."""
+        assert not isinstance(self._curr.model, Models)
+        fxn_name = (  # Only grab the name when available; otherwise this
+            f"` {self._curr.model.__name__}`"  # pyre-ignore[16], will error for
+            if hasattr(self._curr.model, "__name__")  # mocked factory functions.
+            else ""
+        )
         logger.info(
-            f"Using a custom model provided through a callable function "
-            "`{self._curr.model.__name__}`"
+            f"Using a custom model provided through a callable function {fxn_name}"
             ". Note that Ax cannot save models provided through functions, "
-            "so this optimization will not be resumable if interrupted."
+            "so this optimization will not be resumable if interrupted. For "
+            "resumable optimization, use models, registered in the `Models` "
+            "registry enum (`ax.modelbridge.registry.Models`)."
         )
         self._model = self._curr.model(
             **_filter_kwargs(

@@ -73,10 +73,6 @@ def get_sobol(
     Returns:
         RandomModelBridge, with SobolGenerator as model.
     """
-    logger.info(
-        "Factory functions (like `get_sobol`) will soon be deprecated. Use "
-        "the model registry instead (`Models.SOBOL(...)`)."
-    )
     return checked_cast(
         RandomModelBridge,
         Models.SOBOL(
@@ -101,10 +97,6 @@ def get_uniform(
     Returns:
         RandomModelBridge, with UniformGenerator as model.
     """
-    logger.info(
-        "Factory functions (like `get_uniform`) will soon be deprecated). Use "
-        "the model registry instead (`Models.UNIFORM(...)`)."
-    )
     return checked_cast(
         RandomModelBridge,
         Models.UNIFORM(search_space=search_space, seed=seed, deduplicate=deduplicate),
@@ -129,10 +121,6 @@ def get_botorch(
     """Instantiates a BotorchModel."""
     if data.df.empty:  # pragma: no cover
         raise ValueError("`BotorchModel` requires non-empty data.")
-    logger.info(
-        "Factory functions (like `get_botorch`) will soon be deprecated). Use "
-        "the model registry instead (`Models.BOTORCH(...)`)."
-    )
     return checked_cast(
         TorchModelBridge,
         Models.BOTORCH(
@@ -163,10 +151,6 @@ def get_GPEI(
     """Instantiates a GP model that generates points with EI."""
     if data.df.empty:  # pragma: no cover
         raise ValueError("GP+EI BotorchModel requires non-empty data.")
-    logger.info(
-        "Factory functions (like `get_GPEI`) will soon be deprecated). Use "
-        "the model registry instead (`Models.GPEI(...)`)."
-    )
     return checked_cast(
         TorchModelBridge,
         Models.BOTORCH(
@@ -230,10 +214,6 @@ def get_MTGP(
 
 def get_factorial(search_space: SearchSpace) -> DiscreteModelBridge:
     """Instantiates a factorial generator."""
-    logger.info(
-        "Factory functions (like `get_factorial`) will soon be deprecated). Use "
-        "the model registry instead (`Models.FACTORIAL(...)`)."
-    )
     return checked_cast(
         DiscreteModelBridge, Models.FACTORIAL(search_space=search_space)
     )
@@ -250,11 +230,6 @@ def get_empirical_bayes_thompson(
     """Instantiates an empirical Bayes / Thompson sampling model."""
     if data.df.empty:  # pragma: no cover
         raise ValueError("Empirical Bayes Thompson sampler requires non-empty data.")
-    logger.info(
-        "Factory functions (like `get_empirical_bayes_thompson`) will soon be "
-        "deprecated). Use the model registry instead (`Models.EMPIRICAL_BAYES"
-        "(...)`)."
-    )
     return checked_cast(
         DiscreteModelBridge,
         Models.EMPIRICAL_BAYES_THOMPSON(
