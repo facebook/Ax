@@ -4,7 +4,7 @@
 import json
 from typing import Any, Dict, List, Optional
 
-from ax.storage.sqa_store.db import JSON_FIELD_LENGTH
+from ax.storage.sqa_store.db import JSON_FIELD_LENGTH, MEDIUMTEXT_BYTES
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.types import VARCHAR, Text, TypeDecorator
 
@@ -47,6 +47,17 @@ class JSONEncodedText(JSONEncodedObject):
     """
 
     impl = Text
+
+
+class JSONEncodedMediumText(JSONEncodedObject):
+    """Class for JSON-encoding objects in SQLAlchemy, backed by MEDIUMTEXT
+    (MySQL).
+
+    See description in JSONEncodedObject.
+
+    """
+
+    impl = Text(MEDIUMTEXT_BYTES)
 
 
 JSONEncodedList = MutableList.as_mutable(JSONEncodedObject)
