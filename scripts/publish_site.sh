@@ -14,7 +14,7 @@ usage() {
 
 VERSION=false
 
-while getopts 'hv' option; do
+while getopts 'hv:' option; do
   case "${option}" in
     h)
       usage
@@ -107,6 +107,9 @@ if [[ $VERSION == false ]]; then
   # Build site, tagged with "latest" version; baseUrl set to /versions/latest/
   yarn
   yarn run version latest
+
+  # This command will only work on Linux, which is okay because this part of the
+  # script (updating the latest/master version of the site) runs in Travis
   sed -i "s/baseUrl = '\/'/baseUrl = '\/versions\/latest\/'/g" siteConfig.js
 
   # disable search for non-stable version (can't use sed b/c of newline)
@@ -177,7 +180,10 @@ else
   # we build this now so that in the future, we can just bump version and not move
   # previous stable to versions
   cd Ax-master/website || exit
-  sed -i "s/baseUrl = '\/'/baseUrl = '\/versions\/${VERSION}\/'/g" siteConfig.js
+
+  # This command will only work on MacOSX, which is okay because this part of the
+  # script (updating a new stable version of the site) is done locally
+  sed -i "" "s|baseUrl = '\/'|baseUrl = '\/versions\/${VERSION}\/'|g" siteConfig.js
 
   # disable search for non-stable version (can't use sed b/c of newline)
   python3 -c "$REMOVE_ALGOLIA_CMD"
