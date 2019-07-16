@@ -195,14 +195,13 @@ class MultiTypeExperiment(Experiment):
             )
 
         trial = self.trials[trial_index]
-        return Data.from_multiple_data(
-            [
-                metric.fetch_trial_data(trial, **kwargs)
-                if trial.trial_type == self.metric_to_trial_type[metric.name]
-                else Data()
-                for metric in self.metrics.values()
-            ]
-        )
+        metrics = [
+            self.metrics[metric_name]
+            for metric_name, trial_type in self.metric_to_trial_type.items()
+            if trial_type == trial.trial_type
+        ]
+        # Invoke parent's fetch method using only metrics for this trial_type
+        return super()._fetch_trial_data(trial.index, metrics=metrics, **kwargs)
 
     @property
     def metric_to_trial_type(self) -> Dict[str, str]:
