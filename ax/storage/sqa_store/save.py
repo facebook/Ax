@@ -18,7 +18,7 @@ def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) 
 
     config = config or SQAConfig()
     encoder = Encoder(config=config)
-    return _save_experiment(experiment=experiment, encoder=encoder)
+    _save_experiment(experiment=experiment, encoder=encoder)
 
 
 def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
