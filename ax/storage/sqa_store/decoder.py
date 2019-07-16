@@ -15,6 +15,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -46,6 +47,7 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.utils.common.typeutils import not_none
 
 
 class Decoder:
@@ -76,8 +78,8 @@ class Decoder:
         except ValueError:
             raise SQADecodeError(f"Value {value} is invalid for enum {enum}.")
 
-    def experiment_from_sqa(self, experiment_sqa: SQAExperiment) -> Experiment:
-        """Convert SQLAlchemy Experiment to Ax Experiment."""
+    def _init_experiment_from_sqa(self, experiment_sqa: SQAExperiment) -> Experiment:
+        """First step of conversion within experiment_from_sqa."""
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
             metrics_sqa=experiment_sqa.metrics
         )
@@ -89,11 +91,6 @@ class Decoder:
             raise SQADecodeError(  # pragma: no cover
                 "Experiment SearchSpace cannot be None."
             )
-        runner = (
-            self.runner_from_sqa(experiment_sqa.runner)
-            if experiment_sqa.runner
-            else None
-        )
         status_quo = (
             Arm(
                 parameters=experiment_sqa.status_quo_parameters,
@@ -102,11 +99,18 @@ class Decoder:
             if experiment_sqa.status_quo_parameters is not None
             else None
         )
+        if len(experiment_sqa.runners) == 0:
+            runner = None
+        elif len(experiment_sqa.runners) == 1:
+            runner = self.runner_from_sqa(experiment_sqa.runners[0])
+        else:
+            raise ValueError(  # pragma: no cover
+                "Multiple runners on experiment "
+                "only supported for MultiTypeExperiment."
+            )
 
-        if (
-            experiment_sqa.properties is not None
-            and experiment_sqa.properties.get("subclass") == "SimpleExperiment"
-        ):
+        subclass = (experiment_sqa.properties or {}).get("subclass")
+        if subclass == "SimpleExperiment":
             if opt_config is None:
                 raise SQADecodeError(  # pragma: no cover
                     "SimpleExperiment must have an optimization config."
@@ -132,7 +136,62 @@ class Decoder:
                 status_quo=status_quo,
                 is_test=experiment_sqa.is_test,
             )
+        return experiment
 
+    def _init_mt_experiment_from_sqa(
+        self, experiment_sqa: SQAExperiment
+    ) -> MultiTypeExperiment:
+        """First step of conversion within experiment_from_sqa."""
+        opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
+            metrics_sqa=experiment_sqa.metrics
+        )
+        search_space = self.search_space_from_sqa(
+            parameters_sqa=experiment_sqa.parameters,
+            parameter_constraints_sqa=experiment_sqa.parameter_constraints,
+        )
+        if search_space is None:
+            raise SQADecodeError(  # pragma: no cover
+                "Experiment SearchSpace cannot be None."
+            )
+        status_quo = (
+            Arm(
+                parameters=experiment_sqa.status_quo_parameters,
+                name=experiment_sqa.status_quo_name,
+            )
+            if experiment_sqa.status_quo_parameters is not None
+            else None
+        )
+        trial_type_to_runner = {
+            not_none(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
+            for sqa_runner in experiment_sqa.runners
+        }
+        default_trial_type = not_none(experiment_sqa.default_trial_type)
+        experiment = MultiTypeExperiment(
+            name=experiment_sqa.name,
+            search_space=search_space,
+            default_trial_type=default_trial_type,
+            default_runner=trial_type_to_runner[default_trial_type],
+            optimization_config=opt_config,
+            status_quo=status_quo,
+        )
+        experiment._trial_type_to_runner = trial_type_to_runner
+        sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
+        for tracking_metric in tracking_metrics:
+            sqa_metric = sqa_metric_dict[tracking_metric.name]
+            experiment.add_tracking_metric(
+                tracking_metric,
+                trial_type=not_none(sqa_metric.trial_type),
+                canonical_name=sqa_metric.canonical_name,
+            )
+        return experiment
+
+    def experiment_from_sqa(self, experiment_sqa: SQAExperiment) -> Experiment:
+        """Convert SQLAlchemy Experiment to Ax Experiment."""
+        subclass = (experiment_sqa.properties or {}).get("subclass")
+        if subclass == "MultiTypeExperiment":
+            experiment = self._init_mt_experiment_from_sqa(experiment_sqa)
+        else:
+            experiment = self._init_experiment_from_sqa(experiment_sqa)
         trials = [
             self.trial_from_sqa(trial_sqa=trial, experiment=experiment)
             for trial in experiment_sqa.trials

@@ -2,7 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -11,6 +11,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -106,7 +107,6 @@ class Encoder:
         trials = [
             self.trial_to_sqa(trial=trial) for trial in experiment.trials.values()
         ]
-        runner = self.runner_to_sqa(experiment.runner) if experiment.runner else None
 
         experiment_data = []
         for trial_index, data_by_timestamp in experiment.data_by_trial.items():
@@ -122,13 +122,31 @@ class Encoder:
         )
 
         properties = {}
+        if isinstance(experiment, MultiTypeExperiment):
+            properties["subclass"] = "MultiTypeExperiment"
+            runners = [
+                self.runner_to_sqa(runner, trial_type)
+                for trial_type, runner in experiment._trial_type_to_runner.items()
+            ]
+            for metric in tracking_metrics:
+                metric.trial_type = experiment._metric_to_trial_type[metric.name]
+                if metric.name in experiment._metric_to_canonical_name:
+                    metric.canonical_name = experiment._metric_to_canonical_name[
+                        metric.name
+                    ]
+        else:
+            runners = (
+                [self.runner_to_sqa(experiment.runner)] if experiment.runner else []
+            )
+
         if isinstance(experiment, SimpleExperiment):
             properties["subclass"] = "SimpleExperiment"
 
         # pyre-fixme: Expected `Base` for 1st...yping.Type[Experiment]`.
-        experiment_class: SQAExperiment = self.config.class_to_sqa_class[Experiment]
-        # pyre-fixme[29]: `SQAExperiment` is not a function.
-        return experiment_class(
+        experiment_class: Type[SQAExperiment] = self.config.class_to_sqa_class[
+            Experiment
+        ]
+        return experiment_class(  # pyre-ignore[28]
             description=experiment.description,
             is_test=experiment.is_test,
             name=experiment.name,
@@ -140,9 +158,10 @@ class Encoder:
             parameters=parameters,
             parameter_constraints=parameter_constraints,
             trials=trials,
-            runner=runner,
+            runners=runners,
             data=experiment_data,
             properties=properties,
+            default_trial_type=experiment.default_trial_type,
         )
 
     def parameter_to_sqa(self, parameter: Parameter) -> SQAParameter:
@@ -409,7 +428,9 @@ class Encoder:
             model_predictions=model_predictions,
         )
 
-    def runner_to_sqa(self, runner: Runner) -> SQARunner:
+    def runner_to_sqa(
+        self, runner: Runner, trial_type: Optional[str] = None
+    ) -> SQARunner:
         """Convert Ax Runner to SQLAlchemy."""
         runner_type = RUNNER_REGISTRY.get(type(runner))
         if runner_type is None:
@@ -422,7 +443,9 @@ class Encoder:
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Runner]`.
         runner_class: SQARunner = self.config.class_to_sqa_class[Runner]
         # pyre-fixme[29]: `SQARunner` is not a function.
-        return runner_class(runner_type=runner_type, properties=properties)
+        return runner_class(
+            runner_type=runner_type, properties=properties, trial_type=trial_type
+        )
 
     def trial_to_sqa(self, trial: BaseTrial) -> SQATrial:
         """Convert Ax Trial to SQLAlchemy.

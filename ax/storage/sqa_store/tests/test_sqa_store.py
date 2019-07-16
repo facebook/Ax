@@ -58,6 +58,7 @@ from ax.utils.testing.fake import (
     get_experiment_with_batch_trial,
     get_fixed_parameter,
     get_generator_run,
+    get_multi_type_experiment,
     get_objective,
     get_optimization_config,
     get_outcome_constraint,
@@ -168,6 +169,17 @@ class SQAStoreTest(TestCase):
         save_experiment(self.experiment)
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(loaded_experiment, self.experiment)
+
+    def testMTExperimentSaveAndLoad(self):
+        experiment = get_multi_type_experiment(add_trials=True)
+        save_experiment(experiment)
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(loaded_experiment.default_trial_type, "type1")
+        self.assertEqual(len(loaded_experiment._trial_type_to_runner), 2)
+        self.assertEqual(loaded_experiment.metric_to_trial_type["m1"], "type1")
+        self.assertEqual(loaded_experiment.metric_to_trial_type["m2"], "type2")
+        self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
+        self.assertEqual(len(loaded_experiment.trials), 2)
 
     def testSaveValidation(self):
         with self.assertRaises(ValueError):

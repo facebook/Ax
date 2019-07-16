@@ -193,6 +193,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "op",
             "bound",
             "relative",
+            "trial_type",
+            "canonical_name",
         ],
     ),
     "BraninOutcomeConstraint": EncodeDecodeFieldsMap(
@@ -204,6 +206,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "lower_is_better",
             "properties",
             "minimize",
+            "trial_type",
+            "canonical_name",
         ],
     ),
     "ChoiceParameter": EncodeDecodeFieldsMap(
@@ -224,6 +228,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "properties",
             "status_quo_name",
             "status_quo_parameters",
+            "default_trial_type",
         ],
         python_only=[
             "arms_by_signature",
@@ -232,7 +237,11 @@ ENCODE_DECODE_FIELD_MAPS = {
             "optimization_config",
             "status_quo",
         ],
-        python_to_encoded={"data_by_trial": "data", "tracking_metrics": "metrics"},
+        python_to_encoded={
+            "data_by_trial": "data",
+            "tracking_metrics": "metrics",
+            "runner": "runners",
+        },
     ),
     "FixedParameter": EncodeDecodeFieldsMap(
         encoded_only=[
@@ -279,6 +288,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "op",
             "relative",
             "bound",
+            "trial_type",
+            "canonical_name",
         ],
     ),
     "OrderConstraint": EncodeDecodeFieldsMap(
@@ -294,6 +305,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "lower_is_better",
             "properties",
             "minimize",
+            "trial_type",
+            "canonical_name",
         ],
     ),
     "ParameterConstraint": EncodeDecodeFieldsMap(encoded_only=["type"]),
@@ -313,6 +326,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "properties",
             "status_quo_name",
             "status_quo_parameters",
+            "default_trial_type",
+            "runners",
         ],
         python_only=[
             "arms_by_signature",

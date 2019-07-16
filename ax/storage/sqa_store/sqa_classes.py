@@ -110,6 +110,10 @@ class SQAMetric(Base):
     bound: Optional[float] = Column(Float)
     relative: Optional[bool] = Column(Boolean)
 
+    # Multi-type Experiment attributes
+    trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    canonical_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+
     immutable_fields = ["name", "metric_type"]
     unique_id = "name"
 
@@ -190,6 +194,9 @@ class SQARunner(Base):
     runner_type: int = Column(Integer, nullable=False)
     trial_id: Optional[int] = Column(Integer, ForeignKey("trial_v2.id"))
 
+    # Multi-type Experiment attributes
+    trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+
 
 class SQAData(Base):
     __tablename__: str = "data_v2"
@@ -257,6 +264,7 @@ class SQAExperiment(Base):
     status_quo_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     status_quo_parameters: Optional[TParameterization] = Column(JSONEncodedTextDict)
     time_created: datetime = Column(IntTimestamp, nullable=False)
+    default_trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
 
     # relationships
     # Trials and experiments are mutable, so the children relationships need
@@ -276,8 +284,8 @@ class SQAExperiment(Base):
     parameter_constraints: List[SQAParameterConstraint] = relationship(
         "SQAParameterConstraint", cascade="all, delete-orphan", lazy="selectin"
     )
-    runner: SQARunner = relationship(
-        "SQARunner", uselist=False, cascade="all, delete-orphan", lazy=False
+    runners: List[SQARunner] = relationship(
+        "SQARunner", cascade="all, delete-orphan", lazy=False
     )
     trials: List[SQATrial] = relationship(
         "SQATrial", cascade="all, delete-orphan", lazy="selectin"
