@@ -126,7 +126,7 @@ class Data(Base):
         Convert dict of evaluations to Ax data object.
 
         Args:
-            evaluations: Map from condition name to metric outcomes.
+            evaluations: Map from arm name to metric outcomes.
             trial_index: Trial index to which this data belongs.
             sample_sizes: Number of samples collected for each arm.
 

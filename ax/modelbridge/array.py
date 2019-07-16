@@ -15,8 +15,8 @@ from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,
     get_bounds_and_task,
     get_fixed_features,
-    get_pending_observations,
     parse_observation_features,
+    pending_observations_as_array,
     transform_callback,
 )
 
@@ -180,7 +180,7 @@ class ArrayModelBridge(ModelBridge):
             search_space.parameter_constraints, self.parameters
         )
         fixed_features_dict = get_fixed_features(fixed_features, self.parameters)
-        pending_array = get_pending_observations(
+        pending_array = pending_observations_as_array(
             pending_observations, self.outcomes, self.parameters
         )
         # Generate the candidates

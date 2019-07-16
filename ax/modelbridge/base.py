@@ -445,7 +445,7 @@ class ModelBridge(ABC):
         else:
             optimization_config = optimization_config.clone()
 
-        # TODO(T34225037): replace deepcopy with native clone() in Lazarus
+        # TODO(T34225037): replace deepcopy with native clone() in Ax
         pending_observations = deepcopy(pending_observations)
         fixed_features = deepcopy(fixed_features)
 

@@ -4,10 +4,13 @@
 from typing import Callable, Dict, List, MutableMapping, Optional, Tuple
 
 import numpy as np
+from ax.core.batch_trial import BatchTrial
+from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.trial import Trial
 from ax.core.types import TBounds
 from ax.modelbridge.transforms.base import Transform
 
@@ -69,7 +72,7 @@ def get_fixed_features(
     return fixed_features_dict
 
 
-def get_pending_observations(
+def pending_observations_as_array(
     pending_observations: Dict[str, List[ObservationFeatures]],
     outcome_names: List[str],
     param_names: List[str],
@@ -89,6 +92,15 @@ def get_pending_observations(
     else:
         pending_array = [np.array([]) for _ in outcome_names]
         for metric_name, po_list in pending_observations.items():
+            # It is possible that some metrics attached to the experiment should
+            # not be included in pending features for a given model. For example,
+            # if a model is fit to the initial data that is missing some of the
+            # metrics on the experiment or if a model just should not be fit for
+            # some of the metrics attached to the experiment, so metrics that
+            # appear in pending_observations (drawn from an experiment) but not
+            # in outcome_names (metrics, expected for the model) are filtered out.ß
+            if metric_name not in outcome_names:
+                continue
             pending_array[outcome_names.index(metric_name)] = np.array(
                 [[po.parameters[p] for p in param_names] for po in po_list]
             )
@@ -169,3 +181,46 @@ def transform_callback(
         return np.array(new_x)
 
     return _roundtrip_transform
+
+
+def get_pending_observation_features(
+    experiment: Experiment, include_failed_as_pending: bool = False
+) -> Optional[Dict[str, List[ObservationFeatures]]]:
+    """Computes a list of pending observation features (corresponding to arms that
+    have been generated and deployed in the course of the experiment, but have not
+    been completed with data).
+
+    Args:
+        experiment: Experiment, pending features on which we seek to compute.
+        include_failed_as_pending: Whether to include failed trials as pending
+            (for example, to avoid the model suggesting them again).
+
+    Returns:
+        An optional mapping from metric names to a list of observation features,
+        pending for that metric (i.e. do not have evaluation data for that metric).
+        If there are no pending features for any of the metrics, return is None.
+    """
+    pending_features = {}
+    for trial_index, trial in experiment.trials.items():
+        if isinstance(trial, BatchTrial):
+            raise NotImplementedError("BatchTrials are not yet supported.")
+        assert isinstance(trial, Trial)
+        for metric_name in experiment.metrics:
+            if metric_name not in pending_features:
+                pending_features[metric_name] = []
+            # Note that this assumes that if a metric appears in fetched data,
+            # the trial is not pending for the metric. For the cases where we are
+            # only concerned with the most recent data, this will work, but we
+            # may need to add logic to check previously added data objects, too.
+            include_since_failed = include_failed_as_pending and trial.status.is_failed
+            if (
+                (trial.status.is_deployed or include_since_failed)
+                and metric_name not in trial.fetch_data().df.metric_name.values
+                and trial.arm is not None
+            ):
+                pending_features.get(metric_name).append(
+                    ObservationFeatures.from_arm(
+                        arm=trial.arm, trial_index=np.int64(trial_index)
+                    )
+                )
+    return pending_features if any(x for x in pending_features.values()) else None
