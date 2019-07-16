@@ -9,6 +9,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationFunction
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.service.utils.best_point import (
     get_best_from_model_predictions,
     get_best_raw_objective_point,
@@ -127,7 +128,11 @@ class OptimizationLoop:
         if arms_per_trial == 1:
             trial = self.experiment.new_trial(
                 generator_run=self.generation_strategy.gen(
-                    experiment=self.experiment, new_data=dat
+                    experiment=self.experiment,
+                    new_data=dat,
+                    pending_observations=get_pending_observation_features(
+                        experiment=self.experiment
+                    ),
                 )
             )
         elif arms_per_trial > 1:
