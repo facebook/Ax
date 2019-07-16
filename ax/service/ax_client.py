@@ -16,6 +16,7 @@ from ax.core.types import (
     TParamValue,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.trace import optimization_trace_single_method
@@ -495,6 +496,10 @@ class AxClient:
         """
         new_data = self._get_new_data()
         generator_run = not_none(self.generation_strategy).gen(
-            experiment=self.experiment, new_data=new_data
+            experiment=self.experiment,
+            new_data=new_data,
+            pending_observations=get_pending_observation_features(
+                experiment=self.experiment
+            ),
         )
         return self.experiment.new_trial(generator_run=generator_run)

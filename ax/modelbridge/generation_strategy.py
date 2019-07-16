@@ -11,6 +11,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models
 from ax.utils.common.equality import equality_typechecker
+from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -200,15 +201,19 @@ class GenerationStrategy:
 
         if self._model is None:
             # Instantiate the first model.
-            self._set_current_model(experiment=experiment, data=all_data, **kwargs)
+            self._set_current_model(experiment=experiment, data=all_data)
         elif enough_generated and enough_observed:
             # Change to the next model.
-            self._change_model(experiment=experiment, data=all_data, **kwargs)
+            self._change_model(experiment=experiment, data=all_data)
         elif new_data is not None:
             # We're sticking with the current model, but update with new data
             self._model.update(experiment=experiment, data=new_data)
 
-        gen_run = not_none(self._model).gen(n=n, **(self._curr.model_gen_kwargs or {}))
+        kwargs = consolidate_kwargs(
+            kwargs_iterable=[self._curr.model_gen_kwargs, kwargs],
+            keywords=get_function_argument_names(not_none(self._model).gen),
+        )
+        gen_run = not_none(self._model).gen(n=n, **kwargs)
 
         # If nothing failed, update known data, _generated, and _observed.
         self._data = all_data
@@ -282,9 +287,10 @@ class GenerationStrategy:
         """Instantiate the current model, provided through a callable factory
         function, with all available data."""
         assert not isinstance(self._curr.model, Models)
-        fxn_name = (  # Only grab the name when available; otherwise this
-            f"` {self._curr.model.__name__}`"  # pyre-ignore[16], will error for
-            if hasattr(self._curr.model, "__name__")  # mocked factory functions.
+        fxn_name = (  # Only grab the name when available; without this ternary
+            # pyre-ignore[16]
+            f"` {self._curr.model.__name__}`"  # operator, grabbing the __name__
+            if hasattr(self._curr.model, "__name__")  # will error for mocks.
             else ""
         )
         logger.info(
