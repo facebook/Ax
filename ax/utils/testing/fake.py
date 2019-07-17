@@ -282,13 +282,14 @@ def get_factorial_search_space() -> SearchSpace:
 # trials
 
 
-def get_batch_trial() -> BatchTrial:
+def get_batch_trial(abandon_arm=True) -> BatchTrial:
     experiment = get_experiment()
     batch = experiment.new_batch_trial()
     arms = get_arms()
     weights = get_weights()
     batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=0.75)
-    batch.mark_arm_abandoned(batch.arms[0].name, "abandoned reason")
+    if abandon_arm:
+        batch.mark_arm_abandoned(batch.arms[0].name, "abandoned reason")
     batch.runner = SyntheticRunner()
     batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
     return batch
