@@ -44,6 +44,8 @@ class MultiTypeExperiment(Experiment):
         optimization_config: Optional[OptimizationConfig] = None,
         status_quo: Optional[Arm] = None,
         description: Optional[str] = None,
+        is_test: bool = False,
+        experiment_type: Optional[str] = None,
     ) -> None:
         """Inits Experiment.
 
@@ -57,6 +59,8 @@ class MultiTypeExperiment(Experiment):
             runner: Default runner used for trials on this experiment.
             status_quo: Arm representing existing "control" arm.
             description: Description of the experiment.
+            is_test: Convenience metadata tracker for the user to mark test experiments.
+            experiment_type: The class of experiments this one belongs to.
         """
 
         self._default_trial_type = default_trial_type
@@ -82,6 +86,8 @@ class MultiTypeExperiment(Experiment):
             optimization_config=optimization_config,
             status_quo=status_quo,
             description=description,
+            is_test=is_test,
+            experiment_type=experiment_type,
         )
 
     def add_trial_type(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":

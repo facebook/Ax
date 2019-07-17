@@ -40,6 +40,7 @@ class Experiment(Base):
         status_quo: Optional[Arm] = None,
         description: Optional[str] = None,
         is_test: bool = False,
+        experiment_type: Optional[str] = None,
     ) -> None:
         """Inits Experiment.
 
@@ -52,6 +53,7 @@ class Experiment(Base):
             status_quo: Arm representing existing "control" arm.
             description: Description of the experiment.
             is_test: Convenience metadata tracker for the user to mark test experiments.
+            experiment_type: The class of experiments this one belongs to.
         """
         # appease pyre
         self._search_space: SearchSpace
@@ -63,7 +65,7 @@ class Experiment(Base):
         self.is_test = is_test
 
         self._data_by_trial: Dict[int, OrderedDict[int, Data]] = {}
-        self._experiment_type: Optional[str] = None
+        self._experiment_type: Optional[str] = experiment_type
         self._optimization_config = None
         self._tracking_metrics: Dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()

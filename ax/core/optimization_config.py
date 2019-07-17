@@ -128,7 +128,7 @@ class OptimizationConfig(Base):
                 if lower_bound >= upper_bound:
                     raise ValueError(
                         f"Lower bound {lower_bound} is >= upper bound "
-                        + "{upper_bound} for {metric_name}"
+                        + f"{upper_bound} for {metric_name}"
                     )
             elif constraints_len > 2:
                 raise ValueError(f"Duplicate outcome constraints {metric_name}")
