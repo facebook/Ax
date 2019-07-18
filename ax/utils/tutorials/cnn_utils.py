@@ -33,7 +33,10 @@ class CNN(nn.Module):
 
 
 def load_mnist(
-    downsample_pct: float = 0.5, train_pct: float = 0.8, data_path: str = "./data"
+    downsample_pct: float = 0.5,
+    train_pct: float = 0.8,
+    data_path: str = "./data",
+    batch_size: int = 128,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Load MNIST dataset (download if necessary) and split data into training,
@@ -43,6 +46,10 @@ def load_mnist(
         downsample_pct: the proportion of the dataset to use for training,
             validation, and test
         train_pct: the proportion of the downsampled data to use for training
+        data_path: Root directory of dataset where `MNIST/processed/training.pt`
+            and `MNIST/processed/test.pt` exist.
+        batch_size: how many samples per batch to load
+
     Returns:
         DataLoader: training data
         DataLoader: validation data
@@ -58,6 +65,11 @@ def load_mnist(
     train_valid_set = torchvision.datasets.MNIST(
         root=data_path, train=True, download=True, transform=transform
     )
+    # Load test set
+    # pyre-fixme[16]: Module `datasets` has no attribute `MNIST`.
+    test_set_all = torchvision.datasets.MNIST(
+        root=data_path, train=False, download=True, transform=transform
+    )
 
     # Partition into training/validation
     downsampled_num_examples = int(downsample_pct * len(train_valid_set))
@@ -71,14 +83,6 @@ def load_mnist(
             len(train_valid_set) - downsampled_num_examples,
         ],
     )
-    train_loader = DataLoader(train_set, batch_size=128, shuffle=True, num_workers=2)
-    valid_loader = DataLoader(valid_set, batch_size=128, shuffle=True, num_workers=2)
-
-    # Load test set
-    # pyre-fixme[16]: Module `datasets` has no attribute `MNIST`.
-    test_set_all = torchvision.datasets.MNIST(
-        root=data_path, train=False, download=True, transform=transform
-    )
     downsampled_num_test_examples = int(downsample_pct * len(test_set_all))
     test_set, _ = torch.utils.data.random_split(
         test_set_all,
@@ -87,12 +91,20 @@ def load_mnist(
             len(test_set_all) - downsampled_num_test_examples,
         ],
     )
-    test_loader = DataLoader(test_set, batch_size=128, shuffle=False, num_workers=2)
-
+    train_loader = DataLoader(
+        train_set, batch_size=batch_size, shuffle=True, num_workers=2
+    )
+    valid_loader = DataLoader(
+        valid_set, batch_size=batch_size, shuffle=False, num_workers=2
+    )
+    test_loader = DataLoader(
+        test_set, batch_size=batch_size, shuffle=False, num_workers=2
+    )
     return train_loader, valid_loader, test_loader
 
 
 def train(
+    net: torch.nn.Module,
     train_loader: DataLoader,
     parameters: Dict[str, float],
     dtype: torch.dtype,
@@ -102,40 +114,46 @@ def train(
     Train CNN on provided data set.
 
     Args:
+        net: initialized neural network
         train_loader: DataLoader containing training set
         parameters: dictionary containing parameters to be passed to the optimizer.
             - lr: default (0.001)
-            - momentum: default (0.9)
+            - momentum: default (0.0)
+            - weight_decay: default (0.0)
+            - num_epochs: default (1)
         dtype: torch dtype
         device: torch device
     Returns:
         nn.Module: trained CNN.
     """
     # Initialize network
-    net = CNN().to(device=device)
+    net.to(dtype=dtype, device=device)
     net.train()
     # Define loss and optimizer
     criterion = nn.NLLLoss(reduction="sum")
     optimizer = optim.SGD(
         net.parameters(),
         lr=parameters.get("lr", 0.001),
-        momentum=parameters.get("momentum", 0.9),
+        momentum=parameters.get("momentum", 0.0),
+        weight_decay=parameters.get("momentum", 0.0),
     )
+    num_epochs = parameters.get("num_epochs", 1)
 
     # Train Network
-    for inputs, labels in train_loader:
-        # move data to proper dtype and device
-        inputs = inputs.to(dtype=dtype, device=device)
-        labels = labels.to(device=device)
+    for _ in range(num_epochs):
+        for inputs, labels in train_loader:
+            # move data to proper dtype and device
+            inputs = inputs.to(dtype=dtype, device=device)
+            labels = labels.to(device=device)
 
-        # zero the parameter gradients
-        optimizer.zero_grad()
+            # zero the parameter gradients
+            optimizer.zero_grad()
 
-        # forward + backward + optimize
-        outputs = net(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+            # forward + backward + optimize
+            outputs = net(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
     return net
 
 
