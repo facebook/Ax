@@ -282,7 +282,7 @@ def get_factorial_search_space() -> SearchSpace:
 # trials
 
 
-def get_batch_trial(abandon_arm=True) -> BatchTrial:
+def get_batch_trial(abandon_arm: bool = True) -> BatchTrial:
     experiment = get_experiment()
     batch = experiment.new_batch_trial()
     arms = get_arms()
