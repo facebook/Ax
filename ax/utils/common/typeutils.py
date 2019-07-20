@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
-from typing import Any, List, Optional, Type, TypeVar
+from typing import Any, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 
@@ -66,6 +66,25 @@ def checked_cast_list(typ: Type[V], l: List[V]) -> List[T]:
         val = checked_cast(typ, val)
         new_l.append(val)
     return l
+
+
+# pyre-fixme[34]: `T` isn't present in the function's parameters.
+def checked_cast_to_tuple(typ: Tuple[Type[V], ...], val: V) -> T:
+    """
+    Cast a value to a union of multiple types (with a runtime safety check).
+    This function is similar to `checked_cast`, but allows for the type to be
+    defined as a tuple of types, in which case the value is cast as a union of
+    the types in the tuple.
+
+    Args:
+        typ: the tuple of types to cast to
+        val: the value that we are casting
+    Returns:
+        the ``val`` argument, unchanged
+    """
+    if not isinstance(val, typ):
+        raise ValueError(f"Value was not of type {type!r}:\n{val!r}")
+    return val
 
 
 def numpy_type_to_python_type(value: Any) -> Any:
