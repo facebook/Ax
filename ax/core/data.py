@@ -2,11 +2,12 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from hashlib import md5
-from typing import Dict, Iterable, Optional, Set, Tuple, Type
+from typing import Dict, Iterable, Optional, Set, Type
 
 import numpy as np
 import pandas as pd
 from ax.core.base import Base
+from ax.core.types import TTrialEvaluation
 
 
 TPdTimestamp = pd.Timestamp
@@ -118,7 +119,7 @@ class Data(Base):
 
     @staticmethod
     def from_evaluations(
-        evaluations: Dict[str, Dict[str, Tuple[float, float]]],
+        evaluations: Dict[str, TTrialEvaluation],
         trial_index: int,
         sample_sizes: Optional[Dict[str, int]] = None,
     ) -> "Data":
@@ -126,7 +127,8 @@ class Data(Base):
         Convert dict of evaluations to Ax data object.
 
         Args:
-            evaluations: Map from arm name to metric outcomes.
+            evaluations: Map from arm name to metric outcomes (itself a mapping
+                of metric names to tuples of mean and SEM).
             trial_index: Trial index to which this data belongs.
             sample_sizes: Number of samples collected for each arm.
 

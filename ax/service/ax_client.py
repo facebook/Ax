@@ -21,10 +21,10 @@ from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.dispatch import choose_generation_strategy
-from ax.service.utils.instantiation import make_experiment
+from ax.service.utils.instantiation import make_experiment, raw_data_to_evaluation
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none, numpy_type_to_python_type
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger = get_logger(__name__)
@@ -164,11 +164,6 @@ class AxClient:
     def complete_trial(
         self,
         trial_index: int,
-        # acceptable `raw_data` argument formats:
-        # 1) {metric_name -> (mean, standard error)}
-        # 2) (mean, standard error) and we assume metric name == objective name
-        # 3) only the mean, and we assume metric name == objective name and
-        #    standard error == 0
         raw_data: TEvaluationOutcome,
         metadata: Optional[Dict[str, str]] = None,
         sample_size: Optional[int] = None,
@@ -198,41 +193,16 @@ class AxClient:
             trial._run_metadata = metadata
 
         arm_name = not_none(trial.arm).name
-        if isinstance(raw_data, dict):
-            evaluations = {arm_name: raw_data}
-        elif isinstance(raw_data, tuple):
-            evaluations = {
-                arm_name: {
-                    self.experiment.optimization_config.objective.metric.name: raw_data
-                }
-            }
-        elif isinstance(raw_data, (float, int)):
-            evaluations = {
-                arm_name: {
-                    self.experiment.optimization_config.objective.metric.name: (
-                        raw_data,
-                        0.0,
-                    )
-                }
-            }
-        elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
-            evaluations = {
-                arm_name: {
-                    self.experiment.optimization_config.objective.metric.name: (
-                        numpy_type_to_python_type(raw_data),
-                        0.0,
-                    )
-                }
-            }
-        else:
-            raise ValueError(
-                "Raw data has an invalid type. The data must either be in the form "
-                "of a dictionary of metric names to mean, sem tuples, "
-                "or a single mean, sem tuple, or a single mean."
+        objective_name = self.experiment.optimization_config.objective.metric.name
+        evaluations = {
+            arm_name: raw_data_to_evaluation(
+                raw_data=raw_data, objective_name=objective_name
             )
-
+        }
         sample_sizes = {arm_name: sample_size} if sample_size else {}
-        data = Data.from_evaluations(evaluations, trial.index, sample_sizes)
+        data = Data.from_evaluations(
+            evaluations=evaluations, trial_index=trial.index, sample_sizes=sample_sizes
+        )
         trial.mark_completed()
         self.experiment.attach_data(data)
         self._updated_trials.append(trial_index)
@@ -268,6 +238,13 @@ class AxClient:
         trial.mark_dispatched()
         self._save_experiment_if_possible()
         return not_none(trial.arm).parameters, trial.index
+
+    def get_trial_parameters(self, trial_index: int) -> TParameterization:
+        """Retrieve the parameterization of the trial by the given index."""
+        if trial_index not in self.experiment.trials:
+            raise ValueError(f"Trial {trial_index} does not yet exist.")
+        trial = checked_cast(Trial, self.experiment.trials.get(trial_index))
+        return not_none(trial.arm).parameters
 
     @copy_doc(best_point_utils.get_best_parameters)
     def get_best_parameters(

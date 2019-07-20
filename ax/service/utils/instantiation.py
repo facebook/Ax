@@ -3,6 +3,7 @@
 
 from typing import Dict, List, Optional, Union, cast
 
+import numpy as np
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
@@ -25,8 +26,14 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import DEFAULT_OBJECTIVE_NAME
-from ax.core.types import ComparisonOp, TParameterization, TParamValue
-from ax.utils.common.typeutils import not_none
+from ax.core.types import (
+    ComparisonOp,
+    TEvaluationOutcome,
+    TParameterization,
+    TParamValue,
+    TTrialEvaluation,
+)
+from ax.utils.common.typeutils import not_none, numpy_type_to_python_type
 
 
 """Utilities for RESTful-like instantiation of Ax classes needed in AxClient."""
@@ -131,8 +138,8 @@ def parameter_from_json(
     parameter_type = representation.get("value_type", None)
     if parameter_type is not None:
         assert isinstance(parameter_type, str) and parameter_type in PARAM_TYPES, (
-            "Value type in parameter JSON representation must be `int`, `float`, "
-            "`bool` or `str`."
+            "Value type in parameter JSON representation must be 'int', 'float', "
+            "'bool' or 'str'."
         )
 
     if parameter_class == "range":
@@ -266,3 +273,30 @@ def make_experiment(
         ),
         status_quo=status_quo_arm,
     )
+
+
+def raw_data_to_evaluation(
+    raw_data: TEvaluationOutcome, objective_name: str
+) -> TTrialEvaluation:
+    """Format the trial evaluation data to a standard `TTrialEvaluation`
+    (mapping from metric names to a tuple of mean and SEM) representation.
+
+    Note: this function expects raw_data to be data for a `Trial`, not a
+    `BatchedTrial`.
+    """
+    # `BatchedTrial` data not expected because it was not needed, to add (if
+    # need arises), make raw_data a mapping from arm name to TEvaluationOutcome.
+    if isinstance(raw_data, dict):
+        return raw_data
+    elif isinstance(raw_data, tuple):
+        return {objective_name: raw_data}
+    elif isinstance(raw_data, (float, int)):
+        return {objective_name: (raw_data, 0.0)}
+    elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
+        return {objective_name: (numpy_type_to_python_type(raw_data), 0.0)}
+    else:
+        raise ValueError(
+            "Raw data has an invalid type. The data must either be in the form "
+            "of a dictionary of metric names to mean, sem tuples, "
+            "or a single mean, sem tuple, or a single mean."
+        )

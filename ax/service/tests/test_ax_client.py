@@ -340,7 +340,7 @@ class TestServiceAPI(TestCase):
             ax.experiment.trials.get(idx).run_metadata.get("dummy"), "test"
         )
 
-    def test_attach_trial(self):
+    def test_attach_trial_and_get_trial_parameters(self):
         ax = AxClient()
         ax.create_experiment(
             parameters=[
@@ -352,6 +352,9 @@ class TestServiceAPI(TestCase):
         params, idx = ax.attach_trial(parameters={"x1": 0, "x2": 1})
         ax.complete_trial(trial_index=idx, raw_data=5)
         self.assertEqual(ax.get_best_parameters()[0], params)
+        self.assertEqual(ax.get_trial_parameters(trial_index=idx), {"x1": 0, "x2": 1})
+        with self.assertRaises(ValueError):
+            ax.get_trial_parameters(trial_index=10)  # No trial #10 in experiment.
 
     def test_attach_trial_numpy(self):
         ax = AxClient()
