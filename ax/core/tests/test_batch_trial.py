@@ -15,7 +15,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.fake import (
     get_abandoned_arm,
     get_arm,
-    get_arm_weights,
+    get_arm_weights1,
     get_arms,
     get_experiment,
     get_weights,
@@ -60,7 +60,7 @@ class BatchTrialTest(TestCase):
 
     def testUndefinedSetters(self):
         with self.assertRaises(NotImplementedError):
-            self.batch.arm_weights = get_arm_weights()
+            self.batch.arm_weights = get_arm_weights1()
 
         with self.assertRaises(NotImplementedError):
             self.batch.status = TrialStatus.RUNNING

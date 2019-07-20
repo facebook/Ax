@@ -49,7 +49,10 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.dispatch import choose_generation_strategy
+from ax.utils.common.logger import get_logger
 
+
+logger = get_logger("ae_experiment")
 
 # Experiments
 
@@ -183,6 +186,11 @@ def get_simple_experiment_with_batch_trial() -> SimpleExperiment:
     return experiment
 
 
+def get_experiment_with_repeated_arms(num_repeated_arms: int) -> Experiment:
+    batch_trial = get_batch_trial_with_repeated_arms(num_repeated_arms)
+    return batch_trial.experiment
+
+
 def get_experiment_with_batch_trial() -> Experiment:
     batch_trial = get_batch_trial()
     return batch_trial.experiment
@@ -285,8 +293,8 @@ def get_factorial_search_space() -> SearchSpace:
 def get_batch_trial(abandon_arm: bool = True) -> BatchTrial:
     experiment = get_experiment()
     batch = experiment.new_batch_trial()
-    arms = get_arms()
-    weights = get_weights()
+    arms = get_arms_from_dict(get_arm_weights1())
+    weights = get_weights_from_dict(get_arm_weights1())
     batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=0.75)
     if abandon_arm:
         batch.mark_arm_abandoned(batch.arms[0].name, "abandoned reason")
@@ -295,10 +303,52 @@ def get_batch_trial(abandon_arm: bool = True) -> BatchTrial:
     return batch
 
 
+def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
+    """ Create a batch that contains both new arms and N arms from the last
+    existed trial in the experiment. Where N is equal to the input argument
+    'num_repeated_arms'.
+    """
+    experiment = get_experiment_with_batch_trial()
+    if len(experiment.trials) > 0:
+        # Get last (previous) trial.
+        prev_trial = experiment.trials[len(experiment.trials) - 1]
+        # Take the first N arms, where N is num_repeated_arms.
+
+        if len(prev_trial.arms) < num_repeated_arms:
+            logger.warning(
+                "There are less arms in the previous trial than the value of "
+                "input parameter 'num_repeated_arms'. Thus all the arms from "
+                "the last trial will be repeated in the new trial."
+            )
+        prev_arms = prev_trial.arms[:num_repeated_arms]
+        if isinstance(prev_trial, BatchTrial):
+            prev_weights = prev_trial.weights[:num_repeated_arms]
+        else:
+            prev_weights = [1] * len(prev_arms)
+    else:
+        raise Exception(
+            "There are no previous trials in this experiment. Thus the new "
+            "batch was not created as no repeated arms could be added."
+        )
+
+    # Create new (next) arms.
+    next_arms = get_arms_from_dict(get_arm_weights2())
+    next_weights = get_weights_from_dict(get_arm_weights2())
+
+    # Add num_repeated_arms to the new trial.
+    arms = prev_arms + next_arms
+    weights = prev_weights + next_weights
+    batch = experiment.new_batch_trial()
+    batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=1)
+    batch.runner = SyntheticRunner()
+    batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
+    return batch
+
+
 def get_trial() -> Trial:
     experiment = get_experiment()
     trial = experiment.new_trial()
-    arm = get_arms()[0]
+    arm = get_arms_from_dict(get_arm_weights1())[0]
     trial.add_arm(arm)
     trial.runner = SyntheticRunner()
     return trial
@@ -442,7 +492,7 @@ def get_status_quo() -> Arm:
     )
 
 
-def get_arm_weights() -> MutableMapping[Arm, float]:
+def get_arm_weights1() -> MutableMapping[Arm, float]:
     # pyre: parameters_dicts is declared to have type `List[Dict[str, typing.
     # pyre: Optional[typing.Union[bool, float, str]]]]` but is used as type
     # pyre-fixme[9]: `List[Dict[str, typing.Union[float, str]]]`.
@@ -456,12 +506,34 @@ def get_arm_weights() -> MutableMapping[Arm, float]:
     return OrderedDict(zip(arms, weights))
 
 
+def get_arm_weights2() -> MutableMapping[Arm, float]:  # update
+    # pyre: parameters_dicts is declared to have type `List[Dict[str, typing.
+    # pyre: Optional[typing.Union[bool, float, str]]]]` but is used as type
+    # pyre-fixme[9]: `List[Dict[str, typing.Union[float, str]]]`.
+    parameters_dicts: List[TParameterization] = [
+        {"w": 0.96, "x": 3, "y": "hello", "z": True},
+        {"w": 0.16, "x": 4, "y": "dear", "z": True},
+        {"w": 3.1, "x": 5, "y": "world", "z": False},
+    ]
+    arms = [Arm(param_dict) for param_dict in parameters_dicts]
+    weights = [0.25, 0.5, 0.25]
+    return OrderedDict(zip(arms, weights))
+
+
+def get_arms_from_dict(arm_weights_dict: MutableMapping[Arm, float]) -> List[Arm]:
+    return list(arm_weights_dict.keys())
+
+
+def get_weights_from_dict(arm_weights_dict: MutableMapping[Arm, float]) -> List[float]:
+    return list(arm_weights_dict.values())
+
+
 def get_arms() -> List[Arm]:
-    return list(get_arm_weights().keys())
+    return list(get_arm_weights1().keys())
 
 
 def get_weights() -> List[float]:
-    return list(get_arm_weights().values())
+    return list(get_arm_weights1().values())
 
 
 def get_branin_arms(n: int, seed: int) -> List[Arm]:
@@ -483,8 +555,8 @@ def get_abandoned_arm() -> AbandonedArm:
 
 
 def get_generator_run() -> GeneratorRun:
-    arms = get_arms()
-    weights = get_weights()
+    arms = get_arms_from_dict(get_arm_weights1())
+    weights = get_weights_from_dict(get_arm_weights1())
     optimization_config = get_optimization_config()
     search_space = get_search_space()
     arm_predictions = get_model_predictions_per_arm()
@@ -504,8 +576,8 @@ def get_generator_run() -> GeneratorRun:
 
 
 def get_generator_run2() -> GeneratorRun:
-    arms = get_arms()
-    weights = get_weights()
+    arms = get_arms_from_dict(get_arm_weights1())
+    weights = get_weights_from_dict(get_arm_weights1())
     return GeneratorRun(arms=arms, weights=weights)
 
 
@@ -543,7 +615,7 @@ def get_model_predictions() -> TModelPredict:
 
 
 def get_model_predictions_per_arm() -> Dict[str, TModelPredictArm]:
-    arms = list(get_arm_weights().keys())
+    arms = list(get_arm_weights1().keys())
     means = get_model_mean()
     covariances = get_model_covariance()
     metric_names = list(means.keys())
