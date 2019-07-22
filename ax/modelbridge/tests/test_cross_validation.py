@@ -9,6 +9,7 @@ from ax.modelbridge.cross_validation import (
     CVResult,
     compute_diagnostics,
     cross_validate,
+    cross_validate_by_trial,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -46,7 +47,7 @@ class CrossValidationTest(TestCase):
                 arm_name="1_2",
             ),
             Observation(
-                features=ObservationFeatures(parameters={"x": 4.0}),
+                features=ObservationFeatures(parameters={"x": 4.0}, trial_index=2),
                 data=ObservationData(
                     means=np.array([9.0, 10.0]),
                     covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
@@ -134,6 +135,48 @@ class CrossValidationTest(TestCase):
             [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
         )
         self.assertTrue(np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0])))
+
+    def testCrossValidateByTrial(self):
+        # With only 1 trial
+        ma = mock.MagicMock()
+        ma.get_training_data = mock.MagicMock(
+            "ax.modelbridge.base.ModelBridge.get_training_data",
+            autospec=True,
+            return_value=self.training_data[1:3],
+        )
+        with self.assertRaises(ValueError):
+            cross_validate_by_trial(model=ma)
+        # Prepare input and output data
+        ma = mock.MagicMock()
+        ma.get_training_data = mock.MagicMock(
+            "ax.modelbridge.base.ModelBridge.get_training_data",
+            autospec=True,
+            return_value=self.training_data,
+        )
+        ma.cross_validate = mock.MagicMock(
+            "ax.modelbridge.base.ModelBridge.cross_validate",
+            autospec=True,
+            return_value=self.observation_data,
+        )
+        # Non-existent trial
+        with self.assertRaises(ValueError):
+            cross_validate_by_trial(model=ma, trial=10)
+
+        # Working
+        result = cross_validate_by_trial(model=ma)
+        self.assertEqual(len(result), 1)
+
+        # Check that ModelBridge.cross_validate was called correctly.
+        z = ma.cross_validate.mock_calls
+        self.assertEqual(len(z), 1)
+        train_trials = [obs.features.trial_index for obs in z[0][2]["cv_training_data"]]
+        test_trials = [obsf.trial_index for obsf in z[0][2]["cv_test_points"]]
+        self.assertEqual(train_trials, [0, 1])
+        self.assertEqual(test_trials, [2])
+
+        # Check result is correct
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].observed.features.trial_index, 2)
 
     def testComputeDiagnostics(self):
         # Construct CVResults
