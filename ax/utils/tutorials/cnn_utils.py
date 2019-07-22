@@ -37,6 +37,7 @@ def load_mnist(
     train_pct: float = 0.8,
     data_path: str = "./data",
     batch_size: int = 128,
+    num_workers: int = 0,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Load MNIST dataset (download if necessary) and split data into training,
@@ -49,6 +50,7 @@ def load_mnist(
         data_path: Root directory of dataset where `MNIST/processed/training.pt`
             and `MNIST/processed/test.pt` exist.
         batch_size: how many samples per batch to load
+        num_workers: number of workers (subprocesses) for loading data
 
     Returns:
         DataLoader: training data
@@ -92,13 +94,13 @@ def load_mnist(
         ],
     )
     train_loader = DataLoader(
-        train_set, batch_size=batch_size, shuffle=True, num_workers=2
+        train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers
     )
     valid_loader = DataLoader(
-        valid_set, batch_size=batch_size, shuffle=False, num_workers=2
+        valid_set, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )
     test_loader = DataLoader(
-        test_set, batch_size=batch_size, shuffle=False, num_workers=2
+        test_set, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )
     return train_loader, valid_loader, test_loader
 
