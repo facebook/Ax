@@ -20,7 +20,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
 from ax.utils.common.equality import datetime_equals, equality_typechecker
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 if TYPE_CHECKING:
@@ -245,6 +245,49 @@ class BatchTrial(BaseTrial):
             )
         self._status_quo = status_quo
         self._status_quo_weight = weight
+        return self
+
+    @immutable_once_run
+    def set_status_quo_and_optimize_power(self, status_quo: Arm) -> "BatchTrial":
+        """Adds a status quo arm to the batch and optimizes for power.
+]
+        This function will maximize power across the multiple pair-wise
+        comparisons of existing arms against the status_quo.
+
+        Specifically, this function assigns sqrt(sum_weights) weight to the
+        status quo, where sum_weights is the sum of the weights of the existing
+        arms, excluding the status quo. This will be optimal in terms of
+        statistical power in the case where:
+            1) status quo is the only arm to compare against
+            2) all other arms are of equal interest
+        """
+        self.status_quo = status_quo
+        if len(self.arms) == 1:
+            # If status quo is the only arm, don't adjust weights
+            # (will end up setting status quo weight to 0.0)
+            return self
+
+        # arm_weights should always have at least one arm now, the status quo
+        arm_weights = not_none(self.arm_weights)
+        sum_weights = sum(w for arm, w in arm_weights.items() if arm != status_quo)
+        optimal_status_quo_weight = np.sqrt(sum_weights)
+
+        # arm_weights[status_quo] will be equal to the weight that the status quo
+        # has from the generator runs, plus _status_quo_weight.
+        # Thus, to make sure that arm_weights[status_quo] = optimal_status_quo_weight,
+        # _status_quo_weight should be equal to optimal_status_quo_weight - the amount
+        # of weight that the status quo has from the generator runs.
+        status_quo_weight_from_generator_runs = (
+            arm_weights[status_quo] - self._status_quo_weight
+        )
+
+        # Technically it's possible for _status_quo_weight to be negative here,
+        # if the weight of the status quo in the generator runs is larger than
+        # the optimal weight. But that's okay, because that's the only way
+        # to get the status quo to the correct weight.
+        self._status_quo_weight = (
+            optimal_status_quo_weight - status_quo_weight_from_generator_runs
+        )
         return self
 
     @property
