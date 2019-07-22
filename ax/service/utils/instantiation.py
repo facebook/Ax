@@ -83,6 +83,7 @@ def _make_range_param(
         lower=bounds[0],
         upper=bounds[1],
         log_scale=representation.get("log_scale", False),
+        is_fidelity=representation.get("is_fidelity", False),
     )
 
 
