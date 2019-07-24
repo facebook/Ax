@@ -3,6 +3,7 @@
 
 import logging
 from math import ceil
+from typing import Optional
 
 from ax.core.parameter import ChoiceParameter, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -18,9 +19,11 @@ def choose_generation_strategy(
     search_space: SearchSpace,
     arms_per_trial: int = 1,
     enforce_sequential_optimization: bool = True,
+    random_seed: Optional[int] = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space."""
+    model_kwargs = {"seed": random_seed} if (random_seed is not None) else None
     num_continuous_parameters, num_discrete_choices = 0, 0
     for parameter in search_space.parameters.values():
         if isinstance(parameter, ChoiceParameter):
@@ -46,6 +49,7 @@ def choose_generation_strategy(
                     num_arms=sobol_arms,
                     min_arms_observed=ceil(sobol_arms / 2),
                     enforce_num_arms=enforce_sequential_optimization,
+                    model_kwargs=model_kwargs,
                 ),
                 GenerationStep(
                     model=Models.GPEI, num_arms=-1, recommended_max_parallelism=3
@@ -55,5 +59,10 @@ def choose_generation_strategy(
     else:
         logger.info(f"Using Sobol generation strategy.")
         return GenerationStrategy(
-            name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
+            name="Sobol",
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL, num_arms=-1, model_kwargs=model_kwargs
+                )
+            ],
         )

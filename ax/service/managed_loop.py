@@ -36,6 +36,7 @@ class OptimizationLoop:
         experiment: Experiment,
         total_trials: int = 20,
         arms_per_trial: int = 1,
+        random_seed: Optional[int] = None,
         wait_time: int = 0,
         run_async: bool = False,  # TODO[Lena],
     ) -> None:
@@ -43,13 +44,16 @@ class OptimizationLoop:
         self.wait_time = wait_time
         self.total_trials = total_trials
         self.arms_per_trial = arms_per_trial
+        self.random_seed = random_seed
         assert len(experiment.trials) == 0, (
             "Optimization Loop should not be initialized with an experiment "
             "that has trials already."
         )
         self.experiment = experiment
         self.generation_strategy = choose_generation_strategy(
-            search_space=experiment.search_space, arms_per_trial=self.arms_per_trial
+            search_space=experiment.search_space,
+            arms_per_trial=self.arms_per_trial,
+            random_seed=self.random_seed,
         )
         self.current_trial = 0
 
@@ -65,6 +69,7 @@ class OptimizationLoop:
         total_trials: int = 20,
         arms_per_trial: int = 1,
         wait_time: int = 0,
+        random_seed: Optional[int] = None,
     ) -> "OptimizationLoop":
         """Constructs a synchronous `OptimizationLoop` using an evaluation
         function."""
@@ -91,6 +96,7 @@ class OptimizationLoop:
             experiment=experiment,
             total_trials=total_trials,
             arms_per_trial=arms_per_trial,
+            random_seed=random_seed,
             wait_time=wait_time,
         )
 
@@ -108,6 +114,7 @@ class OptimizationLoop:
         total_trials: int = 20,
         arms_per_trial: int = 1,
         wait_time: int = 0,
+        random_seed: Optional[int] = None,
     ) -> "OptimizationLoop":
         """Constructs an asynchronous `OptimizationLoop` using Ax runners and
         metrics."""
@@ -191,7 +198,7 @@ def optimize(
     outcome_constraints: Optional[List[str]] = None,
     total_trials: int = 20,
     arms_per_trial: int = 1,
-    wait_time: int = 0,
+    random_seed: Optional[int] = None,
 ) -> Tuple[
     TParameterization, Optional[TModelPredictArm], Experiment, Optional[ModelBridge]
 ]:
@@ -206,7 +213,7 @@ def optimize(
         outcome_constraints=outcome_constraints,
         total_trials=total_trials,
         arms_per_trial=arms_per_trial,
-        wait_time=wait_time,
+        random_seed=random_seed,
     )
     loop.full_run()
     parameterization, values = loop.get_best_point()

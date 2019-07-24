@@ -162,3 +162,19 @@ class TestManagedLoop(TestCase):
         self.assertIn("objective", vals[0])
         self.assertIn("objective", vals[1])
         self.assertIn("objective", vals[1]["objective"])
+
+    def test_optimize_propagates_random_seed(self) -> None:
+        """Tests optimization as a single call."""
+        _, _, _, model = optimize(
+            parameters=[  # pyre-fixme[6]
+                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
+            ],
+            # Booth function.
+            evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
+            + (2 * p["x1"] + p["x2"] - 5) ** 2,
+            minimize=True,
+            total_trials=5,
+            random_seed=12345,
+        )
+        self.assertEqual(12345, model.model.seed)

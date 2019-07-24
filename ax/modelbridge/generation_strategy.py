@@ -61,9 +61,9 @@ class GenerationStep(NamedTuple):
     recommended_max_parallelism: Optional[int] = None
     enforce_num_arms: bool = True
     # Kwargs to pass into the Models constructor (or factory function).
-    model_kwargs: Dict[str, Any] = None
+    model_kwargs: Optional[Dict[str, Any]] = None
     # Kwargs to pass into the Model's `.gen` function.
-    model_gen_kwargs: Dict[str, Any] = None
+    model_gen_kwargs: Optional[Dict[str, Any]] = None
     index: Optional[int] = None  # Index of this step, set internally.
 
 
