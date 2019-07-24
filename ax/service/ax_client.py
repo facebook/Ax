@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import ax.service.utils.best_point as best_point_utils
@@ -22,6 +23,11 @@ from ax.plot.contour import plot_contour
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import make_experiment, raw_data_to_evaluation
+from ax.storage.json_store.decoder import (
+    generation_strategy_from_json,
+    object_from_json,
+)
+from ax.storage.json_store.encoder import object_to_json
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -423,6 +429,51 @@ class AxClient:
         raise NotImplementedError(  # pragma: no cover
             "Early stopping of trials not supported for `AxClient` yet."
         )
+
+    def to_json_snapshot(self) -> Dict[str, Any]:
+        """Serialize this `AxClient` to JSON to be able to interrupt and restart
+        optimization and save it to file by the provided path.
+        """
+        return {
+            "_type": self.__class__.__name__,
+            "experiment": object_to_json(self.experiment),
+            "generation_strategy": object_to_json(self.generation_strategy),
+            "_enforce_sequential_optimization": self._enforce_sequential_optimization,
+            "_updated_trials": object_to_json(self._updated_trials),
+        }
+
+    @staticmethod
+    def from_json_snapshot(serialized: Dict[str, Any]) -> "AxClient":
+        """Recreate an `AxClient` from a JSON snapshot."""
+        experiment = object_from_json(serialized.pop("experiment"))
+        ax_client = AxClient(
+            generation_strategy=generation_strategy_from_json(
+                experiment=experiment,
+                generation_strategy_json=serialized.pop("generation_strategy"),
+            ),
+            enforce_sequential_optimization=serialized.pop(
+                "_enforce_sequential_optimization"
+            ),
+        )
+        ax_client._experiment = experiment
+        ax_client._updated_trials = object_from_json(serialized.pop("_updated_trials"))
+        return ax_client
+
+    def save(self, filepath: str = "ax_client_snapshot.json") -> None:
+        """Save a JSON-serialized snapshot of this `AxClient`'s settings and state
+        to a .json file by the given path.
+        """
+        with open(filepath, "w+") as file:  # pragma: no cover
+            file.write(json.dumps(self.to_json_snapshot()))
+
+    @staticmethod
+    def load(filepath: str = "ax_client_snapshot.json") -> "AxClient":
+        """Restore an `AxClient` and its state from a JSON-serialized snapshot,
+        residing in a .json file by the given path.
+        """
+        with open(filepath, "r") as file:  # pragma: no cover
+            serialized = json.loads(file.read())
+            return AxClient.from_json_snapshot(serialized=serialized)
 
     # ---------------------- Private helper methods. ---------------------
 

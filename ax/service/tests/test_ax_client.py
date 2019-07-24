@@ -61,6 +61,38 @@ def run_trials_using_recommended_parallelism(
 class TestServiceAPI(TestCase):
     """Tests service-like API functionality."""
 
+    def test_interruption(self) -> None:
+        ax = AxClient()
+        ax.create_experiment(
+            name="test",
+            parameters=[  # pyre-fixme[6]: expected union that should include
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            objective_name="branin",
+            minimize=True,
+        )
+        for i in range(6):
+            parameterization, trial_index = ax.get_next_trial()
+            self.assertFalse(  # There should be non-complete trials.
+                all(t.status.is_terminal for t in ax.experiment.trials.values())
+            )
+            x1, x2 = parameterization.get("x1"), parameterization.get("x2")
+            ax.complete_trial(
+                trial_index,
+                raw_data=checked_cast(
+                    float, branin(checked_cast(float, x1), checked_cast(float, x2))
+                ),
+            )
+            old_client = ax
+            serialized = ax.to_json_snapshot()
+            ax = AxClient.from_json_snapshot(serialized)
+            self.assertEqual(len(ax.experiment.trials.keys()), i + 1)
+            self.assertIsNot(ax, old_client)
+            self.assertTrue(  # There should be no non-complete trials.
+                all(t.status.is_terminal for t in ax.experiment.trials.values())
+            )
+
     def test_default_generation_strategy(self) -> None:
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
         ax = AxClient()
