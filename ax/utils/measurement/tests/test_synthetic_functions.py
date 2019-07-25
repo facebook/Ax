@@ -2,7 +2,12 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import numpy as np
 from ax.utils.common.testutils import TestCase
-from ax.utils.measurement.synthetic_functions import branin, hartmann6
+from ax.utils.measurement.synthetic_functions import (
+    aug_branin,
+    aug_hartmann6,
+    branin,
+    hartmann6,
+)
 
 
 class TestSyntheticFunctions(TestCase):
@@ -37,3 +42,43 @@ class TestSyntheticFunctions(TestCase):
         self.assertEqual(hartmann6.required_dimensionality, 6)
         with self.assertRaisesRegex(NotImplementedError, "Hartmann6 does not specify"):
             hartmann6.maximums
+
+    def test_aug_hartmann6(self):
+        self.assertEqual(aug_hartmann6.name, "Aug_Hartmann6")
+        self.assertAlmostEqual(aug_hartmann6(1, 2, 3, 4, 5, 6, 1), 0.0)
+        self.assertAlmostEqual(
+            aug_hartmann6(x1=1, x2=2, x3=3, x4=4, x5=5, x6=6, x7=1), 0.0
+        )
+        self.assertAlmostEqual(aug_hartmann6(np.array([1, 2, 3, 4, 5, 6, 1])), 0.0)
+        self.assertAlmostEqual(
+            aug_hartmann6(np.array([[1, 2, 3, 4, 5, 6, 1], [1, 2, 3, 4, 5, 6, 1]]))[0],
+            0.0,
+        )
+        self.assertEqual(aug_hartmann6.minimums[0][0], 0.20169)
+        self.assertEqual(aug_hartmann6.fmin, -3.32237)
+        self.assertEqual(aug_hartmann6.fmax, 0.0)
+        self.assertEqual(aug_hartmann6.domain[0], (0, 1))
+        self.assertEqual(aug_hartmann6.required_dimensionality, 7)
+        with self.assertRaisesRegex(
+            NotImplementedError, "Aug_Hartmann6 does not specify"
+        ):
+            aug_hartmann6.maximums
+
+    def test_aug_branin(self):
+        self.assertEqual(aug_branin.name, "Aug_Branin")
+        self.assertEqual(aug_branin(1, 2, 1), 21.62763539206238)
+        self.assertEqual(aug_branin(x1=1, x2=2, x3=1), 21.62763539206238)
+        self.assertEqual(aug_branin(np.array([1, 2, 1])), 21.62763539206238)
+        self.assertEqual(
+            aug_branin(np.array([[1, 2, 1], [1, 2, 1]]))[0], 21.62763539206238
+        )
+        self.assertEqual(aug_branin.minimums[0][0], -np.pi)
+        self.assertEqual(aug_branin.fmin, 0.397887)
+        self.assertEqual(aug_branin.fmax, 294.0)
+        self.assertEqual(aug_branin.domain[2], (0, 1))
+        self.assertEqual(aug_branin.domain[0], (-5, 10))
+        self.assertEqual(aug_branin.required_dimensionality, 3)
+        with self.assertRaisesRegex(NotImplementedError, "Aug_Branin does not specify"):
+            aug_branin.maximums
+        with self.assertRaisesRegex(ValueError, "Synthetic function call"):
+            aug_branin(np.array([[[1, 3, 1]]]))

@@ -169,32 +169,56 @@ class Hartmann6(SyntheticFunction):
     _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573)]
     _fmin = -3.32237
     _fmax = 0.0
+    _alpha = np.array([1.0, 1.2, 3.0, 3.2])
+    _A = np.array(
+        [
+            [10, 3, 17, 3.5, 1.7, 8],
+            [0.05, 10, 17, 0.1, 8, 14],
+            [3, 3.5, 1.7, 10, 17, 8],
+            [17, 8, 0.05, 10, 0.1, 14],
+        ]
+    )
+    _P = 10 ** (-4) * np.array(
+        [
+            [1312, 1696, 5569, 124, 8283, 5886],
+            [2329, 4135, 8307, 3736, 1004, 9991],
+            [2348, 1451, 3522, 2883, 3047, 6650],
+            [4047, 8828, 8732, 5743, 1091, 381],
+        ]
+    )
 
     @copy_doc(SyntheticFunction._f)
     def _f(self, X: np.ndarray) -> float:
-        alpha = np.array([1.0, 1.2, 3.0, 3.2])
-        A = np.array(
-            [
-                [10, 3, 17, 3.5, 1.7, 8],
-                [0.05, 10, 17, 0.1, 8, 14],
-                [3, 3.5, 1.7, 10, 17, 8],
-                [17, 8, 0.05, 10, 0.1, 14],
-            ]
-        )
-        P = 10 ** (-4) * np.array(
-            [
-                [1312, 1696, 5569, 124, 8283, 5886],
-                [2329, 4135, 8307, 3736, 1004, 9991],
-                [2348, 1451, 3522, 2883, 3047, 6650],
-                [4047, 8828, 8732, 5743, 1091, 381],
-            ]
-        )
         y = 0.0
-        for j, alpha_j in enumerate(alpha):
+        for j, alpha_j in enumerate(self._alpha):
             t = 0
             for k in range(6):
-                t += A[j, k] * ((X[k] - P[j, k]) ** 2)
+                t += self._A[j, k] * ((X[k] - self._P[j, k]) ** 2)
             y -= alpha_j * np.exp(-t)
+        return float(y)
+
+
+class Aug_Hartmann6(Hartmann6):
+    """Augmented Hartmann6 function (7-dimensional with 1 global minimum)."""
+
+    _required_dimensionality = 7
+    _domain = [(0, 1) for i in range(7)]
+    _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573, 1.0)]
+    _fmin = -3.32237
+    _fmax = 0.0
+
+    @copy_doc(SyntheticFunction._f)
+    def _f(self, X: np.ndarray) -> float:
+        y = 0.0
+        alpha_0 = self._alpha[0] - 0.1 * (1 - X[-1])
+        for j, alpha_j in enumerate(self._alpha):
+            t = 0
+            for k in range(6):
+                t += self._A[j, k] * ((X[k] - self._P[j, k]) ** 2)
+            if j == 0:
+                y -= alpha_0 * np.exp(-t)
+            else:
+                y -= alpha_j * np.exp(-t)
         return float(y)
 
 
@@ -218,5 +242,33 @@ class Branin(SyntheticFunction):
         )
 
 
+class Aug_Branin(SyntheticFunction):
+    """Augmented Branin function (3-dimensional with infinitely many global minima)."""
+
+    _required_dimensionality = 3
+    _domain = [(-5, 10), (0, 15), (0, 1)]
+    _minimums = [(-np.pi, 12.275, 1), (np.pi, 2.275, 1), (9.42478, 2.475, 1)]
+    _fmin = 0.397887
+    _fmax = 294.0
+
+    @copy_doc(SyntheticFunction._f)
+    def _f(self, X: np.ndarray) -> float:
+        x_1 = X[0]
+        x_2 = X[1]
+        return float(
+            (
+                x_2
+                - (5.1 / (4 * np.pi ** 2) - 0.1 * (1 - X[-1])) * x_1 ** 2
+                + 5.0 / np.pi * x_1
+                - 6.0
+            )
+            ** 2
+            + 10 * (1 - 1.0 / (8 * np.pi)) * np.cos(x_1)
+            + 10
+        )
+
+
 hartmann6 = Hartmann6()
+aug_hartmann6 = Aug_Hartmann6()
 branin = Branin()
+aug_branin = Aug_Branin()
