@@ -5,9 +5,14 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.report.render import (
     h2_html,
     h3_html,
+    link_html,
     list_item_html,
     p_html,
     render_report_elements,
+    table_cell_html,
+    table_heading_cell_html,
+    table_html,
+    table_row_html,
     unordered_list_html,
 )
 
@@ -20,5 +25,10 @@ class RenderTest(TestCase):
             h3_html("foobar"),
             list_item_html("foobar"),
             unordered_list_html(["foo", "bar"]),
+            link_html("foo", "bar"),
+            table_cell_html("foobar"),
+            table_heading_cell_html("foobar"),
+            table_row_html(["foo", "bar"]),
+            table_html(["foo", "bar"]),
         ]
         render_report_elements("test", elements)

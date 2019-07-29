@@ -46,6 +46,31 @@ def unordered_list_html(list_items: List[str]) -> str:
     return "<ul>{}</ul>".format("".join(list_items))
 
 
+def link_html(text: str, href: str) -> str:
+    """Embed text and reference address into link tag."""
+    return '<a href="{}">{}</a>'.format(href, text)
+
+
+def table_cell_html(text: str) -> str:
+    """Embed text or an HTML element into table cell tag."""
+    return "<td>{}</td>".format(text)
+
+
+def table_heading_cell_html(text: str) -> str:
+    """Embed text or an HTML element into table heading cell tag."""
+    return "<th>{}</th>".format(text)
+
+
+def table_row_html(table_cells: List[str]) -> str:
+    """Embed list of HTML elements into table row tag."""
+    return "<tr>{}</tr>".format("".join(table_cells))
+
+
+def table_html(table_rows: List[str]) -> str:
+    """Embed list of HTML elements into table tag."""
+    return "<table>{}</table>".format("".join(table_rows))
+
+
 def render_report_elements(
     experiment_name: str,
     html_elements: List[str],
