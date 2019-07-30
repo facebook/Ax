@@ -386,6 +386,8 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
                 ][i]
             # pyre-fixme[6]: Expected `Optional[Dict[str, Union[float, str]]]` for 1s...
             insample_data[arm.name_or_short_signature] = PlotInSampleArm(**arm_data)
+    if not insample_data:
+        raise ValueError("No model predictions present on the batch.")
     plot_data = PlotData(
         metrics=metric_names,
         in_sample=insample_data,

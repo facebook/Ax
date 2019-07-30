@@ -177,15 +177,11 @@ class MultiTypeExperiment(Experiment):
 
     @copy_doc(Experiment.fetch_data)
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
-        if metrics is not None:
-            raise ValueError(  # pragma: no cover
-                "`metrics` argument is not supported for"
-                "`MultiTypeExperiment.fetch_data`."
-            )
-
         return Data.from_multiple_data(
             [
-                trial.fetch_data(**kwargs) if trial.status.expecting_data else Data()
+                trial.fetch_data(**kwargs, metrics=metrics)
+                if trial.status.expecting_data
+                else Data()
                 for trial in self.trials.values()
             ]
         )
@@ -194,17 +190,11 @@ class MultiTypeExperiment(Experiment):
     def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
     ) -> Data:
-        if metrics is not None:
-            raise ValueError(  # pragma: no cover
-                "`metrics` argument is not supported for"
-                "`MultiTypeExperiment._fetch_trial_data`."
-            )
-
         trial = self.trials[trial_index]
         metrics = [
-            self.metrics[metric_name]
-            for metric_name, trial_type in self.metric_to_trial_type.items()
-            if trial_type == trial.trial_type
+            metric
+            for metric in (metrics or self.metrics.values())
+            if self.metric_to_trial_type[metric.name] == trial.trial_type
         ]
         # Invoke parent's fetch method using only metrics for this trial_type
         return super()._fetch_trial_data(trial.index, metrics=metrics, **kwargs)

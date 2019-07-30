@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+from copy import deepcopy
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
@@ -32,6 +33,7 @@ def _get_contour_predictions(
     generator_runs_dict: TNullableGeneratorRunsDict,
     density: int,
     slice_values: Optional[Dict[str, Any]] = None,
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> ContourPredictions:
     """
     slice_values is a dictionary {param_name: value} for the parameters that
@@ -51,14 +53,20 @@ def _get_contour_predictions(
     grid2_x = grid2_x.flatten()
     grid2_y = grid2_y.flatten()
 
+    if fixed_features is not None:
+        slice_values = fixed_features.parameters
+    else:
+        fixed_features = ObservationFeatures(parameters={})
+
     fixed_values = get_fixed_values(model, slice_values)
 
     param_grid_obsf = []
     for i in range(density ** 2):
-        parameters = fixed_values.copy()
-        parameters[x_param_name] = grid2_x[i]
-        parameters[y_param_name] = grid2_y[i]
-        param_grid_obsf.append(ObservationFeatures(parameters))
+        predf = deepcopy(fixed_features)
+        predf.parameters = fixed_values.copy()
+        predf.parameters[x_param_name] = grid2_x[i]
+        predf.parameters[y_param_name] = grid2_y[i]
+        param_grid_obsf.append(predf)
 
     mu, cov = model.predict(param_grid_obsf)
 
@@ -77,6 +85,7 @@ def plot_contour(
     density: int = 50,
     slice_values: Optional[Dict[str, Any]] = None,
     lower_is_better: bool = False,
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> AxPlotConfig:
     """Plot predictions for a 2-d slice of the parameter space.
 
@@ -94,6 +103,9 @@ def plot_contour(
             be used if there is a status quo, otherwise the mean of numeric
             parameters or the mode of choice parameters.
         lower_is_better: Lower values for metric are better.
+        fixed_features: An ObservationFeatures object containing the values of
+            features (including non-parameter features like context) to be set
+            in the slice.
     """
     if param_x == param_y:
         raise ValueError("Please select different parameters for x- and y-dimensions.")
@@ -135,6 +147,7 @@ def interact_contour(
     density: int = 50,
     slice_values: Optional[Dict[str, Any]] = None,
     lower_is_better: bool = False,
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> AxPlotConfig:
     """Create interactive plot with predictions for a 2-d slice of the parameter
     space.
@@ -151,6 +164,9 @@ def interact_contour(
             be used if there is a status quo, otherwise the mean of numeric
             parameters or the mode of choice parameters.
         lower_is_better: Lower values for metric are better.
+        fixed_features: An ObservationFeatures object containing the values of
+            features (including non-parameter features like context) to be set
+            in the slice.
     """
     range_parameters = get_range_parameters(model)
     plot_data, _, _ = get_plot_data(model, generator_runs_dict or {}, {metric_name})

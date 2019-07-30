@@ -115,7 +115,7 @@ def tconfig_from_mt_experiment(experiment: MultiTypeExperiment) -> TConfig:
     return {  # pyre-ignore[7]
         "metric_name_map": experiment._metric_to_canonical_name,
         "trial_index_to_type": trial_index_to_type,
-        "metric_name_to_trial_type": experiment._metric_to_trial_type,
+        "metric_name_to_trial_type": experiment.metric_to_trial_type,
     }
 
 
