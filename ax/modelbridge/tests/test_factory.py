@@ -61,13 +61,8 @@ class ModelBridgeFactoryTest(TestCase):
         for _ in range(5):
             sobol_run = sobol.gen(n=1)
             exp.new_batch_trial().add_generator_run(sobol_run).run()
-        mtgp = get_MTGP(experiment=exp, is_multi_type=False, data=exp.fetch_data())
+        mtgp = get_MTGP(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(mtgp, TorchModelBridge)
-
-        # Test wrong call of Multi-type MTGP. The type of the input experiment
-        # should be MultiTypeExperiment.
-        with self.assertRaises(ValueError):
-            get_MTGP(experiment=exp, is_multi_type=True, data=exp.fetch_data())
 
     def test_model_kwargs(self):
         """Tests that model kwargs are passed correctly."""

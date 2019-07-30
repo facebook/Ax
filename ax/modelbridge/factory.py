@@ -168,21 +168,17 @@ def get_GPEI(
 # we need to create `trial_index_to_type` as in the factory function below.
 # Maybe `MultiTypeExperiment` could have that mapping as a property?
 def get_MTGP(
-    experiment: Experiment,
-    data: Data,
-    is_multi_type: bool = True,
-    search_space: Optional[SearchSpace] = None,
+    experiment: Experiment, data: Data, search_space: Optional[SearchSpace] = None
 ) -> TorchModelBridge:
-    """Instantiates a Multi-task GP model that generates points with EI.
+    """Instantiates a Multi-task Gaussian Process (MTGP) model that generates
+    points with EI.
 
-    Args:
-        is_multi_type: If is_multi_type is True then experiment should be a
-            MultiTypeExperiment and a Multi-type Multi-task GP model will be
-            instantiated.
-            Otherwise, the model will be a Single-type Multi-task GP.
+    If the input experiment is a MultiTypeExperiment then a
+    Multi-type Multi-task GP model will be instantiated.
+    Otherwise, the model will be a Single-type Multi-task GP.
     """
 
-    if is_multi_type and isinstance(experiment, MultiTypeExperiment):
+    if isinstance(experiment, MultiTypeExperiment):
         trial_index_to_type = {
             t.index: t.trial_type for t in experiment.trials.values()
         }
@@ -191,12 +187,8 @@ def get_MTGP(
             "TrialAsTask": {"trial_level_map": {"trial_type": trial_index_to_type}},
             "ConvertMetricNames": tconfig_from_mt_experiment(experiment),
         }
-    elif is_multi_type:
-        raise ValueError(
-            "If is_multi_type is True, the input experiment type should be "
-            "MultiTypeExperiment."
-        )
     else:
+        # Set transforms for a Single-type MTGP model.
         transforms = ST_MTGP_trans
         transform_configs = None
 
