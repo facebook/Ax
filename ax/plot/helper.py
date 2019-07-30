@@ -100,13 +100,18 @@ def _filter_dict(
 
 
 def _get_in_sample_arms(
-    model: ModelBridge, metric_names: Set[str]
+    model: ModelBridge,
+    metric_names: Set[str],
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> Tuple[Dict[str, PlotInSampleArm], RawData, Dict[str, TParameterization]]:
     """Get in-sample arms from a model with observed and predicted values
     for specified metrics.
 
     Returns a PlotInSampleArm object in which repeated observations are merged
     with IVW, and a RawData object in which every observation is listed.
+
+    Fixed features input can be used to override fields of the insample arms
+    when making model predictions.
 
     Args:
         model: An instance of the model bridge.
@@ -166,7 +171,10 @@ def _get_in_sample_arms(
                 obs_se[metric_name] = np.sqrt(obs_data[i].covariance[j, j])
         # Make a prediction.
         if model.training_in_design[i]:
-            pred_y, pred_se = _predict_at_point(model, obs.features, metric_names)
+            features = obs.features
+            if fixed_features is not None:
+                features.update_features(fixed_features)
+            pred_y, pred_se = _predict_at_point(model, features, metric_names)
         else:
             # Use raw data for out-of-design points
             pred_y = obs_y
@@ -215,8 +223,12 @@ def _get_out_of_sample_arms(
     model: ModelBridge,
     generator_runs_dict: Dict[str, GeneratorRun],
     metric_names: Set[str],
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> Dict[str, Dict[str, PlotOutOfSampleArm]]:
     """Get out-of-sample predictions from a model given a dict of generator runs.
+
+    Fixed features input can be used to override fields of the candidate arms
+    when making model predictions.
 
     Args:
         model: The model.
@@ -233,6 +245,9 @@ def _get_out_of_sample_arms(
         for arm in generator_run.arms:
             # This assumes context is None
             obsf = ObservationFeatures.from_arm(arm)
+            if fixed_features is not None:
+                obsf.update_features(fixed_features)
+
             # Make a prediction
             try:
                 pred_y, pred_se = _predict_at_point(model, obsf, metric_names)
@@ -259,6 +274,7 @@ def get_plot_data(
     model: ModelBridge,
     generator_runs_dict: Dict[str, GeneratorRun],
     metric_names: Optional[Set[str]] = None,
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> Tuple[PlotData, RawData, Dict[str, TParameterization]]:
     """Format data object with metrics for in-sample and out-of-sample
     arms.
@@ -276,6 +292,7 @@ def get_plot_data(
         generator_runs_dict: a mapping from generator run name to generator run.
         metric_names: Restrict predictions to this set. If None, all metrics
             in the model will be returned.
+        fixed_features: Fixed features to use when making model predictions.
 
     Returns:
         A tuple containing
@@ -289,10 +306,13 @@ def get_plot_data(
     """
     metrics_plot = model.metric_names if metric_names is None else metric_names
     in_sample_plot, raw_data, cond_name_to_parameters = _get_in_sample_arms(
-        model=model, metric_names=metrics_plot
+        model=model, metric_names=metrics_plot, fixed_features=fixed_features
     )
     out_of_sample_plot = _get_out_of_sample_arms(
-        model=model, generator_runs_dict=generator_runs_dict, metric_names=metrics_plot
+        model=model,
+        generator_runs_dict=generator_runs_dict,
+        metric_names=metrics_plot,
+        fixed_features=fixed_features,
     )
     status_quo_name = None if model.status_quo is None else model.status_quo.arm_name
     plot_data = PlotData(

@@ -2,7 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -198,6 +198,15 @@ class MultiTypeExperiment(Experiment):
         ]
         # Invoke parent's fetch method using only metrics for this trial_type
         return super()._fetch_trial_data(trial.index, metrics=metrics, **kwargs)
+
+    @property
+    def default_trials(self) -> Set[int]:
+        """Return the indicies for trials of the default type."""
+        return {
+            idx
+            for idx, trial in self.trials.items()
+            if trial.trial_type == self.default_trial_type
+        }
 
     @property
     def metric_to_trial_type(self) -> Dict[str, str]:

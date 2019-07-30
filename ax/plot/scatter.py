@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import plotly.graph_objs as go
+from ax.core.observation import ObservationFeatures
 from ax.modelbridge.base import ModelBridge
 from ax.plot.base import (
     CI_OPACITY,
@@ -247,6 +248,7 @@ def _multiple_metric_traces(
     metric_y: str,
     generator_runs_dict: TNullableGeneratorRunsDict,
     rel: bool,
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> Traces:
     """Plot traces for multiple metrics given a model and metrics.
 
@@ -257,12 +259,14 @@ def _multiple_metric_traces(
         generator_runs_dict: a mapping from
             generator run name to generator run.
         rel: if True, use relative effects.
+        fixed_features: Fixed features to use when making model predictions.
 
     """
     plot_data, _, _ = get_plot_data(
         model,
         generator_runs_dict if generator_runs_dict is not None else {},
         {metric_x, metric_y},
+        fixed_features=fixed_features,
     )
 
     status_quo_arm = (
@@ -447,11 +451,15 @@ def plot_objective_vs_constraints(
     subset_metrics: Optional[List[str]] = None,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> AxPlotConfig:
     """Plot the tradeoff between an objetive and all other metrics in a model.
 
     All arms used in the model are included in the plot. Additional
     arms can be passed through via the `generator_runs_dict` argument.
+
+    Fixed features input can be used to override fields of the insample arms
+    when making model predictions.
 
     Args:
         model: model to draw predictions from.
@@ -461,6 +469,7 @@ def plot_objective_vs_constraints(
         generator_runs_dict: a mapping from
             generator run name to generator run.
         rel: if True, use relative effects. Default is True.
+        fixed_features: Fixed features to use when making model predictions.
 
     """
     if subset_metrics is not None:
@@ -472,7 +481,12 @@ def plot_objective_vs_constraints(
 
     # set plotted data to the first outcome
     plot_data = _multiple_metric_traces(
-        model, objective, metrics[0], generator_runs_dict, rel
+        model,
+        objective,
+        metrics[0],
+        generator_runs_dict,
+        rel,
+        fixed_features=fixed_features,
     )
 
     for metric in metrics:
@@ -900,6 +914,7 @@ def _single_metric_traces(
     showlegend: bool = True,
     show_CI: bool = True,
     arm_noun: str = "arm",
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> Traces:
     """Plot scatterplots with errors for a single metric (y-axis).
 
@@ -916,9 +931,12 @@ def _single_metric_traces(
         show_legend: if True, show legend for trace.
         show_CI: if True, render confidence intervals.
         arm_noun: noun to use instead of "arm" (e.g. group)
+        fixed_features: Fixed features to use when making model predictions.
 
     """
-    plot_data, _, _ = get_plot_data(model, generator_runs_dict or {}, {metric})
+    plot_data, _, _ = get_plot_data(
+        model, generator_runs_dict or {}, {metric}, fixed_features=fixed_features
+    )
 
     status_quo_arm = (
         None
@@ -1098,6 +1116,8 @@ def tile_fitted(
     show_arm_details_on_hover: bool = False,
     show_CI: bool = True,
     arm_noun: str = "arm",
+    metrics: Optional[List[str]] = None,
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> AxPlotConfig:
     """Tile version of fitted outcome plots.
 
@@ -1110,9 +1130,11 @@ def tile_fitted(
             parameterizations of arms on hover. Default is False.
         show_CI: if True, render confidence intervals.
         arm_noun: noun to use instead of "arm" (e.g. group)
+        metrics: List of metric names to restrict to when plotting.
+        fixed_features: Fixed features to use when making model predictions.
 
     """
-    metrics = model.metric_names
+    metrics = metrics or list(model.metric_names)
     nrows = int(np.ceil(len(metrics) / 2))
     ncols = min(len(metrics), 2)
 
@@ -1142,6 +1164,7 @@ def tile_fitted(
             show_arm_details_on_hover=show_arm_details_on_hover,
             show_CI=show_CI,
             arm_noun=arm_noun,
+            fixed_features=fixed_features,
         )
 
         # order arm name sorting arm numbers within batch
@@ -1254,6 +1277,8 @@ def interact_fitted(
     show_arm_details_on_hover: bool = True,
     show_CI: bool = True,
     arm_noun: str = "arm",
+    metrics: Optional[List[str]] = None,
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> AxPlotConfig:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
@@ -1268,12 +1293,13 @@ def interact_fitted(
             parameterizations of arms on hover. Default is True.
         show_CI: if True, render confidence intervals.
         arm_noun: noun to use instead of "arm" (e.g. group)
-
+        metrics: List of metric names to restrict to when plotting.
+        fixed_features: Fixed features to use when making model predictions.
     """
     traces_per_metric = (
         1 if generator_runs_dict is None else len(generator_runs_dict) + 1
     )
-    metrics = sorted(model.metric_names)
+    metrics = sorted(metrics or model.metric_names)
 
     traces = []
     dropdown = []
@@ -1288,6 +1314,7 @@ def interact_fitted(
             show_arm_details_on_hover=show_arm_details_on_hover,
             show_CI=show_CI,
             arm_noun=arm_noun,
+            fixed_features=fixed_features,
         )
 
         for d in data:

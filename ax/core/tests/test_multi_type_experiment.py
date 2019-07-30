@@ -46,7 +46,7 @@ class MultiTypeExperimentTest(TestCase):
             float(arm_0_slice[df["trial_index"] == 1]["mean"]),
         )
         self.assertEqual(len(df), 2 * n)
-
+        self.assertEqual(self.experiment.default_trials, {0})
         # Set 2 metrics to be equal
         self.experiment.update_tracking_metric(
             BraninMetric("m2", ["x1", "x2"]), trial_type="type2"

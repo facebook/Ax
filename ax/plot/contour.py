@@ -42,7 +42,9 @@ def _get_contour_predictions(
     x_param = get_range_parameter(model, x_param_name)
     y_param = get_range_parameter(model, y_param_name)
 
-    plot_data, _, _ = get_plot_data(model, generator_runs_dict or {}, {metric})
+    plot_data, _, _ = get_plot_data(
+        model, generator_runs_dict or {}, {metric}, fixed_features=fixed_features
+    )
 
     grid_x = get_grid_for_parameter(x_param, density)
     grid_y = get_grid_for_parameter(y_param, density)
@@ -169,7 +171,9 @@ def interact_contour(
             in the slice.
     """
     range_parameters = get_range_parameters(model)
-    plot_data, _, _ = get_plot_data(model, generator_runs_dict or {}, {metric_name})
+    plot_data, _, _ = get_plot_data(
+        model, generator_runs_dict or {}, {metric_name}, fixed_features=fixed_features
+    )
 
     # TODO T38563759: Sort parameters by feature importances
     param_names = [parameter.name for parameter in range_parameters]
@@ -201,6 +205,7 @@ def interact_contour(
                 generator_runs_dict=generator_runs_dict,
                 density=density,
                 slice_values=slice_values,
+                fixed_features=fixed_features,
             )
             f_dict[param1][param2] = f_plt
             sd_dict[param1][param2] = sd_plt

@@ -67,6 +67,24 @@ class ObservationFeatures(Base):
             random_split=random_split,
         )
 
+    def update_features(
+        self, new_features: "ObservationFeatures"
+    ) -> "ObservationFeatures":
+        """Updates the existing ObservationFeatures with the fields of the the input.
+
+        Adds all of the new parameters to the existing parameters and overwrites
+        any other fields that are not None on the new input features."""
+        self.parameters.update(new_features.parameters)
+        if new_features.trial_index is not None:
+            self.trial_index = new_features.trial_index
+        if new_features.start_time is not None:
+            self.start_time = new_features.start_time
+        if new_features.end_time is not None:
+            self.end_time = new_features.end_time
+        if new_features.random_split is not None:
+            self.random_split = new_features.random_split
+        return self
+
     def __repr__(self) -> str:
         strs = []
         for attr in ["trial_index", "start_time", "end_time", "random_split"]:

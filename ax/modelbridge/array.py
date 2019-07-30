@@ -339,7 +339,7 @@ def array_to_observation_data(
     for i in range(f.shape[0]):
         observation_data.append(
             ObservationData(
-                metric_names=outcomes,
+                metric_names=list(outcomes),
                 means=f[i, :].copy(),
                 covariance=cov[i, :, :].copy(),
             )

@@ -51,6 +51,31 @@ class ObservationsTest(TestCase):
         self.assertEqual(obsf.parameters, arm.parameters)
         self.assertEqual(obsf.trial_index, 3)
 
+    def testUpdateFeatures(self):
+        parameters = {"x": 0, "y": "a"}
+        new_parameters = {"z": "foo"}
+
+        obsf = ObservationFeatures(parameters=parameters, trial_index=3)
+
+        # Ensure None trial_index doesn't override existing value
+        obsf.update_features(ObservationFeatures(parameters={}))
+        self.assertEqual(obsf.trial_index, 3)
+
+        # Test override
+        new_obsf = ObservationFeatures(
+            parameters=new_parameters,
+            trial_index=4,
+            start_time=np.datetime64("2005-02-25"),
+            end_time=np.datetime64("2005-02-26"),
+            random_split=7,
+        )
+        obsf.update_features(new_obsf)
+        self.assertEqual(obsf.parameters, {**parameters, **new_parameters})
+        self.assertEqual(obsf.trial_index, 4)
+        self.assertEqual(obsf.random_split, 7)
+        self.assertEqual(obsf.start_time, np.datetime64("2005-02-25"))
+        self.assertEqual(obsf.end_time, np.datetime64("2005-02-26"))
+
     def testObservationData(self):
         attrs = {
             "metric_names": ["a", "b"],

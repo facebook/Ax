@@ -23,6 +23,8 @@ class ConvertMetricNames(Transform):
     online metric names.
 
     In the inverse transform, data will be mapped back onto the original metric names.
+    By default, this transform is turned off. It can be enabled by passing the
+    "perform_untransform" flag to the config.
     """
 
     def __init__(
@@ -62,6 +64,9 @@ class ConvertMetricNames(Transform):
         # Usage: reverse_metric_name_map[trial_type][transformed_name] -> original_name
         self.reverse_metric_name_map: Dict[str, Dict[str, str]] = {}
 
+        # For most practical cases we want to skip the untransform
+        self.perform_untransform = config.get("perform_untransform", False)
+
         for orig_name, trans_name in self.metric_name_map.items():
             trial_type = self.metric_name_to_trial_type[orig_name]
             if trial_type in self.reverse_metric_name_map:
@@ -87,6 +92,8 @@ class ConvertMetricNames(Transform):
         observation_data: List[ObservationData],
         observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
+        if not self.perform_untransform:
+            return observation_data
         for i, obsd in enumerate(observation_data):
             trial_index = int(not_none(observation_features[i].trial_index))
             trial_type = self.trial_index_to_type[trial_index]

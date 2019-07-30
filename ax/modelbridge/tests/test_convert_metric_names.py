@@ -39,6 +39,13 @@ class ConvertMetricNamesTest(TestCase):
         for obsd in transformed_observation_data:
             self.assertEqual(obsd.metric_names[0], "m1")
 
+        # By default untransform does nothing
+        untransformed_observation_data = transform.untransform_observation_data(
+            transformed_observation_data, transformed_observation_features
+        )
+        self.assertEqual(transformed_observation_data, untransformed_observation_data)
+
+        transform.perform_untransform = True
         untransformed_observation_data = transform.untransform_observation_data(
             transformed_observation_data, transformed_observation_features
         )
