@@ -374,10 +374,9 @@ class BotorchModel(TorchModel):
     def update(self, Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]) -> None:
         if self.model is None:
             raise RuntimeError("Cannot update model that has not been fitted")
-        for i, _ in enumerate(Xs):
-            self.Xs[i] = torch.cat((self.Xs[i], Xs[i]))
-            self.Ys[i] = torch.cat((self.Ys[i], Ys[i]))
-            self.Yvars[i] = torch.cat((self.Yvars[i], Yvars[i]))
+        self.Xs = Xs
+        self.Ys = Ys
+        self.Yvars = Yvars
         if self.refit_on_update:
             state_dict = None
         else:

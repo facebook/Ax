@@ -313,8 +313,14 @@ class BaseModelBridgeTest(TestCase):
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
     def testSetStatusQuo(self, mock_fit, mock_observations_from_data):
+        # NOTE: If empty data object is not passed, observations are not
+        # extracted, even with mock.
         modelbridge = ModelBridge(
-            search_space_for_value(), 0, [], get_experiment(), 0, status_quo_name="1_1"
+            search_space=search_space_for_value(),
+            model=0,
+            experiment=get_experiment(),
+            data=Data(),
+            status_quo_name="1_1",
         )
         self.assertEqual(modelbridge.status_quo, observation1())
 

@@ -2,7 +2,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import json
-from typing import List, Optional
+from copy import deepcopy
+from typing import List, Optional, Tuple
 
 import numpy as np
 from ax.core.arm import Arm
@@ -204,3 +205,24 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
         )
 
     return observations
+
+
+def separate_observations(
+    observations: List[Observation], copy: bool = False
+) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
+    """Split out observations into features+data.
+
+    Args:
+        observations: input observations
+
+    Returns:
+        observation_features: ObservationFeatures
+        observation_data: ObservationData
+    """
+    if copy:
+        observation_features = [deepcopy(obs.features) for obs in observations]
+        observation_data = [deepcopy(obs.data) for obs in observations]
+    else:
+        observation_features = [obs.features for obs in observations]
+        observation_data = [obs.data for obs in observations]
+    return observation_features, observation_data

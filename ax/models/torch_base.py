@@ -166,11 +166,17 @@ class TorchModel:
         raise NotImplementedError
 
     def update(self, Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]) -> None:
-        """Update the model with additional data.
+        """Update the model.
+
+        Updating the model requires both existing and additional data.
+        The data passed into this method will become the new training data.
 
         Args:
-            Xs: Additional data for the model, in the same format as for `fit`.
-            Ys: Additional data for the model, in the same format as for `fit`.
-            Yvars: Additional data for the model, in the same format as for `fit`.
+            Xs: Existing + additional data for the model,
+                in the same format as for `fit`.
+            Ys: Existing + additional data for the model,
+                in the same format as for `fit`.
+            Yvars: Existing + additional data for the model,
+                in the same format as for `fit`.
         """
         raise NotImplementedError

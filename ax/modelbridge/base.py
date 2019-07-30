@@ -16,6 +16,7 @@ from ax.core.observation import (
     ObservationData,
     ObservationFeatures,
     observations_from_data,
+    separate_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
@@ -100,48 +101,35 @@ class ModelBridge(ABC):
         self._bridge_kwargs: Optional[Dict[str, Any]] = None
 
         self._model_space = search_space.clone()
+        self._raw_transforms = transforms
+        self._transform_configs: Optional[Dict[str, TConfig]] = transform_configs
+
         if experiment is not None:
             if self._optimization_config is None:
                 self._optimization_config = experiment.optimization_config
             self._arms_by_signature = experiment.arms_by_signature
 
-        # Get observation features and data
-        obs_feats: List[ObservationFeatures] = []
-        obs_data: List[ObservationData] = []
         observations = (
             observations_from_data(experiment, data)
             if experiment is not None and data is not None
             else []
         )
-        obs_feats, obs_data = self._set_training_data(observations)
-
+        obs_feats_raw, obs_data_raw = self._set_training_data(observations)
         # Set model status quo
-        if any(
-            x is not None for x in [experiment, status_quo_name, status_quo_features]
-        ):
-            self._set_status_quo(
-                experiment=experiment,
-                status_quo_name=status_quo_name,
-                status_quo_features=status_quo_features,
-            )
+        # NOTE: training data must be set before setting the status quo.
+        self._set_status_quo(
+            experiment=experiment,
+            status_quo_name=status_quo_name,
+            status_quo_features=status_quo_features,
+        )
 
-        # Initialize transforms
-        if transform_configs is None:
-            transform_configs = {}
-
-        search_space = search_space.clone()
-        if transforms is not None:
-            for t in transforms:
-                t_instance = t(
-                    search_space=search_space,
-                    observation_features=obs_feats,
-                    observation_data=obs_data,
-                    config=transform_configs.get(t.__name__, None),
-                )
-                search_space = t_instance.transform_search_space(search_space)
-                obs_feats = t_instance.transform_observation_features(obs_feats)
-                obs_data = t_instance.transform_observation_data(obs_data, obs_feats)
-                self.transforms[t.__name__] = t_instance
+        obs_feats, obs_data, search_space = self._transform_data(
+            obs_feats=obs_feats_raw,
+            obs_data=obs_data_raw,
+            search_space=search_space,
+            transforms=transforms,
+            transform_configs=transform_configs,
+        )
 
         # Apply terminal transform and fit
         try:
@@ -157,11 +145,39 @@ class ModelBridge(ABC):
             self.fit_time = 0.0
             self.fit_time_since_gen = 0.0
 
+    def _transform_data(
+        self,
+        obs_feats: List[ObservationFeatures],
+        obs_data: List[ObservationData],
+        search_space: SearchSpace,
+        transforms: Optional[List[Type[Transform]]],
+        transform_configs: Optional[Dict[str, TConfig]],
+    ) -> Tuple[List[ObservationFeatures], List[ObservationData], SearchSpace]:
+        """Initialize transforms and apply them to provided data."""
+        # Initialize transforms
+        search_space = search_space.clone()
+        if transforms is not None:
+            if transform_configs is None:
+                transform_configs = {}
+
+            for t in transforms:
+                t_instance = t(
+                    search_space=search_space,
+                    observation_features=obs_feats,
+                    observation_data=obs_data,
+                    config=transform_configs.get(t.__name__, None),
+                )
+                search_space = t_instance.transform_search_space(search_space)
+                obs_feats = t_instance.transform_observation_features(obs_feats)
+                obs_data = t_instance.transform_observation_data(obs_data, obs_feats)
+                self.transforms[t.__name__] = t_instance
+
+        return obs_feats, obs_data, search_space
+
     def _prepare_training_data(
         self, observations: List[Observation]
     ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
-        observation_features = [obs.features for obs in observations]
-        observation_data = [obs.data for obs in observations]
+        observation_features, observation_data = separate_observations(observations)
         if len(observation_features) != len(set(observation_features)):
             raise ValueError(
                 "Observation features not unique."
@@ -187,7 +203,15 @@ class ModelBridge(ABC):
     def _extend_training_data(
         self, observations: List[Observation]
     ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
-        """Extend training data, not-transformed"""
+        """Extend and return training data, not-transformed.
+
+        Args:
+            observations: New observations.
+
+        Returns:
+            observation_features: New + old observation features.
+            observation_data: New + old observation data.
+        """
         observation_features, observation_data = self._prepare_training_data(
             observations=observations
         )
@@ -202,7 +226,7 @@ class ModelBridge(ABC):
         # Initialize with all points in design.
         self._training_data.extend(deepcopy(observations))
         self._training_in_design.extend([True] * len(observations))
-        return observation_features, observation_data
+        return separate_observations(self.get_training_data())
 
     def _set_status_quo(
         self,
@@ -240,6 +264,7 @@ class ModelBridge(ABC):
             sq_obs = [
                 obs for obs in self._training_data if obs.arm_name == status_quo_name
             ]
+
             if len(sq_obs) == 0:
                 logger.warning(f"Status quo {status_quo_name} not present in data")
             elif len(sq_obs) > 1:
@@ -387,10 +412,16 @@ class ModelBridge(ABC):
             if experiment is not None and data is not None
             else []
         )
-        obs_feats, obs_data = self._extend_training_data(observations=observations)
-        for t in self.transforms.values():
-            obs_feats = t.transform_observation_features(obs_feats)
-            obs_data = t.transform_observation_data(obs_data, obs_feats)
+        obs_feats_raw, obs_data_raw = self._extend_training_data(
+            observations=observations
+        )
+        obs_feats, obs_data, search_space = self._transform_data(
+            obs_feats=obs_feats_raw,
+            obs_data=obs_data_raw,
+            search_space=self._model_space,
+            transforms=self._raw_transforms,
+            transform_configs=self._transform_configs,
+        )
         self._update(observation_features=obs_feats, observation_data=obs_data)
         self.fit_time += time.time() - t_update_start
         self.fit_time_since_gen += time.time() - t_update_start
@@ -400,7 +431,15 @@ class ModelBridge(ABC):
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
     ) -> None:
-        """Apply terminal transform and update model."""
+        """Apply terminal transform and update model.
+
+        Note: This function requires ALL observation_features and
+        observation_data observed thus far, not just the new data to update with.
+
+        Args:
+            observation_features: All observation features observed so far.
+            observation_data: All observation data observed so far.
+        """
         raise NotImplementedError  # pragma: no cover
 
     def gen(
@@ -551,8 +590,9 @@ class ModelBridge(ABC):
         """
         # Apply transforms to cv_training_data and cv_test_points
         cv_test_points = deepcopy(cv_test_points)
-        obs_feats = [deepcopy(obs.features) for obs in cv_training_data]
-        obs_data = [deepcopy(obs.data) for obs in cv_training_data]
+        obs_feats, obs_data = separate_observations(
+            observations=cv_training_data, copy=True
+        )
         for t in self.transforms.values():
             obs_feats = t.transform_observation_features(obs_feats)
             obs_data = t.transform_observation_data(obs_data, obs_feats)

@@ -229,10 +229,12 @@ class BotorchModelTest(TestCase):
         # Test update
         model.refit_on_update = False
         model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
-        self.assertTrue(torch.equal(model.Xs[0], torch.cat((Xs1[0], Xs2[0]))))
-        self.assertTrue(torch.equal(model.Xs[1], torch.cat((Xs2[0], Xs2[0]))))
-        self.assertTrue(torch.equal(model.Ys[0], torch.cat((Ys1[0], Ys2[0]))))
-        self.assertTrue(torch.equal(model.Yvars[0], torch.cat((Yvars1[0], Yvars2[0]))))
+
+        # When calling update directly, the data is completely overwritten.
+        self.assertTrue(torch.equal(model.Xs[0], Xs2[0]))
+        self.assertTrue(torch.equal(model.Xs[1], Xs2[0]))
+        self.assertTrue(torch.equal(model.Ys[0], Ys2[0]))
+        self.assertTrue(torch.equal(model.Yvars[0], Yvars2[0]))
 
         model.refit_on_update = True
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:

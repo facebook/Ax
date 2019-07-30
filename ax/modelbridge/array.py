@@ -118,7 +118,7 @@ class ArrayModelBridge(ModelBridge):
             parameters=self.parameters,
         )
         # Update in-design status for these new points.
-        self.training_in_design[-len(observation_features) :] = in_design
+        self.training_in_design = in_design
         self._model_update(Xs=Xs_array, Ys=Ys_array, Yvars=Yvars_array)
 
     def _model_update(

@@ -12,6 +12,7 @@ from ax.core.observation import (
     ObservationData,
     ObservationFeatures,
     observations_from_data,
+    separate_observations,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -194,3 +195,28 @@ class ObservationsTest(TestCase):
                 np.array_equal(obs.data.covariance, obsd_truth["covariance"][i])
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
+
+    def testSeparateObservations(self):
+        obs = Observation(
+            features=ObservationFeatures(parameters={"x": 20}),
+            data=ObservationData(
+                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+            ),
+            arm_name="0_0",
+        )
+        obs_feats, obs_data = separate_observations(observations=[obs])
+        self.assertEqual(obs.features, ObservationFeatures(parameters={"x": 20}))
+        self.assertEqual(
+            obs.data,
+            ObservationData(
+                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+            ),
+        )
+        obs_feats, obs_data = separate_observations(observations=[obs], copy=True)
+        self.assertEqual(obs.features, ObservationFeatures(parameters={"x": 20}))
+        self.assertEqual(
+            obs.data,
+            ObservationData(
+                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+            ),
+        )

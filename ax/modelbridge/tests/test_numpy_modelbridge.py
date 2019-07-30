@@ -110,7 +110,8 @@ class NumpyModelBridgeTest(TestCase):
             observation_features=self.observation_features + [sq_feat],
             observation_data=self.observation_data + [sq_data],
         )
-        self.assertEqual(ma.training_in_design, [True, True, True, False] * 2)
+        # Calling _update requires passing ALL data.
+        self.assertEqual(ma.training_in_design, [True, True, True, False])
         model_update_args = model.update.mock_calls[0][2]
         for i, x in enumerate(model_update_args["Xs"]):
             self.assertTrue(np.array_equal(x, Xs[ma.outcomes[i]]))
