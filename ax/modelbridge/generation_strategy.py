@@ -86,9 +86,9 @@ class GenerationStrategy:
     _curr: GenerationStep  # Current step in the strategy.
     # Whether all models in this GS are in Models registry enum.
     _uses_registered_models: bool
-    # Latest generator run produced by this GS (used to restore current model
-    # when decoding a serialized GS).
-    _last_generator_run: Optional[GeneratorRun]
+    # All generator runs created through this generation strategy, in chronological
+    # order.
+    _generator_runs: List[GeneratorRun]
 
     def __init__(self, steps: List[GenerationStep], name: Optional[str] = None) -> None:
         self._name = name
@@ -113,7 +113,7 @@ class GenerationStrategy:
         self._model = None
         self._data = Data()
         self._curr = steps[0]
-        self._last_generator_run = None
+        self._generator_runs = []
 
     @property
     def name(self) -> str:
@@ -152,6 +152,14 @@ class GenerationStrategy:
         """Whether this generation strategy involves models that are not
         registered and therefore cannot be stored."""
         return not self._uses_registered_models
+
+    @property
+    def last_generator_run(self) -> Optional[GeneratorRun]:
+        """Latest generator run produced by this generation strategy.
+        Returns None if no generator runs have been produced yet.
+        """
+        # Used to restore current model when decoding a serialized GS.
+        return self._generator_runs[-1] if self._generator_runs else None
 
     def gen(
         self,
@@ -206,7 +214,7 @@ class GenerationStrategy:
             # Change to the next model.
             self._change_model(experiment=experiment, data=all_data)
         elif new_data is not None:
-            # We're sticking with the current model, but update with new data
+            # We're sticking with the curr. model, but should update with new data.
             self._model.update(experiment=experiment, data=new_data)
 
         kwargs = consolidate_kwargs(
@@ -217,9 +225,9 @@ class GenerationStrategy:
 
         # If nothing failed, update known data, _generated, and _observed.
         self._data = all_data
+        self._generated.extend([arm.signature for arm in gen_run.arms])
         self._observed.extend(new_arms)
-        self._generated.extend(a.signature for a in gen_run.arms)
-        self._last_generator_run = gen_run
+        self._generator_runs.append(gen_run)
         return gen_run
 
     def clone_reset(self) -> "GenerationStrategy":
@@ -312,7 +320,7 @@ class GenerationStrategy:
         )
 
     def _restore_model_from_generator_run(self, experiment: Experiment) -> None:
-        generator_run = self._last_generator_run
+        generator_run = self.last_generator_run
         if generator_run is None:
             raise ValueError("No generator run was stored on generation strategy.")
         self._model = get_model_from_generator_run(

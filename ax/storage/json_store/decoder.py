@@ -2,8 +2,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import datetime
-import enum
 from collections import OrderedDict
+from enum import Enum
 from inspect import isclass
 from typing import Any, Dict, List, Type
 
@@ -33,7 +33,9 @@ from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
 
 def object_from_json(object_json: Any) -> Any:
     """Recursively load objects from a JSON-serializable dictionary."""
-    if type(object_json) in (str, int, float, bool, type(None)):
+    if type(object_json) in (str, int, float, bool, type(None)) or isinstance(
+        object_json, Enum
+    ):
         return object_json
     elif isinstance(object_json, list):
         return [object_from_json(i) for i in object_json]
@@ -69,7 +71,7 @@ def object_from_json(object_json: Any) -> Any:
 
         _class = DECODER_REGISTRY[_type]
 
-        if isclass(_class) and issubclass(_class, enum.Enum):
+        if isclass(_class) and issubclass(_class, Enum):
             # to access enum members by name, use item access
             return _class[object_json["name"]]
         elif _class == GeneratorRun:
@@ -86,8 +88,8 @@ def object_from_json(object_json: Any) -> Any:
         return _class(**{k: object_from_json(v) for k, v in object_json.items()})
     else:
         err = (
-            f"The object passed to `object_from_json` has an unsupported type: "
-            f"{type(object_json)}."
+            f"The object {object_json} passed to `object_from_json` has an "
+            f"unsupported type: {type(object_json)}."
         )
         raise JSONDecodeError(err)
 
@@ -261,16 +263,14 @@ def generation_strategy_from_json(
     experiment: Experiment, generation_strategy_json: Dict[str, Any]
 ) -> GenerationStrategy:
     """Load generation strategy from JSON."""
-    gs = GenerationStrategy(
-        steps=object_from_json(generation_strategy_json.pop("steps")),
-        name=generation_strategy_json.pop("name"),
-    )
+    steps = object_from_json(generation_strategy_json.pop("steps"))
+    gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
     gs._generated = generation_strategy_json.pop("generated")
     gs._observed = generation_strategy_json.pop("observed")
     gs._data = object_from_json(generation_strategy_json.pop("data"))
-    gs._curr = object_from_json(generation_strategy_json.pop("curr"))
-    gs._last_generator_run = object_from_json(
-        generation_strategy_json.pop("last_generator_run")
+    gs._curr = gs._steps[generation_strategy_json.pop("current_step_index")]
+    gs._generator_runs = object_from_json(
+        generation_strategy_json.pop("generator_runs")
     )
     if generation_strategy_json.pop("had_initialized_model"):  # pragma: no cover
         gs._restore_model_from_generator_run(experiment=experiment)
