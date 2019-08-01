@@ -11,7 +11,7 @@ from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
 
 
-BATCH_PARAM = "BATCH_PARAM"
+TRIAL_PARAM = "TRIAL_PARAM"
 
 
 class TrialAsTask(Transform):
@@ -68,8 +68,8 @@ class TrialAsTask(Transform):
                         f"in trial level map for {_p_name} ({level_map})"
                     )
         else:
-            # Set BATCH_PARAM for each trial to the corresponding trial_index.
-            self.trial_level_map = {BATCH_PARAM: {int(b): str(b) for b in trials}}
+            # Set TRIAL_PARAM for each trial to the corresponding trial_index.
+            self.trial_level_map = {TRIAL_PARAM: {int(b): str(b) for b in trials}}
         if len(self.trial_level_map) == 1:
             level_dict = next(iter(self.trial_level_map.values()))
             self.inverse_map: Optional[Dict[str, int]] = {

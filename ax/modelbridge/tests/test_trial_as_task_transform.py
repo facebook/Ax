@@ -50,7 +50,7 @@ class TrialAsTaskTransformTest(TestCase):
 
     def testInit(self):
         self.assertEqual(
-            self.t.trial_level_map, {"BATCH_PARAM": {i: str(i) for i in range(3)}}
+            self.t.trial_level_map, {"TRIAL_PARAM": {i: str(i) for i in range(3)}}
         )
         self.assertEqual(self.t.inverse_map, {str(i): i for i in range(3)})
         self.assertEqual(self.t2.trial_level_map, self.bm)
@@ -76,10 +76,10 @@ class TrialAsTaskTransformTest(TestCase):
         obs_ft1 = deepcopy(self.training_feats)
         obs_ft2 = deepcopy(self.training_feats)
         obs_ft_trans1 = [
-            ObservationFeatures({"x": 1, "BATCH_PARAM": "0"}),
-            ObservationFeatures({"x": 2, "BATCH_PARAM": "0"}),
-            ObservationFeatures({"x": 3, "BATCH_PARAM": "1"}),
-            ObservationFeatures({"x": 4, "BATCH_PARAM": "2"}),
+            ObservationFeatures({"x": 1, "TRIAL_PARAM": "0"}),
+            ObservationFeatures({"x": 2, "TRIAL_PARAM": "0"}),
+            ObservationFeatures({"x": 3, "TRIAL_PARAM": "1"}),
+            ObservationFeatures({"x": 4, "TRIAL_PARAM": "2"}),
         ]
         obs_ft_trans2 = [
             ObservationFeatures({"x": 1, "bp1": "v1", "bp2": "u1"}),
@@ -102,8 +102,8 @@ class TrialAsTaskTransformTest(TestCase):
     def testTransformSearchSpace(self):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
-        self.assertEqual(set(ss2.parameters.keys()), {"x", "BATCH_PARAM"})
-        p = ss2.parameters["BATCH_PARAM"]
+        self.assertEqual(set(ss2.parameters.keys()), {"x", "TRIAL_PARAM"})
+        p = ss2.parameters["TRIAL_PARAM"]
         self.assertEqual(p.parameter_type, ParameterType.STRING)
         self.assertEqual(set(p.values), {"0", "1", "2"})
         self.assertTrue(p.is_task)
