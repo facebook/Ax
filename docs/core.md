@@ -15,11 +15,12 @@ A [search space](glossary.md#search-space) is composed of a set of [parameters](
 
 Ax supports three types of parameters:
 
-* **Range parameters**: must be of type int or float, and the domain is represented by a lower and upper bound
+* **Range parameters**: must be of type int or float, and the domain is represented by a lower and upper bound. If the parameter is specified as an int, newly generated points are rounded to the nearest integer by default.
 
 ```python
 from ax import RangeParameter, ParameterType
-range_param = RangeParameter(name="x", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0)
+float_range_param = RangeParameter(name="x1", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0)
+int_range_param = RangeParameter(name="x2", parameter_type=ParameterType.INT, lower=0, upper=10)
 ```
 
 * **Choice parameters**: domain is a set of values
