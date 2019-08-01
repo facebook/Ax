@@ -3,7 +3,7 @@
 
 import os
 import pkgutil
-from typing import List
+from typing import List, Optional
 
 import ax.utils.report as report_module
 from ax.plot.render import _js_requires, _load_css_resource as _load_plot_css_resource
@@ -51,9 +51,12 @@ def link_html(text: str, href: str) -> str:
     return '<a href="{}">{}</a>'.format(href, text)
 
 
-def table_cell_html(text: str) -> str:
+def table_cell_html(text: str, width: Optional[str] = None) -> str:
     """Embed text or an HTML element into table cell tag."""
-    return "<td>{}</td>".format(text)
+    if width:
+        return f"<td width={width}>{text}</td>"
+    else:
+        return f"<td>{text}</td>"
 
 
 def table_heading_cell_html(text: str) -> str:

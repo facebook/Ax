@@ -27,6 +27,7 @@ class RenderTest(TestCase):
             unordered_list_html(["foo", "bar"]),
             link_html("foo", "bar"),
             table_cell_html("foobar"),
+            table_cell_html("foobar", width="100px"),
             table_heading_cell_html("foobar"),
             table_row_html(["foo", "bar"]),
             table_html(["foo", "bar"]),
