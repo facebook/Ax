@@ -250,10 +250,8 @@ class Decoder:
                 values=parameter_sqa.choice_values,
             )
         elif parameter_sqa.domain_type == DomainType.FIXED:
-            if parameter_sqa.fixed_value is None:
-                raise SQADecodeError(  # pragma: no cover
-                    "`value` must be set for FixedParameter."
-                )
+            # Don't throw an error if parameter_sqa.fixed_value is None;
+            # that might be the actual value!
             return FixedParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
