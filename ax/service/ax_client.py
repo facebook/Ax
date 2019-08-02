@@ -2,7 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import ax.service.utils.best_point as best_point_utils
 import numpy as np
@@ -183,7 +183,8 @@ class AxClient:
             raw_data: Evaluation data for the trial. Can be a mapping from
                 metric name to a tuple of mean and SEM, just a tuple of mean and
                 SEM if only one metric in optimization, or just the mean if there
-                is no SEM.
+                is no SEM.  Can also be a list of (fidelities, mapping from
+                metric name to a tuple of mean and SEM).
             metadata: Additional metadata to track about this run.
         """
         assert isinstance(
@@ -206,9 +207,34 @@ class AxClient:
             )
         }
         sample_sizes = {arm_name: sample_size} if sample_size else {}
-        data = Data.from_evaluations(
-            evaluations=evaluations, trial_index=trial.index, sample_sizes=sample_sizes
-        )
+        # evaluations[arm_name] is either a trial evaluation
+        # {metric_name -> (mean, SEM)} or a fidelity trial evaluation
+        # [(fidelities, {metric_name -> (mean, SEM)})]
+        if isinstance(evaluations[arm_name], dict):
+            data = Data.from_evaluations(
+                evaluations=cast(
+                    Dict[str, Dict[str, Tuple[float, float]]], evaluations
+                ),
+                trial_index=trial.index,
+                sample_sizes=sample_sizes,
+            )
+        else:
+            data = Data.from_fidelity_evaluations(
+                evaluations=cast(
+                    Dict[
+                        str,
+                        List[
+                            Tuple[
+                                Dict[str, Optional[Union[bool, float, int, str]]],
+                                Dict[str, Tuple[float, float]],
+                            ]
+                        ],
+                    ],
+                    evaluations,
+                ),
+                trial_index=trial.index,
+                sample_sizes=sample_sizes,
+            )
         trial.mark_completed()
         self.experiment.attach_data(data)
         self._updated_trials.append(trial_index)

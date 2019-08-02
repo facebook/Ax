@@ -281,8 +281,26 @@ class TestServiceAPI(TestCase):
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
             ax.complete_trial(trial_index, raw_data=(branin(x1, x2), 0.0))
         with self.assertRaisesRegex(ValueError, "Raw data has an invalid type"):
+            ax.complete_trial(trial_index, raw_data="invalid_data")
+
+    def test_raw_data_format_with_fidelities(self):
+        ax = AxClient()
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 1.0]},
+            ],
+            minimize=True,
+        )
+        for _ in range(6):
+            parameterization, trial_index = ax.get_next_trial()
+            x1, x2 = parameterization.get("x1"), parameterization.get("x2")
             ax.complete_trial(
-                trial_index, raw_data=[(branin(x1, x2), 0.0), (branin(x1, x2), 0.0)]
+                trial_index,
+                raw_data=[
+                    ({"x2": x2 / 2.0}, {"objective": (branin(x1, x2 / 2.0), 0.0)}),
+                    ({"x2": x2}, {"objective": (branin(x1, x2), 0.0)}),
+                ],
             )
 
     def test_keep_generating_without_data(self):

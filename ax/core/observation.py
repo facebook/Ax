@@ -179,7 +179,8 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
     """Convert Data to observations.
 
     Converts a Data object to a list of Observation objects. Pulls
-    arm parameters from experiment.
+    arm parameters from experiment.  Overrides fidelity parameters in the arm
+    with those found in the Data object.
 
     Uses a diagonal covariance matrix across metric_names.
 
@@ -196,6 +197,7 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
             "start_time",
             "end_time",
             "random_split",
+            "fidelities",
         }.intersection(data.df.columns)
     )
     observations = []
@@ -211,6 +213,10 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
             obs_kwargs["parameters"] = obs_parameters
         for f in ["trial_index", "start_time", "end_time", "random_split"]:
             obs_kwargs[f] = features.get(f, None)
+        if "fidelities" in features:
+            fidelity_dict = json.loads(features["fidelities"])
+            for param_name, val in fidelity_dict.items():
+                obs_parameters[param_name] = val
         observations.append(
             Observation(
                 features=ObservationFeatures(**obs_kwargs),
