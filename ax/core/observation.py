@@ -6,6 +6,7 @@ from copy import deepcopy
 from typing import List, Optional, Tuple
 
 import numpy as np
+import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base import Base
 from ax.core.data import Data
@@ -38,8 +39,8 @@ class ObservationFeatures(Base):
         self,
         parameters: TParameterization,
         trial_index: Optional[np.int64] = None,
-        start_time: Optional[np.datetime64] = None,
-        end_time: Optional[np.datetime64] = None,
+        start_time: Optional[pd.Timestamp] = None,
+        end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
     ) -> None:
         self.parameters = parameters
@@ -52,8 +53,8 @@ class ObservationFeatures(Base):
     def from_arm(
         arm: Arm,
         trial_index: Optional[np.int64] = None,
-        start_time: Optional[np.datetime64] = None,
-        end_time: Optional[np.datetime64] = None,
+        start_time: Optional[pd.Timestamp] = None,
+        end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
     ) -> "ObservationFeatures":
         """Convert a Arm to an ObservationFeatures, including additional

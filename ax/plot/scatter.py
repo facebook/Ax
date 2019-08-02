@@ -491,7 +491,12 @@ def plot_objective_vs_constraints(
 
     for metric in metrics:
         otraces = _multiple_metric_traces(
-            model, objective, metric, generator_runs_dict, rel
+            model,
+            objective,
+            metric,
+            generator_runs_dict,
+            rel,
+            fixed_features=fixed_features,
         )
 
         # Current version of Plotly does not allow updating the yaxis label
