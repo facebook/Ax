@@ -29,6 +29,7 @@ __all__ = [
     "OptimizationLoop",
     "OrderConstraint",
     "OutcomeConstraint",
+    "Parameter",
     "ParameterConstraint",
     "ParameterType",
     "RangeParameter",

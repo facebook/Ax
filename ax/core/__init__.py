@@ -14,6 +14,7 @@ from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
+    Parameter,
     ParameterType,
     RangeParameter,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "OptimizationConfig",
     "OrderConstraint",
     "OutcomeConstraint",
+    "Parameter",
     "ParameterConstraint",
     "ParameterType",
     "RangeParameter",
