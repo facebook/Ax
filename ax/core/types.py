@@ -25,11 +25,17 @@ TModelPredictArm = Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]
 # 1-arm `Trial` evaluation data: {metric_name -> (mean, standard error)}}.
 TTrialEvaluation = Dict[str, Tuple[float, float]]
 
+# 1-arm evaluation data with trace fidelities
+TFidelityTrialEvaluation = List[Tuple[TParameterization, TTrialEvaluation]]
+
 # Format for trasmitting evaluation data to Ax is either:
 # 1) {metric_name -> (mean, standard error)} (TTrialEvaluation)
 # 2) (mean, standard error) and we assume metric name == objective name
 # 3) only the mean, and we assume metric name == objective name and standard error == 0
-TEvaluationOutcome = Union[TTrialEvaluation, Tuple[float, float], float]
+# 4) [({fidelity_param -> value}, {metric_name} -> (mean, standard error))]
+TEvaluationOutcome = Union[
+    TTrialEvaluation, Tuple[float, float], float, TFidelityTrialEvaluation
+]
 
 TConfig = Dict[str, Union[int, float, str, AcquisitionFunction]]
 TBucket = List[Dict[str, List[str]]]

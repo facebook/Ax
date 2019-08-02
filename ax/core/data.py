@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import json
 from hashlib import md5
 from typing import Dict, Iterable, Optional, Set, Type
 
 import numpy as np
 import pandas as pd
 from ax.core.base import Base
-from ax.core.types import TTrialEvaluation
+from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
 
 
 TPdTimestamp = pd.Timestamp
@@ -23,6 +24,7 @@ COLUMN_DATA_TYPES = {
     "n": np.int64,
     "frac_nonnull": np.float64,
     "random_split": np.int64,
+    "fidelities": str,  # Dictionary stored as json
 }
 REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
 
@@ -151,6 +153,43 @@ class Data(Base):
                 record["n"] = sample_sizes[str(record["arm_name"])]
         return Data(df=pd.DataFrame(records))
 
+    @staticmethod
+    def from_fidelity_evaluations(
+        evaluations: Dict[str, TFidelityTrialEvaluation],
+        trial_index: int,
+        sample_sizes: Optional[Dict[str, int]] = None,
+    ) -> "Data":
+        """
+        Convert dict of fidelity evaluations to Ax data object.
+
+        Args:
+            evaluations: Map from arm name to list of (fidelity, metric outcomes)
+                (where metric outcomes is itself a mapping of metric names to
+                tuples of mean and SEM).
+            trial_index: Trial index to which this data belongs.
+            sample_sizes: Number of samples collected for each arm.
+
+        Returns:
+            Ax Data object.
+        """
+        records = [
+            {
+                "arm_name": name,
+                "metric_name": metric_name,
+                "mean": evaluation[metric_name][0],
+                "sem": evaluation[metric_name][1],
+                "trial_index": trial_index,
+                "fidelities": json.dumps(fidelity),
+            }
+            for name, fidelity_and_metrics_list in evaluations.items()
+            for fidelity, evaluation in fidelity_and_metrics_list
+            for metric_name in evaluation.keys()
+        ]
+        if sample_sizes:
+            for record in records:
+                record["n"] = sample_sizes[str(record["arm_name"])]
+        return Data(df=pd.DataFrame(records))
+
     @property
     def df(self) -> pd.DataFrame:
         return self._df
@@ -196,7 +235,7 @@ def custom_data_class(
 
     Args:
         column_data_types: Dict from column name to column type.
-        required_columns: Set of additional columns reqiured for this data object.
+        required_columns: Set of additional columns required for this data object.
         time_columns: Set of additional columns to cast to timestamp.
 
     Returns:

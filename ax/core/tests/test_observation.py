@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import json
 from unittest.mock import Mock, PropertyMock
 
 import numpy as np
@@ -220,6 +221,67 @@ class ObservationsTest(TestCase):
                 np.array_equal(obs.data.covariance, obsd_truth["covariance"][i])
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
+
+    def testObservationsFromDataWithFidelities(self):
+        truth = {
+            0.5: {
+                "arm_name": "0_0",
+                "parameters": {"x": 0, "y": "a", "z": 1},
+                "mean": 2.0,
+                "sem": 2.0,
+                "trial_index": 1,
+                "metric_name": "a",
+                "fidelities": json.dumps({"z": 0.5}),
+                "updated_parameters": {"x": 0, "y": "a", "z": 0.5},
+                "mean_t": np.array([2.0]),
+                "covariance_t": np.array([[4.0]]),
+            },
+            0.25: {
+                "arm_name": "0_1",
+                "parameters": {"x": 1, "y": "b", "z": 0.5},
+                "mean": 3.0,
+                "sem": 3.0,
+                "trial_index": 2,
+                "metric_name": "a",
+                "fidelities": json.dumps({"z": 0.25}),
+                "updated_parameters": {"x": 1, "y": "b", "z": 0.25},
+                "mean_t": np.array([3.0]),
+                "covariance_t": np.array([[9.0]]),
+            },
+            1: {
+                "arm_name": "0_0",
+                "parameters": {"x": 0, "y": "a", "z": 1},
+                "mean": 4.0,
+                "sem": 4.0,
+                "trial_index": 1,
+                "metric_name": "b",
+                "fidelities": json.dumps({"z": 1}),
+                "updated_parameters": {"x": 0, "y": "a", "z": 1},
+                "mean_t": np.array([4.0]),
+                "covariance_t": np.array([[16.0]]),
+            },
+        }
+        arms = {
+            obs["arm_name"]: Arm(parameters=obs["parameters"]) for obs in truth.values()
+        }
+        experiment = Mock()
+        type(experiment).arms_by_name = PropertyMock(return_value=arms)
+
+        df = pd.DataFrame(list(truth.values()))[
+            ["arm_name", "trial_index", "mean", "sem", "metric_name", "fidelities"]
+        ]
+        data = Data(df=df)
+        observations = observations_from_data(experiment, data)
+
+        self.assertEqual(len(observations), 3)
+        for obs in observations:
+            t = truth[obs.features.parameters["z"]]
+            self.assertEqual(obs.features.parameters, t["updated_parameters"])
+            self.assertEqual(obs.features.trial_index, t["trial_index"])
+            self.assertEqual(obs.data.metric_names, [t["metric_name"]])
+            self.assertTrue(np.array_equal(obs.data.means, t["mean_t"]))
+            self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
+            self.assertEqual(obs.arm_name, t["arm_name"])
 
     def testSeparateObservations(self):
         obs = Observation(

@@ -126,3 +126,16 @@ class DataTest(TestCase):
             sample_sizes={"0_1": 2},
         )
         self.assertEqual(len(data.df), 1)
+
+    def testFromFidelityEvaluations(self):
+        data = Data.from_fidelity_evaluations(
+            evaluations={
+                "0_1": [
+                    ({"f1": 1.0, "f2": 0.5}, {"b": (3.7, 0.5)}),
+                    ({"f1": 1.0, "f2": 0.75}, {"b": (3.8, 0.5)}),
+                ]
+            },
+            trial_index=0,
+            sample_sizes={"0_1": 2},
+        )
+        self.assertEqual(len(data.df), 2)

@@ -29,6 +29,7 @@ from ax.core.simple_experiment import DEFAULT_OBJECTIVE_NAME
 from ax.core.types import (
     ComparisonOp,
     TEvaluationOutcome,
+    TFidelityTrialEvaluation,
     TParameterization,
     TParamValue,
     TTrialEvaluation,
@@ -278,9 +279,10 @@ def make_experiment(
 
 def raw_data_to_evaluation(
     raw_data: TEvaluationOutcome, objective_name: str
-) -> TTrialEvaluation:
+) -> Union[TTrialEvaluation, TFidelityTrialEvaluation]:
     """Format the trial evaluation data to a standard `TTrialEvaluation`
-    (mapping from metric names to a tuple of mean and SEM) representation.
+    (mapping from metric names to a tuple of mean and SEM) representation, or
+    to a TFidelityTrialEvaluation.
 
     Note: this function expects raw_data to be data for a `Trial`, not a
     `BatchedTrial`.
@@ -288,6 +290,8 @@ def raw_data_to_evaluation(
     # `BatchedTrial` data not expected because it was not needed, to add (if
     # need arises), make raw_data a mapping from arm name to TEvaluationOutcome.
     if isinstance(raw_data, dict):
+        return raw_data
+    elif isinstance(raw_data, list):
         return raw_data
     elif isinstance(raw_data, tuple):
         return {objective_name: raw_data}
