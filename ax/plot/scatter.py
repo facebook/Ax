@@ -1201,6 +1201,7 @@ def tile_fitted(
         name_order_axes["xaxis{}".format(i + 1)] = {
             "categoryorder": "array",
             "categoryarray": names_by_arm,
+            "type": "category",
         }
         name_order_axes["yaxis{}".format(i + 1)] = {
             "ticksuffix": "%" if rel else "",
@@ -1338,7 +1339,7 @@ def interact_fitted(
         )
 
     layout = go.Layout(  # pyre-ignore[16]
-        xaxis={"title": arm_noun.title(), "zeroline": False},
+        xaxis={"title": arm_noun.title(), "zeroline": False, "type": "category"},
         yaxis={
             "ticksuffix": "%" if rel else "",
             "title": ("Relative " if rel else "") + "Effect",
