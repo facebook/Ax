@@ -30,6 +30,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
+from ax.storage.json_store.decoder import object_from_json
 from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
 from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import SQABase
@@ -517,6 +518,9 @@ class Decoder:
             gen_time=generator_run_sqa.gen_time,
             best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
+            model_key=generator_run_sqa.model_key,
+            model_kwargs=object_from_json(generator_run_sqa.model_kwargs),
+            bridge_kwargs=object_from_json(generator_run_sqa.bridge_kwargs),
         )
         generator_run._time_created = generator_run_sqa.time_created
         generator_run._generator_run_type = self.get_enum_name(

@@ -161,6 +161,9 @@ class SQAGeneratorRun(Base):
     weight: Optional[float] = Column(Float)
     fit_time: Optional[float] = Column(Float)
     gen_time: Optional[float] = Column(Float)
+    model_key: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    model_kwargs: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    bridge_kwargs: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
 
     # relationships
     # Use selectin loading for collections to prevent idle timeout errors

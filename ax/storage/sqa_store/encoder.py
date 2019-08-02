@@ -26,6 +26,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
+from ax.storage.json_store.encoder import object_to_json
 from ax.storage.metric_registry import METRIC_REGISTRY
 from ax.storage.runner_registry import RUNNER_REGISTRY
 from ax.storage.sqa_store.sqa_classes import (
@@ -426,6 +427,9 @@ class Encoder:
             best_arm_parameters=best_arm_parameters,
             best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
+            model_key=generator_run._model_key,
+            model_kwargs=object_to_json(generator_run._model_kwargs),
+            bridge_kwargs=object_to_json(generator_run._bridge_kwargs),
         )
 
     def runner_to_sqa(
