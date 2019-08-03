@@ -12,6 +12,11 @@
 
 const baseUrl = '/';
 
+// If true, include Algolia search bar when building site
+// Note: this setting is toggled to false by publish_site.sh script, so
+// it should not be renamed without modifying that script.
+const includeAlgolia = true;
+
 // List of projects/orgs using your project for the users page.
 const users = [];
 
@@ -85,12 +90,14 @@ const siteConfig = {
   scrollToTop: true,
 
   wrapPagesHTML: true,
+};
 
-  algolia: {
+if (includeAlgolia == true) {
+  siteConfig['algolia'] = {
     apiKey: '467d4f1f6cace3ecb36ab551cb44905b',
     indexName: 'ax',
-    algoliaOptions: {} // Optional, if provided by Algolia
-  },
-};
+    algoliaOptions: {}, // Optional, if provided by Algolia
+  };
+}
 
 module.exports = siteConfig;

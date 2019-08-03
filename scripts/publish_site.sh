@@ -13,8 +13,9 @@ usage() {
 }
 
 VERSION=false
+DOCUSAURUS_BOT=false
 
-while getopts 'hv:' option; do
+while getopts 'hvd:' option; do
   case "${option}" in
     h)
       usage
@@ -22,20 +23,19 @@ while getopts 'hv:' option; do
     v)
       VERSION=${OPTARG}
       ;;
+    d)
+      DOCUSAURUS_BOT=true
+      ;;
     *)
       usage
       ;;
   esac
 done
 
-# Command to strip out Algolia (search functionality) form siteConfig.js
-# Algolia only indexes stable build, so we'll remove from older versions
-REMOVE_ALGOLIA_CMD="import os, re; "
-REMOVE_ALGOLIA_CMD+="c = open('siteConfig.js', 'r').read(); "
-REMOVE_ALGOLIA_CMD+="out = re.sub('algolia: \{.+\},', '', c, flags=re.DOTALL); "
-REMOVE_ALGOLIA_CMD+="f = open('siteConfig.js', 'w'); "
-REMOVE_ALGOLIA_CMD+="f.write(out); "
-REMOVE_ALGOLIA_CMD+="f.close(); "
+# Function to get absolute filename
+fullpath() {
+  echo "$(cd "$(dirname "$1")" || exit; pwd -P)/$(basename "$1")"
+}
 
 # Current directory (needed for cleanup later)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -44,15 +44,19 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WORK_DIR=$(mktemp -d)
 cd "${WORK_DIR}" || exit
 
-# Setup git credentials
-git config --global user.name "Ax Website Deployment Script"
-git config --global user.email "docusaurus-bot@users.noreply.github.com"
-echo "machine github.com login docusaurus-bot password ${DOCUSAURUS_PUBLISH_TOKEN}" > ~/.netrc
+if [[ $DOCUSAURUS_BOT == true ]]; then
+  # Setup git credentials
+  git config --global user.name "Ax Website Deployment Script"
+  git config --global user.email "docusaurus-bot@users.noreply.github.com"
+  echo "machine github.com login docusaurus-bot password ${DOCUSAURUS_PUBLISH_TOKEN}" > ~/.netrc
 
-# Clone both master & gh-pages branches
-git clone https://docusaurus-bot@github.com/facebook/Ax.git Ax-master
-git clone --branch gh-pages https://docusaurus-bot@github.com/facebook/Ax.git Ax-gh-pages
-
+  # Clone both master & gh-pages branches
+  git clone https://docusaurus-bot@github.com/facebook/Ax.git Ax-master
+  git clone --branch gh-pages https://docusaurus-bot@github.com/facebook/Ax.git Ax-gh-pages
+else
+  git clone git@github.com:facebook/Ax.git Ax-master
+  git clone --branch gh-pages git@github.com:facebook/Ax.git Ax-gh-pages
+fi
 
 # A few notes about the script below:
 # * Docusaurus versioning was designed to *only* version the markdown
@@ -104,17 +108,15 @@ if [[ $VERSION == false ]]; then
   cp Ax-master/scripts/versions.js Ax-master/website/pages/en/versions.js
   cd Ax-master/website || exit
 
-  # Build site, tagged with "latest" version; baseUrl set to /versions/latest/
+  # Replace baseUrl (set to /versions/latest/) & disable Algolia
+  CONFIG_FILE=$(fullpath "siteConfig.js")
+  python3 ../scripts/patch_site_config.py -f "${CONFIG_FILE}" -b "/versions/latest/" --disable_algolia
+
+  # Tag site with "latest" version
   yarn
   yarn run version latest
 
-  # This command will only work on Linux, which is okay because this part of the
-  # script (updating the latest/master version of the site) runs in Travis
-  sed -i "s/baseUrl = '\/'/baseUrl = '\/versions\/latest\/'/g" siteConfig.js
-
-  # disable search for non-stable version (can't use sed b/c of newline)
-  python3 -c "$REMOVE_ALGOLIA_CMD"
-
+  # Build site
   cd ../scripts || exit
   ./make_docs.sh -b
   rm -rf ../website/build/Ax/docs/next  # don't need this
@@ -159,7 +161,7 @@ else
 
   cp scripts/versions.js website/pages/en/versions.js
 
-  # Set Docusaurus version
+  # Set Docusaurus version as 'stable'
   cd website || exit
   yarn
   yarn run version stable
@@ -181,13 +183,11 @@ else
   # previous stable to versions
   cd Ax-master/website || exit
 
-  # This command will only work on MacOSX, which is okay because this part of the
-  # script (updating a new stable version of the site) is done locally
-  sed -i "" "s|baseUrl = '\/'|baseUrl = '\/versions\/${VERSION}\/'|g" siteConfig.js
+  # Replace baseUrl & disable Algolia
+  CONFIG_FILE=$(fullpath "siteConfig.js")
+  python3 ../scripts/patch_site_config.py -f "${CONFIG_FILE}" -b "/versions/${VERSION}/" --disable_algolia
 
-  # disable search for non-stable version (can't use sed b/c of newline)
-  python3 -c "$REMOVE_ALGOLIA_CMD"
-
+  # Set Docusaurus version with exact version & build
   yarn run version "${VERSION}"
   cd ../scripts || exit
   ./make_docs.sh -b
