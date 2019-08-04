@@ -60,7 +60,7 @@ jobs:
         - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
       script:
-        - bash scripts/publish_site.sh
+        - bash scripts/publish_site.sh -d
 
 stages:
   - name: Test

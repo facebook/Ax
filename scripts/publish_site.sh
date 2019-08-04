@@ -3,11 +3,12 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 usage() {
-  echo "Usage: $0 [-b]"
+  echo "Usage: $0 [-d] [-v VERSION]"
   echo ""
   echo "Build and push updated Ax site. Will either update master or bump stable version."
   echo ""
-  echo "  -v    Build site for new library version. If not specified, will update master."
+  echo "  -d           Use Docusaurus bot GitHub credentials. If not specified, will use default GitHub credentials."
+  echo "  -v=VERSION   Build site for new library version. If not specified, will update master."
   echo ""
   exit 1
 }
@@ -15,16 +16,16 @@ usage() {
 VERSION=false
 DOCUSAURUS_BOT=false
 
-while getopts 'hvd:' option; do
+while getopts 'dhv:' option; do
   case "${option}" in
+    d)
+      DOCUSAURUS_BOT=true
+      ;;
     h)
       usage
       ;;
     v)
       VERSION=${OPTARG}
-      ;;
-    d)
-      DOCUSAURUS_BOT=true
       ;;
     *)
       usage
