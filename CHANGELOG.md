@@ -1,3 +1,1 @@
-v0.1.0 - 2019-04-30
-Changelog added
-Initial Ax release
+Ax uses GitHub tags for managing releases. See changelog [here](https://github.com/facebook/Ax/releases).
