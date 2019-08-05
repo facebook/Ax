@@ -290,4 +290,5 @@ def generation_strategy_to_dict(
         "current_step_index": generation_strategy._curr.index,
         "generator_runs": generation_strategy._generator_runs,
         "had_initialized_model": generation_strategy.model is not None,
+        "experiment": generation_strategy._experiment,
     }

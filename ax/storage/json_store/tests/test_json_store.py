@@ -230,7 +230,7 @@ class JSONStoreTest(TestCase):
         generation_strategy = get_generation_strategy()
         experiment = get_branin_experiment()
         gs_json = object_to_json(generation_strategy)
-        new_generation_strategy = generation_strategy_from_json(experiment, gs_json)
+        new_generation_strategy = generation_strategy_from_json(gs_json)
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertGreater(len(new_generation_strategy._steps), 0)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
@@ -243,7 +243,7 @@ class JSONStoreTest(TestCase):
         generation_strategy = new_generation_strategy
         experiment.new_trial(generator_run=generation_strategy.gen(experiment))
         gs_json = object_to_json(generation_strategy)
-        new_generation_strategy = generation_strategy_from_json(experiment, gs_json)
+        new_generation_strategy = generation_strategy_from_json(gs_json)
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         # Since this GS has now generated one generator run, model should have
@@ -259,7 +259,7 @@ class JSONStoreTest(TestCase):
         self.assertGreater(len(generation_strategy._generated), 0)
         self.assertGreater(len(generation_strategy._observed), 0)
         gs_json = object_to_json(generation_strategy)
-        new_generation_strategy = generation_strategy_from_json(experiment, gs_json)
+        new_generation_strategy = generation_strategy_from_json(gs_json)
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)

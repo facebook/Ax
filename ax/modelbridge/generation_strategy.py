@@ -89,6 +89,9 @@ class GenerationStrategy:
     # All generator runs created through this generation strategy, in chronological
     # order.
     _generator_runs: List[GeneratorRun]
+    # Experiment, for which this generation strategy has generated trials, if
+    # it exists.
+    _experiment: Optional[Experiment]
 
     def __init__(self, steps: List[GenerationStep], name: Optional[str] = None) -> None:
         self._name = name
@@ -114,6 +117,7 @@ class GenerationStrategy:
         self._data = Data()
         self._curr = steps[0]
         self._generator_runs = []
+        self._experiment = None
 
     @property
     def name(self) -> str:
@@ -169,6 +173,8 @@ class GenerationStrategy:
         **kwargs: Any,
     ) -> GeneratorRun:
         """Produce the next points in the experiment."""
+        self._set_experiment(experiment=experiment)
+
         # Get arm signatures for each entry in new_data that is indeed new.
         new_arms = self._get_new_arm_signatures(
             experiment=experiment, new_data=new_data
@@ -319,12 +325,14 @@ class GenerationStrategy:
             )
         )
 
-    def _restore_model_from_generator_run(self, experiment: Experiment) -> None:
+    def _restore_model_from_generator_run(self) -> None:
         generator_run = self.last_generator_run
         if generator_run is None:
             raise ValueError("No generator run was stored on generation strategy.")
+        if self._experiment is None:  # pragma: no cover
+            raise ValueError("No experiment was set on this generation strategy.")
         self._model = get_model_from_generator_run(
-            generator_run=generator_run, experiment=experiment, data=self._data
+            generator_run=generator_run, experiment=self._experiment, data=self._data
         )
 
     def _change_model(self, experiment: Experiment, data: Data, **kwargs: Any) -> None:
@@ -371,3 +379,21 @@ class GenerationStrategy:
                         experiment.arms_by_name.get(row["arm_name"]).signature
                     )
         return new_signatures
+
+    def _set_experiment(self, experiment: Experiment) -> None:
+        """If there is an experiment set on this generation strategy as the
+        experiment it has been generating generator runs for, check if the
+        experiment passed in is the same as the one saved and log an information
+        statement if its not. Set the new experiment on this generation strategy.
+        """
+        if (
+            self._experiment is not None
+            and experiment._name is not self._experiment._name
+        ):  # pragma: no cover
+            logger.info(
+                "This generation strategy has been used for experiment "
+                f"{self._experiment._name} so far; generating trials for "
+                f"{experiment._name} from now on. If this is a new optimization, "
+                "a new generation strategy should be created instead."
+            )
+        self._experiment = experiment

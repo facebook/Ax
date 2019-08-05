@@ -97,10 +97,10 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         with self.assertRaises(ValueError):
-            gs._restore_model_from_generator_run(experiment=get_branin_experiment())
+            gs._restore_model_from_generator_run()
         gs.gen(experiment=get_branin_experiment())
         model = gs.model
-        gs._restore_model_from_generator_run(experiment=get_branin_experiment())
+        gs._restore_model_from_generator_run()
         # Model should be reset.
         self.assertIsNot(model, gs.model)
 
@@ -401,3 +401,12 @@ class TestGenerationStrategy(TestCase):
         self.assertIsNone(g._model_key)
         self.assertIsNone(g._model_kwargs)
         self.assertIsNone(g._bridge_kwargs)
+
+    def test_store_experiment(self):
+        exp = get_branin_experiment()
+        sobol_generation_strategy = GenerationStrategy(
+            steps=[GenerationStep(model=Models.SOBOL, num_arms=5)]
+        )
+        self.assertIsNone(sobol_generation_strategy._experiment)
+        sobol_generation_strategy.gen(exp)
+        self.assertIsNotNone(sobol_generation_strategy._experiment)

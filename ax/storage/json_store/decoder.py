@@ -260,11 +260,12 @@ def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
 
 
 def generation_strategy_from_json(
-    experiment: Experiment, generation_strategy_json: Dict[str, Any]
+    generation_strategy_json: Dict[str, Any]
 ) -> GenerationStrategy:
     """Load generation strategy from JSON."""
     steps = object_from_json(generation_strategy_json.pop("steps"))
     gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
+    gs._experiment = object_from_json(generation_strategy_json.pop("experiment"))
     gs._generated = generation_strategy_json.pop("generated")
     gs._observed = generation_strategy_json.pop("observed")
     gs._data = object_from_json(generation_strategy_json.pop("data"))
@@ -273,5 +274,5 @@ def generation_strategy_from_json(
         generation_strategy_json.pop("generator_runs")
     )
     if generation_strategy_json.pop("had_initialized_model"):  # pragma: no cover
-        gs._restore_model_from_generator_run(experiment=experiment)
+        gs._restore_model_from_generator_run()
     return gs

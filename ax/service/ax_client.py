@@ -474,8 +474,7 @@ class AxClient:
         experiment = object_from_json(serialized.pop("experiment"))
         ax_client = AxClient(
             generation_strategy=generation_strategy_from_json(
-                experiment=experiment,
-                generation_strategy_json=serialized.pop("generation_strategy"),
+                generation_strategy_json=serialized.pop("generation_strategy")
             ),
             enforce_sequential_optimization=serialized.pop(
                 "_enforce_sequential_optimization"
