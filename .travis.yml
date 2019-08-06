@@ -4,6 +4,9 @@ python:
   - 3.6
 
 jobs:
+  allow_failures:
+    # create custom environment variable for flagging jobs that are allowed to fail
+    - env: ALLOW_FAILURE=true
   include:
     - name: "Tests + Coverage: Python 3.6"
       stage: Test
@@ -52,6 +55,12 @@ jobs:
         - sphinx-build -WT sphinx/source sphinx/build
         # since -W flag breaks on first error, re-run without it to print all
         - sphinx-build sphinx/source sphinx/build
+    - name: "Docs: Sphinx Coverage (Python 3.6)"
+      python: "3.6"
+      # Allow failure for now, until missing modules are added to documentation.
+      env: ALLOW_FAILURE=true
+      script:
+        - python3 scripts/validate_sphinx.py -p "${pwd}"
     - stage: Deploy Website
       python: "3.6"
       install:
