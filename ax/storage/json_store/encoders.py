@@ -287,7 +287,7 @@ def generation_strategy_to_dict(
         "generated": generation_strategy._generated,
         "observed": generation_strategy._observed,
         "data": generation_strategy._data,
-        "current_step_index": generation_strategy._curr.index,
+        "curr_index": generation_strategy._curr.index,
         "generator_runs": generation_strategy._generator_runs,
         "had_initialized_model": generation_strategy.model is not None,
         "experiment": generation_strategy._experiment,

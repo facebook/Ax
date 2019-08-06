@@ -5,6 +5,7 @@ from inspect import signature
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Union
 
 import pandas as pd
+from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -67,7 +68,7 @@ class GenerationStep(NamedTuple):
     index: Optional[int] = None  # Index of this step, set internally.
 
 
-class GenerationStrategy:
+class GenerationStrategy(Base):
     """GenerationStrategy describes which model should be used to generate new
     points for which trials, enabling and automating use of different models
     throughout the optimization process. For instance, it allows to use one

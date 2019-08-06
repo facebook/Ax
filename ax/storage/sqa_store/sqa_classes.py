@@ -164,6 +164,9 @@ class SQAGeneratorRun(Base):
     model_key: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     model_kwargs: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
     bridge_kwargs: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    generation_strategy_id: Optional[int] = Column(
+        Integer, ForeignKey("generation_strategy.id")
+    )
 
     # relationships
     # Use selectin loading for collections to prevent idle timeout errors
@@ -207,11 +210,37 @@ class SQAData(Base):
     id: int = Column(Integer, primary_key=True)
     data_json: str = Column(Text(LONGTEXT_BYTES), nullable=False)
     description: Optional[str] = Column(String(LONG_STRING_FIELD_LENGTH))
-    experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"), nullable=False)
+    experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"))
     time_created: int = Column(BigInteger, nullable=False)
     trial_index: Optional[int] = Column(Integer)
+    generation_strategy_id: Optional[int] = Column(
+        Integer, ForeignKey("generation_strategy.id")
+    )
 
     unique_id = "time_created"
+
+
+class SQAGenerationStrategy(Base):
+    __tablename__: str = "generation_strategy"
+
+    id: int = Column(Integer, primary_key=True)
+    name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
+    steps: List[Dict[str, Any]] = Column(JSONEncodedList, nullable=False)
+    generated: List[str] = Column(JSONEncodedList, nullable=False)
+    observed: List[str] = Column(JSONEncodedList, nullable=False)
+    curr_index: int = Column(Integer, nullable=False)
+    experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
+
+    generator_runs: List[SQAGeneratorRun] = relationship(
+        "SQAGeneratorRun",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by=lambda: SQAGeneratorRun.id,
+    )
+
+    data: SQAData = relationship(
+        "SQAData", cascade="all, delete-orphan", lazy=False, uselist=False
+    )
 
 
 class SQATrial(Base):
@@ -292,6 +321,9 @@ class SQAExperiment(Base):
     )
     trials: List[SQATrial] = relationship(
         "SQATrial", cascade="all, delete-orphan", lazy="selectin"
+    )
+    generation_strategy: Optional[SQAGenerationStrategy] = relationship(
+        "SQAGenerationStrategy", backref="experiment", lazy=False, uselist=False
     )
 
     immutable_fields = ["name", "time_created"]

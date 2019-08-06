@@ -30,6 +30,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
 from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
@@ -39,6 +40,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQAArm,
     SQAData,
     SQAExperiment,
+    SQAGenerationStrategy,
     SQAGeneratorRun,
     SQAMetric,
     SQAParameter,
@@ -529,6 +531,27 @@ class Decoder:
         )
         generator_run._index = generator_run_sqa.index
         return generator_run
+
+    def generation_strategy_from_sqa(
+        self, gs_sqa: SQAGenerationStrategy
+    ) -> GenerationStrategy:
+        """Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""
+        steps = object_from_json(gs_sqa.steps)
+        gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
+        gs._generated = gs_sqa.generated
+        gs._observed = gs_sqa.observed
+        gs._curr = gs._steps[gs_sqa.curr_index]
+        # There is just one data object on generation strategy.
+        gs._data = self.data_from_sqa(gs_sqa.data)
+        gs._generator_runs = [
+            self.generator_run_from_sqa(gr) for gr in gs_sqa.generator_runs
+        ]
+        if len(gs._generator_runs) > 0:
+            # Generation strategy had an initialized model.
+            # pyre-ignore[16]: SQAGenerationStrategy does not have `experiment` attr.
+            gs._experiment = self.experiment_from_sqa(gs_sqa.experiment)
+            gs._restore_model_from_generator_run()
+        return gs
 
     def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
         """Convert SQLAlchemy Runner to Ax Runner."""

@@ -4,6 +4,7 @@
 from typing import Optional
 
 from ax.core.experiment import Experiment
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
@@ -50,3 +51,54 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
 
     with session_scope() as session:
         session.add(new_sqa_experiment)
+
+
+def save_generation_strategy(
+    generation_strategy: GenerationStrategy, config: Optional[SQAConfig] = None
+) -> int:
+    """Save generation strategy (using default SQAConfig if no config is
+    specified). If the generation strategy has an experiment set, the experiment
+    will be saved first.
+
+    Returns:
+        The ID of the saved generation strategy.
+    """
+
+    # Start up SQA encoder.
+    config = config or SQAConfig()
+    encoder = Encoder(config=config)
+
+    # If the generation strategy has not yet generated anything, there will be no
+    # experiment set on it.
+    if generation_strategy._experiment is None:
+        with session_scope() as session:
+            gs_sqa = encoder.generation_strategy_to_sqa(
+                generation_strategy=generation_strategy, experiment_id=None
+            )
+            session.add(gs_sqa)
+            session.flush()  # Ensures generation strategy id is set.
+            return gs_sqa.id
+
+    # Experiment was set on the generation strategy, so we need to save it first.
+    save_experiment(experiment=generation_strategy._experiment, config=config)
+    exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
+    with session_scope() as session:
+        sqa_experiment = (
+            session.query(exp_sqa_class)
+            .filter_by(name=generation_strategy._experiment.name)
+            .one_or_none()
+        )
+    if sqa_experiment is None:  # pragma: no cover (this is technically unreachable)
+        raise ValueError(
+            "The undelying experiment must be saved before the generation strategy."
+        )
+
+    # Having saved the experiment, we can save the generation strategy with the
+    # experiment ID attached to it.
+    with session_scope() as session:
+        gs_sqa = encoder.generation_strategy_to_sqa(
+            generation_strategy=generation_strategy, experiment_id=sqa_experiment.id
+        )
+        session.add(gs_sqa)
+        session.flush()  # Ensures generation strategy id is set.
+        return gs_sqa.id

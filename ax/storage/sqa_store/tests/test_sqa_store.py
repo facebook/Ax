@@ -14,6 +14,8 @@ from ax.core.runner import Runner
 from ax.core.types import ComparisonOp
 from ax.exceptions.storage import ImmutabilityError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
+from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.metric_registry import METRIC_REGISTRY, register_metric
 from ax.storage.runner_registry import RUNNER_REGISTRY, register_runner
@@ -28,10 +30,11 @@ from ax.storage.sqa_store.db import (
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.load import load_experiment
-from ax.storage.sqa_store.save import save_experiment
+from ax.storage.sqa_store.save import save_experiment, save_generation_strategy
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAExperiment,
+    SQAGenerationStrategy,
     SQAGeneratorRun,
     SQAMetric,
     SQAParameter,
@@ -53,10 +56,13 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.fake import (
     get_arm,
     get_batch_trial,
+    get_branin_data,
+    get_branin_experiment,
     get_branin_metric,
     get_choice_parameter,
     get_experiment_with_batch_trial,
     get_fixed_parameter,
+    get_generation_strategy,
     get_generator_run,
     get_multi_type_experiment,
     get_objective,
@@ -803,3 +809,52 @@ class SQAStoreTest(TestCase):
         save_experiment(experiment)
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(loaded_experiment, experiment)
+
+    def testEncodeDecodeGenerationStrategy(self):
+        # Check that we can encode and decode the generation strategy after
+        # it has generated some trials and been updated with some data.
+        generation_strategy = get_generation_strategy()
+        # Check that we can save a generation strategy without an experiment
+        # attached.
+        gs_id = save_generation_strategy(generation_strategy=generation_strategy)
+        # Also try restoring this generation strategy.
+        with session_scope() as session:
+            gs_sqa = (
+                session.query(SQAGenerationStrategy).filter_by(id=gs_id).one_or_none()
+            )
+            generation_strategy = self.decoder.generation_strategy_from_sqa(
+                gs_sqa=gs_sqa
+            )
+            self.assertIsNone(generation_strategy._experiment)
+            self.assertEqual(len(generation_strategy._generated), 0)
+            self.assertEqual(len(generation_strategy._observed), 0)
+        experiment = get_branin_experiment()
+        experiment.new_trial(generator_run=generation_strategy.gen(experiment))
+        experiment.new_trial(
+            generation_strategy.gen(experiment, new_data=get_branin_data())
+        )
+        self.assertGreater(len(generation_strategy._generated), 0)
+        self.assertGreater(len(generation_strategy._observed), 0)
+        save_generation_strategy(generation_strategy=generation_strategy)
+        # Try restoring the generation strategy using the experiment its
+        # attached to.
+        with session_scope() as session:
+            existing_sqa_experiment = (
+                session.query(SQAExperiment)
+                .filter_by(name=experiment.name)
+                .one_or_none()
+            )
+            experiment_id = existing_sqa_experiment.id
+            gs_sqa = (
+                session.query(SQAGenerationStrategy)
+                .filter_by(experiment_id=experiment_id)
+                .one_or_none()
+            )
+            new_generation_strategy = self.decoder.generation_strategy_from_sqa(
+                gs_sqa=gs_sqa
+            )
+        self.assertEqual(generation_strategy, new_generation_strategy)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
+        self.assertEqual(len(new_generation_strategy._generator_runs), 2)
+        self.assertEqual(new_generation_strategy._experiment._name, experiment._name)

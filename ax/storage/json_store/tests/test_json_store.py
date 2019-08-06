@@ -92,7 +92,7 @@ ENCODE_DECODE_FIELD_MAPS = {
     "GenerationStrategy": EncodeDecodeFieldsMap(
         python_only=["model", "uses_registered_models"],
         encoded_only=["had_initialized_model"],
-        python_to_encoded={"curr": "current_step_index"},
+        python_to_encoded={"curr": "curr_index"},
     ),
     "GeneratorRun": EncodeDecodeFieldsMap(
         encoded_only=["arms", "weights"], python_only=["arm_weight_table"]

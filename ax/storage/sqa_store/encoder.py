@@ -2,9 +2,11 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Type
+from time import time
+from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
 from ax.core.arm import Arm
+from ax.core.base import Base
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
@@ -26,6 +28,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.metric_registry import METRIC_REGISTRY
 from ax.storage.runner_registry import RUNNER_REGISTRY
@@ -34,6 +37,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQAArm,
     SQAData,
     SQAExperiment,
+    SQAGenerationStrategy,
     SQAGeneratorRun,
     SQAMetric,
     SQAParameter,
@@ -432,6 +436,39 @@ class Encoder:
             bridge_kwargs=object_to_json(generator_run._bridge_kwargs),
         )
 
+    def generation_strategy_to_sqa(
+        self, generation_strategy: GenerationStrategy, experiment_id: Optional[int]
+    ) -> SQAGenerationStrategy:
+        """Convert an Ax `GenerationStrategy` to SQLAlchemy, preserving its state,
+        so that the restored generation strategy can be resumed from the point
+        at which it was interrupted and stored.
+        """
+        # pyre-ignore[9]: Expected Base, but redeclared to `SQAGenerationStrategy`.
+        gs_class: SQAGenerationStrategy = self.config.class_to_sqa_class[
+            cast(Type[Base], GenerationStrategy)
+        ]
+        # pyre-fixme[29]: `SQAGenerationStrategy` is not a function.
+        return gs_class(
+            name=generation_strategy.name,
+            steps=object_to_json(generation_strategy._steps),
+            generated=generation_strategy._generated,
+            observed=generation_strategy._observed,
+            curr_index=generation_strategy._curr.index,
+            generator_runs=[
+                self.generator_run_to_sqa(gr)
+                for gr in generation_strategy._generator_runs
+            ],
+            data=self.data_to_sqa(
+                data=generation_strategy._data,
+                # Generation strategy data is a compilation of data, so it does
+                # not strictly speaking have a timestamp. Setting timestamp to
+                # current.
+                timestamp=int(round(time() * 1000)),
+                trial_index=None,
+            ),
+            experiment_id=experiment_id,
+        )
+
     def runner_to_sqa(
         self, runner: Runner, trial_type: Optional[str] = None
     ) -> SQARunner:
@@ -513,7 +550,9 @@ class Encoder:
             runner=runner,
         )
 
-    def data_to_sqa(self, data: Data, trial_index: int, timestamp: int) -> SQAData:
+    def data_to_sqa(
+        self, data: Data, trial_index: Optional[int], timestamp: int
+    ) -> SQAData:
         """Convert AE data to SQLAlchemy."""
         # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[Data]`.
         data_class: SQAData = self.config.class_to_sqa_class[Data]

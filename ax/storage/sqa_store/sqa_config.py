@@ -15,12 +15,14 @@ from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.trial import Trial
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
     SQAData,
     SQAExperiment,
+    SQAGenerationStrategy,
     SQAGeneratorRun,
     SQAMetric,
     SQAParameter,
@@ -46,6 +48,7 @@ class SQAConfig(NamedTuple):
         Arm: SQAArm,
         Data: SQAData,
         Experiment: SQAExperiment,
+        GenerationStrategy: SQAGenerationStrategy,
         GeneratorRun: SQAGeneratorRun,
         Parameter: SQAParameter,
         ParameterConstraint: SQAParameterConstraint,
