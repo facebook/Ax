@@ -18,6 +18,13 @@ const Container = CompLibrary.Container;
 
 const TutorialSidebar = require(`${CWD}/core/TutorialSidebar.js`);
 
+function timeToMinAndSec(time) {
+  const mins = Math.floor(time / 60);
+  const total_secs = time - mins * 60;
+  const secs = Math.round(total_secs * 100) / 100;
+  return {mins, secs};
+}
+
 function renderDownloadIcon() {
   return (
     <svg
@@ -39,12 +46,13 @@ function renderDownloadIcon() {
 
 class Tutorial extends React.Component {
   render() {
-    const {baseUrl, tutorialDir, tutorialID} = this.props;
+    const {baseUrl, tutorialDir, tutorialID, totalExecTime} = this.props;
 
     let htmlFile = null;
     let pyFile = null;
     let ipynbFile = null;
     let directoryDownloadButton = null;
+    let totalExecTimeText = null;
 
     if (tutorialDir != null && tutorialDir !== '') {
       htmlFile = `${CWD}/_tutorials/${tutorialDir}/${tutorialID}.html`;
@@ -68,6 +76,21 @@ class Tutorial extends React.Component {
       pyFile = `${baseUrl}files/${tutorialDir}/${tutorialID}.py`;
     }
     const normalizedHtmlFile = path.normalize(htmlFile);
+
+    if (totalExecTime != null) {
+      const minsAndSecs = timeToMinAndSec(totalExecTime);
+      const timeText =
+        'Total runtime of script: ' +
+        (minsAndSecs['mins'] === 0
+          ? `${minsAndSecs['secs']} seconds.`
+          : `${minsAndSecs['mins']} minutes, ${minsAndSecs['secs']} seconds.`);
+
+      totalExecTimeText = (
+        <div className="tutorialRuntime">
+          <p>{timeText}</p>
+        </div>
+      );
+    }
 
     return (
       <div className="docMainWrapper wrapper">
@@ -100,6 +123,7 @@ class Tutorial extends React.Component {
               {'Download Tutorial Source Code'}
             </a>
           </div>
+          {totalExecTimeText}
         </Container>
       </div>
     );

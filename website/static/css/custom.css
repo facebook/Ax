@@ -28,7 +28,7 @@ html body {
 }
 
 .fixedHeaderContainer header a:nth-child(2) h3::before {
-  content: "v: ";
+  content: 'v: ';
 }
 
 .navigationSlider {
@@ -43,18 +43,25 @@ html body {
   color: #c7d4fd;
 }
 
-.navigationSlider .slidingNav ul li a:hover, .navigationSlider .slidingNav ul li a:focus {
+.navigationSlider .slidingNav ul li a:hover,
+.navigationSlider .slidingNav ul li a:focus {
   color: #ffffff;
   background-color: inherit;
 }
 
-.navigationSlider .slidingNav ul li.siteNavItemActive > a, .navigationSlider .slidingNav ul li.siteNavGroupActive > a {
+.navigationSlider .slidingNav ul li.siteNavItemActive > a,
+.navigationSlider .slidingNav ul li.siteNavGroupActive > a {
   background-color: inherit;
 }
 
 .homeContainer {
-  background: rgb(2,0,36);
-  background: linear-gradient(0deg, rgba(2,0,36,1), rgba(91,24,97,1) 0%, rgba(72,114,249,1) 100%);
+  background: rgb(2, 0, 36);
+  background: linear-gradient(
+    0deg,
+    rgba(2, 0, 36, 1),
+    rgba(91, 24, 97, 1) 0%,
+    rgba(72, 114, 249, 1) 100%
+  );
   padding: 50px 0px;
 }
 
@@ -87,7 +94,7 @@ html body {
 }
 
 div.productShowcaseSection {
-  color: #6C6C6C;
+  color: #6c6c6c;
   padding-top: 40px;
 }
 
@@ -128,7 +135,7 @@ div.productShowcaseSection {
 }
 
 div#quickstart {
-  background: #EFEFEF;
+  background: #efefef;
 }
 
 div#quickstart ol {
@@ -147,11 +154,13 @@ div#quickstart ol {
   color: #ffffff;
 }
 
-a, p a {
+a,
+p a {
   color: #4872f9;
 }
 
-a:hover, p a:hover {
+a:hover,
+p a:hover {
   color: #4872f9;
 }
 
@@ -161,7 +170,7 @@ a:hover, p a:hover {
 }
 
 .toc .toggleNav ul li a {
-  color: #6C6C6C;
+  color: #6c6c6c;
 }
 
 .toc .toggleNav ul li a:hover {
@@ -176,24 +185,28 @@ a:hover, p a:hover {
   color: #222222;
 }
 
-.mainContainer .wrapper .post h1, .mainContainer .wrapper .post h2, .mainContainer .wrapper .post h3 {
+.mainContainer .wrapper .post h1,
+.mainContainer .wrapper .post h2,
+.mainContainer .wrapper .post h3 {
   color: #222222;
 }
 
 .mainContainer .wrapper .post {
-  color: #6C6C6C;
+  color: #6c6c6c;
 }
 
 .mainContainer .wrapper .post strong {
   color: #222222;
 }
 
-a.docs-next, a.docs-prev {
+a.docs-next,
+a.docs-prev {
   color: #4872f9;
   border: 1px solid #4872f9;
 }
 
-a.docs-next:hover, a.docs-prev:hover {
+a.docs-next:hover,
+a.docs-prev:hover {
   background-color: #4872f9;
   border: 1px solid #4872f9;
   color: #fff;
@@ -202,15 +215,17 @@ a.docs-next:hover, a.docs-prev:hover {
 /* Style tutorials */
 .tutorialBody {
   margin-top: -20px;
-  color: #6C6C6C;
+  color: #6c6c6c;
 }
 
 .tutorialBody h1 {
   margin: 0px;
 }
 
-.tutorialBody h1, .tutorialBody h2, .tutorialBody h3 {
-  color: #222222
+.tutorialBody h1,
+.tutorialBody h2,
+.tutorialBody h3 {
+  color: #222222;
 }
 
 .tutorialBody pre {
@@ -249,7 +264,8 @@ a.docs-next:hover, a.docs-prev:hover {
   height: 100vh;
 }
 
-.tutorialButtonWrapper {
+.tutorialButtonWrapper,
+.tutorialRuntime {
   margin: 20px;
 }
 
@@ -268,7 +284,7 @@ a.docs-next:hover, a.docs-prev:hover {
   background-color: inherit;
 }
 
-.wrapper{
+.wrapper {
   max-width: 1400px;
 }
 

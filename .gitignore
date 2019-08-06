@@ -130,6 +130,10 @@ ax/utils/stats/sobol.c*
 # Sphinx documentation
 sphinx/build/
 
+# Tutorials
+tutorials/experiment.json
+tutorials/*.db
+
 # Docusaurus site
 website/yarn.lock
 website/build/

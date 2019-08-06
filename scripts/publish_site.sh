@@ -3,26 +3,31 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 usage() {
-  echo "Usage: $0 [-d] [-v VERSION]"
+  echo "Usage: $0 [-d] [-k KERNEL_NAME] [-v VERSION]"
   echo ""
   echo "Build and push updated Ax site. Will either update master or bump stable version."
   echo ""
-  echo "  -d           Use Docusaurus bot GitHub credentials. If not specified, will use default GitHub credentials."
-  echo "  -v=VERSION   Build site for new library version. If not specified, will update master."
+  echo "  -d                Use Docusaurus bot GitHub credentials. If not specified, will use default GitHub credentials."
+  echo "  -k=KERNEL_NAME    Kernel name to use for executing tutorials. Use Jupyter default if not set."
+  echo "  -v=VERSION        Build site for new library version. If not specified, will update master."
   echo ""
   exit 1
 }
 
 VERSION=false
 DOCUSAURUS_BOT=false
+KERNEL_NAME=false
 
-while getopts 'dhv:' option; do
+while getopts 'dhk:v:' option; do
   case "${option}" in
     d)
       DOCUSAURUS_BOT=true
       ;;
     h)
       usage
+      ;;
+    k)
+      KERNEL_NAME=${OPTARG}
       ;;
     v)
       VERSION=${OPTARG}
@@ -118,8 +123,8 @@ if [[ $VERSION == false ]]; then
   yarn run version latest
 
   # Build site
-  cd ../scripts || exit
-  ./make_docs.sh -b
+  cd .. || exit
+  ./scripts/make_docs.sh -b -t -k "${KERNEL_NAME}"
   rm -rf ../website/build/Ax/docs/next  # don't need this
 
   # Move built site to gh-pages (but keep old versions.js)
@@ -168,8 +173,9 @@ else
   yarn run version stable
 
   # Build new version of site (this will be stable, default version)
-  cd ../scripts || exit
-  ./make_docs.sh -b
+  # Execute tutorials
+  cd .. || exit
+  ./scripts/make_docs.sh -b -t -k "${KERNEL_NAME}"
 
   # Move built site to new folder (new-site) & carry over old versions
   # from existing gh-pages
@@ -190,11 +196,12 @@ else
 
   # Set Docusaurus version with exact version & build
   yarn run version "${VERSION}"
-  cd ../scripts || exit
-  ./make_docs.sh -b
-  rm -rf ../website/build/Ax/docs/next  # don't need this
-  rm -rf ../website/build/Ax/docs/stable  # or this
-  mv ../website/build/Ax "../../new-site/versions/${VERSION}"
+  cd .. || exit
+  # Only run Docusaurus (skip tutorial build & Sphinx)
+  ./scripts/make_docs.sh -b -o
+  rm -rf website/build/Ax/docs/next  # don't need this
+  rm -rf website/build/Ax/docs/stable  # or this
+  mv website/build/Ax "../new-site/versions/${VERSION}"
 
   # Need to run script to update versions.js for previous versions in
   # new-site/versions with the newly built versions.js. Otherwise,
