@@ -853,7 +853,6 @@ class SQAStoreTest(TestCase):
             new_generation_strategy = self.decoder.generation_strategy_from_sqa(
                 gs_sqa=gs_sqa
             )
-        self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)

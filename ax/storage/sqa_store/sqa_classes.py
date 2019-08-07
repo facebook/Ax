@@ -213,9 +213,6 @@ class SQAData(Base):
     experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"))
     time_created: int = Column(BigInteger, nullable=False)
     trial_index: Optional[int] = Column(Integer)
-    generation_strategy_id: Optional[int] = Column(
-        Integer, ForeignKey("generation_strategy.id")
-    )
 
     unique_id = "time_created"
 
@@ -236,10 +233,6 @@ class SQAGenerationStrategy(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
         order_by=lambda: SQAGeneratorRun.id,
-    )
-
-    data: SQAData = relationship(
-        "SQAData", cascade="all, delete-orphan", lazy=False, uselist=False
     )
 
 

@@ -2,7 +2,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from enum import Enum
-from time import time
 from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
 from ax.core.arm import Arm
@@ -458,14 +457,6 @@ class Encoder:
                 self.generator_run_to_sqa(gr)
                 for gr in generation_strategy._generator_runs
             ],
-            data=self.data_to_sqa(
-                data=generation_strategy._data,
-                # Generation strategy data is a compilation of data, so it does
-                # not strictly speaking have a timestamp. Setting timestamp to
-                # current.
-                timestamp=int(round(time() * 1000)),
-                trial_index=None,
-            ),
             experiment_id=experiment_id,
         )
 
