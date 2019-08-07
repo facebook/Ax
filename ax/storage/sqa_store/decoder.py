@@ -541,6 +541,8 @@ class Decoder:
         gs._generated = gs_sqa.generated
         gs._observed = gs_sqa.observed
         gs._curr = gs._steps[gs_sqa.curr_index]
+        # There is just one data object on generation strategy.
+        gs._data = self.data_from_sqa(gs_sqa.data)
         gs._generator_runs = [
             self.generator_run_from_sqa(gr) for gr in gs_sqa.generator_runs
         ]
