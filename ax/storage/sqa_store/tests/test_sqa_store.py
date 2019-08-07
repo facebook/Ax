@@ -29,12 +29,15 @@ from ax.storage.sqa_store.db import (
 )
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
-from ax.storage.sqa_store.load import load_experiment
+from ax.storage.sqa_store.load import (
+    load_experiment,
+    load_generation_strategy_by_experiment_name,
+    load_generation_strategy_by_id,
+)
 from ax.storage.sqa_store.save import save_experiment, save_generation_strategy
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAExperiment,
-    SQAGenerationStrategy,
     SQAGeneratorRun,
     SQAMetric,
     SQAParameter,
@@ -811,24 +814,32 @@ class SQAStoreTest(TestCase):
         self.assertEqual(loaded_experiment, experiment)
 
     def testEncodeDecodeGenerationStrategy(self):
-        # Check that we can encode and decode the generation strategy after
+        # Cannot load generation strategy before it has been saved
+        with self.assertRaises(ValueError):
+            load_generation_strategy_by_id(gs_id=0)
+
+        # Check that we can encode and decode the generation strategy *before*
         # it has generated some trials and been updated with some data.
         generation_strategy = get_generation_strategy()
         # Check that we can save a generation strategy without an experiment
         # attached.
         gs_id = save_generation_strategy(generation_strategy=generation_strategy)
-        # Also try restoring this generation strategy.
-        with session_scope() as session:
-            gs_sqa = (
-                session.query(SQAGenerationStrategy).filter_by(id=gs_id).one_or_none()
-            )
-            generation_strategy = self.decoder.generation_strategy_from_sqa(
-                gs_sqa=gs_sqa
-            )
-            self.assertIsNone(generation_strategy._experiment)
-            self.assertEqual(len(generation_strategy._generated), 0)
-            self.assertEqual(len(generation_strategy._observed), 0)
+        # Also try restoring this generation strategy by its ID in the DB.
+        new_generation_strategy = load_generation_strategy_by_id(gs_id=gs_id)
+        self.assertEqual(generation_strategy, new_generation_strategy)
+        self.assertIsNone(generation_strategy._experiment)
+        self.assertEqual(len(generation_strategy._generated), 0)
+        self.assertEqual(len(generation_strategy._observed), 0)
+
+        # Cannot load generation strategy before it has been saved
         experiment = get_branin_experiment()
+        save_experiment(experiment)
+        with self.assertRaises(ValueError):
+            load_generation_strategy_by_experiment_name(experiment_name=experiment.name)
+
+        # Check that we can encode and decode the generation strategy *after*
+        # it has generated some trials and been updated with some data.
+        generation_strategy = new_generation_strategy
         experiment.new_trial(generator_run=generation_strategy.gen(experiment))
         experiment.new_trial(
             generation_strategy.gen(experiment, new_data=get_branin_data())
@@ -838,21 +849,9 @@ class SQAStoreTest(TestCase):
         save_generation_strategy(generation_strategy=generation_strategy)
         # Try restoring the generation strategy using the experiment its
         # attached to.
-        with session_scope() as session:
-            existing_sqa_experiment = (
-                session.query(SQAExperiment)
-                .filter_by(name=experiment.name)
-                .one_or_none()
-            )
-            experiment_id = existing_sqa_experiment.id
-            gs_sqa = (
-                session.query(SQAGenerationStrategy)
-                .filter_by(experiment_id=experiment_id)
-                .one_or_none()
-            )
-            new_generation_strategy = self.decoder.generation_strategy_from_sqa(
-                gs_sqa=gs_sqa
-            )
+        new_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name
+        )
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)

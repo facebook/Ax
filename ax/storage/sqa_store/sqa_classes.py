@@ -38,7 +38,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import backref, relationship
 
 
 ONLY_ONE_FIELDS = ["experiment_id", "generator_run_id"]
@@ -323,7 +323,10 @@ class SQAExperiment(Base):
         "SQATrial", cascade="all, delete-orphan", lazy="selectin"
     )
     generation_strategy: Optional[SQAGenerationStrategy] = relationship(
-        "SQAGenerationStrategy", backref="experiment", lazy=False, uselist=False
+        "SQAGenerationStrategy",
+        backref=backref("experiment", lazy=False),
+        uselist=False,
+        lazy="selectin",
     )
 
     immutable_fields = ["name", "time_created"]
