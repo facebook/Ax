@@ -68,8 +68,9 @@ jobs:
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
         - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
+        - pip install torchvision  # required for tutorials
       script:
-        - bash scripts/publish_site.sh -d
+        - travis_wait 90 bash scripts/publish_site.sh -d
 
 stages:
   - name: Test
