@@ -73,21 +73,17 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(model=Models.GPEI, num_arms=-1),
             ]
         )
-        gs2 = gs1.clone_reset()
+        gs2 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_arms=5),
+                GenerationStep(model=Models.GPEI, num_arms=-1),
+            ]
+        )
         self.assertEqual(gs1, gs2)
-        gs1._data = get_data()
-        self.assertNotEqual(gs1, gs2)
-        gs2._data = get_data()
-        self.assertEqual(gs1, gs2)
-        gs1 = gs1.clone_reset()
-        gs2 = gs2.clone_reset()
-        gs1.gen(experiment=get_branin_experiment())
-        self.assertNotEqual(gs1, gs2)
-        gs2.gen(experiment=get_branin_experiment())
-        # Each generation strategy generated a different arm, so they are not
-        # equal even though they have the same setup and generated the same
-        # number of arms.
-        self.assertNotEqual(gs1, gs2)
+
+        # clone_reset() doesn't clone exactly, so they won't be equal
+        gs3 = gs1.clone_reset()
+        self.assertNotEqual(gs1, gs3)
 
     def test_restore_from_generator_run(self):
         gs = GenerationStrategy(

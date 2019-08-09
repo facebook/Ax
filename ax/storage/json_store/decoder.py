@@ -265,6 +265,7 @@ def generation_strategy_from_json(
     """Load generation strategy from JSON."""
     steps = object_from_json(generation_strategy_json.pop("steps"))
     gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
+    gs._db_id = object_from_json(generation_strategy_json.pop("db_id"))
     gs._experiment = object_from_json(generation_strategy_json.pop("experiment"))
     gs._generated = generation_strategy_json.pop("generated")
     gs._observed = generation_strategy_json.pop("observed")

@@ -551,6 +551,7 @@ class Decoder:
             # pyre-ignore[16]: SQAGenerationStrategy does not have `experiment` attr.
             gs._experiment = self.experiment_from_sqa(gs_sqa.experiment)
             gs._restore_model_from_generator_run()
+        gs._db_id = gs_sqa.id
         return gs
 
     def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:

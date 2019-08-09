@@ -7,6 +7,7 @@ from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.encoder import Encoder
+from ax.storage.sqa_store.sqa_classes import SQAGenerationStrategy
 from ax.storage.sqa_store.sqa_config import SQAConfig
 
 
@@ -71,34 +72,45 @@ def save_generation_strategy(
     # If the generation strategy has not yet generated anything, there will be no
     # experiment set on it.
     if generation_strategy._experiment is None:
-        with session_scope() as session:
-            gs_sqa = encoder.generation_strategy_to_sqa(
-                generation_strategy=generation_strategy, experiment_id=None
-            )
+        experiment_id = None
+    else:
+        # Experiment was set on the generation strategy, so we need to save it first.
+        save_experiment(experiment=generation_strategy._experiment, config=config)
+        experiment_id = _get_experiment_id(
+            experiment=generation_strategy._experiment, encoder=encoder
+        )
+
+    gs_sqa = encoder.generation_strategy_to_sqa(
+        generation_strategy=generation_strategy, experiment_id=experiment_id
+    )
+
+    with session_scope() as session:
+        if generation_strategy._db_id is None:
             session.add(gs_sqa)
             session.flush()  # Ensures generation strategy id is set.
-            return gs_sqa.id
+            generation_strategy._db_id = gs_sqa.id
+        else:
+            existing_gs_sqa = session.query(SQAGenerationStrategy).get(
+                generation_strategy._db_id
+            )
+            existing_gs_sqa.update(gs_sqa)
+            # our update logic ignores foreign keys, i.e. fields ending in _id,
+            # because we want SQLAlchemy to handle those relationships for us
+            # however, generation_strategy.experiment_id is an exception, so we
+            # need to update that manually
+            existing_gs_sqa.experiment_id = gs_sqa.experiment_id
 
-    # Experiment was set on the generation strategy, so we need to save it first.
-    save_experiment(experiment=generation_strategy._experiment, config=config)
+    return generation_strategy._db_id
+
+
+def _get_experiment_id(experiment: Experiment, encoder: Encoder) -> int:
     exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
     with session_scope() as session:
         sqa_experiment = (
-            session.query(exp_sqa_class)
-            .filter_by(name=generation_strategy._experiment.name)
-            .one_or_none()
+            session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
         )
     if sqa_experiment is None:  # pragma: no cover (this is technically unreachable)
         raise ValueError(
             "The undelying experiment must be saved before the generation strategy."
         )
-
-    # Having saved the experiment, we can save the generation strategy with the
-    # experiment ID attached to it.
-    with session_scope() as session:
-        gs_sqa = encoder.generation_strategy_to_sqa(
-            generation_strategy=generation_strategy, experiment_id=sqa_experiment.id
-        )
-        session.add(gs_sqa)
-        session.flush()  # Ensures generation strategy id is set.
-        return gs_sqa.id
+    return sqa_experiment.id

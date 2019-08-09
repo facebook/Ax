@@ -4,6 +4,7 @@
 from datetime import datetime
 from unittest.mock import MagicMock, Mock
 
+import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm
 from ax.core.metric import Metric
@@ -823,9 +824,11 @@ class SQAStoreTest(TestCase):
         generation_strategy = get_generation_strategy()
         # Check that we can save a generation strategy without an experiment
         # attached.
-        gs_id = save_generation_strategy(generation_strategy=generation_strategy)
+        save_generation_strategy(generation_strategy=generation_strategy)
         # Also try restoring this generation strategy by its ID in the DB.
-        new_generation_strategy = load_generation_strategy_by_id(gs_id=gs_id)
+        new_generation_strategy = load_generation_strategy_by_id(
+            gs_id=generation_strategy._db_id
+        )
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsNone(generation_strategy._experiment)
         self.assertEqual(len(generation_strategy._generated), 0)
@@ -857,3 +860,54 @@ class SQAStoreTest(TestCase):
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
+
+    def testUpdateGenerationStrategy(self):
+        generation_strategy = get_generation_strategy()
+        save_generation_strategy(generation_strategy=generation_strategy)
+
+        # Add data, save, reload
+        generation_strategy.data = pd.DataFrame.from_records([{"foo": "bar"}])
+        save_generation_strategy(generation_strategy=generation_strategy)
+        loaded_generation_strategy = load_generation_strategy_by_id(
+            gs_id=generation_strategy._db_id
+        )
+        self.assertEqual(generation_strategy, loaded_generation_strategy)
+
+        experiment = get_branin_experiment()
+        generation_strategy = get_generation_strategy()
+        save_experiment(experiment)
+
+        # add generator run, save, reload
+        experiment.new_trial(generator_run=generation_strategy.gen(experiment))
+        save_generation_strategy(generation_strategy=generation_strategy)
+        loaded_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name
+        )
+        self.assertEqual(generation_strategy, loaded_generation_strategy)
+
+        # add another generator run, save, reload
+        experiment.new_trial(
+            generator_run=generation_strategy.gen(
+                experiment, new_data=get_branin_data()
+            )
+        )
+        save_generation_strategy(generation_strategy=generation_strategy)
+        loaded_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name
+        )
+        self.assertEqual(generation_strategy, loaded_generation_strategy)
+
+        # make sure that we can update the experiment too
+        experiment.description = "foobar"
+        save_experiment(experiment)
+        loaded_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name
+        )
+        self.assertEqual(generation_strategy, loaded_generation_strategy)
+        self.assertEqual(
+            generation_strategy._experiment.description, experiment.description
+        )
+        self.assertEqual(
+            generation_strategy._experiment.description,
+            loaded_generation_strategy._experiment.description,
+        )

@@ -95,6 +95,7 @@ class GenerationStrategy(Base):
     _experiment: Optional[Experiment]
 
     def __init__(self, steps: List[GenerationStep], name: Optional[str] = None) -> None:
+        self._db_id = None
         self._name = name
         self._steps = steps
         assert isinstance(self._steps, list), "Steps must be a GenerationStep list."
@@ -249,11 +250,20 @@ class GenerationStrategy(Base):
         data_equals = (
             self._data.df.empty and other._data.df.empty
         ) or self._data.df.sort_index(axis=1).equals(other._data.df.sort_index(axis=1))
+        experiment_equals = (
+            self._experiment is None and other._experiment is None
+        ) or (self._experiment.name == other._experiment.name)
         return (
-            self._generated == other._generated
+            self._name == other._name
+            and self._db_id == other._db_id
+            and self._steps == other._steps
+            and self._uses_registered_models == other._uses_registered_models
+            and self._generated == other._generated
             and self._observed == other._observed
             and data_equals
             and self._curr == other._curr
+            and self._generator_runs == other._generator_runs
+            and experiment_equals
         )
 
     def __repr__(self) -> str:

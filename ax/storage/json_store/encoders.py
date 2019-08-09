@@ -282,6 +282,7 @@ def generation_strategy_to_dict(
         )
     return {
         "__type": generation_strategy.__class__.__name__,
+        "db_id": generation_strategy._db_id,
         "name": generation_strategy.name,
         "steps": generation_strategy._steps,
         "generated": generation_strategy._generated,
