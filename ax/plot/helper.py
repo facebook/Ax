@@ -144,13 +144,18 @@ def _get_in_sample_arms(
                         "sem": np.sqrt(obs.data.covariance[j, j]),
                     }
                 )
+
     # Check that we have one ObservationFeatures per arm name since we
-    # key by arm name.
-    if len(cond_name_to_parameters) != len(observations):
+    # key by arm name and the model is not Multi-task.
+    # If "TrialAsTask" is present, one of the arms is also chosen.
+    if ("TrialAsTask" not in model.transforms.keys()) and (
+        len(cond_name_to_parameters) != len(observations)
+    ):
         logger.error(
             "Have observations of arms with different features but same"
             " name. Arbitrary one will be plotted."
         )
+
     # Merge multiple measurements within each Observation with IVW to get
     # un-modeled prediction
     t = IVW(None, [], [])
