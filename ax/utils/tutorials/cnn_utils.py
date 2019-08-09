@@ -217,7 +217,12 @@ def train(
         net.parameters(),
         lr=parameters.get("lr", 0.001),
         momentum=parameters.get("momentum", 0.0),
-        weight_decay=parameters.get("momentum", 0.0),
+        weight_decay=parameters.get("weight_decay", 0.0),
+    )
+    scheduler = optim.lr_scheduler.StepLR(
+        optimizer,
+        step_size=int(parameters.get("step_size", 30)),
+        gamma=parameters.get("gamma", 1.0),  # default is no learning rate decay
     )
     num_epochs = parameters.get("num_epochs", 1)
 
@@ -236,6 +241,7 @@ def train(
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
+            scheduler.step()
     return net
 
 
