@@ -2,7 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from itertools import accumulate
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -40,6 +40,7 @@ def load_mnist(
     batch_size: int = 128,
     num_workers: int = 0,
     deterministic_partitions: bool = False,
+    downsample_pct_test: Optional[float] = None,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Load MNIST dataset (download if necessary) and split data into training,
@@ -55,6 +56,8 @@ def load_mnist(
         num_workers: number of workers (subprocesses) for loading data
         deterministic_partitions: whether to partition data in a deterministic
             fashion
+        downsample_pct_test: the proportion of the dataset to use for test, default
+            to be equal to downsample_pct
 
     Returns:
         DataLoader: training data
@@ -84,6 +87,7 @@ def load_mnist(
         batch_size=batch_size,
         num_workers=num_workers,
         deterministic_partitions=deterministic_partitions,
+        downsample_pct_test=downsample_pct_test,
     )
 
 
@@ -95,6 +99,7 @@ def get_partition_data_loaders(
     batch_size: int = 128,
     num_workers: int = 0,
     deterministic_partitions: bool = False,
+    downsample_pct_test: Optional[float] = None,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Helper function for partitioning training data into training and validation sets,
@@ -102,13 +107,15 @@ def get_partition_data_loaders(
 
     Args:
         train_valid_set: torch.dataset
-        downsample_pct: the proportion of the dataset to use for training,
-            validation, and test
+        downsample_pct: the proportion of the dataset to use for training, and
+            validation
         train_pct: the proportion of the downsampled data to use for training
         batch_size: how many samples per batch to load
         num_workers: number of workers (subprocesses) for loading data
         deterministic_partitions: whether to partition data in a deterministic
             fashion
+        downsample_pct_test: the proportion of the dataset to use for test, default
+            to be equal to downsample_pct
 
     Returns:
         DataLoader: training data
@@ -129,8 +136,10 @@ def get_partition_data_loaders(
         ],
         deterministic_partitions=deterministic_partitions,
     )
+    if downsample_pct_test is None:
+        downsample_pct_test = downsample_pct
     # pyre-ignore [6]
-    downsampled_num_test_examples = int(downsample_pct * len(test_set))
+    downsampled_num_test_examples = int(downsample_pct_test * len(test_set))
     test_set, _ = split_dataset(
         test_set,
         lengths=[
