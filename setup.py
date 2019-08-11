@@ -18,7 +18,7 @@ EXTENSIONS = [
 ]
 
 REQUIRES = [
-    "botorch",
+    "botorch>=0.1.3",
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
