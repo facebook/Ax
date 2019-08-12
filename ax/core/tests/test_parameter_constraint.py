@@ -62,6 +62,15 @@ class ParameterConstraintTest(TestCase):
         constraint_clone._bound = 7.0
         self.assertNotEqual(self.constraint.bound, constraint_clone.bound)
 
+    def testCloneWithTransformedParameters(self):
+        constraint_clone = self.constraint.clone_with_transformed_parameters(
+            transformed_parameters={}
+        )
+        self.assertEqual(self.constraint.bound, constraint_clone.bound)
+
+        constraint_clone._bound = 7.0
+        self.assertNotEqual(self.constraint.bound, constraint_clone.bound)
+
 
 class OrderConstraintTest(TestCase):
     def setUp(self):
@@ -86,6 +95,19 @@ class OrderConstraintTest(TestCase):
 
     def testClone(self):
         constraint_clone = self.constraint.clone()
+        self.assertEqual(
+            self.constraint.lower_parameter, constraint_clone.lower_parameter
+        )
+
+        constraint_clone._lower_parameter = self.y
+        self.assertNotEqual(
+            self.constraint.lower_parameter, constraint_clone.lower_parameter
+        )
+
+    def testCloneWithTransformedParameters(self):
+        constraint_clone = self.constraint.clone_with_transformed_parameters(
+            transformed_parameters={p.name: p for p in self.constraint.parameters}
+        )
         self.assertEqual(
             self.constraint.lower_parameter, constraint_clone.lower_parameter
         )
@@ -147,6 +169,15 @@ class SumConstraintTest(TestCase):
 
     def testClone(self):
         constraint_clone = self.constraint1.clone()
+        self.assertEqual(self.constraint1.bound, constraint_clone.bound)
+
+        constraint_clone._bound = 7.0
+        self.assertNotEqual(self.constraint1.bound, constraint_clone.bound)
+
+    def testCloneWithTransformedParameters(self):
+        constraint_clone = self.constraint1.clone_with_transformed_parameters(
+            transformed_parameters={p.name: p for p in self.constraint1.parameters}
+        )
         self.assertEqual(self.constraint1.bound, constraint_clone.bound)
 
         constraint_clone._bound = 7.0

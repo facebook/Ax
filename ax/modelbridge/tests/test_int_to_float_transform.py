@@ -5,7 +5,7 @@ from copy import deepcopy
 
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
-from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.utils.common.testutils import TestCase
@@ -13,19 +13,20 @@ from ax.utils.common.testutils import TestCase
 
 class IntToFloatTransformTest(TestCase):
     def setUp(self):
+        parameters = [
+            RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.FLOAT),
+            RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
+            RangeParameter("d", lower=1, upper=3, parameter_type=ParameterType.INT),
+            ChoiceParameter(
+                "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
+            ),
+        ]
         self.search_space = SearchSpace(
-            parameters=[
-                RangeParameter(
-                    "x", lower=1, upper=3, parameter_type=ParameterType.FLOAT
-                ),
-                RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
-                RangeParameter("d", lower=1, upper=3, parameter_type=ParameterType.INT),
-                ChoiceParameter(
-                    "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
-                ),
-            ],
+            parameters=parameters,
             parameter_constraints=[
-                ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5)
+                OrderConstraint(
+                    lower_parameter=parameters[0], upper_parameter=parameters[1]
+                )
             ],
         )
         self.t = IntToFloat(

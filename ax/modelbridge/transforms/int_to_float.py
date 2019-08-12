@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
@@ -51,29 +51,31 @@ class IntToFloat(Transform):
         return observation_features
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        transformed_parameters: List[Parameter] = []
+        transformed_parameters: Dict[str, Parameter] = {}
         for p in search_space.parameters.values():
             # Refine type, since we've only added RangeParameters above.
             if p.name in self.transform_parameters:
                 # pyre: p_cast is declared to have type `RangeParameter` but
                 # pyre-fixme[9]: is used as type `Parameter`.
                 p_cast: RangeParameter = p
-                transformed_parameters.append(
-                    RangeParameter(
-                        name=p_cast.name,
-                        parameter_type=ParameterType.FLOAT,
-                        lower=p_cast.lower,
-                        upper=p_cast.upper,
-                        log_scale=p_cast.log_scale,
-                        digits=p_cast.digits,
-                    )
+                transformed_parameters[p.name] = RangeParameter(
+                    name=p_cast.name,
+                    parameter_type=ParameterType.FLOAT,
+                    lower=p_cast.lower,
+                    upper=p_cast.upper,
+                    log_scale=p_cast.log_scale,
+                    digits=p_cast.digits,
                 )
             else:
-                transformed_parameters.append(p)
+                transformed_parameters[p.name] = p
+
         return SearchSpace(
-            parameters=transformed_parameters,
+            parameters=list(transformed_parameters.values()),
             parameter_constraints=[
-                pc.clone() for pc in search_space.parameter_constraints
+                pc.clone_with_transformed_parameters(
+                    transformed_parameters=transformed_parameters
+                )
+                for pc in search_space.parameter_constraints
             ],
         )
 

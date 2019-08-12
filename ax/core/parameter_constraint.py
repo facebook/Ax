@@ -78,6 +78,12 @@ class ParameterConstraint(Base):
             constraint_dict=self._constraint_dict, bound=self._bound
         )
 
+    def clone_with_transformed_parameters(
+        self, transformed_parameters: Dict[str, Parameter]
+    ) -> "ParameterConstraint":
+        """Clone, but replaced parameters with transformed versions."""
+        return self.clone()
+
     def __repr__(self) -> str:
         return (
             "ParameterConstraint("
@@ -134,6 +140,15 @@ class OrderConstraint(ParameterConstraint):
             lower_parameter=self.lower_parameter, upper_parameter=self._upper_parameter
         )
 
+    def clone_with_transformed_parameters(
+        self, transformed_parameters: Dict[str, Parameter]
+    ) -> "OrderConstraint":
+        """Clone, but replace parameters with transformed versions."""
+        return OrderConstraint(
+            lower_parameter=transformed_parameters[self.lower_parameter.name],
+            upper_parameter=transformed_parameters[self._upper_parameter.name],
+        )
+
     def __repr__(self) -> str:
         return "OrderConstraint({} <= {})".format(
             self.lower_parameter.name, self.upper_parameter.name
@@ -183,6 +198,16 @@ class SumConstraint(ParameterConstraint):
         """Clone."""
         return SumConstraint(
             parameters=self._parameters,
+            is_upper_bound=self._is_upper_bound,
+            bound=self._bound,
+        )
+
+    def clone_with_transformed_parameters(
+        self, transformed_parameters: Dict[str, Parameter]
+    ) -> "SumConstraint":
+        """Clone, but replace parameters with transformed versions."""
+        return SumConstraint(
+            parameters=[transformed_parameters[p.name] for p in self._parameters],
             is_upper_bound=self._is_upper_bound,
             bound=self._bound,
         )
