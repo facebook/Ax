@@ -91,8 +91,8 @@ def numpy_type_to_python_type(value: Any) -> Any:
     """If `value` is a Numpy int or float, coerce to a Python int or float.
     This is necessary because some of our transforms return Numpy values.
     """
-    if type(value) == np.int64:
+    if isinstance(value, np.integer):
         value = int(value)  # pragma: nocover (covered by generator tests)
-    if type(value) == np.float64:
+    if isinstance(value, np.floating):
         value = float(value)  # pragma: nocover  (covered by generator tests)
     return value
