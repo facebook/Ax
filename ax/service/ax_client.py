@@ -12,9 +12,11 @@ from ax.core.experiment import Experiment
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
+    TFidelityTrialEvaluation,
     TModelPredictArm,
     TParameterization,
     TParamValue,
+    TTrialEvaluation,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
@@ -212,26 +214,13 @@ class AxClient:
         # [(fidelities, {metric_name -> (mean, SEM)})]
         if isinstance(evaluations[arm_name], dict):
             data = Data.from_evaluations(
-                evaluations=cast(
-                    Dict[str, Dict[str, Tuple[float, float]]], evaluations
-                ),
+                evaluations=cast(Dict[str, TTrialEvaluation], evaluations),
                 trial_index=trial.index,
                 sample_sizes=sample_sizes,
             )
         else:
             data = Data.from_fidelity_evaluations(
-                evaluations=cast(
-                    Dict[
-                        str,
-                        List[
-                            Tuple[
-                                Dict[str, Optional[Union[bool, float, int, str]]],
-                                Dict[str, Tuple[float, float]],
-                            ]
-                        ],
-                    ],
-                    evaluations,
-                ),
+                evaluations=cast(Dict[str, TFidelityTrialEvaluation], evaluations),
                 trial_index=trial.index,
                 sample_sizes=sample_sizes,
             )

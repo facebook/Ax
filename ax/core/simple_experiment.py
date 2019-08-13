@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+
 import inspect
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, List, Optional
 
 import numpy as np
 from ax.core.arm import Arm
@@ -15,7 +16,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.core.types import TEvaluationOutcome, TParameterization
+from ax.core.types import TEvaluationOutcome, TParameterization, TTrialEvaluation
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none, numpy_type_to_python_type
 
@@ -169,7 +170,7 @@ class SimpleExperiment(Experiment):
 
     def evaluation_function_outer(
         self, parameterization: TParameterization, weight: Optional[float] = None
-    ) -> Dict[str, Tuple[float, float]]:
+    ) -> TTrialEvaluation:
         signature = inspect.signature(self._evaluation_function)
         num_evaluation_function_params = len(signature.parameters.items())
         if num_evaluation_function_params == 1:

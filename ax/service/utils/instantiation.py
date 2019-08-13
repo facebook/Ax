@@ -296,9 +296,9 @@ def raw_data_to_evaluation(
     elif isinstance(raw_data, tuple):
         return {objective_name: raw_data}
     elif isinstance(raw_data, (float, int)):
-        return {objective_name: (raw_data, 0.0)}
+        return {objective_name: (raw_data, None)}  # pyre-fixme[7]
     elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
-        return {objective_name: (numpy_type_to_python_type(raw_data), 0.0)}
+        return {objective_name: (numpy_type_to_python_type(raw_data), None)}
     else:
         raise ValueError(
             "Raw data has an invalid type. The data must either be in the form "

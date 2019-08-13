@@ -8,11 +8,11 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
 from botorch.fit import fit_gpytorch_model
-from botorch.models.gp_regression import FixedNoiseGP
+from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
-from botorch.models.multitask import FixedNoiseMultiTaskGP
+from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.optim.optimize import joint_optimize, sequential_optimize
 from botorch.utils import (
     get_objective_weights_transform,
@@ -219,8 +219,21 @@ def _get_model(
 ) -> GPyTorchModel:
     """Instantiate a model of type depending on the input data."""
     Yvar = Yvar.clamp_min_(MIN_OBSERVED_NOISE_LEVEL)  # pyre-ignore: [16]
-    if task_feature is None:
+    is_nan = torch.isnan(Yvar)
+    any_nan_Yvar = torch.any(is_nan)
+    all_nan_Yvar = torch.all(is_nan)
+    if any_nan_Yvar and not all_nan_Yvar:
+        raise ValueError(
+            "Mix of known and unknown variances indicates "
+            "valuation function errors. Variances should all be specified, or "
+            "none should be."
+        )
+    if task_feature is None and all_nan_Yvar:
+        gp = SingleTaskGP(train_X=X, train_Y=Y)
+    elif task_feature is None:
         gp = FixedNoiseGP(train_X=X, train_Y=Y, train_Yvar=Yvar)
+    elif all_nan_Yvar:
+        gp = MultiTaskGP(train_X=X, train_Y=Y, task_feature=task_feature)
     else:
         gp = FixedNoiseMultiTaskGP(
             train_X=X,

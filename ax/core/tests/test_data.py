@@ -8,7 +8,7 @@ from ax.utils.common.testutils import TestCase
 
 class DataTest(TestCase):
     def setUp(self):
-        self.df_hash = "ffa0d87c9f570a31dc58e732ebe9e5f8"
+        self.df_hash = "3dd7ab8c67942d43c78ea4af05bbb1c4"
         self.df = pd.DataFrame(
             [
                 {
@@ -42,6 +42,24 @@ class DataTest(TestCase):
                     "arm_name": "0_1",
                     "mean": 3.7,
                     "sem": 0.5,
+                    "trial_index": 1,
+                    "metric_name": "b",
+                    "start_time": "2018-01-01",
+                    "end_time": "2018-01-02",
+                },
+                {
+                    "arm_name": "0_2",
+                    "mean": 0.5,
+                    "sem": None,
+                    "trial_index": 1,
+                    "metric_name": "a",
+                    "start_time": "2018-01-01",
+                    "end_time": "2018-01-02",
+                },
+                {
+                    "arm_name": "0_2",
+                    "mean": 3.0,
+                    "sem": None,
                     "trial_index": 1,
                     "metric_name": "b",
                     "start_time": "2018-01-01",

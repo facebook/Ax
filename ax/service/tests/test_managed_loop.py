@@ -29,6 +29,13 @@ def _branin_evaluation_function_v2(parameterization, weight=None):
     return (branin(x1, x2), 0.0)
 
 
+def _branin_evaluation_function_with_unknown_sem(parameterization, weight=None):
+    if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
+        raise ValueError("Parametrization does not contain x1 or x2")
+    x1, x2 = parameterization["x1"], parameterization["x2"]
+    return (branin(x1, x2), None)
+
+
 # Patch the Models enum to replace GPEI with Sobol.
 def get_experiment_data_sobol(experiment, data):
     return get_sobol(experiment.search_space)
@@ -103,7 +110,28 @@ class TestManagedLoop(TestCase):
             minimize=True,
             evaluation_function=_branin_evaluation_function_v2,
             parameter_constraints=["x1 + x2 <= 20"],
-            total_trials=5,
+            total_trials=6,
+        )
+        bp, _ = loop.full_run().get_best_point()
+        self.assertIn("x1", bp)
+        self.assertIn("x2", bp)
+
+    def test_branin_with_unknown_sem(self) -> None:
+        loop = OptimizationLoop.with_evaluation_function(
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [-5.0, 10.0],
+                    "value_type": "float",
+                    "log_scale": False,
+                },
+                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
+            ],
+            minimize=True,
+            evaluation_function=_branin_evaluation_function_with_unknown_sem,
+            parameter_constraints=["x1 + x2 <= 20"],
+            total_trials=6,
         )
         bp, _ = loop.full_run().get_best_point()
         self.assertIn("x1", bp)
@@ -159,6 +187,28 @@ class TestManagedLoop(TestCase):
         self.assertIn("x1", best)
         self.assertIn("x2", best)
         assert vals is not None
+        self.assertIn("objective", vals[0])
+        self.assertIn("objective", vals[1])
+        self.assertIn("objective", vals[1]["objective"])
+
+    def test_optimize_unknown_sem(self) -> None:
+        """Tests optimization as a single call."""
+        best, vals, exp, model = optimize(
+            parameters=[  # pyre-fixme[6]
+                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
+            ],
+            # Booth function.
+            evaluation_function=lambda p: (
+                (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
+                None,
+            ),
+            minimize=True,
+            total_trials=6,
+        )
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
+        self.assertIsNotNone(vals)
         self.assertIn("objective", vals[0])
         self.assertIn("objective", vals[1])
         self.assertIn("objective", vals[1]["objective"])

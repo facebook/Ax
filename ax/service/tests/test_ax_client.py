@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import math
 import sys
 from enum import Enum
 from math import ceil
@@ -349,10 +350,9 @@ class TestServiceAPI(TestCase):
         ax.complete_trial(trial_index=idx3, raw_data=-2, metadata={"dummy": "test"})
         self.assertEqual(ax.get_best_parameters()[0], params3)
         self.assertEqual(ax.experiment.trials.get(2).run_metadata.get("dummy"), "test")
-        self.assertEqual(
-            ax.get_best_parameters()[1],
-            ({"objective": -2.0}, {"objective": {"objective": 0.0}}),
-        )
+        best_trial_values = ax.get_best_parameters()[1]
+        self.assertEqual(best_trial_values[0], {"objective": -2.0})
+        self.assertTrue(math.isnan(best_trial_values[1]["objective"]["objective"]))
 
     def test_fail_on_batch(self):
         ax = AxClient()

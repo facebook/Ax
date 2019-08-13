@@ -26,7 +26,7 @@ COLUMN_DATA_TYPES = {
     "random_split": np.int64,
     "fidelities": str,  # Dictionary stored as json
 }
-REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
+REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean"}
 
 
 class Data(Base):
@@ -130,7 +130,7 @@ class Data(Base):
 
         Args:
             evaluations: Map from arm name to metric outcomes (itself a mapping
-                of metric names to tuples of mean and SEM).
+                of metric names to tuples of mean and optionally a SEM).
             trial_index: Trial index to which this data belongs.
             sample_sizes: Number of samples collected for each arm.
 
