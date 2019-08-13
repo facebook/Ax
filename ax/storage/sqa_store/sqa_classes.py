@@ -329,4 +329,5 @@ class SQAExperiment(Base):
         lazy="selectin",
     )
 
-    immutable_fields = ["name", "time_created"]
+    immutable_fields = ["name"]
+    ignore_during_update_fields = ["time_created"]
