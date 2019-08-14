@@ -189,10 +189,7 @@ def tunable_feature_indices(
     Returns:
         The indices of tunable features.
     """
-    if fixed_features:
-        fixed_feature_indices = np.array(list(fixed_features.keys()))
-    else:
-        fixed_feature_indices = np.array([])
+    fixed_feature_indices = list(fixed_features.keys()) if fixed_features else []
     feature_indices = np.arange(len(bounds))
     return np.delete(feature_indices, fixed_feature_indices)
 
