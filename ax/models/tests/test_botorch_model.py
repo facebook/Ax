@@ -148,10 +148,12 @@ class BotorchModelTest(TestCase):
         n = 3
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
+        acq_dummy = torch.tensor(0.0, dtype=dtype, device=device)
         model_gen_options = {}
         # test sequential optimize
         with mock.patch(
-            "ax.models.torch.botorch_defaults.sequential_optimize", return_value=X_dummy
+            "ax.models.torch.botorch_defaults.sequential_optimize",
+            return_value=(X_dummy, acq_dummy),
         ) as mock_sequential_optimize:
 
             Xgen, wgen = model.gen(
@@ -175,7 +177,8 @@ class BotorchModelTest(TestCase):
 
         # test joint optimize
         with mock.patch(
-            "ax.models.torch.botorch_defaults.joint_optimize", return_value=X_dummy
+            "ax.models.torch.botorch_defaults.joint_optimize",
+            return_value=(X_dummy, acq_dummy),
         ) as mock_joint_optimize:
             Xgen, wgen = model.gen(
                 n=n,

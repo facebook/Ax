@@ -55,7 +55,7 @@ TOptimizer = Callable[
         Optional[Callable[[Tensor], Tensor]],
         Any,
     ],
-    Tensor,
+    Tuple[Tensor, Tensor],
 ]
 
 
@@ -146,15 +146,16 @@ class BotorchModel(TorchModel):
             fixed_features,
             rounding_func,
             **kwargs,
-        ) -> candidates
+        ) -> (candidates, acq_values)
 
-    Here `acq_function` is a botorch `AcquisitionFunciton`, `bounds` is a
+    Here `acq_function` is a BoTorch `AcquisitionFunction`, `bounds` is a
     tensor containing bounds on the parameters, `n` is the number of
     candidates to be generated, `inequality_constraints` are inequality
     constraints on parameter values, `fixed_features` specifies features that
     should be fixed during generation, and `rounding_func` is a callback
     that rounds an optimization result appropriately. `candidates` is
-    a tensor of generated candidates. For additional details on the
+    a tensor of generated candidates, and `acq_values` are the acquisition
+    values associated with the candidates. For additional details on the
     arguments, see `scipy_optimizer`.
     """
 
@@ -311,7 +312,7 @@ class BotorchModel(TorchModel):
         else:
             inequality_constraints = None
 
-        candidates = self.acqf_optimizer(  # pyre-ignore: [28]
+        candidates, _ = self.acqf_optimizer(  # pyre-ignore: [28]
             acq_function=checked_cast(AcquisitionFunction, acquisition_function),
             bounds=bounds_,
             n=n,
