@@ -209,28 +209,28 @@ class RangeParameter(Parameter):
             lower = self._lower
         if upper is None:
             upper = self._upper
-        casted_lower = self._cast(lower)
-        casted_upper = self._cast(upper)
+        cast_lower = self._cast(lower)
+        cast_upper = self._cast(upper)
         self._validate_range_param(
-            lower=casted_lower, upper=casted_upper, log_scale=self.log_scale
+            lower=cast_lower, upper=cast_upper, log_scale=self.log_scale
         )
-        self._lower = casted_lower
-        self._upper = casted_upper
+        self._lower = cast_lower
+        self._upper = cast_upper
         return self
 
     def set_digits(self, digits: int) -> "RangeParameter":
         self._digits = digits
 
         # Re-scale min and max to new digits definition
-        casted_lower = self._cast(self._lower)
-        casted_upper = self._cast(self._upper)
-        if casted_lower >= casted_upper:
+        cast_lower = self._cast(self._lower)
+        cast_upper = self._cast(self._upper)
+        if cast_lower >= cast_upper:
             raise ValueError(
-                f"Lower bound {casted_lower} is >= upper bound {casted_upper}."
+                f"Lower bound {cast_lower} is >= upper bound {cast_upper}."
             )
 
-        self._lower = casted_lower
-        self._upper = casted_upper
+        self._lower = cast_lower
+        self._upper = cast_upper
         return self
 
     def set_log_scale(self, log_scale: bool) -> "RangeParameter":
