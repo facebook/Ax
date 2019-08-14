@@ -187,7 +187,7 @@ class SQAGeneratorRun(Base):
         "SQAParameterConstraint", cascade="all, delete-orphan", lazy="selectin"
     )
 
-    immutable_fields = ["time_created"]
+    ignore_during_update_fields = ["time_created"]
     unique_id = "index"
 
 
@@ -281,7 +281,8 @@ class SQATrial(Base):
     )
 
     unique_id = "index"
-    immutable_fields = ["is_batch", "time_created"]
+    ignore_during_update_fields = ["time_created"]
+    immutable_fields = ["is_batch"]
 
 
 class SQAExperiment(Base):

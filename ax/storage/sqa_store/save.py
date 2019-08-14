@@ -64,7 +64,6 @@ def save_generation_strategy(
     Returns:
         The ID of the saved generation strategy.
     """
-
     # Start up SQA encoder.
     config = config or SQAConfig()
     encoder = Encoder(config=config)

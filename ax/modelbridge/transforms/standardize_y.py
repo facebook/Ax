@@ -74,7 +74,9 @@ class StandardizeY(Transform):
                 raise ValueError(
                     f"StandardizeY transform does not support relative constraint {c}"
                 )
-            c.bound = (c.bound - self.Ymean[c.metric.name]) / self.Ystd[c.metric.name]
+            c.bound = float(
+                (c.bound - self.Ymean[c.metric.name]) / self.Ystd[c.metric.name]
+            )
         return optimization_config
 
     def untransform_observation_data(
