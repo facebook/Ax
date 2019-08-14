@@ -312,13 +312,24 @@ class BotorchModel(TorchModel):
         else:
             inequality_constraints = None
 
+        if rounding_func is None:
+            botorch_rounding_func = rounding_func
+        else:
+            # make sure rounding_func is properly applied to q- and t-batches
+            def botorch_rounding_func(X: Tensor) -> Tensor:
+                batch_shape, d = X.shape[:-1], X.shape[-1]
+                X_round = torch.stack(
+                    [rounding_func(x) for x in X.view(-1, d)]  # pyre-ignore: [16]
+                )
+                return X_round.view(*batch_shape, d)
+
         candidates, _ = self.acqf_optimizer(  # pyre-ignore: [28]
             acq_function=checked_cast(AcquisitionFunction, acquisition_function),
             bounds=bounds_,
             n=n,
             inequality_constraints=inequality_constraints,
             fixed_features=fixed_features,
-            rounding_func=rounding_func,
+            rounding_func=botorch_rounding_func,
             **optimizer_options,
         )
         return candidates.detach().cpu(), torch.ones(n, dtype=self.dtype)

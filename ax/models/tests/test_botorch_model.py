@@ -152,9 +152,9 @@ class BotorchModelTest(TestCase):
         model_gen_options = {}
         # test sequential optimize
         with mock.patch(
-            "ax.models.torch.botorch_defaults.sequential_optimize",
+            "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acq_dummy),
-        ) as mock_sequential_optimize:
+        ) as mock_optimize_acqf:
 
             Xgen, wgen = model.gen(
                 n=n,
@@ -170,16 +170,12 @@ class BotorchModelTest(TestCase):
             # note: gen() always returns CPU tensors
             self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
-            self.assertEqual(
-                mock_sequential_optimize.call_args_list[-1][1]["post_processing_func"],
-                dummy_func,
-            )
 
         # test joint optimize
         with mock.patch(
-            "ax.models.torch.botorch_defaults.joint_optimize",
+            "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acq_dummy),
-        ) as mock_joint_optimize:
+        ) as mock_optimize_acqf:
             Xgen, wgen = model.gen(
                 n=n,
                 bounds=bounds,
@@ -193,7 +189,7 @@ class BotorchModelTest(TestCase):
             # note: gen() always returns CPU tensors
             self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
-            mock_joint_optimize.assert_called_once()
+            mock_optimize_acqf.assert_called_once()
 
         # Check best point selection
         xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
