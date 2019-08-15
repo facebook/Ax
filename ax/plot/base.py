@@ -24,6 +24,7 @@ class AxPlotTypes(enum.Enum):
     SLICE = 2
     INTERACT_CONTOUR = 3
     BANDIT_ROLLOUT = 4
+    INTERACT_SLICE = 5
 
 
 # Configuration for all plots
