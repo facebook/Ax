@@ -203,6 +203,7 @@ class BotorchModel(TorchModel):
         self.device = None
         self.task_features: List[int] = []
         self.fidelity_features: List[int] = []
+        self.fidelity_model_id = kwargs.get("fidelity_model_id", None)
 
     @copy_doc(TorchModel.fit)
     def fit(
@@ -228,6 +229,7 @@ class BotorchModel(TorchModel):
             Yvars=Yvars,
             task_features=self.task_features,
             fidelity_features=self.fidelity_features,
+            fidelity_model_id=self.fidelity_model_id,
         )
 
     @copy_doc(TorchModel.predict)
@@ -312,16 +314,7 @@ class BotorchModel(TorchModel):
         else:
             inequality_constraints = None
 
-        if rounding_func is None:
-            botorch_rounding_func = rounding_func
-        else:
-            # make sure rounding_func is properly applied to q- and t-batches
-            def botorch_rounding_func(X: Tensor) -> Tensor:
-                batch_shape, d = X.shape[:-1], X.shape[-1]
-                X_round = torch.stack(
-                    [rounding_func(x) for x in X.view(-1, d)]  # pyre-ignore: [16]
-                )
-                return X_round.view(*batch_shape, d)
+        botorch_rounding_func = get_rounding_func(rounding_func)
 
         candidates, _ = self.acqf_optimizer(  # pyre-ignore: [28]
             acq_function=checked_cast(AcquisitionFunction, acquisition_function),
@@ -379,6 +372,7 @@ class BotorchModel(TorchModel):
             task_features=self.task_features,
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
+            fidelity_model_id=self.fidelity_model_id,
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
@@ -400,4 +394,22 @@ class BotorchModel(TorchModel):
             task_features=self.task_features,
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
+            fidelity_model_id=self.fidelity_model_id,
         )
+
+
+def get_rounding_func(
+    rounding_func: Optional[Callable[[Tensor], Tensor]]
+) -> Optional[Callable[[Tensor], Tensor]]:
+    if rounding_func is None:
+        botorch_rounding_func = rounding_func
+    else:
+        # make sure rounding_func is properly applied to q- and t-batches
+        def botorch_rounding_func(X: Tensor) -> Tensor:
+            batch_shape, d = X.shape[:-1], X.shape[-1]
+            X_round = torch.stack(
+                [rounding_func(x) for x in X.view(-1, d)]  # pyre-ignore: [16]
+            )
+            return X_round.view(*batch_shape, d)
+
+    return botorch_rounding_func

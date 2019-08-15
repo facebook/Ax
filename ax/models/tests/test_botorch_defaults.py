@@ -6,7 +6,9 @@ from unittest import mock
 import torch
 from ax.models.torch.botorch_defaults import _get_model, get_and_fit_model
 from ax.utils.common.testutils import TestCase
+from botorch.exceptions.errors import UnsupportedError
 from botorch.models import FixedNoiseGP, SingleTaskGP
+from botorch.models.fidelity.gp_regression_fidelity import SingleTaskGPLTKernel
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 
 
@@ -27,6 +29,8 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(model, FixedNoiseMultiTaskGP)
         with self.assertRaises(ValueError):
             model = _get_model(x, y, partial_se, None)
+        model = _get_model(x, y, se, 1, fidelity_model_id=0, fidelity_features=[-1])
+        self.assertTrue(isinstance(model, SingleTaskGPLTKernel))
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", autospec=True)
     @mock.patch("ax.models.torch.botorch_defaults.ModelListGP", autospec=True)
@@ -53,4 +57,26 @@ class BotorchDefaultsTest(TestCase):
                 task_features=[0, 1],
                 fidelity_features=[],
                 state_dict=[],
+            )
+
+        with self.assertRaises(NotImplementedError):
+            get_and_fit_model(
+                Xs=x,
+                Ys=y,
+                Yvars=yvars,
+                task_features=[0, 1],
+                fidelity_features=[],
+                state_dict=[],
+                fidelity_model_id=0,
+            )
+
+        with self.assertRaises(UnsupportedError):
+            get_and_fit_model(
+                Xs=x,
+                Ys=y,
+                Yvars=yvars,
+                task_features=[],
+                fidelity_features=[-1, -2],
+                state_dict=[],
+                fidelity_model_id=0,
             )

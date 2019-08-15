@@ -5,7 +5,7 @@ from itertools import chain
 from unittest import mock
 
 import torch
-from ax.models.torch.botorch import BotorchModel
+from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import get_and_fit_model
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.utils import get_infeasible_cost
@@ -190,6 +190,11 @@ class BotorchModelTest(TestCase):
             self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
             mock_optimize_acqf.assert_called_once()
+
+        # test get_rounding_func
+        dummy_rounding = get_rounding_func(rounding_func=dummy_func)
+        X_temp = torch.rand(1, 2, 3, 4)
+        self.assertTrue(torch.equal(X_temp, dummy_rounding(X_temp)))
 
         # Check best point selection
         xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
