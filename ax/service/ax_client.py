@@ -305,6 +305,7 @@ class AxClient:
                 "set on AxClient first."
             )
         parallelism_settings = []
+        # pyre-fixme[16]: `Optional` has no attribute `_steps`.
         for step in self.generation_strategy._steps:
             parallelism_settings.append(
                 (step.num_arms, step.recommended_max_parallelism or step.num_arms)
@@ -400,6 +401,7 @@ class AxClient:
             raise ValueError(
                 f'Metric "{metric_name}" is not associated with this optimization.'
             )
+        # pyre-fixme[16]: `Optional` has no attribute `model`.
         if self.generation_strategy.model is not None:
             try:
                 return plot_contour(
@@ -499,6 +501,7 @@ class AxClient:
                 "Experiment not set on Ax client. Must first "
                 "call load_experiment or create_experiment to use handler functions."
             )
+        # pyre-fixme[7]: Expected `Experiment` but got `Optional[Experiment]`.
         return self._experiment
 
     def _save_experiment_if_possible(self) -> bool:

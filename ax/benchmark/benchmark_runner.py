@@ -334,7 +334,9 @@ def get_model_times(setup: BenchmarkSetup) -> Tuple[float, float]:
                 "Unexpected trial with no generator run"
             )  # pragma: no cover
         if gr.fit_time is not None:
+            # pyre-fixme[6]: Expected `float` for 1st param but got `Optional[float]`.
             fit_time += gr.fit_time
         if gr.gen_time is not None:
+            # pyre-fixme[6]: Expected `float` for 1st param but got `Optional[float]`.
             gen_time += gr.gen_time
     return fit_time, gen_time

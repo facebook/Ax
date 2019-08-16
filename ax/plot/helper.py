@@ -184,7 +184,9 @@ def _get_in_sample_arms(
             # Use raw data for out-of-design points
             pred_y = obs_y
             pred_se = obs_se
+        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         in_sample_plot[obs.arm_name] = PlotInSampleArm(
+            # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
             name=obs.arm_name,
             y=obs_y,
             se=obs_se,
@@ -319,6 +321,7 @@ def get_plot_data(
         metric_names=metrics_plot,
         fixed_features=fixed_features,
     )
+    # pyre-fixme[16]: `Optional` has no attribute `arm_name`.
     status_quo_name = None if model.status_quo is None else model.status_quo.arm_name
     plot_data = PlotData(
         metrics=list(metrics_plot),
@@ -406,6 +409,7 @@ def get_fixed_values(
     """
     # Check if status_quo is in design
     if model.status_quo is not None and model.model_space.check_membership(
+        # pyre-fixme[16]: `Optional` has no attribute `features`.
         model.status_quo.features.parameters
     ):
         setx = model.status_quo.features.parameters

@@ -74,6 +74,8 @@ def save_generation_strategy(
         experiment_id = None
     else:
         # Experiment was set on the generation strategy, so we need to save it first.
+        # pyre-fixme[6]: Expected `Experiment` for 1st param but got
+        #  `Optional[Experiment]`.
         save_experiment(experiment=generation_strategy._experiment, config=config)
         experiment_id = _get_experiment_id(
             experiment=generation_strategy._experiment, encoder=encoder

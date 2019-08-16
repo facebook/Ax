@@ -89,6 +89,7 @@ class ThompsonSampler(DiscreteModel):
             # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
             (weights[i], np.random.random(), arms[i])
             for i in range(k)
+            # pyre-fixme[6]: Expected `float` for 1st param but got `Optional[float]`.
             if weights[i] > min_weight
         ]
 

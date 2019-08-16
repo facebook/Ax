@@ -96,6 +96,9 @@ class Decoder:
             )
         status_quo = (
             Arm(
+                # pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float,
+                #  int, str]]]` for 1st param but got `Optional[Dict[str,
+                #  Optional[Union[bool, float, int, str]]]]`.
                 parameters=experiment_sqa.status_quo_parameters,
                 name=experiment_sqa.status_quo_name,
             )
@@ -158,6 +161,9 @@ class Decoder:
             )
         status_quo = (
             Arm(
+                # pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float,
+                #  int, str]]]` for 1st param but got `Optional[Dict[str,
+                #  Optional[Union[bool, float, int, str]]]]`.
                 parameters=experiment_sqa.status_quo_parameters,
                 name=experiment_sqa.status_quo_name,
             )
@@ -217,6 +223,7 @@ class Decoder:
             for arm in trial.arms:
                 experiment._arms_by_signature[arm.signature] = arm
         if experiment.status_quo is not None:
+            # pyre-fixme[16]: `Optional` has no attribute `signature`.
             sq_sig = experiment.status_quo.signature
             experiment._arms_by_signature[sq_sig] = experiment.status_quo
         experiment._time_created = experiment_sqa.time_created
@@ -237,6 +244,8 @@ class Decoder:
             return RangeParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
+                # pyre-fixme[6]: Expected `float` for 3rd param but got
+                #  `Optional[float]`.
                 lower=parameter_sqa.lower,
                 upper=parameter_sqa.upper,
                 log_scale=parameter_sqa.log_scale or False,
@@ -250,6 +259,9 @@ class Decoder:
             return ChoiceParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
+                # pyre-fixme[6]: Expected `List[Optional[Union[bool, float, int,
+                #  str]]]` for 3rd param but got `Optional[List[Optional[Union[bool,
+                #  float, int, str]]]]`.
                 values=parameter_sqa.choice_values,
             )
         elif parameter_sqa.domain_type == DomainType.FIXED:
@@ -286,7 +298,9 @@ class Decoder:
                     "Cannot decode SQAParameterConstraint because `lower_name` or "
                     "`upper_name` was not found."
                 )
+            # pyre-fixme[6]: Expected `str` for 1st param but got `None`.
             lower_parameter = parameter_map[lower_name]
+            # pyre-fixme[6]: Expected `str` for 1st param but got `None`.
             upper_parameter = parameter_map[upper_name]
             return OrderConstraint(
                 lower_parameter=lower_parameter, upper_parameter=upper_parameter
@@ -400,6 +414,7 @@ class Decoder:
                 raise SQADecodeError(  # pragma: no cover
                     "Cannot decode SQAMetric to Objective because minimize is None."
                 )
+            # pyre-fixme[6]: Expected `bool` for 2nd param but got `Optional[bool]`.
             return Objective(metric=metric, minimize=metric_sqa.minimize)
         elif metric_sqa.intent == MetricIntent.OUTCOME_CONSTRAINT:
             if (
@@ -413,6 +428,8 @@ class Decoder:
                 )
             return OutcomeConstraint(
                 metric=metric,
+                # pyre-fixme[6]: Expected `float` for 2nd param but got
+                #  `Optional[float]`.
                 bound=metric_sqa.bound,
                 op=metric_sqa.op,
                 relative=metric_sqa.relative,
@@ -499,13 +516,22 @@ class Decoder:
         ):
             best_arm = Arm(
                 name=generator_run_sqa.best_arm_name,
+                # pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float,
+                #  int, str]]]` for 2nd param but got `Optional[Dict[str,
+                #  Optional[Union[bool, float, int, str]]]]`.
                 parameters=generator_run_sqa.best_arm_parameters,
             )
             best_arm_predictions = (
                 best_arm,
+                # pyre-fixme[6]: Expected `Iterable[_T_co]` for 1st param but got
+                #  `Optional[Tuple[Dict[str, float], Optional[Dict[str, Dict[str,
+                #  float]]]]]`.
                 tuple(generator_run_sqa.best_arm_predictions),
             )
         model_predictions = (
+            # pyre-fixme[6]: Expected `Iterable[_T_co]` for 1st param but got
+            #  `Optional[Tuple[Dict[str, List[float]], Dict[str, Dict[str,
+            #  List[float]]]]]`.
             tuple(generator_run_sqa.model_predictions)
             if generator_run_sqa.model_predictions is not None
             else None

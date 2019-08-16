@@ -116,11 +116,13 @@ class TorchModelBridge(ArrayModelBridge):
         Xs: List[Tensor] = self._array_list_to_tensors(Xs)
         Ys: List[Tensor] = self._array_list_to_tensors(Ys)
         Yvars: List[Tensor] = self._array_list_to_tensors(Yvars)
+        # pyre-fixme[16]: `Optional` has no attribute `update`.
         self.model.update(Xs=Xs, Ys=Ys, Yvars=Yvars)
 
     def _model_predict(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_predict"))
+        # pyre-fixme[16]: `Optional` has no attribute `predict`.
         f, var = self.model.predict(X=self._array_to_tensor(X))
         return f.detach().cpu().clone().numpy(), var.detach().cpu().clone().numpy()
 
@@ -138,17 +140,27 @@ class TorchModelBridge(ArrayModelBridge):
     ]:
         objective_weights: Tensor = self._array_to_tensor(objective_weights)
         if outcome_constraints is not None:  # pragma: no cover
+            # pyre-fixme[9]: outcome_constraints has type `Optional[Tuple[ndarray,
+            #  ndarray]]`; used as `Tuple[Tensor, Tensor]`.
             outcome_constraints = (
                 self._array_to_tensor(outcome_constraints[0]),
                 self._array_to_tensor(outcome_constraints[1]),
             )
         if linear_constraints is not None:  # pragma: no cover
+            # pyre-fixme[9]: linear_constraints has type `Optional[Tuple[ndarray,
+            #  ndarray]]`; used as `Tuple[Tensor, Tensor]`.
             linear_constraints = (
                 self._array_to_tensor(linear_constraints[0]),
                 self._array_to_tensor(linear_constraints[1]),
             )
         if pending_observations is not None:  # pragma: no cover
+            # pyre-fixme[9]: pending_observations has type
+            #  `Optional[List[ndarray]]`; used as `List[Tensor]`.
             pending_observations = self._array_list_to_tensors(pending_observations)
+        # pyre-fixme[7]: Expected `Tuple[Tensor, Optional[Tuple[Tensor, Tensor]],
+        #  Optional[Tuple[Tensor, Tensor]], Optional[List[Tensor]]]` but got
+        #  `Tuple[Tensor, Optional[Tuple[ndarray, ndarray]], Optional[Tuple[ndarray,
+        #  ndarray]], Optional[List[ndarray]]]`.
         return (
             objective_weights,
             outcome_constraints,
@@ -177,6 +189,7 @@ class TorchModelBridge(ArrayModelBridge):
             pending_observations=pending_observations,
         )
         tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
+        # pyre-fixme[16]: `Optional` has no attribute `gen`.
         X, w = self.model.gen(
             n=n,
             bounds=bounds,
@@ -208,6 +221,7 @@ class TorchModelBridge(ArrayModelBridge):
             pending_observations=None,
         )
         try:
+            # pyre-fixme[16]: `Optional` has no attribute `best_point`.
             X = self.model.best_point(
                 bounds=bounds,
                 objective_weights=obj_w,
@@ -234,6 +248,7 @@ class TorchModelBridge(ArrayModelBridge):
         Ys_train: List[Tensor] = self._array_list_to_tensors(Ys_train)
         Yvars_train: List[Tensor] = self._array_list_to_tensors(Yvars_train)
         X_test: Tensor = self._array_to_tensor(X_test)
+        # pyre-fixme[16]: `Optional` has no attribute `cross_validate`.
         f_test, cov_test = self.model.cross_validate(
             Xs_train=Xs_train, Ys_train=Ys_train, Yvars_train=Yvars_train, X_test=X_test
         )

@@ -126,11 +126,13 @@ class GenerationStrategy(Base):
         """Name of this generation strategy. Defaults to a combination of model
         names provided in generation steps."""
         if self._name:
+            # pyre-fixme[7]: Expected `str` but got `Optional[str]`.
             return self._name
 
         # Model can be defined as member of Models enum or as a factory function,
         # so we use Models member (str) value if former and function name if latter.
         factory_names = (
+            # pyre-fixme[16]: `Union` has no attribute `value`.
             checked_cast(str, step.model.value)
             if isinstance(step.model, Models)
             else step.model.__name__  # pyre-ignore[16]
@@ -223,6 +225,7 @@ class GenerationStrategy(Base):
             self._change_model(experiment=experiment, data=all_data)
         elif new_data is not None:
             # We're sticking with the curr. model, but should update with new data.
+            # pyre-fixme[16]: `Optional` has no attribute `update`.
             self._model.update(experiment=experiment, data=new_data)
 
         kwargs = consolidate_kwargs(
@@ -251,7 +254,9 @@ class GenerationStrategy(Base):
             self._data.df.empty and other._data.df.empty
         ) or self._data.df.sort_index(axis=1).equals(other._data.df.sort_index(axis=1))
         experiment_equals = (
-            self._experiment is None and other._experiment is None
+            self._experiment is None
+            and other._experiment is None
+            # pyre-fixme[16]: `Optional` has no attribute `name`.
         ) or (self._experiment.name == other._experiment.name)
         return (
             self._name == other._name
@@ -272,6 +277,7 @@ class GenerationStrategy(Base):
         for step in self._steps:
             num_arms = f"{step.num_arms}" if step.num_arms != -1 else "subsequent"
             if isinstance(step.model, Models):
+                # pyre-fixme[16]: `Union` has no attribute `value`.
                 repr += f"{step.model.value} for {num_arms} arms, "
         repr = repr[:-2]
         repr += f"], generated {len(self._generated)} arm(s))"
@@ -343,7 +349,11 @@ class GenerationStrategy(Base):
         if self._experiment is None:  # pragma: no cover
             raise ValueError("No experiment was set on this generation strategy.")
         self._model = get_model_from_generator_run(
-            generator_run=generator_run, experiment=self._experiment, data=self._data
+            generator_run=generator_run,
+            # pyre-fixme[6]: Expected `Experiment` for 2nd param but got
+            #  `Optional[Experiment]`.
+            experiment=self._experiment,
+            data=self._data,
         )
 
     def _change_model(self, experiment: Experiment, data: Data, **kwargs: Any) -> None:
@@ -399,6 +409,7 @@ class GenerationStrategy(Base):
         """
         if (
             self._experiment is not None
+            # pyre-fixme[16]: `Optional` has no attribute `_name`.
             and experiment._name is not self._experiment._name
         ):  # pragma: no cover
             logger.info(

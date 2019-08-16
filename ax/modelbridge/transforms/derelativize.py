@@ -46,6 +46,7 @@ class Derelativize(Transform):
                 "not fit with status quo."
             )
         try:
+            # pyre-fixme[16]: `Optional` has no attribute `features`.
             f, _ = modelbridge.predict([modelbridge.status_quo.features])
         except Exception:
             # Check if it is out-of-design.
@@ -54,7 +55,9 @@ class Derelativize(Transform):
             ):
                 # Out-of-design: use the raw observation
                 sq_data = ivw_metric_merge(
-                    obsd=modelbridge.status_quo.data, conflicting_noiseless="raise"
+                    # pyre-fixme[16]: `Optional` has no attribute `data`.
+                    obsd=modelbridge.status_quo.data,
+                    conflicting_noiseless="raise",
                 )
                 f, _ = unwrap_observation_data([sq_data])
             else:

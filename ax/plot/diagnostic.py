@@ -101,6 +101,7 @@ def _obs_vs_pred_dropdown_plot(
                 "This plot does not support both context and relativization at "
                 "the same time."
             )
+        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         status_quo_arm = data.in_sample[data.status_quo_name]
     else:
         status_quo_arm = None

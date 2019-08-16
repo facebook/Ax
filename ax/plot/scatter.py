@@ -272,6 +272,7 @@ def _multiple_metric_traces(
     status_quo_arm = (
         None
         if plot_data.status_quo_name is None
+        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         else plot_data.in_sample.get(plot_data.status_quo_name)
     )
 
@@ -664,6 +665,7 @@ def lattice_multiple_metrics(
     status_quo_arm = (
         None
         if plot_data.status_quo_name is None
+        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         else plot_data.in_sample.get(plot_data.status_quo_name)
     )
 
@@ -946,6 +948,7 @@ def _single_metric_traces(
     status_quo_arm = (
         None
         if plot_data.status_quo_name is None
+        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         else plot_data.in_sample.get(plot_data.status_quo_name)
     )
 

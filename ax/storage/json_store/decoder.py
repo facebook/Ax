@@ -224,6 +224,7 @@ def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment
         for arm in trial.arms:
             experiment._arms_by_signature[arm.signature] = arm
     if experiment.status_quo is not None:
+        # pyre-fixme[16]: Optional type has no attribute `signature`.
         sq_sig = experiment.status_quo.signature
         experiment._arms_by_signature[sq_sig] = experiment.status_quo
     experiment._experiment_type = object_from_json(experiment_type_json)
@@ -244,6 +245,7 @@ def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
         for arm in trial.arms:
             experiment._arms_by_signature[arm.signature] = arm
     if experiment.status_quo is not None:
+        # pyre-fixme[16]: Optional type has no attribute `signature`.
         sq_sig = experiment.status_quo.signature
         experiment._arms_by_signature[sq_sig] = experiment.status_quo
     experiment._experiment_type = object_from_json(experiment_type_json)

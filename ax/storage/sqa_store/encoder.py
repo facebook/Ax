@@ -106,7 +106,9 @@ class Encoder:
         status_quo_name = None
         status_quo_parameters = None
         if experiment.status_quo is not None:
+            # pyre-fixme[16]: `Optional` has no attribute `name`.
             status_quo_name = experiment.status_quo.name
+            # pyre-fixme[16]: `Optional` has no attribute `parameters`.
             status_quo_parameters = experiment.status_quo.parameters
 
         trials = [
@@ -141,7 +143,11 @@ class Encoder:
                     ]
         else:
             runners = (
-                [self.runner_to_sqa(experiment.runner)] if experiment.runner else []
+                # pyre-fixme[6]: Expected `Runner` for 1st param but got
+                #  `Optional[Runner]`.
+                [self.runner_to_sqa(experiment.runner)]
+                if experiment.runner
+                else []
             )
 
         if isinstance(experiment, SimpleExperiment):
@@ -396,6 +402,7 @@ class Encoder:
         best_arm_parameters = None
         best_arm_predictions = None
         if generator_run.best_arm_predictions is not None:
+            # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
             best_arm = generator_run.best_arm_predictions[0]
             best_arm_predictions = list(generator_run.best_arm_predictions[1])
             best_arm_name = best_arm._name
@@ -494,6 +501,7 @@ class Encoder:
         In addition to creating and storing a new Trial object, we need to
         create and store the GeneratorRuns and Runner that it owns.
         """
+        # pyre-fixme[6]: Expected `Runner` for 1st param but got `Optional[Runner]`.
         runner = self.runner_to_sqa(runner=trial.runner) if trial.runner else None
         abandoned_arms = []
         generator_runs = []
@@ -525,6 +533,8 @@ class Encoder:
         elif isinstance(trial, Trial):
             if trial.generator_run:
                 generator_runs = [
+                    # pyre-fixme[6]: Expected `GeneratorRun` for 1st param but got
+                    #  `Optional[GeneratorRun]`.
                     self.generator_run_to_sqa(generator_run=trial.generator_run)
                 ]
 

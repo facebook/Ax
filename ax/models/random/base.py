@@ -109,6 +109,8 @@ class RandomModel:
             if self.generated_points is None:
                 self.generated_points = points
             else:
+                # pyre-fixme[6]: Expected `Collection[ndarray]` for 1st param but
+                #  got `List[Optional[ndarray]]`.
                 self.generated_points = np.vstack([self.generated_points, points])
         return (points, np.ones(len(points)))
 

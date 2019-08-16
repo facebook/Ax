@@ -39,7 +39,9 @@ class ObservationFeatures(Base):
         self,
         parameters: TParameterization,
         trial_index: Optional[np.int64] = None,
+        # pyre-fixme[31]: Expression `Timestamp` is not a valid type.
         start_time: Optional[pd.Timestamp] = None,
+        # pyre-fixme[31]: Expression `Timestamp` is not a valid type.
         end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
     ) -> None:
@@ -53,7 +55,9 @@ class ObservationFeatures(Base):
     def from_arm(
         arm: Arm,
         trial_index: Optional[np.int64] = None,
+        # pyre-fixme[31]: Expression `Timestamp` is not a valid type.
         start_time: Optional[pd.Timestamp] = None,
+        # pyre-fixme[31]: Expression `Timestamp` is not a valid type.
         end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
     ) -> "ObservationFeatures":

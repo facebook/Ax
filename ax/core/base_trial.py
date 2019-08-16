@@ -238,8 +238,10 @@ class BaseTrial(ABC, Base):
         if self._runner is None:
             raise ValueError("No runner set on trial or experiment.")
 
+        # pyre-fixme[16]: `Optional` has no attribute `run`.
         self._run_metadata = self._runner.run(self)
 
+        # pyre-fixme[16]: `Optional` has no attribute `staging_required`.
         if self._runner.staging_required:
             self.mark_staged()
         else:
@@ -366,6 +368,7 @@ class BaseTrial(ABC, Base):
 
         prev_step = (
             TrialStatus.STAGED
+            # pyre-fixme[16]: `Optional` has no attribute `staging_required`.
             if self._runner.staging_required
             else TrialStatus.CANDIDATE
         )

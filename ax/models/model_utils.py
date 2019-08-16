@@ -305,6 +305,7 @@ def best_observed_point(
         return None
     # Predict objective and P(feas) at these points
     if isinstance(model, TorchModel):
+        # pyre-fixme[29]: `Union[() -> Tensor, Any]` is not a function.
         X_obs = X_obs.clone().detach()
     f, cov = as_array(model.predict(X_obs))
     obj = objective_weights_np @ f.transpose()  # pyre-ignore

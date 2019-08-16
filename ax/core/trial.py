@@ -45,6 +45,7 @@ class Trial(BaseTrial):
     @property
     def arm(self) -> Optional[Arm]:
         """The arm associated with this batch."""
+        # pyre-fixme[16]: `Optional` has no attribute `arms`.
         if self.generator_run is not None and len(self.generator_run.arms) > 1:
             raise ValueError(  # pragma: no cover
                 "Generator run associated with this trial included multiple "
@@ -101,6 +102,8 @@ class Trial(BaseTrial):
             arms: list of a single arm
                 attached to this trial if there is one, else None.
         """
+        # pyre-fixme[7]: Expected `List[Arm]` but got `Union[List[Optional[Arm]],
+        #  List[_T]]`.
         return [self.arm] if self.arm is not None else []
 
     @property
@@ -113,11 +116,14 @@ class Trial(BaseTrial):
                 arm name to arm if one is attached to this trial,
                 else None.
         """
+        # pyre-fixme[16]: `Optional` has no attribute `name`.
         return {self.arm.name: self.arm} if self.arm is not None else {}
 
     @property
     def abandoned_arms(self) -> List[Arm]:
         """Abandoned arms attached to this trial."""
+        # pyre-fixme[7]: Expected `List[Arm]` but got `Union[List[Optional[Arm]],
+        #  List[_T]]`.
         return (
             [self.arm]
             if self.generator_run is not None

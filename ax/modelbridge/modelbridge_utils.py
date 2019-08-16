@@ -218,6 +218,7 @@ def get_pending_observation_features(
                 and metric_name not in trial.fetch_data().df.metric_name.values
                 and trial.arm is not None
             ):
+                # pyre-fixme[16]: `Optional` has no attribute `append`.
                 pending_features.get(metric_name).append(
                     ObservationFeatures.from_arm(
                         arm=trial.arm, trial_index=np.int64(trial_index)

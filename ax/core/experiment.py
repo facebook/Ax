@@ -91,6 +91,7 @@ class Experiment(Base):
         """Get experiment name. Throws if name is None."""
         if self._name is None:
             raise ValueError("Experiment's name is None.")
+        # pyre-fixme[7]: Expected `str` but got `Optional[str]`.
         return self._name
 
     @name.setter
@@ -177,10 +178,12 @@ class Experiment(Base):
         if self._status_quo is not None:
             persist_old_sq = False
             for trial in self._trials.values():
+                # pyre-fixme[16]: `Optional` has no attribute `name`.
                 if self._status_quo.name in trial.arms_by_name:
                     persist_old_sq = True
                     break
             if not persist_old_sq:
+                # pyre-fixme[16]: `Optional` has no attribute `signature`.
                 self._arms_by_signature.pop(self._status_quo.signature)
 
         self._status_quo = status_quo

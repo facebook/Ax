@@ -233,6 +233,7 @@ class MultiTypeExperiment(Experiment):
         """
         if trial.trial_type is None or not self.supports_trial_type(trial.trial_type):
             raise ValueError(f"Batch type `{trial.trial_type}` is not supported.")
+        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         return self._trial_type_to_runner[trial.trial_type]
 
     def supports_trial_type(self, trial_type: Optional[str]) -> bool:

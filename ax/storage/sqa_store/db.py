@@ -414,6 +414,7 @@ def get_session() -> Session:
     if SESSION_FACTORY is None:
         init_engine_and_session_factory()  # pragma: no cover
     assert SESSION_FACTORY is not None
+    # pyre-fixme[29]: `Session` is not a function.
     return SESSION_FACTORY()
 
 

@@ -26,5 +26,6 @@ class SyntheticRunner(Runner):
 
         # Add dummy metadata if needed for testing
         if self.dummy_metadata:
+            # pyre-fixme[6]: Expected `str` for 2nd param but got `Optional[str]`.
             metadata["dummy_metadata"] = self.dummy_metadata
         return metadata
