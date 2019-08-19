@@ -15,12 +15,13 @@ from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 class BotorchDefaultsTest(TestCase):
     def test_get_model(self):
         x = torch.zeros(2, 2)
-        y = torch.zeros(2)
-        se = torch.zeros(2)
+        y = torch.zeros(2, 1)
+        se = torch.zeros(2, 1)
         partial_se = torch.tensor([0, float("nan")])
         unknown_se = torch.tensor([float("nan"), float("nan")])
         model = _get_model(x, y, unknown_se, None)
         self.assertIsInstance(model, SingleTaskGP)
+
         model = _get_model(x, y, se, None)
         self.assertIsInstance(model, FixedNoiseGP)
         model = _get_model(x, y, unknown_se, 1)

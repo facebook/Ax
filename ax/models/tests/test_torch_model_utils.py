@@ -11,8 +11,8 @@ from botorch.models import HeteroskedasticSingleTaskGP, ModelListGP, SingleTaskG
 class TorchModelUtilsTest(TestCase):
     def test_is_noiseless(self):
         x = torch.zeros(1, 1)
-        y = torch.zeros(1)
-        se = torch.zeros(1)
+        y = torch.zeros(1, 1)
+        se = torch.zeros(1, 1)
         model = SingleTaskGP(x, y)
         self.assertTrue(is_noiseless(model))
         model = HeteroskedasticSingleTaskGP(x, y, se)
