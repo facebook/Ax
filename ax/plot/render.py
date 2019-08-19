@@ -38,7 +38,6 @@ Ax_PLOT_REGISTRY: Dict[enum.Enum, str] = {
     AxPlotTypes.INTERACT_CONTOUR: "interact_contour.js",
     AxPlotTypes.SLICE: "slice.js",
     AxPlotTypes.INTERACT_SLICE: "interact_slice.js",
-    AxPlotTypes.BANDIT_ROLLOUT: "bandit_rollout.js",
 }
 
 

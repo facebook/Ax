@@ -3,6 +3,7 @@
 
 from typing import Any, Dict, List
 
+import plotly.graph_objs as go
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.plot.base import AxPlotConfig, AxPlotTypes
@@ -47,6 +48,29 @@ def plot_bandit_rollout(experiment: Experiment) -> AxPlotConfig:
 
     # pyre-fixme[6]: Expected `typing.Tuple[...g.Tuple[int, int, int]`.
     colors = [rgba(c) for c in MIXED_SCALE]
-    config = {"data": data, "categories": categories, "colors": colors}
 
-    return AxPlotConfig(config, plot_type=AxPlotTypes.BANDIT_ROLLOUT)
+    layout = go.Layout(  # pyre-ignore[16]
+        title="Rollout Process<br>Bandit Weight Graph",
+        xaxis={
+            "title": "Rounds",
+            "zeroline": False,
+            "categoryorder": "array",
+            "categoryarray": categories,
+        },
+        yaxis={"title": "Percent", "showline": False},
+        barmode="stack",
+        showlegend=False,
+        margin={"r": 40},
+    )
+
+    bandit_config = {"type": "bar", "hoverinfo": "name+text", "width": 0.5}
+
+    bandits = [
+        dict(bandit_config, marker={"color": colors[d["index"] % len(colors)]}, **d)
+        for d in data
+    ]
+    for bandit in bandits:
+        del bandit["index"]  # Have to delete index or figure creation causes error
+    fig = go.Figure(data=bandits, layout=layout)  # pyre-ignore[16]
+
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
