@@ -25,6 +25,10 @@ from ax.plot.contour import plot_contour
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import make_experiment, raw_data_to_evaluation
+from ax.service.utils.storage import (
+    load_experiment_and_generation_strategy,
+    save_experiment_and_generation_strategy,
+)
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -151,7 +155,7 @@ class AxClient:
                 search_space=self._experiment.search_space,
                 enforce_sequential_optimization=self._enforce_sequential_optimization,
             )
-        self._save_experiment_if_possible()
+        self._save_experiment_and_generation_strategy_if_possible()
 
     def get_next_trial(self) -> Tuple[TParameterization, int]:
         """
@@ -166,7 +170,7 @@ class AxClient:
         trial = self._suggest_new_trial()
         trial.mark_dispatched()
         self._updated_trials = []
-        self._save_experiment_if_possible()
+        self._save_experiment_and_generation_strategy_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
     def complete_trial(
@@ -227,7 +231,7 @@ class AxClient:
         trial.mark_completed()
         self.experiment.attach_data(data)
         self._updated_trials.append(trial_index)
-        self._save_experiment_if_possible()
+        self._save_experiment_and_generation_strategy_if_possible()
 
     def log_trial_failure(
         self, trial_index: int, metadata: Optional[Dict[str, str]] = None
@@ -242,7 +246,7 @@ class AxClient:
         trial.mark_failed()
         if metadata is not None:
             trial._run_metadata = metadata
-        self._save_experiment_if_possible()
+        self._save_experiment_and_generation_strategy_if_possible()
 
     def attach_trial(
         self, parameters: TParameterization
@@ -257,7 +261,7 @@ class AxClient:
         """
         trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
         trial.mark_dispatched()
-        self._save_experiment_if_possible()
+        self._save_experiment_and_generation_strategy_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
     def get_trial_parameters(self, trial_index: int) -> TParameterization:
@@ -430,10 +434,16 @@ class AxClient:
         Returns:
             Experiment object.
         """
-        raise NotImplementedError(  # pragma: no cover
-            "Saving and loading experiment in `AxClient` functionality currently "
-            "under development."
+        if not self.db_settings:
+            raise ValueError(  # pragma: no cover
+                "Cannot load an experiment in the absence of the DB settings."
+                "Please initialize `AxClient` with DBSettings."
+            )
+        experiment, generation_strategy = load_experiment_and_generation_strategy(
+            experiment_name=experiment_name, db_settings=self.db_settings
         )
+        self._experiment = experiment
+        self.generation_strategy = generation_strategy
 
     def get_report(self) -> str:
         """Returns HTML of a generated report containing vizualizations."""
@@ -504,17 +514,21 @@ class AxClient:
         # pyre-fixme[7]: Expected `Experiment` but got `Optional[Experiment]`.
         return self._experiment
 
-    def _save_experiment_if_possible(self) -> bool:
-        """[Work in progress] Saves attached experiment if DB settings are set on this AxClient
-        instance.
+    def _save_experiment_and_generation_strategy_if_possible(self) -> bool:
+        """Saves attached experiment and generation strategy if DB settings are
+        set on this AxClient instance.
 
         Returns:
             bool: Whether the experiment was saved.
         """
-        if self.db_settings and self._experiment:
-            raise NotImplementedError(  # pragma: no cover
-                "Saving and loading experiment in `AxClient` functionality "
-                "currently under development."
+        if self.db_settings is not None and self._experiment is not None:
+            assert (
+                self.generation_strategy is not None
+            ), "If experiment is set, generation strategy should be too."
+            save_experiment_and_generation_strategy(
+                experiment=not_none(self._experiment),
+                generation_strategy=not_none(self.generation_strategy),
+                db_settings=self.db_settings,
             )
         return False
 

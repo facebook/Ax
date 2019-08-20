@@ -21,7 +21,6 @@ class Base(object):
         for field in self.__dict__.keys():
             self_val = getattr(self, field)
             other_val = getattr(other, field)
-
             self_val = numpy_type_to_python_type(self_val)
             other_val = numpy_type_to_python_type(other_val)
 
@@ -30,15 +29,40 @@ class Base(object):
 
             if field == "_experiment":
                 # prevent infinite loop when checking equality of Trials
-                equal = self_val.name == other_val.name
+                equal = self_val is other_val is None or (
+                    self_val.name == other_val.name
+                )
+            elif field == "_model":  # pragma: no cover (tested in modelbridge)
+                # TODO[T52643706]: replace with per-`ModelBridge` method like
+                # `equivalent_models`, to compare models more meaningfully.
+                if not hasattr(self_val, "model"):
+                    equal = not hasattr(other_val, "model")
+                else:
+                    # If model bridges have a `model` attribute, the types of the
+                    # values of those attributes should be equal if the model
+                    # bridge is the same.
+                    equal = isinstance(self_val.model, type(other_val.model))
             elif isinstance(self_val, list):
                 equal = same_elements(self_val, other_val)
             elif isinstance(self_val, np.ndarray):
                 equal = np.array_equal(self_val, other_val)
             elif isinstance(self_val, datetime):
                 equal = datetime_equals(self_val, other_val)
+            elif isinstance(self_val, float):
+                equal = np.isclose(self_val, other_val)
             elif isinstance(self_val, pd.DataFrame):
-                equal = self_val.equals(other_val)
+                try:
+                    if self_val.empty and other_val.empty:
+                        equal = True
+                    else:
+                        pd.testing.assert_frame_equal(
+                            self_val.sort_index(axis=1),
+                            other_val.sort_index(axis=1),
+                            check_exact=False,
+                        )
+                        equal = True
+                except AssertionError:
+                    equal = False
             else:
                 equal = self_val == other_val
             if not equal:

@@ -11,7 +11,6 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models
-from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -244,32 +243,6 @@ class GenerationStrategy(Base):
     def clone_reset(self) -> "GenerationStrategy":
         """Copy this generation strategy without it's state."""
         return GenerationStrategy(name=self.name, steps=self._steps)
-
-    @equality_typechecker
-    def __eq__(self, other: "GenerationStrategy") -> bool:
-        """Need to override the default __eq__ method, because the default
-        checks equality of memory addresses of the objects.
-        """
-        data_equals = (
-            self._data.df.empty and other._data.df.empty
-        ) or self._data.df.sort_index(axis=1).equals(other._data.df.sort_index(axis=1))
-        experiment_equals = (
-            self._experiment is None
-            and other._experiment is None
-            # pyre-fixme[16]: `Optional` has no attribute `name`.
-        ) or (self._experiment.name == other._experiment.name)
-        return (
-            self._name == other._name
-            and self._db_id == other._db_id
-            and self._steps == other._steps
-            and self._uses_registered_models == other._uses_registered_models
-            and self._generated == other._generated
-            and self._observed == other._observed
-            and data_equals
-            and self._curr == other._curr
-            and self._generator_runs == other._generator_runs
-            and experiment_equals
-        )
 
     def __repr__(self) -> str:
         """String representation of this generation strategy."""

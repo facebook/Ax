@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, Mock
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm
+from ax.core.data import Data
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -866,7 +867,11 @@ class SQAStoreTest(TestCase):
         save_generation_strategy(generation_strategy=generation_strategy)
 
         # Add data, save, reload
-        generation_strategy.data = pd.DataFrame.from_records([{"foo": "bar"}])
+        generation_strategy._data = Data(
+            df=pd.DataFrame.from_records(
+                [{"metric_name": "foo", "mean": 1, "arm_name": "bar"}]
+            )
+        )
         save_generation_strategy(generation_strategy=generation_strategy)
         loaded_generation_strategy = load_generation_strategy_by_id(
             gs_id=generation_strategy._db_id

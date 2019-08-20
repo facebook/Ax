@@ -25,6 +25,10 @@ from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.service.ax_client import AxClient
+from ax.storage.sqa_store.db import init_test_engine_and_session_factory
+from ax.storage.sqa_store.decoder import Decoder
+from ax.storage.sqa_store.encoder import Encoder
+from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -519,3 +523,28 @@ class TestServiceAPI(TestCase):
             ax.get_contour_plot(param_x="x1", param_y="x2", metric_name="nonexistent")
         with self.assertRaisesRegex(ValueError, "Could not obtain contour"):
             ax.get_contour_plot(param_x="x1", param_y="x2", metric_name="objective")
+
+    def test_sqa_storage(self):
+        init_test_engine_and_session_factory(force_init=True)
+        config = SQAConfig()
+        encoder = Encoder(config=config)
+        decoder = Decoder(config=config)
+        db_settings = DBSettings(encoder=encoder, decoder=decoder)
+        ax = AxClient(db_settings=db_settings)
+        ax.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        for _ in range(5):
+            parameters, trial_index = ax.get_next_trial()
+            ax.complete_trial(
+                trial_index=trial_index, raw_data=branin(*parameters.values())
+            )
+        gs = ax.generation_strategy
+        ax = AxClient(db_settings=db_settings)
+        ax.load_experiment("test_experiment")
+        self.assertEqual(gs, ax.generation_strategy)

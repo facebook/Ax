@@ -68,15 +68,21 @@ def save_generation_strategy(
     config = config or SQAConfig()
     encoder = Encoder(config=config)
 
+    return _save_generation_strategy(
+        generation_strategy=generation_strategy, encoder=encoder
+    )
+
+
+def _save_generation_strategy(
+    generation_strategy: GenerationStrategy, encoder: Encoder
+) -> int:
     # If the generation strategy has not yet generated anything, there will be no
     # experiment set on it.
     if generation_strategy._experiment is None:
         experiment_id = None
     else:
         # Experiment was set on the generation strategy, so we need to save it first.
-        # pyre-fixme[6]: Expected `Experiment` for 1st param but got
-        #  `Optional[Experiment]`.
-        save_experiment(experiment=generation_strategy._experiment, config=config)
+        _save_experiment(experiment=generation_strategy._experiment, encoder=encoder)
         experiment_id = _get_experiment_id(
             experiment=generation_strategy._experiment, encoder=encoder
         )

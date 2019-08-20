@@ -69,6 +69,7 @@ class DataTest(TestCase):
         )
 
     def testData(self):
+        self.assertEqual(Data(), Data())
         data = Data(df=self.df)
         self.assertEqual(data, data)
         self.assertEqual(data.df_hash, self.df_hash)
@@ -119,6 +120,7 @@ class DataTest(TestCase):
             "created_time": "2018-09-20",
         }
         data = CustomData(df=pd.DataFrame([data_entry]))
+        self.assertNotEqual(data, Data(self.df))
         self.assertTrue(isinstance(data.df.iloc[0]["created_time"], pd.Timestamp))
 
         data_entry2 = {
@@ -144,6 +146,7 @@ class DataTest(TestCase):
             sample_sizes={"0_1": 2},
         )
         self.assertEqual(len(data.df), 1)
+        self.assertNotEqual(data, Data(self.df))
 
     def testFromFidelityEvaluations(self):
         data = Data.from_fidelity_evaluations(

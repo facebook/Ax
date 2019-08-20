@@ -81,7 +81,7 @@ class TestGenerationStrategy(TestCase):
         )
         self.assertEqual(gs1, gs2)
 
-        # clone_reset() doesn't clone exactly, so they won't be equal
+        # Clone_reset() doesn't clone exactly, so they won't be equal.
         gs3 = gs1.clone_reset()
         self.assertNotEqual(gs1, gs3)
 
