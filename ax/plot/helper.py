@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import math
 from collections import Counter
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
@@ -437,3 +438,212 @@ def get_fixed_values(
         # slice_values has type Dictionary[str, Any]
         setx.update(slice_values)
     return setx
+
+
+# Utility methods ported from JS
+def contour_config_to_trace(config):
+    # Load from config
+    arm_data = config["arm_data"]
+    density = config["density"]
+    grid_x = config["grid_x"]
+    grid_y = config["grid_y"]
+    f = config["f"]
+    lower_is_better = config["lower_is_better"]
+    metric = config["metric"]
+    rel = config["rel"]
+    sd = config["sd"]
+    xvar = config["xvar"]
+    yvar = config["yvar"]
+
+    green_scale = config["green_scale"]
+    green_pink_scale = config["green_pink_scale"]
+    blue_scale = config["blue_scale"]
+
+    # format data
+    res = relativize_data(f, sd, rel, arm_data, metric)
+    f_final = res[0]
+    sd_final = res[1]
+
+    # calculate max of abs(outcome), used for colorscale
+    f_absmax = max(abs(min(f_final)), max(f_final))
+
+    # transform to nested array
+    f_plt = []
+    for ind in range(0, len(f_final), density):
+        f_plt.append(f_final[ind : ind + density])
+    sd_plt = []
+    for ind in range(0, len(sd_final), density):
+        sd_plt.append(sd_final[ind : ind + density])
+
+    CONTOUR_CONFIG = {
+        "autocolorscale": False,
+        "autocontour": True,
+        "contours": {"coloring": "heatmap"},
+        "hoverinfo": "x+y+z",
+        "ncontours": density / 2,
+        "type": "contour",
+        "x": grid_x,
+        "y": grid_y,
+    }
+
+    if rel:
+        f_scale = reversed(green_pink_scale) if lower_is_better else green_pink_scale
+    else:
+        f_scale = green_scale
+
+    f_trace = {
+        "colorbar": {
+            "x": 0.45,
+            "y": 0.5,
+            "ticksuffix": "%" if rel else "",
+            "tickfont": {"size": 8},
+        },
+        "colorscale": [(i / (len(f_scale) - 1), rgb(v)) for i, v in enumerate(f_scale)],
+        "xaxis": "x",
+        "yaxis": "y",
+        "z": f_plt,
+        # zmax and zmin are ignored if zauto is true
+        "zauto": not rel,
+        "zmax": f_absmax,
+        "zmin": -f_absmax,
+    }
+
+    sd_trace = {
+        "colorbar": {
+            "x": 1,
+            "y": 0.5,
+            "ticksuffix": "%" if rel else "",
+            "tickfont": {"size": 8},
+        },
+        "colorscale": [
+            (i / (len(blue_scale) - 1), rgb(v)) for i, v in enumerate(blue_scale)
+        ],
+        "xaxis": "x2",
+        "yaxis": "y2",
+        "z": sd_plt,
+    }
+
+    f_trace.update(CONTOUR_CONFIG)
+    sd_trace.update(CONTOUR_CONFIG)
+
+    # get in-sample arms
+    arm_text = list(arm_data["in_sample"].keys())
+    arm_x = [
+        arm_data["in_sample"][arm_name]["parameters"][xvar] for arm_name in arm_text
+    ]
+    arm_y = [
+        arm_data["in_sample"][arm_name]["parameters"][yvar] for arm_name in arm_text
+    ]
+
+    # configs for in-sample arms
+    base_in_sample_arm_config = {
+        "hoverinfo": "text",
+        "legendgroup": "In-sample",
+        "marker": {"color": "black", "symbol": 1, "opacity": 0.5},
+        "mode": "markers",
+        "name": "In-sample",
+        "text": arm_text,
+        "type": "scatter",
+        "x": arm_x,
+        "y": arm_y,
+    }
+
+    f_in_sample_arm_trace = {"xaxis": "x", "yaxis": "y"}
+
+    sd_in_sample_arm_trace = {"showlegend": False, "xaxis": "x2", "yaxis": "y2"}
+
+    f_in_sample_arm_trace.update(base_in_sample_arm_config)
+    sd_in_sample_arm_trace.update(base_in_sample_arm_config)
+
+    traces = [f_trace, sd_trace, f_in_sample_arm_trace, sd_in_sample_arm_trace]
+
+    # iterate over out-of-sample arms
+    for i, generator_run_name in enumerate(arm_data["out_of_sample"].keys()):
+        symbol = i + 2  # symbols starts from 2 for candidate markers
+
+        ax = []
+        ay = []
+        atext = []
+
+        for arm_name in arm_data["out_of_sample"][generator_run_name].keys():
+            ax.append(
+                arm_data["out_of_sample"][generator_run_name][arm_name]["parameters"][
+                    xvar
+                ]
+            )
+            ay.append(
+                arm_data["out_of_sample"][generator_run_name][arm_name]["parameters"][
+                    yvar
+                ]
+            )
+            atext.append("<em>Candidate " + arm_name + "</em>")
+
+        traces.append(
+            {
+                "hoverinfo": "text",
+                "legendgroup": generator_run_name,
+                "marker": {"color": "black", "symbol": symbol, "opacity": 0.5},
+                "mode": "markers",
+                "name": generator_run_name,
+                "text": atext,
+                "type": "scatter",
+                "xaxis": "x",
+                "x": ax,
+                "yaxis": "y",
+                "y": ay,
+            }
+        )
+        traces.append(
+            {
+                "hoverinfo": "text",
+                "legendgroup": generator_run_name,
+                "marker": {"color": "black", "symbol": symbol, "opacity": 0.5},
+                "mode": "markers",
+                "name": "In-sample",
+                "showlegend": False,
+                "text": atext,
+                "type": "scatter",
+                "x": ax,
+                "xaxis": "x2",
+                "y": ay,
+                "yaxis": "y2",
+            }
+        )
+
+    return traces
+
+
+def axis_range(grid: List[float], is_log: bool) -> List[float]:
+    if is_log:
+        return [math.log10(min(grid)), math.log10(max(grid))]
+    else:
+        return [min(grid), max(grid)]
+
+
+def _relativize(m_t: float, sem_t: float, m_c: float, sem_c: float) -> List[float]:
+    r_hat = (m_t - m_c) / abs(m_c) - sem_c ** 2 * m_t / abs(m_c) ** 3
+    variance = (sem_t ** 2 + (m_t / m_c * sem_c) ** 2) / m_c ** 2
+    return [r_hat, math.sqrt(variance)]
+
+
+def relativize_data(
+    f: List[float], sd: List[float], rel: bool, arm_data: Dict[Any, Any], metric: str
+) -> List[List[float]]:
+    # if relative, extract status quo & compute ratio
+    f_final = [] if rel else f
+    sd_final = [] if rel else sd
+
+    if rel:
+        f_sq = arm_data["in_sample"][arm_data["status_quo_name"]]["y"][metric]
+        sd_sq = arm_data["in_sample"][arm_data["status_quo_name"]]["se"][metric]
+
+        for i in range(len(f)):
+            res = _relativize(f[i], sd[i], f_sq, sd_sq)
+            f_final.append(100 * res[0])
+            sd_final.append(100 * res[1])
+
+    return [f_final, sd_final]
+
+
+def rgb(arr: List[int]) -> str:
+    return "rgb({},{},{})".format(*arr)

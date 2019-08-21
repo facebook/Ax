@@ -5,12 +5,15 @@ from copy import deepcopy
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
+import plotly.graph_objs as go
 from ax.core.observation import ObservationFeatures
 from ax.modelbridge.base import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
 from ax.plot.color import BLUE_SCALE, GREEN_PINK_SCALE, GREEN_SCALE
 from ax.plot.helper import (
     TNullableGeneratorRunsDict,
+    axis_range,
+    contour_config_to_trace,
     get_fixed_values,
     get_grid_for_parameter,
     get_plot_data,
@@ -138,7 +141,105 @@ def plot_contour(
         "x_is_log": scales["x"],
         "y_is_log": scales["y"],
     }
-    return AxPlotConfig(config, plot_type=AxPlotTypes.CONTOUR)
+
+    config = AxPlotConfig(config, plot_type=AxPlotTypes.GENERIC).data
+
+    traces = contour_config_to_trace(config)
+
+    density = config["density"]
+    grid_x = config["grid_x"]
+    grid_y = config["grid_y"]
+    lower_is_better = config["lower_is_better"]
+    xvar = config["xvar"]
+    yvar = config["yvar"]
+
+    x_is_log = config["x_is_log"]
+    y_is_log = config["y_is_log"]
+
+    xrange = axis_range(grid_x, x_is_log)
+    yrange = axis_range(grid_y, y_is_log)
+
+    xtype = "log" if x_is_log else "linear"
+    ytype = "log" if y_is_log else "linear"
+
+    layout = {
+        "annotations": [
+            {
+                "font": {"size": 14},
+                "showarrow": False,
+                "text": "Mean",
+                "x": 0.25,
+                "xanchor": "center",
+                "xref": "paper",
+                "y": 1,
+                "yanchor": "bottom",
+                "yref": "paper",
+            },
+            {
+                "font": {"size": 14},
+                "showarrow": False,
+                "text": "Standard Error",
+                "x": 0.8,
+                "xanchor": "center",
+                "xref": "paper",
+                "y": 1,
+                "yanchor": "bottom",
+                "yref": "paper",
+            },
+        ],
+        "autosize": False,
+        "height": 450,
+        "hovermode": "closest",
+        "legend": {"orientation": "h", "x": 0, "y": -0.25},
+        "margin": {"b": 100, "l": 35, "pad": 0, "r": 35, "t": 35},
+        "width": 950,
+        "xaxis": {
+            "anchor": "y",
+            "autorange": False,
+            "domain": [0.05, 0.45],
+            "exponentformat": "e",
+            "range": xrange,
+            "tickfont": {"size": 11},
+            "tickmode": "auto",
+            "title": xvar,
+            "type": xtype,
+        },
+        "xaxis2": {
+            "anchor": "y2",
+            "autorange": False,
+            "domain": [0.6, 1],
+            "exponentformat": "e",
+            "range": xrange,
+            "tickfont": {"size": 11},
+            "tickmode": "auto",
+            "title": xvar,
+            "type": xtype,
+        },
+        "yaxis": {
+            "anchor": "x",
+            "autorange": False,
+            "domain": [0, 1],
+            "exponentformat": "e",
+            "range": yrange,
+            "tickfont": {"size": 11},
+            "tickmode": "auto",
+            "title": yvar,
+            "type": ytype,
+        },
+        "yaxis2": {
+            "anchor": "x2",
+            "autorange": False,
+            "domain": [0, 1],
+            "exponentformat": "e",
+            "range": yrange,
+            "tickfont": {"size": 11},
+            "tickmode": "auto",
+            "type": ytype,
+        },
+    }
+
+    fig = go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
 def interact_contour(
@@ -225,4 +326,5 @@ def interact_contour(
         "is_log_dict": is_log_dict,
         "param_names": param_names,
     }
+
     return AxPlotConfig(config, plot_type=AxPlotTypes.INTERACT_CONTOUR)
