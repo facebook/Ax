@@ -36,7 +36,7 @@ experiment = load_experiment(filepath)
 
 ### Customizing
 
-If you add a custom Metric or Runner and want to ensure it is saved to JSON properly, simply call `register_metric` or `register_runner`:
+If you add a custom [`Metric`](/api/core.html#module-ax.core.metric) or [`Runner`](../api/core.html#ax.core.runner.Runner) and want to ensure it is saved to JSON properly, simply call `register_metric` or `register_runner`:
 
 ```py
 from ax.storage.metric_registry import register_metric
@@ -56,13 +56,13 @@ register_runner(MyRunner)
 
 ### Saving
 
-To save an experiment to SQL, first initialize a session by passing a url pointing to your database. Such a url is typically composed of a dialect (e.g. sqlite, mysql, postgresql), optional driver (DBAPI used to connect to the database; e.g. psycopg2 for postgresql), username, password, hostname, and database name. A more detailed explanation how to generate a URL can be found in the [SQLAlchemy docs](https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls).
+To save an experiment to SQL, first initialize a session by passing a URL pointing to your database. Such a URL is typically composed of a dialect (e.g. sqlite, mysql, postgresql), optional driver (DBAPI used to connect to the database; e.g. psycopg2 for postgresql), username, password, hostname, and database name. A more detailed explanation how to generate a URL can be found in the [SQLAlchemy docs](https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls).
 
 ```py
 from ax.storage.sqa_store.db import init_engine_and_session_factory
 
 # url is of the form "dialect+driver://username:password@host:port/database"
-init_engine_and_session_factory(url="postgresql+psycopg2://sarah:c82i94d@localhost/foobar")
+init_engine_and_session_factory(url="postgresql+psycopg2://sarah:c82i94d@localhost:5432/foobar")
 ```
 
 Then create all tables:
@@ -117,7 +117,7 @@ experiment = load_experiment(experiment_name)
 
 **Adding a new metric or runner:**
 
-If you add a custom Metric or Runner and want to ensure it is saved to SQL properly, simply call `register_metric` or `register_runner`:
+If you add a custom [`Metric`](/api/core.html#module-ax.core.metric) or [`Runner`](../api/core.html#ax.core.runner.Runner) and want to ensure it is saved to SQL properly, simply call `register_metric` or `register_runner`:
 
 ```py
 from ax.storage.metric_registry import register_metric
@@ -136,7 +136,7 @@ register_runner(MyRunner)
 
 **Specifying experiment types:**
 
-If you choose to add types to your experiments, create an enum mapping experiment types to integer representations, pass this enum to a custom instance of `SQAConfig`, and then pass the config to `sqa_store.save`:
+If you choose to add types to your experiments, create an Enum mapping experiment types to integer representations, pass this Enum to a custom instance of `SQAConfig`, and then pass the config to `sqa_store.save`:
 
 
 ```py

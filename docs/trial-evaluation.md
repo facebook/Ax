@@ -1,5 +1,5 @@
 ---
-id: runner
+id: trial-evaluation
 title: Trial Evaluation
 ---
 
@@ -56,16 +56,16 @@ reference and the [API docs](api.md).
 
 ## Evaluation Function
 
-In synchronous cases where a parameterization can be evaluated right away (for example, when optimizing ML models locally or using a synthetic function), evaluation function is a convenient way to automate evaluation. The arguments to an evaluation function must be:
+In synchronous cases where a parameterization can be evaluated right away (for example, when optimizing ML models locally or using a synthetic function), an evaluation function is a convenient way to automate evaluation. The arguments to an evaluation function must be:
 - `parameterization`, a mapping of parameter names to their values,
 - optionally a `weight` of the parameterization –– nullable `float` representing the fraction of available data on which the parameterization should be evaluated. For example, this could be a downsampling rate in case of hyperparameter optimization (what portion of data the ML model should be trained on for evaluation) or the percentage of users exposed to a given configuration in A/B testing. This `weight` is not used in unweighted experiments and defaults to `None`.
 
 An evaluation function can return:
-- A dictionary of metric names to tuples of (mean and [SEM](glossary.md#sem)
+- A dictionary of metric names to tuples of (mean and [SEM](glossary.md#sem))
 - A single (mean, SEM) tuple
 - A single mean
 
-In the second case, Ax will assume that the mean and the SEM are for the experiment objective, and in the third case, that the mean is for the objective and that SEM is 0.
+In the second case, Ax will assume that the mean and the SEM are for the experiment objective, and in the third case that the mean is for the objective and that SEM is 0.
 
 For example, this evaluation function computes mean and SEM for [Hartmann6](https://www.sfu.ca/~ssurjano/hart6.html) function and for the L2-norm:
 
@@ -77,7 +77,7 @@ def hartmann_evaluation_function(parameterization):
     return {"hartmann6": (hartmann6(x), 0.0), "l2norm": (np.sqrt((x ** 2).sum()), 0.0)}
 ```
 
-This function computes just the objective mean and SEM, assuming [Branin](https://www.sfu.ca/~ssurjano/branin.html) function is the objective on the experiment:
+This function computes just the objective mean and SEM, assuming the [Branin](https://www.sfu.ca/~ssurjano/branin.html) function is the objective on the experiment:
 
 ```python
 from ax.utils.measurement.synthetic_functions import branin
@@ -95,9 +95,9 @@ lambda parameterization: branin(parameterization.get("x1"), parameterization.get
 For an example of an evaluation function that makes use of the `weight` argument, refer to the "Bandit Optimization" tutorial.
 ## Adding Your Own Runner
 
-To add your own runner, subclass [`Runner`](../api/core.html#ax.core.runner.Runner) and implement the [`run`](../api/core.html#ax.core.runner.Runner.run) method and [`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required) property.
+In order to control how the experiment is deployed, you can add your own runner. To do so, subclass [`Runner`](../api/core.html#ax.core.runner.Runner) and implement the [`run`](../api/core.html#ax.core.runner.Runner.run) method and [`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required) property.
 
-The [`run`](../api/core.html#ax.core.runner.Runner.run) method accepts a Trial and returns a JSON-serializable dictionary of any necessary tracking info to fetch data later from this external system. A unique identifier or name for this trial in the external system should be stored in this dictionary with the key "name", can then be accessed via trial.deployed_name.
+The [`run`](../api/core.html#ax.core.runner.Runner.run) method accepts a [`Trial`](../api/core.html#ax.core.trial.Trial) and returns a JSON-serializable dictionary of any necessary tracking info to fetch data later from this external system. A unique identifier or name for this trial in the external system should be stored in this dictionary with the key `"name"`, and this can later be accessed via `trial.deployed_name`.
 
 The [`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required) indicates whether the trial requires an intermediate staging period before evaluation begins. This property returns False by default.
 

@@ -4,13 +4,13 @@ title: Glossary
 sidebar_label: Glossary
 ---
 ### Arm
-Mapping from [Parameter](glossary.md#parameter) to value. This provides the configuration to test in an Ax [trial](glossary.md#trial). Also known as "treatment group". [```[Arm]```](/api/core.html#module-ax.core.arm)
+Mapping from [parameters](glossary.md#parameter) (i.e. a parameterization or parameter configuration) to parameter values. An arm provides the configuration to be tested in an Ax [trial](glossary.md#trial). Also known as "treatment group" or "parameterization", the name 'arm' comes from the [Multi-Armed Bandit](https://en.wikipedia.org/wiki/Multi-armed_bandit) optimization problem, in which a player facing a row of “one-armed bandit” slot machines has to choose which machines to play when and in what order. [```[Arm]```](/api/core.html#module-ax.core.arm)
 ### Bandit optimization
-Machine learning-driven version of A/B testing that dynamically allocates traffic to [arms](glossary.md#arm) that are performing well, in search of the best [arm](glossary.md#arm) among a given set.
+Machine learning-driven version of A/B testing that dynamically allocates traffic to [arms](glossary.md#arm) which are performing well, to determine the best [arm](glossary.md#arm) among a given set.
 ### Bayesian optimization
 Sequential optimization strategy for finding an optimal [arm](glossary.md#arm) in a continuous [search space](glossary.md#search-space).
 ### Evaluation function
-Function that takes a parameterization and an optional weight as input and outputs a set of metric evaluations ([more details](runner.md#evaluation-function)). Used in [simple experiment](glossary.md#simple-experiment) and in the [Loop API](api.md).
+Function that takes a parameterization and an optional weight as input and outputs a set of metric evaluations ([more details](trial-evaluation.md#evaluation-function)). Used in [simple experiment](glossary.md#simple-experiment) and in the [Loop API](api.md).
 ### Experiment
 Object that keeps track of the whole optimization process. Contains a [search space](glossary.md#search-space), [optimization config](glossary.md#optimization-config), and other metadata. [```[Experiment]```](/api/core.html#module-ax.core.experiment)
 ### Generator run
@@ -36,7 +36,7 @@ Places restrictions on the relationships between [parameters](glossary.md#parame
 ### Runner
 Dispatch abstraction that defines how a given [trial](glossary.md#trial) is to be run (either locally or by dispatching to an external system). [````[Runner]````](/api/core.html#module-ax.core.runner)
 ### Search space
-Continuous, discrete or mixed design space that defines the set of potential [arms](glossary.md#arm) that can be evaluated during the optimization. [```[SearchSpace]```](/api/core.html#module-ax.core.search_space)
+Continuous, discrete or mixed design space that defines the set of [parameters](glossary.md#parameter) to be tuned in the optimization, and optionally [parameter constraints](glossary.md#parameter-constraint) on these parameters. The parameters of the [arms](glossary.md#arm) to be evaluated in the optimization are drawn from a search space. [```[SearchSpace]```](/api/core.html#module-ax.core.search_space)
 ### SEM
 [Standard error](https://en.wikipedia.org/wiki/Standard_error) of the [metric](glossary.md#metric)'s mean, 0.0 for noiseless measurements.
 ### Simple experiment

@@ -5,17 +5,17 @@ title: Core
 
 ### Overview
 
-In Ax, an [experiment](glossary.md#experiment) keeps track of the whole optimization process. It contains a search space, optimization config, metadata, information on what metrics to track and how to run iterations, etc. An [experiment](glossary.md#experiment) is composed of a sequence of [trials](glossary.md#trial) each of which has a set of points (or [arms](glossary.md#arm)) to be evaluated. A [trial](glossary.md#trial) is added to the experiment when a new set of arms are proposed by the optimization algorithm. The trial is then evaluated to compute the values of each [metric](glossary.md#metric) for each arm, which are fed into the algorithms to create a new trial. Most applications have one arm per trial, which is the default implementation.
+In Ax, an [experiment](glossary.md#experiment) keeps track of the whole optimization process. It contains a search space, optimization config, metadata, information on what metrics to track and how to run iterations, etc. An [experiment](glossary.md#experiment) is composed of a sequence of [trials](glossary.md#trial) each of which has a set of parameterizations (or [arms](glossary.md#arm)) to be evaluated. A [trial](glossary.md#trial) is added to the experiment when a new set of arms is proposed by the optimization algorithm. The trial is then evaluated to compute the values of each [metric](glossary.md#metric) for each arm, which are fed into the algorithms to create a new trial. Most applications have one arm per trial, which is the default implementation.
 
 The core constructs that define the experiment are detailed below.
 
 ### Search Space and Parameters
 
-A [search space](glossary.md#search-space) is composed of a set of [parameters](glossary.md#parameter) to be tuned in the experiment, and optionally a set of [parameter constraints](glossary.md#parameter-constraint) that define restrictions across these parameters (e.g. p_a <= p_b). Each parameter has a name, a type (```int```, ```float```, ```bool```, or ```string```), and a domain, which is a representation of the possible values the parameter can take. The search space is used by the optimization algorithms to know which arms are valid to suggest.
+A [search space](glossary.md#search-space) is composed of a set of [parameters](glossary.md#parameter) to be tuned in the experiment, and optionally a set of [parameter constraints](glossary.md#parameter-constraint) that define restrictions across these parameters (e.g. `p_a <= p_b`). Each parameter has a name, a type (```int```, ```float```, ```bool```, or ```string```), and a domain, which is a representation of the possible values the parameter can take. The search space is used by the optimization algorithms to know which arms are valid to suggest.
 
 Ax supports three types of parameters:
 
-* **Range parameters**: must be of type int or float, and the domain is represented by a lower and upper bound. If the parameter is specified as an int, newly generated points are rounded to the nearest integer by default.
+* **Range parameters**: must be of type `int` or `float`, and the domain is represented by a lower and upper bound. If the parameter is specified as an `int`, newly generated points are rounded to the nearest integer by default.
 
 ```python
 from ax import RangeParameter, ParameterType
@@ -37,9 +37,9 @@ from ax import FixedParameter, ParameterType
 fixed_param = FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
 ```
 
-Ax supports three types of parameter constraints, each of which can only be used on int or float parameters:
+Ax supports three types of parameter constraints, each of which can only be used on `int` or `float` parameters:
 
-* **Linear constraints**: w * v <= b where w is the vector of parameter weights, v is a vector of parameter values, * is the dot product, and b is the specified bound. Linear constraints are specified using a dictionary that maps parameter name to weight, and the bound
+* **Linear constraints**: `w * v` <= b where w is the vector of parameter weights, v is a vector of parameter values, * is the dot product, and b is the specified bound. Linear constraints are specified with the bound and a dictionary that maps parameter name to the weight
 
 ```python
 from ax import ParameterConstraint
@@ -69,7 +69,7 @@ from ax import SumConstraint
 con_3 = SumConstraint(parameters=[param_a, param_b], is_upper_bound=False, bound=0.5)
 ```
 
-Given parameters and parameter constraints, you can construct a search space:
+Given parameters and (optionally) parameter constraints, you can construct a search space:
 
 ```python
 from ax import SearchSpace
@@ -90,7 +90,7 @@ objective = Objective(metric=Metric(name="m1"), minimize=True)
 
 There is no minimum or maximum number of outcome constraints, but an individual metric can have at most two constraints — which is how we represent metrics with both upper and lower bounds.
 
-Outcome constraints may be of the form metric >= bound or metric <= bound. The bound can be expressed as an absolute measurement, or relative to the status quo (if applicable), in which case the bound is the acceptable percent change from the status quo's value.
+Outcome constraints may be of the form `metric >= bound` or `metric <= bound`. The bound can be expressed as an absolute measurement, or relative to the status quo (if applicable), in which case the bound is the acceptable percent change from the status quo's value.
 
 ```python
 from ax import Metric
@@ -106,12 +106,12 @@ Finally, create the optimization config to attach to the experiment.
 ```python
 from ax import OptimizationConfig
 
-oc = OptimizationConfig(objective=objective, outcome_constraints=[oc])
+opt_config = OptimizationConfig(objective=objective, outcome_constraints=[oc])
 ```
 
 ### Arm
 
-An [arm](glossary.md#arm) in Ax is a set of parameters and their values with a name attached to it. The name 'arm' comes from the [Multi-Armed Bandit](https://en.wikipedia.org/wiki/Multi-armed_bandit) optimization problem, in which a player facing a row of “one-armed bandit” slot machines has to choose which machines to play when and in what order. In the case of **hyperparameter optimization**, an [arm](glossary.md#arm) corresponds to a hyperparameter configuration explored in the course of a given optimization.
+An [arm](glossary.md#arm) in Ax is a set of [parameters](glossary.md#parameter) and their values with a name attached to it. In the case of **hyperparameter optimization**, an [arm](glossary.md#arm) corresponds to a hyperparameter configuration explored in the course of a given optimization.
 
 An arm is defined by specifying the value for each parameter, and optionally giving it a name:
 
@@ -135,7 +135,7 @@ If the status quo is specified on the experiment, it will be automatically added
 
 ## Experiment Lifecycle
 
-An experiment consists of a sequence of trials, each of which evaluates one or more arms. For more details on the  implementating the evaluation, see the [runner](runner.md) and [metric](data.md) references.
+An experiment consists of a sequence of trials, each of which evaluates one or more arms. For more details on the implementing the evaluation, see the [trial evaluation](trial-evaluation.md) and [metric](data.md) references.
 
 Based on the evaluation results, the optimization algorithm suggest one or more arms to evaluate. You then create a new trial containing these suggested arms, evaluate this trial, and repeat.
 
@@ -145,14 +145,14 @@ You can directly add arm(s) to a new trial, or you can add a [generator run](glo
 # If only one arm should be evaluated
 experiment.new_trial().add_arm(Arm(...))
 
-# If multiple arms should be evaluate
+# If multiple arms should be evaluated
 experiment.new_batch_trial().add_arms_and_weights(arms=[Arm(...), Arm(...)])
 
 # To evaluate the arms suggested by a GeneratorRun
 experiment.new_batch_trial().add_generator_run(generator_run=GeneratorRun(...))
 ```
 
-A trial goes through many phases during the experimentation cycle. It is tracked using a TrialStatus field. The stages are:
+A trial goes through multiple phases during the experimentation cycle, tracked by its [`TrialStatus`](../api/core.html#ax.core.base_trial.TrialStatus) field. These stages are:
 
 * `CANDIDATE` - Trial has just been created and can still be modified before deployment.
 * `STAGED` - Relevant for external systems, where the trial configuration has been deployed but not begun the evaluation stage.
@@ -165,6 +165,6 @@ When a trial is first created, its status is "candidate". If applicable, we can 
 to run the trial, which moves it into the "running" stage. We can then call
 `trial.mark_completed`, `trial.mark_failed`, or `trial.mark_abandoned` to end the trial.
 
-If the trial's [runner](runner.md) has "staging_required" = True,
+If the trial's [runner](trial-evaluation.md#adding-your-own-runner) has "staging_required" = True,
 then `trial.run` will first mark the trial as "staged", and we can later call
 `trial.mark_running` explicitly to move the trial to "running".

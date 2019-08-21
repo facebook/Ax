@@ -2,12 +2,10 @@
 id: api
 title: APIs
 ---
-Modular design of Ax enables multiple modes of usage, which provide different balances of lightweight structure to flexibility and reproducibility.
-
-There are three primary usage modes, ranked from the most lightweight to fullest functionality:
+The modular design of Ax enables three different usage modes, with different balances of structure to flexibility and reproducibility. From most lightweight to fullest functionality, they are:
   - **Loop API** is intended for synchronous optimization loops, where [trials](glossary.md#trial) can be evaluated right away. With this API, optimization can be executed in a single call and [experiment](glossary.md#experiment) introspection is available once optimization is complete.
   - **Service API** can be used as a lightweight service for parameter-tuning applications where trials might be evaluated in parallel and data is available asynchronously (e.g. hyperparameter or simulation optimization). It requires little to no knowledge of Ax data structures and easily integrates with various schedulers. In this mode, Ax suggests one-[arm](glossary.md#arm) trials to be evaluated by the client application, and expects them to be completed with [metric](glossary.md#metric) data when available.
-  - **Developer API** is for ad-hoc use by data scientists, machine learning engineers, and researchers.  The developer API allows for a great deal of customization and introspection, and is recommended for those who plan to use Ax to optimize A/B tests. This requires some knowledge of [Ax architecture](core.md).
+  - **Developer API** is for ad-hoc use by data scientists, machine learning engineers, and researchers.  The developer API allows for a great deal of customization and introspection, and is recommended for those who plan to use Ax to optimize A/B tests. Using the developer API requires some knowledge of [Ax architecture](core.md).
 
 Here is a comparison of the three APIs in the simple case of evaluating the unconstrained synthetic Branin function:
 
