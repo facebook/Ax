@@ -34,7 +34,6 @@ class _AxPlotJSResources(enum.Enum):
 # JS-based plots that are supported in Ax should be registered here
 Ax_PLOT_REGISTRY: Dict[enum.Enum, str] = {
     AxPlotTypes.GENERIC: "generic_plotly.js",
-    AxPlotTypes.INTERACT_CONTOUR: "interact_contour.js",
     AxPlotTypes.SLICE: "slice.js",
     AxPlotTypes.INTERACT_SLICE: "interact_slice.js",
 }
