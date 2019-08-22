@@ -7,6 +7,7 @@ import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.multi_type_experiment import MultiTypeExperiment
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.discrete import DiscreteModelBridge
@@ -168,7 +169,10 @@ def get_GPEI(
 # we need to create `trial_index_to_type` as in the factory function below.
 # Maybe `MultiTypeExperiment` could have that mapping as a property?
 def get_MTGP(
-    experiment: Experiment, data: Data, search_space: Optional[SearchSpace] = None
+    experiment: Experiment,
+    data: Data,
+    search_space: Optional[SearchSpace] = None,
+    trial_index: Optional[int] = None,
 ) -> TorchModelBridge:
     """Instantiates a Multi-task Gaussian Process (MTGP) model that generates
     points with EI.
@@ -192,6 +196,23 @@ def get_MTGP(
         transforms = ST_MTGP_trans
         transform_configs = None
 
+    # Choose the status quo features for the experiment from the selected trial.
+    # If trial_index is None, the status quo from the last experiment trial
+    # will be used as a status quo for the experiment.
+    if trial_index is None:
+        trial_index = len(experiment.trials) - 1
+    elif trial_index >= len(experiment.trials):
+        raise ValueError("trial_index is bigger than the number of experiment trials")
+
+    # pyre-fixme[16]: `ax.core.base_trial.BaseTrial` has no attribute `status_quo`.
+    status_quo = experiment.trials[trial_index].status_quo
+    if status_quo is None:
+        raise ValueError("status_quo is not defined for the selected trial.")
+    else:
+        status_quo_features = ObservationFeatures(
+            parameters=status_quo.parameters, trial_index=trial_index
+        )
+
     return TorchModelBridge(
         experiment=experiment,
         search_space=search_space or experiment.search_space,
@@ -201,6 +222,7 @@ def get_MTGP(
         transform_configs=transform_configs,
         torch_dtype=torch.double,
         torch_device=DEFAULT_TORCH_DEVICE,
+        status_quo_features=status_quo_features,
     )
 
 

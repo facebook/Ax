@@ -123,6 +123,8 @@ def get_multi_type_experiment(
         gr = generator.gen(10)
         t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
         t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
+        t1.set_status_quo_with_weight(status_quo=t1.arms[0], weight=0.5)
+        t2.set_status_quo_with_weight(status_quo=t2.arms[0], weight=0.5)
         t1.run()
         t2.run()
 

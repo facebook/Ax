@@ -23,6 +23,7 @@ from ax.modelbridge.base import ModelBridge, gen_arms, unwrap_observation_data
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.log import Log
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import get_experiment_with_repeated_arms
 
 
 def search_space_for_value(val: float = 3.0) -> SearchSpace:
@@ -59,6 +60,34 @@ def observation1() -> Observation:
             metric_names=["a", "b"],
         ),
         arm_name="1_1",
+    )
+
+
+def observation_status_quo0() -> Observation:
+    return Observation(
+        features=ObservationFeatures(
+            parameters={"w": 0.85, "x": 1, "y": "baz", "z": False}, trial_index=0
+        ),
+        data=ObservationData(
+            means=np.array([2.0, 4.0]),
+            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
+            metric_names=["a", "b"],
+        ),
+        arm_name="0_0",
+    )
+
+
+def observation_status_quo1() -> Observation:
+    return Observation(
+        features=ObservationFeatures(
+            parameters={"w": 0.85, "x": 1, "y": "baz", "z": False}, trial_index=1
+        ),
+        data=ObservationData(
+            means=np.array([2.0, 4.0]),
+            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
+            metric_names=["a", "b"],
+        ),
+        arm_name="0_0",
     )
 
 
@@ -374,15 +403,36 @@ class BaseModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
-        return_value=([observation1(), observation2()]),
+        return_value=(
+            [
+                observation_status_quo0(),
+                observation_status_quo1(),
+                observation1(),
+                observation2(),
+            ]
+        ),
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
     def testSetStatusQuoMultipleObs(self, mock_fit, mock_observations_from_data):
-        modelbridge = ModelBridge(
-            search_space_for_value(), 0, [], get_experiment(), 0, status_quo_name="1_1"
+        exp = get_experiment_with_repeated_arms(2)
+
+        trial_index = 1
+        status_quo_features = ObservationFeatures(
+            parameters=exp.trials[trial_index].status_quo.parameters,
+            trial_index=trial_index,
         )
-        # SQ not set if multiple feature sets for SQ arm.
-        self.assertIsNone(modelbridge.status_quo)
+        modelbridge = ModelBridge(
+            search_space_for_value(),
+            0,
+            [],
+            exp,
+            0,
+            status_quo_features=status_quo_features,
+        )
+        # Check that the for experiments with many trials the status quo is set
+        # to the value of the status quo of the last trial.
+        if len(exp.trials) >= 1:
+            self.assertEqual(modelbridge.status_quo, observation_status_quo1())
 
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",

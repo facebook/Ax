@@ -234,6 +234,7 @@ class ModelBridge(ABC):
         experiment: Optional[Experiment],
         status_quo_name: Optional[str],
         status_quo_features: Optional[ObservationFeatures],
+        # plot.help_rel (model, ) <- trial_index that we'll pass to the status_quo_index
     ) -> None:
         """Set model status quo.
 

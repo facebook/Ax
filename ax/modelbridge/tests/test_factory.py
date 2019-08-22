@@ -60,9 +60,24 @@ class ModelBridgeFactoryTest(TestCase):
         self.assertIsInstance(sobol, RandomModelBridge)
         for _ in range(5):
             sobol_run = sobol.gen(n=1)
-            exp.new_batch_trial().add_generator_run(sobol_run).run()
-        mtgp = get_MTGP(experiment=exp, data=exp.fetch_data())
+            t = exp.new_batch_trial().add_generator_run(sobol_run)
+            t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
+            t.run()
+        mtgp = get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=0)
         self.assertIsInstance(mtgp, TorchModelBridge)
+
+        with self.assertRaises(ValueError):
+            get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=9)
+
+        exp = get_branin_experiment()
+        sobol = get_sobol(search_space=exp.search_space)
+        self.assertIsInstance(sobol, RandomModelBridge)
+        sobol_run = sobol.gen(n=1)
+        t = exp.new_batch_trial().add_generator_run(sobol_run)
+        t.run()
+
+        with self.assertRaises(ValueError):
+            get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=0)
 
     def test_model_kwargs(self):
         """Tests that model kwargs are passed correctly."""
