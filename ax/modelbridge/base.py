@@ -279,11 +279,15 @@ class ModelBridge(ABC):
                 self._status_quo = sq_obs[0]
 
         elif status_quo_features is not None:
+            # TODO(T52873772): Check which field from the status_quo_features to
+            # compare with the training_data to select the status_quo.
             sq_obs = [
                 obs
                 for obs in self._training_data
-                if obs.features == status_quo_features
+                if (obs.features.parameters == status_quo_features.parameters)
+                and (obs.features.trial_index == status_quo_features.trial_index)
             ]
+
             if len(sq_obs) == 0:
                 logger.warning(
                     f"Status quo features {status_quo_features} not found in data."

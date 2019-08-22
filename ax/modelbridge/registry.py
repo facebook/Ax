@@ -72,13 +72,7 @@ Y_trans: List[Type[Transform]] = [IVW, Derelativize, StandardizeY]
 TS_trans: List[Type[Transform]] = Discrete_X_trans + Y_trans + [SearchSpaceToChoice]
 
 # Multi-type MTGP transforms
-MT_MTGP_trans: List[Type[Transform]] = [
-    RemoveFixed,
-    OrderedChoiceEncode,
-    OneHot,
-    IntToFloat,
-    Log,
-    UnitX,
+MT_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
     Derelativize,
     ConvertMetricNames,
     TrialAsTask,
@@ -87,13 +81,7 @@ MT_MTGP_trans: List[Type[Transform]] = [
 ]
 
 # Single-type MTGP transforms
-ST_MTGP_trans: List[Type[Transform]] = [
-    RemoveFixed,
-    OrderedChoiceEncode,
-    OneHot,
-    IntToFloat,
-    Log,
-    UnitX,
+ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
     Derelativize,
     TrialAsTask,
     StratifiedStandardizeY,
