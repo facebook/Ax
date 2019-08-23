@@ -36,7 +36,7 @@ experiment = load_experiment(filepath)
 
 ### Customizing
 
-If you add a custom [`Metric`](/api/core.html#module-ax.core.metric) or [`Runner`](../api/core.html#ax.core.runner.Runner) and want to ensure it is saved to JSON properly, simply call `register_metric` or `register_runner`:
+If you add a custom [`Metric`](/api/core.html#module-ax.core.metric) or [`Runner`](../api/core.html#ax.core.runner.Runner) and want to ensure it is saved to JSON properly, simply call [`register_metric`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.metric_registry.register_metric) or [`register_runner`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.runner_registry.register_runner):
 
 ```py
 from ax.storage.metric_registry import register_metric
@@ -117,7 +117,7 @@ experiment = load_experiment(experiment_name)
 
 **Adding a new metric or runner:**
 
-If you add a custom [`Metric`](/api/core.html#module-ax.core.metric) or [`Runner`](../api/core.html#ax.core.runner.Runner) and want to ensure it is saved to SQL properly, simply call `register_metric` or `register_runner`:
+If you add a custom [`Metric`](/api/core.html#module-ax.core.metric) or [`Runner`](../api/core.html#ax.core.runner.Runner) and want to ensure it is saved to SQL properly, simply call [`register_metric`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.metric_registry.register_metric) or [`register_runner`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.runner_registry.register_runner):
 
 ```py
 from ax.storage.metric_registry import register_metric

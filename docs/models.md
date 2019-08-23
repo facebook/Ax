@@ -152,7 +152,7 @@ The primary role of the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.b
 
 ## Transforms
 
-The transformations in the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) are done by chaining together a set of individual Transform objects. For continuous space models obtained via factory functions (`get_sobol` and `get_GPEI`), the following transforms will be applied by default, in this sequence:
+The transformations in the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) are done by chaining together a set of individual Transform objects. For continuous space models obtained via factory functions ([`get_sobol`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.factory.get_sobol) and [`get_GPEI`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.factory.get_GPEI)), the following transforms will be applied by default, in this sequence:
 * [`RemoveFixed`](../api/modelbridge.html#ax.modelbridge.transforms.remove_fixed.RemoveFixed): Remove [`FixedParameters`](../api/core.html#ax.core.parameter.FixedParameter) from the search space.
 * [`OrderedChoiceEncode`](../api/modelbridge.html#ax.modelbridge.transforms.ordered_choice_encode.OrderedChoiceEncode): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `True` are encoded as a sequence of integers.
 * [`OneHot`](../api/modelbridge.html#ax.modelbridge.transforms.one_hot.OneHot): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `False` are one-hot encoded.

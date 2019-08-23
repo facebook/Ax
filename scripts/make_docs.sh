@@ -4,13 +4,14 @@
 #
 
 usage() {
-  echo "Usage: $0 [-b] [-o] [-t] [-k kernel_name]"
+  echo "Usage: $0 [-b] [-o] [-r] [-t] [-k kernel_name]"
   echo ""
   echo "Build Ax documentation. Must be executed from root of Ax repository."
   echo ""
   echo "  -b   Build static version of documentation (otherwise start server)."
   echo "  -o   Only Docusaurus (skip Sphinx, tutorials). Useful when just make change to Docusaurus settings."
   echo "  -t   Execute tutorials (instead of just converting)."
+  echo "  -r   Convert backtick-quoted class or function names in .md files into links to API documentation."
   echo "  -k   Kernel name to use for executing tutorials. Use Jupyter default if not set."
   echo ""
   exit 1
@@ -20,8 +21,9 @@ BUILD_STATIC=false
 ONLY_DOCUSAURUS=false
 BUILD_TUTORIALS=false
 KERNEL_NAME=false
+INSERT_API_REFS=false
 
-while getopts 'hbotk:' flag; do
+while getopts 'hbotrk:' flag; do
   case "${flag}" in
     h)
       usage
@@ -34,6 +36,9 @@ while getopts 'hbotk:' flag; do
       ;;
     t)
       BUILD_TUTORIALS=true
+      ;;
+    r)
+      INSERT_API_REFS=true
       ;;
     k)
       KERNEL_NAME=${OPTARG}
@@ -113,6 +118,16 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
 
 cd website || exit
 fi  # end of not only Docusaurus block
+
+if [[ $INSERT_API_REFS == true ]]; then
+  echo "-----------------------------------"
+  echo "Inserting API reference links in Markdown files"
+  echo "-----------------------------------"
+  cd ..
+  cwd=$(pwd)
+  python3 scripts/insert_api_refs.py --source_path "${cwd}/ax" --docs_path "${cwd}/docs"
+  cd - || exit
+fi
 
 if [[ $BUILD_STATIC == true ]]; then
   echo "-----------------------------------"
