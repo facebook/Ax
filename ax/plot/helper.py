@@ -480,7 +480,7 @@ def contour_config_to_trace(config):
         "autocontour": True,
         "contours": {"coloring": "heatmap"},
         "hoverinfo": "x+y+z",
-        "ncontours": density / 2,
+        "ncontours": int(density / 2),
         "type": "contour",
         "x": grid_x,
         "y": grid_y,
