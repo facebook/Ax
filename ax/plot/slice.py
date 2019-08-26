@@ -10,11 +10,14 @@ from ax.modelbridge.base import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
 from ax.plot.helper import (
     TNullableGeneratorRunsDict,
+    axis_range,
     get_fixed_values,
     get_grid_for_parameter,
     get_plot_data,
     get_range_parameter,
+    slice_config_to_trace,
 )
+from plotly import graph_objs as go
 
 
 # type aliases
@@ -158,7 +161,61 @@ def plot_slice(
         "sd": sd_plt,
         "is_log": ls,
     }
-    return AxPlotConfig(config, plot_type=AxPlotTypes.SLICE)
+    config = AxPlotConfig(config, plot_type=AxPlotTypes.GENERIC).data
+
+    arm_data = config["arm_data"]
+    arm_name_to_parameters = config["arm_name_to_parameters"]
+    f = config["f"]
+    fit_data = config["fit_data"]
+    grid = config["grid"]
+    metric = config["metric"]
+    param = config["param"]
+    rel = config["rel"]
+    setx = config["setx"]
+    sd = config["sd"]
+    is_log = config["is_log"]
+
+    traces = slice_config_to_trace(
+        arm_data,
+        arm_name_to_parameters,
+        f,
+        fit_data,
+        grid,
+        metric,
+        param,
+        rel,
+        setx,
+        sd,
+        is_log,
+        True,
+    )
+
+    # layout
+    xrange = axis_range(grid, is_log)
+    xtype = "log" if is_log else "linear"
+
+    layout = {
+        "hovermode": "closest",
+        "xaxis": {
+            "anchor": "y",
+            "autorange": False,
+            "exponentformat": "e",
+            "range": xrange,
+            "tickfont": {"size": 11},
+            "tickmode": "auto",
+            "title": param,
+            "type": xtype,
+        },
+        "yaxis": {
+            "anchor": "x",
+            "tickfont": {"size": 11},
+            "tickmode": "auto",
+            "title": metric,
+        },
+    }
+
+    fig = go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
 def interact_slice(
@@ -253,4 +310,94 @@ def interact_slice(
         "sd": sd_plt_dict,
         "is_log": is_log_dict,
     }
-    return AxPlotConfig(config, plot_type=AxPlotTypes.INTERACT_SLICE)
+    config = AxPlotConfig(config, plot_type=AxPlotTypes.GENERIC).data
+
+    arm_data = config["arm_data"]
+    arm_name_to_parameters = config["arm_name_to_parameters"]
+    f = config["f"]
+    fit_data = config["fit_data"]
+    grid = config["grid"]
+    metrics = config["metrics"]
+    param = config["param"]
+    rel = config["rel"]
+    setx = config["setx"]
+    sd = config["sd"]
+    is_log = config["is_log"]
+
+    traces = []
+
+    for i, metric in enumerate(metrics):
+        cur_visible = i == 0
+        metric = metrics[i]
+        traces.extend(
+            slice_config_to_trace(
+                arm_data[metric],
+                arm_name_to_parameters[metric],
+                f[metric],
+                fit_data[metric],
+                grid,
+                metric,
+                param,
+                rel,
+                setx,
+                sd[metric],
+                is_log[metric],
+                cur_visible,
+            )
+        )
+
+    # layout
+    xrange = axis_range(grid, is_log[metrics[0]])
+    xtype = "log" if is_log[metrics[0]] else "linear"
+
+    buttons = []
+    for i, metric in enumerate(metrics):
+        trace_cnt = 3 + len(arm_data[metric]["out_of_sample"].keys()) * 2
+        visible = [False] * (len(metrics) * trace_cnt)
+        for j in range(i * trace_cnt, (i + 1) * trace_cnt):
+            visible[j] = True
+        buttons.append(
+            {
+                "method": "update",
+                "args": [{"visible": visible}, {"yaxis.title": metric}],
+                "label": metric,
+            }
+        )
+
+    layout = {
+        "title": "Predictions for a 1-d slice of the parameter space",
+        "annotations": [
+            {
+                "showarrow": False,
+                "text": "Choose metric:",
+                "x": 0.225,
+                "xanchor": "center",
+                "xref": "paper",
+                "y": 1.005,
+                "yanchor": "bottom",
+                "yref": "paper",
+            }
+        ],
+        "updatemenus": [{"y": 1.1, "x": 0.5, "yanchor": "top", "buttons": buttons}],
+        "hovermode": "closest",
+        "xaxis": {
+            "anchor": "y",
+            "autorange": False,
+            "exponentformat": "e",
+            "range": xrange,
+            "tickfont": {"size": 11},
+            "tickmode": "auto",
+            "title": param,
+            "type": xtype,
+        },
+        "yaxis": {
+            "anchor": "x",
+            "autorange": True,
+            "tickfont": {"size": 11},
+            "tickmode": "auto",
+            "title": metrics[0],
+        },
+    }
+
+    fig = go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
