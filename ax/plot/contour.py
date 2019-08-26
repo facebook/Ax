@@ -362,7 +362,7 @@ def interact_contour(
         "autocontour": True,
         "contours": {"coloring": "heatmap"},
         "hoverinfo": "x+y+z",
-        "ncontours": density / 2,
+        "ncontours": int(density / 2),
         "type": "contour",
     }
 
