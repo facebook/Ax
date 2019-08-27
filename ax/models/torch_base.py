@@ -5,10 +5,11 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
 from ax.core.types import TConfig
+from ax.models.base import Model
 from torch import Tensor
 
 
-class TorchModel:
+class TorchModel(Model):
     """This class specifies the interface for a torch-based model.
 
     These methods should be implemented to have access to all of the features

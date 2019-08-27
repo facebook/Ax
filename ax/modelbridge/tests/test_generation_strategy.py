@@ -199,7 +199,7 @@ class TestGenerationStrategy(TestCase):
                         {
                             "seed": None,
                             "deduplicate": False,
-                            "init_position": 0,
+                            "init_position": i + 1,
                             "scramble": True,
                         },
                     )

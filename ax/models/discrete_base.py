@@ -5,9 +5,10 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.types import TConfig, TParamValue, TParamValueList
+from ax.models.base import Model
 
 
-class DiscreteModel:
+class DiscreteModel(Model):
     """This class specifies the interface for a model based on discrete parameters.
 
     These methods should be implemented to have access to all of the features

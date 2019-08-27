@@ -10,6 +10,10 @@ class DiscreteModelTest(TestCase):
     def setUp(self):
         pass
 
+    def test_discrete_model_get_state(self):
+        discrete_model = DiscreteModel()
+        self.assertEqual(discrete_model._get_state(), {})
+
     def testDiscreteModelFit(self):
         discrete_model = DiscreteModel()
         discrete_model.fit(

@@ -23,6 +23,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig, TModelCov, TModelMean, TModelPredict
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 
 
 logger = get_logger("ModelBridge")
@@ -565,6 +566,7 @@ class ModelBridge(ABC):
             model_kwargs=self._model_kwargs,
             bridge_kwargs=self._bridge_kwargs,
         )
+        self._save_model_state_if_possible()
         self.fit_time_since_gen = 0.0
         return gr
 
@@ -662,6 +664,24 @@ class ModelBridge(ABC):
         self._model_key = model_key
         self._model_kwargs = model_kwargs
         self._bridge_kwargs = bridge_kwargs
+
+    def _save_model_state_if_possible(self) -> None:
+        """Stores state of stateful models together with the model and bridge
+        kwargs.
+
+        Currently the only stateful model is the `SobolGenerator`, for which it
+        is enough to update the stored model kwargs with that state. However, as
+        the number of stateful models increases, this function may require
+        additional logic.
+        """
+        if (
+            hasattr(self, "model")
+            and hasattr(self, "_model_kwargs")
+            and self._model_kwargs is not None
+        ):
+            # `ModelBridge` still has no attr. `model` after `hasattr` call,
+            # pyre-fixme[16]: which should've ensured its presence to typechecker.
+            not_none(self._model_kwargs).update(self.model._get_state())
 
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:

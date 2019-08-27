@@ -5,6 +5,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.types import TConfig
+from ax.models.base import Model
 from ax.models.model_utils import (
     add_fixed_features,
     rejection_sample,
@@ -13,7 +14,7 @@ from ax.models.model_utils import (
 )
 
 
-class RandomModel:
+class RandomModel(Model):
     """This class specifies the basic skeleton for a random model.
 
     As random generators do not make use of models, they do not implement

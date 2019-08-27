@@ -573,3 +573,33 @@ class TestServiceAPI(TestCase):
             ax.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
         trial_parameters_2 = [t.arm.parameters for t in ax.experiment.trials.values()]
         self.assertEqual(trial_parameters_1, trial_parameters_2)
+
+    def test_init_position_saved(self):
+        ax = AxClient(random_seed=239)
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            name="sobol_init_position_test",
+        )
+        for _ in range(4):
+            # For each generated trial, snapshot the client before generating it,
+            # then recreate client, regenerate the trial and compare the trial
+            # generated before and after snapshotting. If the state of Sobol is
+            # recorded correctly, the newly generated trial will be the same as
+            # the one generated before the snapshotting.
+            serialized = ax.to_json_snapshot()
+            params, idx = ax.get_next_trial()
+            ax = AxClient.from_json_snapshot(serialized)
+            with self.subTest(ax=ax, params=params, idx=idx):
+                new_params, new_idx = ax.get_next_trial()
+                self.assertEqual(params, new_params)
+                self.assertEqual(idx, new_idx)
+                self.assertEqual(
+                    ax.experiment.trials[idx]._generator_run._model_kwargs[
+                        "init_position"
+                    ],
+                    idx + 1,
+                )
+            ax.complete_trial(idx, branin(params.get("x1"), params.get("x2")))

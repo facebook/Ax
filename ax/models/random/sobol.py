@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.types import TConfig
+from ax.models.base import Model
 from ax.models.model_utils import tunable_feature_indices
 from ax.models.random.base import RandomModel
+from ax.utils.common.docutils import copy_doc
 from ax.utils.stats.sobol import SobolEngine  # pyre-ignore: Not handling .pyx properly
 
 
@@ -61,8 +63,7 @@ class SobolGenerator(RandomModel):
         return self._engine
 
     @property
-    # pyre-fixme[11]: Type `SobolEngine` is not defined.
-    def engine(self) -> SobolEngine:
+    def engine(self) -> Optional[SobolEngine]:  # pyre-fixme[31]: not valid type.
         """Return a singleton SobolEngine."""
         return self._engine
 
@@ -111,6 +112,10 @@ class SobolGenerator(RandomModel):
         if self.engine:
             self.init_position = self.engine.num_generated
         return (points, weights)
+
+    @copy_doc(Model._get_state)
+    def _get_state(self) -> Dict[str, Any]:
+        return {"init_position": self.init_position}
 
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
         """Generate n samples.
