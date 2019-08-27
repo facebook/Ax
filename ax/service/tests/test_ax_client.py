@@ -548,3 +548,28 @@ class TestServiceAPI(TestCase):
         ax = AxClient(db_settings=db_settings)
         ax.load_experiment("test_experiment")
         self.assertEqual(gs, ax.generation_strategy)
+
+    def test_fixed_random_seed_reproducibility(self):
+        ax = AxClient(random_seed=239)
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ]
+        )
+        for _ in range(5):
+            params, idx = ax.get_next_trial()
+            ax.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
+        trial_parameters_1 = [t.arm.parameters for t in ax.experiment.trials.values()]
+        ax = AxClient(random_seed=239)
+        ax.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ]
+        )
+        for _ in range(5):
+            params, idx = ax.get_next_trial()
+            ax.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
+        trial_parameters_2 = [t.arm.parameters for t in ax.experiment.trials.values()]
+        self.assertEqual(trial_parameters_1, trial_parameters_2)

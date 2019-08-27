@@ -92,6 +92,7 @@ class GenerationStrategy(Base):
     # Experiment, for which this generation strategy has generated trials, if
     # it exists.
     _experiment: Optional[Experiment]
+    _db_id: Optional[int]  # Used when storing to DB.
 
     def __init__(self, steps: List[GenerationStep], name: Optional[str] = None) -> None:
         self._db_id = None
@@ -139,8 +140,8 @@ class GenerationStrategy(Base):
         )
         # Trim the "get_" beginning of the factory function if it's there.
         factory_names = (n[4:] if n[:4] == "get_" else n for n in factory_names)
-
-        return "+".join(factory_names)
+        self._name = "+".join(factory_names)
+        return self._name
 
     @property
     def generator_changes(self) -> List[int]:
@@ -247,13 +248,14 @@ class GenerationStrategy(Base):
     def __repr__(self) -> str:
         """String representation of this generation strategy."""
         repr = f"GenerationStrategy(name='{self.name}', steps=["
+        remaining_arms = "subsequent" if len(self._steps) > 1 else "all"
         for step in self._steps:
-            num_arms = f"{step.num_arms}" if step.num_arms != -1 else "subsequent"
+            num_arms = f"{step.num_arms}" if step.num_arms != -1 else remaining_arms
             if isinstance(step.model, Models):
                 # pyre-fixme[16]: `Union` has no attribute `value`.
                 repr += f"{step.model.value} for {num_arms} arms, "
         repr = repr[:-2]
-        repr += f"], generated {len(self._generated)} arm(s))"
+        repr += f"], generated {len(self._generated)} arm(s) so far)"
         return repr
 
     def _set_current_model(

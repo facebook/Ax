@@ -62,11 +62,21 @@ class TestGenerationStrategy(TestCase):
             str(gs1),
             (
                 "GenerationStrategy(name='Sobol+GPEI', steps=[Sobol for 5 arms,"
-                " GPEI for subsequent arms], generated 0 arm(s))"
+                " GPEI for subsequent arms], generated 0 arm(s) so far)"
+            ),
+        )
+        gs2 = GenerationStrategy(
+            steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
+        )
+        self.assertEqual(
+            str(gs2),
+            (
+                "GenerationStrategy(name='Sobol', steps=[Sobol for all arms], "
+                "generated 0 arm(s) so far)"
             ),
         )
 
-    def test_equality(self):
+    def ftest_equality(self):
         gs1 = GenerationStrategy(
             steps=[
                 GenerationStep(model=Models.SOBOL, num_arms=5),
@@ -83,7 +93,7 @@ class TestGenerationStrategy(TestCase):
 
         # Clone_reset() doesn't clone exactly, so they won't be equal.
         gs3 = gs1.clone_reset()
-        self.assertNotEqual(gs1, gs3)
+        self.assertEqual(gs1, gs3)
 
     def test_restore_from_generator_run(self):
         gs = GenerationStrategy(

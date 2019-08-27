@@ -37,12 +37,7 @@ def choose_generation_strategy(
         sobol_arms = (
             ceil(max(5, len(search_space.parameters)) / arms_per_trial) * arms_per_trial
         )
-        logger.info(
-            "Using Bayesian Optimization generation strategy. Iterations after "
-            f"{sobol_arms} will take longer to generate due to model-fitting."
-        )
-        return GenerationStrategy(
-            name="Sobol+GPEI",
+        gs = GenerationStrategy(
             steps=[
                 GenerationStep(
                     model=Models.SOBOL,
@@ -54,15 +49,19 @@ def choose_generation_strategy(
                 GenerationStep(
                     model=Models.GPEI, num_arms=-1, recommended_max_parallelism=3
                 ),
-            ],
+            ]
         )
+        logger.info(
+            f"Using Bayesian Optimization generation strategy: {gs}. Iterations "
+            f"after {sobol_arms} will take longer to generate due to model-fitting."
+        )
+        return gs
     else:
         logger.info(f"Using Sobol generation strategy.")
         return GenerationStrategy(
-            name="Sobol",
             steps=[
                 GenerationStep(
                     model=Models.SOBOL, num_arms=-1, model_kwargs=model_kwargs
                 )
-            ],
+            ]
         )

@@ -2,6 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import json
+import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import ax.service.utils.best_point as best_point_utils
@@ -37,6 +38,7 @@ from ax.storage.json_store.encoder import object_to_json
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
+from botorch.utils.sampling import manual_seed
 
 
 logger = get_logger(__name__)
@@ -78,6 +80,21 @@ class AxClient:
             otherwise, it is more resource-efficient to
             optimize sequentially, by waiting until enough data is available to
             use the next model.
+
+        random_seed: Optional integer random seed, set to fix the optimization
+            random seed for reproducibility. Works only for Sobol quasi-random
+            generator and for BoTorch-powered models. For the latter models, the
+            trials generated from the same optimization setup with the same seed,
+            will be mostly similar, but the exact parameter values may still vary
+            and trials latter in the optimizations will diverge more and more.
+            This is because a degree of randomness is essential for high performance
+            of the Bayesian optimization models and is not controlled by the seed.
+
+            Note: In multi-threaded environments, the random seed is thread-safe,
+            but does not actually guarantee reproducibility. Whether the outcomes
+            will be exactly the same for two same operations that use the random
+            seed, depends on whether the threads modify the random state in the
+            same order across the two operations.
     """
 
     def __init__(
@@ -85,6 +102,7 @@ class AxClient:
         generation_strategy: Optional[GenerationStrategy] = None,
         db_settings: Any = None,
         enforce_sequential_optimization: bool = True,
+        random_seed: Optional[int] = None,
     ) -> None:
         self.generation_strategy = generation_strategy
         if db_settings and (not DBSettings or not isinstance(db_settings, DBSettings)):
@@ -96,6 +114,16 @@ class AxClient:
         self.db_settings = db_settings
         self._experiment: Optional[Experiment] = None
         self._enforce_sequential_optimization = enforce_sequential_optimization
+        self._random_seed = random_seed
+        if random_seed is not None:
+            logger.info(
+                f"Random seed set to {random_seed}. Note that this setting "
+                "only affects the Sobol quasi-random generator "
+                "and BoTorch-powered Bayesian optimization models. For the latter "
+                "models, setting random seed to the same number for two optimizations "
+                "will make the generated trials similar, but not exactly the same, "
+                "and over time the trials will diverge more."
+            )
         # Trials, for which we received data since last `GenerationStrategy.gen`,
         # used to make sure that generation strategy is updated with new data.
         self._updated_trials: List[int] = []
@@ -154,6 +182,7 @@ class AxClient:
             self.generation_strategy = choose_generation_strategy(
                 search_space=self._experiment.search_space,
                 enforce_sequential_optimization=self._enforce_sequential_optimization,
+                random_seed=self._random_seed,
             )
         self._save_experiment_and_generation_strategy_if_possible()
 
@@ -166,8 +195,10 @@ class AxClient:
         Returns:
             Tuple of trial parameterization, trial index
         """
-        # NOTE: Could move this into complete_trial to save latency on this call.
-        trial = self._suggest_new_trial()
+        with warnings.catch_warnings():
+            # Filter out GPYTorch warnings to avoid confusing users.
+            warnings.simplefilter("ignore")
+            trial = self._suggest_new_trial()
         trial.mark_dispatched()
         self._updated_trials = []
         self._save_experiment_and_generation_strategy_if_possible()
@@ -554,11 +585,18 @@ class AxClient:
             Trial with candidate.
         """
         new_data = self._get_new_data()
-        generator_run = not_none(self.generation_strategy).gen(
-            experiment=self.experiment,
-            new_data=new_data,
-            pending_observations=get_pending_observation_features(
-                experiment=self.experiment
-            ),
-        )
+        # If random seed is not set for this optimization, context manager does
+        # nothing; otherwise, it sets the random seed for torch, but only for the
+        # scope of this call. This is important because torch seed is set globally,
+        # so if we just set the seed without the context manager, it can have
+        # serious negative impact on the performance of the models that employ
+        # stochasticity.
+        with manual_seed(seed=self._random_seed):
+            generator_run = not_none(self.generation_strategy).gen(
+                experiment=self.experiment,
+                new_data=new_data,
+                pending_observations=get_pending_observation_features(
+                    experiment=self.experiment
+                ),
+            )
         return self.experiment.new_trial(generator_run=generator_run)
