@@ -55,6 +55,15 @@ jobs:
         - sphinx-build -WT sphinx/source sphinx/build
         # since -W flag breaks on first error, re-run without it to print all
         - sphinx-build sphinx/source sphinx/build
+    - name: "Build with Stable PyTorch (for pushing new release)"
+      python: "3.7"
+      env: ALLOW_FAILURE=true
+      install:
+        - pip install cython numpy
+        - pip install botorch
+        - pip install -q -e .[dev,mysql,notebook]
+      script:
+        - pytest -ra
     - name: "Docs: Sphinx Coverage (Python 3.6)"
       python: "3.6"
       # Allow failure for now, until missing modules are added to documentation.
