@@ -18,7 +18,7 @@ from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
-from botorch.optim.optimize import optimize_acqf
+from botorch.optim.optimize import joint_optimize, sequential_optimize
 from botorch.utils import (
     get_objective_weights_transform,
     get_outcome_constraint_transforms,
@@ -204,7 +204,7 @@ def scipy_optimizer(
     fixed_features: Optional[Dict[int, float]] = None,
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
     **kwargs: Any,
-) -> Tuple[Tensor, Tensor]:
+) -> Tensor:
     r"""Optimizer using scipy's minimize module on a numpy-adpator.
 
     Args:
@@ -233,12 +233,15 @@ def scipy_optimizer(
     num_restarts: int = kwargs.get("num_restarts", 20)
     raw_samples: int = kwargs.get("num_raw_samples", 50 * num_restarts)
 
-    sequential = not kwargs.get("joint_optimization", False)
-    # use SLSQP by default for small problems since it yields faster wall times
-    if sequential and "method" not in kwargs:
-        kwargs["method"] = "SLSQP"
+    if kwargs.get("joint_optimization", False):
+        optimize = joint_optimize
+    else:
+        optimize = sequential_optimize
+        # use SLSQP by default for small problems since it yields faster wall times
+        if "method" not in kwargs:
+            kwargs["method"] = "SLSQP"
 
-    return optimize_acqf(
+    X = optimize(
         acq_function=acq_function,
         bounds=bounds,
         q=n,
@@ -248,8 +251,11 @@ def scipy_optimizer(
         inequality_constraints=inequality_constraints,
         fixed_features=fixed_features,
         post_processing_func=rounding_func,
-        sequential=not kwargs.get("joint_optimization", False),
     )
+    # TODO: Un-hack this once botorch #234 is part of a stable release
+    if isinstance(X, tuple):
+        X, _ = X
+    return X
 
 
 def _get_model(
