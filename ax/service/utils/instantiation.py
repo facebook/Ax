@@ -175,18 +175,33 @@ def constraint_from_str(
     parameter_names = parameters.keys()
     order_const = len(tokens) == 3 and tokens[1] in COMPARISON_OPS
     sum_const = (
-        len(tokens) >= 5 and len(tokens) % 2 == 1 and tokens[-2] in COMPARISON_OPS
+        (len(tokens) >= 5)
+        and (len(tokens) % 2 == 1)
+        and (tokens[-2] in COMPARISON_OPS)
+        and ("*" not in tokens)
     )
-    if not (order_const or sum_const):
+    parameter_const = (
+        (len(tokens) >= 5)
+        and (len(tokens) % 2 == 1)
+        and (tokens[-2] in COMPARISON_OPS)
+        and ("*" in tokens)
+    )
+
+    if not (order_const or sum_const or parameter_const):
         raise ValueError(
-            "Parameter constraint should be of form <parameter_name> >= "
-            "<other_parameter_name> for order constraints or `<parameter_name> "
-            "+ <other_parameter_name> >= x, where any number of parameters can be "
-            "summed up and `x` is a float bound. Acceptable comparison operators "
-            'are ">=" and "<=".'
+            "Parameter constraint should be of form"
+            "order constraint: <parameter_name> >= <other_parameter_name>"
+            "sum constraint: `<parameter_name> + <other_parameter_name> >= x`, where any number of parameters can be "
+            "summed up and `x` is a float bound."
+            "Acceptable comparison operators are >= and <="
+            "parameter constraint: `<weight> * <parameter_name> + <other_weight> * <other_parameter_name> <= x`",
+            "where any number of parameters and weights can be"
+            "summed up and `x` is a float bound."
+            "Only comparison operator is <="
+            "<weight> can be negative",
         )
 
-    if len(tokens) == 3:  # Case "x1 >= x2" => order constraint.
+    if order_const:  # Case "x1 >= x2" => order constraint.
         left, right = tokens[0], tokens[2]
         assert left in parameter_names, f"Parameter {left} not in {parameter_names}."
         assert right in parameter_names, f"Parameter {right} not in {parameter_names}."
@@ -200,25 +215,57 @@ def constraint_from_str(
             )
         )
 
-    try:  # Case "x1 + x3 >= 2" => sum constraint.
+    try:
         bound = float(tokens[-1])
     except ValueError:
-        raise ValueError(f"Bound for sum constraint must be a number; got {tokens[-1]}")
+        raise ValueError(
+            f"Bound for sum or parameter constraint must be a number; got {tokens[-1]}"
+        )
     used_parameters = []
-    for idx, token in enumerate(tokens[:-2]):
-        if idx % 2 == 0:
-            assert (
-                token in parameter_names
-            ), f"Parameter {token} not in {parameter_names}."
-            used_parameters.append(token)
-        else:
-            assert token == "+", f"Expected a sum constraint, found operator {token}."
-    return SumConstraint(
-        parameters=[parameters[p] for p in parameters if p in used_parameters],
-        is_upper_bound=COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ,
-        bound=bound,
-    )
+    used_weights = []
 
+    if sum_const:
+        for idx, token in enumerate(tokens[:-2]):
+            if idx % 2 == 0:
+                assert (
+                    token in parameter_names
+                ), f"Parameter {token} not in {parameter_names}."
+                used_parameters.append(token)
+            else:
+                assert (
+                    token == "+"
+                ), f"Expected a sum constraint, found operator {token}."
+        return SumConstraint(
+            parameters=[parameters[p] for p in parameters if p in used_parameters],
+            is_upper_bound=COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ,
+            bound=bound,
+        )
+    if parameter_const:
+        for idx, token in enumerate(tokens[:-2]):
+            if idx % 4 == 0:
+                try:
+                    weight = float(token)
+                    used_weights.append(weight)
+                except:
+                    raise ValueError(
+                        f"Weight for parameter constraint must be a number; got {token}"
+                    )
+            elif idx % 4 == 1:
+                assert (
+                    token == "*"
+                ), f"Expected a multiplication, found operator {token}."
+            elif idx % 4 == 2:
+                assert (
+                    token in parameter_names
+                ), f"Parameter {token} not in {parameter_names}."
+                used_parameters.append(token)
+            else:
+                assert (
+                    token == "+"
+                ), f"Expected a sum constraint, found operator {token}."
+        return ParameterConstraint(
+            constraint_dict=dict(zip(used_parameters, used_weights)), bound=bound
+        )
 
 def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
     """Parse string representation of an outcome constraint."""
