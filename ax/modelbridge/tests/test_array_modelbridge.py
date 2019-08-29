@@ -11,13 +11,10 @@ from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.tests.test_base_modelbridge import (
-    observation1,
-    search_space_for_range_value,
-)
 from ax.modelbridge.transforms.base import Transform
 from ax.models.numpy_base import NumpyModel
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.fake import get_observation1, get_search_space_for_range_value
 
 
 # Prepare mock transforms
@@ -101,7 +98,7 @@ class ArrayModelBridgeTest(TestCase):
     @patch(
         f"{ModelBridge.__module__}.observations_from_data",
         autospec=True,
-        return_value=([observation1()]),
+        return_value=([get_observation1()]),
     )
     @patch(
         f"{ModelBridge.__module__}.unwrap_observation_data",
@@ -139,9 +136,9 @@ class ArrayModelBridgeTest(TestCase):
         _mock_unwrap,
         _mock_obs_from_data,
     ):
-        exp = Experiment(search_space_for_range_value(), "test")
+        exp = Experiment(get_search_space_for_range_value(), "test")
         modelbridge = ArrayModelBridge(
-            search_space_for_range_value(), NumpyModel(), [t1, t2], exp, 0
+            get_search_space_for_range_value(), NumpyModel(), [t1, t2], exp, 0
         )
         self.assertEqual(list(modelbridge.transforms.keys()), ["t1", "t2"])
         run = modelbridge.gen(
