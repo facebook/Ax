@@ -186,6 +186,7 @@ class BotorchModel(TorchModel):
         acqf_optimizer: TOptimizer = scipy_optimizer,
         refit_on_cv: bool = False,
         refit_on_update: bool = True,
+        warm_start_refitting: bool = True,
         **kwargs: Any,
     ) -> None:
         self.model_constructor = model_constructor
@@ -203,6 +204,7 @@ class BotorchModel(TorchModel):
         self.task_features: List[int] = []
         self.fidelity_features: List[int] = []
         self.fidelity_model_id = kwargs.get("fidelity_model_id", None)
+        self.warm_start_refitting = warm_start_refitting
 
     @copy_doc(TorchModel.fit)
     def fit(
@@ -382,7 +384,7 @@ class BotorchModel(TorchModel):
         self.Xs = Xs
         self.Ys = Ys
         self.Yvars = Yvars
-        if self.refit_on_update:
+        if self.refit_on_update and not self.warm_start_refitting:
             state_dict = None
         else:
             state_dict = deepcopy(self.model.state_dict())  # pyre-ignore: [16]
@@ -394,6 +396,7 @@ class BotorchModel(TorchModel):
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
             fidelity_model_id=self.fidelity_model_id,
+            refit_model=self.refit_on_update,
         )
 
 

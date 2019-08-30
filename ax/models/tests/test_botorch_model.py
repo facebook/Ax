@@ -255,9 +255,9 @@ class BotorchModelTest(TestCase):
         # Test loading state dict
         tkwargs = {"device": device, "dtype": dtype}
         true_state_dict = {
-            "mean_module.constant": [[3.5004]],
-            "covar_module.raw_outputscale": [2.2438],
-            "covar_module.base_kernel.raw_lengthscale": [[[-0.9274, -0.9274, -0.9274]]],
+            "mean_module.constant": [3.5004],
+            "covar_module.raw_outputscale": 2.2438,
+            "covar_module.base_kernel.raw_lengthscale": [[-0.9274, -0.9274, -0.9274]],
             "covar_module.base_kernel.lengthscale_prior.concentration": 3.0,
             "covar_module.base_kernel.lengthscale_prior.rate": 6.0,
             "covar_module.outputscale_prior.concentration": 2.0,
@@ -273,9 +273,33 @@ class BotorchModelTest(TestCase):
             task_features=[],
             fidelity_features=[],
             state_dict=true_state_dict,
+            refit_model=False,
         )
         for k, v in chain(model.named_parameters(), model.named_buffers()):
             self.assertTrue(torch.equal(true_state_dict[k], v))
+
+        # Test for some change in model parameters & buffer for refit_model=True
+        true_state_dict["mean_module.constant"] += 0.1
+        true_state_dict["covar_module.raw_outputscale"] += 0.1
+        true_state_dict["covar_module.base_kernel.raw_lengthscale"] += 0.1
+        true_state_dict = {
+            key: torch.tensor(val, **tkwargs) for key, val in true_state_dict.items()
+        }
+        model = get_and_fit_model(
+            Xs=Xs1,
+            Ys=Ys1,
+            Yvars=Yvars1,
+            task_features=[],
+            fidelity_features=[],
+            state_dict=true_state_dict,
+            refit_model=True,
+        )
+        self.assertTrue(
+            any(
+                not torch.equal(true_state_dict[k], v)
+                for k, v in chain(model.named_parameters(), model.named_buffers())
+            )
+        )
 
     def test_BotorchModel_cuda(self):
         if torch.cuda.is_available():
