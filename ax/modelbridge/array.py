@@ -35,7 +35,9 @@ class ArrayModelBridge(ModelBridge):
     """
 
     model: Any
+    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: List[str]
+    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: List[str]
 
     def _fit(

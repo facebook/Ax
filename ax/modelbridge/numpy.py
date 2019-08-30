@@ -16,6 +16,9 @@ class NumpyModelBridge(ArrayModelBridge):
     or FixedParameters with float type and no log scale.
     """
 
+    # pyre-fixme[13]: Attribute `model` is never initialized.
     model: NumpyModel
+    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: List[str]
+    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: List[str]

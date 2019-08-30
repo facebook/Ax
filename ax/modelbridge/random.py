@@ -36,7 +36,9 @@ class RandomModelBridge(ModelBridge):
         parameters: Params found in search space on modelbridge init.
     """
 
+    # pyre-fixme[13]: Attribute `model` is never initialized.
     model: RandomModel
+    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: List[str]
 
     def _fit(

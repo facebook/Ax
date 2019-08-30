@@ -29,6 +29,7 @@ class SobolGenerator(RandomModel):
 
     """
 
+    # pyre-fixme[31]: Expression `SobolEngine` is not a valid type.
     engine: Optional[SobolEngine] = None
 
     def __init__(

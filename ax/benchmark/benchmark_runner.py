@@ -75,6 +75,7 @@ class BenchmarkSetup(Experiment):
         return BenchmarkSetup(self.problem, self.total_iterations, self.batch_size)
 
 
+# pyre-fixme[44]: `BenchmarkRunner` non-abstract class with abstract methods.
 class BenchmarkRunner:
     """Runner that keeps track of benchmark runs and failures encountered
     during benchmarking.

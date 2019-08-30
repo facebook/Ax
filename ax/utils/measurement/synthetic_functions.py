@@ -164,10 +164,16 @@ class SyntheticFunction(ABC):
 class Hartmann6(SyntheticFunction):
     """Hartmann6 function (6-dimensional with 1 global minimum)."""
 
+    # pyre-fixme[15]: `_required_dimensionality` overrides attribute defined in
+    #  `SyntheticFunction` inconsistently.
     _required_dimensionality = 6
     _domain = [(0, 1) for i in range(6)]
+    # pyre-fixme[15]: `_minimums` overrides attribute defined in `SyntheticFunction`
+    #  inconsistently.
     _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573)]
     _fmin = -3.32237
+    # pyre-fixme[15]: `_fmax` overrides attribute defined in `SyntheticFunction`
+    #  inconsistently.
     _fmax = 0.0
     _alpha = np.array([1.0, 1.2, 3.0, 3.2])
     _A = np.array(
@@ -203,6 +209,8 @@ class Aug_Hartmann6(Hartmann6):
 
     _required_dimensionality = 7
     _domain = [(0, 1) for i in range(7)]
+    # pyre-fixme[15]: `_minimums` overrides attribute defined in `Hartmann6`
+    #  inconsistently.
     _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573, 1.0)]
     _fmin = -3.32237
     _fmax = 0.0
@@ -225,10 +233,16 @@ class Aug_Hartmann6(Hartmann6):
 class Branin(SyntheticFunction):
     """Branin function (2-dimensional with 3 global minima)."""
 
+    # pyre-fixme[15]: `_required_dimensionality` overrides attribute defined in
+    #  `SyntheticFunction` inconsistently.
     _required_dimensionality = 2
     _domain = [(-5, 10), (0, 15)]
     _minimums = [(-np.pi, 12.275), (np.pi, 2.275), (9.42478, 2.475)]
+    # pyre-fixme[15]: `_fmin` overrides attribute defined in `SyntheticFunction`
+    #  inconsistently.
     _fmin = 0.397887
+    # pyre-fixme[15]: `_fmax` overrides attribute defined in `SyntheticFunction`
+    #  inconsistently.
     _fmax = 294.0
 
     @copy_doc(SyntheticFunction._f)
@@ -245,10 +259,16 @@ class Branin(SyntheticFunction):
 class Aug_Branin(SyntheticFunction):
     """Augmented Branin function (3-dimensional with infinitely many global minima)."""
 
+    # pyre-fixme[15]: `_required_dimensionality` overrides attribute defined in
+    #  `SyntheticFunction` inconsistently.
     _required_dimensionality = 3
     _domain = [(-5, 10), (0, 15), (0, 1)]
     _minimums = [(-np.pi, 12.275, 1), (np.pi, 2.275, 1), (9.42478, 2.475, 1)]
+    # pyre-fixme[15]: `_fmin` overrides attribute defined in `SyntheticFunction`
+    #  inconsistently.
     _fmin = 0.397887
+    # pyre-fixme[15]: `_fmax` overrides attribute defined in `SyntheticFunction`
+    #  inconsistently.
     _fmax = 294.0
 
     @copy_doc(SyntheticFunction._f)
