@@ -38,6 +38,7 @@ def get_and_fit_model(
     Yvars: List[Tensor],
     task_features: List[int],
     fidelity_features: List[int],
+    refit_model: bool = True,
     state_dict: Optional[Dict[str, Tensor]] = None,
     fidelity_model_id: Optional[int] = None,
     **kwargs: Any,
@@ -50,6 +51,7 @@ def get_and_fit_model(
         Yvars: List of observed variance of Ys.
         task_features: List of columns of X that are tasks.
         fidelity_features: List of columns of X that are fidelity parameters.
+        refit_model: Flag for refitting model.
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
         fidelity_model_id: set this if you want to use GP models from `model_list`
@@ -107,8 +109,10 @@ def get_and_fit_model(
             for X, Y, Yvar in zip(Xs, Ys, Yvars)
         ]
         model = ModelListGP(*models)
-    model.to(dtype=Xs[0].dtype, device=Xs[0].device)  # pyre-ignore
-    if state_dict is None:
+    model.to(Xs[0])
+    if state_dict is not None:
+        model.load_state_dict(state_dict)
+    if state_dict is None or refit_model:
         # TODO: Add bounds for optimization stability - requires revamp upstream
         bounds = {}
         if isinstance(model, ModelListGP):
@@ -117,8 +121,6 @@ def get_and_fit_model(
             # pyre-ignore: [16]
             mll = ExactMarginalLogLikelihood(model.likelihood, model)
         mll = fit_gpytorch_model(mll, bounds=bounds)
-    else:
-        model.load_state_dict(state_dict)
     return model
 
 

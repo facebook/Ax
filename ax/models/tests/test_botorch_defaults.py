@@ -46,6 +46,7 @@ class BotorchDefaultsTest(TestCase):
             task_features=[1],
             fidelity_features=[],
             state_dict=[],
+            refit_model=False,
         )
         # Check that task feature was correctly passed to _get_model
         self.assertEqual(get_model_mock.mock_calls[0][2]["task_feature"], 1)
@@ -58,6 +59,7 @@ class BotorchDefaultsTest(TestCase):
                 task_features=[0, 1],
                 fidelity_features=[],
                 state_dict=[],
+                refit_model=False,
             )
 
         with self.assertRaises(NotImplementedError):
@@ -69,6 +71,7 @@ class BotorchDefaultsTest(TestCase):
                 fidelity_features=[],
                 state_dict=[],
                 fidelity_model_id=0,
+                refit_model=False,
             )
 
         with self.assertRaises(UnsupportedError):
@@ -80,4 +83,5 @@ class BotorchDefaultsTest(TestCase):
                 fidelity_features=[-1, -2],
                 state_dict=[],
                 fidelity_model_id=0,
+                refit_model=False,
             )
