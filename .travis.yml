@@ -85,7 +85,7 @@ stages:
   - name: Test
   - name: Deploy Website
     # require the branch name to be master & only build daily
-    if: branch = master AND type = cron
+    # if: branch = master AND type = cron
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
