@@ -729,7 +729,7 @@ def slice_config_to_trace(
         "y": sd_y,
         "fill": "toself",
         "fillcolor": "rgba(128, 177, 211, 0.2)",
-        "line": {"color": "transparent"},
+        "line": {"color": "rgba(128, 177, 211, 0.0)"},
         "showlegend": False,
         "hoverinfo": "none",
         "visible": visible,
