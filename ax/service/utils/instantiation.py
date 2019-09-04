@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Union, cast
 
 import numpy as np
 from ax.core.arm import Arm
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -279,7 +280,7 @@ def make_experiment(
 
 def raw_data_to_evaluation(
     raw_data: TEvaluationOutcome, objective_name: str
-) -> Union[TTrialEvaluation, TFidelityTrialEvaluation]:
+) -> TEvaluationOutcome:
     """Format the trial evaluation data to a standard `TTrialEvaluation`
     (mapping from metric names to a tuple of mean and SEM) representation, or
     to a TFidelityTrialEvaluation.
@@ -287,9 +288,9 @@ def raw_data_to_evaluation(
     Note: this function expects raw_data to be data for a `Trial`, not a
     `BatchedTrial`.
     """
-    # `BatchedTrial` data not expected because it was not needed, to add (if
-    # need arises), make raw_data a mapping from arm name to TEvaluationOutcome.
     if isinstance(raw_data, dict):
+        if any(isinstance(x, dict) for x in raw_data.values()):  # pragma: no cover
+            raise ValueError("Raw data is expected to be just for one arm.")
         return raw_data
     elif isinstance(raw_data, list):
         return raw_data
@@ -305,3 +306,42 @@ def raw_data_to_evaluation(
             "of a dictionary of metric names to mean, sem tuples, "
             "or a single mean, sem tuple, or a single mean."
         )
+
+
+def data_from_evaluations(
+    evaluations: Dict[str, TEvaluationOutcome],
+    trial_index: int,
+    sample_sizes: Dict[str, int],
+) -> Data:
+    """Transforms evaluations into Ax Data.
+
+    Each evaluation is either a trial evaluation: {metric_name -> (mean, SEM)}
+    or a fidelity trial evaluation for multi-fidelity optimizations:
+    [(fidelities, {metric_name -> (mean, SEM)})].
+
+    Args:
+        evalutions: Mapping from arm name to evaluation.
+        trial_index: Index of the trial, for which the evaluations are.
+        sample_sizes: Number of samples collected for each arm, may be empty
+            if unavailable.
+    """
+    if all(isinstance(evaluations[x], dict) for x in evaluations.keys()):
+        # All evaluations are no-fidelity evaluations.
+        data = Data.from_evaluations(
+            evaluations=cast(Dict[str, TTrialEvaluation], evaluations),
+            trial_index=trial_index,
+            sample_sizes=sample_sizes,
+        )
+    elif all(isinstance(evaluations[x], list) for x in evaluations.keys()):
+        # All evaluations are with-fidelity evaluations.
+        data = Data.from_fidelity_evaluations(
+            evaluations=cast(Dict[str, TFidelityTrialEvaluation], evaluations),
+            trial_index=trial_index,
+            sample_sizes=sample_sizes,
+        )
+    else:
+        raise ValueError(  # pragma: no cover
+            "Evaluations included a mixture of no-fidelity and with-fidelity "
+            "evaluations, which is not currently supported."
+        )
+    return data

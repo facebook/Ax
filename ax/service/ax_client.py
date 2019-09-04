@@ -3,21 +3,20 @@
 
 import json
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import ax.service.utils.best_point as best_point_utils
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
-    TFidelityTrialEvaluation,
     TModelPredictArm,
     TParameterization,
     TParamValue,
-    TTrialEvaluation,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
@@ -26,7 +25,11 @@ from ax.plot.contour import plot_contour
 from ax.plot.helper import _get_in_sample_arms
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.dispatch import choose_generation_strategy
-from ax.service.utils.instantiation import make_experiment, raw_data_to_evaluation
+from ax.service.utils.instantiation import (
+    data_from_evaluations,
+    make_experiment,
+    raw_data_to_evaluation,
+)
 from ax.service.utils.storage import (
     load_experiment_and_generation_strategy,
     save_experiment_and_generation_strategy,
@@ -196,7 +199,7 @@ class AxClient:
         Returns:
             Tuple of trial parameterization, trial index
         """
-        trial = self._suggest_new_trial()
+        trial = self.experiment.new_trial(generator_run=self._gen_new_generator_run())
         trial.mark_dispatched()
         self._updated_trials = []
         self._save_experiment_and_generation_strategy_if_possible()
@@ -228,7 +231,7 @@ class AxClient:
         trial = self.experiment.trials[trial_index]
         if not isinstance(trial, Trial):
             raise NotImplementedError(
-                "Batch trial functionality is not yet available through Service API."
+                "The Service API only supports `Trial`, not `BatchTrial`."
             )
 
         if metadata is not None:
@@ -241,21 +244,9 @@ class AxClient:
             )
         }
         sample_sizes = {arm_name: sample_size} if sample_size else {}
-        if isinstance(evaluations[arm_name], dict):
-            # Evaluations has format {arm_name -> {metric_name -> (mean, SEM)}}.
-            data = Data.from_evaluations(
-                evaluations=cast(Dict[str, TTrialEvaluation], evaluations),
-                trial_index=trial.index,
-                sample_sizes=sample_sizes,
-            )
-        else:
-            # Fidelity evaluations have format:
-            # {arm_name -> [(fidelities, {metric_name -> (mean, SEM)})]}.
-            data = Data.from_fidelity_evaluations(
-                evaluations=cast(Dict[str, TFidelityTrialEvaluation], evaluations),
-                trial_index=trial.index,
-                sample_sizes=sample_sizes,
-            )
+        data = data_from_evaluations(
+            evaluations=evaluations, trial_index=trial.index, sample_sizes=sample_sizes
+        )
         # In service API, a trial may be completed multiple times (for multiple
         # metrics, for example).
         trial.mark_completed(allow_repeat_completion=True)
@@ -624,15 +615,11 @@ class AxClient:
             [self.experiment.lookup_data_for_trial(idx) for idx in self._updated_trials]
         )
 
-    def _suggest_new_trial(self) -> Trial:
-        """
-        Suggest new candidate for this experiment.
+    def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
+        """Generate new generator run for this experimebt.
 
         Args:
-            n: Number of candidates to generate.
-
-        Returns:
-            Trial with candidate.
+            n: Number of arms to generate.
         """
         new_data = self._get_new_data()
         # If random seed is not set for this optimization, context manager does
@@ -644,11 +631,11 @@ class AxClient:
         with manual_seed(seed=self._random_seed) and warnings.catch_warnings():
             # Filter out GPYTorch warnings to avoid confusing users.
             warnings.simplefilter("ignore")
-            generator_run = not_none(self.generation_strategy).gen(
+            return not_none(self.generation_strategy).gen(
                 experiment=self.experiment,
                 new_data=new_data,
+                n=n,
                 pending_observations=get_pending_observation_features(
                     experiment=self.experiment
                 ),
             )
-        return self.experiment.new_trial(generator_run=generator_run)
