@@ -381,18 +381,28 @@ class BaseTrial(ABC, Base):
         self._time_run_started = datetime.now()
         return self
 
-    def mark_completed(self) -> "BaseTrial":
+    def mark_completed(self, allow_repeat_completion: bool = False) -> "BaseTrial":
         """Mark trial as completed.
+
+        Args:
+            allow_repeat_completion: If set to True, this function will not raise an
+                error is a trial that has already been marked as completed is
+                being marked as completed again.
 
         Returns:
             The trial instance.
         """
+        repeat_completion = (
+            self._status == TrialStatus.COMPLETED and allow_repeat_completion
+        )
         if (
             self._status != TrialStatus.RUNNING
             and self._status != TrialStatus.DISPATCHED
+            and not repeat_completion
         ):
             raise ValueError(
-                "Can only complete trial that is currently running or dispatched."
+                "Can only complete trial that is currently running, dispatched "
+                "or completed (for latter, `allow_repeat_completion` must be True)."
             )
         self._status = TrialStatus.COMPLETED
         self._time_completed = datetime.now()

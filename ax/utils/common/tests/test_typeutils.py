@@ -5,6 +5,7 @@ import numpy as np
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import (
     checked_cast,
+    checked_cast_dict,
     checked_cast_list,
     checked_cast_optional,
     not_none,
@@ -32,6 +33,13 @@ class TestTypeUtils(TestCase):
         self.assertEqual(checked_cast_optional(float, None), None)
         with self.assertRaises(ValueError):
             checked_cast_optional(float, 2)
+
+    def test_checked_cast_dict(self):
+        self.assertEqual(checked_cast_dict(str, int, {"some": 1}), {"some": 1})
+        with self.assertRaises(ValueError):
+            checked_cast_dict(str, int, {"some": 1.0})
+        with self.assertRaises(ValueError):
+            checked_cast_dict(str, int, {1: 1})
 
     def test_numpy_type_to_python_type(self):
         self.assertEqual(type(numpy_type_to_python_type(np.int64(2))), int)

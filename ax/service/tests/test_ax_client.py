@@ -32,6 +32,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.testing.fake import get_observation1, get_observation1trans
 
 
 class FakeModels(Enum):
@@ -441,7 +442,7 @@ class TestServiceAPI(TestCase):
     @patch("ax.service.utils.dispatch.Models", FakeModels)
     def test_recommended_parallelism(self):
         ax = AxClient()
-        with self.assertRaisesRegex(ValueError, "`get_recommended_max_parallelism`"):
+        with self.assertRaisesRegex(ValueError, "No generation strategy"):
             ax.get_recommended_max_parallelism()
         ax.create_experiment(
             parameters=[
@@ -603,3 +604,33 @@ class TestServiceAPI(TestCase):
                     idx + 1,
                 )
             ax.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
+
+    @patch(
+        "ax.modelbridge.base.observations_from_data",
+        autospec=True,
+        return_value=([get_observation1()]),
+    )
+    @patch(
+        "ax.modelbridge.random.RandomModelBridge.get_training_data",
+        autospec=True,
+        return_value=([get_observation1()]),
+    )
+    @patch(
+        "ax.modelbridge.random.RandomModelBridge._predict",
+        autospec=True,
+        return_value=[get_observation1trans().data],
+    )
+    def test_get_model_predictions(self, _predict, _tr_data, _obs_from_data):
+        ax = AxClient()
+        ax.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+            objective_name="a",
+        )
+        ax.get_next_trial()
+        ax.experiment.trials[0].arm._name = "1_1"
+        self.assertEqual(ax.get_model_predictions(), {0: {"a": (9.0, 1.0)}})

@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
-from typing import Any, List, Optional, Tuple, Type, TypeVar
+
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
 import numpy as np
 
 
 T = TypeVar("T")
 V = TypeVar("V")
+K = TypeVar("K")
+X = TypeVar("X")
+Y = TypeVar("Y")
 
 
 def not_none(val: Optional[T]) -> T:
@@ -21,12 +25,11 @@ def not_none(val: Optional[T]) -> T:
       ValueError if ``val`` is ``None``
     """
     if val is None:
-        raise ValueError("Argument to not_none was None")
+        raise ValueError("Argument to `not_none` was None.")
     return val
 
 
-# pyre-fixme[34]: `T` isn't present in the function's parameters.
-def checked_cast(typ: Type[V], val: V) -> T:
+def checked_cast(typ: Type[T], val: V) -> T:
     """
     Cast a value to a type (with a runtime safety check).
 
@@ -46,26 +49,36 @@ def checked_cast(typ: Type[V], val: V) -> T:
     .. _typing.cast: https://docs.python.org/3/library/typing.html#typing.cast
     """
     if not isinstance(val, typ):
-        raise ValueError(f"Value was not of type {type!r}:\n{val!r}")
+        raise ValueError(f"Value was not of type {type}:\n{val}")
     return val
 
 
-# pyre-fixme[34]: `T` isn't present in the function's parameters.
-def checked_cast_optional(typ: Type[V], val: Optional[V]) -> Optional[T]:
+def checked_cast_optional(typ: Type[T], val: Optional[V]) -> Optional[T]:
     """Calls checked_cast only if value is not None."""
     if val is None:
         return val
     return checked_cast(typ, val)
 
 
-# pyre-fixme[34]: `T` isn't present in the function's parameters.
-def checked_cast_list(typ: Type[V], l: List[V]) -> List[T]:
+def checked_cast_list(typ: Type[T], l: List[V]) -> List[T]:
     """Calls checked_cast on all items in a list."""
     new_l = []
     for val in l:
         val = checked_cast(typ, val)
         new_l.append(val)
-    return l
+    return new_l
+
+
+def checked_cast_dict(
+    key_typ: Type[K], value_typ: Type[V], d: Dict[X, Y]
+) -> Dict[K, V]:
+    """Calls checked_cast on all keys and values in the dictionary."""
+    new_dict = {}
+    for key, val in d.items():
+        val = checked_cast(value_typ, val)
+        key = checked_cast(key_typ, key)
+        new_dict[key] = val
+    return new_dict
 
 
 # pyre-fixme[34]: `T` isn't present in the function's parameters.
