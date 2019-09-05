@@ -73,7 +73,8 @@ class AxClient:
             intelligently chosen based on properties of search space.
 
         db_settings: Settings for saving and reloading the underlying experiment
-            to a database.
+            to a database. Expected to be of type
+            ax.storage.sqa_store.structs.DBSettings and require SQLAlchemy.
 
         enforce_sequential_optimization: Whether to enforce that when it is
             reasonable to switch models during the optimization (as prescribed
@@ -188,7 +189,7 @@ class AxClient:
                 enforce_sequential_optimization=self._enforce_sequential_optimization,
                 random_seed=self._random_seed,
             )
-        self._save_experiment_and_generation_strategy_if_possible()
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
 
     def get_next_trial(self) -> Tuple[TParameterization, int]:
         """
@@ -202,7 +203,7 @@ class AxClient:
         trial = self.experiment.new_trial(generator_run=self._gen_new_generator_run())
         trial.mark_dispatched()
         self._updated_trials = []
-        self._save_experiment_and_generation_strategy_if_possible()
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
     def complete_trial(
@@ -252,7 +253,7 @@ class AxClient:
         trial.mark_completed(allow_repeat_completion=True)
         self.experiment.attach_data(data)
         self._updated_trials.append(trial_index)
-        self._save_experiment_and_generation_strategy_if_possible()
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
 
     def log_trial_failure(
         self, trial_index: int, metadata: Optional[Dict[str, str]] = None
@@ -267,7 +268,7 @@ class AxClient:
         trial.mark_failed()
         if metadata is not None:
             trial._run_metadata = metadata
-        self._save_experiment_and_generation_strategy_if_possible()
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
 
     def attach_trial(
         self, parameters: TParameterization
@@ -282,7 +283,7 @@ class AxClient:
         """
         trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
         trial.mark_dispatched()
-        self._save_experiment_and_generation_strategy_if_possible()
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
     def get_trial_parameters(self, trial_index: int) -> TParameterization:
@@ -439,8 +440,9 @@ class AxClient:
             "of this optimization."
         )
 
-    def load_experiment(self, experiment_name: str) -> None:
-        """Load an existing experiment from DB.
+    def load_experiment_from_database(self, experiment_name: str) -> None:
+        """Load an existing experiment from database using the `DBSettings`
+        passed to this `AxClient` on instantiation.
 
         Args:
             experiment_name: Name of the experiment.
@@ -518,13 +520,32 @@ class AxClient:
 
     # ------------------ JSON serialization & storage methods. -----------------
 
+    def save_to_json_file(self, filepath: str = "ax_client_snapshot.json") -> None:
+        """Save a JSON-serialized snapshot of this `AxClient`'s settings and state
+        to a .json file by the given path.
+        """
+        with open(filepath, "w+") as file:  # pragma: no cover
+            file.write(json.dumps(self.to_json_snapshot()))
+
+    @staticmethod
+    def load_from_json_file(filepath: str = "ax_client_snapshot.json") -> "AxClient":
+        """Restore an `AxClient` and its state from a JSON-serialized snapshot,
+        residing in a .json file by the given path.
+        """
+        with open(filepath, "r") as file:  # pragma: no cover
+            serialized = json.loads(file.read())
+            return AxClient.from_json_snapshot(serialized=serialized)
+
     def to_json_snapshot(self) -> Dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
         optimization and save it to file by the provided path.
+
+        Returns:
+            A JSON-safe dict representation of this `AxClient`.
         """
         return {
             "_type": self.__class__.__name__,
-            "experiment": object_to_json(self.experiment),
+            "experiment": object_to_json(self._experiment),
             "generation_strategy": object_to_json(self._generation_strategy),
             "_enforce_sequential_optimization": self._enforce_sequential_optimization,
             "_updated_trials": object_to_json(self._updated_trials),
@@ -534,10 +555,13 @@ class AxClient:
     def from_json_snapshot(serialized: Dict[str, Any]) -> "AxClient":
         """Recreate an `AxClient` from a JSON snapshot."""
         experiment = object_from_json(serialized.pop("experiment"))
+        serialized_generation_strategy = serialized.pop("generation_strategy")
         ax_client = AxClient(
             generation_strategy=generation_strategy_from_json(
-                generation_strategy_json=serialized.pop("generation_strategy")
-            ),
+                generation_strategy_json=serialized_generation_strategy
+            )
+            if serialized_generation_strategy is not None
+            else None,
             enforce_sequential_optimization=serialized.pop(
                 "_enforce_sequential_optimization"
             ),
@@ -545,22 +569,6 @@ class AxClient:
         ax_client._experiment = experiment
         ax_client._updated_trials = object_from_json(serialized.pop("_updated_trials"))
         return ax_client
-
-    def save(self, filepath: str = "ax_client_snapshot.json") -> None:
-        """Save a JSON-serialized snapshot of this `AxClient`'s settings and state
-        to a .json file by the given path.
-        """
-        with open(filepath, "w+") as file:  # pragma: no cover
-            file.write(json.dumps(self.to_json_snapshot()))
-
-    @staticmethod
-    def load(filepath: str = "ax_client_snapshot.json") -> "AxClient":
-        """Restore an `AxClient` and its state from a JSON-serialized snapshot,
-        residing in a .json file by the given path.
-        """
-        with open(filepath, "r") as file:  # pragma: no cover
-            serialized = json.loads(file.read())
-            return AxClient.from_json_snapshot(serialized=serialized)
 
     # ---------------------- Private helper methods. ---------------------
 
@@ -589,7 +597,7 @@ class AxClient:
         opt_config = not_none(self.experiment.optimization_config)
         return opt_config.objective.metric.name
 
-    def _save_experiment_and_generation_strategy_if_possible(self) -> bool:
+    def _save_experiment_and_generation_strategy_to_db_if_possible(self) -> bool:
         """Saves attached experiment and generation strategy if DB settings are
         set on this AxClient instance.
 
@@ -639,3 +647,25 @@ class AxClient:
                     experiment=self.experiment
                 ),
             )
+
+    # -------- Backward-compatibility with old save / load method names. -------
+
+    @staticmethod
+    def load_experiment(experiment_name: str) -> None:
+        raise NotImplementedError(
+            "Use `load_experiment_from_database` to load from SQL database or "
+            "`load_from_json_file` to load optimization state from .json file."
+        )
+
+    @staticmethod
+    def load(filepath: Optional[str] = None) -> None:
+        raise NotImplementedError(
+            "Use `load_experiment_from_database` to load from SQL database or "
+            "`load_from_json_file` to load optimization state from .json file."
+        )
+
+    @staticmethod
+    def save(filepath: Optional[str] = None) -> None:
+        raise NotImplementedError(
+            "Use `save_to_json_file` to save optimization state to .json file."
+        )

@@ -547,7 +547,7 @@ class TestServiceAPI(TestCase):
             )
         gs = ax.generation_strategy
         ax = AxClient(db_settings=db_settings)
-        ax.load_experiment("test_experiment")
+        ax.load_experiment_from_database("test_experiment")
         self.assertEqual(gs, ax.generation_strategy)
 
     def test_fixed_random_seed_reproducibility(self):
@@ -634,3 +634,12 @@ class TestServiceAPI(TestCase):
         ax.get_next_trial()
         ax.experiment.trials[0].arm._name = "1_1"
         self.assertEqual(ax.get_model_predictions(), {0: {"a": (9.0, 1.0)}})
+
+    def ftest_deprecated_save_load_method_errors(self):
+        ax = AxClient()
+        with self.assertRaises(NotImplementedError):
+            ax.save()
+        with self.assertRaises(NotImplementedError):
+            ax.load()
+        with self.assertRaises(NotImplementedError):
+            ax.load_experiment("test_experiment")
