@@ -64,7 +64,6 @@ def _js_requires(offline: bool = False) -> str:
     helper_fxns = _load_js_resource(_AxPlotJSResources.HELPER_FXNS)
     if offline:
         script = Template(_load_js_resource(_AxPlotJSResources.PLOTLY_OFFLINE)).render(
-            # pyre-fixme[18]: Global name `offline` is undefined.
             library=plotly_offline.offline.get_plotlyjs()
         )
     else:

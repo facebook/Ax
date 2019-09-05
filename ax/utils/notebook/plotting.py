@@ -24,7 +24,7 @@ def init_notebook_plotting(offline=False):
 def render(plot_config: AxPlotConfig, inject_helpers=False) -> None:
     """Render plot config."""
     if plot_config.plot_type == AxPlotTypes.GENERIC:
-        iplot(plot_config.data)  # pyre-ignore[16]: Third-party lib.
+        iplot(plot_config.data)
     else:
         display_bundle = {
             "text/html": plot_config_to_html(plot_config, inject_helpers=inject_helpers)

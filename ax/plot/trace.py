@@ -30,7 +30,7 @@ def mean_trace_scatter(
     Returns:
         go.Scatter: plotly graph object
     """
-    return go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+    return go.Scatter(
         name=legend_label,
         legendgroup=legend_label,
         x=np.arange(1, y.shape[1] + 1),
@@ -46,7 +46,7 @@ def sem_range_scatter(
     y: np.ndarray,
     trace_color: Tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "",
-) -> Tuple[go.Scatter]:
+) -> Tuple[go.Scatter, go.Scatter]:
     """Creates a graph object for trace of mean +/- 2 SEMs for y, across runs.
 
     Args:
@@ -61,7 +61,7 @@ def sem_range_scatter(
     mean = np.mean(y, axis=0)
     sem = np.std(y, axis=0) / np.sqrt(y.shape[0])
     return (
-        go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+        go.Scatter(
             x=np.arange(1, y.shape[1] + 1),
             y=mean - 2 * sem,
             legendgroup=legend_label,
@@ -70,7 +70,7 @@ def sem_range_scatter(
             showlegend=False,
             hoverinfo="none",
         ),
-        go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+        go.Scatter(
             x=np.arange(1, y.shape[1] + 1),
             y=mean + 2 * sem,
             legendgroup=legend_label,
@@ -99,7 +99,7 @@ def optimum_objective_scatter(
     Returns:
         go.Scatter: plotly graph objects for the optimal objective line
     """
-    return go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+    return go.Scatter(
         x=[1, num_iterations],
         y=[optimum] * 2,
         mode="lines",
@@ -131,7 +131,7 @@ def generator_changes_scatter(
     data: List[go.Scatter] = []
     for change in generator_changes:
         data.append(
-            go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+            go.Scatter(
                 x=[change] * 2,
                 y=y_range,
                 mode="lines",
@@ -172,10 +172,9 @@ def optimization_trace_single_method(
         AxPlotConfig: plot of the optimization trace with IQR
     """
     trace = mean_trace_scatter(y=y, trace_color=trace_color)
-    # pyre-fixme[23]: Unable to unpack single value, 2 were expected.
     lower, upper = sem_range_scatter(y=y, trace_color=trace_color)
 
-    layout = go.Layout(  # pyre-ignore[16]: ...graph_objs` has no attr. `Layout`
+    layout = go.Layout(
         title=title,
         showlegend=True,
         yaxis={"title": ylabel},
@@ -207,7 +206,6 @@ def optimization_trace_single_method(
         )
 
     return AxPlotConfig(
-        # pyre-ignore[16]: ...graph_objs` has no attr. `Figure`
         data=go.Figure(layout=layout, data=data),
         plot_type=AxPlotTypes.GENERIC,
     )
@@ -245,7 +243,6 @@ def optimization_trace_all_methods(
         # If there are more traces than colors, start reusing colors.
         color = trace_colors[i % len(trace_colors)]
         trace = mean_trace_scatter(y=y, trace_color=color, legend_label=method)
-        # pyre-fixme[23]: Unable to unpack single value, 2 were expected.
         lower, upper = sem_range_scatter(y=y, trace_color=color, legend_label=method)
 
         data.extend([lower, trace, upper])
@@ -260,7 +257,7 @@ def optimization_trace_all_methods(
             )
         )
 
-    layout = go.Layout(  # pyre-ignore[16]: ...graph_objs` has no attr. `Layout`
+    layout = go.Layout(
         title=title,
         showlegend=True,
         yaxis={"title": ylabel},
@@ -268,7 +265,6 @@ def optimization_trace_all_methods(
     )
 
     return AxPlotConfig(
-        # pyre-ignore[16]: ...graph_objs` has no attr. `Figure`
         data=go.Figure(layout=layout, data=data),
         plot_type=AxPlotTypes.GENERIC,
     )
@@ -317,7 +313,7 @@ def optimization_times(
 
     for i, res in enumerate([fit_res, gen_res, total_res]):
         data.append(
-            go.Bar(  # pyre-ignore[16]: ...graph_objs` has no attr. `Bar`
+            go.Bar(
                 x=methods,
                 y=res["mean"],
                 text=res["name"],
@@ -332,7 +328,7 @@ def optimization_times(
             )
         )
 
-    layout = go.Layout(  # pyre-ignore[16]: ...graph_objs` has no attr. `Layout`
+    layout = go.Layout(
         title=title,
         showlegend=False,
         yaxis={"title": "Time"},
@@ -340,7 +336,6 @@ def optimization_times(
     )
 
     return AxPlotConfig(
-        # pyre-ignore[16]: ...graph_objs` has no attr. `Figure`
         data=go.Figure(layout=layout, data=data),
         plot_type=AxPlotTypes.GENERIC,
     )

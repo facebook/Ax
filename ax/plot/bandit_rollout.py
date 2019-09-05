@@ -49,7 +49,7 @@ def plot_bandit_rollout(experiment: Experiment) -> AxPlotConfig:
     # pyre-fixme[6]: Expected `typing.Tuple[...g.Tuple[int, int, int]`.
     colors = [rgba(c) for c in MIXED_SCALE]
 
-    layout = go.Layout(  # pyre-ignore[16]
+    layout = go.Layout(
         title="Rollout Process<br>Bandit Weight Graph",
         xaxis={
             "title": "Rounds",
@@ -71,6 +71,6 @@ def plot_bandit_rollout(experiment: Experiment) -> AxPlotConfig:
     ]
     for bandit in bandits:
         del bandit["index"]  # Have to delete index or figure creation causes error
-    fig = go.Figure(data=bandits, layout=layout)  # pyre-ignore[16]
+    fig = go.Figure(data=bandits, layout=layout)
 
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

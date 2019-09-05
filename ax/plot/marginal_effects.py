@@ -40,7 +40,6 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
     for varname in varnames:
         var_df = effect_table[effect_table["Name"] == varname]
         data += [
-            # pyre-ignore[16]
             go.Bar(
                 x=var_df["Level"],
                 y=var_df["Beta"],

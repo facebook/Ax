@@ -256,7 +256,7 @@ def plot_contour(
         },
     }
 
-    fig = go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
+    fig = go.Figure(data=traces, layout=layout)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
