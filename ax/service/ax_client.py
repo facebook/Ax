@@ -459,7 +459,14 @@ class AxClient:
             experiment_name=experiment_name, db_settings=self.db_settings
         )
         self._experiment = experiment
-        self._generation_strategy = generation_strategy
+        if generation_strategy is None:  # pragma: no cover
+            self._generation_strategy = choose_generation_strategy(
+                search_space=self._experiment.search_space,
+                enforce_sequential_optimization=self._enforce_sequential_optimization,
+                random_seed=self._random_seed,
+            )
+        else:
+            self._generation_strategy = generation_strategy
 
     def get_report(self) -> str:
         """Returns HTML of a generated report containing vizualizations."""
