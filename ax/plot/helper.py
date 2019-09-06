@@ -393,7 +393,9 @@ def get_grid_for_parameter(parameter: RangeParameter, density: int) -> np.ndarra
 
 
 def get_fixed_values(
-    model: ModelBridge, slice_values: Optional[Dict[str, Any]] = None
+    model: ModelBridge,
+    slice_values: Optional[Dict[str, Any]] = None,
+    trial_index: Optional[int] = None,
 ) -> TParameterization:
     """Get fixed values for parameters in a slice plot.
 
@@ -409,6 +411,12 @@ def get_fixed_values(
 
     Returns: Map from parameter name to fixed value.
     """
+
+    if trial_index is not None:
+        if slice_values is None:
+            slice_values = {}
+        slice_values["TRIAL_PARAM"] = str(trial_index)
+
     # Check if status_quo is in design
     if model.status_quo is not None and model.model_space.check_membership(
         # pyre-fixme[16]: `Optional` has no attribute `features`.

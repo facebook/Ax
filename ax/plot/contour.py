@@ -109,6 +109,7 @@ def plot_contour(
     slice_values: Optional[Dict[str, Any]] = None,
     lower_is_better: bool = False,
     fixed_features: Optional[ObservationFeatures] = None,
+    trial_index: Optional[int] = None,
 ) -> AxPlotConfig:
     """Plot predictions for a 2-d slice of the parameter space.
 
@@ -132,6 +133,12 @@ def plot_contour(
     """
     if param_x == param_y:
         raise ValueError("Please select different parameters for x- and y-dimensions.")
+
+    if trial_index is not None:
+        if slice_values is None:
+            slice_values = {}
+        slice_values["TRIAL_PARAM"] = str(trial_index)
+
     data, f_plt, sd_plt, grid_x, grid_y, scales = _get_contour_predictions(
         model=model,
         x_param_name=param_x,
@@ -269,6 +276,7 @@ def interact_contour(
     slice_values: Optional[Dict[str, Any]] = None,
     lower_is_better: bool = False,
     fixed_features: Optional[ObservationFeatures] = None,
+    trial_index: Optional[int] = None,
 ) -> AxPlotConfig:
     """Create interactive plot with predictions for a 2-d slice of the parameter
     space.
@@ -289,6 +297,11 @@ def interact_contour(
             features (including non-parameter features like context) to be set
             in the slice.
     """
+    if trial_index is not None:
+        if slice_values is None:
+            slice_values = {}
+        slice_values["TRIAL_PARAM"] = str(trial_index)
+
     range_parameters = get_range_parameters(model)
     plot_data, _, _ = get_plot_data(
         model, generator_runs_dict or {}, {metric_name}, fixed_features=fixed_features
