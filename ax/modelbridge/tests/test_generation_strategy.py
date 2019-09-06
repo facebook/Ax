@@ -76,7 +76,7 @@ class TestGenerationStrategy(TestCase):
             ),
         )
 
-    def ftest_equality(self):
+    def test_equality(self):
         gs1 = GenerationStrategy(
             steps=[
                 GenerationStep(model=Models.SOBOL, num_arms=5),

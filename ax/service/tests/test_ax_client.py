@@ -635,7 +635,7 @@ class TestServiceAPI(TestCase):
         ax.experiment.trials[0].arm._name = "1_1"
         self.assertEqual(ax.get_model_predictions(), {0: {"a": (9.0, 1.0)}})
 
-    def ftest_deprecated_save_load_method_errors(self):
+    def test_deprecated_save_load_method_errors(self):
         ax = AxClient()
         with self.assertRaises(NotImplementedError):
             ax.save()
