@@ -1398,6 +1398,5 @@ def interact_fitted(
         )
 
     return AxPlotConfig(
-        data=go.Figure(data=traces, layout=layout),
-        plot_type=AxPlotTypes.GENERIC,
+        data=go.Figure(data=traces, layout=layout), plot_type=AxPlotTypes.GENERIC
     )

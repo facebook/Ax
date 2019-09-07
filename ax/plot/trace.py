@@ -206,8 +206,7 @@ def optimization_trace_single_method(
         )
 
     return AxPlotConfig(
-        data=go.Figure(layout=layout, data=data),
-        plot_type=AxPlotTypes.GENERIC,
+        data=go.Figure(layout=layout, data=data), plot_type=AxPlotTypes.GENERIC
     )
 
 
@@ -265,8 +264,7 @@ def optimization_trace_all_methods(
     )
 
     return AxPlotConfig(
-        data=go.Figure(layout=layout, data=data),
-        plot_type=AxPlotTypes.GENERIC,
+        data=go.Figure(layout=layout, data=data), plot_type=AxPlotTypes.GENERIC
     )
 
 
@@ -336,6 +334,5 @@ def optimization_times(
     )
 
     return AxPlotConfig(
-        data=go.Figure(layout=layout, data=data),
-        plot_type=AxPlotTypes.GENERIC,
+        data=go.Figure(layout=layout, data=data), plot_type=AxPlotTypes.GENERIC
     )
