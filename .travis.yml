@@ -12,7 +12,6 @@ jobs:
       stage: Test
       python: "3.6"
       install:
-        - pip install cython numpy
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
         - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
@@ -24,7 +23,6 @@ jobs:
       python: "3.7"
       dist: xenial
       install:
-        - pip install cython numpy
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
         - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
@@ -46,7 +44,6 @@ jobs:
     - name: "Docs: Sphinx (Python 3.6)"
       python: "3.6"
       install:
-        - pip install cython numpy
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
         - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook,gpy]
@@ -59,7 +56,6 @@ jobs:
       python: "3.7"
       env: ALLOW_FAILURE=true
       install:
-        - pip install cython numpy
         - pip install botorch
         - pip install -q -e .[dev,mysql,notebook]
       script:
@@ -73,7 +69,6 @@ jobs:
     - stage: Deploy Website
       python: "3.6"
       install:
-        - pip install cython numpy
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
         - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]

@@ -74,7 +74,6 @@ class RandomModelBridge(ModelBridge):
         linear_constraints = extract_parameter_constraints(
             search_space.parameter_constraints, self.parameters
         )
-
         # Generate the candidates
         X, w = self.model.gen(
             n=n,

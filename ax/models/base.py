@@ -28,4 +28,4 @@ class Model:
         left off' –– more arms can be generated as if the model just continued
         generation and was never interrupted and serialized.
         """
-        return {}
+        return {}  # pragma: no cover
