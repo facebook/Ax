@@ -53,7 +53,6 @@ pip3 install SQLAlchemy
 You can install the latest (bleeding edge) version from GitHub:
 
 ```
-pip3 install cython numpy  # needed for compiling Cython code
 pip3 install 'git+https://github.com/facebook/Ax.git#egg=Ax'
 ```
 
@@ -88,7 +87,6 @@ When contributing to Ax, we recommend cloning the [repository](https://github.co
 pip3 install git+https://github.com/cornellius-gp/gpytorch.git
 pip3 install git+https://github.com/pytorch/botorch.git
 
-pip3 install cython numpy  # needed for compiling Cython code
 git clone https://github.com/facebook/ax.git
 cd ax
 pip3 install -e .[notebook,mysql,dev]
