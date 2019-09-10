@@ -18,6 +18,11 @@ class Transform:
     """Defines the API for a transform that is applied to search_space,
     observation_features, observation_data, and optimization_config.
 
+    Transforms are used to adapt the search space and data into the types
+    and structures expected by the model. When Transforms are used (for
+    instance, in ModelBridge), it is always assumed that they may potentially
+    mutate the transformed object in-place.
+
     Forward transforms are defined for all four of those quantities. Reverse
     transforms are defined for observation_data and observation.
 
@@ -42,13 +47,31 @@ class Transform:
         observation_data: List[ObservationData],
         config: Optional[TConfig] = None,
     ) -> None:
-        """Do any initial computations for preparing the transform"""
+        """Do any initial computations for preparing the transform.
+
+        This takes in search space and observations, but they are not modified.
+
+        Args:
+            search_space: The search space
+            observation_features: Observation features
+            observation_data: Observation data
+            config: A dictionary of options specific to each transform
+        """
         if config is None:
             config = {}
         self.config = config
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        """Transform search_space as needed to do modeling."""
+        """Transform search space.
+
+        This is typically done in-place. This class implements the identity
+        transform (does nothing).
+
+        Args:
+            search_space: The search space
+
+        Returns: transformed search space.
+        """
         return search_space
 
     def transform_optimization_config(
@@ -57,13 +80,31 @@ class Transform:
         modelbridge: Optional["modelbridge_module.base.ModelBridge"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
-        """Transform optimization_config as needed to do modeling."""
+        """Transform optimization config.
+
+        This is typically done in-place. This class implements the identity
+        transform (does nothing).
+
+        Args:
+            optimization_config: The optimization config
+
+        Returns: transformed optimization config.
+        """
         return optimization_config
 
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
-        """Transform observation_features as needed to do modeling."""
+        """Transform observation features.
+
+        This is typically done in-place. This class implements the identity
+        transform (does nothing).
+
+        Args:
+            observation_features: Observation features
+
+        Returns: transformed observation features
+        """
         return observation_features
 
     def transform_observation_data(
@@ -71,13 +112,35 @@ class Transform:
         observation_data: List[ObservationData],
         observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
-        """Transform observation_data as needed to do modeling."""
+        """Transform observation features.
+
+        This is typically done in-place. This class implements the identity
+        transform (does nothing).
+
+        This takes in observation_features, so that data transforms can be
+        conditional on features, but observation_features are notmutated.
+
+        Args:
+            observation_data: Observation data
+            observation_features: Corresponding observation features
+
+        Returns: transformed observation data
+        """
         return observation_data
 
     def untransform_observation_features(
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
-        """Transform observation_features used for modeling back to the original."""
+        """Untransform observation features.
+
+        This is typically done in-place. This class implements the identity
+        transform (does nothing).
+
+        Args:
+            observation_features: Observation features in the transformed space
+
+        Returns: observation features in the original space
+        """
         return observation_features
 
     def untransform_observation_data(
@@ -85,5 +148,16 @@ class Transform:
         observation_data: List[ObservationData],
         observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
-        """Transform observation_data used for modeling back to the original."""
+        """Untransform observation data.
+
+        This is typically done in-place. This class implements the identity
+        transform (does nothing).
+
+        Args:
+            observation_data: Observation data, in transformed space
+            observation_features: Corresponding observation features, in same
+                space.
+
+        Returns: observation data in original space.
+        """
         return observation_data
