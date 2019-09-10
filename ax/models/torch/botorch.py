@@ -385,7 +385,7 @@ class BotorchModel(TorchModel):
         self.Ys = Ys
         self.Yvars = Yvars
         if self.refit_on_update and not self.warm_start_refitting:
-            state_dict = None
+            state_dict = None  # pragma: no cover
         else:
             state_dict = deepcopy(self.model.state_dict())  # pyre-ignore: [16]
         self.model = self.model_constructor(  # pyre-ignore: [28]

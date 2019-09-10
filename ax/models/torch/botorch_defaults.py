@@ -256,7 +256,7 @@ def scipy_optimizer(
     )
     # TODO: Un-hack this once botorch #234 is part of a stable release
     if isinstance(X, tuple):
-        X, _ = X
+        X, _ = X  # pragma: no cover
     return X
 
 

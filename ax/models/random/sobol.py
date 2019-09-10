@@ -9,7 +9,8 @@ from ax.models.base import Model
 from ax.models.model_utils import tunable_feature_indices
 from ax.models.random.base import RandomModel
 from ax.utils.common.docutils import copy_doc
-from ax.utils.stats.sobol import SobolEngine  # pyre-ignore: Not handling .pyx properly
+from ax.utils.common.typeutils import not_none
+from torch.quasirandom import SobolEngine
 
 
 class SobolGenerator(RandomModel):
@@ -29,7 +30,6 @@ class SobolGenerator(RandomModel):
 
     """
 
-    # pyre-fixme[31]: Expression `SobolEngine` is not a valid type.
     engine: Optional[SobolEngine] = None
 
     def __init__(
@@ -45,7 +45,6 @@ class SobolGenerator(RandomModel):
         # Initialize engine on gen.
         self._engine = None
 
-    # pyre-fixme[11]: Type `SobolEngine` is not defined.
     def init_engine(self, n_tunable_features: int) -> SobolEngine:
         """Initialize singleton SobolEngine, only on gen.
 
@@ -58,13 +57,13 @@ class SobolGenerator(RandomModel):
 
         """
         if not self._engine:
-            self._engine = SobolEngine(  # pyre-ignore: .pyx not parsed properly.
-                dimen=n_tunable_features, scramble=self.scramble, seed=self.seed
+            self._engine = SobolEngine(
+                dimension=n_tunable_features, scramble=self.scramble, seed=self.seed
             ).fast_forward(self.init_position)
         return self._engine
 
     @property
-    def engine(self) -> Optional[SobolEngine]:  # pyre-fixme[31]: not valid type.
+    def engine(self) -> Optional[SobolEngine]:
         """Return a singleton SobolEngine."""
         return self._engine
 
@@ -101,7 +100,8 @@ class SobolGenerator(RandomModel):
         tf_indices = tunable_feature_indices(
             bounds=bounds, fixed_features=fixed_features
         )
-        self.init_engine(len(tf_indices))
+        if len(tf_indices) > 0:
+            self.init_engine(len(tf_indices))
         points, weights = super().gen(
             n=n,
             bounds=bounds,
@@ -111,12 +111,34 @@ class SobolGenerator(RandomModel):
             rounding_func=rounding_func,
         )
         if self.engine:
-            self.init_position = self.engine.num_generated
+            self.init_position = not_none(self.engine).num_generated
         return (points, weights)
 
     @copy_doc(Model._get_state)
     def _get_state(self) -> Dict[str, Any]:
         return {"init_position": self.init_position}
+
+    @copy_doc(RandomModel._gen_unconstrained)
+    def _gen_unconstrained(
+        self,
+        n: int,
+        d: int,
+        tunable_feature_indices: np.ndarray,
+        fixed_features: Optional[Dict[int, float]] = None,
+    ) -> np.ndarray:
+        if len(tunable_feature_indices) == 0:
+            # Search space is entirely fixed, should return the only avail. point.
+            fixed_features = fixed_features or {}
+            return (
+                np.tile(np.array([list(not_none(fixed_features).values())]), (n, 1)),
+                np.ones(n),
+            )
+        return super()._gen_unconstrained(
+            n=n,
+            d=d,
+            tunable_feature_indices=tunable_feature_indices,
+            fixed_features=fixed_features,
+        )
 
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
         """Generate n samples.
@@ -129,7 +151,7 @@ class SobolGenerator(RandomModel):
                 particular value.
         """
         if self.engine is None:
-            raise ValueError(  # pragma nocover
+            raise ValueError(  # pragma: no cover
                 "Sobol Engine must be initialized before candidate generation."
             )
-        return self.engine.draw(n)
+        return not_none(self.engine).draw(n)
