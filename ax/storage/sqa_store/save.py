@@ -80,8 +80,8 @@ def _save_generation_strategy(
     if generation_strategy._experiment is None:
         experiment_id = None
     else:
-        # Experiment was set on the generation strategy, so we need to save it first.
-        _save_experiment(experiment=generation_strategy._experiment, encoder=encoder)
+        # Experiment was set on the generation strategy, so need to check whether
+        # if has been saved and create a relationship b/w GS and experiment if so.
         experiment_id = _get_experiment_id(
             experiment=generation_strategy._experiment, encoder=encoder
         )

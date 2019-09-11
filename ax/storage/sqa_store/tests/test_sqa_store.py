@@ -851,6 +851,7 @@ class SQAStoreTest(TestCase):
         self.assertGreater(len(generation_strategy._generated), 0)
         self.assertGreater(len(generation_strategy._observed), 0)
         save_generation_strategy(generation_strategy=generation_strategy)
+        save_experiment(experiment)
         # Try restoring the generation strategy using the experiment its
         # attached to.
         new_generation_strategy = load_generation_strategy_by_experiment_name(
@@ -897,6 +898,7 @@ class SQAStoreTest(TestCase):
             )
         )
         save_generation_strategy(generation_strategy=generation_strategy)
+        save_experiment(experiment)
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
