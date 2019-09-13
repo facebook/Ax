@@ -16,6 +16,7 @@ from ax.modelbridge.array import (
 )
 from ax.modelbridge.base import ModelBridge
 from ax.models.discrete_base import DiscreteModel
+from ax.utils.common.typeutils import not_none
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
@@ -33,6 +34,8 @@ class DiscreteModelBridge(ModelBridge):
     outcomes: List[str]
     # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: List[str]
+    # pyre-fixme[13]: Attribute `search_space` is never initialized.
+    search_space: Optional[SearchSpace]
 
     def _fit(
         self,
@@ -42,6 +45,7 @@ class DiscreteModelBridge(ModelBridge):
         observation_data: List[ObservationData],
     ) -> None:
         self.model = model
+        self.search_space = search_space
         # Convert observations to arrays
         self.parameters = list(search_space.parameters.keys())
         all_metric_names: Set[str] = set()
@@ -59,6 +63,32 @@ class DiscreteModelBridge(ModelBridge):
         # Extract parameter values
         parameter_values = _get_parameter_values(search_space, self.parameters)
         self.model.fit(
+            Xs=Xs_array,
+            Ys=Ys_array,
+            Yvars=Yvars_array,
+            parameter_values=parameter_values,
+            outcome_names=self.outcomes,
+        )
+
+    def _update(
+        self,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
+    ) -> None:
+        # Convert observations to arrays
+        Xs_array, Ys_array, Yvars_array, in_design = _convert_observations(
+            observation_data=observation_data,
+            observation_features=observation_features,
+            outcomes=self.outcomes,
+            parameters=self.parameters,
+        )
+        self._training_in_design += in_design
+        # Extract parameter values
+        assert self.search_space, "Discrete model must be fit before it can be updated."
+        parameter_values = _get_parameter_values(
+            not_none(self.search_space), self.parameters
+        )
+        self.model.update(
             Xs=Xs_array,
             Ys=Ys_array,
             Yvars=Yvars_array,

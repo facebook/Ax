@@ -103,6 +103,23 @@ class DiscreteModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
+    def testUpdate(self, mock_init):
+        sq_feat = ObservationFeatures({})
+        sq_data = self.observation_data[0]
+        ma = DiscreteModelBridge()
+        ma._training_data = self.observations
+        model = mock.create_autospec(DiscreteModel, instance=True)
+        ma._fit(
+            model, self.search_space, self.observation_features, self.observation_data
+        )
+        ma._update([sq_feat], [sq_data])
+        self.assertEqual(ma.parameters, ["x", "y", "z"])
+        self.assertEqual(sorted(ma.outcomes), ["a", "b"])
+        self.assertEqual(ma.training_in_design, [True, True, True, False])
+
+    @mock.patch(
+        "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
+    )
     def testPredict(self, mock_init):
         ma = DiscreteModelBridge()
         model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
