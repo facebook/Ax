@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+set -e
 
 usage() {
   echo "Usage: $0 [-d] [-k KERNEL_NAME] [-v VERSION]"
