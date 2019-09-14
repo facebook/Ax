@@ -2,6 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import logging
+import time
 from abc import abstractmethod
 from collections import defaultdict
 from typing import Dict, List, NamedTuple, Optional, Tuple
@@ -12,9 +13,12 @@ from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
+from ax.modelbridge.base import gen_arms
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.logger import get_logger
@@ -73,6 +77,47 @@ class BenchmarkSetup(Experiment):
         """Create a clean copy of this benchmarking setup, with no run data
         attached to it."""
         return BenchmarkSetup(self.problem, self.total_iterations, self.batch_size)
+
+    def evaluation_function(self, x: List[float]) -> float:
+        """
+        An interface for directly calling the benchmark problem evaluation
+        function. Tracks each call as a Trial. Only works for unconstrained
+        problems with a batch size of 1.
+
+        Args:
+            x: A vector of the point to evaluate
+
+        Returns: Value of the objective at x
+        """
+        if len(self.trials) >= self.total_iterations:
+            raise Exception("Evaluation budget exhausted.")
+        assert self.batch_size == 1
+        # Create an ObservationFeatures
+        param_dict = {
+            pname: x[i] for i, pname in enumerate(self.search_space.parameters.keys())
+        }
+        obsf = ObservationFeatures(parameters=param_dict)  # pyre-ignore
+        # Get the time since last call
+        if len(self.trials) == 0:
+            gen_time = None
+        else:
+            gen_time = (
+                time.time() - self.trials[len(self.trials) - 1].time_created.timestamp()
+            )
+        # Create a GR
+        gr = GeneratorRun(
+            arms=gen_arms(
+                observation_features=[obsf], arms_by_signature=self.arms_by_signature
+            ),
+            gen_time=gen_time,
+        )
+        # Add it as a trial
+        trial = self.new_trial().add_generator_run(gr).run()
+        # Evaluate function
+        df = trial.fetch_data().df
+        if len(df) > 1:
+            raise Exception("Does not support multiple outcomes")  # pragma: no cover
+        return float(df["mean"].values[0])
 
 
 # pyre-fixme[44]: `BenchmarkRunner` non-abstract class with abstract methods.

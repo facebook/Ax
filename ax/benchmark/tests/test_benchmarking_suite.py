@@ -3,6 +3,7 @@
 from typing import Any
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, branin
+from ax.benchmark.benchmark_runner import BenchmarkSetup
 from ax.benchmark.benchmark_suite import BOBenchmarkingSuite, BOProblems, BOStrategies
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
@@ -21,6 +22,14 @@ def fail(*args: Any, **kwargs: Any) -> None:
 
 
 class TestBOBenchmarkingSuite(TestCase):
+    def test_benchmark_setup(self):
+        setup = BenchmarkSetup(problem=branin, total_iterations=10, batch_size=1)
+        for _ in range(10):
+            setup.evaluation_function([0.0, 0.0])
+        with self.assertRaises(Exception):
+            # Exhausted
+            setup.evaluation_function([0.0, 0.0])
+
     def test_basic(self):
         num_runs = 3
         total_iterations = 2
@@ -95,6 +104,12 @@ class TestBOBenchmarkingSuite(TestCase):
         self.assertEqual(len(runner.errors), 0)
         report = suite.generate_report()
         self.assertIsInstance(report, str)
+        # Add a trial
+        setup = BenchmarkSetup(problem=branin, total_iterations=10, batch_size=1)
+        suite.add_run(setup=setup, strategy_name="strategy_name")
+        self.assertTrue(("Branin", "strategy_name", 0) in suite._runner._runs)
+        suite.add_run(setup=setup, strategy_name="strategy_name")
+        self.assertTrue(("Branin", "strategy_name", 1) in suite._runner._runs)
 
     def testRelativeConstraint(self):
         branin_rel = BenchmarkProblem(

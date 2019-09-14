@@ -88,6 +88,21 @@ class BOBenchmarkingSuite:
 
         return self._runner
 
+    def add_run(self, setup: BenchmarkSetup, strategy_name: str) -> None:
+        """Add a run (BenchmarkSetup) to the benchmark results.
+
+        Args:
+            setup: Run to add
+            strategy_name: Name of strategy used for this run
+        """
+        # Get run_idx
+        run_idx = 0
+        while (setup.name, strategy_name, run_idx) in self._runner._runs:
+            run_idx += 1
+        run_key = (setup.name, strategy_name, run_idx)
+        self._runner._runs[run_key] = setup
+        self._runner._generator_changes[run_key] = []
+
     @classmethod
     def _make_plots(
         cls,
