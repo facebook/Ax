@@ -215,10 +215,10 @@ else
 
   # Init as Git repo and push to gh-pages
   cd new-site || exit
-  git init
-  git add --all
-  git commit -m "Publish version ${VERSION} of site"
-  git push --force "https://github.com/facebook/Ax" master:gh-pages
+  # git init  TODO: uncomment after testing automated deployment
+  # git add --all
+  # git commit -m "Publish version ${VERSION} of site"
+  # git push --force "https://github.com/facebook/Ax" master:gh-pages
 
 fi
 

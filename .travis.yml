@@ -52,7 +52,10 @@ jobs:
         - sphinx-build -WT sphinx/source sphinx/build
         # since -W flag breaks on first error, re-run without it to print all
         - sphinx-build sphinx/source sphinx/build
-    - name: "Build with Stable PyTorch (for pushing new release)"
+    - name: "Build with Latest Stable BoTorch (for pushing new release)"
+      # Checks whether the current version on Ax master is compatible with latest
+      # stable BoTorch release; this test should be passing before cutting new
+      # version of Ax.
       python: "3.7"
       env: ALLOW_FAILURE=true
       install:
@@ -66,7 +69,47 @@ jobs:
       env: ALLOW_FAILURE=true
       script:
         - python3 scripts/validate_sphinx.py -p "${pwd}"
-    - stage: Deploy Website
+    # Pre-deployment stage enforces compatibility with stable BoTorch.
+    - name: "Build with BoTorch Version in setup.py (only for tagged versions)"
+      # Checks whether the current version on Ax master is compatible with latest
+      # stable BoTorch release; this test should be passing before cutting new
+      # version of Ax. This test is required in this case, because we should not
+      # deploy if it fails.
+      stage: Pre-deploy
+      python: "3.7"
+      install:
+        - pip install -q -e .[dev,mysql,notebook]
+      script:
+        - pytest -ra
+      # TODO: add the same test for compatibility with the minimum BoTorch
+      # version listed in Ax' `setup.py`.
+    # Version website-building stage is triggered on a tag that starts with 'v'
+    # if the pre-deploy stage (previous) passes.
+    - stage: Deploy Version Website (On Release)
+      python: "3.6"
+      install:
+        - pip install git+https://github.com/cornellius-gp/gpytorch.git
+        - pip install git+https://github.com/pytorch/botorch.git
+        - pip install -q -e .[dev,mysql,notebook]
+        - pip install torchvision  # required for tutorials
+      script:
+        - travis_wait 90 bash scripts/publish_site.sh -d -v ${TRAVIS_TAG:1}
+    # PyPI deployment stage is triggered on a tag that starts with 'v' if
+    # the version website-building stage (previous) passes.
+    - stage: Deploy to PyPI
+      python: "3.6"
+      deploy:
+        provider: pypi
+        user: drfreund
+        server: https://testpypi.python.org/pypi # TODO: remove after testing
+        password:
+          secure: YRX0XPwMOVLbWCuAG6nO0E71TXQzNTXpD4DYL5h6vESD+1eoQ8CueIFydjYkA6VAsawQo+yb//+TotWZ8FMdev91Fn8DwiDWfk1MNUPvHyr+ZnCS3TlpydqVG0b7WIpn01vYpJ5h/zbjGzP5lgpMWDPSS1KWy83VfoIc0/mHM2GS84MRFss5U4BvaGiZ0m8pXH8pfwrBOCm/NUcnTu6lgwprAFBDuBVmQJMkru6NTWYdKWeylIDCN4ojHwOJZ6YU9WiEKqqRPtNXL7O4OcNNVtLujg+qHdfJ13KPoCkbF4LkuWqR0VZr7nJnpPf3o1Z1RGBGdFXs1pcfrbFsyLGQQis+1L1cKZvPvDzmVqw3PptBfIwEnWxz68HKmjalZrIqRcYHCdysmQoei5+uvhJ3Bi7PKKYIV8vbaDBewMHypuIWO1AfEQQzisoR/LwdoFbkA/Ee9q9M1eyqVrIkB3h95UOukgHHVDUDX432ryr5qsZEC6sTv4IF6brDseScVgIkU2Qd/gXEMDERyBedjJb8+sQmiP30qG+pf5GwyILVsrfGnf+Z+yoIhEHF/mdndsBJg6uSY6YUntyiODD4LNHESZ8GOIznBB0uWR5Ku90bCI/Uh2IEpKWZAOEcn6fKVezGYqAn5icLE7IxfYJ2SPlU57kaUQ6bId5HYLMsaojzaX8=
+        distributions: sdist bdist_wheel
+        skip_existing: true
+        on:
+          tags: true
+    # Daily website deployment stage is triggered via cron job.
+    - stage: Deploy Latest Website (Daily)
       python: "3.6"
       install:
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
@@ -78,7 +121,13 @@ jobs:
 
 stages:
   - name: Test
-  - name: Deploy Website
+  - name: Pre-deploy
+    if: tag IS present
+  - name: Deploy Version Website (On Release)
+    if: tag IS present
+  - name: Deploy to PyPI
+    if: tag IS present
+  - name: Deploy Latest Website (Daily)
     # require the branch name to be master & only build daily
     if: branch = master AND type = cron
 
