@@ -93,7 +93,7 @@ jobs:
         - pip install -q -e .[dev,mysql,notebook]
         - pip install torchvision  # required for tutorials
       script:
-        - travis_wait 90 bash scripts/publish_site.sh -d -v ${TRAVIS_TAG:1}
+        - travis_wait 90 bash scripts/publish_site.sh -d -v $TRAVIS_TAG
     # PyPI deployment stage is triggered on a tag that starts with 'v' if
     # the version website-building stage (previous) passes.
     - stage: Deploy to PyPI
