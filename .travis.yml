@@ -56,7 +56,7 @@ jobs:
       # Checks whether the current version on Ax master is compatible with latest
       # stable BoTorch release; this test should be passing before cutting new
       # version of Ax.
-      python: "3.7"
+      python: "3.6"
       env: ALLOW_FAILURE=true
       install:
         - pip install botorch
@@ -75,41 +75,35 @@ jobs:
       # stable BoTorch release; this test should be passing before cutting new
       # version of Ax. This test is required in this case, because we should not
       # deploy if it fails.
+      # TODO: add the same test for compatibility with the minimum BoTorch
+      # version listed in Ax' `setup.py`.
       stage: Pre-deploy
-      python: "3.7"
+      python: "3.6"
       install:
         - pip install -q -e .[dev,mysql,notebook]
       script:
         - pytest -ra
-      # TODO: add the same test for compatibility with the minimum BoTorch
-      # version listed in Ax' `setup.py`.
     # Version website-building stage is triggered on a tag that starts with 'v'
     # if the pre-deploy stage (previous) passes.
-    - stage: Deploy Version Website (On Release)
+    - stage: Deploy Version Website + deploy to PyPI (On Release)
       python: "3.6"
       install:
-        - pip install git+https://github.com/cornellius-gp/gpytorch.git
-        - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
-        - pip install torchvision  # required for tutorials
+        - pip install torchvision  # Required for building tutorial notebooks.
       script:
         - travis_wait 90 bash scripts/publish_site.sh -d -v $TRAVIS_TAG
-    # PyPI deployment stage is triggered on a tag that starts with 'v' if
-    # the version website-building stage (previous) passes.
-    - stage: Deploy to PyPI
-      python: "3.6"
+        # - python -c "print('Skipping tests...')"  # Use for testing deployment.
       deploy:
         provider: pypi
+        # server: https://test.pypi.org/legacy/ # For testing; use test.pypi pw.
         user: drfreund
-        server: https://testpypi.python.org/pypi # TODO: remove after testing
-        password:
-          secure: YRX0XPwMOVLbWCuAG6nO0E71TXQzNTXpD4DYL5h6vESD+1eoQ8CueIFydjYkA6VAsawQo+yb//+TotWZ8FMdev91Fn8DwiDWfk1MNUPvHyr+ZnCS3TlpydqVG0b7WIpn01vYpJ5h/zbjGzP5lgpMWDPSS1KWy83VfoIc0/mHM2GS84MRFss5U4BvaGiZ0m8pXH8pfwrBOCm/NUcnTu6lgwprAFBDuBVmQJMkru6NTWYdKWeylIDCN4ojHwOJZ6YU9WiEKqqRPtNXL7O4OcNNVtLujg+qHdfJ13KPoCkbF4LkuWqR0VZr7nJnpPf3o1Z1RGBGdFXs1pcfrbFsyLGQQis+1L1cKZvPvDzmVqw3PptBfIwEnWxz68HKmjalZrIqRcYHCdysmQoei5+uvhJ3Bi7PKKYIV8vbaDBewMHypuIWO1AfEQQzisoR/LwdoFbkA/Ee9q9M1eyqVrIkB3h95UOukgHHVDUDX432ryr5qsZEC6sTv4IF6brDseScVgIkU2Qd/gXEMDERyBedjJb8+sQmiP30qG+pf5GwyILVsrfGnf+Z+yoIhEHF/mdndsBJg6uSY6YUntyiODD4LNHESZ8GOIznBB0uWR5Ku90bCI/Uh2IEpKWZAOEcn6fKVezGYqAn5icLE7IxfYJ2SPlU57kaUQ6bId5HYLMsaojzaX8=
+        password: Jse316dj04j+YieDjHrazn4ANxUDuMzGoWcVDTYXBMBXcz6Kmb/mdNadCNoj44NroE0Nt1PD2W/fDBe3FgL1VtMXEy7/v4Svec6/i5qOhmNm94PSJpnZRaMNpM+vgtKh0zo9ufNHi0Tlxhjur0k21cvY5qCmamy4D8+F7RB+RQWu07eBNEVqYnX6PNGsxJz/82Xf1c95UlpCSC0qhg3FiroSkYfiNJH2yu2YWAbOHeVSG+FsMgoj2Z3izdL2CXAgUYZ+guuvV9mOC4QWVAINX6tTgKid0ONZ8J/8B9Rcm+jhpS64lwaIN2d/ZGEMlryFgAWW3j5GIdw9kofuzNABvo4BjUQpKtPLLESQSFpKJEfWOLTrJgx32KZloguC6w/9tcG2bchTGWq4w8HznlvU2YBFuC2Eal7x3p98Frfy++verBAwmmwSsKoX8w0r04cJG42juVFwLq4jzBOjOkPrtAx3s9/0RjAZmkSXWa6+rVRDwAbMQwEJPrEGPScEZw1cN3rsVm2M0m2YzHsNV+4Js+XkO4cw1I6pDxwukLb52+jSoWC0KJN3G42ofOPrCjbDXU8KucCqJob4UP/JWECflv4+59AmzCun96qhpesON8R1pcONMP8SRohGAk26zbg8Gw350KcvHeIMgG8vkmFhpPNyl5MmZgCtNqoTpyySfvk=
         distributions: sdist bdist_wheel
         skip_existing: true
         on:
           tags: true
     # Daily website deployment stage is triggered via cron job.
-    - stage: Deploy Latest Website (Daily)
+    - stage: Deploy Latest Website And Upload To Test PyPI (Daily)
       python: "3.6"
       install:
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
@@ -118,16 +112,27 @@ jobs:
         - pip install torchvision  # required for tutorials
       script:
         - travis_wait 90 bash scripts/publish_site.sh -d
+      # Uploading to test.pypi to check that deployment works.
+      deploy:
+        provider: pypi
+        server: https://test.pypi.org/legacy/
+        distributions: sdist bdist_wheel
+        user: drfreund
+        password:
+          secure: P9hrA5CEpcY7pa+GA7c9VvRPrsIcSEMyD1zRsJe80SkXK7UZ6cDIuGcFsbz7Gsahp+xfMXeeY/JKrp0E/5bvm6X5RmHS2kex8OrULVJaGcenE7BS4OwwJEANhMFDemGhAg5rAJUIYSU4jn9e2fChVaomerHpFYDWG9ojfm9okv2s1qtjF7DQzJDm2h8vgs1xH8UUswt7AUQsKXwwjtaN1EgwRLOHgStusu7Ynujx8MeluSgO2DVME6nakWBAfzvMtsp7OBpY8DBf9FdnhPwQd00PUmO5A+FVOeUcp8Hq+6IHP3Z1SXXXZ8njVwYJ2AtnBF0aFMvQoYGHtD7l5+pNwziWbtvoTi+iYDU+5uJNH5eSx63ZkQOMpe6CMKSMjT6XdeCaHvjR0639ssdOfHHKv/ygmKLJ+h8NArMAOVeP/1JaZDM+X46o5gg1io1FjcghWdQOYD5zM9Dhirl2knwVYek3gYQmXjsl4uKXzfGeKWJ/fvP54ANV8FL3E8dC5TOC9S4IBiFpEcmnvxn6F+YwxhgDI0xB0mjKhGlCqxl/kqiXjLLD3C4b6gpjsQO2bdBilBnWMR+HHScx0OqQXGevA/ANlqAurMiU9loPUrPjTweRZPwpKHYMfZXPzGDj2B/oej/mqFE4I1rRA86OcFZurD1I8KFHZ08Jq4mJmf8MYfI=
+        skip_existing: true
+        on:
+          branch: master
+          tags: false
+          python: 3.6
 
 stages:
   - name: Test
   - name: Pre-deploy
     if: tag IS present
-  - name: Deploy Version Website (On Release)
+  - name: Deploy Version Website + deploy to PyPI (On Release)
     if: tag IS present
-  - name: Deploy to PyPI
-    if: tag IS present
-  - name: Deploy Latest Website (Daily)
+  - name: Deploy Latest Website And Upload To Test PyPI (Daily)
     # require the branch name to be master & only build daily
     if: branch = master AND type = cron
 
