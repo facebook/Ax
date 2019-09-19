@@ -22,7 +22,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
-from ax.plot.helper import _get_in_sample_arms
+from ax.plot.helper import _format_dict, _get_in_sample_arms
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import (
@@ -352,6 +352,10 @@ class AxClient:
                 ]
             ]
         )
+        hover_labels = [
+            _format_dict(not_none(checked_cast(Trial, trial).arm).parameters)
+            for trial in self.experiment.trials.values()
+        ]
         return optimization_trace_single_method(
             y=(
                 np.minimum.accumulate(best_objectives, axis=1)
@@ -361,6 +365,7 @@ class AxClient:
             optimum=objective_optimum,
             title="Model performance vs. # of iterations",
             ylabel=objective_name.capitalize(),
+            hover_labels=hover_labels,
         )
 
     def get_contour_plot(

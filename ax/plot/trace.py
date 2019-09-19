@@ -178,7 +178,7 @@ def optimization_trace_single_method(
     Returns:
         AxPlotConfig: plot of the optimization trace with IQR
     """
-    trace = mean_trace_scatter(y=y, trace_color=trace_color)
+    trace = mean_trace_scatter(y=y, trace_color=trace_color, hover_labels=hover_labels)
     lower, upper = sem_range_scatter(y=y, trace_color=trace_color)
 
     layout = go.Layout(
