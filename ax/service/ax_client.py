@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import ax.service.utils.best_point as best_point_utils
 import numpy as np
+import pandas as pd
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -22,6 +23,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
+from ax.plot.exp_utils import exp_to_df
 from ax.plot.helper import _format_dict, _get_in_sample_arms
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.dispatch import choose_generation_strategy
@@ -299,6 +301,9 @@ class AxClient:
     ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
         return best_point_utils.get_best_parameters(self.experiment)
 
+    def get_trials_data_frame(self) -> pd.DataFrame:
+        return exp_to_df(exp=self.experiment)
+
     def get_recommended_max_parallelism(self) -> List[Tuple[int, int]]:
         """Recommends maximum number of trials that can be scheduled in parallel
         at different stages of optimization.
@@ -472,18 +477,6 @@ class AxClient:
             )
         else:
             self._generation_strategy = generation_strategy
-
-    def get_report(self) -> str:
-        """Returns HTML of a generated report containing vizualizations."""
-        raise NotImplementedError(  # pragma: no cover
-            "Report generation not supported for `AxClient` yet."
-        )
-
-    def should_stop_early(self, trial_index: int, data: TEvaluationOutcome) -> bool:
-        """Whether to stop the given parameterization given early data."""
-        raise NotImplementedError(  # pragma: no cover
-            "Early stopping of trials not supported for `AxClient` yet."
-        )
 
     def get_model_predictions(
         self, metric_names: Optional[List[str]] = None

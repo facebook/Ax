@@ -137,6 +137,10 @@ class TestServiceAPI(TestCase):
                     ax.get_contour_plot(param_x="x1", param_y="x2")
         ax.get_optimization_trace(objective_optimum=branin.fmin)
         ax.get_contour_plot()
+        self.assertIn("x1", ax.get_trials_data_frame())
+        self.assertIn("x2", ax.get_trials_data_frame())
+        self.assertIn("branin", ax.get_trials_data_frame())
+        self.assertEqual(len(ax.get_trials_data_frame()), 6)
         # Test that Sobol is chosen when all parameters are choice.
         ax = AxClient()
         ax.create_experiment(
@@ -149,6 +153,7 @@ class TestServiceAPI(TestCase):
             [s.model for s in not_none(ax.generation_strategy)._steps], [Models.SOBOL]
         )
         self.assertEqual(ax.get_recommended_max_parallelism(), [(-1, -1)])
+        self.assertTrue(ax.get_trials_data_frame().empty)
 
     def test_create_experiment(self) -> None:
         """Test basic experiment creation."""
