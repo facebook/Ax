@@ -17,6 +17,7 @@ def mean_trace_scatter(
     y: np.ndarray,
     trace_color: Tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "mean",
+    hover_labels: Optional[List[str]] = None,
 ) -> go.Scatter:
     """Creates a graph object for trace of the mean of the given series across
     runs.
@@ -25,7 +26,9 @@ def mean_trace_scatter(
         y: (r x t) array with results from  r runs and t trials.
         trace_color: tuple of 3 int values representing an RGB color.
             Defaults to blue.
-        legend_label: label for this trace
+        legend_label: label for this trace.
+        hover_labels: optional, text to show on hover; list where the i-th value
+            corresponds to the i-th value in the value of the `y` argument.
 
     Returns:
         go.Scatter: plotly graph object
@@ -39,6 +42,7 @@ def mean_trace_scatter(
         line={"color": rgba(trace_color)},
         fillcolor=rgba(trace_color, 0.3),
         fill="tonexty",
+        text=hover_labels,
     )
 
 
@@ -148,6 +152,7 @@ def optimization_trace_single_method(
     generator_changes: Optional[List[int]] = None,
     title: str = "",
     ylabel: str = "",
+    hover_labels: Optional[List[str]] = None,
     trace_color: Tuple[int] = COLORS.STEELBLUE.value,
     optimum_color: Tuple[int] = COLORS.ORANGE.value,
     generator_change_color: Tuple[int] = COLORS.TEAL.value,
@@ -159,8 +164,10 @@ def optimization_trace_single_method(
         optimum: value of the optimal objective
         generator_changes: iterations, before which generators
             changed
-        title: title of this plot
-        ylabel: Label for y axis
+        title: title for this plot.
+        ylabel: label for the Y-axis.
+        hover_labels: optional, text to show on hover; list where the i-th value
+            corresponds to the i-th value in the value of the `y` argument.
         trace_color: tuple of 3 int values representing an RGB color.
             Defaults to orange.
         optimum_color: tuple of 3 int values representing an RGB color.
@@ -215,6 +222,7 @@ def optimization_trace_all_methods(
     optimum: Optional[float] = None,
     title: str = "",
     ylabel: str = "",
+    hover_labels: Optional[List[str]] = None,
     trace_colors: List[Tuple[int]] = DISCRETE_COLOR_SCALE,
     optimum_color: Tuple[int] = COLORS.ORANGE.value,
 ) -> AxPlotConfig:
@@ -225,8 +233,10 @@ def optimization_trace_all_methods(
         y: a mapping of method names to (r x t) arrays, where r is the number
             of runs in the test, and t is the number of trials.
         optimum: value of the optimal objective.
-        title: Title for this plot.
-        ylabel: Label for y axis
+        title: title for this plot.
+        ylabel: label for the Y-axis.
+        hover_labels: optional, text to show on hover; list where the i-th value
+            corresponds to the i-th value in the value of the `y` argument.
         trace_colors: tuples of 3 int values representing
             RGB colors to use for different methods shown in the combination plot.
             Defaults to Ax discrete color scale.
