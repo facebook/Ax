@@ -308,7 +308,7 @@ class BotorchModel(TorchModel):
             inequality_constraints = []
             k, d = A.shape
             for i in range(k):
-                indicies = A[i, :].nonzero().squeeze()
+                indicies = A[i, :].nonzero().view(-1)
                 coefficients = -A[i, indicies]
                 rhs = -b[i, 0]
                 inequality_constraints.append((indicies, coefficients, rhs))
