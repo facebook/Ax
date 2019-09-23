@@ -554,6 +554,24 @@ class TestServiceAPI(TestCase):
         ax = AxClient(db_settings=db_settings)
         ax.load_experiment_from_database("test_experiment")
         self.assertEqual(gs, ax.generation_strategy)
+        with self.assertRaises(ValueError):
+            # Overwriting existing experiment.
+            ax.create_experiment(
+                name="test_experiment",
+                parameters=[
+                    {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                    {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                ],
+                minimize=True,
+            )
+        # Overwriting existing experiment with overwrite flag.
+        ax.create_experiment(
+            name="test_experiment",
+            parameters=[{"name": "x1", "type": "range", "bounds": [-5.0, 10.0]}],
+            overwrite_existing_experiment=True,
+        )
+        # There should be no trials, as we just put in a fresh experiment.
+        self.assertEqual(len(ax.experiment.trials), 0)
 
     def test_fixed_random_seed_reproducibility(self):
         ax = AxClient(random_seed=239)

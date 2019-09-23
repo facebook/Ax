@@ -3,6 +3,7 @@
 # pyre-strict
 
 import logging
+from typing import Any
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -26,3 +27,28 @@ def get_logger(name: str) -> logging.Logger:
         logger.addHandler(console)
         logger.propagate = False
     return logger
+
+
+# pyre-ignore (ignoring Any in argument and output typing)
+def _round_floats_for_logging(item: Any, decimal_places: int = 2) -> Any:
+    """Round a number or numbers in a mapping to a given number of decimal places.
+    If item or values in dictionary is not a number, returns it as it.
+    """
+    if isinstance(item, float):
+        return round(item, 2)
+    elif isinstance(item, dict):
+        return {
+            k: _round_floats_for_logging(item=v, decimal_places=decimal_places)
+            for k, v in item.items()
+        }
+    elif isinstance(item, list):
+        return [
+            _round_floats_for_logging(item=i, decimal_places=decimal_places)
+            for i in item
+        ]
+    elif isinstance(item, tuple):
+        return tuple(
+            _round_floats_for_logging(item=i, decimal_places=decimal_places)
+            for i in item
+        )
+    return item

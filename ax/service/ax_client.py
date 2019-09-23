@@ -2,6 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import json
+import logging
 import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -42,7 +43,7 @@ from ax.storage.json_store.decoder import (
 )
 from ax.storage.json_store.encoder import object_to_json
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast, checked_cast_dict, not_none
 from botorch.utils.sampling import manual_seed
 
@@ -102,6 +103,9 @@ class AxClient:
             will be exactly the same for two same operations that use the random
             seed, depends on whether the threads modify the random state in the
             same order across the two operations.
+
+        verbose_logging: Whether Ax should log significant optimization events,
+            defaults to `True`.
     """
 
     def __init__(
@@ -110,7 +114,16 @@ class AxClient:
         db_settings: Any = None,
         enforce_sequential_optimization: bool = True,
         random_seed: Optional[int] = None,
+        verbose_logging: bool = True,
     ) -> None:
+        if not verbose_logging:
+            logger.setLevel(logging.WARNING)
+        else:
+            logger.info(
+                "Starting optimization with verbose logging. To disable logging, "
+                "set the `verbose_logging` argument to `False`. Note that float "
+                "values in the logs are rounded to 2 decimal points."
+            )
         self._generation_strategy = generation_strategy
         if db_settings and (not DBSettings or not isinstance(db_settings, DBSettings)):
             raise ValueError(
@@ -123,7 +136,7 @@ class AxClient:
         self._enforce_sequential_optimization = enforce_sequential_optimization
         self._random_seed = random_seed
         if random_seed is not None:
-            logger.info(
+            logger.warning(
                 f"Random seed set to {random_seed}. Note that this setting "
                 "only affects the Sobol quasi-random generator "
                 "and BoTorch-powered Bayesian optimization models. For the latter "
@@ -146,6 +159,7 @@ class AxClient:
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
         status_quo: Optional[TParameterization] = None,
+        overwrite_existing_experiment: bool = False,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -170,11 +184,32 @@ class AxClient:
             status_quo: Parameterization of the current state of the system.
                 If set, this will be added to each trial to be evaluated alongside
                 test configurations.
+            overwrite_existing_experiment: If `DBSettings` were provided on
+                instantiation and the experiment being created has the same name
+                as some experiment already stored, whether to overwrite the
+                existing experiment. Defaults to False.
         """
         if self.db_settings and not name:
             raise ValueError(  # pragma: no cover
                 "Must give the experiment a name if `db_settings` is not None."
             )
+        if self.db_settings:
+            existing = None
+            try:
+                existing, _ = load_experiment_and_generation_strategy(
+                    experiment_name=not_none(name), db_settings=self.db_settings
+                )
+            except ValueError:  # Experiment does not exist, nothing to do.
+                pass
+            if existing and overwrite_existing_experiment:
+                logger.info(f"Overwriting existing experiment {name}.")
+            elif existing:
+                raise ValueError(
+                    f"Experiment {name} exists; set the `overwrite_existing_"
+                    "experiment` to `True` to overwrite with new experiment "
+                    "or use `ax_client.load_experiment_from_database` to "
+                    "continue an existing experiment."
+                )
 
         self._experiment = make_experiment(
             name=name,
@@ -203,6 +238,10 @@ class AxClient:
             Tuple of trial parameterization, trial index
         """
         trial = self.experiment.new_trial(generator_run=self._gen_new_generator_run())
+        logger.info(
+            f"Generated new trial {trial.index} with parameters "
+            f"{_round_floats_for_logging(item=not_none(trial.arm).parameters)}."
+        )
         trial.mark_dispatched()
         self._updated_trials = []
         self._save_experiment_and_generation_strategy_to_db_if_possible()
@@ -254,6 +293,13 @@ class AxClient:
         # metrics, for example).
         trial.mark_completed(allow_repeat_completion=True)
         self.experiment.attach_data(data)
+        data_for_logging = _round_floats_for_logging(
+            item=evaluations[next(iter(evaluations.keys()))]
+        )
+        logger.info(
+            f"Completed trial {trial_index} with data: "
+            f"{_round_floats_for_logging(item=data_for_logging)}."
+        )
         self._updated_trials.append(trial_index)
         self._save_experiment_and_generation_strategy_to_db_if_possible()
 
@@ -268,6 +314,7 @@ class AxClient:
         """
         trial = self.experiment.trials[trial_index]
         trial.mark_failed()
+        logger.info(f"Registered failure of trial {trial_index}.")
         if metadata is not None:
             trial._run_metadata = metadata
         self._save_experiment_and_generation_strategy_to_db_if_possible()
@@ -285,6 +332,10 @@ class AxClient:
         """
         trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
         trial.mark_dispatched()
+        logger.info(
+            "Attached custom parameterization "
+            f"{_round_floats_for_logging(item=parameters)} as trial {trial.index}."
+        )
         self._save_experiment_and_generation_strategy_to_db_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
@@ -429,12 +480,18 @@ class AxClient:
             )
         if self.generation_strategy.model is not None:
             try:
+                logger.info(
+                    f"Retrieving contour plot with parameter '{param_x}' on X-axis "
+                    f"and '{param_y}' on Y-axis, for metric '{metric_name}'. "
+                    "Ramaining parameters are affixed to the middle of their range."
+                )
                 return plot_contour(
                     model=not_none(self.generation_strategy.model),
                     param_x=param_x,
                     param_y=param_y,
                     metric_name=metric_name,
                 )
+
             except NotImplementedError:
                 # Some models don't implement '_predict', which is needed
                 # for the contour plots.
@@ -469,6 +526,7 @@ class AxClient:
             experiment_name=experiment_name, db_settings=self.db_settings
         )
         self._experiment = experiment
+        logger.info(f"Loaded {experiment}.")
         if generation_strategy is None:  # pragma: no cover
             self._generation_strategy = choose_generation_strategy(
                 search_space=self._experiment.search_space,
@@ -477,6 +535,10 @@ class AxClient:
             )
         else:
             self._generation_strategy = generation_strategy
+            logger.info(
+                f"Using generation strategy associated with the loaded experiment:"
+                f" {generation_strategy}."
+            )
 
     def get_model_predictions(
         self, metric_names: Optional[List[str]] = None
@@ -531,6 +593,7 @@ class AxClient:
         """
         with open(filepath, "w+") as file:  # pragma: no cover
             file.write(json.dumps(self.to_json_snapshot()))
+            logger.info(f"Saved JSON-serialized state of optimization to `{filepath}`.")
 
     @staticmethod
     def load_from_json_file(filepath: str = "ax_client_snapshot.json") -> "AxClient":
