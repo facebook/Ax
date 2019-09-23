@@ -210,14 +210,12 @@ class SearchSpace(Base):
             New casted arm.
         """
         new_parameters: TParameterization = {}
-        if len(arm.parameters) != len(self._parameters):
-            raise ValueError("Given arm does not have same parameters as search space.")
-
         for name, value in arm.parameters.items():
+            # Allow raw values for out of space parameters.
             if name not in self._parameters:
-                raise ValueError(f"Parameter {name} is not defined in search space.")
-            new_parameters[name] = self._parameters[name]._cast(value)
-
+                new_parameters[name] = value
+            else:
+                new_parameters[name] = self._parameters[name]._cast(value)
         return Arm(new_parameters, arm.name if arm.has_name else None)
 
     def out_of_design_arm(self) -> Arm:
