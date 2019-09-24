@@ -119,17 +119,17 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(self.batch.generator_run_structs), 1)
 
     def testStatusQuoOverlap(self):
-        tot_weight = sum(self.batch.weights)
         new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
-
         # Set status quo to existing arm
         self.batch.set_status_quo_with_weight(self.arms[0], self.sq_weight)
+        # Status quo weight is set to the average of other arms' weights.
+        # In this case, there are only two arms: 0_0 (SQ) and 0_1 (not SQ).
+        # So their weights are equal, as weight(0_0) = avg(weight(0_1)).
+        self.assertEqual(self.batch.weights[0], self.batch.weights[1])
         self.assertTrue(self.batch.status_quo.parameters == self.arms[0].parameters)
         self.assertEqual(self.batch.status_quo.name, self.batch.arms[0].name)
-        self.assertEqual(
-            self.batch.arm_weights[self.batch.arms[0]], self.weights[0] + self.sq_weight
-        )
-        self.assertEqual(sum(self.batch.weights), tot_weight + self.sq_weight)
+        self.assertEqual(self.batch.arm_weights[self.batch.arms[0]], self.sq_weight)
+        self.assertEqual(sum(self.batch.weights), self.weights[1] + self.sq_weight)
 
         # Set status quo to new arm, add it
         self.batch.set_status_quo_with_weight(new_sq, self.sq_weight)
@@ -412,7 +412,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(batch_trial.arm_weights[status_quo], np.sqrt(2))
         # Since status quo has a weight of 1 in the generator runs, only part of
         # its weight comes from _status_quo_weight
-        self.assertEqual(batch_trial._status_quo_weight, np.sqrt(2) - 1)
+        self.assertEqual(batch_trial._status_quo_weight, np.sqrt(2))
 
     def testRepr(self):
         repr_ = (
