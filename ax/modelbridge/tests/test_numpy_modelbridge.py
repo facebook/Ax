@@ -77,15 +77,19 @@ class NumpyModelBridgeTest(TestCase):
         ma = NumpyModelBridge()
         ma._training_data = self.observations + [sq_obs]
         model = mock.create_autospec(NumpyModel, instance=True)
+        # No out of design points allowed in direct calls to fit.
+        with self.assertRaises(ValueError):
+            ma._fit(
+                model,
+                self.search_space,
+                self.observation_features + [sq_feat],
+                self.observation_data + [sq_data],
+            )
         ma._fit(
-            model,
-            self.search_space,
-            self.observation_features + [sq_feat],
-            self.observation_data + [sq_data],
+            model, self.search_space, self.observation_features, self.observation_data
         )
         self.assertEqual(ma.parameters, ["x", "z", "y"])
         self.assertEqual(sorted(ma.outcomes), ["a", "b"])
-        self.assertEqual(ma.training_in_design, [True, True, True, False])
         Xs = {
             "a": np.array([[0.2, 3.0, 1.2], [0.4, 3.0, 1.4], [0.6, 3.0, 1.6]]),
             "b": np.array([[0.2, 3.0, 1.2], [0.4, 3.0, 1.4]]),
@@ -105,13 +109,11 @@ class NumpyModelBridgeTest(TestCase):
         self.assertEqual(model_fit_args["feature_names"], ["x", "z", "y"])
 
         # And update
-        ma.training_in_design.extend([True, True, True, True])
         ma._update(
-            observation_features=self.observation_features + [sq_feat],
-            observation_data=self.observation_data + [sq_data],
+            observation_features=self.observation_features,
+            observation_data=self.observation_data,
         )
         # Calling _update requires passing ALL data.
-        self.assertEqual(ma.training_in_design, [True, True, True, False])
         model_update_args = model.update.mock_calls[0][2]
         for i, x in enumerate(model_update_args["Xs"]):
             self.assertTrue(np.array_equal(x, Xs[ma.outcomes[i]]))

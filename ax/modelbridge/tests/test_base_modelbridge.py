@@ -58,14 +58,8 @@ class BaseModelBridgeTest(TestCase):
         )
         fit_args = mock_fit.mock_calls[0][2]
         self.assertTrue(fit_args["search_space"] == get_search_space_for_value(8.0))
-        self.assertTrue(
-            fit_args["observation_features"]
-            == [get_observation1trans().features, get_observation2trans().features]
-        )
-        self.assertTrue(
-            fit_args["observation_data"]
-            == [get_observation1trans().data, get_observation2trans().data]
-        )
+        self.assertTrue(fit_args["observation_features"] == [])
+        self.assertTrue(fit_args["observation_data"] == [])
         self.assertTrue(mock_observations_from_data.called)
 
         # Test that transforms are applied correctly on predict
@@ -164,14 +158,21 @@ class BaseModelBridgeTest(TestCase):
         self.assertEqual(modelbridge.metric_names, {"a", "b"})
         self.assertIsNone(modelbridge.status_quo)
         self.assertTrue(modelbridge.model_space == get_search_space_for_value())
-        self.assertEqual(modelbridge.training_in_design, [True, True])
+        self.assertEqual(modelbridge.training_in_design, [False, False])
 
-        modelbridge.training_in_design = [True, False]
         with self.assertRaises(ValueError):
             modelbridge.training_in_design = [True, True, False]
 
         ood_obs = modelbridge.out_of_design_data()
-        self.assertTrue(ood_obs == unwrap_observation_data([get_observation2().data]))
+        self.assertTrue(
+            ood_obs
+            == unwrap_observation_data(
+                [get_observation1().data, get_observation2().data]
+            )
+        )
+
+        with self.assertRaises(ValueError):
+            modelbridge.training_in_design = [True, True, False]
 
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
@@ -267,7 +268,7 @@ class BaseModelBridgeTest(TestCase):
             0,
             status_quo_features=status_quo_features,
         )
-        # Check that the for experiments with many trials the status quo is set
+        # Check that for experiments with many trials the status quo is set
         # to the value of the status quo of the last trial.
         if len(exp.trials) >= 1:
             self.assertEqual(modelbridge.status_quo, get_observation_status_quo1())
@@ -289,6 +290,15 @@ class BaseModelBridgeTest(TestCase):
                 0,
                 status_quo_name="1_1",
             )
+
+    @mock.patch(
+        "ax.modelbridge.base.observations_from_data", autospec=True, return_value=([])
+    )
+    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    def testNoOutOfDesign(self, mock_fit, mock_observations_from_data):
+        exp = get_experiment_for_value()
+        modelbridge = ModelBridge(get_search_space_for_value(), 0, [], exp, 0)
+        self.assertEqual(modelbridge.out_of_design_data(), None)
 
     def testUnwrapObservationData(self):
         observation_data = [get_observation1().data, get_observation2().data]
@@ -383,7 +393,8 @@ class BaseModelBridgeTest(TestCase):
                     )
                 ),
                 experiment=exp,
-            )
+            ),
+            ss,
         )
         exp.new_trial(generator_run=modelbridge.gen(1))
         modelbridge.update(

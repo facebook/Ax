@@ -12,7 +12,6 @@ from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.one_hot import OneHot
 from ax.modelbridge.transforms.ordered_choice_encode import OrderedChoiceEncode
-from ax.modelbridge.transforms.out_of_design import OutOfDesign
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
@@ -43,7 +42,11 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     Log: 5,
     OneHot: 6,
     OrderedChoiceEncode: 7,
-    OutOfDesign: 8,
+    # This transform was upstreamed into the base modelbridge.
+    # Old transforms serialized with this will have the OutOfDesign transform
+    # replaced with a no-op, the base transform.
+    # DEPRECATED: OutOfDesign: 8
+    Transform: 8,
     RemoveFixed: 9,
     SearchSpaceToChoice: 10,
     StandardizeY: 11,

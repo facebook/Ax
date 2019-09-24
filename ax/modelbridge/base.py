@@ -116,7 +116,9 @@ class ModelBridge(ABC):
             if experiment is not None and data is not None
             else []
         )
-        obs_feats_raw, obs_data_raw = self._set_training_data(observations)
+        obs_feats_raw, obs_data_raw = self._set_training_data(
+            observations, search_space
+        )
         # Set model status quo
         # NOTE: training data must be set before setting the status quo.
         self._set_status_quo(
@@ -124,7 +126,6 @@ class ModelBridge(ABC):
             status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
         )
-
         obs_feats, obs_data, search_space = self._transform_data(
             obs_feats=obs_feats_raw,
             obs_data=obs_data_raw,
@@ -188,9 +189,14 @@ class ModelBridge(ABC):
         return observation_features, observation_data
 
     def _set_training_data(
-        self, observations: List[Observation]
+        self, observations: List[Observation], search_space: SearchSpace
     ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
-        """Store training data, not-transformed"""
+        """Store training data, not-transformed.
+
+        Although all input training data is stored, only in-design training data
+        is returned. This is because model fitting requires only
+        in design points.
+        """
         observation_features, observation_data = self._prepare_training_data(
             observations=observations
         )
@@ -198,14 +204,22 @@ class ModelBridge(ABC):
         self._metric_names: Set[str] = set()
         for obsd in observation_data:
             self._metric_names.update(obsd.metric_names)
-        # Initialize with all points in design.
-        self.training_in_design = [True] * len(observations)
-        return observation_features, observation_data
+        in_design, in_design_features, in_design_data = filter_in_design(
+            search_space=search_space,
+            observation_features=observation_features,
+            observation_data=observation_data,
+        )
+        self.training_in_design = in_design
+        return in_design_features, in_design_data
 
     def _extend_training_data(
         self, observations: List[Observation]
     ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
         """Extend and return training data, not-transformed.
+
+        Although all input training data is stored, only in-design training data
+        is returned. This is because model fitting requires only
+        in design points.
 
         Args:
             observations: New observations.
@@ -227,8 +241,16 @@ class ModelBridge(ABC):
                     )
         # Initialize with all points in design.
         self._training_data.extend(deepcopy(observations))
-        self._training_in_design.extend([True] * len(observations))
-        return separate_observations(self.get_training_data())
+        all_observation_features, all_observation_data = separate_observations(
+            self.get_training_data()
+        )
+        in_design, in_design_features, in_design_data = filter_in_design(
+            search_space=self._model_space,
+            observation_features=all_observation_features,
+            observation_data=all_observation_data,
+        )
+        self.training_in_design = in_design
+        return in_design_features, in_design_data
 
     def _set_status_quo(
         self,
@@ -632,7 +654,7 @@ class ModelBridge(ABC):
         """
         raise NotImplementedError  # pragma: no cover
 
-    def out_of_design_data(self) -> TModelPredict:
+    def out_of_design_data(self) -> Optional[TModelPredict]:
         """Get formatted data for out of design points.
 
         When predictions are requested from a ModelBridge, points which
@@ -648,6 +670,8 @@ class ModelBridge(ABC):
         for i, obs in enumerate(obs_data):
             if not self.training_in_design[i]:
                 ood_obs_data.append(obs)
+        if not ood_obs_data:
+            return None
         return unwrap_observation_data(ood_obs_data)
 
     def _set_kwargs_to_save(
@@ -720,3 +744,17 @@ def gen_arms(
             arm = Arm(name=existing_arm.name, parameters=existing_arm.parameters)
         arms.append(arm)
     return arms
+
+
+def filter_in_design(
+    search_space: SearchSpace,
+    observation_features: List[ObservationFeatures],
+    observation_data: List[ObservationData],
+) -> Tuple[List[bool], List[ObservationFeatures], List[ObservationData]]:
+    in_design = [
+        search_space.check_membership(obsf.parameters) for obsf in observation_features
+    ]
+    in_design_indices = [i for i, in_design in enumerate(in_design) if in_design]
+    observation_features = [observation_features[i] for i in in_design_indices]
+    observation_data = [observation_data[i] for i in in_design_indices]
+    return in_design, observation_features, observation_data
