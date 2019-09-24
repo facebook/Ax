@@ -91,8 +91,8 @@ jobs:
         - pip install -q -e .[dev,mysql,notebook]
         - pip install torchvision  # Required for building tutorial notebooks.
       script:
-        - travis_wait 90 bash scripts/publish_site.sh -d -v $TRAVIS_TAG
-        # - python -c "print('Skipping tests...')"  # Use for testing deployment.
+        # - travis_wait 90 bash scripts/publish_site.sh -d -v $TRAVIS_TAG
+        - python -c "print('Skipping website deployment...')"  # Use for testing deployment.
       deploy:
         provider: pypi
         # server: https://test.pypi.org/legacy/ # For testing; use test.pypi pw.
