@@ -692,7 +692,7 @@ class AxClient:
         )
 
     def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
-        """Generate new generator run for this experimebt.
+        """Generate new generator run for this experiment.
 
         Args:
             n: Number of arms to generate.
