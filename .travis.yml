@@ -97,7 +97,8 @@ jobs:
         provider: pypi
         # server: https://test.pypi.org/legacy/ # For testing; use test.pypi pw.
         user: drfreund
-        password: P0cIqYhKg3d4gbkXA/RAnf3k0c2xLA606Ya3p2ZtDWmdD9XvY+NPQrSARQgT0nRMkQC3Hol/mjZIhHVMBb4LeNx1EttVClgeSxOTqlwcldD/u1S5auAjAPMJogGfTdOn3vnFlAEDE0ZEjVBjdh2XUkCvNhNYlx/AbXb8JCMa8dWW+mIzlv0CRQYQIcWWlilYyclRD8bi/ZQyVGGm65ux/CjgjiYGK7cf/E6QUqIiq0KsKIsDmsxZX20Bo6eYLwcLIkiSPdRS9gqi7Dh7NWa7NX1UpleCOvL/m8FoqgfF3XYxwhGX48ry2AtrZPSdv2NEo41NYOHbTZUgxZIRiM/Q6Q2L71+FMybrg2cKpcjLrC3OUP0x5QprASqAhesx581WFwHGM/y6T5YJjKOdEXdHpsCJyoQic2k/AePtxQL0w+PiotM73JO4/n9vNpZoXc2VuOqESE5YkY4Bq0NGgWYOtoZkY+pilqbGEo0NbwftICFAfpb54rvl5/OFa3F55eNmi2KplK2D/ztPuBasVN4f/CczaLxt1Kzko4JBhIxlpAPZemV/Ua7gRoch/CuzfgDPnmS1PUtV4QiCPNKlZ+AJJ2FFOjhFBwou5iT9F3HJDpzGNgtUN21gPokpCv2GcWysdgIdovNYm75gTSLntG2XZ78hdA0rkN/OUJDK6Vl2RKw=
+        password: 
+          secure: P0cIqYhKg3d4gbkXA/RAnf3k0c2xLA606Ya3p2ZtDWmdD9XvY+NPQrSARQgT0nRMkQC3Hol/mjZIhHVMBb4LeNx1EttVClgeSxOTqlwcldD/u1S5auAjAPMJogGfTdOn3vnFlAEDE0ZEjVBjdh2XUkCvNhNYlx/AbXb8JCMa8dWW+mIzlv0CRQYQIcWWlilYyclRD8bi/ZQyVGGm65ux/CjgjiYGK7cf/E6QUqIiq0KsKIsDmsxZX20Bo6eYLwcLIkiSPdRS9gqi7Dh7NWa7NX1UpleCOvL/m8FoqgfF3XYxwhGX48ry2AtrZPSdv2NEo41NYOHbTZUgxZIRiM/Q6Q2L71+FMybrg2cKpcjLrC3OUP0x5QprASqAhesx581WFwHGM/y6T5YJjKOdEXdHpsCJyoQic2k/AePtxQL0w+PiotM73JO4/n9vNpZoXc2VuOqESE5YkY4Bq0NGgWYOtoZkY+pilqbGEo0NbwftICFAfpb54rvl5/OFa3F55eNmi2KplK2D/ztPuBasVN4f/CczaLxt1Kzko4JBhIxlpAPZemV/Ua7gRoch/CuzfgDPnmS1PUtV4QiCPNKlZ+AJJ2FFOjhFBwou5iT9F3HJDpzGNgtUN21gPokpCv2GcWysdgIdovNYm75gTSLntG2XZ78hdA0rkN/OUJDK6Vl2RKw=
         distributions: sdist bdist_wheel
         skip_existing: true
         on:
