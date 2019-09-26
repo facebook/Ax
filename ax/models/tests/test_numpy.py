@@ -22,6 +22,11 @@ class NumpyModelTest(TestCase):
             fidelity_features=[],
         )
 
+    def testNumpyModelFeatureImportances(self):
+        numpy_model = NumpyModel()
+        with self.assertRaises(NotImplementedError):
+            numpy_model.feature_importances()
+
     def testNumpyModelPredict(self):
         numpy_model = NumpyModel()
         with self.assertRaises(NotImplementedError):

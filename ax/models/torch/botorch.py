@@ -2,8 +2,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
+import numpy as np
 import torch
 from ax.core.types import TConfig
 from ax.models.model_utils import best_observed_point
@@ -16,7 +17,7 @@ from ax.models.torch.botorch_defaults import (
 from ax.models.torch.utils import _get_X_pending_and_observed
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from torch import Tensor
@@ -398,6 +399,15 @@ class BotorchModel(TorchModel):
             fidelity_model_id=self.fidelity_model_id,
             refit_model=self.refit_on_update,
         )
+
+    def feature_importances(self) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError(
+                "Cannot calculate feature_importances without a fitted model"
+            )
+        else:
+            ls = not_none(self.model).covar_module.base_kernel.lengthscale
+            return cast(Tensor, (1 / ls)).detach().cpu().numpy()
 
 
 def get_rounding_func(

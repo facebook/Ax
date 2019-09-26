@@ -230,6 +230,10 @@ class BotorchModelTest(TestCase):
         model.refit_on_update = False
         model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
 
+        # Test feature_importances
+        importances = model.feature_importances()
+        self.assertEqual(importances.shape, torch.Size([2, 1, 3]))
+
         # When calling update directly, the data is completely overwritten.
         self.assertTrue(torch.equal(model.Xs[0], Xs2[0]))
         self.assertTrue(torch.equal(model.Xs[1], Xs2[0]))
@@ -240,7 +244,7 @@ class BotorchModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
 
-        # test unfit model CV and update
+        # test unfit model CV, update, and feature_importances
         unfit_model = BotorchModel()
         with self.assertRaises(RuntimeError):
             unfit_model.cross_validate(
@@ -251,6 +255,8 @@ class BotorchModelTest(TestCase):
             )
         with self.assertRaises(RuntimeError):
             unfit_model.update(Xs=Xs1 + Xs2, Ys=Ys1 + Ys2, Yvars=Yvars1 + Yvars2)
+        with self.assertRaises(RuntimeError):
+            unfit_model.feature_importances()
 
         # Test loading state dict
         tkwargs = {"device": device, "dtype": dtype}

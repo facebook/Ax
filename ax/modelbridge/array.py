@@ -19,6 +19,7 @@ from ax.modelbridge.modelbridge_utils import (
     pending_observations_as_array,
     transform_callback,
 )
+from ax.utils.common.typeutils import not_none
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
@@ -57,7 +58,7 @@ class ArrayModelBridge(ModelBridge):
         all_metric_names: Set[str] = set()
         for od in observation_data:
             all_metric_names.update(od.metric_names)
-        self.outcomes = list(all_metric_names)
+        self.outcomes = sorted(list(all_metric_names))  # Deterministic order.
         # Convert observations to arrays
         Xs_array, Ys_array, Yvars_array = _convert_observations(
             observation_data=observation_data,
@@ -322,6 +323,12 @@ class ArrayModelBridge(ModelBridge):
         ]
         # turn it back into an array
         return np.array(new_x)
+
+    def feature_importances(self, metric_name: str) -> Dict[str, float]:
+        importances_tensor = not_none(self.model).feature_importances()
+        importances_dict = dict(zip(self.outcomes, importances_tensor))
+        importances_arr = importances_dict[metric_name].flatten()
+        return dict(zip(self.parameters, importances_arr))
 
 
 def array_to_observation_data(

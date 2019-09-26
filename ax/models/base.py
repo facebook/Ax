@@ -29,3 +29,8 @@ class Model:
         generation and was never interrupted and serialized.
         """
         return {}  # pragma: no cover
+
+    def feature_importances(self) -> Any:
+        raise NotImplementedError(
+            "Feature importance not available for this Model type"
+        )

@@ -154,3 +154,46 @@ class ArrayModelBridgeTest(TestCase):
         self.assertEqual(arm.parameters, {})
         self.assertEqual(predictions[0], {"m": 1.0})
         self.assertEqual(predictions[1], {"m": {"m": 2.0}})
+
+    @patch(
+        f"{ModelBridge.__module__}.observations_from_data",
+        autospec=True,
+        return_value=([get_observation1()]),
+    )
+    @patch(
+        f"{ModelBridge.__module__}.unwrap_observation_data",
+        autospec=True,
+        return_value=(2, 2),
+    )
+    @patch(
+        f"{ModelBridge.__module__}.gen_arms",
+        autospec=True,
+        return_value=[Arm(parameters={})],
+    )
+    @patch(
+        f"{ModelBridge.__module__}.ModelBridge.predict",
+        autospec=True,
+        return_value=({"m": [1.0]}, {"m": {"m": [2.0]}}),
+    )
+    @patch(f"{ModelBridge.__module__}.ModelBridge._fit", autospec=True)
+    @patch(
+        f"{NumpyModel.__module__}.NumpyModel.feature_importances",
+        return_value=np.array([[[1.0]], [[2.0]]]),
+        autospec=True,
+    )
+    def test_importances(
+        self,
+        _mock_feature_importances,
+        _mock_fit,
+        _mock_predict,
+        _mock_gen_arms,
+        _mock_unwrap,
+        _mock_obs_from_data,
+    ):
+        exp = Experiment(get_search_space_for_range_value(), "test")
+        modelbridge = ArrayModelBridge(
+            get_search_space_for_range_value(), NumpyModel(), [t1, t2], exp, 0
+        )
+        modelbridge.outcomes = ["a", "b"]
+        self.assertEqual(modelbridge.feature_importances("a"), {"x": [1.0]})
+        self.assertEqual(modelbridge.feature_importances("b"), {"x": [2.0]})

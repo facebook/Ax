@@ -707,6 +707,11 @@ class ModelBridge(ABC):
             # pyre-fixme[16]: which should've ensured its presence to typechecker.
             not_none(self._model_kwargs).update(self.model._get_state())
 
+    def feature_importances(self, metric_name: str) -> Dict[str, float]:
+        raise NotImplementedError(
+            "Feature importance not available for this model type"
+        )
+
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:
     """Converts observation data to the format for model prediction outputs.

@@ -174,6 +174,10 @@ class BaseModelBridgeTest(TestCase):
         with self.assertRaises(ValueError):
             modelbridge.training_in_design = [True, True, False]
 
+        # Test feature_importances
+        with self.assertRaises(NotImplementedError):
+            modelbridge.feature_importances("a")
+
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
