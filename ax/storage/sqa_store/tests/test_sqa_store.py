@@ -58,7 +58,7 @@ from ax.storage.utils import (
     remove_prefix,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
+from ax.utils.testing.core_stubs import (
     get_arm,
     get_batch_trial,
     get_branin_data,
@@ -67,7 +67,6 @@ from ax.utils.testing.fake import (
     get_choice_parameter,
     get_experiment_with_batch_trial,
     get_fixed_parameter,
-    get_generation_strategy,
     get_generator_run,
     get_multi_type_experiment,
     get_objective,
@@ -79,6 +78,7 @@ from ax.utils.testing.fake import (
     get_sum_constraint2,
     get_synthetic_runner,
 )
+from ax.utils.testing.modeling_stubs import get_generation_strategy
 
 
 class SQAStoreTest(TestCase):

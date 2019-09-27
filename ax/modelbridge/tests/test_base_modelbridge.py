@@ -20,19 +20,21 @@ from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge, gen_arms, unwrap_observation_data
 from ax.modelbridge.transforms.log import Log
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
-    get_experiment_for_value,
+from ax.utils.testing.core_stubs import (
     get_experiment_with_repeated_arms,
+    get_optimization_config_no_constraints,
+    get_search_space_for_range_value,
+    get_search_space_for_range_values,
+    get_search_space_for_value,
+)
+from ax.utils.testing.modeling_stubs import (
+    get_experiment_for_value,
     get_observation1,
     get_observation1trans,
     get_observation2,
     get_observation2trans,
     get_observation_status_quo0,
     get_observation_status_quo1,
-    get_optimization_config_no_constraints,
-    get_search_space_for_range_value,
-    get_search_space_for_range_values,
-    get_search_space_for_value,
     transform_1,
     transform_2,
 )

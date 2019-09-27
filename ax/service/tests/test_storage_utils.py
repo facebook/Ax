@@ -10,11 +10,8 @@ from ax.service.utils.storage import (
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
-    get_experiment,
-    get_generation_strategy,
-    get_simple_experiment,
-)
+from ax.utils.testing.core_stubs import get_experiment, get_simple_experiment
+from ax.utils.testing.modeling_stubs import get_generation_strategy
 
 
 class TestStorageUtils(TestCase):

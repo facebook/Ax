@@ -9,12 +9,8 @@ from ax.modelbridge.base import ModelBridge
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.plot.scatter import tile_fitted
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
-    get_data,
-    get_experiment,
-    get_observation,
-    get_search_space,
-)
+from ax.utils.testing.core_stubs import get_data, get_experiment, get_search_space
+from ax.utils.testing.modeling_stubs import get_observation
 
 
 @mock.patch(

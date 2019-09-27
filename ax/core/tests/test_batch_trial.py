@@ -12,7 +12,7 @@ from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
+from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
     get_arm,
     get_arm_weights1,

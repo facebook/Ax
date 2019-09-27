@@ -14,7 +14,8 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.numpy_base import NumpyModel
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import get_observation1, get_search_space_for_range_value
+from ax.utils.testing.core_stubs import get_search_space_for_range_value
+from ax.utils.testing.modeling_stubs import get_observation1
 
 
 # Prepare mock transforms

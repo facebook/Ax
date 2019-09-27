@@ -14,7 +14,7 @@ from ax.metrics.l2norm import L2NormMetric
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import get_branin_search_space
+from ax.utils.testing.core_stubs import get_branin_search_space
 
 
 def fail(*args: Any, **kwargs: Any) -> None:

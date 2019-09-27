@@ -20,7 +20,7 @@ from ax.storage.metric_registry import register_metric
 from ax.storage.runner_registry import register_runner
 from ax.storage.utils import EncodeDecodeFieldsMap, remove_prefix
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
+from ax.utils.testing.core_stubs import (
     get_arm,
     get_batch_trial,
     get_branin_data,
@@ -31,7 +31,6 @@ from ax.utils.testing.fake import (
     get_experiment_with_data,
     get_factorial_metric,
     get_fixed_parameter,
-    get_generation_strategy,
     get_generator_run,
     get_hartmann_metric,
     get_metric,
@@ -46,9 +45,9 @@ from ax.utils.testing.fake import (
     get_sum_constraint1,
     get_sum_constraint2,
     get_synthetic_runner,
-    get_transform_type,
     get_trial,
 )
+from ax.utils.testing.modeling_stubs import get_generation_strategy, get_transform_type
 
 
 TEST_CASES = [

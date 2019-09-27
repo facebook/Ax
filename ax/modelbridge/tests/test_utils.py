@@ -11,7 +11,7 @@ from ax.modelbridge.modelbridge_utils import (
     pending_observations_as_array,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import get_experiment
+from ax.utils.testing.core_stubs import get_experiment
 
 
 class TestModelbridgeUtils(TestCase):

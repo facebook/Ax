@@ -16,7 +16,11 @@ from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import get_branin_experiment, get_choice_parameter, get_data
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_choice_parameter,
+    get_data,
+)
 
 
 class TestGenerationStrategy(TestCase):

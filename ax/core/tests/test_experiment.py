@@ -10,7 +10,7 @@ from ax.core.search_space import SearchSpace
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
+from ax.utils.testing.core_stubs import (
     get_arm,
     get_branin_arms,
     get_branin_search_space,

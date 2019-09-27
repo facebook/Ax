@@ -32,7 +32,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
-from ax.utils.testing.fake import get_observation1, get_observation1trans
+from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
 
 
 class FakeModels(Enum):

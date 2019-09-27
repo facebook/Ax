@@ -4,7 +4,7 @@
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
+from ax.utils.testing.core_stubs import (
     get_arms,
     get_model_predictions,
     get_model_predictions_per_arm,
