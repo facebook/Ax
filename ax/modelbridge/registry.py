@@ -67,7 +67,7 @@ Discrete_X_trans: List[Type[Transform]] = [IntRangeToChoice]
 Y_trans: List[Type[Transform]] = [IVW, Derelativize, StandardizeY]
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
-TS_trans: List[Type[Transform]] = Discrete_X_trans + Y_trans + [SearchSpaceToChoice]
+TS_trans: List[Type[Transform]] = Y_trans + [SearchSpaceToChoice]
 
 # Multi-type MTGP transforms
 MT_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
