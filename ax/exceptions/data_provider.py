@@ -7,7 +7,7 @@ from typing import Any
 class DataProviderError(Exception):
     """Base Exception for Ax DataProviders.
 
-    The type of the driver must be included.
+    The type of the data provider must be included.
     The raw error is stored in the data_provider_error section,
     and an Ax-friendly message is stored as the actual error message.
     """

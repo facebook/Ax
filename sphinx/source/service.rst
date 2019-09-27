@@ -28,6 +28,14 @@ Managed Loop
 Utils
 ------
 
+Best Point Identification
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.service.utils.best_point
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Dispatch
 ~~~~~~~~~~~~~~~~
 
