@@ -50,10 +50,10 @@ while getopts 'hbotrk:' flag; do
 done
 
 if [[ $ONLY_DOCUSAURUS == false ]]; then
-  echo "-----------------------------------"
-  echo "Building Cython modules"
-  echo "-----------------------------------"
-  python3 setup.py build_ext --inplace
+  # echo "-----------------------------------"
+  # echo "Building Cython modules"
+  # echo "-----------------------------------"
+  # python3 setup.py build_ext --inplace
 
   # generate Sphinx documentation
   echo "-----------------------------------"
