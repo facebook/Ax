@@ -71,6 +71,7 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
         "runner": batch.runner,
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,
+        "optimize_for_power": batch.optimize_for_power,
     }
 
 

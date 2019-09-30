@@ -349,6 +349,12 @@ ENCODE_DECODE_FIELD_MAPS = {
             "num_arms_created": "num_arms_created",
         },
         python_only=["experiment"],
-        encoded_only=["is_batch", "abandoned_arms", "status_quo_name", "deployed_name"],
+        encoded_only=[
+            "is_batch",
+            "abandoned_arms",
+            "status_quo_name",
+            "deployed_name",
+            "optimize_for_power",
+        ],
     ),
 }

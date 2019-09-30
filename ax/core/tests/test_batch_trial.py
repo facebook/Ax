@@ -169,6 +169,15 @@ class BatchTrialTest(TestCase):
         with self.assertRaises(ValueError):
             self.batch.status_quo = Arm(self.arms[0].parameters, name="new_name")
 
+    def testStatusQuoOptimizeForPower(self):
+        self.experiment.status_quo = self.status_quo
+        batch = self.experiment.new_batch_trial(optimize_for_power=True)
+        self.assertEqual(batch._status_quo_weight_override, 1)
+
+        self.experiment.status_quo = None
+        with self.assertRaises(ValueError):
+            batch = self.experiment.new_batch_trial(optimize_for_power=True)
+
     def testBatchLifecycle(self):
         staging_mock = PropertyMock()
         with patch.object(SyntheticRunner, "staging_required", staging_mock):

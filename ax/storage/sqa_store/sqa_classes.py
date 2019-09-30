@@ -263,6 +263,7 @@ class SQATrial(Base):
     index: int = Column(Integer, index=True, nullable=False)
     is_batch: bool = Column("is_batched", Boolean, nullable=False, default=True)
     num_arms_created: int = Column(Integer, nullable=False, default=0)
+    optimize_for_power: Optional[bool] = Column(Boolean)
     run_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
     status: TrialStatus = Column(
         IntEnum(TrialStatus), nullable=False, default=TrialStatus.CANDIDATE

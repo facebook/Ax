@@ -59,6 +59,7 @@ class BatchTrial(BaseTrial):
         experiment: "core.experiment.Experiment",
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
+        optimize_for_power: Optional[bool] = False,
     ) -> None:
         super().__init__(experiment=experiment, trial_type=trial_type)
         self._generator_run_structs: List[GeneratorRunStruct] = []
@@ -67,7 +68,17 @@ class BatchTrial(BaseTrial):
         self._status_quo_weight_override: float = 0.0
         if generator_run is not None:
             self.add_generator_run(generator_run=generator_run)
-        self.status_quo = experiment.status_quo
+
+        self.optimize_for_power = optimize_for_power
+        status_quo = experiment.status_quo
+        if optimize_for_power:
+            if status_quo is None:
+                raise ValueError(
+                    "Can only optimize for power if experiment has a status quo."
+                )
+            self.set_status_quo_and_optimize_power(status_quo=status_quo)
+        else:
+            self.status_quo = status_quo
 
     @property
     def experiment(self) -> "core.experiment.Experiment":

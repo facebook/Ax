@@ -506,6 +506,7 @@ class Encoder:
         abandoned_arms = []
         generator_runs = []
         status_quo_name = None
+        optimize_for_power = None
         if isinstance(trial, BatchTrial):
             abandoned_arms = [
                 self.abandoned_arm_to_sqa(abandoned_arm=abandoned_arm)
@@ -530,6 +531,7 @@ class Encoder:
                     self.generator_run_to_sqa(generator_run=status_quo_generator_run)
                 )
                 status_quo_name = trial.status_quo.name
+            optimize_for_power = trial.optimize_for_power
         elif isinstance(trial, Trial):
             if trial.generator_run:
                 generator_runs = [
@@ -547,6 +549,7 @@ class Encoder:
             index=trial.index,
             is_batch=isinstance(trial, BatchTrial),
             num_arms_created=trial._num_arms_created,
+            optimize_for_power=optimize_for_power,
             run_metadata=trial.run_metadata,
             status=trial.status,
             status_quo_name=status_quo_name,

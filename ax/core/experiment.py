@@ -458,10 +458,14 @@ class Experiment(Base):
         self,
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
+        optimize_for_power: Optional[bool] = False,
     ) -> BatchTrial:
         """Create a new batch trial associated with this experiment."""
         return BatchTrial(
-            experiment=self, trial_type=trial_type, generator_run=generator_run
+            experiment=self,
+            trial_type=trial_type,
+            generator_run=generator_run,
+            optimize_for_power=optimize_for_power,
         )
 
     def _attach_trial(self, trial: BaseTrial) -> int:

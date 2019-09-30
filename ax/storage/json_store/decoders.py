@@ -34,6 +34,7 @@ def batch_trial_from_json(
     num_arms_created: int,
     status_quo: Optional[Arm],
     status_quo_weight_override: float,
+    optimize_for_power: Optional[bool],
 ) -> BatchTrial:
     """Load Ax BatchTrial from JSON.
 
@@ -58,6 +59,7 @@ def batch_trial_from_json(
     batch._num_arms_created = num_arms_created
     batch._status_quo = status_quo
     batch._status_quo_weight_override = status_quo_weight_override
+    batch.optimize_for_power = optimize_for_power
     return batch
 
 
