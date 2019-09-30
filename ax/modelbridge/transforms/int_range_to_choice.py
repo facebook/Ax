@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
@@ -31,29 +31,30 @@ class IntRangeToChoice(Transform):
         }
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        transformed_parameters: List[Parameter] = []
+        transformed_parameters: Dict[str, Parameter] = {}
         for p in search_space.parameters.values():
             if p.name in self.transform_parameters:
                 # pyre: p_cast is declared to have type `RangeParameter` but
                 # pyre-fixme[9]: is used as type `Parameter`.
                 p_cast: RangeParameter = p
-                transformed_parameters.append(
-                    ChoiceParameter(
-                        name=p_cast.name,
-                        parameter_type=p_cast.parameter_type,
-                        # Expected `List[Optional[typing.Union[bool, float, str]]]` for
-                        # 4th parameter `values` to call
-                        # `ax.core.parameter.ChoiceParameter.__init__` but got
-                        # `List[int]`.
-                        # pyre-fixme[6]:
-                        values=list(range(p_cast.lower, p_cast.upper + 1)),
-                    )
+                transformed_parameters[p.name] = ChoiceParameter(
+                    name=p_cast.name,
+                    parameter_type=p_cast.parameter_type,
+                    # Expected `List[Optional[typing.Union[bool, float, str]]]` for
+                    # 4th parameter `values` to call
+                    # `ax.core.parameter.ChoiceParameter.__init__` but got
+                    # `List[int]`.
+                    # pyre-fixme[6]:
+                    values=list(range(p_cast.lower, p_cast.upper + 1)),
                 )
             else:
-                transformed_parameters.append(p)
+                transformed_parameters[p.name] = p
         return SearchSpace(
-            parameters=transformed_parameters,
+            parameters=list(transformed_parameters.values()),
             parameter_constraints=[
-                pc.clone() for pc in search_space.parameter_constraints
+                pc.clone_with_transformed_parameters(
+                    transformed_parameters=transformed_parameters
+                )
+                for pc in search_space.parameter_constraints
             ],
         )
