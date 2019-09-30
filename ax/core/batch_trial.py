@@ -64,7 +64,7 @@ class BatchTrial(BaseTrial):
         self._generator_run_structs: List[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
         self._status_quo: Optional[Arm] = None
-        self._status_quo_weight: float = 0.0
+        self._status_quo_weight_override: float = 0.0
         if generator_run is not None:
             self.add_generator_run(generator_run=generator_run)
         self.status_quo = experiment.status_quo
@@ -106,7 +106,7 @@ class BatchTrial(BaseTrial):
                 else:
                     arm_weights[arm] = scaled_weight
         if self.status_quo is not None:
-            arm_weights[self.status_quo] = self._status_quo_weight
+            arm_weights[self.status_quo] = self._status_quo_weight_override
         return arm_weights
 
     @arm_weights.setter
@@ -242,7 +242,7 @@ class BatchTrial(BaseTrial):
                 else float(sum(self.weights)) / len(self.weights)
             )
         self._status_quo = status_quo
-        self._status_quo_weight = weight
+        self._status_quo_weight_override = weight
         return self
 
     @immutable_once_run
@@ -269,7 +269,7 @@ class BatchTrial(BaseTrial):
         arm_weights = not_none(self.arm_weights)
         sum_weights = sum(w for arm, w in arm_weights.items() if arm != status_quo)
         optimal_status_quo_weight = np.sqrt(sum_weights)
-        self._status_quo_weight = optimal_status_quo_weight
+        self._status_quo_weight_override = optimal_status_quo_weight
         return self
 
     @property

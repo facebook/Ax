@@ -179,7 +179,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "abandoned_arms_metadata": "abandoned_arms",
             "num_arms_created": "num_arms_created",
         },
-        python_only=["experiment", "status_quo", "status_quo_weight"],
+        python_only=["experiment", "status_quo", "status_quo_weight_override"],
         encoded_only=["is_batch", "status_quo_name", "deployed_name"],
     ),
     "BraninObjective": EncodeDecodeFieldsMap(

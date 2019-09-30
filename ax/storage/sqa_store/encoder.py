@@ -520,7 +520,7 @@ class Encoder:
             if trial.status_quo is not None:
                 status_quo_generator_run = GeneratorRun(
                     arms=[trial.status_quo],
-                    weights=[trial._status_quo_weight],
+                    weights=[trial._status_quo_weight_override],
                     type=GeneratorRunType.STATUS_QUO.name,
                 )
                 # this is a hack necessary to get equality tests passing;

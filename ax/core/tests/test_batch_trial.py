@@ -163,7 +163,7 @@ class BatchTrialTest(TestCase):
         self.experiment.status_quo = self.status_quo
         batch2 = self.batch.clone()
         self.assertEqual(batch2.status_quo, self.experiment.status_quo)
-        self.assertEqual(batch2._status_quo_weight, avg_weight)
+        self.assertEqual(batch2._status_quo_weight_override, avg_weight)
 
         # Try setting sq to existing arm with different name
         with self.assertRaises(ValueError):
@@ -395,8 +395,8 @@ class BatchTrialTest(TestCase):
         batch_trial.set_status_quo_and_optimize_power(status_quo)
         self.assertEqual(batch_trial.arm_weights[status_quo], np.sqrt(2))
         # Since status quo is not in the generator runs, all of its weight
-        # comes from _status_quo_weight
-        self.assertEqual(batch_trial._status_quo_weight, np.sqrt(2))
+        # comes from _status_quo_weight_override
+        self.assertEqual(batch_trial._status_quo_weight_override, np.sqrt(2))
 
         # Test adding status quo and optimizing power when status quo
         # is in the generator runs
@@ -411,8 +411,8 @@ class BatchTrialTest(TestCase):
         batch_trial.set_status_quo_and_optimize_power(status_quo)
         self.assertEqual(batch_trial.arm_weights[status_quo], np.sqrt(2))
         # Since status quo has a weight of 1 in the generator runs, only part of
-        # its weight comes from _status_quo_weight
-        self.assertEqual(batch_trial._status_quo_weight, np.sqrt(2))
+        # its weight comes from _status_quo_weight_override
+        self.assertEqual(batch_trial._status_quo_weight_override, np.sqrt(2))
 
     def testRepr(self):
         repr_ = (

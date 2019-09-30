@@ -616,8 +616,9 @@ class Decoder:
                         struct.generator_run.generator_run_type
                         == GeneratorRunType.STATUS_QUO.name
                     ):
+                        status_quo_weight = struct.generator_run.weights[0]
                         trial._status_quo = struct.generator_run.arms[0]
-                        trial._status_quo_weight = struct.generator_run.weights[0]
+                        trial._status_quo_weight_override = status_quo_weight
                     else:
                         new_generator_run_structs.append(struct)
                 generator_run_structs = new_generator_run_structs
