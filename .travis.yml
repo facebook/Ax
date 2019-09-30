@@ -65,8 +65,6 @@ jobs:
         - pytest -ra
     - name: "Docs: Sphinx Coverage (Python 3.6)"
       python: "3.6"
-      # Allow failure for now, until missing modules are added to documentation.
-      env: ALLOW_FAILURE=true
       script:
         - python3 scripts/validate_sphinx.py -p "${pwd}"
     # Pre-deployment stage enforces compatibility with stable BoTorch.
