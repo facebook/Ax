@@ -8,32 +8,32 @@ ax.exceptions
 .. currentmodule:: ax.exceptions
 
 
-ax.exceptions.core module
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Core
+~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.exceptions.core
     :members:
     :undoc-members:
     :show-inheritance:
 
-ax.exceptions.data\_provider module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Data
+~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.exceptions.data_provider
     :members:
     :undoc-members:
     :show-inheritance:
 
-ax.exceptions.model module
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Model
+~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.exceptions.model
     :members:
     :undoc-members:
     :show-inheritance:
 
-ax.exceptions.storage module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Storage
+~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.exceptions.storage
     :members:

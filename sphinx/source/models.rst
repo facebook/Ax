@@ -11,6 +11,14 @@ ax.models
 Base Models
 ---------------
 
+ax.models.base
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.models.discrete\_base module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -118,6 +126,14 @@ ax.models.torch.botorch module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.models.torch.botorch
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_defaults module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_defaults
     :members:
     :undoc-members:
     :show-inheritance:

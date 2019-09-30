@@ -24,6 +24,7 @@ DEV_REQUIRES = [
     "pytest-cov",
     "sphinx",
     "sphinx-autodoc-typehints",
+    "torchvision",
 ]
 
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]

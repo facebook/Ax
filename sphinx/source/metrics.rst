@@ -32,6 +32,14 @@ Hartmann6
     :undoc-members:
     :show-inheritance:
 
+L2 Norm
+~~~~~~~~~
+
+.. automodule:: ax.metrics.l2norm
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Noisy Functions
 ~~~~~~~~~~~~~~~
 

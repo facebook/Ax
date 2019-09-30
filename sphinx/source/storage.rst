@@ -77,7 +77,6 @@ ax.storage.sqa\_store.base\_decoder module
     :undoc-members:
     :show-inheritance:
 
-
 ax.storage.sqa\_store.base\_encoder module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -119,10 +118,26 @@ ax.storage.sqa\_store.save module
     :undoc-members:
     :show-inheritance:
 
+ax.storage.sqa\_store.structs module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.storage.sqa_store.structs
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.storage.sqa\_store.sqa\_classes module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.sqa_classes
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.storage.sqa\_store.sqa\_config module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.storage.sqa_store.sqa_config
     :members:
     :undoc-members:
     :show-inheritance:
@@ -168,6 +183,11 @@ Registries
     :show-inheritance:
 
 .. automodule:: ax.storage.runner_registry
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: ax.storage.transform_registry
     :members:
     :undoc-members:
     :show-inheritance:

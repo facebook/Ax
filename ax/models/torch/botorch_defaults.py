@@ -223,15 +223,16 @@ def scipy_optimizer(
             appropriately (i.e., according to `round-trip` transformations).
 
     Returns:
-        A two-element tuple with the following elements:
+        2-element tuple containing
 
-        Tensor: A `n x d`-dim tensor of generated candidates.
-        Tensor: In the case of joint optimization, a scalar tensor containing
-            the joint acquisition value of the `n` points. In the case of
-            sequential optimization, a `n`-dim tensor of conditional acquisition
-            values, where `i`-th element is the expected acquisition value
-            conditional on having observed candidates `0,1,...,i-1`.
+        - A `n x d`-dim tensor of generated candidates.
+        - In the case of joint optimization, a scalar tensor containing
+          the joint acquisition value of the `n` points. In the case of
+          sequential optimization, a `n`-dim tensor of conditional acquisition
+          values, where `i`-th element is the expected acquisition value
+          conditional on having observed candidates `0,1,...,i-1`.
     """
+
     num_restarts: int = kwargs.get("num_restarts", 20)
     raw_samples: int = kwargs.get("num_raw_samples", 50 * num_restarts)
 
