@@ -192,8 +192,9 @@ class ExperimentTest(TestCase):
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
 
-        # Make a batch, then change exp status quo, verify 2 arms
-        self.experiment.new_batch_trial()
+        # Make a batch, add status quo to it, then change exp status quo, verify 2 arms
+        batch = self.experiment.new_batch_trial()
+        batch.set_status_quo_with_weight(self.experiment.status_quo, 1)
         sq_parameters["w"] = 3.7
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(len(self.experiment.arms_by_signature), 2)

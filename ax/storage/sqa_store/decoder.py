@@ -599,7 +599,9 @@ class Decoder:
     def trial_from_sqa(self, trial_sqa: SQATrial, experiment: Experiment) -> BaseTrial:
         """Convert SQLAlchemy Trial to Ax Trial."""
         if trial_sqa.is_batch:
-            trial = BatchTrial(experiment=experiment)
+            trial = BatchTrial(
+                experiment=experiment, optimize_for_power=trial_sqa.optimize_for_power
+            )
             generator_run_structs = [
                 GeneratorRunStruct(
                     generator_run=self.generator_run_from_sqa(
@@ -629,7 +631,6 @@ class Decoder:
                 )
                 for abandoned_arm_sqa in trial_sqa.abandoned_arms
             }
-            optimize_for_power = trial_sqa.optimize_for_power
         else:
             trial = Trial(experiment=experiment)
             if trial_sqa.generator_runs:
@@ -641,7 +642,6 @@ class Decoder:
                 trial._generator_run = self.generator_run_from_sqa(
                     generator_run_sqa=trial_sqa.generator_runs[0]
                 )
-            optimize_for_power = None
         trial._index = trial_sqa.index
         trial._trial_type = trial_sqa.trial_type
         trial._status = trial_sqa.status
@@ -659,7 +659,6 @@ class Decoder:
         trial._runner = (
             self.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None
         )
-        trial.optimize_for_power = optimize_for_power
         return trial
 
     def data_from_sqa(self, data_sqa: SQAData) -> Data:

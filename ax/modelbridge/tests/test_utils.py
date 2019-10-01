@@ -21,6 +21,7 @@ class TestModelbridgeUtils(TestCase):
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
         self.experiment_2 = get_experiment()
         self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))
+        self.batch_trial.set_status_quo_with_weight(self.experiment_2.status_quo, 1)
         self.obs_feat = ObservationFeatures.from_arm(
             arm=self.trial.arm, trial_index=np.int64(self.trial.index)
         )

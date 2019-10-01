@@ -518,10 +518,16 @@ class Encoder:
                 )
                 for struct in trial.generator_run_structs
             ]
-            if trial.status_quo is not None:
+            # appease pyre
+            trial_status_quo = trial.status_quo
+            trial_status_quo_weight_override = trial._status_quo_weight_override
+            if (
+                trial_status_quo is not None
+                and trial_status_quo_weight_override is not None
+            ):
                 status_quo_generator_run = GeneratorRun(
-                    arms=[trial.status_quo],
-                    weights=[trial._status_quo_weight_override],
+                    arms=[trial_status_quo],
+                    weights=[trial_status_quo_weight_override],
                     type=GeneratorRunType.STATUS_QUO.name,
                 )
                 # this is a hack necessary to get equality tests passing;
@@ -530,7 +536,7 @@ class Encoder:
                 generator_runs.append(
                     self.generator_run_to_sqa(generator_run=status_quo_generator_run)
                 )
-                status_quo_name = trial.status_quo.name
+                status_quo_name = trial_status_quo.name
             optimize_for_power = trial.optimize_for_power
         elif isinstance(trial, Trial):
             if trial.generator_run:

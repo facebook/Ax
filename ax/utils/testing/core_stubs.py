@@ -86,7 +86,9 @@ def get_branin_experiment(
     if with_batch:
         sobol_generator = get_sobol(search_space=exp.search_space)
         sobol_run = sobol_generator.gen(n=15)
-        exp.new_batch_trial().add_generator_run(sobol_run)
+        exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
+            sobol_run
+        )
 
     return exp
 
@@ -154,7 +156,9 @@ def get_factorial_experiment(
     if with_batch:
         factorial_generator = get_factorial(search_space=exp.search_space)
         factorial_run = factorial_generator.gen(n=-1)
-        exp.new_batch_trial().add_generator_run(factorial_run)
+        exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
+            factorial_run
+        )
 
     return exp
 

@@ -65,7 +65,7 @@ class BatchTrial(BaseTrial):
         self._generator_run_structs: List[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
         self._status_quo: Optional[Arm] = None
-        self._status_quo_weight_override: float = 0.0
+        self._status_quo_weight_override: Optional[float] = None
         if generator_run is not None:
             self.add_generator_run(generator_run=generator_run)
 
@@ -78,7 +78,9 @@ class BatchTrial(BaseTrial):
                 )
             self.set_status_quo_and_optimize_power(status_quo=status_quo)
         else:
-            self.status_quo = status_quo
+            # Set the status quo for tracking purposes
+            # It will not be included in arm_weights
+            self._status_quo = status_quo
 
     @property
     def experiment(self) -> "core.experiment.Experiment":
@@ -116,7 +118,10 @@ class BatchTrial(BaseTrial):
                     arm_weights[arm] += scaled_weight
                 else:
                     arm_weights[arm] = scaled_weight
-        if self.status_quo is not None:
+        if self.status_quo is not None and self._status_quo_weight_override is not None:
+            # If override is specified, this is the weight the status quo gets,
+            # regardless of whether it appeared in any generator runs.
+            # If no override is specified, status quo does not appear in arm_weights.
             arm_weights[self.status_quo] = self._status_quo_weight_override
         return arm_weights
 
@@ -199,8 +204,9 @@ class BatchTrial(BaseTrial):
         )
         generator_run.index = len(self._generator_run_structs) - 1
 
-        # Resetting status quo reweights the status_quo, based on new arms
-        self.reweight_status_quo()
+        if self.status_quo is not None and self.optimize_for_power:
+            self.set_status_quo_and_optimize_power(status_quo=not_none(self.status_quo))
+
         return self
 
     @property
@@ -210,16 +216,24 @@ class BatchTrial(BaseTrial):
 
     @status_quo.setter
     def status_quo(self, status_quo: Optional[Arm]) -> None:
-        """Sets status quo arm."""
-        self.set_status_quo_with_weight(status_quo)
+        raise NotImplementedError(
+            "Use `set_status_quo_with_weight` or "
+            "`set_status_quo_and_optimize_power` "
+            "to set the status quo arm."
+        )
+
+    def unset_status_quo(self) -> None:
+        """Set the status quo to None."""
+        self._status_quo = None
 
     @immutable_once_run
     def set_status_quo_with_weight(
-        self, status_quo: Optional[Arm], weight: Optional[float] = None
+        self, status_quo: Arm, weight: float
     ) -> "BatchTrial":
-        """Sets status quo arm.
-
-        Defaults weight to average of existing weights or 1.0 if no weights exist.
+        """Sets status quo arm with given weight. This weight *overrides* any
+        weight the status quo has from generator runs attached to this batch.
+        Thus, this function is not the same as using add_arm, which will
+        result in the weight being additive over all generator runs.
         """
         # Assign a name to this arm if none exists
         if weight is not None and weight <= 0.0:
@@ -233,33 +247,18 @@ class BatchTrial(BaseTrial):
                 arm=status_quo, proposed_name="status_quo_" + str(self.index)
             )
         self._status_quo = status_quo
-        self.reweight_status_quo(weight)
-        return self
-
-    @immutable_once_run
-    def reweight_status_quo(self, weight: Optional[float] = None) -> "BatchTrial":
-        """Update status quo weight.
-
-        If arms have been added since the status quo was initially added,
-        the optimal weight of the status quo may change.
-        """
-        status_quo = self._status_quo
-        # Unset status_quo so avg weight computation works as intended
-        self._status_quo = None
-        if weight is None:
-            weight = (
-                1.0
-                if len(self.weights) == 0
-                else float(sum(self.weights)) / len(self.weights)
-            )
-        self._status_quo = status_quo
         self._status_quo_weight_override = weight
         return self
 
     @immutable_once_run
     def set_status_quo_and_optimize_power(self, status_quo: Arm) -> "BatchTrial":
         """Adds a status quo arm to the batch and optimizes for power.
-]
+
+        Note: this optimization based on the arms that are currently attached
+        to the batch. If you add more arms later, you should re-run this function.
+        If you want the optimization to happen automatically,
+        set batch.optimize_for_power = True.
+
         This function will maximize power across the multiple pair-wise
         comparisons of existing arms against the status_quo.
 
@@ -270,17 +269,19 @@ class BatchTrial(BaseTrial):
             1) status quo is the only arm to compare against,
             2) all other arms are of equal interest.
         """
-        self.status_quo = status_quo
-        if len(self.arms) == 1:
-            # If status quo is the only arm, don't adjust weights
-            # (will end up setting status quo weight to 0.0)
+        if len(self.arms) == 0:
+            # If status quo is the only arm, just set its weight to 1
+            # Can't use logic below, because it will choose 0
+            self.set_status_quo_with_weight(status_quo=status_quo, weight=1)
             return self
 
-        # arm_weights should always have at least one arm now, the status quo
+        # arm_weights should always have at least one arm now
         arm_weights = not_none(self.arm_weights)
         sum_weights = sum(w for arm, w in arm_weights.items() if arm != status_quo)
-        optimal_status_quo_weight = np.sqrt(sum_weights)
-        self._status_quo_weight_override = optimal_status_quo_weight
+        optimal_status_quo_weight_override = np.sqrt(sum_weights)
+        self.set_status_quo_with_weight(
+            status_quo=status_quo, weight=optimal_status_quo_weight_override
+        )
         return self
 
     @property
