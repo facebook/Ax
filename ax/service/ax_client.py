@@ -688,7 +688,10 @@ class AxClient:
             Latest data.
         """
         return Data.from_multiple_data(
-            [self.experiment.lookup_data_for_trial(idx) for idx in self._updated_trials]
+            [
+                self.experiment.lookup_data_for_trial(idx)[0]
+                for idx in self._updated_trials
+            ]
         )
 
     def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:

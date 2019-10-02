@@ -257,7 +257,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp.arms_by_name), 4 * n)
 
         # Verify data lookup is empty
-        self.assertEqual(len(exp.lookup_data_for_trial(0).df), 0)
+        self.assertEqual(len(exp.lookup_data_for_trial(0)[0].df), 0)
 
         # Test local storage
         t1 = exp.attach_data(batch_data)
@@ -270,7 +270,7 @@ class ExperimentTest(TestCase):
 
         # Test retrieving original batch 0 data
         self.assertEqual(len(exp.lookup_data_for_ts(t1).df), n)
-        self.assertEqual(len(exp.lookup_data_for_trial(0).df), n)
+        self.assertEqual(len(exp.lookup_data_for_trial(0)[0].df), n)
 
         # Test retrieving full exp data
         self.assertEqual(len(exp.lookup_data_for_ts(t2).df), 4 * n)

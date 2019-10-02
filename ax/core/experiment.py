@@ -6,7 +6,7 @@ import time as time
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from functools import reduce
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ax.core.arm import Arm
 from ax.core.base import Base
@@ -328,7 +328,7 @@ class Experiment(Base):
             # For trials in candidate phase, append any attached data
             for trial in self.trials.values():
                 if trial.status == TrialStatus.CANDIDATE:
-                    trial_data = self.lookup_data_for_trial(trial_index=trial.index)
+                    trial_data, _ = self.lookup_data_for_trial(trial_index=trial.index)
                     if not trial_data.df.empty:
                         data_list.append(trial_data)
 
@@ -337,7 +337,7 @@ class Experiment(Base):
             # If some of the metrics do not implement data fetching, we should
             # fall back to data that has been attached.
             return Data.from_multiple_data(
-                [self.lookup_data_for_trial(trial_index=idx) for idx in self.trials]
+                [self.lookup_data_for_trial(trial_index=idx)[0] for idx in self.trials]
             )
 
     @copy_doc(BaseTrial.fetch_data)
@@ -355,7 +355,7 @@ class Experiment(Base):
             trial.status == TrialStatus.CANDIDATE
             or trial.status == TrialStatus.DISPATCHED
         ):
-            return self.lookup_data_for_trial(trial_index=trial_index)
+            return self.lookup_data_for_trial(trial_index=trial_index)[0]
         elif not trial.status.expecting_data:
             return Data()
 
@@ -371,7 +371,7 @@ class Experiment(Base):
         except NotImplementedError:
             # If some of the metrics do not implement data fetching, we should
             # fall back to data that has been attached.
-            return self.lookup_data_for_trial(trial_index=trial_index)
+            return self.lookup_data_for_trial(trial_index=trial_index)[0]
 
     def attach_data(self, data: Data) -> int:
         """Attach data to experiment.
@@ -416,23 +416,28 @@ class Experiment(Base):
 
         return Data.from_multiple_data(trial_datas)
 
-    def lookup_data_for_trial(self, trial_index: int) -> Data:
+    def lookup_data_for_trial(self, trial_index: int) -> Tuple[Data, int]:
         """Lookup stored data for a specific trial.
 
-        Returns latest data object present for this trial.
-        Returns empty data if no data present.
+        Returns latest data object, and its storage timestamp, present for this trial.
+        Returns empty data and -1 if no data present.
 
         Args:
             trial_index: The index of the trial to lookup data for.
 
         Returns:
-            Requested data object.
+            The requested data object, and its storage timestamp in milliseconds.
         """
         if trial_index not in self._data_by_trial:
-            return Data()
+            return (Data(), -1)
 
         trial_data_list = list(self._data_by_trial[trial_index].values())
-        return trial_data_list[-1] if len(trial_data_list) > 0 else Data()
+        storage_time_list = list(self._data_by_trial[trial_index].keys())
+        return (
+            (trial_data_list[-1], storage_time_list[-1])
+            if len(trial_data_list) > 0
+            else (Data(), -1)
+        )
 
     @property
     def num_trials(self) -> int:
