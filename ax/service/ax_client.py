@@ -270,6 +270,11 @@ class AxClient:
         assert isinstance(
             trial_index, int
         ), f"Trial index must be an int, got: {trial_index}."  # pragma: no cover
+        if trial_index not in self.experiment.trials:
+            raise ValueError(  # pragma: no cover
+                f"Cannot complete trial #{trial_index} as it does not yet exist "
+                f"for experiment {self.experiment.name}."
+            )
         trial = self.experiment.trials[trial_index]
         if not isinstance(trial, Trial):
             raise NotImplementedError(
@@ -678,6 +683,7 @@ class AxClient:
                 generation_strategy=self.generation_strategy,
                 db_settings=self.db_settings,
             )
+            return True
         return False
 
     def _get_new_data(self) -> Data:

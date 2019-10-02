@@ -109,7 +109,6 @@ class ConvertMetricNamesTest(TestCase):
         # Create copy of online metric for offline
         online_metric = copy(self.experiment.metrics["m1"])
         online_metric._name = "m3"
-        print(self.experiment.optimization_config)
         self.experiment.add_tracking_metric(online_metric, "type2", "m4")
         tconfig = tconfig_from_mt_experiment(self.experiment)
         ConvertMetricNames(

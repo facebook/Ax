@@ -368,15 +368,7 @@ class TestGenerationStrategy(TestCase):
             generator_run=sobol_GPEI_generation_strategy.gen(exp, n=2)
         ).run()
         for i in range(1, 8):
-            if i == 2:
-                with self.assertRaisesRegex(ValueError, "Cannot generate 2 new"):
-                    g = sobol_GPEI_generation_strategy.gen(
-                        exp, exp._fetch_trial_data(trial_index=i - 1), n=2
-                    )
-                g = sobol_GPEI_generation_strategy.gen(
-                    exp, exp._fetch_trial_data(trial_index=i - 1)
-                )
-            elif i == 7:
+            if i == 7:
                 # Check completeness error message.
                 with self.assertRaisesRegex(ValueError, "Generation strategy"):
                     g = sobol_GPEI_generation_strategy.gen(

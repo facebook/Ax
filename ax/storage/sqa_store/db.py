@@ -116,7 +116,7 @@ class SQABase:
         if not all(x == types[0] for x in types):
             raise ValueError(
                 "Cannot call `list_update` on lists that contain "
-                "multiple different types."
+                f"multiple different types ({l1} and {l2})."
             )
         type_ = types[0]
 

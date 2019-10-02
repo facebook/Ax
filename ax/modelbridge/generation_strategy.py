@@ -190,7 +190,6 @@ class GenerationStrategy(Base):
         enough_generated = (
             not unlimited_arms and len(self._generated) >= self._curr.num_arms
         )
-        remaining_arms = self._curr.num_arms - len(self._generated)
 
         # Check that minimum observed_arms is satisfied if it's enforced.
         if self._curr.enforce_num_arms and enough_generated and not enough_observed:
@@ -201,15 +200,6 @@ class GenerationStrategy(Base):
             )
             # TODO[Lena, T44021164]: take into account failed trials. Potentially
             # reduce `_generated` count when a trial mentioned in new data failed.
-        if (
-            self._curr.enforce_num_arms
-            and not unlimited_arms
-            and 0 < remaining_arms < n
-        ):
-            raise ValueError(
-                f"Cannot generate {n} new arms as there are only {remaining_arms} "
-                "remaining arms to generate using the current model."
-            )
 
         all_data = (
             Data.from_multiple_data(data=[self._data, new_data])
