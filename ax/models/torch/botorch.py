@@ -64,7 +64,7 @@ class BotorchModel(TorchModel):
     r"""
     Customizable botorch model.
 
-    By default, this uses a noisy Expected Improvement acquisition funciton on
+    By default, this uses a noisy Expected Improvement acquisition function on
     top of a model made up of separate GPs, one for each outcome. This behavior
     can be modified by providing custom implementations of the following
     components:
