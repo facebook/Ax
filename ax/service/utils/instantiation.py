@@ -249,6 +249,7 @@ def make_experiment(
     parameter_constraints: Optional[List[str]] = None,
     outcome_constraints: Optional[List[str]] = None,
     status_quo: Optional[TParameterization] = None,
+    experiment_type: Optional[str] = None,
 ) -> Experiment:
     """Instantiation wrapper that allows for creation of SimpleExperiment without
     importing or instantiating any Ax classes."""
@@ -275,6 +276,7 @@ def make_experiment(
             outcome_constraints=ocs,
         ),
         status_quo=status_quo_arm,
+        experiment_type=experiment_type,
     )
 
 

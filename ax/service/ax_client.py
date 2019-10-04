@@ -160,6 +160,7 @@ class AxClient:
         outcome_constraints: Optional[List[str]] = None,
         status_quo: Optional[TParameterization] = None,
         overwrite_existing_experiment: bool = False,
+        experiment_type: Optional[str] = None,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -219,6 +220,7 @@ class AxClient:
             parameter_constraints=parameter_constraints,
             outcome_constraints=outcome_constraints,
             status_quo=status_quo,
+            experiment_type=experiment_type,
         )
         if self._generation_strategy is None:
             self._generation_strategy = choose_generation_strategy(
