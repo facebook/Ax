@@ -169,6 +169,7 @@ def get_NEI(
             there are any).
         mc_samples: The number of MC samples to use (default: 512).
         qmc: If True, use qMC instead of MC (default: True).
+        prune_baseline: If True, prune the baseline points for NEI (default: True).
 
     Returns:
         qNoisyExpectedImprovement: The instantiated acquisition function.
@@ -192,6 +193,7 @@ def get_NEI(
         objective=objective,
         X_observed=X_observed,
         X_pending=X_pending,
+        prune_baseline=kwargs.get("prune_baseline", True),
         mc_samples=kwargs.get("mc_samples", 512),
         qmc=kwargs.get("qmc", True),
         seed=torch.randint(1, 10000, (1,)).item(),
