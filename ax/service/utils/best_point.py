@@ -63,8 +63,11 @@ def get_best_raw_objective_point(
 def get_best_from_model_predictions(
     experiment: Experiment
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
-    """Given an experiment, identifies the best arm according to the outputs
-    of models used in optimization and its corresponding predictions if available.
+    """Given an experiment, returns the best predicted parameterization and corresponding
+    prediction based on the most recent Trial with predictions. If no trials have
+    predictions returns None.
+
+    Only some models return predictions. For instance GPEI does while Sobol does not.
 
     TModelPredictArm is of the form:
         ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
