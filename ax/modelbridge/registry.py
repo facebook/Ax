@@ -159,7 +159,7 @@ class Models(str, Enum):  # String enum.
 
     To instantiate a model in this enum, simply call an enum member like so:
     `Models.SOBOL(search_space=search_space)` or
-    `Models.GPEI(experiment=experiment, data=data])`. Keyword arguments
+    `Models.GPEI(experiment=experiment, data=data)`. Keyword arguments
     specified to the call will be passed into the model or the model bridge
     constructors according to their keyword.
 
