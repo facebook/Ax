@@ -215,6 +215,7 @@ class TestGenerationStrategy(TestCase):
                             "status_quo_name": None,
                             "transform_configs": None,
                             "transforms": Cont_X_trans,
+                            "fit_out_of_design": False,
                         },
                     )
         # Check for "seen data" error message.

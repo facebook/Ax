@@ -108,6 +108,7 @@ class ModelRegistryTest(TestCase):
                     "transform_configs": None,
                     "status_quo_name": None,
                     "status_quo_features": None,
+                    "fit_out_of_design": False,
                 },
             ),
         )
@@ -127,6 +128,7 @@ class ModelRegistryTest(TestCase):
                     "transform_configs",
                     "status_quo_name",
                     "status_quo_features",
+                    "fit_out_of_design",
                 ]
             ),
         )
