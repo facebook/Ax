@@ -68,8 +68,8 @@ class TestServiceAPI(TestCase):
     """Tests service-like API functionality."""
 
     def test_interruption(self) -> None:
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             name="test",
             parameters=[  # pyre-fixme[6]: expected union that should include
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
@@ -79,30 +79,30 @@ class TestServiceAPI(TestCase):
             minimize=True,
         )
         for i in range(6):
-            parameterization, trial_index = ax.get_next_trial()
+            parameterization, trial_index = ax_client.get_next_trial()
             self.assertFalse(  # There should be non-complete trials.
-                all(t.status.is_terminal for t in ax.experiment.trials.values())
+                all(t.status.is_terminal for t in ax_client.experiment.trials.values())
             )
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
-            ax.complete_trial(
+            ax_client.complete_trial(
                 trial_index,
                 raw_data=checked_cast(
                     float, branin(checked_cast(float, x1), checked_cast(float, x2))
                 ),
             )
-            old_client = ax
-            serialized = ax.to_json_snapshot()
-            ax = AxClient.from_json_snapshot(serialized)
-            self.assertEqual(len(ax.experiment.trials.keys()), i + 1)
-            self.assertIsNot(ax, old_client)
+            old_client = ax_client
+            serialized = ax_client.to_json_snapshot()
+            ax_client = AxClient.from_json_snapshot(serialized)
+            self.assertEqual(len(ax_client.experiment.trials.keys()), i + 1)
+            self.assertIsNot(ax_client, old_client)
             self.assertTrue(  # There should be no non-complete trials.
-                all(t.status.is_terminal for t in ax.experiment.trials.values())
+                all(t.status.is_terminal for t in ax_client.experiment.trials.values())
             )
 
     def test_default_generation_strategy(self) -> None:
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[  # pyre-fixme[6]: expected union that should include
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
@@ -111,15 +111,15 @@ class TestServiceAPI(TestCase):
             minimize=True,
         )
         self.assertEqual(
-            [s.model for s in not_none(ax.generation_strategy)._steps],
+            [s.model for s in not_none(ax_client.generation_strategy)._steps],
             [Models.SOBOL, Models.GPEI],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials."):
-            ax.get_optimization_trace(objective_optimum=branin.fmin)
+            ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         for i in range(6):
-            parameterization, trial_index = ax.get_next_trial()
+            parameterization, trial_index = ax_client.get_next_trial()
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
-            ax.complete_trial(
+            ax_client.complete_trial(
                 trial_index,
                 raw_data={
                     "branin": (
@@ -134,35 +134,36 @@ class TestServiceAPI(TestCase):
             )
             if i < 5:
                 with self.assertRaisesRegex(ValueError, "Could not obtain contour"):
-                    ax.get_contour_plot(param_x="x1", param_y="x2")
-        ax.get_optimization_trace(objective_optimum=branin.fmin)
-        ax.get_contour_plot()
-        self.assertIn("x1", ax.get_trials_data_frame())
-        self.assertIn("x2", ax.get_trials_data_frame())
-        self.assertIn("branin", ax.get_trials_data_frame())
-        self.assertEqual(len(ax.get_trials_data_frame()), 6)
+                    ax_client.get_contour_plot(param_x="x1", param_y="x2")
+        ax_client.get_optimization_trace(objective_optimum=branin.fmin)
+        ax_client.get_contour_plot()
+        self.assertIn("x1", ax_client.get_trials_data_frame())
+        self.assertIn("x2", ax_client.get_trials_data_frame())
+        self.assertIn("branin", ax_client.get_trials_data_frame())
+        self.assertEqual(len(ax_client.get_trials_data_frame()), 6)
         # Test that Sobol is chosen when all parameters are choice.
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[  # pyre-fixme[6]: expected union that should include
                 {"name": "x1", "type": "choice", "values": [1, 2, 3]},
                 {"name": "x2", "type": "choice", "values": [1, 2, 3]},
             ]
         )
         self.assertEqual(
-            [s.model for s in not_none(ax.generation_strategy)._steps], [Models.SOBOL]
+            [s.model for s in not_none(ax_client.generation_strategy)._steps],
+            [Models.SOBOL],
         )
-        self.assertEqual(ax.get_recommended_max_parallelism(), [(-1, -1)])
-        self.assertTrue(ax.get_trials_data_frame().empty)
+        self.assertEqual(ax_client.get_recommended_max_parallelism(), [(-1, -1)])
+        self.assertTrue(ax_client.get_trials_data_frame().empty)
 
     def test_create_experiment(self) -> None:
         """Test basic experiment creation."""
-        ax = AxClient(
+        ax_client = AxClient(
             GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
         )
         with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
-            ax.experiment
-        ax.create_experiment(
+            ax_client.experiment
+        ax_client.create_experiment(
             name="test_experiment",
             parameters=[
                 {
@@ -204,10 +205,10 @@ class TestServiceAPI(TestCase):
             outcome_constraints=["some_metric >= 3", "some_metric <= 4.0"],
             parameter_constraints=["x4 <= x6"],
         )
-        assert ax._experiment is not None
-        self.assertEqual(ax._experiment, ax.experiment)
+        assert ax_client._experiment is not None
+        self.assertEqual(ax_client._experiment, ax_client.experiment)
         self.assertEqual(
-            ax._experiment.search_space.parameters["x1"],
+            ax_client._experiment.search_space.parameters["x1"],
             RangeParameter(
                 name="x1",
                 parameter_type=ParameterType.FLOAT,
@@ -217,7 +218,7 @@ class TestServiceAPI(TestCase):
             ),
         )
         self.assertEqual(
-            ax._experiment.search_space.parameters["x2"],
+            ax_client._experiment.search_space.parameters["x2"],
             ChoiceParameter(
                 name="x2",
                 parameter_type=ParameterType.INT,
@@ -226,17 +227,17 @@ class TestServiceAPI(TestCase):
             ),
         )
         self.assertEqual(
-            ax._experiment.search_space.parameters["x3"],
+            ax_client._experiment.search_space.parameters["x3"],
             FixedParameter(name="x3", parameter_type=ParameterType.INT, value=2),
         )
         self.assertEqual(
-            ax._experiment.search_space.parameters["x4"],
+            ax_client._experiment.search_space.parameters["x4"],
             RangeParameter(
                 name="x4", parameter_type=ParameterType.INT, lower=1.0, upper=3.0
             ),
         )
         self.assertEqual(
-            ax._experiment.search_space.parameters["x5"],
+            ax_client._experiment.search_space.parameters["x5"],
             ChoiceParameter(
                 name="x5",
                 parameter_type=ParameterType.STRING,
@@ -244,7 +245,7 @@ class TestServiceAPI(TestCase):
             ),
         )
         self.assertEqual(
-            ax._experiment.optimization_config.outcome_constraints[0],
+            ax_client._experiment.optimization_config.outcome_constraints[0],
             OutcomeConstraint(
                 metric=Metric(name="some_metric"),
                 op=ComparisonOp.GEQ,
@@ -253,7 +254,7 @@ class TestServiceAPI(TestCase):
             ),
         )
         self.assertEqual(
-            ax._experiment.optimization_config.outcome_constraints[1],
+            ax_client._experiment.optimization_config.outcome_constraints[1],
             OutcomeConstraint(
                 metric=Metric(name="some_metric"),
                 op=ComparisonOp.LEQ,
@@ -261,15 +262,15 @@ class TestServiceAPI(TestCase):
                 relative=False,
             ),
         )
-        self.assertTrue(ax._experiment.optimization_config.objective.minimize)
+        self.assertTrue(ax_client._experiment.optimization_config.objective.minimize)
 
     def test_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""
-        ax = AxClient(
+        ax_client = AxClient(
             GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
         )
         with self.assertRaises(ValueError):
-            ax.create_experiment(
+            ax_client.create_experiment(
                 name="test_experiment",
                 parameters=[
                     {"name": "x3", "type": "fixed", "value": 2, "value_type": "int"}
@@ -279,8 +280,8 @@ class TestServiceAPI(TestCase):
             )
 
     def test_raw_data_format(self):
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
@@ -288,15 +289,15 @@ class TestServiceAPI(TestCase):
             minimize=True,
         )
         for _ in range(6):
-            parameterization, trial_index = ax.get_next_trial()
+            parameterization, trial_index = ax_client.get_next_trial()
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
-            ax.complete_trial(trial_index, raw_data=(branin(x1, x2), 0.0))
+            ax_client.complete_trial(trial_index, raw_data=(branin(x1, x2), 0.0))
         with self.assertRaisesRegex(ValueError, "Raw data has an invalid type"):
-            ax.complete_trial(trial_index, raw_data="invalid_data")
+            ax_client.complete_trial(trial_index, raw_data="invalid_data")
 
     def test_raw_data_format_with_fidelities(self):
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 1.0]},
@@ -304,9 +305,9 @@ class TestServiceAPI(TestCase):
             minimize=True,
         )
         for _ in range(6):
-            parameterization, trial_index = ax.get_next_trial()
+            parameterization, trial_index = ax_client.get_next_trial()
             x1, x2 = parameterization.get("x1"), parameterization.get("x2")
-            ax.complete_trial(
+            ax_client.complete_trial(
                 trial_index,
                 raw_data=[
                     ({"x2": x2 / 2.0}, {"objective": (branin(x1, x2 / 2.0), 0.0)}),
@@ -316,8 +317,8 @@ class TestServiceAPI(TestCase):
 
     def test_keep_generating_without_data(self):
         # Check that normally numebr of arms to generate is enforced.
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
@@ -325,13 +326,13 @@ class TestServiceAPI(TestCase):
             minimize=True,
         )
         for _ in range(5):
-            parameterization, trial_index = ax.get_next_trial()
+            parameterization, trial_index = ax_client.get_next_trial()
         with self.assertRaisesRegex(ValueError, "All trials for current model"):
-            ax.get_next_trial()
+            ax_client.get_next_trial()
         # Check thatwith enforce_sequential_optimization off, we can keep
         # generating.
-        ax = AxClient(enforce_sequential_optimization=False)
-        ax.create_experiment(
+        ax_client = AxClient(enforce_sequential_optimization=False)
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
@@ -339,41 +340,45 @@ class TestServiceAPI(TestCase):
             minimize=True,
         )
         for _ in range(10):
-            parameterization, trial_index = ax.get_next_trial()
+            parameterization, trial_index = ax_client.get_next_trial()
 
     def test_trial_completion(self):
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
-        params, idx = ax.get_next_trial()
-        ax.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
-        self.assertEqual(ax.get_best_parameters()[0], params)
-        params2, idx2 = ax.get_next_trial()
-        ax.complete_trial(trial_index=idx2, raw_data=(-1, 0.0))
-        self.assertEqual(ax.get_best_parameters()[0], params2)
-        params3, idx3 = ax.get_next_trial()
-        ax.complete_trial(trial_index=idx3, raw_data=-2, metadata={"dummy": "test"})
-        self.assertEqual(ax.get_best_parameters()[0], params3)
-        self.assertEqual(ax.experiment.trials.get(2).run_metadata.get("dummy"), "test")
-        best_trial_values = ax.get_best_parameters()[1]
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
+        self.assertEqual(ax_client.get_best_parameters()[0], params)
+        params2, idx2 = ax_client.get_next_trial()
+        ax_client.complete_trial(trial_index=idx2, raw_data=(-1, 0.0))
+        self.assertEqual(ax_client.get_best_parameters()[0], params2)
+        params3, idx3 = ax_client.get_next_trial()
+        ax_client.complete_trial(
+            trial_index=idx3, raw_data=-2, metadata={"dummy": "test"}
+        )
+        self.assertEqual(ax_client.get_best_parameters()[0], params3)
+        self.assertEqual(
+            ax_client.experiment.trials.get(2).run_metadata.get("dummy"), "test"
+        )
+        best_trial_values = ax_client.get_best_parameters()[1]
         self.assertEqual(best_trial_values[0], {"objective": -2.0})
         self.assertTrue(math.isnan(best_trial_values[1]["objective"]["objective"]))
 
     def test_fail_on_batch(self):
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
-        batch_trial = ax.experiment.new_batch_trial(
+        batch_trial = ax_client.experiment.new_batch_trial(
             generator_run=GeneratorRun(
                 arms=[
                     Arm(parameters={"x1": 0, "x2": 1}),
@@ -382,58 +387,62 @@ class TestServiceAPI(TestCase):
             )
         )
         with self.assertRaises(NotImplementedError):
-            ax.complete_trial(batch_trial.index, 0)
+            ax_client.complete_trial(batch_trial.index, 0)
 
     def test_log_failure(self):
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
-        _, idx = ax.get_next_trial()
-        ax.log_trial_failure(idx, metadata={"dummy": "test"})
-        self.assertTrue(ax.experiment.trials.get(idx).status.is_failed)
+        _, idx = ax_client.get_next_trial()
+        ax_client.log_trial_failure(idx, metadata={"dummy": "test"})
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
         self.assertEqual(
-            ax.experiment.trials.get(idx).run_metadata.get("dummy"), "test"
+            ax_client.experiment.trials.get(idx).run_metadata.get("dummy"), "test"
         )
 
     def test_attach_trial_and_get_trial_parameters(self):
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
-        params, idx = ax.attach_trial(parameters={"x1": 0, "x2": 1})
-        ax.complete_trial(trial_index=idx, raw_data=5)
-        self.assertEqual(ax.get_best_parameters()[0], params)
-        self.assertEqual(ax.get_trial_parameters(trial_index=idx), {"x1": 0, "x2": 1})
+        params, idx = ax_client.attach_trial(parameters={"x1": 0, "x2": 1})
+        ax_client.complete_trial(trial_index=idx, raw_data=5)
+        self.assertEqual(ax_client.get_best_parameters()[0], params)
+        self.assertEqual(
+            ax_client.get_trial_parameters(trial_index=idx), {"x1": 0, "x2": 1}
+        )
         with self.assertRaises(ValueError):
-            ax.get_trial_parameters(trial_index=10)  # No trial #10 in experiment.
+            ax_client.get_trial_parameters(
+                trial_index=10
+            )  # No trial #10 in experiment.
 
     def test_attach_trial_numpy(self):
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
-        params, idx = ax.attach_trial(parameters={"x1": 0, "x2": 1})
-        ax.complete_trial(trial_index=idx, raw_data=np.int32(5))
-        self.assertEqual(ax.get_best_parameters()[0], params)
+        params, idx = ax_client.attach_trial(parameters={"x1": 0, "x2": 1})
+        ax_client.complete_trial(trial_index=idx, raw_data=np.int32(5))
+        self.assertEqual(ax_client.get_best_parameters()[0], params)
 
     def test_relative_oc_without_sq(self):
         """Must specify status quo to have relative outcome constraint."""
-        ax = AxClient()
+        ax_client = AxClient()
         with self.assertRaises(ValueError):
-            ax.create_experiment(
+            ax_client.create_experiment(
                 name="test_experiment",
                 parameters=[
                     {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
@@ -446,27 +455,27 @@ class TestServiceAPI(TestCase):
 
     @patch("ax.service.utils.dispatch.Models", FakeModels)
     def test_recommended_parallelism(self):
-        ax = AxClient()
+        ax_client = AxClient()
         with self.assertRaisesRegex(ValueError, "No generation strategy"):
-            ax.get_recommended_max_parallelism()
-        ax.create_experiment(
+            ax_client.get_recommended_max_parallelism()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
-        self.assertEqual(ax.get_recommended_max_parallelism(), [(5, 5), (-1, 3)])
+        self.assertEqual(ax_client.get_recommended_max_parallelism(), [(5, 5), (-1, 3)])
         self.assertEqual(
             run_trials_using_recommended_parallelism(
-                ax, ax.get_recommended_max_parallelism(), 20
+                ax_client, ax_client.get_recommended_max_parallelism(), 20
             ),
             0,
         )
         # With incorrect parallelism setting, the 'need more data' error should
         # still be raised.
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
@@ -474,7 +483,7 @@ class TestServiceAPI(TestCase):
             minimize=True,
         )
         with self.assertRaisesRegex(ValueError, "All trials for current model "):
-            run_trials_using_recommended_parallelism(ax, [(6, 6), (-1, 3)], 20)
+            run_trials_using_recommended_parallelism(ax_client, [(6, 6), (-1, 3)], 20)
 
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
     def test_no_sqa(self):
@@ -483,7 +492,7 @@ class TestServiceAPI(TestCase):
         patcher = patch("ax.service.ax_client.DBSettings", None)
         patcher.start()
         with self.assertRaises(ModuleNotFoundError):
-            import ax.storage.sqa_store.structs  # noqa F401
+            import ax_client.storage.sqa_store.structs  # noqa F401
         AxClient()  # Make sure we still can instantiate client w/o db settings.
         # Even with correctly typed DBSettings, `AxClient` instantiation should
         # fail here, because `DBSettings` are mocked to None in `ax_client`.
@@ -498,37 +507,41 @@ class TestServiceAPI(TestCase):
             AxClient(db_settings="badly_typed_db_settings")
 
     def test_plotting_validation(self):
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x3", "type": "fixed", "value": 2, "value_type": "int"}
             ]
         )
         with self.assertRaisesRegex(ValueError, ".* there are no trials"):
-            ax.get_contour_plot()
-        ax.get_next_trial()
+            ax_client.get_contour_plot()
+        ax_client.get_next_trial()
         with self.assertRaisesRegex(ValueError, ".* less than 2 parameters"):
-            ax.get_contour_plot()
-        ax = AxClient()
-        ax.create_experiment(
+            ax_client.get_contour_plot()
+        ax_client = AxClient()
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
             ]
         )
-        ax.get_next_trial()
+        ax_client.get_next_trial()
         with self.assertRaisesRegex(ValueError, "If `param_x` is provided"):
-            ax.get_contour_plot(param_x="x2")
+            ax_client.get_contour_plot(param_x="x2")
         with self.assertRaisesRegex(ValueError, "If `param_x` is provided"):
-            ax.get_contour_plot(param_y="x2")
+            ax_client.get_contour_plot(param_y="x2")
         with self.assertRaisesRegex(ValueError, 'Parameter "x3"'):
-            ax.get_contour_plot(param_x="x3", param_y="x3")
+            ax_client.get_contour_plot(param_x="x3", param_y="x3")
         with self.assertRaisesRegex(ValueError, 'Parameter "x4"'):
-            ax.get_contour_plot(param_x="x1", param_y="x4")
+            ax_client.get_contour_plot(param_x="x1", param_y="x4")
         with self.assertRaisesRegex(ValueError, 'Metric "nonexistent"'):
-            ax.get_contour_plot(param_x="x1", param_y="x2", metric_name="nonexistent")
+            ax_client.get_contour_plot(
+                param_x="x1", param_y="x2", metric_name="nonexistent"
+            )
         with self.assertRaisesRegex(ValueError, "Could not obtain contour"):
-            ax.get_contour_plot(param_x="x1", param_y="x2", metric_name="objective")
+            ax_client.get_contour_plot(
+                param_x="x1", param_y="x2", metric_name="objective"
+            )
 
     def test_sqa_storage(self):
         init_test_engine_and_session_factory(force_init=True)
@@ -536,8 +549,8 @@ class TestServiceAPI(TestCase):
         encoder = Encoder(config=config)
         decoder = Decoder(config=config)
         db_settings = DBSettings(encoder=encoder, decoder=decoder)
-        ax = AxClient(db_settings=db_settings)
-        ax.create_experiment(
+        ax_client = AxClient(db_settings=db_settings)
+        ax_client.create_experiment(
             name="test_experiment",
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
@@ -546,17 +559,17 @@ class TestServiceAPI(TestCase):
             minimize=True,
         )
         for _ in range(5):
-            parameters, trial_index = ax.get_next_trial()
-            ax.complete_trial(
+            parameters, trial_index = ax_client.get_next_trial()
+            ax_client.complete_trial(
                 trial_index=trial_index, raw_data=branin(*parameters.values())
             )
-        gs = ax.generation_strategy
-        ax = AxClient(db_settings=db_settings)
-        ax.load_experiment_from_database("test_experiment")
-        self.assertEqual(gs, ax.generation_strategy)
+        gs = ax_client.generation_strategy
+        ax_client = AxClient(db_settings=db_settings)
+        ax_client.load_experiment_from_database("test_experiment")
+        self.assertEqual(gs, ax_client.generation_strategy)
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.
-            ax.create_experiment(
+            ax_client.create_experiment(
                 name="test_experiment",
                 parameters=[
                     {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
@@ -565,42 +578,46 @@ class TestServiceAPI(TestCase):
                 minimize=True,
             )
         # Overwriting existing experiment with overwrite flag.
-        ax.create_experiment(
+        ax_client.create_experiment(
             name="test_experiment",
             parameters=[{"name": "x1", "type": "range", "bounds": [-5.0, 10.0]}],
             overwrite_existing_experiment=True,
         )
         # There should be no trials, as we just put in a fresh experiment.
-        self.assertEqual(len(ax.experiment.trials), 0)
+        self.assertEqual(len(ax_client.experiment.trials), 0)
 
     def test_fixed_random_seed_reproducibility(self):
-        ax = AxClient(random_seed=239)
-        ax.create_experiment(
+        ax_client = AxClient(random_seed=239)
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
             ]
         )
         for _ in range(5):
-            params, idx = ax.get_next_trial()
-            ax.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
-        trial_parameters_1 = [t.arm.parameters for t in ax.experiment.trials.values()]
-        ax = AxClient(random_seed=239)
-        ax.create_experiment(
+            params, idx = ax_client.get_next_trial()
+            ax_client.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
+        trial_parameters_1 = [
+            t.arm.parameters for t in ax_client.experiment.trials.values()
+        ]
+        ax_client = AxClient(random_seed=239)
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
             ]
         )
         for _ in range(5):
-            params, idx = ax.get_next_trial()
-            ax.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
-        trial_parameters_2 = [t.arm.parameters for t in ax.experiment.trials.values()]
+            params, idx = ax_client.get_next_trial()
+            ax_client.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
+        trial_parameters_2 = [
+            t.arm.parameters for t in ax_client.experiment.trials.values()
+        ]
         self.assertEqual(trial_parameters_1, trial_parameters_2)
 
     def test_init_position_saved(self):
-        ax = AxClient(random_seed=239)
-        ax.create_experiment(
+        ax_client = AxClient(random_seed=239)
+        ax_client.create_experiment(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
@@ -613,20 +630,20 @@ class TestServiceAPI(TestCase):
             # generated before and after snapshotting. If the state of Sobol is
             # recorded correctly, the newly generated trial will be the same as
             # the one generated before the snapshotting.
-            serialized = ax.to_json_snapshot()
-            params, idx = ax.get_next_trial()
-            ax = AxClient.from_json_snapshot(serialized)
-            with self.subTest(ax=ax, params=params, idx=idx):
-                new_params, new_idx = ax.get_next_trial()
+            serialized = ax_client.to_json_snapshot()
+            params, idx = ax_client.get_next_trial()
+            ax_client = AxClient.from_json_snapshot(serialized)
+            with self.subTest(ax=ax_client, params=params, idx=idx):
+                new_params, new_idx = ax_client.get_next_trial()
                 self.assertEqual(params, new_params)
                 self.assertEqual(idx, new_idx)
                 self.assertEqual(
-                    ax.experiment.trials[idx]._generator_run._model_kwargs[
+                    ax_client.experiment.trials[idx]._generator_run._model_kwargs[
                         "init_position"
                     ],
                     idx + 1,
                 )
-            ax.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
+            ax_client.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
 
     @patch(
         "ax.modelbridge.base.observations_from_data",
@@ -644,8 +661,8 @@ class TestServiceAPI(TestCase):
         return_value=[get_observation1trans().data],
     )
     def test_get_model_predictions(self, _predict, _tr_data, _obs_from_data):
-        ax = AxClient()
-        ax.create_experiment(
+        ax_client = AxClient()
+        ax_client.create_experiment(
             name="test_experiment",
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
@@ -654,15 +671,15 @@ class TestServiceAPI(TestCase):
             minimize=True,
             objective_name="a",
         )
-        ax.get_next_trial()
-        ax.experiment.trials[0].arm._name = "1_1"
-        self.assertEqual(ax.get_model_predictions(), {0: {"a": (9.0, 1.0)}})
+        ax_client.get_next_trial()
+        ax_client.experiment.trials[0].arm._name = "1_1"
+        self.assertEqual(ax_client.get_model_predictions(), {0: {"a": (9.0, 1.0)}})
 
     def test_deprecated_save_load_method_errors(self):
-        ax = AxClient()
+        ax_client = AxClient()
         with self.assertRaises(NotImplementedError):
-            ax.save()
+            ax_client.save()
         with self.assertRaises(NotImplementedError):
-            ax.load()
+            ax_client.load()
         with self.assertRaises(NotImplementedError):
-            ax.load_experiment("test_experiment")
+            ax_client.load_experiment("test_experiment")
