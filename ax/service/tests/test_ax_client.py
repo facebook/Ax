@@ -31,6 +31,7 @@ from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
 
@@ -368,6 +369,28 @@ class TestServiceAPI(TestCase):
         best_trial_values = ax_client.get_best_parameters()[1]
         self.assertEqual(best_trial_values[0], {"objective": -2.0})
         self.assertTrue(math.isnan(best_trial_values[1]["objective"]["objective"]))
+
+    def ftest_start_and_end_time_in_trial_completion(self):
+        start_time = current_timestamp_in_millis()
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(
+            trial_index=idx,
+            raw_data=1.0,
+            metadata={
+                "start_time": start_time,
+                "end_time": current_timestamp_in_millis(),
+            },
+        )
+        dat = ax_client.experiment.fetch_data().df
+        self.assertGreater(dat["end_time"][0], dat["start_time"][0])
 
     def test_fail_on_batch(self):
         ax_client = AxClient()

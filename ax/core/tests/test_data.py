@@ -4,6 +4,7 @@
 import pandas as pd
 from ax.core.data import REQUIRED_COLUMNS, Data, custom_data_class, set_single_trial
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.timeutils import current_timestamp_in_millis
 
 
 class DataTest(TestCase):
@@ -144,9 +145,13 @@ class DataTest(TestCase):
             evaluations={"0_1": {"b": (3.7, 0.5)}},
             trial_index=0,
             sample_sizes={"0_1": 2},
+            start_time=current_timestamp_in_millis(),
+            end_time=current_timestamp_in_millis(),
         )
         self.assertEqual(len(data.df), 1)
         self.assertNotEqual(data, Data(self.df))
+        self.assertIn("start_time", data.df)
+        self.assertIn("end_time", data.df)
 
     def testFromFidelityEvaluations(self):
         data = Data.from_fidelity_evaluations(
@@ -158,5 +163,9 @@ class DataTest(TestCase):
             },
             trial_index=0,
             sample_sizes={"0_1": 2},
+            start_time=current_timestamp_in_millis(),
+            end_time=current_timestamp_in_millis(),
         )
         self.assertEqual(len(data.df), 2)
+        self.assertIn("start_time", data.df)
+        self.assertIn("end_time", data.df)

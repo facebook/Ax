@@ -2,7 +2,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from enum import Enum
-from time import time
 from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
 from ax.core.arm import Arm
@@ -52,6 +51,7 @@ from ax.storage.utils import (
     ParameterConstraintType,
     get_object_properties,
 )
+from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import not_none
 
 
@@ -470,7 +470,7 @@ class Encoder:
                 # Generation strategy data is a compilation of data, so it does
                 # not strictly speaking have a timestamp. Setting timestamp to
                 # current.
-                timestamp=int(round(time() * 1000)),
+                timestamp=current_timestamp_in_millis(),
                 trial_index=None,
             ),
             experiment_id=experiment_id,

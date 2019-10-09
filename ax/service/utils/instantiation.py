@@ -281,7 +281,10 @@ def make_experiment(
 
 
 def raw_data_to_evaluation(
-    raw_data: TEvaluationOutcome, objective_name: str
+    raw_data: TEvaluationOutcome,
+    objective_name: str,
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
 ) -> TEvaluationOutcome:
     """Format the trial evaluation data to a standard `TTrialEvaluation`
     (mapping from metric names to a tuple of mean and SEM) representation, or
@@ -314,6 +317,8 @@ def data_from_evaluations(
     evaluations: Dict[str, TEvaluationOutcome],
     trial_index: int,
     sample_sizes: Dict[str, int],
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
 ) -> Data:
     """Transforms evaluations into Ax Data.
 
@@ -326,6 +331,10 @@ def data_from_evaluations(
         trial_index: Index of the trial, for which the evaluations are.
         sample_sizes: Number of samples collected for each arm, may be empty
             if unavailable.
+        start_time: Optional start time of run of the trial that produced this
+            data, in milliseconds.
+        end_time: Optional end time of run of the trial that produced this
+            data, in milliseconds.
     """
     if all(isinstance(evaluations[x], dict) for x in evaluations.keys()):
         # All evaluations are no-fidelity evaluations.
@@ -333,6 +342,8 @@ def data_from_evaluations(
             evaluations=cast(Dict[str, TTrialEvaluation], evaluations),
             trial_index=trial_index,
             sample_sizes=sample_sizes,
+            start_time=start_time,
+            end_time=end_time,
         )
     elif all(isinstance(evaluations[x], list) for x in evaluations.keys()):
         # All evaluations are with-fidelity evaluations.
@@ -340,6 +351,8 @@ def data_from_evaluations(
             evaluations=cast(Dict[str, TFidelityTrialEvaluation], evaluations),
             trial_index=trial_index,
             sample_sizes=sample_sizes,
+            start_time=start_time,
+            end_time=end_time,
         )
     else:
         raise ValueError(  # pragma: no cover

@@ -124,6 +124,8 @@ class Data(Base):
         evaluations: Dict[str, TTrialEvaluation],
         trial_index: int,
         sample_sizes: Optional[Dict[str, int]] = None,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
     ) -> "Data":
         """
         Convert dict of evaluations to Ax data object.
@@ -133,6 +135,10 @@ class Data(Base):
                 of metric names to tuples of mean and optionally a SEM).
             trial_index: Trial index to which this data belongs.
             sample_sizes: Number of samples collected for each arm.
+            start_time: Optional start time of run of the trial that produced this
+                data, in milliseconds.
+            end_time: Optional end time of run of the trial that produced this
+                data, in milliseconds.
 
         Returns:
             Ax Data object.
@@ -148,6 +154,9 @@ class Data(Base):
             for name, evaluation in evaluations.items()
             for metric_name in evaluation.keys()
         ]
+        if start_time is not None or end_time is not None:
+            for record in records:
+                record.update({"start_time": start_time, "end_time": end_time})
         if sample_sizes:
             for record in records:
                 record["n"] = sample_sizes[str(record["arm_name"])]
@@ -158,6 +167,8 @@ class Data(Base):
         evaluations: Dict[str, TFidelityTrialEvaluation],
         trial_index: int,
         sample_sizes: Optional[Dict[str, int]] = None,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
     ) -> "Data":
         """
         Convert dict of fidelity evaluations to Ax data object.
@@ -168,6 +179,10 @@ class Data(Base):
                 tuples of mean and SEM).
             trial_index: Trial index to which this data belongs.
             sample_sizes: Number of samples collected for each arm.
+            start_time: Optional start time of run of the trial that produced this
+                data, in milliseconds.
+            end_time: Optional end time of run of the trial that produced this
+                data, in milliseconds.
 
         Returns:
             Ax Data object.
@@ -185,6 +200,9 @@ class Data(Base):
             for fidelity, evaluation in fidelity_and_metrics_list
             for metric_name in evaluation.keys()
         ]
+        if start_time is not None or end_time is not None:
+            for record in records:
+                record.update({"start_time": start_time, "end_time": end_time})
         if sample_sizes:
             for record in records:
                 record["n"] = sample_sizes[str(record["arm_name"])]

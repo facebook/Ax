@@ -44,7 +44,12 @@ from ax.storage.json_store.decoder import (
 from ax.storage.json_store.encoder import object_to_json
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_dict, not_none
+from ax.utils.common.typeutils import (
+    checked_cast,
+    checked_cast_dict,
+    checked_cast_optional,
+    not_none,
+)
 from botorch.utils.sampling import manual_seed
 
 
@@ -253,7 +258,7 @@ class AxClient:
         self,
         trial_index: int,
         raw_data: TEvaluationOutcome,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[Dict[str, Union[str, int]]] = None,
         sample_size: Optional[int] = None,
     ) -> None:
         """
@@ -268,6 +273,8 @@ class AxClient:
                 is no SEM.  Can also be a list of (fidelities, mapping from
                 metric name to a tuple of mean and SEM).
             metadata: Additional metadata to track about this run.
+            sample_size: Number of samples collected for the underlying arm,
+                optional.
         """
         assert isinstance(
             trial_index, int
@@ -294,7 +301,19 @@ class AxClient:
         }
         sample_sizes = {arm_name: sample_size} if sample_size else {}
         data = data_from_evaluations(
-            evaluations=evaluations, trial_index=trial.index, sample_sizes=sample_sizes
+            evaluations=evaluations,
+            trial_index=trial.index,
+            sample_sizes=sample_sizes,
+            start_time=(
+                checked_cast_optional(int, metadata.get("start_time"))
+                if metadata is not None
+                else None
+            ),
+            end_time=(
+                checked_cast_optional(int, metadata.get("end_time"))
+                if metadata is not None
+                else None
+            ),
         )
         # In service API, a trial may be completed multiple times (for multiple
         # metrics, for example).

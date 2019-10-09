@@ -2,7 +2,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import logging
-import time as time
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from functools import reduce
@@ -22,6 +21,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
+from ax.utils.common.timeutils import current_timestamp_in_millis
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -382,7 +382,7 @@ class Experiment(Base):
         Returns:
             Timestamp of storage in millis.
         """
-        cur_time_millis = int(round(time.time() * 1000))
+        cur_time_millis = current_timestamp_in_millis()
         for trial_index, trial_df in data.df.groupby(data.df["trial_index"]):
             current_trial_data = (
                 self._data_by_trial[trial_index]
