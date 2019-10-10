@@ -2,30 +2,37 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import json
+import logging
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import ax.service.utils.best_point as best_point_utils
 import numpy as np
+import pandas as pd
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
-    TFidelityTrialEvaluation,
     TModelPredictArm,
     TParameterization,
     TParamValue,
-    TTrialEvaluation,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
+from ax.plot.exp_utils import exp_to_df
+from ax.plot.helper import _format_dict, _get_in_sample_arms
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.dispatch import choose_generation_strategy
-from ax.service.utils.instantiation import make_experiment, raw_data_to_evaluation
+from ax.service.utils.instantiation import (
+    data_from_evaluations,
+    make_experiment,
+    raw_data_to_evaluation,
+)
 from ax.service.utils.storage import (
     load_experiment_and_generation_strategy,
     save_experiment_and_generation_strategy,
@@ -36,8 +43,13 @@ from ax.storage.json_store.decoder import (
 )
 from ax.storage.json_store.encoder import object_to_json
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
+from ax.utils.common.typeutils import (
+    checked_cast,
+    checked_cast_dict,
+    checked_cast_optional,
+    not_none,
+)
 from botorch.utils.sampling import manual_seed
 
 
@@ -69,7 +81,8 @@ class AxClient:
             intelligently chosen based on properties of search space.
 
         db_settings: Settings for saving and reloading the underlying experiment
-            to a database.
+            to a database. Expected to be of type
+            ax.storage.sqa_store.structs.DBSettings and require SQLAlchemy.
 
         enforce_sequential_optimization: Whether to enforce that when it is
             reasonable to switch models during the optimization (as prescribed
@@ -95,6 +108,9 @@ class AxClient:
             will be exactly the same for two same operations that use the random
             seed, depends on whether the threads modify the random state in the
             same order across the two operations.
+
+        verbose_logging: Whether Ax should log significant optimization events,
+            defaults to `True`.
     """
 
     def __init__(
@@ -103,8 +119,17 @@ class AxClient:
         db_settings: Any = None,
         enforce_sequential_optimization: bool = True,
         random_seed: Optional[int] = None,
+        verbose_logging: bool = True,
     ) -> None:
-        self.generation_strategy = generation_strategy
+        if not verbose_logging:
+            logger.setLevel(logging.WARNING)
+        else:
+            logger.info(
+                "Starting optimization with verbose logging. To disable logging, "
+                "set the `verbose_logging` argument to `False`. Note that float "
+                "values in the logs are rounded to 2 decimal points."
+            )
+        self._generation_strategy = generation_strategy
         if db_settings and (not DBSettings or not isinstance(db_settings, DBSettings)):
             raise ValueError(
                 "`db_settings` argument should be of type ax.storage.sqa_store."
@@ -116,7 +141,7 @@ class AxClient:
         self._enforce_sequential_optimization = enforce_sequential_optimization
         self._random_seed = random_seed
         if random_seed is not None:
-            logger.info(
+            logger.warning(
                 f"Random seed set to {random_seed}. Note that this setting "
                 "only affects the Sobol quasi-random generator "
                 "and BoTorch-powered Bayesian optimization models. For the latter "
@@ -139,6 +164,8 @@ class AxClient:
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
         status_quo: Optional[TParameterization] = None,
+        overwrite_existing_experiment: bool = False,
+        experiment_type: Optional[str] = None,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -163,11 +190,32 @@ class AxClient:
             status_quo: Parameterization of the current state of the system.
                 If set, this will be added to each trial to be evaluated alongside
                 test configurations.
+            overwrite_existing_experiment: If `DBSettings` were provided on
+                instantiation and the experiment being created has the same name
+                as some experiment already stored, whether to overwrite the
+                existing experiment. Defaults to False.
         """
         if self.db_settings and not name:
             raise ValueError(  # pragma: no cover
                 "Must give the experiment a name if `db_settings` is not None."
             )
+        if self.db_settings:
+            existing = None
+            try:
+                existing, _ = load_experiment_and_generation_strategy(
+                    experiment_name=not_none(name), db_settings=self.db_settings
+                )
+            except ValueError:  # Experiment does not exist, nothing to do.
+                pass
+            if existing and overwrite_existing_experiment:
+                logger.info(f"Overwriting existing experiment {name}.")
+            elif existing:
+                raise ValueError(
+                    f"Experiment {name} exists; set the `overwrite_existing_"
+                    "experiment` to `True` to overwrite with new experiment "
+                    "or use `ax_client.load_experiment_from_database` to "
+                    "continue an existing experiment."
+                )
 
         self._experiment = make_experiment(
             name=name,
@@ -177,14 +225,15 @@ class AxClient:
             parameter_constraints=parameter_constraints,
             outcome_constraints=outcome_constraints,
             status_quo=status_quo,
+            experiment_type=experiment_type,
         )
-        if self.generation_strategy is None:
-            self.generation_strategy = choose_generation_strategy(
+        if self._generation_strategy is None:
+            self._generation_strategy = choose_generation_strategy(
                 search_space=self._experiment.search_space,
                 enforce_sequential_optimization=self._enforce_sequential_optimization,
                 random_seed=self._random_seed,
             )
-        self._save_experiment_and_generation_strategy_if_possible()
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
 
     def get_next_trial(self) -> Tuple[TParameterization, int]:
         """
@@ -195,20 +244,21 @@ class AxClient:
         Returns:
             Tuple of trial parameterization, trial index
         """
-        with warnings.catch_warnings():
-            # Filter out GPYTorch warnings to avoid confusing users.
-            warnings.simplefilter("ignore")
-            trial = self._suggest_new_trial()
+        trial = self.experiment.new_trial(generator_run=self._gen_new_generator_run())
+        logger.info(
+            f"Generated new trial {trial.index} with parameters "
+            f"{_round_floats_for_logging(item=not_none(trial.arm).parameters)}."
+        )
         trial.mark_dispatched()
         self._updated_trials = []
-        self._save_experiment_and_generation_strategy_if_possible()
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
     def complete_trial(
         self,
         trial_index: int,
         raw_data: TEvaluationOutcome,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[Dict[str, Union[str, int]]] = None,
         sample_size: Optional[int] = None,
     ) -> None:
         """
@@ -223,46 +273,61 @@ class AxClient:
                 is no SEM.  Can also be a list of (fidelities, mapping from
                 metric name to a tuple of mean and SEM).
             metadata: Additional metadata to track about this run.
+            sample_size: Number of samples collected for the underlying arm,
+                optional.
         """
         assert isinstance(
             trial_index, int
         ), f"Trial index must be an int, got: {trial_index}."  # pragma: no cover
+        if trial_index not in self.experiment.trials:
+            raise ValueError(  # pragma: no cover
+                f"Cannot complete trial #{trial_index} as it does not yet exist "
+                f"for experiment {self.experiment.name}."
+            )
         trial = self.experiment.trials[trial_index]
         if not isinstance(trial, Trial):
             raise NotImplementedError(
-                "Batch trial functionality is not yet available through Service API."
+                "The Service API only supports `Trial`, not `BatchTrial`."
             )
 
         if metadata is not None:
             trial._run_metadata = metadata
 
         arm_name = not_none(trial.arm).name
-        objective_name = self.experiment.optimization_config.objective.metric.name
         evaluations = {
             arm_name: raw_data_to_evaluation(
-                raw_data=raw_data, objective_name=objective_name
+                raw_data=raw_data, objective_name=self.objective_name
             )
         }
         sample_sizes = {arm_name: sample_size} if sample_size else {}
-        # evaluations[arm_name] is either a trial evaluation
-        # {metric_name -> (mean, SEM)} or a fidelity trial evaluation
-        # [(fidelities, {metric_name -> (mean, SEM)})]
-        if isinstance(evaluations[arm_name], dict):
-            data = Data.from_evaluations(
-                evaluations=cast(Dict[str, TTrialEvaluation], evaluations),
-                trial_index=trial.index,
-                sample_sizes=sample_sizes,
-            )
-        else:
-            data = Data.from_fidelity_evaluations(
-                evaluations=cast(Dict[str, TFidelityTrialEvaluation], evaluations),
-                trial_index=trial.index,
-                sample_sizes=sample_sizes,
-            )
-        trial.mark_completed()
+        data = data_from_evaluations(
+            evaluations=evaluations,
+            trial_index=trial.index,
+            sample_sizes=sample_sizes,
+            start_time=(
+                checked_cast_optional(int, metadata.get("start_time"))
+                if metadata is not None
+                else None
+            ),
+            end_time=(
+                checked_cast_optional(int, metadata.get("end_time"))
+                if metadata is not None
+                else None
+            ),
+        )
+        # In service API, a trial may be completed multiple times (for multiple
+        # metrics, for example).
+        trial.mark_completed(allow_repeat_completion=True)
         self.experiment.attach_data(data)
+        data_for_logging = _round_floats_for_logging(
+            item=evaluations[next(iter(evaluations.keys()))]
+        )
+        logger.info(
+            f"Completed trial {trial_index} with data: "
+            f"{_round_floats_for_logging(item=data_for_logging)}."
+        )
         self._updated_trials.append(trial_index)
-        self._save_experiment_and_generation_strategy_if_possible()
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
 
     def log_trial_failure(
         self, trial_index: int, metadata: Optional[Dict[str, str]] = None
@@ -275,9 +340,10 @@ class AxClient:
         """
         trial = self.experiment.trials[trial_index]
         trial.mark_failed()
+        logger.info(f"Registered failure of trial {trial_index}.")
         if metadata is not None:
             trial._run_metadata = metadata
-        self._save_experiment_and_generation_strategy_if_possible()
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
 
     def attach_trial(
         self, parameters: TParameterization
@@ -292,7 +358,11 @@ class AxClient:
         """
         trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
         trial.mark_dispatched()
-        self._save_experiment_and_generation_strategy_if_possible()
+        logger.info(
+            "Attached custom parameterization "
+            f"{_round_floats_for_logging(item=parameters)} as trial {trial.index}."
+        )
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
     def get_trial_parameters(self, trial_index: int) -> TParameterization:
@@ -307,6 +377,9 @@ class AxClient:
         self
     ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
         return best_point_utils.get_best_parameters(self.experiment)
+
+    def get_trials_data_frame(self) -> pd.DataFrame:
+        return exp_to_df(exp=self.experiment)
 
     def get_recommended_max_parallelism(self) -> List[Tuple[int, int]]:
         """Recommends maximum number of trials that can be scheduled in parallel
@@ -333,14 +406,7 @@ class AxClient:
         Returns:
             Mapping of form {num_trials -> max_parallelism_setting}.
         """
-        if not (self._experiment and self.generation_strategy):
-            # Auto-selected generation strategy is set on experiment creation.
-            raise ValueError(
-                "`get_recommended_max_parallelism` requires an experiment to be "
-                "set on AxClient first."
-            )
         parallelism_settings = []
-        # pyre-fixme[16]: `Optional` has no attribute `_steps`.
         for step in self.generation_strategy._steps:
             parallelism_settings.append(
                 (step.num_arms, step.recommended_max_parallelism or step.num_arms)
@@ -368,6 +434,10 @@ class AxClient:
                 ]
             ]
         )
+        hover_labels = [
+            _format_dict(not_none(checked_cast(Trial, trial).arm).parameters)
+            for trial in self.experiment.trials.values()
+        ]
         return optimization_trace_single_method(
             y=(
                 np.minimum.accumulate(best_objectives, axis=1)
@@ -377,6 +447,7 @@ class AxClient:
             optimum=objective_optimum,
             title="Model performance vs. # of iterations",
             ylabel=objective_name.capitalize(),
+            hover_labels=hover_labels,
         )
 
     def get_contour_plot(
@@ -402,9 +473,6 @@ class AxClient:
         """
         if not self.experiment.trials:
             raise ValueError("Cannot generate plot as there are no trials.")
-        assert (
-            self.generation_strategy
-        ), "Cannot plot response surface without generation strategy."
         if len(self.experiment.parameters) < 2:
             raise ValueError(
                 "Cannot create a contour plot as experiment has less than 2 "
@@ -415,7 +483,7 @@ class AxClient:
                 "If `param_x` is provided, `param_y` is "
                 "required as well, and vice-versa."
             )
-        objective_name = self.experiment.optimization_config.objective.metric.name
+        objective_name = self.objective_name
         if not metric_name:
             metric_name = objective_name
 
@@ -436,19 +504,28 @@ class AxClient:
             raise ValueError(
                 f'Metric "{metric_name}" is not associated with this optimization.'
             )
-        # pyre-fixme[16]: `Optional` has no attribute `model`.
         if self.generation_strategy.model is not None:
             try:
+                logger.info(
+                    f"Retrieving contour plot with parameter '{param_x}' on X-axis "
+                    f"and '{param_y}' on Y-axis, for metric '{metric_name}'. "
+                    "Ramaining parameters are affixed to the middle of their range."
+                )
                 return plot_contour(
-                    model=self.generation_strategy.model,
+                    model=not_none(self.generation_strategy.model),
                     param_x=param_x,
                     param_y=param_y,
                     metric_name=metric_name,
                 )
+
             except NotImplementedError:
                 # Some models don't implement '_predict', which is needed
                 # for the contour plots.
-                pass
+                logger.info(
+                    f"Model {self.generation_strategy.model} does not implement "
+                    "`predict`, so it cannot be used to generate a response "
+                    "surface plot."
+                )
         raise ValueError(
             f'Could not obtain contour plot of "{metric_name}" for parameters '
             f'"{param_x}" and "{param_y}", as a model with predictive ability, '
@@ -456,8 +533,9 @@ class AxClient:
             "of this optimization."
         )
 
-    def load_experiment(self, experiment_name: str) -> None:
-        """[Work in progress] Load an existing experiment.
+    def load_experiment_from_database(self, experiment_name: str) -> None:
+        """Load an existing experiment from database using the `DBSettings`
+        passed to this `AxClient` on instantiation.
 
         Args:
             experiment_name: Name of the experiment.
@@ -474,28 +552,95 @@ class AxClient:
             experiment_name=experiment_name, db_settings=self.db_settings
         )
         self._experiment = experiment
-        self.generation_strategy = generation_strategy
+        logger.info(f"Loaded {experiment}.")
+        if generation_strategy is None:  # pragma: no cover
+            self._generation_strategy = choose_generation_strategy(
+                search_space=self._experiment.search_space,
+                enforce_sequential_optimization=self._enforce_sequential_optimization,
+                random_seed=self._random_seed,
+            )
+        else:
+            self._generation_strategy = generation_strategy
+            logger.info(
+                f"Using generation strategy associated with the loaded experiment:"
+                f" {generation_strategy}."
+            )
 
-    def get_report(self) -> str:
-        """Returns HTML of a generated report containing vizualizations."""
-        raise NotImplementedError(  # pragma: no cover
-            "Report generation not supported for `AxClient` yet."
-        )
+    def get_model_predictions(
+        self, metric_names: Optional[List[str]] = None
+    ) -> Dict[int, Dict[str, Tuple[float, float]]]:
+        """Retrieve model-estimated means and covariances for all metrics.
+        Note: this function retrieves the predictions for the 'in-sample' arms,
+        which means that the return mapping on this function will only contain
+        predictions for trials that have been completed with data.
 
-    def should_stop_early(self, trial_index: int, data: TEvaluationOutcome) -> bool:
-        """Whether to stop the given parameterization given early data."""
-        raise NotImplementedError(  # pragma: no cover
-            "Early stopping of trials not supported for `AxClient` yet."
+        Args:
+            metric_names: Names of the metrics, for which to retrieve predictions.
+                All metrics on experiment will be retrieved if this argument was
+                not specified.
+
+        Returns:
+            A mapping from trial index to a mapping of metric names to tuples
+            of predicted metric mean and SEM, of form:
+            { trial_index -> { metric_name: ( mean, SEM ) } }.
+        """
+        if self.generation_strategy.model is None:  # pragma: no cover
+            raise ValueError("No model has been instantiated yet.")
+        if metric_names is None and self.experiment.metrics is None:
+            raise ValueError(  # pragma: no cover
+                "No metrics to retrieve specified on the experiment or as "
+                "argument to `get_model_predictions`."
+            )
+        arm_info, _, _ = _get_in_sample_arms(
+            model=not_none(self.generation_strategy.model),
+            metric_names=set(metric_names)
+            if metric_names is not None
+            else set(not_none(self.experiment.metrics).keys()),
         )
+        trials = checked_cast_dict(int, Trial, self.experiment.trials)
+
+        return {
+            trial_index: {
+                m: (
+                    arm_info[not_none(trials[trial_index].arm).name].y_hat[m],
+                    arm_info[not_none(trials[trial_index].arm).name].se_hat[m],
+                )
+                for m in arm_info[not_none(trials[trial_index].arm).name].y_hat
+            }
+            for trial_index in trials
+            if not_none(trials[trial_index].arm).name in arm_info
+        }
+
+    # ------------------ JSON serialization & storage methods. -----------------
+
+    def save_to_json_file(self, filepath: str = "ax_client_snapshot.json") -> None:
+        """Save a JSON-serialized snapshot of this `AxClient`'s settings and state
+        to a .json file by the given path.
+        """
+        with open(filepath, "w+") as file:  # pragma: no cover
+            file.write(json.dumps(self.to_json_snapshot()))
+            logger.info(f"Saved JSON-serialized state of optimization to `{filepath}`.")
+
+    @staticmethod
+    def load_from_json_file(filepath: str = "ax_client_snapshot.json") -> "AxClient":
+        """Restore an `AxClient` and its state from a JSON-serialized snapshot,
+        residing in a .json file by the given path.
+        """
+        with open(filepath, "r") as file:  # pragma: no cover
+            serialized = json.loads(file.read())
+            return AxClient.from_json_snapshot(serialized=serialized)
 
     def to_json_snapshot(self) -> Dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
         optimization and save it to file by the provided path.
+
+        Returns:
+            A JSON-safe dict representation of this `AxClient`.
         """
         return {
             "_type": self.__class__.__name__,
-            "experiment": object_to_json(self.experiment),
-            "generation_strategy": object_to_json(self.generation_strategy),
+            "experiment": object_to_json(self._experiment),
+            "generation_strategy": object_to_json(self._generation_strategy),
             "_enforce_sequential_optimization": self._enforce_sequential_optimization,
             "_updated_trials": object_to_json(self._updated_trials),
         }
@@ -504,10 +649,13 @@ class AxClient:
     def from_json_snapshot(serialized: Dict[str, Any]) -> "AxClient":
         """Recreate an `AxClient` from a JSON snapshot."""
         experiment = object_from_json(serialized.pop("experiment"))
+        serialized_generation_strategy = serialized.pop("generation_strategy")
         ax_client = AxClient(
             generation_strategy=generation_strategy_from_json(
-                generation_strategy_json=serialized.pop("generation_strategy")
-            ),
+                generation_strategy_json=serialized_generation_strategy
+            )
+            if serialized_generation_strategy is not None
+            else None,
             enforce_sequential_optimization=serialized.pop(
                 "_enforce_sequential_optimization"
             ),
@@ -515,22 +663,6 @@ class AxClient:
         ax_client._experiment = experiment
         ax_client._updated_trials = object_from_json(serialized.pop("_updated_trials"))
         return ax_client
-
-    def save(self, filepath: str = "ax_client_snapshot.json") -> None:
-        """Save a JSON-serialized snapshot of this `AxClient`'s settings and state
-        to a .json file by the given path.
-        """
-        with open(filepath, "w+") as file:  # pragma: no cover
-            file.write(json.dumps(self.to_json_snapshot()))
-
-    @staticmethod
-    def load(filepath: str = "ax_client_snapshot.json") -> "AxClient":
-        """Restore an `AxClient` and its state from a JSON-serialized snapshot,
-        residing in a .json file by the given path.
-        """
-        with open(filepath, "r") as file:  # pragma: no cover
-            serialized = json.loads(file.read())
-            return AxClient.from_json_snapshot(serialized=serialized)
 
     # ---------------------- Private helper methods. ---------------------
 
@@ -542,25 +674,37 @@ class AxClient:
                 "Experiment not set on Ax client. Must first "
                 "call load_experiment or create_experiment to use handler functions."
             )
-        # pyre-fixme[7]: Expected `Experiment` but got `Optional[Experiment]`.
-        return self._experiment
+        return not_none(self._experiment)
 
-    def _save_experiment_and_generation_strategy_if_possible(self) -> bool:
+    @property
+    def generation_strategy(self) -> GenerationStrategy:
+        """Returns the generation strategy, set on this experiment."""
+        if self._generation_strategy is None:
+            raise ValueError(
+                "No generation strategy has been set on this optimization yet."
+            )
+        return not_none(self._generation_strategy)
+
+    @property
+    def objective_name(self) -> str:
+        """Returns the name of the objective in this optimization."""
+        opt_config = not_none(self.experiment.optimization_config)
+        return opt_config.objective.metric.name
+
+    def _save_experiment_and_generation_strategy_to_db_if_possible(self) -> bool:
         """Saves attached experiment and generation strategy if DB settings are
         set on this AxClient instance.
 
         Returns:
             bool: Whether the experiment was saved.
         """
-        if self.db_settings is not None and self._experiment is not None:
-            assert (
-                self.generation_strategy is not None
-            ), "If experiment is set, generation strategy should be too."
+        if self.db_settings is not None:
             save_experiment_and_generation_strategy(
-                experiment=not_none(self._experiment),
-                generation_strategy=not_none(self.generation_strategy),
+                experiment=self.experiment,
+                generation_strategy=self.generation_strategy,
                 db_settings=self.db_settings,
             )
+            return True
         return False
 
     def _get_new_data(self) -> Data:
@@ -571,18 +715,17 @@ class AxClient:
             Latest data.
         """
         return Data.from_multiple_data(
-            [self.experiment.lookup_data_for_trial(idx) for idx in self._updated_trials]
+            [
+                self.experiment.lookup_data_for_trial(idx)[0]
+                for idx in self._updated_trials
+            ]
         )
 
-    def _suggest_new_trial(self) -> Trial:
-        """
-        Suggest new candidate for this experiment.
+    def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
+        """Generate new generator run for this experiment.
 
         Args:
-            n: Number of candidates to generate.
-
-        Returns:
-            Trial with candidate.
+            n: Number of arms to generate.
         """
         new_data = self._get_new_data()
         # If random seed is not set for this optimization, context manager does
@@ -591,12 +734,36 @@ class AxClient:
         # so if we just set the seed without the context manager, it can have
         # serious negative impact on the performance of the models that employ
         # stochasticity.
-        with manual_seed(seed=self._random_seed):
-            generator_run = not_none(self.generation_strategy).gen(
+        with manual_seed(seed=self._random_seed) and warnings.catch_warnings():
+            # Filter out GPYTorch warnings to avoid confusing users.
+            warnings.simplefilter("ignore")
+            return not_none(self.generation_strategy).gen(
                 experiment=self.experiment,
                 new_data=new_data,
+                n=n,
                 pending_observations=get_pending_observation_features(
                     experiment=self.experiment
                 ),
             )
-        return self.experiment.new_trial(generator_run=generator_run)
+
+    # -------- Backward-compatibility with old save / load method names. -------
+
+    @staticmethod
+    def load_experiment(experiment_name: str) -> None:
+        raise NotImplementedError(
+            "Use `load_experiment_from_database` to load from SQL database or "
+            "`load_from_json_file` to load optimization state from .json file."
+        )
+
+    @staticmethod
+    def load(filepath: Optional[str] = None) -> None:
+        raise NotImplementedError(
+            "Use `load_experiment_from_database` to load from SQL database or "
+            "`load_from_json_file` to load optimization state from .json file."
+        )
+
+    @staticmethod
+    def save(filepath: Optional[str] = None) -> None:
+        raise NotImplementedError(
+            "Use `save_to_json_file` to save optimization state to .json file."
+        )

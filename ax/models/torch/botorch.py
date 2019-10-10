@@ -2,8 +2,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
+import numpy as np
 import torch
 from ax.core.types import TConfig
 from ax.models.model_utils import best_observed_point
@@ -16,7 +17,7 @@ from ax.models.torch.botorch_defaults import (
 from ax.models.torch.utils import _get_X_pending_and_observed
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from torch import Tensor
@@ -55,7 +56,7 @@ TOptimizer = Callable[
         Optional[Callable[[Tensor], Tensor]],
         Any,
     ],
-    Tuple[Tensor, Tensor],
+    Tensor,
 ]
 
 
@@ -63,7 +64,7 @@ class BotorchModel(TorchModel):
     r"""
     Customizable botorch model.
 
-    By default, this uses a noisy Expected Improvement acquisition funciton on
+    By default, this uses a noisy Expected Improvement acquisition function on
     top of a model made up of separate GPs, one for each outcome. This behavior
     can be modified by providing custom implementations of the following
     components:
@@ -146,7 +147,7 @@ class BotorchModel(TorchModel):
             fixed_features,
             rounding_func,
             **kwargs,
-        ) -> (candidates, acq_values)
+        ) -> candidates
 
     Here `acq_function` is a BoTorch `AcquisitionFunction`, `bounds` is a
     tensor containing bounds on the parameters, `n` is the number of
@@ -154,8 +155,7 @@ class BotorchModel(TorchModel):
     constraints on parameter values, `fixed_features` specifies features that
     should be fixed during generation, and `rounding_func` is a callback
     that rounds an optimization result appropriately. `candidates` is
-    a tensor of generated candidates, and `acq_values` are the acquisition
-    values associated with the candidates. For additional details on the
+    a tensor of generated candidates. For additional details on the
     arguments, see `scipy_optimizer`.
     """
 
@@ -187,6 +187,7 @@ class BotorchModel(TorchModel):
         acqf_optimizer: TOptimizer = scipy_optimizer,
         refit_on_cv: bool = False,
         refit_on_update: bool = True,
+        warm_start_refitting: bool = True,
         **kwargs: Any,
     ) -> None:
         self.model_constructor = model_constructor
@@ -204,6 +205,7 @@ class BotorchModel(TorchModel):
         self.task_features: List[int] = []
         self.fidelity_features: List[int] = []
         self.fidelity_model_id = kwargs.get("fidelity_model_id", None)
+        self.warm_start_refitting = warm_start_refitting
 
     @copy_doc(TorchModel.fit)
     def fit(
@@ -307,7 +309,7 @@ class BotorchModel(TorchModel):
             inequality_constraints = []
             k, d = A.shape
             for i in range(k):
-                indicies = A[i, :].nonzero().squeeze()
+                indicies = A[i, :].nonzero().view(-1)
                 coefficients = -A[i, indicies]
                 rhs = -b[i, 0]
                 inequality_constraints.append((indicies, coefficients, rhs))
@@ -316,7 +318,7 @@ class BotorchModel(TorchModel):
 
         botorch_rounding_func = get_rounding_func(rounding_func)
 
-        candidates, _ = self.acqf_optimizer(  # pyre-ignore: [28]
+        candidates = self.acqf_optimizer(  # pyre-ignore: [28]
             acq_function=checked_cast(AcquisitionFunction, acquisition_function),
             bounds=bounds_,
             n=n,
@@ -383,8 +385,8 @@ class BotorchModel(TorchModel):
         self.Xs = Xs
         self.Ys = Ys
         self.Yvars = Yvars
-        if self.refit_on_update:
-            state_dict = None
+        if self.refit_on_update and not self.warm_start_refitting:
+            state_dict = None  # pragma: no cover
         else:
             state_dict = deepcopy(self.model.state_dict())  # pyre-ignore: [16]
         self.model = self.model_constructor(  # pyre-ignore: [28]
@@ -395,7 +397,17 @@ class BotorchModel(TorchModel):
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
             fidelity_model_id=self.fidelity_model_id,
+            refit_model=self.refit_on_update,
         )
+
+    def feature_importances(self) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError(
+                "Cannot calculate feature_importances without a fitted model"
+            )
+        else:
+            ls = not_none(self.model).covar_module.base_kernel.lengthscale
+            return cast(Tensor, (1 / ls)).detach().cpu().numpy()
 
 
 def get_rounding_func(

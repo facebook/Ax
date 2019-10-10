@@ -2,8 +2,15 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import pandas as pd
-from ax.core.data import REQUIRED_COLUMNS, Data, custom_data_class, set_single_trial
+from ax.core.data import (
+    REQUIRED_COLUMNS,
+    Data,
+    clone_without_metrics,
+    custom_data_class,
+    set_single_trial,
+)
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.timeutils import current_timestamp_in_millis
 
 
 class DataTest(TestCase):
@@ -144,9 +151,13 @@ class DataTest(TestCase):
             evaluations={"0_1": {"b": (3.7, 0.5)}},
             trial_index=0,
             sample_sizes={"0_1": 2},
+            start_time=current_timestamp_in_millis(),
+            end_time=current_timestamp_in_millis(),
         )
         self.assertEqual(len(data.df), 1)
         self.assertNotEqual(data, Data(self.df))
+        self.assertIn("start_time", data.df)
+        self.assertIn("end_time", data.df)
 
     def testFromFidelityEvaluations(self):
         data = Data.from_fidelity_evaluations(
@@ -158,5 +169,46 @@ class DataTest(TestCase):
             },
             trial_index=0,
             sample_sizes={"0_1": 2},
+            start_time=current_timestamp_in_millis(),
+            end_time=current_timestamp_in_millis(),
         )
         self.assertEqual(len(data.df), 2)
+        self.assertIn("start_time", data.df)
+        self.assertIn("end_time", data.df)
+
+    def testCloneWithoutMetrics(self):
+        data = Data(df=self.df)
+        expected = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "arm_name": "0_0",
+                        "mean": 1.8,
+                        "sem": 0.3,
+                        "trial_index": 1,
+                        "metric_name": "b",
+                        "start_time": "2018-01-01",
+                        "end_time": "2018-01-02",
+                    },
+                    {
+                        "arm_name": "0_1",
+                        "mean": 3.7,
+                        "sem": 0.5,
+                        "trial_index": 1,
+                        "metric_name": "b",
+                        "start_time": "2018-01-01",
+                        "end_time": "2018-01-02",
+                    },
+                    {
+                        "arm_name": "0_2",
+                        "mean": 3.0,
+                        "sem": None,
+                        "trial_index": 1,
+                        "metric_name": "b",
+                        "start_time": "2018-01-01",
+                        "end_time": "2018-01-02",
+                    },
+                ]
+            )
+        )
+        self.assertEqual(clone_without_metrics(data, {"a"}), expected)

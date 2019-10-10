@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+set -e
 
 usage() {
   echo "Usage: $0 [-d] [-k KERNEL_NAME] [-v VERSION]"
@@ -212,12 +213,13 @@ else
   cd "${WORK_DIR}" || exit
   python3 Ax-master/scripts/update_versions_html.py -p "${WORK_DIR}"
 
-  # Init as Git repo and push to gh-pages
-  cd new-site || exit
-  git init
+  # move contents of newsite to Ax-gh-pages, preserving commit history
+  rm -rfv ./Ax-gh-pages/*
+  rsync -avh ./new-site/ ./Ax-gh-pages/
+  cd Ax-gh-pages
   git add --all
   git commit -m "Publish version ${VERSION} of site"
-  git push --force "https://github.com/facebook/Ax" master:gh-pages
+  git push
 
 fi
 

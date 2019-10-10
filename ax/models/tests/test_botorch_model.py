@@ -148,14 +148,11 @@ class BotorchModelTest(TestCase):
         n = 3
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
-        acq_dummy = torch.tensor(0.0, dtype=dtype, device=device)
         model_gen_options = {}
         # test sequential optimize
         with mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
-            return_value=(X_dummy, acq_dummy),
+            "ax.models.torch.botorch_defaults.sequential_optimize", return_value=X_dummy
         ) as mock_optimize_acqf:
-
             Xgen, wgen = model.gen(
                 n=n,
                 bounds=bounds,
@@ -173,8 +170,7 @@ class BotorchModelTest(TestCase):
 
         # test joint optimize
         with mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
-            return_value=(X_dummy, acq_dummy),
+            "ax.models.torch.botorch_defaults.joint_optimize", return_value=X_dummy
         ) as mock_optimize_acqf:
             Xgen, wgen = model.gen(
                 n=n,
@@ -234,6 +230,10 @@ class BotorchModelTest(TestCase):
         model.refit_on_update = False
         model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
 
+        # Test feature_importances
+        importances = model.feature_importances()
+        self.assertEqual(importances.shape, torch.Size([2, 1, 3]))
+
         # When calling update directly, the data is completely overwritten.
         self.assertTrue(torch.equal(model.Xs[0], Xs2[0]))
         self.assertTrue(torch.equal(model.Xs[1], Xs2[0]))
@@ -244,7 +244,7 @@ class BotorchModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
 
-        # test unfit model CV and update
+        # test unfit model CV, update, and feature_importances
         unfit_model = BotorchModel()
         with self.assertRaises(RuntimeError):
             unfit_model.cross_validate(
@@ -255,13 +255,15 @@ class BotorchModelTest(TestCase):
             )
         with self.assertRaises(RuntimeError):
             unfit_model.update(Xs=Xs1 + Xs2, Ys=Ys1 + Ys2, Yvars=Yvars1 + Yvars2)
+        with self.assertRaises(RuntimeError):
+            unfit_model.feature_importances()
 
         # Test loading state dict
         tkwargs = {"device": device, "dtype": dtype}
         true_state_dict = {
-            "mean_module.constant": [[3.5004]],
-            "covar_module.raw_outputscale": [2.2438],
-            "covar_module.base_kernel.raw_lengthscale": [[[-0.9274, -0.9274, -0.9274]]],
+            "mean_module.constant": [3.5004],
+            "covar_module.raw_outputscale": 2.2438,
+            "covar_module.base_kernel.raw_lengthscale": [[-0.9274, -0.9274, -0.9274]],
             "covar_module.base_kernel.lengthscale_prior.concentration": 3.0,
             "covar_module.base_kernel.lengthscale_prior.rate": 6.0,
             "covar_module.outputscale_prior.concentration": 2.0,
@@ -277,9 +279,33 @@ class BotorchModelTest(TestCase):
             task_features=[],
             fidelity_features=[],
             state_dict=true_state_dict,
+            refit_model=False,
         )
         for k, v in chain(model.named_parameters(), model.named_buffers()):
             self.assertTrue(torch.equal(true_state_dict[k], v))
+
+        # Test for some change in model parameters & buffer for refit_model=True
+        true_state_dict["mean_module.constant"] += 0.1
+        true_state_dict["covar_module.raw_outputscale"] += 0.1
+        true_state_dict["covar_module.base_kernel.raw_lengthscale"] += 0.1
+        true_state_dict = {
+            key: torch.tensor(val, **tkwargs) for key, val in true_state_dict.items()
+        }
+        model = get_and_fit_model(
+            Xs=Xs1,
+            Ys=Ys1,
+            Yvars=Yvars1,
+            task_features=[],
+            fidelity_features=[],
+            state_dict=true_state_dict,
+            refit_model=True,
+        )
+        self.assertTrue(
+            any(
+                not torch.equal(true_state_dict[k], v)
+                for k, v in chain(model.named_parameters(), model.named_buffers())
+            )
+        )
 
     def test_BotorchModel_cuda(self):
         if torch.cuda.is_available():

@@ -269,15 +269,10 @@ class SearchSpaceTest(TestCase):
         new_arm = self.ss2.cast_arm(Arm(p_dict))
         self.assertTrue(isinstance(new_arm.parameters["b"], int))
 
-        # Incomplete param dict
-        p_dict.pop("a")
-        with self.assertRaises(ValueError):
-            self.ss2.cast_arm(Arm(p_dict))
-
-        # Unknown parameter
+        # Unknown parameter should be unchanged
         p_dict["q"] = 40
-        with self.assertRaises(ValueError):
-            self.ss2.cast_arm(Arm(p_dict))
+        new_arm = self.ss2.cast_arm(Arm(p_dict))
+        self.assertTrue(isinstance(new_arm.parameters["q"], int))
 
     def testCopy(self):
         a = RangeParameter("a", ParameterType.FLOAT, 1.0, 5.5)

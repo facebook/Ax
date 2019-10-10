@@ -45,6 +45,7 @@ def _get_slice_predictions(
     density: int = 50,
     slice_values: Optional[Dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
+    trial_index: Optional[int] = None,
 ) -> SlicePredictions:
     """Computes slice prediction configuration values for a single metric name.
 
@@ -81,7 +82,7 @@ def _get_slice_predictions(
         slice_values = fixed_features.parameters
     else:
         fixed_features = ObservationFeatures(parameters={})
-    fixed_values = get_fixed_values(model, slice_values)
+    fixed_values = get_fixed_values(model, slice_values, trial_index)
 
     prediction_features = []
     for x in grid:
@@ -117,6 +118,7 @@ def plot_slice(
     density: int = 50,
     slice_values: Optional[Dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
+    trial_index: Optional[int] = None,
 ) -> AxPlotConfig:
     """Plot predictions for a 1-d slice of the parameter space.
 
@@ -146,6 +148,7 @@ def plot_slice(
         density=density,
         slice_values=slice_values,
         fixed_features=fixed_features,
+        trial_index=trial_index,
     )
 
     config = {
@@ -214,7 +217,7 @@ def plot_slice(
         },
     }
 
-    fig = go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
+    fig = go.Figure(data=traces, layout=layout)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -227,6 +230,7 @@ def interact_slice(
     density: int = 50,
     slice_values: Optional[Dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
+    trial_index: Optional[int] = None,
 ) -> AxPlotConfig:
     """Create interactive plot with predictions for a 1-d slice of the parameter
     space.
@@ -267,7 +271,7 @@ def interact_slice(
         slice_values = fixed_features.parameters
     else:
         fixed_features = ObservationFeatures(parameters={})
-    fixed_values = get_fixed_values(model, slice_values)
+    fixed_values = get_fixed_values(model, slice_values, trial_index)
 
     prediction_features = []
     for x in grid:
@@ -399,5 +403,5 @@ def interact_slice(
         },
     }
 
-    fig = go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
+    fig = go.Figure(data=traces, layout=layout)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

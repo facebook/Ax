@@ -60,7 +60,7 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
         "trial_type": batch.trial_type,
         "status": batch.status,
         "status_quo": batch.status_quo,
-        "status_quo_weight": batch._status_quo_weight,
+        "status_quo_weight_override": batch._status_quo_weight_override,
         "time_created": batch.time_created,
         "time_completed": batch.time_completed,
         "time_staged": batch.time_staged,
@@ -71,6 +71,7 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
         "runner": batch.runner,
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,
+        "optimize_for_power": batch.optimize_for_power,
     }
 
 

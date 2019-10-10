@@ -229,7 +229,8 @@ def get_MTGP(
 def get_factorial(search_space: SearchSpace) -> DiscreteModelBridge:
     """Instantiates a factorial generator."""
     return checked_cast(
-        DiscreteModelBridge, Models.FACTORIAL(search_space=search_space)
+        DiscreteModelBridge,
+        Models.FACTORIAL(search_space=search_space, fit_out_of_design=True),
     )
 
 
@@ -253,6 +254,7 @@ def get_empirical_bayes_thompson(
             num_samples=num_samples,
             min_weight=min_weight,
             uniform_weights=uniform_weights,
+            fit_out_of_design=True,
         ),
     )
 
@@ -277,5 +279,6 @@ def get_thompson(
             num_samples=num_samples,
             min_weight=min_weight,
             uniform_weights=uniform_weights,
+            fit_out_of_design=True,
         ),
     )

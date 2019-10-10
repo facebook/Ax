@@ -124,9 +124,6 @@ dmypy.json
 
 # End of https://www.gitignore.io/api/python
 
-# Cython
-ax/utils/stats/sobol.c*
-
 # Sphinx documentation
 sphinx/build/
 

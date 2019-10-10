@@ -3,19 +3,8 @@
 
 import subprocess
 
-import numpy
-from Cython.Build import cythonize
 from setuptools import find_packages, setup
-from setuptools.extension import Extension
 
-
-EXTENSIONS = [
-    Extension(
-        "ax.utils.stats.sobol",
-        ["ax/utils/stats/sobol.pyx"],
-        include_dirs=[numpy.get_include()],
-    )
-]
 
 REQUIRES = [
     "botorch>=0.1.3",
@@ -35,6 +24,7 @@ DEV_REQUIRES = [
     "pytest-cov",
     "sphinx",
     "sphinx-autodoc-typehints",
+    "torchvision",
 ]
 
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
@@ -121,10 +111,8 @@ def setup_package() -> None:
         long_description=long_description,
         long_description_content_type="text/markdown",
         python_requires=">=3.6",
-        setup_requires=["cython", "numpy"],
         install_requires=REQUIRES,
         packages=find_packages(),
-        ext_modules=cythonize(EXTENSIONS),
         package_data={
             # include all js, css, and html files in the package
             "": ["*.js", "*.css", "*.html"]

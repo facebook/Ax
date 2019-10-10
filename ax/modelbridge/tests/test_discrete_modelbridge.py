@@ -69,21 +69,14 @@ class DiscreteModelBridgeTest(TestCase):
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
     def testFit(self, mock_init):
-        sq_feat = ObservationFeatures({})
-        sq_data = self.observation_data[0]
-        sq_obs = Observation(features=sq_feat, data=sq_data, arm_name="status_quo")
         ma = DiscreteModelBridge()
-        ma._training_data = self.observations + [sq_obs]
+        ma._training_data = self.observations
         model = mock.create_autospec(DiscreteModel, instance=True)
         ma._fit(
-            model,
-            self.search_space,
-            self.observation_features + [sq_feat],
-            self.observation_data + [sq_data],
+            model, self.search_space, self.observation_features, self.observation_data
         )
         self.assertEqual(ma.parameters, ["x", "y", "z"])
         self.assertEqual(sorted(ma.outcomes), ["a", "b"])
-        self.assertEqual(ma.training_in_design, [True, True, True, False])
         Xs = {
             "a": [[0, "foo", True], [1, "foo", True], [1, "bar", True]],
             "b": [[0, "foo", True], [1, "foo", True]],
@@ -99,6 +92,34 @@ class DiscreteModelBridgeTest(TestCase):
         for i, v in enumerate(model_fit_args["Yvars"]):
             self.assertEqual(v, Yvars[ma.outcomes[i]])
         self.assertEqual(model_fit_args["parameter_values"], parameter_values)
+
+        sq_feat = ObservationFeatures({})
+        sq_data = self.observation_data[0]
+        with self.assertRaises(ValueError):
+            ma._fit(
+                model,
+                self.search_space,
+                self.observation_features + [sq_feat],
+                self.observation_data + [sq_data],
+            )
+
+    @mock.patch(
+        "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
+    )
+    def testUpdate(self, mock_init):
+        ma = DiscreteModelBridge()
+        ma._training_data = self.observations
+        model = mock.create_autospec(DiscreteModel, instance=True)
+        ma._fit(
+            model, self.search_space, self.observation_features, self.observation_data
+        )
+        new_feat = ObservationFeatures(parameters={"x": 0, "y": "bar", "z": True})
+        new_data = ObservationData(
+            metric_names=["a"], means=np.array([3.0]), covariance=np.array([[3.0]])
+        )
+        ma._update([new_feat], [new_data])
+        self.assertEqual(ma.parameters, ["x", "y", "z"])
+        self.assertEqual(sorted(ma.outcomes), ["a", "b"])
 
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None

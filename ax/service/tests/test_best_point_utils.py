@@ -8,7 +8,7 @@ from ax.service.utils.best_point import (
     get_best_raw_objective_point,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import get_branin_experiment
+from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class TestBestPointUtils(TestCase):

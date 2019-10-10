@@ -8,7 +8,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
+from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_optimization_config,
     get_factorial_experiment,
@@ -108,6 +108,7 @@ class ModelRegistryTest(TestCase):
                     "transform_configs": None,
                     "status_quo_name": None,
                     "status_quo_features": None,
+                    "fit_out_of_design": False,
                 },
             ),
         )
@@ -127,6 +128,7 @@ class ModelRegistryTest(TestCase):
                     "transform_configs",
                     "status_quo_name",
                     "status_quo_features",
+                    "fit_out_of_design",
                 ]
             ),
         )

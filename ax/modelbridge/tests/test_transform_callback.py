@@ -12,7 +12,7 @@ from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.models.torch.botorch import BotorchModel
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import get_branin_experiment
+from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class TransformCallbackTest(TestCase):

@@ -14,6 +14,11 @@ class DiscreteModelTest(TestCase):
         discrete_model = DiscreteModel()
         self.assertEqual(discrete_model._get_state(), {})
 
+    def test_discrete_model_feature_importances(self):
+        discrete_model = DiscreteModel()
+        with self.assertRaises(NotImplementedError):
+            discrete_model.feature_importances()
+
     def testDiscreteModelFit(self):
         discrete_model = DiscreteModel()
         discrete_model.fit(

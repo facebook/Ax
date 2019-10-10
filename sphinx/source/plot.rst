@@ -8,6 +8,15 @@ ax.plot
 .. currentmodule:: ax.plot
 
 
+Rendering
+------------
+
+.. automodule:: ax.plot.render
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Plots
 ----------
 
@@ -19,10 +28,9 @@ Base
     :undoc-members:
     :show-inheritance:
 
-Color
-~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.plot.color
+Bandit Rollout
+~~~~~~~~~~~~~~~~
+.. automodule:: ax.plot.bandit_rollout
     :members:
     :undoc-members:
     :show-inheritance:
@@ -35,26 +43,26 @@ Contour Plot
     :undoc-members:
     :show-inheritance:
 
-Model Diagnostic Plot
+Feature Importances
+~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.plot.feature_importances
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Marginal Effects
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.plot.marginal_effects
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Model Diagnostics
 ~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.plot.diagnostic
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Helpers
-~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.plot.helper
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Rendering
-~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.plot.render
     :members:
     :undoc-members:
     :show-inheritance:
@@ -76,7 +84,7 @@ Slice Plot
     :show-inheritance:
 
 Table
---------------------------
+~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.plot.table_view
     :members:
@@ -84,9 +92,28 @@ Table
     :show-inheritance:
 
 Trace Plots
---------------------
+~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.plot.trace
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Plotting Utilities
+-------------------
+
+.. automodule:: ax.plot.color
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: ax.plot.exp_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: ax.plot.helper
     :members:
     :undoc-members:
     :show-inheritance:

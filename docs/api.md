@@ -38,8 +38,8 @@ best_parameters, values, experiment, model = optimize(
 from ax.service.ax_client import AxClient
 from ax.utils.measurement.synthetic_functions import branin
 
-ax = AxClient()
-ax.create_experiment(
+ax_client = AxClient()
+ax_client.create_experiment(
     name="branin_test_experiment",
     parameters=[
         {
@@ -59,10 +59,10 @@ ax.create_experiment(
 )
 
 for _ in range(15):
-    parameters, trial_index = ax.get_next_trial()
-    ax.complete_trial(trial_index=trial_index, raw_data=branin(parameters["x1"], parameters["x2"]))
+    parameters, trial_index = ax_client.get_next_trial()
+    ax_client.complete_trial(trial_index=trial_index, raw_data=branin(parameters["x1"], parameters["x2"]))
 
-best_parameters, metrics = ax.get_best_parameters()
+best_parameters, metrics = ax_client.get_best_parameters()
 ```
 
 <!--Developer-->

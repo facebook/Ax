@@ -206,7 +206,7 @@ def _error_scatter_trace(
             )
         )
         i += 1
-    trace = go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+    trace = go.Scatter(
         x=x,
         y=y,
         marker={"color": rgba(color)},
@@ -348,7 +348,7 @@ def plot_multiple_metrics(
     )
     num_cand_traces = len(generator_runs_dict) if generator_runs_dict is not None else 0
 
-    layout = go.Layout(  # pyre-ignore[16]
+    layout = go.Layout(
         title="Objective Tradeoffs",
         hovermode="closest",
         updatemenus=[
@@ -442,7 +442,7 @@ def plot_multiple_metrics(
         font={"size": 10},
     )
 
-    fig = go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
+    fig = go.Figure(data=traces, layout=layout)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -519,7 +519,7 @@ def plot_objective_vs_constraints(
 
     num_cand_traces = len(generator_runs_dict) if generator_runs_dict is not None else 0
 
-    layout = go.Layout(  # pyre-ignore[16]
+    layout = go.Layout(
         title="Objective Tradeoffs",
         hovermode="closest",
         updatemenus=[
@@ -629,7 +629,7 @@ def plot_objective_vs_constraints(
         font={"size": 10},
     )
 
-    fig = go.Figure(data=plot_data, layout=layout)  # pyre-ignore[16]
+    fig = go.Figure(data=plot_data, layout=layout)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -732,7 +732,7 @@ def lattice_multiple_metrics(
             else:
                 # if diagonal is set to True, add box plots
                 fig.append_trace(
-                    go.Box(  # pyre-ignore[16]
+                    go.Box(
                         y=[arm.y[o1] for arm in plot_data.in_sample.values()],
                         name=None,
                         marker={"color": rgba(COLORS.STEELBLUE.value)},
@@ -745,7 +745,7 @@ def lattice_multiple_metrics(
                     i,
                 )
                 fig.append_trace(
-                    go.Box(  # pyre-ignore[16]
+                    go.Box(
                         y=[arm.y_hat[o1] for arm in plot_data.in_sample.values()],
                         name=None,
                         marker={"color": rgba(COLORS.STEELBLUE.value)},
@@ -761,7 +761,7 @@ def lattice_multiple_metrics(
                     (plot_data.out_of_sample or {}).items(), start=1
                 ):
                     fig.append_trace(
-                        go.Box(  # pyre-ignore[16]
+                        go.Box(
                             y=[arm.y_hat[o1] for arm in cand_arms.values()],
                             name=None,
                             marker={"color": rgba(DISCRETE_COLOR_SCALE[k])},
@@ -1078,7 +1078,7 @@ def plot_fitted(
             # Union[List[str...
         ] + order_options
 
-    layout = go.Layout(  # pyre-ignore[16]
+    layout = go.Layout(
         title="Predicted Outcomes",
         hovermode="closest",
         updatemenus=[
@@ -1113,7 +1113,7 @@ def plot_fitted(
         font={"size": 10},
     )
 
-    fig = go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
+    fig = go.Figure(data=traces, layout=layout)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -1341,7 +1341,7 @@ def interact_fitted(
             {"args": ["visible", is_visible], "label": metric, "method": "restyle"}
         )
 
-    layout = go.Layout(  # pyre-ignore[16]
+    layout = go.Layout(
         xaxis={"title": arm_noun.title(), "zeroline": False, "type": "category"},
         yaxis={
             "ticksuffix": "%" if rel else "",
@@ -1398,6 +1398,5 @@ def interact_fitted(
         )
 
     return AxPlotConfig(
-        data=go.Figure(data=traces, layout=layout),  # pyre-ignore[16]
-        plot_type=AxPlotTypes.GENERIC,
+        data=go.Figure(data=traces, layout=layout), plot_type=AxPlotTypes.GENERIC
     )

@@ -33,7 +33,8 @@ def batch_trial_from_json(
     abandoned_arms_metadata: Dict[str, AbandonedArm],
     num_arms_created: int,
     status_quo: Optional[Arm],
-    status_quo_weight: float,
+    status_quo_weight_override: float,
+    optimize_for_power: Optional[bool],
 ) -> BatchTrial:
     """Load Ax BatchTrial from JSON.
 
@@ -57,7 +58,8 @@ def batch_trial_from_json(
     batch._abandoned_arms_metadata = abandoned_arms_metadata
     batch._num_arms_created = num_arms_created
     batch._status_quo = status_quo
-    batch._status_quo_weight = status_quo_weight
+    batch._status_quo_weight_override = status_quo_weight_override
+    batch.optimize_for_power = optimize_for_power
     return batch
 
 

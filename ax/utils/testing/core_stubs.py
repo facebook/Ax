@@ -3,7 +3,7 @@
 
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, MutableMapping, Type
+from typing import Dict, List, MutableMapping
 
 import numpy as np
 import pandas as pd
@@ -15,7 +15,6 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
@@ -44,15 +43,12 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.dispatch import choose_generation_strategy
 from ax.utils.common.logger import get_logger
 
 
 logger = get_logger("ae_experiment")
+
 
 # Experiments
 
@@ -67,10 +63,6 @@ def get_experiment() -> Experiment:
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
     )
-
-
-def get_branin_optimization_config() -> OptimizationConfig:
-    return OptimizationConfig(objective=get_branin_objective())
 
 
 def get_branin_experiment(
@@ -94,7 +86,9 @@ def get_branin_experiment(
     if with_batch:
         sobol_generator = get_sobol(search_space=exp.search_space)
         sobol_run = sobol_generator.gen(n=15)
-        exp.new_batch_trial().add_generator_run(sobol_run)
+        exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
+            sobol_run
+        )
 
     return exp
 
@@ -162,7 +156,9 @@ def get_factorial_experiment(
     if with_batch:
         factorial_generator = get_factorial(search_space=exp.search_space)
         factorial_run = factorial_generator.gen(n=-1)
-        exp.new_batch_trial().add_generator_run(factorial_run)
+        exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
+            factorial_run
+        )
 
     return exp
 
@@ -289,7 +285,26 @@ def get_factorial_search_space() -> SearchSpace:
     )
 
 
-# trials
+def get_search_space_for_value(val: float = 3.0) -> SearchSpace:
+    return SearchSpace([FixedParameter("x", ParameterType.FLOAT, val)])
+
+
+def get_search_space_for_range_value(min: float = 3.0, max: float = 6.0) -> SearchSpace:
+    return SearchSpace([RangeParameter("x", ParameterType.FLOAT, min, max)])
+
+
+def get_search_space_for_range_values(
+    min: float = 3.0, max: float = 6.0
+) -> SearchSpace:
+    return SearchSpace(
+        [
+            RangeParameter("x", ParameterType.FLOAT, min, max),
+            RangeParameter("y", ParameterType.FLOAT, min, max),
+        ]
+    )
+
+
+# Trials
 
 
 def get_batch_trial(abandon_arm: bool = True) -> BatchTrial:
@@ -474,6 +489,14 @@ def get_branin_outcome_constraint() -> OutcomeConstraint:
     return OutcomeConstraint(metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0)
 
 
+def get_optimization_config_no_constraints() -> OptimizationConfig:
+    return OptimizationConfig(objective=Objective(metric=Metric("test_metric")))
+
+
+def get_branin_optimization_config() -> OptimizationConfig:
+    return OptimizationConfig(objective=get_branin_objective())
+
+
 # Arms
 
 
@@ -590,7 +613,33 @@ def get_synthetic_runner() -> SyntheticRunner:
     return SyntheticRunner(dummy_metadata="foobar")
 
 
-# Model Utilities
+# Data
+
+
+def get_data() -> Data:
+    df_dict = {
+        "trial_index": 0,
+        "metric_name": "ax_test_metric",
+        "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3"],
+        "mean": [1, 3, 2, 2.25, 1.75],
+        "sem": [0, 0.5, 0.25, 0.40, 0.15],
+        "n": [100, 100, 100, 100, 100],
+    }
+    return Data(df=pd.DataFrame.from_records(df_dict))
+
+
+def get_branin_data() -> Data:
+    df_dict = {
+        "trial_index": 0,
+        "metric_name": "branin",
+        "arm_name": ["0_0"],
+        "mean": [5.0],
+        "sem": [0.0],
+    }
+    return Data(df=pd.DataFrame.from_records(df_dict))
+
+
+# Instances of types from core/types.py
 
 
 def get_model_mean() -> TModelMean:
@@ -632,57 +681,3 @@ def get_model_predictions_per_arm() -> Dict[str, TModelPredictArm]:
         )
         for i in range(len(arms))
     }
-
-
-# Data
-
-
-def get_data() -> Data:
-    df_dict = {
-        "trial_index": 0,
-        "metric_name": "ax_test_metric",
-        "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3"],
-        "mean": [1, 3, 2, 2.25, 1.75],
-        "sem": [0, 0.5, 0.25, 0.40, 0.15],
-        "n": [100, 100, 100, 100, 100],
-    }
-    return Data(df=pd.DataFrame.from_records(df_dict))
-
-
-def get_branin_data() -> Data:
-    df_dict = {
-        "trial_index": 0,
-        "metric_name": "branin",
-        "arm_name": ["0_0"],
-        "mean": [5.0],
-        "sem": [0.0],
-    }
-    return Data(df=pd.DataFrame.from_records(df_dict))
-
-
-# Observations
-
-
-def get_observation() -> Observation:
-    return Observation(
-        features=ObservationFeatures(
-            parameters={"x": 2.0, "y": 10.0}, trial_index=np.int64(0)
-        ),
-        data=ObservationData(
-            means=np.array([2.0, 4.0]),
-            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=["a", "b"],
-        ),
-        arm_name="1_1",
-    )
-
-
-# Modeling layer
-
-
-def get_generation_strategy() -> GenerationStrategy:
-    return choose_generation_strategy(search_space=get_search_space())
-
-
-def get_transform_type() -> Type[Transform]:
-    return IntToFloat

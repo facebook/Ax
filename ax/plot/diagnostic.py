@@ -63,7 +63,7 @@ def _diagonal_trace(min_: float, max_: float, visible: bool = True) -> Dict[str,
         visible: if True, trace is set to visible.
 
     """
-    return go.Scatter(  # pyre-ignore[16]
+    return go.Scatter(
         x=[min_, max_],
         y=[min_, max_],
         line=dict(color="black", width=2, dash="dot"),  # noqa: C408
@@ -196,7 +196,7 @@ def _obs_vs_pred_dropdown_plot(
         },
     ]
 
-    layout = go.Layout(  # pyre-ignore[16]
+    layout = go.Layout(
         annotations=[
             {
                 "showarrow": False,
@@ -230,7 +230,7 @@ def _obs_vs_pred_dropdown_plot(
         height=500,
     )
 
-    return go.Figure(data=traces, layout=layout)  # pyre-ignore[16]
+    return go.Figure(data=traces, layout=layout)
 
 
 def _get_batch_comparison_plot_data(

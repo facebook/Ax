@@ -8,25 +8,29 @@ ax.modelbridge
 .. currentmodule:: ax.modelbridge
 
 
-Factory and Generation Strategy
--------------------------------
+Generation Strategy, Registry, and Factory
+-------------------------------------------
 
-`GenerationStrategy`
+Generation Strategy
 ~~~~~~~~~~~~~~~~~~~~
-
 .. automodule:: ax.modelbridge.generation_strategy
     :members:
     :undoc-members:
     :show-inheritance:
 
+Registry
+~~~~~~~~~~~~~~~~~~~~
+.. automodule:: ax.modelbridge.registry
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
-Model Bridge Factory
+Factory
 ~~~~~~~~~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.factory
     :members:
     :undoc-members:
     :show-inheritance:
-
 
 
 Model Bridges
@@ -64,6 +68,14 @@ NumPy Model Bridge
     :undoc-members:
     :show-inheritance:
 
+Random Model Bridge
+~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.random
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Torch Model Bridge
 ~~~~~~~~~~~~~~~~~~~
 
@@ -76,13 +88,19 @@ Torch Model Bridge
 Utilities
 ---------------
 
+General Utilities
+~~~~~~~~~~~~~~~~~~
+.. automodule:: ax.modelbridge.modelbridge_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Cross Validation
 ~~~~~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.cross_validation
     :members:
     :undoc-members:
     :show-inheritance:
-
 
 Transforms
 -------------
@@ -91,6 +109,30 @@ Transforms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+`ax.modelbridge.transforms.cap_parameter`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.cap_parameter
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+`ax.modelbridge.transforms.centered_unit_x`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.centered_unit_x
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+`ax.modelbridge.transforms.convert_metric_names`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.convert_metric_names
     :members:
     :undoc-members:
     :show-inheritance:
@@ -211,6 +253,14 @@ Transforms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.unit_x
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+`ax.modelbridge.winsorize`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.winsorize
     :members:
     :undoc-members:
     :show-inheritance:

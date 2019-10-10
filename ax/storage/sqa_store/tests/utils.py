@@ -4,7 +4,7 @@
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.utils import EncodeDecodeFieldsMap
-from ax.utils.testing.fake import (
+from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
     get_arm,
     get_batch_trial,
@@ -179,7 +179,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "abandoned_arms_metadata": "abandoned_arms",
             "num_arms_created": "num_arms_created",
         },
-        python_only=["experiment", "status_quo", "status_quo_weight"],
+        python_only=["experiment", "status_quo", "status_quo_weight_override"],
         encoded_only=["is_batch", "status_quo_name", "deployed_name"],
     ),
     "BraninObjective": EncodeDecodeFieldsMap(
@@ -349,6 +349,12 @@ ENCODE_DECODE_FIELD_MAPS = {
             "num_arms_created": "num_arms_created",
         },
         python_only=["experiment"],
-        encoded_only=["is_batch", "abandoned_arms", "status_quo_name", "deployed_name"],
+        encoded_only=[
+            "is_batch",
+            "abandoned_arms",
+            "status_quo_name",
+            "deployed_name",
+            "optimize_for_power",
+        ],
     ),
 }

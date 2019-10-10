@@ -37,6 +37,30 @@ class DiscreteModel(Model):
         """
         pass
 
+    def update(
+        self,
+        Xs: List[List[TParamValueList]],
+        Ys: List[List[float]],
+        Yvars: List[List[float]],
+        parameter_values: List[TParamValueList],
+        outcome_names: List[str],
+    ) -> None:
+        """Update model with new data. Note that this data will be treated as new
+        even if the model has already been fit to it, so ensure that only new
+        data is passed in or use `fit` to refit the model from scratch.
+
+        Args:
+            Xs: A list of m lists X of parameterizations (each parameterization
+                is a list of parameter values of length d), each of length k_i,
+                for each outcome.
+            Ys: The corresponding list of m lists Y, each of length k_i, for
+                each outcome.
+            Yvars: The variances of each entry in Ys, same shape.
+            parameter_values: A list of possible values for each parameter.
+            outcome_names: A list of m outcome names.
+        """
+        raise NotImplementedError()  # pragma: no cover
+
     def predict(self, X: List[TParamValueList]) -> Tuple[np.ndarray, np.ndarray]:
         """Predict
 

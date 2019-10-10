@@ -11,14 +11,19 @@ from ax.modelbridge.modelbridge_utils import (
     pending_observations_as_array,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import get_experiment
+from ax.utils.testing.core_stubs import get_experiment
 
 
 class TestModelbridgeUtils(TestCase):
     def setUp(self) -> None:
         self.experiment = get_experiment()
-        self.trial = self.experiment.new_trial(
-            GeneratorRun([Arm({"x": 1, "y": "foo", "z": True, "w": 4})])
+        self.arm = Arm({"x": 1, "y": "foo", "z": True, "w": 4})
+        self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
+        self.experiment_2 = get_experiment()
+        self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))
+        self.batch_trial.set_status_quo_with_weight(self.experiment_2.status_quo, 1)
+        self.obs_feat = ObservationFeatures.from_arm(
+            arm=self.trial.arm, trial_index=np.int64(self.trial.index)
         )
 
     def test_get_pending_observation_features(self):
@@ -28,12 +33,9 @@ class TestModelbridgeUtils(TestCase):
         self.trial.mark_dispatched()
         # Now that the trial is deployed, it should become a pending trial on the
         # experiment and appear as pending for all metrics.
-        obs_feat = ObservationFeatures.from_arm(
-            arm=self.trial.arm, trial_index=np.int64(self.trial.index)
-        )
         self.assertEqual(
             get_pending_observation_features(self.experiment),
-            {"tracking": [obs_feat], "m2": [obs_feat], "m1": [obs_feat]},
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
         self.experiment.attach_data(
             Data.from_evaluations(
@@ -44,7 +46,7 @@ class TestModelbridgeUtils(TestCase):
         # for m2.
         self.assertEqual(
             get_pending_observation_features(self.experiment),
-            {"tracking": [obs_feat], "m2": [], "m1": [obs_feat]},
+            {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
         )
         # When a trial is marked failed, it should no longer appear in pending...
         self.trial.mark_failed()
@@ -54,12 +56,25 @@ class TestModelbridgeUtils(TestCase):
             get_pending_observation_features(
                 self.experiment, include_failed_as_pending=True
             ),
-            {"tracking": [obs_feat], "m2": [obs_feat], "m1": [obs_feat]},
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
-        self.experiment.new_batch_trial(GeneratorRun([]))
-        # Batch trials are not yet supported.
-        with self.assertRaises(NotImplementedError):
-            get_pending_observation_features(self.experiment)
+
+    def test_get_pending_observation_features_batch_trial(self):
+        # Check the same functionality for batched trials.
+        self.assertIsNone(get_pending_observation_features(self.experiment_2))
+        self.batch_trial.mark_dispatched()
+        sq_obs_feat = ObservationFeatures.from_arm(
+            self.batch_trial.arms_by_name.get("status_quo"),
+            trial_index=self.batch_trial.index,
+        )
+        self.assertEqual(
+            get_pending_observation_features(self.experiment_2),
+            {
+                "tracking": [self.obs_feat, sq_obs_feat],
+                "m2": [self.obs_feat, sq_obs_feat],
+                "m1": [self.obs_feat, sq_obs_feat],
+            },
+        )
 
     def test_pending_observations_as_array(self):
         # Mark a trial dispatched so that there are pending observations.

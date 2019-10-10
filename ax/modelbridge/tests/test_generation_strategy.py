@@ -16,7 +16,11 @@ from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import get_branin_experiment, get_choice_parameter, get_data
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_choice_parameter,
+    get_data,
+)
 
 
 class TestGenerationStrategy(TestCase):
@@ -76,7 +80,7 @@ class TestGenerationStrategy(TestCase):
             ),
         )
 
-    def ftest_equality(self):
+    def test_equality(self):
         gs1 = GenerationStrategy(
             steps=[
                 GenerationStep(model=Models.SOBOL, num_arms=5),
@@ -211,6 +215,7 @@ class TestGenerationStrategy(TestCase):
                             "status_quo_name": None,
                             "transform_configs": None,
                             "transforms": Cont_X_trans,
+                            "fit_out_of_design": False,
                         },
                     )
         # Check for "seen data" error message.
@@ -364,15 +369,7 @@ class TestGenerationStrategy(TestCase):
             generator_run=sobol_GPEI_generation_strategy.gen(exp, n=2)
         ).run()
         for i in range(1, 8):
-            if i == 2:
-                with self.assertRaisesRegex(ValueError, "Cannot generate 2 new"):
-                    g = sobol_GPEI_generation_strategy.gen(
-                        exp, exp._fetch_trial_data(trial_index=i - 1), n=2
-                    )
-                g = sobol_GPEI_generation_strategy.gen(
-                    exp, exp._fetch_trial_data(trial_index=i - 1)
-                )
-            elif i == 7:
+            if i == 7:
                 # Check completeness error message.
                 with self.assertRaisesRegex(ValueError, "Generation strategy"):
                     g = sobol_GPEI_generation_strategy.gen(

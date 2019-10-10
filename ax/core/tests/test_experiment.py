@@ -10,7 +10,7 @@ from ax.core.search_space import SearchSpace
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
+from ax.utils.testing.core_stubs import (
     get_arm,
     get_branin_arms,
     get_branin_search_space,
@@ -192,8 +192,9 @@ class ExperimentTest(TestCase):
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
 
-        # Make a batch, then change exp status quo, verify 2 arms
-        self.experiment.new_batch_trial()
+        # Make a batch, add status quo to it, then change exp status quo, verify 2 arms
+        batch = self.experiment.new_batch_trial()
+        batch.set_status_quo_with_weight(self.experiment.status_quo, 1)
         sq_parameters["w"] = 3.7
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(len(self.experiment.arms_by_signature), 2)
@@ -256,7 +257,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp.arms_by_name), 4 * n)
 
         # Verify data lookup is empty
-        self.assertEqual(len(exp.lookup_data_for_trial(0).df), 0)
+        self.assertEqual(len(exp.lookup_data_for_trial(0)[0].df), 0)
 
         # Test local storage
         t1 = exp.attach_data(batch_data)
@@ -269,7 +270,7 @@ class ExperimentTest(TestCase):
 
         # Test retrieving original batch 0 data
         self.assertEqual(len(exp.lookup_data_for_ts(t1).df), n)
-        self.assertEqual(len(exp.lookup_data_for_trial(0).df), n)
+        self.assertEqual(len(exp.lookup_data_for_trial(0)[0].df), n)
 
         # Test retrieving full exp data
         self.assertEqual(len(exp.lookup_data_for_ts(t2).df), 4 * n)

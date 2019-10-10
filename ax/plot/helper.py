@@ -14,6 +14,7 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.transforms.ivw import IVW
 from ax.plot.base import DECIMALS, PlotData, PlotInSampleArm, PlotOutOfSampleArm, Z
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 
 
 logger = get_logger(name="PlotHelper")
@@ -118,6 +119,8 @@ def _get_in_sample_arms(
         model: An instance of the model bridge.
         metric_names: Restrict predictions to these metrics. If None, uses all
             metrics in the model.
+        fixed_features: Features that should be fixed in the arms this function
+            will obtain predictions for.
 
     Returns:
         A tuple containing
@@ -132,9 +135,9 @@ def _get_in_sample_arms(
     observations = model.get_training_data()
     # Calculate raw data
     raw_data = []
-    cond_name_to_parameters = {}
+    arm_name_to_parameters = {}
     for obs in observations:
-        cond_name_to_parameters[obs.arm_name] = obs.features.parameters
+        arm_name_to_parameters[obs.arm_name] = obs.features.parameters
         for j, metric_name in enumerate(obs.data.metric_names):
             if metric_name in metric_names:
                 raw_data.append(
@@ -150,7 +153,7 @@ def _get_in_sample_arms(
     # key by arm name and the model is not Multi-task.
     # If "TrialAsTask" is present, one of the arms is also chosen.
     if ("TrialAsTask" not in model.transforms.keys()) and (
-        len(cond_name_to_parameters) != len(observations)
+        len(arm_name_to_parameters) != len(observations)
     ):
         logger.error(
             "Have observations of arms with different features but same"
@@ -168,8 +171,8 @@ def _get_in_sample_arms(
             raise ValueError("Observation must have arm name for plotting.")
 
         # Extract raw measurement
-        obs_y = {}
-        obs_se = {}
+        obs_y = {}  # Observed metric means.
+        obs_se = {}  # Observed metric standard errors.
         # Use the IVW data, not obs.data
         for j, metric_name in enumerate(obs_data[i].metric_names):
             if metric_name in metric_names:
@@ -185,10 +188,8 @@ def _get_in_sample_arms(
             # Use raw data for out-of-design points
             pred_y = obs_y
             pred_se = obs_se
-        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
-        in_sample_plot[obs.arm_name] = PlotInSampleArm(
-            # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
-            name=obs.arm_name,
+        in_sample_plot[not_none(obs.arm_name)] = PlotInSampleArm(
+            name=not_none(obs.arm_name),
             y=obs_y,
             se=obs_se,
             parameters=obs.features.parameters,
@@ -196,7 +197,7 @@ def _get_in_sample_arms(
             se_hat=pred_se,
             context_stratum=None,
         )
-    return in_sample_plot, raw_data, cond_name_to_parameters
+    return in_sample_plot, raw_data, arm_name_to_parameters
 
 
 def _predict_at_point(
@@ -392,7 +393,9 @@ def get_grid_for_parameter(parameter: RangeParameter, density: int) -> np.ndarra
 
 
 def get_fixed_values(
-    model: ModelBridge, slice_values: Optional[Dict[str, Any]] = None
+    model: ModelBridge,
+    slice_values: Optional[Dict[str, Any]] = None,
+    trial_index: Optional[int] = None,
 ) -> TParameterization:
     """Get fixed values for parameters in a slice plot.
 
@@ -408,6 +411,12 @@ def get_fixed_values(
 
     Returns: Map from parameter name to fixed value.
     """
+
+    if trial_index is not None:
+        if slice_values is None:
+            slice_values = {}
+        slice_values["TRIAL_PARAM"] = str(trial_index)
+
     # Check if status_quo is in design
     if model.status_quo is not None and model.model_space.check_membership(
         # pyre-fixme[16]: `Optional` has no attribute `features`.
@@ -729,7 +738,7 @@ def slice_config_to_trace(
         "y": sd_y,
         "fill": "toself",
         "fillcolor": "rgba(128, 177, 211, 0.2)",
-        "line": {"color": "transparent"},
+        "line": {"color": "rgba(128, 177, 211, 0.0)"},
         "showlegend": False,
         "hoverinfo": "none",
         "visible": visible,

@@ -28,4 +28,9 @@ class Model:
         left off' –– more arms can be generated as if the model just continued
         generation and was never interrupted and serialized.
         """
-        return {}
+        return {}  # pragma: no cover
+
+    def feature_importances(self) -> Any:
+        raise NotImplementedError(
+            "Feature importance not available for this Model type"
+        )

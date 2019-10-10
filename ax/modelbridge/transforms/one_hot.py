@@ -132,7 +132,10 @@ class OneHot(Transform):
         return SearchSpace(
             parameters=list(transformed_parameters.values()),
             parameter_constraints=[
-                pc.clone() for pc in search_space.parameter_constraints
+                pc.clone_with_transformed_parameters(
+                    transformed_parameters=transformed_parameters
+                )
+                for pc in search_space.parameter_constraints
             ],
         )
 

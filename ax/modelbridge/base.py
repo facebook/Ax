@@ -65,6 +65,7 @@ class ModelBridge(ABC):
         status_quo_name: Optional[str] = None,
         status_quo_features: Optional[ObservationFeatures] = None,
         optimization_config: Optional[OptimizationConfig] = None,
+        fit_out_of_design: bool = False,
     ) -> None:
         """
         Applies transforms and fits model.
@@ -104,6 +105,7 @@ class ModelBridge(ABC):
         self._model_space = search_space.clone()
         self._raw_transforms = transforms
         self._transform_configs: Optional[Dict[str, TConfig]] = transform_configs
+        self._fit_out_of_design = fit_out_of_design
 
         if experiment is not None:
             if self._optimization_config is None:
@@ -116,7 +118,9 @@ class ModelBridge(ABC):
             if experiment is not None and data is not None
             else []
         )
-        obs_feats_raw, obs_data_raw = self._set_training_data(observations)
+        obs_feats_raw, obs_data_raw = self._set_training_data(
+            observations=observations, search_space=search_space
+        )
         # Set model status quo
         # NOTE: training data must be set before setting the status quo.
         self._set_status_quo(
@@ -124,7 +128,6 @@ class ModelBridge(ABC):
             status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
         )
-
         obs_feats, obs_data, search_space = self._transform_data(
             obs_feats=obs_feats_raw,
             obs_data=obs_data_raw,
@@ -188,9 +191,13 @@ class ModelBridge(ABC):
         return observation_features, observation_data
 
     def _set_training_data(
-        self, observations: List[Observation]
+        self, observations: List[Observation], search_space: SearchSpace
     ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
-        """Store training data, not-transformed"""
+        """Store training data, not-transformed.
+
+        If the modelbridge specifies _fit_out_of_design, all training data is
+        returned. Otherwise, only in design points are returned.
+        """
         observation_features, observation_data = self._prepare_training_data(
             observations=observations
         )
@@ -198,14 +205,19 @@ class ModelBridge(ABC):
         self._metric_names: Set[str] = set()
         for obsd in observation_data:
             self._metric_names.update(obsd.metric_names)
-        # Initialize with all points in design.
-        self.training_in_design = [True] * len(observations)
-        return observation_features, observation_data
+        return self._process_in_design(
+            search_space=search_space,
+            observation_features=observation_features,
+            observation_data=observation_data,
+        )
 
     def _extend_training_data(
         self, observations: List[Observation]
     ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
         """Extend and return training data, not-transformed.
+
+        If the modelbridge specifies _fit_out_of_design, all training data is
+        returned. Otherwise, only in design points are returned.
 
         Args:
             observations: New observations.
@@ -227,8 +239,34 @@ class ModelBridge(ABC):
                     )
         # Initialize with all points in design.
         self._training_data.extend(deepcopy(observations))
-        self._training_in_design.extend([True] * len(observations))
-        return separate_observations(self.get_training_data())
+        all_observation_features, all_observation_data = separate_observations(
+            self.get_training_data()
+        )
+        return self._process_in_design(
+            search_space=self._model_space,
+            observation_features=all_observation_features,
+            observation_data=all_observation_data,
+        )
+
+    def _process_in_design(
+        self,
+        search_space: SearchSpace,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
+    ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
+        """Set training_in_design, and decide whether to filter out of design points."""
+        in_design = [
+            search_space.check_membership(obsf.parameters)
+            for obsf in observation_features
+        ]
+        self.training_in_design = in_design
+        # Don't filter points.
+        if self._fit_out_of_design:
+            return observation_features, observation_data
+        in_design_indices = [i for i, in_design in enumerate(in_design) if in_design]
+        in_design_features = [observation_features[i] for i in in_design_indices]
+        in_design_data = [observation_data[i] for i in in_design_indices]
+        return in_design_features, in_design_data
 
     def _set_status_quo(
         self,
@@ -372,6 +410,7 @@ class ModelBridge(ABC):
         """
         # Get modifiable version
         observation_features = deepcopy(observation_features)
+
         # Transform
         for t in self.transforms.values():
             observation_features = t.transform_observation_features(
@@ -632,7 +671,7 @@ class ModelBridge(ABC):
         """
         raise NotImplementedError  # pragma: no cover
 
-    def out_of_design_data(self) -> TModelPredict:
+    def out_of_design_data(self) -> Optional[TModelPredict]:
         """Get formatted data for out of design points.
 
         When predictions are requested from a ModelBridge, points which
@@ -648,6 +687,8 @@ class ModelBridge(ABC):
         for i, obs in enumerate(obs_data):
             if not self.training_in_design[i]:
                 ood_obs_data.append(obs)
+        if not ood_obs_data:
+            return None
         return unwrap_observation_data(ood_obs_data)
 
     def _set_kwargs_to_save(
@@ -682,6 +723,11 @@ class ModelBridge(ABC):
             # `ModelBridge` still has no attr. `model` after `hasattr` call,
             # pyre-fixme[16]: which should've ensured its presence to typechecker.
             not_none(self._model_kwargs).update(self.model._get_state())
+
+    def feature_importances(self, metric_name: str) -> Dict[str, float]:
+        raise NotImplementedError(
+            "Feature importance not available for this model type"
+        )
 
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:

@@ -13,6 +13,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import TBounds
 from ax.modelbridge.transforms.base import Transform
+from ax.utils.common.typeutils import not_none
 
 
 def extract_parameter_constraints(
@@ -201,27 +202,35 @@ def get_pending_observation_features(
         If there are no pending features for any of the metrics, return is None.
     """
     pending_features = {}
+    # Note that this assumes that if a metric appears in fetched data, the trial is
+    # not pending for the metric. Where only the most recent data matters, this will
+    # work, but may need to add logic to check previously added data objects, too.
     for trial_index, trial in experiment.trials.items():
-        if isinstance(trial, BatchTrial):
-            raise NotImplementedError("BatchTrials are not yet supported.")
-        assert isinstance(trial, Trial)
         for metric_name in experiment.metrics:
             if metric_name not in pending_features:
                 pending_features[metric_name] = []
-            # Note that this assumes that if a metric appears in fetched data,
-            # the trial is not pending for the metric. For the cases where we are
-            # only concerned with the most recent data, this will work, but we
-            # may need to add logic to check previously added data objects, too.
             include_since_failed = include_failed_as_pending and trial.status.is_failed
-            if (
-                (trial.status.is_deployed or include_since_failed)
-                and metric_name not in trial.fetch_data().df.metric_name.values
-                and trial.arm is not None
-            ):
-                # pyre-fixme[16]: `Optional` has no attribute `append`.
-                pending_features.get(metric_name).append(
-                    ObservationFeatures.from_arm(
-                        arm=trial.arm, trial_index=np.int64(trial_index)
+            if isinstance(trial, BatchTrial):
+                if (
+                    (trial.status.is_deployed or include_since_failed)
+                    and metric_name not in trial.fetch_data().df.metric_name.values
+                    # and trial.arms is not None
+                ):
+                    for arm in trial.arms:
+                        not_none(pending_features.get(metric_name)).append(
+                            ObservationFeatures.from_arm(
+                                arm=arm, trial_index=np.int64(trial_index)
+                            )
+                        )
+            if isinstance(trial, Trial):
+                if (
+                    (trial.status.is_deployed or include_since_failed)
+                    and metric_name not in trial.fetch_data().df.metric_name.values
+                    and trial.arm is not None
+                ):
+                    not_none(pending_features.get(metric_name)).append(
+                        ObservationFeatures.from_arm(
+                            arm=not_none(trial.arm), trial_index=np.int64(trial_index)
+                        )
                     )
-                )
     return pending_features if any(x for x in pending_features.values()) else None

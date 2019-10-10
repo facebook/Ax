@@ -32,6 +32,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
         self.assertTrue(np.all(weights == 1.0))
+        self.assertEqual(generator._get_state(), {"init_position": 3})
 
     def testSobolGeneratorFixedSpace(self):
         generator = SobolGenerator(seed=0)

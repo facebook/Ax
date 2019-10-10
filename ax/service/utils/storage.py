@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -49,7 +49,7 @@ def save_experiment(experiment: Experiment, db_settings: DBSettings) -> None:
 
 def load_experiment_and_generation_strategy(
     experiment_name: str, db_settings: DBSettings
-) -> Tuple[Experiment, GenerationStrategy]:
+) -> Tuple[Experiment, Optional[GenerationStrategy]]:
     """Load experiment and the corresponding generation strategy from the DB.
 
     Args:
@@ -60,9 +60,12 @@ def load_experiment_and_generation_strategy(
         A tuple of the loaded experiment and generation strategy.
     """
     experiment = load_experiment(name=experiment_name, db_settings=db_settings)
-    generation_strategy = _load_generation_strategy_by_experiment_name(
-        experiment_name=experiment_name, decoder=db_settings.decoder
-    )
+    try:
+        generation_strategy = _load_generation_strategy_by_experiment_name(
+            experiment_name=experiment_name, decoder=db_settings.decoder
+        )
+    except ValueError:  # Generation strategy has not yet been attached to this
+        return experiment, None  # experiment.
     return experiment, generation_strategy
 
 

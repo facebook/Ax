@@ -2,7 +2,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from enum import Enum
-from time import time
 from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
 from ax.core.arm import Arm
@@ -52,6 +51,7 @@ from ax.storage.utils import (
     ParameterConstraintType,
     get_object_properties,
 )
+from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import not_none
 
 
@@ -470,7 +470,7 @@ class Encoder:
                 # Generation strategy data is a compilation of data, so it does
                 # not strictly speaking have a timestamp. Setting timestamp to
                 # current.
-                timestamp=int(round(time() * 1000)),
+                timestamp=current_timestamp_in_millis(),
                 trial_index=None,
             ),
             experiment_id=experiment_id,
@@ -506,6 +506,7 @@ class Encoder:
         abandoned_arms = []
         generator_runs = []
         status_quo_name = None
+        optimize_for_power = None
         if isinstance(trial, BatchTrial):
             abandoned_arms = [
                 self.abandoned_arm_to_sqa(abandoned_arm=abandoned_arm)
@@ -517,10 +518,16 @@ class Encoder:
                 )
                 for struct in trial.generator_run_structs
             ]
-            if trial.status_quo is not None:
+            # appease pyre
+            trial_status_quo = trial.status_quo
+            trial_status_quo_weight_override = trial._status_quo_weight_override
+            if (
+                trial_status_quo is not None
+                and trial_status_quo_weight_override is not None
+            ):
                 status_quo_generator_run = GeneratorRun(
-                    arms=[trial.status_quo],
-                    weights=[trial._status_quo_weight],
+                    arms=[trial_status_quo],
+                    weights=[trial_status_quo_weight_override],
                     type=GeneratorRunType.STATUS_QUO.name,
                 )
                 # this is a hack necessary to get equality tests passing;
@@ -529,7 +536,8 @@ class Encoder:
                 generator_runs.append(
                     self.generator_run_to_sqa(generator_run=status_quo_generator_run)
                 )
-                status_quo_name = trial.status_quo.name
+                status_quo_name = trial_status_quo.name
+            optimize_for_power = trial.optimize_for_power
         elif isinstance(trial, Trial):
             if trial.generator_run:
                 generator_runs = [
@@ -547,6 +555,7 @@ class Encoder:
             index=trial.index,
             is_batch=isinstance(trial, BatchTrial),
             num_arms_created=trial._num_arms_created,
+            optimize_for_power=optimize_for_power,
             run_metadata=trial.run_metadata,
             status=trial.status,
             status_quo_name=status_quo_name,

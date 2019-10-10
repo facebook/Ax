@@ -19,6 +19,7 @@ from ax.modelbridge.modelbridge_utils import (
     pending_observations_as_array,
     transform_callback,
 )
+from ax.utils.common.typeutils import not_none
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
@@ -35,7 +36,9 @@ class ArrayModelBridge(ModelBridge):
     """
 
     model: Any
+    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: List[str]
+    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: List[str]
 
     def _fit(
@@ -55,15 +58,14 @@ class ArrayModelBridge(ModelBridge):
         all_metric_names: Set[str] = set()
         for od in observation_data:
             all_metric_names.update(od.metric_names)
-        self.outcomes = list(all_metric_names)
+        self.outcomes = sorted(list(all_metric_names))  # Deterministic order.
         # Convert observations to arrays
-        Xs_array, Ys_array, Yvars_array, in_design = _convert_observations(
+        Xs_array, Ys_array, Yvars_array = _convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
-        self.training_in_design = in_design
         # Extract bounds and task features
         bounds, task_features, fidelity_features = get_bounds_and_task(
             search_space, self.parameters
@@ -111,14 +113,14 @@ class ArrayModelBridge(ModelBridge):
         observation_data: List[ObservationData],
     ) -> None:
         """Apply terminal transform for update data, and pass along to model."""
-        Xs_array, Ys_array, Yvars_array, in_design = _convert_observations(
+
+        Xs_array, Ys_array, Yvars_array = _convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
         # Update in-design status for these new points.
-        self.training_in_design = in_design
         self._model_update(Xs=Xs_array, Ys=Ys_array, Yvars=Yvars_array)
 
     def _model_update(
@@ -268,7 +270,7 @@ class ArrayModelBridge(ModelBridge):
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
         """
-        Xs_train, Ys_train, Yvars_train, _ = _convert_observations(
+        Xs_train, Ys_train, Yvars_train = _convert_observations(
             observation_data=obs_data,
             observation_features=obs_feats,
             outcomes=self.outcomes,
@@ -322,6 +324,12 @@ class ArrayModelBridge(ModelBridge):
         # turn it back into an array
         return np.array(new_x)
 
+    def feature_importances(self, metric_name: str) -> Dict[str, float]:
+        importances_tensor = not_none(self.model).feature_importances()
+        importances_dict = dict(zip(self.outcomes, importances_tensor))
+        importances_arr = importances_dict[metric_name].flatten()
+        return dict(zip(self.parameters, importances_arr))
+
 
 def array_to_observation_data(
     f: np.ndarray, cov: np.ndarray, outcomes: List[str]
@@ -352,21 +360,17 @@ def _convert_observations(
     observation_features: List[ObservationFeatures],
     outcomes: List[str],
     parameters: List[str],
-) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[bool]]:
+) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
     Xs: List[List[List[float]]] = [[] for _ in outcomes]
     Ys: List[List[float]] = [[] for _ in outcomes]
     Yvars: List[List[float]] = [[] for _ in outcomes]
-    in_design: List[bool] = []
     for i, of in enumerate(observation_features):
         try:
             x: List[float] = [
                 float(of.parameters[p]) for p in parameters  # pyre-ignore
             ]
-            in_design.append(True)
         except (KeyError, TypeError):
-            # out-of-design point; leave out.
-            in_design.append(False)
-            continue
+            raise ValueError("Out of design points cannot be converted.")
         for j, m in enumerate(observation_data[i].metric_names):
             k = outcomes.index(m)
             Xs[k].append(x)
@@ -375,7 +379,7 @@ def _convert_observations(
     Xs_array = [np.array(x_) for x_ in Xs]
     Ys_array = [np.array(y_)[:, None] for y_ in Ys]
     Yvars_array = [np.array(var)[:, None] for var in Yvars]
-    return Xs_array, Ys_array, Yvars_array, in_design
+    return Xs_array, Ys_array, Yvars_array
 
 
 def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.ndarray:

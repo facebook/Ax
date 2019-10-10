@@ -16,7 +16,9 @@ class TorchModel(Model):
     of Ax.
     """
 
+    # pyre-fixme[13]: Attribute `dtype` is never initialized.
     dtype: Optional[torch.dtype]
+    # pyre-fixme[13]: Attribute `device` is never initialized.
     device: Optional[torch.device]
 
     def fit(

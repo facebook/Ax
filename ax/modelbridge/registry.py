@@ -22,7 +22,6 @@ from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.one_hot import OneHot
 from ax.modelbridge.transforms.ordered_choice_encode import OrderedChoiceEncode
-from ax.modelbridge.transforms.out_of_design import OutOfDesign
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
@@ -57,7 +56,6 @@ such as Sobol generator, GP+EI, Thompson sampler, etc.
 
 
 Cont_X_trans: List[Type[Transform]] = [
-    OutOfDesign,
     RemoveFixed,
     OrderedChoiceEncode,
     OneHot,
@@ -69,7 +67,7 @@ Discrete_X_trans: List[Type[Transform]] = [IntRangeToChoice]
 Y_trans: List[Type[Transform]] = [IVW, Derelativize, StandardizeY]
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
-TS_trans: List[Type[Transform]] = Discrete_X_trans + Y_trans + [SearchSpaceToChoice]
+TS_trans: List[Type[Transform]] = Y_trans + [SearchSpaceToChoice]
 
 # Multi-type MTGP transforms
 MT_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
@@ -161,7 +159,7 @@ class Models(str, Enum):  # String enum.
 
     To instantiate a model in this enum, simply call an enum member like so:
     `Models.SOBOL(search_space=search_space)` or
-    `Models.GPEI(experiment=experiment, data=data])`. Keyword arguments
+    `Models.GPEI(experiment=experiment, data=data)`. Keyword arguments
     specified to the call will be passed into the model or the model bridge
     constructors according to their keyword.
 

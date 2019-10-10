@@ -17,6 +17,7 @@ def mean_trace_scatter(
     y: np.ndarray,
     trace_color: Tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "mean",
+    hover_labels: Optional[List[str]] = None,
 ) -> go.Scatter:
     """Creates a graph object for trace of the mean of the given series across
     runs.
@@ -25,12 +26,14 @@ def mean_trace_scatter(
         y: (r x t) array with results from  r runs and t trials.
         trace_color: tuple of 3 int values representing an RGB color.
             Defaults to blue.
-        legend_label: label for this trace
+        legend_label: label for this trace.
+        hover_labels: optional, text to show on hover; list where the i-th value
+            corresponds to the i-th value in the value of the `y` argument.
 
     Returns:
         go.Scatter: plotly graph object
     """
-    return go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+    return go.Scatter(
         name=legend_label,
         legendgroup=legend_label,
         x=np.arange(1, y.shape[1] + 1),
@@ -39,6 +42,7 @@ def mean_trace_scatter(
         line={"color": rgba(trace_color)},
         fillcolor=rgba(trace_color, 0.3),
         fill="tonexty",
+        text=hover_labels,
     )
 
 
@@ -46,7 +50,7 @@ def sem_range_scatter(
     y: np.ndarray,
     trace_color: Tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "",
-) -> Tuple[go.Scatter]:
+) -> Tuple[go.Scatter, go.Scatter]:
     """Creates a graph object for trace of mean +/- 2 SEMs for y, across runs.
 
     Args:
@@ -61,7 +65,7 @@ def sem_range_scatter(
     mean = np.mean(y, axis=0)
     sem = np.std(y, axis=0) / np.sqrt(y.shape[0])
     return (
-        go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+        go.Scatter(
             x=np.arange(1, y.shape[1] + 1),
             y=mean - 2 * sem,
             legendgroup=legend_label,
@@ -70,7 +74,7 @@ def sem_range_scatter(
             showlegend=False,
             hoverinfo="none",
         ),
-        go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+        go.Scatter(
             x=np.arange(1, y.shape[1] + 1),
             y=mean + 2 * sem,
             legendgroup=legend_label,
@@ -99,7 +103,7 @@ def optimum_objective_scatter(
     Returns:
         go.Scatter: plotly graph objects for the optimal objective line
     """
-    return go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+    return go.Scatter(
         x=[1, num_iterations],
         y=[optimum] * 2,
         mode="lines",
@@ -131,7 +135,7 @@ def generator_changes_scatter(
     data: List[go.Scatter] = []
     for change in generator_changes:
         data.append(
-            go.Scatter(  # pyre-ignore[16]: `plotly.graph_objs` has no attr. `Scatter`
+            go.Scatter(
                 x=[change] * 2,
                 y=y_range,
                 mode="lines",
@@ -148,6 +152,7 @@ def optimization_trace_single_method(
     generator_changes: Optional[List[int]] = None,
     title: str = "",
     ylabel: str = "",
+    hover_labels: Optional[List[str]] = None,
     trace_color: Tuple[int] = COLORS.STEELBLUE.value,
     optimum_color: Tuple[int] = COLORS.ORANGE.value,
     generator_change_color: Tuple[int] = COLORS.TEAL.value,
@@ -159,8 +164,10 @@ def optimization_trace_single_method(
         optimum: value of the optimal objective
         generator_changes: iterations, before which generators
             changed
-        title: title of this plot
-        ylabel: Label for y axis
+        title: title for this plot.
+        ylabel: label for the Y-axis.
+        hover_labels: optional, text to show on hover; list where the i-th value
+            corresponds to the i-th value in the value of the `y` argument.
         trace_color: tuple of 3 int values representing an RGB color.
             Defaults to orange.
         optimum_color: tuple of 3 int values representing an RGB color.
@@ -171,11 +178,10 @@ def optimization_trace_single_method(
     Returns:
         AxPlotConfig: plot of the optimization trace with IQR
     """
-    trace = mean_trace_scatter(y=y, trace_color=trace_color)
-    # pyre-fixme[23]: Unable to unpack single value, 2 were expected.
+    trace = mean_trace_scatter(y=y, trace_color=trace_color, hover_labels=hover_labels)
     lower, upper = sem_range_scatter(y=y, trace_color=trace_color)
 
-    layout = go.Layout(  # pyre-ignore[16]: ...graph_objs` has no attr. `Layout`
+    layout = go.Layout(
         title=title,
         showlegend=True,
         yaxis={"title": ylabel},
@@ -207,9 +213,7 @@ def optimization_trace_single_method(
         )
 
     return AxPlotConfig(
-        # pyre-ignore[16]: ...graph_objs` has no attr. `Figure`
-        data=go.Figure(layout=layout, data=data),
-        plot_type=AxPlotTypes.GENERIC,
+        data=go.Figure(layout=layout, data=data), plot_type=AxPlotTypes.GENERIC
     )
 
 
@@ -218,6 +222,7 @@ def optimization_trace_all_methods(
     optimum: Optional[float] = None,
     title: str = "",
     ylabel: str = "",
+    hover_labels: Optional[List[str]] = None,
     trace_colors: List[Tuple[int]] = DISCRETE_COLOR_SCALE,
     optimum_color: Tuple[int] = COLORS.ORANGE.value,
 ) -> AxPlotConfig:
@@ -228,8 +233,10 @@ def optimization_trace_all_methods(
         y: a mapping of method names to (r x t) arrays, where r is the number
             of runs in the test, and t is the number of trials.
         optimum: value of the optimal objective.
-        title: Title for this plot.
-        ylabel: Label for y axis
+        title: title for this plot.
+        ylabel: label for the Y-axis.
+        hover_labels: optional, text to show on hover; list where the i-th value
+            corresponds to the i-th value in the value of the `y` argument.
         trace_colors: tuples of 3 int values representing
             RGB colors to use for different methods shown in the combination plot.
             Defaults to Ax discrete color scale.
@@ -245,7 +252,6 @@ def optimization_trace_all_methods(
         # If there are more traces than colors, start reusing colors.
         color = trace_colors[i % len(trace_colors)]
         trace = mean_trace_scatter(y=y, trace_color=color, legend_label=method)
-        # pyre-fixme[23]: Unable to unpack single value, 2 were expected.
         lower, upper = sem_range_scatter(y=y, trace_color=color, legend_label=method)
 
         data.extend([lower, trace, upper])
@@ -260,7 +266,7 @@ def optimization_trace_all_methods(
             )
         )
 
-    layout = go.Layout(  # pyre-ignore[16]: ...graph_objs` has no attr. `Layout`
+    layout = go.Layout(
         title=title,
         showlegend=True,
         yaxis={"title": ylabel},
@@ -268,9 +274,7 @@ def optimization_trace_all_methods(
     )
 
     return AxPlotConfig(
-        # pyre-ignore[16]: ...graph_objs` has no attr. `Figure`
-        data=go.Figure(layout=layout, data=data),
-        plot_type=AxPlotTypes.GENERIC,
+        data=go.Figure(layout=layout, data=data), plot_type=AxPlotTypes.GENERIC
     )
 
 
@@ -317,7 +321,7 @@ def optimization_times(
 
     for i, res in enumerate([fit_res, gen_res, total_res]):
         data.append(
-            go.Bar(  # pyre-ignore[16]: ...graph_objs` has no attr. `Bar`
+            go.Bar(
                 x=methods,
                 y=res["mean"],
                 text=res["name"],
@@ -332,7 +336,7 @@ def optimization_times(
             )
         )
 
-    layout = go.Layout(  # pyre-ignore[16]: ...graph_objs` has no attr. `Layout`
+    layout = go.Layout(
         title=title,
         showlegend=False,
         yaxis={"title": "Time"},
@@ -340,7 +344,5 @@ def optimization_times(
     )
 
     return AxPlotConfig(
-        # pyre-ignore[16]: ...graph_objs` has no attr. `Figure`
-        data=go.Figure(layout=layout, data=data),
-        plot_type=AxPlotTypes.GENERIC,
+        data=go.Figure(layout=layout, data=data), plot_type=AxPlotTypes.GENERIC
     )

@@ -16,6 +16,7 @@ from ax.modelbridge.array import (
 )
 from ax.modelbridge.base import ModelBridge
 from ax.models.discrete_base import DiscreteModel
+from ax.utils.common.typeutils import not_none
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
@@ -27,9 +28,14 @@ class DiscreteModelBridge(ModelBridge):
     Requires that all parameters have been transformed to ChoiceParameters.
     """
 
+    # pyre-fixme[13]: Attribute `model` is never initialized.
     model: DiscreteModel
+    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: List[str]
+    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: List[str]
+    # pyre-fixme[13]: Attribute `search_space` is never initialized.
+    search_space: Optional[SearchSpace]
 
     def _fit(
         self,
@@ -39,6 +45,7 @@ class DiscreteModelBridge(ModelBridge):
         observation_data: List[ObservationData],
     ) -> None:
         self.model = model
+        self.search_space = search_space
         # Convert observations to arrays
         self.parameters = list(search_space.parameters.keys())
         all_metric_names: Set[str] = set()
@@ -46,16 +53,40 @@ class DiscreteModelBridge(ModelBridge):
             all_metric_names.update(od.metric_names)
         self.outcomes = list(all_metric_names)
         # Convert observations to arrays
-        Xs_array, Ys_array, Yvars_array, in_design = _convert_observations(
+        Xs_array, Ys_array, Yvars_array = _convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
-        self.training_in_design = in_design
         # Extract parameter values
         parameter_values = _get_parameter_values(search_space, self.parameters)
         self.model.fit(
+            Xs=Xs_array,
+            Ys=Ys_array,
+            Yvars=Yvars_array,
+            parameter_values=parameter_values,
+            outcome_names=self.outcomes,
+        )
+
+    def _update(
+        self,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
+    ) -> None:
+        # Convert observations to arrays
+        Xs_array, Ys_array, Yvars_array = _convert_observations(
+            observation_data=observation_data,
+            observation_features=observation_features,
+            outcomes=self.outcomes,
+            parameters=self.parameters,
+        )
+        # Extract parameter values
+        assert self.search_space, "Discrete model must be fit before it can be updated."
+        parameter_values = _get_parameter_values(
+            not_none(self.search_space), self.parameters
+        )
+        self.model.update(
             Xs=Xs_array,
             Ys=Ys_array,
             Yvars=Yvars_array,
@@ -157,7 +188,7 @@ class DiscreteModelBridge(ModelBridge):
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
         """
-        Xs_train, Ys_train, Yvars_train, _ = _convert_observations(
+        Xs_train, Ys_train, Yvars_train = _convert_observations(
             observation_data=obs_data,
             observation_features=obs_feats,
             outcomes=self.outcomes,
@@ -180,27 +211,22 @@ def _convert_observations(
     observation_features: List[ObservationFeatures],
     outcomes: List[str],
     parameters: List[str],
-) -> Tuple[
-    List[List[TParamValueList]], List[List[float]], List[List[float]], List[bool]
-]:
+) -> Tuple[List[List[TParamValueList]], List[List[float]], List[List[float]]]:
     Xs: List[List[TParamValueList]] = [[] for _ in outcomes]
     Ys: List[List[float]] = [[] for _ in outcomes]
     Yvars: List[List[float]] = [[] for _ in outcomes]
-    in_design = []
     for i, obsf in enumerate(observation_features):
         try:
             x = [obsf.parameters[param] for param in parameters]
-            in_design.append(True)
-        except KeyError:
+        except (KeyError, TypeError):
             # Out of design point
-            in_design.append(False)
-            continue
+            raise ValueError("Out of design points cannot be converted.")
         for j, m in enumerate(observation_data[i].metric_names):
             k = outcomes.index(m)
             Xs[k].append(x)
             Ys[k].append(observation_data[i].means[j])
             Yvars[k].append(observation_data[i].covariance[j, j])
-    return Xs, Ys, Yvars, in_design
+    return Xs, Ys, Yvars
 
 
 def _get_parameter_values(

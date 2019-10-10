@@ -16,7 +16,7 @@ from ax.utils.measurement.synthetic_functions import (
     branin as branin_function,
     hartmann6 as hartmann6_function,
 )
-from ax.utils.testing.fake import get_branin_search_space
+from ax.utils.testing.core_stubs import get_branin_search_space
 
 
 class BenchmarkProblem(NamedTuple):

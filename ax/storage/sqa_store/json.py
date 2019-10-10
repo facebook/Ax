@@ -46,6 +46,8 @@ class JSONEncodedText(JSONEncodedObject):
 
     """
 
+    # pyre-fixme[15]: `impl` overrides attribute defined in `JSONEncodedObject`
+    #  inconsistently.
     impl = Text
 
 
@@ -57,6 +59,8 @@ class JSONEncodedMediumText(JSONEncodedObject):
 
     """
 
+    # pyre-fixme[15]: `impl` overrides attribute defined in `JSONEncodedObject`
+    #  inconsistently.
     impl = Text(MEDIUMTEXT_BYTES)
 
 

@@ -7,7 +7,6 @@ from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.encoder import Encoder
-from ax.storage.sqa_store.sqa_classes import SQAGenerationStrategy
 from ax.storage.sqa_store.sqa_config import SQAConfig
 
 
@@ -81,8 +80,8 @@ def _save_generation_strategy(
     if generation_strategy._experiment is None:
         experiment_id = None
     else:
-        # Experiment was set on the generation strategy, so we need to save it first.
-        _save_experiment(experiment=generation_strategy._experiment, encoder=encoder)
+        # Experiment was set on the generation strategy, so need to check whether
+        # if has been saved and create a relationship b/w GS and experiment if so.
         experiment_id = _get_experiment_id(
             experiment=generation_strategy._experiment, encoder=encoder
         )
@@ -97,7 +96,8 @@ def _save_generation_strategy(
             session.flush()  # Ensures generation strategy id is set.
             generation_strategy._db_id = gs_sqa.id
         else:
-            existing_gs_sqa = session.query(SQAGenerationStrategy).get(
+            gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
+            existing_gs_sqa = session.query(gs_sqa_class).get(
                 generation_strategy._db_id
             )
             existing_gs_sqa.update(gs_sqa)

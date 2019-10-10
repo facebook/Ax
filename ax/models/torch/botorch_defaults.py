@@ -18,7 +18,7 @@ from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
-from botorch.optim.optimize import optimize_acqf
+from botorch.optim.optimize import joint_optimize, sequential_optimize
 from botorch.utils import (
     get_objective_weights_transform,
     get_outcome_constraint_transforms,
@@ -38,6 +38,7 @@ def get_and_fit_model(
     Yvars: List[Tensor],
     task_features: List[int],
     fidelity_features: List[int],
+    refit_model: bool = True,
     state_dict: Optional[Dict[str, Tensor]] = None,
     fidelity_model_id: Optional[int] = None,
     **kwargs: Any,
@@ -50,6 +51,7 @@ def get_and_fit_model(
         Yvars: List of observed variance of Ys.
         task_features: List of columns of X that are tasks.
         fidelity_features: List of columns of X that are fidelity parameters.
+        refit_model: Flag for refitting model.
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
         fidelity_model_id: set this if you want to use GP models from `model_list`
@@ -107,8 +109,10 @@ def get_and_fit_model(
             for X, Y, Yvar in zip(Xs, Ys, Yvars)
         ]
         model = ModelListGP(*models)
-    model.to(dtype=Xs[0].dtype, device=Xs[0].device)  # pyre-ignore
-    if state_dict is None:
+    model.to(Xs[0])
+    if state_dict is not None:
+        model.load_state_dict(state_dict)
+    if state_dict is None or refit_model:
         # TODO: Add bounds for optimization stability - requires revamp upstream
         bounds = {}
         if isinstance(model, ModelListGP):
@@ -117,8 +121,6 @@ def get_and_fit_model(
             # pyre-ignore: [16]
             mll = ExactMarginalLogLikelihood(model.likelihood, model)
         mll = fit_gpytorch_model(mll, bounds=bounds)
-    else:
-        model.load_state_dict(state_dict)
     return model
 
 
@@ -167,6 +169,7 @@ def get_NEI(
             there are any).
         mc_samples: The number of MC samples to use (default: 512).
         qmc: If True, use qMC instead of MC (default: True).
+        prune_baseline: If True, prune the baseline points for NEI (default: True).
 
     Returns:
         qNoisyExpectedImprovement: The instantiated acquisition function.
@@ -190,6 +193,7 @@ def get_NEI(
         objective=objective,
         X_observed=X_observed,
         X_pending=X_pending,
+        prune_baseline=kwargs.get("prune_baseline", True),
         mc_samples=kwargs.get("mc_samples", 512),
         qmc=kwargs.get("qmc", True),
         seed=torch.randint(1, 10000, (1,)).item(),
@@ -204,7 +208,7 @@ def scipy_optimizer(
     fixed_features: Optional[Dict[int, float]] = None,
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
     **kwargs: Any,
-) -> Tuple[Tensor, Tensor]:
+) -> Tensor:
     r"""Optimizer using scipy's minimize module on a numpy-adpator.
 
     Args:
@@ -221,24 +225,28 @@ def scipy_optimizer(
             appropriately (i.e., according to `round-trip` transformations).
 
     Returns:
-        A two-element tuple with the following elements:
+        2-element tuple containing
 
-        Tensor: A `n x d`-dim tensor of generated candidates.
-        Tensor: In the case of joint optimization, a scalar tensor containing
-            the joint acquisition value of the `n` points. In the case of
-            sequential optimization, a `n`-dim tensor of conditional acquisition
-            values, where `i`-th element is the expected acquisition value
-            conditional on having observed candidates `0,1,...,i-1`.
+        - A `n x d`-dim tensor of generated candidates.
+        - In the case of joint optimization, a scalar tensor containing
+          the joint acquisition value of the `n` points. In the case of
+          sequential optimization, a `n`-dim tensor of conditional acquisition
+          values, where `i`-th element is the expected acquisition value
+          conditional on having observed candidates `0,1,...,i-1`.
     """
+
     num_restarts: int = kwargs.get("num_restarts", 20)
     raw_samples: int = kwargs.get("num_raw_samples", 50 * num_restarts)
 
-    sequential = not kwargs.get("joint_optimization", False)
-    # use SLSQP by default for small problems since it yields faster wall times
-    if sequential and "method" not in kwargs:
-        kwargs["method"] = "SLSQP"
+    if kwargs.get("joint_optimization", False):
+        optimize = joint_optimize
+    else:
+        optimize = sequential_optimize
+        # use SLSQP by default for small problems since it yields faster wall times
+        if "method" not in kwargs:
+            kwargs["method"] = "SLSQP"
 
-    return optimize_acqf(
+    X = optimize(
         acq_function=acq_function,
         bounds=bounds,
         q=n,
@@ -248,8 +256,11 @@ def scipy_optimizer(
         inequality_constraints=inequality_constraints,
         fixed_features=fixed_features,
         post_processing_func=rounding_func,
-        sequential=not kwargs.get("joint_optimization", False),
     )
+    # TODO: Un-hack this once botorch #234 is part of a stable release
+    if isinstance(X, tuple):
+        X, _ = X  # pragma: no cover
+    return X
 
 
 def _get_model(

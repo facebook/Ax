@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import math
 from unittest.mock import PropertyMock, patch
 
 import numpy as np
@@ -12,7 +13,7 @@ from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
+from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
     get_arm,
     get_arm_weights1,
@@ -119,17 +120,17 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(self.batch.generator_run_structs), 1)
 
     def testStatusQuoOverlap(self):
-        tot_weight = sum(self.batch.weights)
         new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
-
         # Set status quo to existing arm
         self.batch.set_status_quo_with_weight(self.arms[0], self.sq_weight)
+        # Status quo weight is set to the average of other arms' weights.
+        # In this case, there are only two arms: 0_0 (SQ) and 0_1 (not SQ).
+        # So their weights are equal, as weight(0_0) = avg(weight(0_1)).
+        self.assertEqual(self.batch.weights[0], self.batch.weights[1])
         self.assertTrue(self.batch.status_quo.parameters == self.arms[0].parameters)
         self.assertEqual(self.batch.status_quo.name, self.batch.arms[0].name)
-        self.assertEqual(
-            self.batch.arm_weights[self.batch.arms[0]], self.weights[0] + self.sq_weight
-        )
-        self.assertEqual(sum(self.batch.weights), tot_weight + self.sq_weight)
+        self.assertEqual(self.batch.arm_weights[self.batch.arms[0]], self.sq_weight)
+        self.assertEqual(sum(self.batch.weights), self.weights[1] + self.sq_weight)
 
         # Set status quo to new arm, add it
         self.batch.set_status_quo_with_weight(new_sq, self.sq_weight)
@@ -142,13 +143,15 @@ class BatchTrialTest(TestCase):
 
     def testStatusQuo(self):
         tot_weight = sum(self.batch.weights)
-        num_arms = len(self.batch.arms)
-        avg_weight = float(tot_weight) / num_arms
         new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
 
         # Test negative weight
         with self.assertRaises(ValueError):
             self.batch.set_status_quo_with_weight(new_sq, -1)
+
+        # Test that directly setting the status quo raises an error
+        with self.assertRaises(NotImplementedError):
+            self.batch.status_quo = new_sq
 
         # Set status quo to new arm
         self.batch.set_status_quo_with_weight(new_sq, self.sq_weight)
@@ -156,18 +159,45 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.status_quo.name, "status_quo_0")
         self.assertEqual(sum(self.batch.weights), tot_weight + self.sq_weight)
         # sq weight should be ignored when sq is None
-        self.batch.status_quo = None
+        self.batch.unset_status_quo()
         self.assertEqual(sum(self.batch.weights), tot_weight)
 
         # Verify experiment status quo gets set on init
         self.experiment.status_quo = self.status_quo
         batch2 = self.batch.clone()
         self.assertEqual(batch2.status_quo, self.experiment.status_quo)
-        self.assertEqual(batch2._status_quo_weight, avg_weight)
+
+        # Since optimize_for_power was not set, the weight override should not be
+        # And the status quo shoudl not appear in arm_weights
+        self.assertIsNone(batch2._status_quo_weight_override)
+        self.assertTrue(batch2.status_quo not in batch2.arm_weights)
+        self.assertEqual(sum(batch2.weights), sum(self.weights))
 
         # Try setting sq to existing arm with different name
         with self.assertRaises(ValueError):
-            self.batch.status_quo = Arm(self.arms[0].parameters, name="new_name")
+            self.batch.set_status_quo_with_weight(
+                Arm(new_sq.parameters, name="new_name"), 1
+            )
+
+    def testStatusQuoOptimizeForPower(self):
+        self.experiment.status_quo = self.status_quo
+        batch = self.experiment.new_batch_trial(optimize_for_power=True)
+        self.assertEqual(batch._status_quo_weight_override, 1)
+
+        self.experiment.status_quo = None
+        with self.assertRaises(ValueError):
+            batch = self.experiment.new_batch_trial(optimize_for_power=True)
+
+        batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
+        expected_status_quo_weight = math.sqrt(sum(self.weights))
+        self.assertTrue(
+            math.isclose(batch._status_quo_weight_override, expected_status_quo_weight)
+        )
+        self.assertTrue(
+            math.isclose(
+                batch.arm_weights[batch.status_quo], expected_status_quo_weight
+            )
+        )
 
     def testBatchLifecycle(self):
         staging_mock = PropertyMock()
@@ -389,14 +419,14 @@ class BatchTrialTest(TestCase):
         # Test adding status quo and optimizing power when trial already
         # has a status quo
         batch_trial = self.experiment.new_batch_trial()
-        batch_trial.status_quo = status_quo
+        batch_trial.set_status_quo_with_weight(status_quo, 1)
         self.assertEqual(batch_trial.arm_weights[status_quo], 1.0)
         batch_trial.add_arms_and_weights(arms=arms)
         batch_trial.set_status_quo_and_optimize_power(status_quo)
         self.assertEqual(batch_trial.arm_weights[status_quo], np.sqrt(2))
         # Since status quo is not in the generator runs, all of its weight
-        # comes from _status_quo_weight
-        self.assertEqual(batch_trial._status_quo_weight, np.sqrt(2))
+        # comes from _status_quo_weight_override
+        self.assertEqual(batch_trial._status_quo_weight_override, np.sqrt(2))
 
         # Test adding status quo and optimizing power when status quo
         # is in the generator runs
@@ -411,8 +441,8 @@ class BatchTrialTest(TestCase):
         batch_trial.set_status_quo_and_optimize_power(status_quo)
         self.assertEqual(batch_trial.arm_weights[status_quo], np.sqrt(2))
         # Since status quo has a weight of 1 in the generator runs, only part of
-        # its weight comes from _status_quo_weight
-        self.assertEqual(batch_trial._status_quo_weight, np.sqrt(2) - 1)
+        # its weight comes from _status_quo_weight_override
+        self.assertEqual(batch_trial._status_quo_weight_override, np.sqrt(2))
 
     def testRepr(self):
         repr_ = (

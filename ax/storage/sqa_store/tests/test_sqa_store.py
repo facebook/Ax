@@ -58,7 +58,7 @@ from ax.storage.utils import (
     remove_prefix,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.fake import (
+from ax.utils.testing.core_stubs import (
     get_arm,
     get_batch_trial,
     get_branin_data,
@@ -67,7 +67,6 @@ from ax.utils.testing.fake import (
     get_choice_parameter,
     get_experiment_with_batch_trial,
     get_fixed_parameter,
-    get_generation_strategy,
     get_generator_run,
     get_multi_type_experiment,
     get_objective,
@@ -79,6 +78,7 @@ from ax.utils.testing.fake import (
     get_sum_constraint2,
     get_synthetic_runner,
 )
+from ax.utils.testing.modeling_stubs import get_generation_strategy
 
 
 class SQAStoreTest(TestCase):
@@ -851,6 +851,7 @@ class SQAStoreTest(TestCase):
         self.assertGreater(len(generation_strategy._generated), 0)
         self.assertGreater(len(generation_strategy._observed), 0)
         save_generation_strategy(generation_strategy=generation_strategy)
+        save_experiment(experiment)
         # Try restoring the generation strategy using the experiment its
         # attached to.
         new_generation_strategy = load_generation_strategy_by_experiment_name(
@@ -897,6 +898,7 @@ class SQAStoreTest(TestCase):
             )
         )
         save_generation_strategy(generation_strategy=generation_strategy)
+        save_experiment(experiment)
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )

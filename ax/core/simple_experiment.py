@@ -100,7 +100,7 @@ class SimpleExperiment(Experiment):
         Args:
             trial: trial, whose arms to evaluate.
         """
-        cached_data = self.lookup_data_for_trial(trial.index)
+        cached_data = self.lookup_data_for_trial(trial.index)[0]
         if not cached_data.df.empty:
             return cached_data
 

@@ -10,6 +10,7 @@ import numpy as np
 from ax.exceptions.storage import ImmutabilityError
 from ax.storage.sqa_store.utils import is_foreign_key_field
 from ax.utils.common.equality import datetime_equals, equality_typechecker
+from ax.utils.common.typeutils import numpy_type_to_python_type
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -115,7 +116,7 @@ class SQABase:
         if not all(x == types[0] for x in types):
             raise ValueError(
                 "Cannot call `list_update` on lists that contain "
-                "multiple different types."
+                f"multiple different types ({l1} and {l2})."
             )
         type_ = types[0]
 
@@ -217,6 +218,8 @@ class SQABase:
         """Check if `field` on `self` is equal to `field` on `other`."""
         self_val = getattr(self, field)
         other_val = getattr(other, field)
+        self_val = numpy_type_to_python_type(self_val)
+        other_val = numpy_type_to_python_type(other_val)
         if type(self_val) != type(other_val):
             return False
         if isinstance(self_val, list):
