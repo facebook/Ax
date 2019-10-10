@@ -241,6 +241,25 @@ def set_single_trial(data: Data) -> Data:
     return Data(df=df)
 
 
+def clone_without_metrics(data: Data, excluded_metric_names: Iterable[str]) -> Data:
+    """Returns a new Data object where rows containing the metrics specified by
+    `metric_names` are filtered out. Used to sanitize data before using it as
+    training data for a model that requires data rectangularity.
+
+    Args:
+        data: Original Data to clone.
+        excluded_metric_names: Metrics to avoid copying
+
+    Returns:
+        Data: new version of Data without specified metrics.
+    """
+    return Data(
+        df=data.df[
+            data.df["metric_name"].apply(lambda n: n not in excluded_metric_names)
+        ].copy()
+    )
+
+
 def custom_data_class(
     column_data_types: Optional[Dict[str, Type]] = None,
     required_columns: Optional[Set[str]] = None,

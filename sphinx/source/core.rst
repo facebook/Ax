@@ -171,3 +171,12 @@ Core Types
     :members:
     :undoc-members:
     :show-inheritance:
+
+
+Core Utils
+----------
+
+.. automodule:: ax.core.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
