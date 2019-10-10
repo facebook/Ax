@@ -8,6 +8,7 @@ import numpy as np
 from botorch.acquisition import AcquisitionFunction
 
 
+TNumeric = Union[float, int]
 TParamCounter = DefaultDict[int, int]
 TParamValue = Optional[Union[str, bool, float, int]]
 TParameterization = Dict[str, TParamValue]
