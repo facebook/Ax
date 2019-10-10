@@ -112,17 +112,19 @@ class SQABase:
         if not l1 and not l2:
             return l1
 
-        types = [type(x) for x in l1 + l2]
-        if not all(x == types[0] for x in types):
-            raise ValueError(
-                "Cannot call `list_update` on lists that contain "
-                f"multiple different types ({l1} and {l2})."
-            )
-        type_ = types[0]
-
-        if type_ in [int, float, str, bool, dict, Enum]:
+        types = {type(x) for x in l1 + l2}
+        primitive_types = {int, float, str, bool, dict, Enum}
+        if types.issubset(primitive_types):
             # No need to do a special update here; just return the new list
             return l2
+
+        if len(types) > 1:
+            raise ValueError(
+                "Cannot call `list_update` on lists that contain a mix of "
+                f"primitive and no primitive types: ({l1} and {l2})."
+            )
+
+        type_ = list(types)[0]
 
         if not issubclass(type_, SQABase):
             raise ValueError(f"Calling list_update on unsupported type {type_}.")

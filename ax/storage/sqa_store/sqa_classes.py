@@ -71,7 +71,7 @@ class SQAParameter(Base):
     # Attributes for Fixed Parameters
     fixed_value: Optional[TParamValue] = Column(JSONEncodedObject)
 
-    immutable_fields = ["name", "parameter_type"]
+    immutable_fields = ["name"]
     unique_id = "name"
 
 
