@@ -279,17 +279,7 @@ class AxClient:
         assert isinstance(
             trial_index, int
         ), f"Trial index must be an int, got: {trial_index}."  # pragma: no cover
-        if trial_index not in self.experiment.trials:
-            raise ValueError(  # pragma: no cover
-                f"Cannot complete trial #{trial_index} as it does not yet exist "
-                f"for experiment {self.experiment.name}."
-            )
-        trial = self.experiment.trials[trial_index]
-        if not isinstance(trial, Trial):
-            raise NotImplementedError(
-                "The Service API only supports `Trial`, not `BatchTrial`."
-            )
-
+        trial = self._get_trial(trial_index=trial_index)
         if metadata is not None:
             trial._run_metadata = metadata
 
@@ -367,10 +357,7 @@ class AxClient:
 
     def get_trial_parameters(self, trial_index: int) -> TParameterization:
         """Retrieve the parameterization of the trial by the given index."""
-        if trial_index not in self.experiment.trials:
-            raise ValueError(f"Trial {trial_index} does not yet exist.")
-        trial = checked_cast(Trial, self.experiment.trials.get(trial_index))
-        return not_none(trial.arm).parameters
+        return not_none(self._get_trial(trial_index).arm).parameters
 
     @copy_doc(best_point_utils.get_best_parameters)
     def get_best_parameters(
@@ -611,6 +598,17 @@ class AxClient:
             if not_none(trials[trial_index].arm).name in arm_info
         }
 
+    def verify_trial_parameterization(
+        self, trial_index: int, parameterization: TParameterization
+    ) -> bool:
+        """Whether the given parameterization matches that of the arm in the trial
+        specified in the trial index.
+        """
+        return (
+            not_none(self._get_trial(trial_index=trial_index).arm).parameters
+            == parameterization
+        )
+
     # ------------------ JSON serialization & storage methods. -----------------
 
     def save_to_json_file(self, filepath: str = "ax_client_snapshot.json") -> None:
@@ -668,7 +666,7 @@ class AxClient:
 
     @property
     def experiment(self) -> Experiment:
-        """Returns the experiment set on this Ax client"""
+        """Returns the experiment set on this Ax client."""
         if self._experiment is None:
             raise ValueError(
                 "Experiment not set on Ax client. Must first "
@@ -745,6 +743,30 @@ class AxClient:
                     experiment=self.experiment
                 ),
             )
+
+    def _get_trial(self, trial_index: int) -> Trial:
+        """Gets trial by given index or raises an error if it does not exist."""
+        if trial_index in self.experiment.trials:
+            trial = self.experiment.trials.get(trial_index)
+            if not isinstance(trial, Trial):
+                raise NotImplementedError(
+                    "`AxClient` only supports `Trial`, not `BatchTrial`."
+                )
+            return trial
+        raise ValueError(f"Trial {trial_index} does not yet exist.")
+
+    def _find_last_trial_with_parameterization(
+        self, parameterization: TParameterization
+    ) -> int:
+        """Given a parameterization, find the last trial in the experiment that
+        contains an arm with that parameterization.
+        """
+        for trial_idx in reversed(sorted(self.experiment.trials.keys())):
+            if not_none(self._get_trial(trial_idx).arm).parameters == parameterization:
+                return trial_idx
+        raise ValueError(
+            f"No trial on experiment matches parameterization {parameterization}."
+        )
 
     # -------- Backward-compatibility with old save / load method names. -------
 

@@ -65,7 +65,7 @@ def run_trials_using_recommended_parallelism(
     return remaining_trials
 
 
-class TestServiceAPI(TestCase):
+class TestAxClient(TestCase):
     """Tests service-like API functionality."""
 
     def test_interruption(self) -> None:
@@ -370,7 +370,7 @@ class TestServiceAPI(TestCase):
         self.assertEqual(best_trial_values[0], {"objective": -2.0})
         self.assertTrue(math.isnan(best_trial_values[1]["objective"]["objective"]))
 
-    def ftest_start_and_end_time_in_trial_completion(self):
+    def test_start_and_end_time_in_trial_completion(self):
         start_time = current_timestamp_in_millis()
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -706,3 +706,61 @@ class TestServiceAPI(TestCase):
             ax_client.load()
         with self.assertRaises(NotImplementedError):
             ax_client.load_experiment("test_experiment")
+
+    def test_find_last_trial_with_parameterization(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+            objective_name="a",
+        )
+        params, trial_idx = ax_client.get_next_trial()
+        found_trial_idx = ax_client._find_last_trial_with_parameterization(
+            parameterization=params
+        )
+        self.assertEqual(found_trial_idx, trial_idx)
+        # Check that it's indeed the _last_ trial with params that is found.
+        _, new_trial_idx = ax_client.attach_trial(parameters=params)
+        found_trial_idx = ax_client._find_last_trial_with_parameterization(
+            parameterization=params
+        )
+        self.assertEqual(found_trial_idx, new_trial_idx)
+        with self.assertRaisesRegex(ValueError, "No .* matches"):
+            found_trial_idx = ax_client._find_last_trial_with_parameterization(
+                parameterization={k: v + 1.0 for k, v in params.items()}
+            )
+
+    def test_verify_parameterization(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+            objective_name="a",
+        )
+        params, trial_idx = ax_client.get_next_trial()
+        self.assertTrue(
+            ax_client.verify_trial_parameterization(
+                trial_index=trial_idx, parameterization=params
+            )
+        )
+        # Make sure it still works if ordering in the parameterization is diff.
+        self.assertTrue(
+            ax_client.verify_trial_parameterization(
+                trial_index=trial_idx,
+                parameterization={k: params[k] for k in reversed(list(params.keys()))},
+            )
+        )
+        self.assertFalse(
+            ax_client.verify_trial_parameterization(
+                trial_index=trial_idx,
+                parameterization={k: v + 1.0 for k, v in params.items()},
+            )
+        )
