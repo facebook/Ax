@@ -25,7 +25,7 @@ For full documentation and tutorials, see the [Ax website](https://ax.dev)
 
 * **Versatility**: Ax supports different kinds of experiments, from dynamic ML-assisted A/B testing, to hyperparameter optimization in machine learning.
 * **Customization**: Ax makes it easy to add new modeling and decision algorithms, enabling research and development with minimal overhead.
-* **Production-completeness**: Ax comes with storage integration and ability to fully save and reload experiments.
+* **Production-completeness**: Ax comes with storage integration and the ability to fully save and reload experiments.
 * **Support for multi-modal and constrained experimentation**: Ax allows for running and combining multiple experiments (e.g. simulation with a real-world "online" A/B test) and for constrained optimization (e.g. improving classification accuracy without signifant increase in resource-utilization).
 * **Efficiency in high-noise setting**: Ax offers state-of-the-art algorithms specifically geared to noisy experiments, such as simulations with reinforcement-learning agents.
 * **Ease of use**: Ax includes 3 different APIs that strike different balances between lightweight structure and flexibility. Using the most concise Loop API, a whole optimization can be done in just one function call. The Service API integrates easily with external schedulers. The most elaborate Developer API affords full algorithm customization and experiment introspection.
@@ -83,14 +83,14 @@ conda install pytorch torchvision -c pytorch  # OSX only (details below)
 pip3 install ax-platform
 ```
 
-Installation will use Python wheels from PyPI, available for [OSX, Linux, and Windows](https://pypi.org/project/ax-platform/#files).
+The installation will use Python wheels from PyPI, available for [OSX, Linux, and Windows](https://pypi.org/project/ax-platform/#files).
 
 *Recommendation for MacOS users*: PyTorch is a required dependency of BoTorch, and can be automatically installed via pip.
 However, **we recommend you [install PyTorch manually](https://pytorch.org/get-started/locally/#anaconda-1) before installing Ax, using the Anaconda package manager**.
 Installing from Anaconda will link against MKL (a library that optimizes mathematical computation for Intel processors).
 This will result in up to an order-of-magnitude speed-up for Bayesian optimization, as at the moment, installing PyTorch from pip does not link against MKL.
 
-If you need CUDA on MacOS, you will need to build PyTorch from source. Please consult the PyTorch installation instructions above.
+If you need CUDA on MacOS, you will need to build PyTorch from the source. Please consult the PyTorch installation instructions above.
 
 #### Optional Dependencies
 
@@ -114,7 +114,7 @@ You can install the latest (bleeding edge) version from Git:
 pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=Ax
 ```
 
-See recommendation for installing PyTorch for MacOS users above.
+See the recommendation for installing PyTorch for MacOS users above.
 
 At times, the bleeding edge for Ax can depend on bleeding edge versions of BoTorch (or GPyTorch). We therefore recommend installing those from Git as well:
 ```
