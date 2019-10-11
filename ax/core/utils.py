@@ -10,15 +10,15 @@ from ax.core.optimization_config import OptimizationConfig
 TArmTrial = Tuple[str, int]
 
 
-class MissingOptimizationConfigMetrics(NamedTuple):
-    objective: Set[TArmTrial]
+class MissingMetrics(NamedTuple):
+    objective: Dict[str, Set[TArmTrial]]
     outcome_constraints: Dict[str, Set[TArmTrial]]
     tracking_metrics: Dict[str, Set[TArmTrial]]
 
 
-def get_missing_optimization_config_metrics(
+def get_missing_metrics(
     data: Data, optimization_config: OptimizationConfig
-) -> MissingOptimizationConfigMetrics:
+) -> MissingMetrics:
     """Return all arm_name, trial_index pairs, for which some of the
     observatins of optimization config metrics are missing.
 
@@ -29,17 +29,17 @@ def get_missing_optimization_config_metrics(
     Returns:
         A NamedTuple(missing_objective, Dict[str, missing_outcome_constraint])
     """
-    objective_metric_name = optimization_config.objective.metric.name
+    objective_name = optimization_config.objective.metric.name
     outcome_constraints_metric_names = [
         outcome_constraint.metric.name
         for outcome_constraint in optimization_config.outcome_constraints
     ]
-    missing_objective = _get_missing_arm_trial_pairs(data, objective_metric_name)
+    missing_objective = _get_missing_arm_trial_pairs(data, objective_name)
     missing_outcome_constraints = get_missing_metrics_by_name(
         data, outcome_constraints_metric_names
     )
     all_metric_names = set(data.df["metric_name"])
-    optimization_config_metric_names = {objective_metric_name}.union(
+    optimization_config_metric_names = {objective_name}.union(
         outcome_constraints_metric_names
     )
     missing_tracking_metric_names = all_metric_names.difference(
@@ -48,10 +48,16 @@ def get_missing_optimization_config_metrics(
     missing_tracking_metrics = get_missing_metrics_by_name(
         data=data, metric_names=missing_tracking_metric_names
     )
-    return MissingOptimizationConfigMetrics(
-        objective=missing_objective,
-        outcome_constraints=missing_outcome_constraints,
-        tracking_metrics=missing_tracking_metrics,
+    return MissingMetrics(
+        objective={objective_name: missing_objective}
+        if len(missing_objective) > 0
+        else {},
+        outcome_constraints={
+            k: v for k, v in missing_outcome_constraints.items() if len(v) > 0
+        },
+        tracking_metrics={
+            k: v for k, v in missing_tracking_metrics.items() if len(v) > 0
+        },
     )
 
 

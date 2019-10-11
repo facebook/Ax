@@ -9,9 +9,9 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
-    MissingOptimizationConfigMetrics,
+    MissingMetrics,
+    get_missing_metrics,
     get_missing_metrics_by_name,
-    get_missing_optimization_config_metrics,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -100,13 +100,11 @@ class UtilsTest(TestCase):
         actual = get_missing_metrics_by_name(self.data, ["a", "b"])
         self.assertEqual(actual, expected)
 
-    def testGetMissingOptimizationConfigMetrics(self):
-        expected = MissingOptimizationConfigMetrics(
-            {("0_1", 1)},
+    def testGetMissingMetrics(self):
+        expected = MissingMetrics(
+            {"a": {("0_1", 1)}},
             {"b": {("0_2", 1)}},
             {"c": {("0_0", 1), ("0_1", 1), ("0_2", 1)}},
         )
-        actual = get_missing_optimization_config_metrics(
-            self.data, self.optimization_config
-        )
+        actual = get_missing_metrics(self.data, self.optimization_config)
         self.assertEqual(actual, expected)
