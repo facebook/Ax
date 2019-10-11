@@ -242,16 +242,16 @@ def set_single_trial(data: Data) -> Data:
 
 
 def clone_without_metrics(data: Data, excluded_metric_names: Iterable[str]) -> Data:
-    """Returns a new Data object where rows containing the metrics specified by
+    """Returns a new data object where rows containing the metrics specified by
     `metric_names` are filtered out. Used to sanitize data before using it as
     training data for a model that requires data rectangularity.
 
     Args:
-        data: Original Data to clone.
+        data: Original data to clone.
         excluded_metric_names: Metrics to avoid copying
 
     Returns:
-        Data: new version of Data without specified metrics.
+        new version of the original data without specified metrics.
     """
     return Data(
         df=data.df[
