@@ -35,16 +35,26 @@ def load_experiment(name: str, db_settings: DBSettings) -> Experiment:
     return experiment
 
 
-def save_experiment(experiment: Experiment, db_settings: DBSettings) -> None:
+def save_experiment(
+    experiment: Experiment,
+    db_settings: DBSettings,
+    overwrite_existing_experiment: bool = False,
+) -> None:
     """
     Save experiment to db.
 
     Args:
         experiment: `Experiment` object.
         db_settings: Defines behavior for loading/saving experiment to/from db.
+        overwrite_existing_experiment: If the experiment being created
+            has the same name as some experiment already stored, this flag
+            determines whether to overwrite the existing experiment.
+            Defaults to False.
     """
     init_engine_and_session_factory(creator=db_settings.creator, url=db_settings.url)
-    _save_experiment(experiment, encoder=db_settings.encoder)
+    _save_experiment(
+        experiment, encoder=db_settings.encoder, overwrite=overwrite_existing_experiment
+    )
 
 
 def load_experiment_and_generation_strategy(
@@ -73,6 +83,7 @@ def save_experiment_and_generation_strategy(
     experiment: Experiment,
     generation_strategy: GenerationStrategy,
     db_settings: DBSettings,
+    overwrite_existing_experiment: bool = False,
 ) -> None:
     """Save experiment and generation strategy to DB.
 
@@ -80,8 +91,16 @@ def save_experiment_and_generation_strategy(
         experiment: `Experiment` object.
         generation_strategy: Corresponding generation strategy.
         db_settings: Defines behavior for loading/saving experiment to/from db.
+        overwrite_existing_experiment: If the experiment being created
+            has the same name as some experiment already stored, this flag
+            determines whether to overwrite the existing experiment.
+            Defaults to False.
     """
-    save_experiment(experiment=experiment, db_settings=db_settings)
+    save_experiment(
+        experiment=experiment,
+        db_settings=db_settings,
+        overwrite_existing_experiment=overwrite_existing_experiment,
+    )
     _save_generation_strategy(
         generation_strategy=generation_strategy, encoder=db_settings.encoder
     )

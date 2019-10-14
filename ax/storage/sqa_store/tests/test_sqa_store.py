@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, Mock
 
 import pandas as pd
@@ -178,6 +178,15 @@ class SQAStoreTest(TestCase):
         save_experiment(self.experiment)
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(loaded_experiment, self.experiment)
+
+    def testExperimentOverwriting(self):
+        save_experiment(self.experiment)
+        exp = get_experiment_with_batch_trial()
+        # hack because otherwise time_createds will be too close
+        exp._time_created = exp.time_created + timedelta(seconds=1)
+        with self.assertRaises(Exception):
+            save_experiment(exp)
+        save_experiment(exp, overwrite=True)
 
     def testMTExperimentSaveAndLoad(self):
         experiment = get_multi_type_experiment(add_trials=True)

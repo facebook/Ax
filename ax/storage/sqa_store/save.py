@@ -8,9 +8,12 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
+from ax.utils.common.equality import datetime_equals
 
 
-def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) -> None:
+def save_experiment(
+    experiment: Experiment, config: Optional[SQAConfig] = None, overwrite: bool = False
+) -> None:
     """Save experiment (using default SQAConfig)."""
     if not isinstance(experiment, Experiment):
         raise ValueError("Can only save instances of Experiment")
@@ -19,10 +22,12 @@ def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) 
 
     config = config or SQAConfig()
     encoder = Encoder(config=config)
-    _save_experiment(experiment=experiment, encoder=encoder)
+    _save_experiment(experiment=experiment, encoder=encoder, overwrite=overwrite)
 
 
-def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
+def _save_experiment(
+    experiment: Experiment, encoder: Encoder, overwrite: bool = False
+) -> None:
     """Save experiment, using given Encoder instance.
 
     1) Convert Ax object to SQLAlchemy object.
@@ -42,6 +47,18 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
         )
 
     if existing_sqa_experiment is not None:
+        if (
+            not datetime_equals(
+                existing_sqa_experiment.time_created, new_sqa_experiment.time_created
+            )
+            and overwrite is False
+        ):
+            raise Exception(
+                "An experiment already exists with the name "
+                f"{new_sqa_experiment.name}. To overwrite, specify "
+                "`overwrite = True` when calling `save_experiment`."
+            )
+
         # Update the SQA object outside of session scope to avoid timeouts.
         # This object is detached from the session, but contains a database
         # identity marker, so when we do `session.add` below, SQA knows to

@@ -233,7 +233,9 @@ class AxClient:
                 enforce_sequential_optimization=self._enforce_sequential_optimization,
                 random_seed=self._random_seed,
             )
-        self._save_experiment_and_generation_strategy_to_db_if_possible()
+        self._save_experiment_and_generation_strategy_to_db_if_possible(
+            overwrite_existing_experiment=True
+        )
 
     def get_next_trial(self) -> Tuple[TParameterization, int]:
         """
@@ -689,9 +691,17 @@ class AxClient:
         opt_config = not_none(self.experiment.optimization_config)
         return opt_config.objective.metric.name
 
-    def _save_experiment_and_generation_strategy_to_db_if_possible(self) -> bool:
+    def _save_experiment_and_generation_strategy_to_db_if_possible(
+        self, overwrite_existing_experiment: bool = False
+    ) -> bool:
         """Saves attached experiment and generation strategy if DB settings are
         set on this AxClient instance.
+
+        Args:
+            overwrite_existing_experiment: If the experiment being created
+                has the same name as some experiment already stored, this flag
+                determines whether to overwrite the existing experiment.
+                Defaults to False.
 
         Returns:
             bool: Whether the experiment was saved.
@@ -701,6 +711,7 @@ class AxClient:
                 experiment=self.experiment,
                 generation_strategy=self.generation_strategy,
                 db_settings=self.db_settings,
+                overwrite_existing_experiment=overwrite_existing_experiment,
             )
             return True
         return False
