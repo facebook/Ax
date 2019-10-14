@@ -115,6 +115,11 @@ class Experiment(Base):
         """The type of the experiment."""
         return self._experiment_type
 
+    @experiment_type.setter
+    def experiment_type(self, experiment_type: Optional[str]) -> None:
+        """Set the type of the experiment."""
+        self._experiment_type = experiment_type
+
     @property
     def search_space(self) -> SearchSpace:
         """The search space for this experiment.

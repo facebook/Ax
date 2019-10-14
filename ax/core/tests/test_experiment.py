@@ -42,6 +42,10 @@ class ExperimentTest(TestCase):
             self.experiment.name
         self.experiment.name = "test"
 
+    def testExperimentType(self):
+        self.experiment.experiment_type = "test"
+        self.assertEqual(self.experiment.experiment_type, "test")
+
     def testEq(self):
         self.assertEqual(self.experiment, self.experiment)
 
