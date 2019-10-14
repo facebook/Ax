@@ -627,6 +627,9 @@ def interact_contour(
             )
             i += 1
 
+    # Initially visible yvar
+    yvar = param_names[1]
+
     xrange = axis_range(grid_dict[xvar], is_log_dict[xvar])
     yrange = axis_range(grid_dict[yvar], is_log_dict[yvar])
 
