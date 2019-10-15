@@ -147,7 +147,7 @@ class SQAAbandonedArm(Base):
     )
     trial_id: int = Column(Integer, ForeignKey("trial_v2.id"))
 
-    immutable_fields = ["name", "time_abandoned"]
+    immutable_fields = ["name"]
     unique_id = "name"
 
 
