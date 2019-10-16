@@ -47,8 +47,6 @@ class Parameter(Base, metaclass=ABCMeta):
     def _cast(self, value: TParamValue) -> TParamValue:
         if value is None:
             return None
-        # pyre-fixme[29]: `Union[Type[bool], Type[float], Type[int], Type[str]]` is
-        #  not a function.
         return self.python_type(value)
 
     @abstractmethod
@@ -285,8 +283,6 @@ class RangeParameter(Parameter):
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
             # pyre-fixme[6]: Expected `None` for 2nd param but got `Optional[int]`.
             return round(float(value), self._digits)
-        # pyre-fixme[29]: `Union[Type[bool], Type[float], Type[int], Type[str]]` is
-        #  not a function.
         return self.python_type(value)
 
     def __repr__(self) -> str:

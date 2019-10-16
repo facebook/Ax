@@ -7,6 +7,9 @@ from ax.modelbridge.array import ArrayModelBridge
 from ax.models.numpy_base import NumpyModel
 
 
+# pyre-fixme[13]: Attribute `model` is never initialized.
+# pyre-fixme[13]: Attribute `outcomes` is never initialized.
+# pyre-fixme[13]: Attribute `parameters` is never initialized.
 class NumpyModelBridge(ArrayModelBridge):
     """A model bridge for using numpy array-based models.
 
@@ -16,9 +19,6 @@ class NumpyModelBridge(ArrayModelBridge):
     or FixedParameters with float type and no log scale.
     """
 
-    # pyre-fixme[13]: Attribute `model` is never initialized.
     model: NumpyModel
-    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: List[str]
-    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: List[str]

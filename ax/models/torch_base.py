@@ -9,6 +9,8 @@ from ax.models.base import Model
 from torch import Tensor
 
 
+# pyre-fixme[13]: Attribute `device` is never initialized.
+# pyre-fixme[13]: Attribute `dtype` is never initialized.
 class TorchModel(Model):
     """This class specifies the interface for a torch-based model.
 
@@ -16,9 +18,7 @@ class TorchModel(Model):
     of Ax.
     """
 
-    # pyre-fixme[13]: Attribute `dtype` is never initialized.
     dtype: Optional[torch.dtype]
-    # pyre-fixme[13]: Attribute `device` is never initialized.
     device: Optional[torch.device]
 
     def fit(

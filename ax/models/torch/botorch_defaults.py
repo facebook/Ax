@@ -246,6 +246,21 @@ def scipy_optimizer(
         if "method" not in kwargs:
             kwargs["method"] = "SLSQP"
 
+    # pyre-fixme[29]: `Union[(acq_function: AcquisitionFunction, bounds: Tensor, q:
+    #  int, num_restarts: int, raw_samples: int, options: Optional[Dict[str,
+    #  Union[bool, float, int]]] = ..., inequality_constraints:
+    #  Optional[List[Tuple[Tensor, Tensor, float]]] = ..., equality_constraints:
+    #  Optional[List[Tuple[Tensor, Tensor, float]]] = ..., fixed_features:
+    #  Optional[Dict[int, float]] = ..., post_processing_func: Optional[(Tensor) ->
+    #  Tensor] = ..., batch_initial_conditions: Optional[Tensor] = ...,
+    #  return_best_only: bool = ...) -> Tuple[Tensor, Tensor], (acq_function:
+    #  AcquisitionFunction, bounds: Tensor, q: int, num_restarts: int, raw_samples:
+    #  int, options: Optional[Dict[str, Union[bool, float, int]]] = ...,
+    #  inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = ...,
+    #  equality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = ...,
+    #  fixed_features: Optional[Dict[int, float]] = ..., post_processing_func:
+    #  Optional[(Tensor) -> Tensor] = ...) -> Tuple[Tensor, Tensor]]` is not a
+    #  function.
     X = optimize(
         acq_function=acq_function,
         bounds=bounds,
@@ -300,6 +315,5 @@ def _get_model(
             )
     else:
         gp_model = model_list[fidelity_model_id]
-        # pyre-ignore [29]
         gp = gp_model(train_X=X, train_Y=Y, train_data_fidelity=False)
     return gp

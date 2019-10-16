@@ -120,7 +120,6 @@ class BenchmarkSetup(Experiment):
         return float(df["mean"].values[0])
 
 
-# pyre-fixme[44]: `BenchmarkRunner` non-abstract class with abstract methods.
 class BenchmarkRunner:
     """Runner that keeps track of benchmark runs and failures encountered
     during benchmarking.

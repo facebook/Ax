@@ -25,6 +25,9 @@ from ax.utils.common.typeutils import not_none
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
 
+# pyre-fixme[13]: Attribute `model` is never initialized.
+# pyre-fixme[13]: Attribute `outcomes` is never initialized.
+# pyre-fixme[13]: Attribute `parameters` is never initialized.
 class ArrayModelBridge(ModelBridge):
     """A model bridge for using array-based models.
 
@@ -36,9 +39,7 @@ class ArrayModelBridge(ModelBridge):
     """
 
     model: Any
-    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: List[str]
-    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: List[str]
 
     def _fit(

@@ -77,7 +77,6 @@ class SQABase:
                 if type(x) != type(y):
                     equal = False
                 if isinstance(x, SQABase):
-                    # pyre-fixme[6]: Expected `SQABase` for 1st param but got `T`.
                     equal = x.equals(y)
                 elif isinstance(x, (int, float, str, bool, dict, Enum)):
                     # pyre-fixme[29]: `Union[Callable[[object], bool],

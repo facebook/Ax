@@ -236,6 +236,8 @@ class Branin(SyntheticFunction):
     # pyre-fixme[15]: `_required_dimensionality` overrides attribute defined in
     #  `SyntheticFunction` inconsistently.
     _required_dimensionality = 2
+    # pyre-fixme[15]: `_domain` overrides attribute defined in `SyntheticFunction`
+    #  inconsistently.
     _domain = [(-5, 10), (0, 15)]
     _minimums = [(-np.pi, 12.275), (np.pi, 2.275), (9.42478, 2.475)]
     # pyre-fixme[15]: `_fmin` overrides attribute defined in `SyntheticFunction`
@@ -262,6 +264,8 @@ class Aug_Branin(SyntheticFunction):
     # pyre-fixme[15]: `_required_dimensionality` overrides attribute defined in
     #  `SyntheticFunction` inconsistently.
     _required_dimensionality = 3
+    # pyre-fixme[15]: `_domain` overrides attribute defined in `SyntheticFunction`
+    #  inconsistently.
     _domain = [(-5, 10), (0, 15), (0, 1)]
     _minimums = [(-np.pi, 12.275, 1), (np.pi, 2.275, 1), (9.42478, 2.475, 1)]
     # pyre-fixme[15]: `_fmin` overrides attribute defined in `SyntheticFunction`

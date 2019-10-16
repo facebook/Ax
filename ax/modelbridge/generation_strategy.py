@@ -64,6 +64,7 @@ class GenerationStep(NamedTuple):
     model_kwargs: Optional[Dict[str, Any]] = None
     # Kwargs to pass into the Model's `.gen` function.
     model_gen_kwargs: Optional[Dict[str, Any]] = None
+    # pyre-fixme[15]: `index` overrides attribute defined in `tuple` inconsistently.
     index: Optional[int] = None  # Index of this step, set internally.
 
 

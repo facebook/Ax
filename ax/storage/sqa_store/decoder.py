@@ -544,6 +544,9 @@ class Decoder:
             search_space=search_space,
             fit_time=generator_run_sqa.fit_time,
             gen_time=generator_run_sqa.gen_time,
+            # pyre-fixme[6]: Expected `Optional[Tuple[Arm, Optional[Tuple[Dict[str,
+            #  float], Optional[Dict[str, Dict[str, float]]]]]]]` for 7th param but got
+            #  `Optional[Tuple[Arm, Tuple[Any, ...]]]`.
             best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
             model_key=generator_run_sqa.model_key,

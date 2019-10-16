@@ -24,6 +24,8 @@ from ax.utils.common.docutils import copy_doc
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
 
+# pyre-fixme[13]: Attribute `model` is never initialized.
+# pyre-fixme[13]: Attribute `parameters` is never initialized.
 class RandomModelBridge(ModelBridge):
     """A model bridge for using purely random 'models'.
     Data and optimization configs are not required.
@@ -36,9 +38,7 @@ class RandomModelBridge(ModelBridge):
         parameters: Params found in search space on modelbridge init.
     """
 
-    # pyre-fixme[13]: Attribute `model` is never initialized.
     model: RandomModel
-    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: List[str]
 
     def _fit(
