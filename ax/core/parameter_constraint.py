@@ -75,7 +75,7 @@ class ParameterConstraint(Base):
     def clone(self) -> "ParameterConstraint":
         """Clone."""
         return ParameterConstraint(
-            constraint_dict=self._constraint_dict, bound=self._bound
+            constraint_dict=self._constraint_dict.copy(), bound=self._bound
         )
 
     def clone_with_transformed_parameters(
@@ -137,7 +137,8 @@ class OrderConstraint(ParameterConstraint):
     def clone(self) -> "OrderConstraint":
         """Clone."""
         return OrderConstraint(
-            lower_parameter=self.lower_parameter, upper_parameter=self._upper_parameter
+            lower_parameter=self.lower_parameter.clone(),
+            upper_parameter=self._upper_parameter.clone(),
         )
 
     def clone_with_transformed_parameters(
@@ -195,11 +196,15 @@ class SumConstraint(ParameterConstraint):
         return ComparisonOp.LEQ if self._is_upper_bound else ComparisonOp.GEQ
 
     def clone(self) -> "SumConstraint":
-        """Clone."""
+        """Clone.
+
+        To use the same constraint, we need to reconstruct the original bound.
+        We do this by re-applying the original bound weighting.
+        """
         return SumConstraint(
-            parameters=self._parameters,
+            parameters=[p.clone() for p in self._parameters],
             is_upper_bound=self._is_upper_bound,
-            bound=self._bound,
+            bound=self._inequality_weight * self._bound,
         )
 
     def clone_with_transformed_parameters(
@@ -209,7 +214,7 @@ class SumConstraint(ParameterConstraint):
         return SumConstraint(
             parameters=[transformed_parameters[p.name] for p in self._parameters],
             is_upper_bound=self._is_upper_bound,
-            bound=self._bound,
+            bound=self._inequality_weight * self._bound,
         )
 
     @property

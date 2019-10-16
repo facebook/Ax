@@ -174,6 +174,9 @@ class SumConstraintTest(TestCase):
         constraint_clone._bound = 7.0
         self.assertNotEqual(self.constraint1.bound, constraint_clone.bound)
 
+        constraint_clone_2 = self.constraint2.clone()
+        self.assertEqual(self.constraint2.bound, constraint_clone_2.bound)
+
     def testCloneWithTransformedParameters(self):
         constraint_clone = self.constraint1.clone_with_transformed_parameters(
             transformed_parameters={p.name: p for p in self.constraint1.parameters}
