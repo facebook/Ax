@@ -3,6 +3,7 @@
 
 from typing import Any, Dict, Type
 
+from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -294,3 +295,10 @@ def generation_strategy_to_dict(
         "had_initialized_model": generation_strategy.model is not None,
         "experiment": generation_strategy._experiment,
     }
+
+
+def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str, Any]:
+    """Converts Ax observation features to a dictionary"""
+    properties = get_object_properties(object=obs_features)
+    properties['_type'] = obs_features.__class__.__name__
+    return properties
