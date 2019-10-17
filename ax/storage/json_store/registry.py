@@ -60,7 +60,7 @@ from ax.storage.json_store.encoders import (
     sum_parameter_constraint_to_dict,
     transform_type_to_dict,
     trial_to_dict,
-    observation_features_to_dict
+    observation_features_to_dict,
 )
 from ax.storage.utils import DomainType, ParameterConstraintType
 

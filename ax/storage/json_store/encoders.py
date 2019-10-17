@@ -300,5 +300,5 @@ def generation_strategy_to_dict(
 def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str, Any]:
     """Converts Ax observation features to a dictionary"""
     properties = get_object_properties(object=obs_features)
-    properties['_type'] = obs_features.__class__.__name__
+    properties["_type"] = obs_features.__class__.__name__
     return properties
