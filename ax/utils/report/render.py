@@ -79,6 +79,7 @@ def render_report_elements(
     html_elements: List[str],
     header: bool = True,
     offline: bool = False,
+    notebook_env: bool = False,
 ) -> str:
     """Generate Ax HTML report for a given experiment from HTML elements.
 
@@ -106,6 +107,8 @@ def render_report_elements(
             to served on the front-end.
         offline: if True, entire Plotly library is bundled
             with report.
+        notebook_env: if True, caps the report width to 700px for viewing in a
+            notebook environment.
 
     Returns:
         str: HTML string.
@@ -122,6 +125,7 @@ def render_report_elements(
             js_requires=_js_requires(),
             html_elements=html_elements,
             headfoot=header,
+            notebook_env=notebook_env,
         )
     )
 

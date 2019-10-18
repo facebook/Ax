@@ -11,7 +11,7 @@
 </head>
 <body>
     <base target="_parent">
-    <div class="report">
+    <div class={% if notebook_env %} "nb_report" {% else %} "report" {% endif %}>
         {% if headfoot %}
         <div class="report_title_section">
           <h1 class="report_title">
