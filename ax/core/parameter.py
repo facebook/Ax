@@ -42,6 +42,7 @@ PARAMETER_PYTHON_TYPE_MAP: Dict[ParameterType, TParameterType] = {
 
 class Parameter(Base, metaclass=ABCMeta):
     _is_fidelity: bool = False
+    _name: str
     _target_value: Optional[TParamValue] = None
 
     def _cast(self, value: TParamValue) -> TParamValue:
