@@ -3,11 +3,13 @@
 import numpy as np
 from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import (
+    FromBotorch,
     aug_branin,
     aug_hartmann6,
     branin,
     hartmann6,
 )
+from botorch.test_functions import synthetic as botorch_synthetic
 
 
 class TestSyntheticFunctions(TestCase):
@@ -82,3 +84,20 @@ class TestSyntheticFunctions(TestCase):
             aug_branin.maximums
         with self.assertRaisesRegex(ValueError, "Synthetic function call"):
             aug_branin(np.array([[[1, 3, 1]]]))
+
+    def test_botorch_ackley(self):
+        ackley = FromBotorch(botorch_synthetic_function=botorch_synthetic.Ackley())
+        self.assertEqual(ackley.name, "Ackley")
+        self.assertEqual(ackley(1.0, 2.0), 5.422131717799505)
+        self.assertEqual(ackley(x1=1.0, x2=2.0), 5.422131717799505)
+        self.assertEqual(ackley(np.array([1, 2])), 5.422131717799505)
+        self.assertAlmostEqual(ackley(np.array([[1, 2], [1, 2]]))[0], 5.422131717799505)
+        self.assertEqual(ackley.domain[0], (-32.768, 32.768))
+        self.assertEqual(ackley.required_dimensionality, 2)
+        self.assertEqual(ackley.fmin, 0.0)
+        with self.assertRaisesRegex(NotImplementedError, "Ackley does not specify"):
+            ackley.maximums
+        with self.assertRaisesRegex(NotImplementedError, "Ackley does not specify"):
+            ackley.minimums
+        with self.assertRaisesRegex(NotImplementedError, "Ackley does not specify"):
+            ackley.fmax

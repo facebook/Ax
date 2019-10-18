@@ -5,8 +5,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, List, Optional, Tuple, Union
 
 import numpy as np
+import torch
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast, not_none
+from botorch.test_functions import synthetic as botorch_synthetic
 
 
 def informative_failure_on_none(func: Callable) -> Any:
@@ -14,8 +16,7 @@ def informative_failure_on_none(func: Callable) -> Any:
         res = func(*args, **kwargs)
         if res is None:
             raise NotImplementedError(
-                f"{args[0].__class__.__name__} does not specify property "
-                f'"{func.__name__}".'
+                f"{args[0].name} does not specify property " f'"{func.__name__}".'
             )
         return not_none(res)
 
@@ -61,9 +62,11 @@ class SyntheticFunction(ABC):
         for x in args:
             if isinstance(x, np.ndarray):
                 return self.f(X=x)
-            assert isinstance(
-                x, (int, float, np.int64, np.float64)
+            assert np.isscalar(
+                x
             ), f"Expected numerical arguments or numpy arrays, got {type(x)}."
+            if isinstance(x, int):
+                x = float(x)
         return checked_cast(float, self.f(np.array(args)))
 
     def f(self, X: np.ndarray) -> Union[float, np.ndarray]:
@@ -92,6 +95,7 @@ class SyntheticFunction(ABC):
                 f"Input violates required dimensionality of {self.name}: "
                 f"{self.required_dimensionality}."
             )
+        X = X.astype(np.float64)
         if len(X.shape) == 1:
             return self._f(X=X)
         else:
@@ -159,6 +163,24 @@ class SyntheticFunction(ABC):
             numpy.ndarray: an n-dimensional array.
         """
         ...  # pragma: no cover
+
+
+class FromBotorch(SyntheticFunction):
+    def __init__(
+        self, botorch_synthetic_function: botorch_synthetic.SyntheticTestFunction
+    ) -> None:
+        self._botorch_function = botorch_synthetic_function
+        self._required_dimensionality = self._botorch_function.dim
+        self._domain = self._botorch_function._bounds
+        self._fmin = self._botorch_function._optimal_value
+
+    @property
+    def name(self) -> str:
+        return f"{self._botorch_function.__class__.__name__}"
+
+    def _f(self, X: np.ndarray) -> float:
+        # TODO: support batch evaluation
+        return float(self._botorch_function(X=torch.from_numpy(X)).item())
 
 
 class Hartmann6(SyntheticFunction):
@@ -296,3 +318,4 @@ hartmann6 = Hartmann6()
 aug_hartmann6 = Aug_Hartmann6()
 branin = Branin()
 aug_branin = Aug_Branin()
+ackley = FromBotorch(botorch_synthetic_function=botorch_synthetic.Ackley())
