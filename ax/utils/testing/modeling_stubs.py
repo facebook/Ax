@@ -24,6 +24,12 @@ logger = get_logger("ae_experiment")
 # Observations
 
 
+def get_observation_features() -> ObservationFeatures:
+    return ObservationFeatures(
+        parameters={"x": 2.0, "y": 10.0}, trial_index=np.int64(0)
+    )
+
+
 def get_observation() -> Observation:
     return Observation(
         features=ObservationFeatures(

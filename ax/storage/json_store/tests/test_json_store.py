@@ -47,7 +47,11 @@ from ax.utils.testing.core_stubs import (
     get_synthetic_runner,
     get_trial,
 )
-from ax.utils.testing.modeling_stubs import get_generation_strategy, get_transform_type
+from ax.utils.testing.modeling_stubs import (
+    get_generation_strategy,
+    get_observation_features,
+    get_transform_type,
+)
 
 
 TEST_CASES = [
@@ -63,6 +67,7 @@ TEST_CASES = [
     ("GenerationStrategy", get_generation_strategy),
     ("GeneratorRun", get_generator_run),
     ("Metric", get_metric),
+    ("ObservationFeatures", get_observation_features),
     ("Objective", get_objective),
     ("OptimizationConfig", get_optimization_config),
     ("OrderConstraint", get_order_constraint),

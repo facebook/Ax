@@ -3,6 +3,7 @@
 
 from typing import Any, Dict, Type
 
+from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -293,4 +294,16 @@ def generation_strategy_to_dict(
         "generator_runs": generation_strategy._generator_runs,
         "had_initialized_model": generation_strategy.model is not None,
         "experiment": generation_strategy._experiment,
+    }
+
+
+def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str, Any]:
+    """Converts Ax observation features to a dictionary"""
+    return {
+        "__type": obs_features.__class__.__name__,
+        "parameters": obs_features.parameters,
+        "trial_index": obs_features.trial_index,
+        "start_time": obs_features.start_time,
+        "end_time": obs_features.end_time,
+        "random_split": obs_features.random_split,
     }
