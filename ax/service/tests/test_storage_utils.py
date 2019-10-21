@@ -19,7 +19,7 @@ class TestStorageUtils(TestCase):
 
     def setUp(self):
         self.exp = get_experiment()
-        init_test_engine_and_session_factory(force=True)
+        init_test_engine_and_session_factory(force_init=True)
         self.db_settings = DBSettings(url="sqlite://")
         save_experiment(self.exp, self.db_settings)
 
