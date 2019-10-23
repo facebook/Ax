@@ -137,7 +137,7 @@ class TestManagedLoop(TestCase):
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
 
-    @patch("ax.service.utils.dispatch.Models", FakeModels)
+    @patch("ax.modelbridge.dispatch_utils.Models", FakeModels)
     def test_branin_batch(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(

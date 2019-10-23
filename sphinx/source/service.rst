@@ -36,14 +36,6 @@ Best Point Identification
     :undoc-members:
     :show-inheritance:
 
-Dispatch
-~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.service.utils.dispatch
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 
 Instantiation
 ~~~~~~~~~~~~~~

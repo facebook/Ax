@@ -9,10 +9,10 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
-from ax.service.utils.dispatch import choose_generation_strategy
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import get_search_space, get_search_space_for_value

@@ -20,6 +20,7 @@ from ax.core.types import (
     TParameterization,
     TParamValue,
 )
+from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.plot.base import AxPlotConfig
@@ -27,7 +28,6 @@ from ax.plot.contour import plot_contour
 from ax.plot.exp_utils import exp_to_df
 from ax.plot.helper import _format_dict, _get_in_sample_arms
 from ax.plot.trace import optimization_trace_single_method
-from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import (
     data_from_evaluations,
     make_experiment,

@@ -102,6 +102,14 @@ Cross Validation
     :undoc-members:
     :show-inheritance:
 
+Dispatch Utilities
+~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.dispatch_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Transforms
 -------------
 

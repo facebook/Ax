@@ -9,12 +9,12 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationFunction
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.service.utils.best_point import (
     get_best_from_model_predictions,
     get_best_raw_objective_point,
 )
-from ax.service.utils.dispatch import choose_generation_strategy
 from ax.service.utils.instantiation import (
     TParameterRepresentation,
     constraint_from_str,

@@ -476,7 +476,7 @@ class TestAxClient(TestCase):
                 outcome_constraints=["some_metric <= 4.0%"],
             )
 
-    @patch("ax.service.utils.dispatch.Models", FakeModels)
+    @patch("ax.modelbridge.dispatch_utils.Models", FakeModels)
     def test_recommended_parallelism(self):
         ax_client = AxClient()
         with self.assertRaisesRegex(ValueError, "No generation strategy"):
