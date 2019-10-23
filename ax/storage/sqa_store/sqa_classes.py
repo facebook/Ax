@@ -170,6 +170,7 @@ class SQAGeneratorRun(Base):
     model_key: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     model_kwargs: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
     bridge_kwargs: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    gen_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
     generation_strategy_id: Optional[int] = Column(
         Integer, ForeignKey("generation_strategy.id")
     )

@@ -552,6 +552,7 @@ class Decoder:
             model_key=generator_run_sqa.model_key,
             model_kwargs=object_from_json(generator_run_sqa.model_kwargs),
             bridge_kwargs=object_from_json(generator_run_sqa.bridge_kwargs),
+            gen_metadata=object_from_json(generator_run_sqa.gen_metadata),
         )
         generator_run._time_created = generator_run_sqa.time_created
         generator_run._generator_run_type = self.get_enum_name(

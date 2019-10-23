@@ -2,7 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import enum
-from typing import DefaultDict, Dict, List, Optional, Tuple, Union
+from typing import Any, DefaultDict, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from botorch.acquisition import AcquisitionFunction
@@ -40,6 +40,8 @@ TEvaluationOutcome = Union[
 
 TConfig = Dict[str, Union[int, float, str, AcquisitionFunction]]
 TBucket = List[Dict[str, List[str]]]
+
+TGenMetadata = Dict[str, Any]
 
 
 class ComparisonOp(enum.Enum):

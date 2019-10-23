@@ -8,6 +8,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm
 from ax.core.data import Data
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -925,3 +926,10 @@ class SQAStoreTest(TestCase):
             generation_strategy._experiment.description,
             loaded_generation_strategy._experiment.description,
         )
+
+    def testGeneratorRunGenMetadata(self):
+        gen_metadata = {"hello": "world"}
+        gr = GeneratorRun(arms=[], gen_metadata=gen_metadata)
+        generator_run_sqa = self.encoder.generator_run_to_sqa(gr)
+        decoded_gr = self.decoder.generator_run_from_sqa(generator_run_sqa)
+        self.assertEqual(decoded_gr.gen_metadata, gen_metadata)

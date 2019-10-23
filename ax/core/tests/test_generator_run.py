@@ -138,3 +138,14 @@ class GeneratorRunTest(TestCase):
             generator_run.best_arm_predictions,
             (self.arms[0], ({"a": 1.0}, {"a": {"a": 2.0}})),
         )
+
+    def testGenMetadata(self):
+        gm = {"hello": "world"}
+        generator_run = GeneratorRun(
+            arms=self.arms,
+            weights=self.weights,
+            optimization_config=get_optimization_config(),
+            search_space=get_search_space(),
+            gen_metadata=gm,
+        )
+        self.assertEqual(generator_run.gen_metadata, gm)

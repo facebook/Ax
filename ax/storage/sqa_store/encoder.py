@@ -441,6 +441,7 @@ class Encoder:
             model_key=generator_run._model_key,
             model_kwargs=object_to_json(generator_run._model_kwargs),
             bridge_kwargs=object_to_json(generator_run._bridge_kwargs),
+            gen_metadata=object_to_json(generator_run._gen_metadata),
         )
 
     def generation_strategy_to_sqa(
