@@ -49,6 +49,16 @@ class RemoveFixedTransformTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
+        observation_features = [
+            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a"})
+        ]
+        observation_features_invalid = [
+            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "b"})
+        ]
+        # Fixed parameter out of design!
+        with self.assertRaises(ValueError):
+            self.t.transform_observation_features(observation_features_invalid)
+
     def testTransformSearchSpace(self):
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)

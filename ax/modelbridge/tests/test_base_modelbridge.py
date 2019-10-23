@@ -54,7 +54,8 @@ class BaseModelBridgeTest(TestCase):
         # Test that on init transforms are stored and applied in the correct order
         transforms = [transform_1, transform_2]
         exp = get_experiment_for_value()
-        modelbridge = ModelBridge(get_search_space_for_value(), 0, transforms, exp, 0)
+        ss = get_search_space_for_value()
+        modelbridge = ModelBridge(ss, 0, transforms, exp, 0)
         self.assertEqual(
             list(modelbridge.transforms.keys()), ["transform_1", "transform_2"]
         )
@@ -64,14 +65,47 @@ class BaseModelBridgeTest(TestCase):
         self.assertTrue(fit_args["observation_data"] == [])
         self.assertTrue(mock_observations_from_data.called)
 
+        # Test prediction on out of design features.
+        modelbridge._predict = mock.MagicMock(
+            "ax.modelbridge.base.ModelBridge._predict",
+            autospec=True,
+            side_effect=ValueError("Out of Design"),
+        )
+        # This point is in design, and thus failures in predict are legitimate.
+        with mock.patch.object(
+            ModelBridge, "model_space", return_value=get_search_space_for_range_values
+        ):
+            with self.assertRaises(ValueError):
+                modelbridge.predict([get_observation2().features])
+
+        # This point is out of design, and not in training data.
+        with self.assertRaises(ValueError):
+            modelbridge.predict([get_observation_status_quo0().features])
+
+        # Now it's in the training data.
+        with mock.patch.object(
+            ModelBridge,
+            "get_training_data",
+            return_value=[get_observation_status_quo0()],
+        ):
+            # Return raw training value.
+            self.assertEqual(
+                modelbridge.predict([get_observation_status_quo0().features]),
+                unwrap_observation_data([get_observation_status_quo0().data]),
+            )
+
         # Test that transforms are applied correctly on predict
         modelbridge._predict = mock.MagicMock(
             "ax.modelbridge.base.ModelBridge._predict",
             autospec=True,
             return_value=[get_observation2trans().data],
         )
-
         modelbridge.predict([get_observation2().features])
+        # Observation features sent to _predict are un-transformed afterwards
+        modelbridge._predict.assert_called_with([get_observation2().features])
+
+        # Check that _single_predict is equivalent here.
+        modelbridge._single_predict([get_observation2().features])
         # Observation features sent to _predict are un-transformed afterwards
         modelbridge._predict.assert_called_with([get_observation2().features])
 
@@ -164,14 +198,6 @@ class BaseModelBridgeTest(TestCase):
 
         with self.assertRaises(ValueError):
             modelbridge.training_in_design = [True, True, False]
-
-        ood_obs = modelbridge.out_of_design_data()
-        self.assertTrue(
-            ood_obs
-            == unwrap_observation_data(
-                [get_observation1().data, get_observation2().data]
-            )
-        )
 
         with self.assertRaises(ValueError):
             modelbridge.training_in_design = [True, True, False]
@@ -296,15 +322,6 @@ class BaseModelBridgeTest(TestCase):
                 0,
                 status_quo_name="1_1",
             )
-
-    @mock.patch(
-        "ax.modelbridge.base.observations_from_data", autospec=True, return_value=([])
-    )
-    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    def testNoOutOfDesign(self, mock_fit, mock_observations_from_data):
-        exp = get_experiment_for_value()
-        modelbridge = ModelBridge(get_search_space_for_value(), 0, [], exp, 0)
-        self.assertEqual(modelbridge.out_of_design_data(), None)
 
     def testUnwrapObservationData(self):
         observation_data = [get_observation1().data, get_observation2().data]

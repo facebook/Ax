@@ -391,23 +391,10 @@ class ModelBridge(ABC):
         """Apply terminal transform and fit model."""
         raise NotImplementedError  # pragma: no cover
 
-    def predict(self, observation_features: List[ObservationFeatures]) -> TModelPredict:
-        """Make model predictions (mean and covariance) for the given
-        observation features.
-
-        Predictions are made for all outcomes.
-
-        Args:
-            observation_features: observation features
-
-        Returns:
-            2-element tuple containing
-
-            - Dictionary from metric name to list of mean estimates, in same
-              order as observation_features.
-            - Nested dictionary with cov['metric1']['metric2'] a list of
-              cov(metric1@x, metric2@x) for x in observation_features.
-        """
+    def _batch_predict(
+        self, observation_features: List[ObservationFeatures]
+    ) -> List[ObservationData]:
+        """Predict a list of ObservationFeatures together."""
         # Get modifiable version
         observation_features = deepcopy(observation_features)
 
@@ -428,8 +415,70 @@ class ModelBridge(ABC):
             observation_data = t.untransform_observation_data(
                 observation_data, observation_features
             )
+        return observation_data
 
-        # Unwrap to expected format
+    def _single_predict(
+        self, observation_features: List[ObservationFeatures]
+    ) -> List[ObservationData]:
+        """Predict one ObservationFeature at a time."""
+        observation_data = []
+        for obsf in observation_features:
+            try:
+                obsd = self._batch_predict([obsf])
+                observation_data += obsd
+            except (TypeError, ValueError) as e:
+                # If the prediction is not out of design, this is a real error.
+                # Let's re-raise.
+                logger.info(obsf.parameters)
+                logger.info(self.model_space.check_membership(obsf.parameters))
+                logger.info(self.model_space)
+                if self.model_space.check_membership(obsf.parameters):
+                    raise e from None
+                # Prediction is out of design.
+                # Training data is untranformed already.
+                observation = next(
+                    (
+                        data
+                        for data in self.get_training_data()
+                        if obsf.parameters == data.features.parameters
+                    ),
+                    None,
+                )
+                if not observation:
+                    raise ValueError(
+                        "Out-of-design point could not be transformed, and was "
+                        "not found in the training data."
+                    )
+                observation_data.append(observation.data)
+        return observation_data
+
+    def predict(self, observation_features: List[ObservationFeatures]) -> TModelPredict:
+        """Make model predictions (mean and covariance) for the given
+        observation features.
+
+        Predictions are made for all outcomes.
+        If an out-of-design observation can successfully be transformed,
+        the predicted value will be returned.
+        Othwerise, we will attempt to find that observation in the training data
+        and return the raw value.
+
+        Args:
+            observation_features: observation features
+
+        Returns:
+            2-element tuple containing
+
+            - Dictionary from metric name to list of mean estimates, in same
+              order as observation_features.
+            - Nested dictionary with cov['metric1']['metric2'] a list of
+              cov(metric1@x, metric2@x) for x in observation_features.
+        """
+        # Predict in single batch.
+        try:
+            observation_data = self._batch_predict(observation_features)
+        # Predict one by one.
+        except (TypeError, ValueError):
+            observation_data = self._single_predict(observation_features)
         f, cov = unwrap_observation_data(observation_data)
         return f, cov
 
@@ -670,26 +719,6 @@ class ModelBridge(ABC):
         and reverse terminal transform on the results.
         """
         raise NotImplementedError  # pragma: no cover
-
-    def out_of_design_data(self) -> Optional[TModelPredict]:
-        """Get formatted data for out of design points.
-
-        When predictions are requested from a ModelBridge, points which
-        are out-of-design (not in the fitted search space) should not be included.
-        These points should use raw data.
-
-        Returns:
-            Observation data for OOD points, in the format for model prediction outputs.
-        """
-        observations = self.get_training_data()
-        obs_data = [obs.data for obs in observations]
-        ood_obs_data = []
-        for i, obs in enumerate(obs_data):
-            if not self.training_in_design[i]:
-                ood_obs_data.append(obs)
-        if not ood_obs_data:
-            return None
-        return unwrap_observation_data(ood_obs_data)
 
     def _set_kwargs_to_save(
         self,
