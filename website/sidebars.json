@@ -3,6 +3,6 @@
     "Introduction": ["why-ax"],
     "Getting Started": ["installation", "api", "glossary"],
     "Algorithms": ["bayesopt", "banditopt"],
-    "Components": ["core", "runner", "data", "models", "storage"]
+    "Components": ["core", "trial-evaluation", "data", "models", "storage"]
   }
 }
