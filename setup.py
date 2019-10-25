@@ -11,7 +11,7 @@ REQUIRES = [
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
-    "sklearn",
+    "scikit-learn",
     "plotly",
 ]
 
