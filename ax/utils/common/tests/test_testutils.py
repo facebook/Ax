@@ -61,7 +61,7 @@ class TestTestUtils(TestCase):
                 sys.stderr = new_stderr
                 with self.silence_stderr():
                     print("A message", file=sys.stderr)
-                    assert False
+                    raise AssertionError()
             finally:
                 sys.stderr = old_err
         self.assertTrue(new_stderr.getvalue().startswith("A message\n"))
