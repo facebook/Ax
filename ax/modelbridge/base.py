@@ -273,7 +273,6 @@ class ModelBridge(ABC):
         experiment: Optional[Experiment],
         status_quo_name: Optional[str],
         status_quo_features: Optional[ObservationFeatures],
-        # plot.help_rel (model, ) <- trial_index that we'll pass to the status_quo_index
     ) -> None:
         """Set model status quo.
 
@@ -318,8 +317,6 @@ class ModelBridge(ABC):
                 self._status_quo = sq_obs[0]
 
         elif status_quo_features is not None:
-            # TODO(T52873772): Check which field from the status_quo_features to
-            # compare with the training_data to select the status_quo.
             sq_obs = [
                 obs
                 for obs in self._training_data

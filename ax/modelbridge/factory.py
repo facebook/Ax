@@ -197,8 +197,8 @@ def get_MTGP(
         transform_configs = None
 
     # Choose the status quo features for the experiment from the selected trial.
-    # If trial_index is None, the status quo from the last experiment trial
-    # will be used as a status quo for the experiment.
+    # If trial_index is None, we will look for a status quo from the last
+    # experiment trial to use as a status quo for the experiment.
     if trial_index is None:
         trial_index = len(experiment.trials) - 1
     elif trial_index >= len(experiment.trials):
@@ -207,7 +207,7 @@ def get_MTGP(
     # pyre-fixme[16]: `ax.core.base_trial.BaseTrial` has no attribute `status_quo`.
     status_quo = experiment.trials[trial_index].status_quo
     if status_quo is None:
-        raise ValueError("status_quo is not defined for the selected trial.")
+        status_quo_features = None
     else:
         status_quo_features = ObservationFeatures(
             parameters=status_quo.parameters, trial_index=trial_index
