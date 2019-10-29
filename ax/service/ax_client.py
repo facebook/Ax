@@ -33,10 +33,6 @@ from ax.service.utils.instantiation import (
     make_experiment,
     raw_data_to_evaluation,
 )
-from ax.service.utils.storage import (
-    load_experiment_and_generation_strategy,
-    save_experiment_and_generation_strategy,
-)
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -58,6 +54,10 @@ logger = get_logger(__name__)
 
 try:  # We don't require SQLAlchemy by default.
     from ax.storage.sqa_store.structs import DBSettings
+    from ax.service.utils.storage import (
+        load_experiment_and_generation_strategy,
+        save_experiment_and_generation_strategy,
+    )
 except ModuleNotFoundError:  # pragma: no cover
     DBSettings = None
 
