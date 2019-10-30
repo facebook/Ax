@@ -35,7 +35,12 @@ from ax.core.types import (
     TParamValue,
     TTrialEvaluation,
 )
-from ax.utils.common.typeutils import not_none, numpy_type_to_python_type
+from ax.utils.common.typeutils import (
+    checked_cast,
+    checked_cast_to_tuple,
+    not_none,
+    numpy_type_to_python_type,
+)
 
 
 """Utilities for RESTful-like instantiation of Ax classes needed in AxClient."""
@@ -80,12 +85,10 @@ def _make_range_param(
     return RangeParameter(
         name=name,
         parameter_type=_to_parameter_type(bounds, parameter_type, name, "bounds"),
-        # pyre-fixme[6]: Expected `float` for 3rd param but got
-        #  `Optional[Union[bool, float, int, str]]`.
-        lower=bounds[0],
-        upper=bounds[1],
-        log_scale=representation.get("log_scale", False),
-        is_fidelity=representation.get("is_fidelity", False),
+        lower=checked_cast_to_tuple((float, int), bounds[0]),
+        upper=checked_cast_to_tuple((float, int), bounds[1]),
+        log_scale=checked_cast(bool, representation.get("log_scale", False)),
+        is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
     )
 
 
@@ -102,10 +105,7 @@ def _make_choice_param(
         name=name,
         parameter_type=_to_parameter_type(values, parameter_type, name, "values"),
         values=values,
-        # pyre-fixme[6]: Expected `bool` for 4th param but got
-        #  `Optional[Union[List[Optional[Union[bool, float, int, str]]], bool, float,
-        #  int, str]]`.
-        is_ordered=representation.get("is_ordered", False),
+        is_ordered=checked_cast(bool, representation.get("is_ordered", False)),
     )
 
 
