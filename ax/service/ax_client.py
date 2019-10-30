@@ -166,6 +166,7 @@ class AxClient:
         status_quo: Optional[TParameterization] = None,
         overwrite_existing_experiment: bool = False,
         experiment_type: Optional[str] = None,
+        choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -194,6 +195,9 @@ class AxClient:
                 instantiation and the experiment being created has the same name
                 as some experiment already stored, whether to overwrite the
                 existing experiment. Defaults to False.
+            choose_generation_strategy_kwargs: Keyword arguments to pass to
+                `choose_generation_strategy` function which determines what
+                generation strategy should be used when none was specified on init.
         """
         if self.db_settings and not name:
             raise ValueError(  # pragma: no cover
