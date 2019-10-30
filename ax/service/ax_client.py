@@ -363,7 +363,7 @@ class AxClient:
 
     @copy_doc(best_point_utils.get_best_parameters)
     def get_best_parameters(
-        self
+        self,
     ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
         return best_point_utils.get_best_parameters(self.experiment)
 

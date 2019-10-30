@@ -62,13 +62,13 @@ def sum_evaluation_function_v3_numpy(
 
 
 def sum_evaluation_function_v4(
-    parameterization: TParameterization
+    parameterization: TParameterization,
 ) -> TEvaluationOutcome:
     return _get_sum(parameterization)
 
 
 def sum_evaluation_function_v4_numpy(
-    parameterization: TParameterization
+    parameterization: TParameterization,
 ) -> TEvaluationOutcome:
     return np.float32(_get_sum(parameterization))
 

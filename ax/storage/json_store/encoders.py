@@ -137,7 +137,7 @@ def fixed_parameter_to_dict(parameter: FixedParameter) -> Dict[str, Any]:
 
 
 def order_parameter_constraint_to_dict(
-    parameter_constraint: OrderConstraint
+    parameter_constraint: OrderConstraint,
 ) -> Dict[str, Any]:
     """Convert Ax order parameter constraint to a dictionary."""
     return {
@@ -148,7 +148,7 @@ def order_parameter_constraint_to_dict(
 
 
 def sum_parameter_constraint_to_dict(
-    parameter_constraint: SumConstraint
+    parameter_constraint: SumConstraint,
 ) -> Dict[str, Any]:
     """Convert Ax sum parameter constraint to a dictionary."""
     return {
@@ -162,7 +162,7 @@ def sum_parameter_constraint_to_dict(
 
 
 def parameter_constraint_to_dict(
-    parameter_constraint: ParameterConstraint
+    parameter_constraint: ParameterConstraint,
 ) -> Dict[str, Any]:
     """Convert Ax sum parameter constraint to a dictionary."""
     return {
@@ -218,7 +218,7 @@ def outcome_constraint_to_dict(outcome_constraint: OutcomeConstraint) -> Dict[st
 
 
 def optimization_config_to_dict(
-    optimization_config: OptimizationConfig
+    optimization_config: OptimizationConfig,
 ) -> Dict[str, Any]:
     """Convert Ax optimization config to a dictionary."""
     return {
@@ -276,7 +276,7 @@ def transform_type_to_dict(transform_type: Type[Transform]) -> Dict[str, Any]:
 
 
 def generation_strategy_to_dict(
-    generation_strategy: GenerationStrategy
+    generation_strategy: GenerationStrategy,
 ) -> Dict[str, Any]:
     if generation_strategy.uses_non_registered_models:
         raise ValueError(
