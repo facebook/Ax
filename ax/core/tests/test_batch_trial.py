@@ -445,7 +445,5 @@ class BatchTrialTest(TestCase):
         self.assertEqual(batch_trial._status_quo_weight_override, np.sqrt(2))
 
     def testRepr(self):
-        repr_ = (
-            "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)"
-        )  # noqa
+        repr_ = "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)"  # noqa
         self.assertEqual(str(self.batch), repr_)

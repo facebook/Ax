@@ -127,7 +127,7 @@ class Arm(Base):
 
 
 def _numpy_types_to_python_types(
-    parameterization: TParameterization
+    parameterization: TParameterization,
 ) -> TParameterization:
     """If applicable, coerce values of the parameterization from Numpy int/float to
     Python int/float.

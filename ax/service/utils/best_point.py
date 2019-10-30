@@ -61,7 +61,7 @@ def get_best_raw_objective_point(
 
 
 def get_best_from_model_predictions(
-    experiment: Experiment
+    experiment: Experiment,
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, returns the best predicted parameterization and corresponding
     prediction based on the most recent Trial with predictions. If no trials have
@@ -99,7 +99,7 @@ def get_best_from_model_predictions(
 
 
 def get_best_parameters(
-    experiment: Experiment
+    experiment: Experiment,
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the best arm.
 
