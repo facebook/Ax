@@ -103,7 +103,7 @@ Cross Validation
     :show-inheritance:
 
 Dispatch Utilities
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.dispatch_utils
     :members:
