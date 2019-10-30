@@ -89,11 +89,8 @@ def get_best_from_model_predictions(
                 # In theory batch_trial can have >1 gr, grab the first
                 gr = trial.generator_run_structs[0].generator_run
 
-        if gr is not None and gr.best_arm_predictions is not None:
-            # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Arm,
-            #  Optional[Tuple[Dict[str, float], Optional[Dict[str, Dict[str,
-            #  float]]]]]]]` into 2 values.
-            best_arm, best_arm_predictions = gr.best_arm_predictions
+        if gr is not None and gr.best_arm_predictions is not None:  # pragma: no cover
+            best_arm, best_arm_predictions = not_none(gr.best_arm_predictions)
             return not_none(best_arm).parameters, best_arm_predictions
     return None
 

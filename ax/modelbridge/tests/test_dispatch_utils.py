@@ -40,3 +40,13 @@ class TestDispatchUtils(TestCase):
         )
         self.assertEqual(sobol_gpei._steps[0].num_arms, 5)
         self.assertFalse(sobol_gpei._steps[0].enforce_num_arms)
+
+    def test_winsorization(self):
+        winsorized = choose_generation_strategy(
+            search_space=get_branin_search_space(),
+            winsorize_botorch_model=True,
+            winsorization_limits=(None, 0, 2),
+        )
+        self.assertIn(
+            "Winsorize", winsorized._steps[1].model_kwargs.get("transform_configs")
+        )

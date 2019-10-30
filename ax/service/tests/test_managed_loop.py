@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from enum import Enum
 from unittest.mock import patch
 
-from ax.core.arm import Arm
-from ax.core.generator_run import GeneratorRun
 from ax.metrics.branin import branin
-from ax.modelbridge.factory import get_sobol
+from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.service.managed_loop import OptimizationLoop, optimize
 from ax.utils.common.testutils import TestCase
 
@@ -36,39 +33,17 @@ def _branin_evaluation_function_with_unknown_sem(parameterization, weight=None):
     return (branin(x1, x2), None)
 
 
-# Patch the Models enum to replace GPEI with Sobol.
-def get_experiment_data_sobol(experiment, data):
-    return get_sobol(experiment.search_space)
-
-
-class FakeModels(Enum):
-    SOBOL = get_sobol
-    GPEI = get_experiment_data_sobol
-
-
 class TestManagedLoop(TestCase):
     """Check functionality of optimization loop."""
 
-    @patch(
-        "ax.modelbridge.torch.TorchModelBridge.gen",
-        return_value=GeneratorRun(
-            arms=[Arm(parameters={"x1": -2.73, "x2": 1.33})],
-            best_arm_predictions=(
-                Arm(name="1_0", parameters={"x1": 4.34, "x2": 2.60}),
-                (
-                    {"branin": 7.76, "constrained_metric": -7.76},
-                    {
-                        "branin": {"branin": 0.1, "constrained_metric": 0.0},
-                        "constrained_metric": {
-                            "branin": 0.0,
-                            "constrained_metric": 0.1,
-                        },
-                    },
-                ),
-            ),
-        ),
-    )
-    def test_branin(self, _) -> None:
+    def setUp(self):
+        # To avoid tests timing out due to GP fit / gen times.
+        patch.dict(
+            f"{Models.__module__}.MODEL_KEY_TO_MODEL_SETUP",
+            {"GPEI": MODEL_KEY_TO_MODEL_SETUP["Sobol"]},
+        ).start()
+
+    def test_branin(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[
@@ -137,7 +112,6 @@ class TestManagedLoop(TestCase):
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
 
-    @patch("ax.modelbridge.dispatch_utils.Models", FakeModels)
     def test_branin_batch(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
@@ -190,6 +164,32 @@ class TestManagedLoop(TestCase):
         self.assertIn("objective", vals[0])
         self.assertIn("objective", vals[1])
         self.assertIn("objective", vals[1]["objective"])
+
+    @patch(
+        "ax.service.managed_loop.get_best_from_model_predictions",
+        autospec=True,
+        return_value=({"x1": 2.0, "x2": 3.0}, ({"a": 9.0}, {"a": {"a": 3.0}})),
+    )
+    def test_optimize_with_predictions(self, _) -> None:
+        """Tests optimization as a single call."""
+        best, vals, exp, model = optimize(
+            parameters=[  # pyre-fixme[6]
+                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
+            ],
+            # Booth function.
+            evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
+            + (2 * p["x1"] + p["x2"] - 5) ** 2,
+            minimize=True,
+            total_trials=6,
+            objective_name="a",
+        )
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
+        assert vals is not None
+        self.assertIn("a", vals[0])
+        self.assertIn("a", vals[1])
+        self.assertIn("a", vals[1]["a"])
 
     def test_optimize_unknown_sem(self) -> None:
         """Tests optimization as a single call."""

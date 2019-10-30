@@ -3,7 +3,6 @@
 
 import math
 import sys
-from enum import Enum
 from math import ceil
 from typing import List, Tuple
 from unittest.mock import patch
@@ -21,9 +20,8 @@ from ax.core.parameter import (
 )
 from ax.core.types import ComparisonOp
 from ax.metrics.branin import branin
-from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.service.ax_client import AxClient
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
@@ -36,11 +34,6 @@ from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
 
 
-class FakeModels(Enum):
-    SOBOL = get_sobol
-    GPEI = get_sobol
-
-
 def run_trials_using_recommended_parallelism(
     ax_client: AxClient,
     recommended_parallelism: List[Tuple[int, int]],
@@ -51,6 +44,7 @@ def run_trials_using_recommended_parallelism(
         if num_trials == -1:
             num_trials = remaining_trials
         for _ in range(ceil(num_trials / parallelism_setting)):
+            print(ax_client.generation_strategy.model)
             in_flight_trials = []
             if parallelism_setting > remaining_trials:
                 parallelism_setting = remaining_trials
@@ -60,7 +54,7 @@ def run_trials_using_recommended_parallelism(
                 remaining_trials -= 1
             for _ in range(parallelism_setting):
                 params, idx = in_flight_trials.pop()
-                ax_client.complete_trial(idx, branin(params["x1"], params["x2"]))
+                ax_client.complete_trial(idx, branin(params["x"], params["y"]))
     # If all went well and no errors were raised, remaining_trials should be 0.
     return remaining_trials
 
@@ -68,13 +62,20 @@ def run_trials_using_recommended_parallelism(
 class TestAxClient(TestCase):
     """Tests service-like API functionality."""
 
+    def setUp(self):
+        # To avoid tests timing out due to GP fit / gen times.
+        patch.dict(
+            f"{Models.__module__}.MODEL_KEY_TO_MODEL_SETUP",
+            {"GPEI": MODEL_KEY_TO_MODEL_SETUP["Sobol"]},
+        ).start()
+
     def test_interruption(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
             parameters=[  # pyre-fixme[6]: expected union that should include
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             objective_name="branin",
             minimize=True,
@@ -84,11 +85,11 @@ class TestAxClient(TestCase):
             self.assertFalse(  # There should be non-complete trials.
                 all(t.status.is_terminal for t in ax_client.experiment.trials.values())
             )
-            x1, x2 = parameterization.get("x1"), parameterization.get("x2")
+            x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(
                 trial_index,
                 raw_data=checked_cast(
-                    float, branin(checked_cast(float, x1), checked_cast(float, x2))
+                    float, branin(checked_cast(float, x), checked_cast(float, y))
                 ),
             )
             old_client = ax_client
@@ -100,54 +101,71 @@ class TestAxClient(TestCase):
                 all(t.status.is_terminal for t in ax_client.experiment.trials.values())
             )
 
-    def test_default_generation_strategy(self) -> None:
+    @patch(
+        "ax.modelbridge.base.observations_from_data",
+        autospec=True,
+        return_value=([get_observation1()]),
+    )
+    @patch(
+        "ax.modelbridge.random.RandomModelBridge.get_training_data",
+        autospec=True,
+        return_value=([get_observation1()]),
+    )
+    @patch(
+        "ax.modelbridge.random.RandomModelBridge._predict",
+        autospec=True,
+        return_value=[get_observation1trans().data],
+    )
+    def test_default_generation_strategy_continuous(self, _a, _b, _c) -> None:
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[  # pyre-fixme[6]: expected union that should include
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            objective_name="branin",
+            objective_name="a",
             minimize=True,
         )
         self.assertEqual(
             [s.model for s in not_none(ax_client.generation_strategy)._steps],
             [Models.SOBOL, Models.GPEI],
         )
-        with self.assertRaisesRegex(ValueError, ".* no trials."):
+        with self.assertRaisesRegex(ValueError, ".* no trials"):
             ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         for i in range(6):
             parameterization, trial_index = ax_client.get_next_trial()
-            x1, x2 = parameterization.get("x1"), parameterization.get("x2")
+            x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(
                 trial_index,
                 raw_data={
-                    "branin": (
+                    "a": (
                         checked_cast(
                             float,
-                            branin(checked_cast(float, x1), checked_cast(float, x2)),
+                            branin(checked_cast(float, x), checked_cast(float, y)),
                         ),
                         0.0,
                     )
                 },
                 sample_size=i,
             )
-            if i < 5:
-                with self.assertRaisesRegex(ValueError, "Could not obtain contour"):
-                    ax_client.get_contour_plot(param_x="x1", param_y="x2")
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
-        self.assertIn("x1", ax_client.get_trials_data_frame())
-        self.assertIn("x2", ax_client.get_trials_data_frame())
-        self.assertIn("branin", ax_client.get_trials_data_frame())
+        self.assertIn("x", ax_client.get_trials_data_frame())
+        self.assertIn("y", ax_client.get_trials_data_frame())
+        self.assertIn("a", ax_client.get_trials_data_frame())
         self.assertEqual(len(ax_client.get_trials_data_frame()), 6)
+
+    def test_default_generation_strategy_discrete(self) -> None:
+        """Test that Sobol is used if no GenerationStrategy is provided and
+        the search space is discrete.
+        """
         # Test that Sobol is chosen when all parameters are choice.
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[  # pyre-fixme[6]: expected union that should include
-                {"name": "x1", "type": "choice", "values": [1, 2, 3]},
-                {"name": "x2", "type": "choice", "values": [1, 2, 3]},
+                {"name": "x", "type": "choice", "values": [1, 2, 3]},
+                {"name": "y", "type": "choice", "values": [1, 2, 3]},
             ]
         )
         self.assertEqual(
@@ -168,14 +186,14 @@ class TestAxClient(TestCase):
             name="test_experiment",
             parameters=[
                 {
-                    "name": "x1",
+                    "name": "x",
                     "type": "range",
                     "bounds": [0.001, 0.1],
                     "value_type": "float",
                     "log_scale": True,
                 },
                 {
-                    "name": "x2",
+                    "name": "y",
                     "type": "choice",
                     "values": [1, 2, 3],
                     "value_type": "int",
@@ -209,9 +227,9 @@ class TestAxClient(TestCase):
         assert ax_client._experiment is not None
         self.assertEqual(ax_client._experiment, ax_client.experiment)
         self.assertEqual(
-            ax_client._experiment.search_space.parameters["x1"],
+            ax_client._experiment.search_space.parameters["x"],
             RangeParameter(
-                name="x1",
+                name="x",
                 parameter_type=ParameterType.FLOAT,
                 lower=0.001,
                 upper=0.1,
@@ -219,9 +237,9 @@ class TestAxClient(TestCase):
             ),
         )
         self.assertEqual(
-            ax_client._experiment.search_space.parameters["x2"],
+            ax_client._experiment.search_space.parameters["y"],
             ChoiceParameter(
-                name="x2",
+                name="y",
                 parameter_type=ParameterType.INT,
                 values=[1, 2, 3],
                 is_ordered=True,
@@ -284,15 +302,15 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
         for _ in range(6):
             parameterization, trial_index = ax_client.get_next_trial()
-            x1, x2 = parameterization.get("x1"), parameterization.get("x2")
-            ax_client.complete_trial(trial_index, raw_data=(branin(x1, x2), 0.0))
+            x, y = parameterization.get("x"), parameterization.get("y")
+            ax_client.complete_trial(trial_index, raw_data=(branin(x, y), 0.0))
         with self.assertRaisesRegex(ValueError, "Raw data has an invalid type"):
             ax_client.complete_trial(trial_index, raw_data="invalid_data")
 
@@ -300,19 +318,19 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 1.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
             ],
             minimize=True,
         )
         for _ in range(6):
             parameterization, trial_index = ax_client.get_next_trial()
-            x1, x2 = parameterization.get("x1"), parameterization.get("x2")
+            x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(
                 trial_index,
                 raw_data=[
-                    ({"x2": x2 / 2.0}, {"objective": (branin(x1, x2 / 2.0), 0.0)}),
-                    ({"x2": x2}, {"objective": (branin(x1, x2), 0.0)}),
+                    ({"y": y / 2.0}, {"objective": (branin(x, y / 2.0), 0.0)}),
+                    ({"y": y}, {"objective": (branin(x, y), 0.0)}),
                 ],
             )
 
@@ -321,8 +339,8 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
@@ -335,8 +353,8 @@ class TestAxClient(TestCase):
         ax_client = AxClient(enforce_sequential_optimization=False)
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
@@ -347,16 +365,16 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
         params, idx = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
         self.assertEqual(ax_client.get_best_parameters()[0], params)
-        params2, idx2 = ax_client.get_next_trial()
-        ax_client.complete_trial(trial_index=idx2, raw_data=(-1, 0.0))
+        params2, idy = ax_client.get_next_trial()
+        ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
         self.assertEqual(ax_client.get_best_parameters()[0], params2)
         params3, idx3 = ax_client.get_next_trial()
         ax_client.complete_trial(
@@ -375,8 +393,8 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
@@ -396,16 +414,16 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
         batch_trial = ax_client.experiment.new_batch_trial(
             generator_run=GeneratorRun(
                 arms=[
-                    Arm(parameters={"x1": 0, "x2": 1}),
-                    Arm(parameters={"x1": 0, "x2": 1}),
+                    Arm(parameters={"x": 0, "y": 1}),
+                    Arm(parameters={"x": 0, "y": 1}),
                 ]
             )
         )
@@ -416,8 +434,8 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
@@ -432,16 +450,16 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
-        params, idx = ax_client.attach_trial(parameters={"x1": 0, "x2": 1})
+        params, idx = ax_client.attach_trial(parameters={"x": 0, "y": 1})
         ax_client.complete_trial(trial_index=idx, raw_data=5)
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         self.assertEqual(
-            ax_client.get_trial_parameters(trial_index=idx), {"x1": 0, "x2": 1}
+            ax_client.get_trial_parameters(trial_index=idx), {"x": 0, "y": 1}
         )
         with self.assertRaises(ValueError):
             ax_client.get_trial_parameters(
@@ -452,12 +470,12 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
-        params, idx = ax_client.attach_trial(parameters={"x1": 0, "x2": 1})
+        params, idx = ax_client.attach_trial(parameters={"x": 0, "y": 1})
         ax_client.complete_trial(trial_index=idx, raw_data=np.int32(5))
         self.assertEqual(ax_client.get_best_parameters()[0], params)
 
@@ -468,23 +486,22 @@ class TestAxClient(TestCase):
             ax_client.create_experiment(
                 name="test_experiment",
                 parameters=[
-                    {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                    {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                    {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                    {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
                 ],
                 objective_name="test_objective",
                 minimize=True,
                 outcome_constraints=["some_metric <= 4.0%"],
             )
 
-    @patch("ax.modelbridge.dispatch_utils.Models", FakeModels)
     def test_recommended_parallelism(self):
         ax_client = AxClient()
         with self.assertRaisesRegex(ValueError, "No generation strategy"):
             ax_client.get_recommended_max_parallelism()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
@@ -500,8 +517,8 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
@@ -544,26 +561,26 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ]
         )
         ax_client.get_next_trial()
         with self.assertRaisesRegex(ValueError, "If `param_x` is provided"):
-            ax_client.get_contour_plot(param_x="x2")
+            ax_client.get_contour_plot(param_x="y")
         with self.assertRaisesRegex(ValueError, "If `param_x` is provided"):
-            ax_client.get_contour_plot(param_y="x2")
+            ax_client.get_contour_plot(param_y="y")
         with self.assertRaisesRegex(ValueError, 'Parameter "x3"'):
             ax_client.get_contour_plot(param_x="x3", param_y="x3")
         with self.assertRaisesRegex(ValueError, 'Parameter "x4"'):
-            ax_client.get_contour_plot(param_x="x1", param_y="x4")
+            ax_client.get_contour_plot(param_x="x", param_y="x4")
         with self.assertRaisesRegex(ValueError, 'Metric "nonexistent"'):
             ax_client.get_contour_plot(
-                param_x="x1", param_y="x2", metric_name="nonexistent"
+                param_x="x", param_y="y", metric_name="nonexistent"
             )
         with self.assertRaisesRegex(ValueError, "Could not obtain contour"):
             ax_client.get_contour_plot(
-                param_x="x1", param_y="x2", metric_name="objective"
+                param_x="x", param_y="y", metric_name="objective"
             )
 
     def test_sqa_storage(self):
@@ -576,8 +593,8 @@ class TestAxClient(TestCase):
         ax_client.create_experiment(
             name="test_experiment",
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
         )
@@ -595,15 +612,15 @@ class TestAxClient(TestCase):
             ax_client.create_experiment(
                 name="test_experiment",
                 parameters=[
-                    {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                    {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                    {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                    {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
                 ],
                 minimize=True,
             )
         # Overwriting existing experiment with overwrite flag.
         ax_client.create_experiment(
             name="test_experiment",
-            parameters=[{"name": "x1", "type": "range", "bounds": [-5.0, 10.0]}],
+            parameters=[{"name": "x", "type": "range", "bounds": [-5.0, 10.0]}],
             overwrite_existing_experiment=True,
         )
         # There should be no trials, as we just put in a fresh experiment.
@@ -613,26 +630,26 @@ class TestAxClient(TestCase):
         ax_client = AxClient(random_seed=239)
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ]
         )
         for _ in range(5):
             params, idx = ax_client.get_next_trial()
-            ax_client.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
+            ax_client.complete_trial(idx, branin(params.get("x"), params.get("y")))
         trial_parameters_1 = [
             t.arm.parameters for t in ax_client.experiment.trials.values()
         ]
         ax_client = AxClient(random_seed=239)
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ]
         )
         for _ in range(5):
             params, idx = ax_client.get_next_trial()
-            ax_client.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
+            ax_client.complete_trial(idx, branin(params.get("x"), params.get("y")))
         trial_parameters_2 = [
             t.arm.parameters for t in ax_client.experiment.trials.values()
         ]
@@ -642,8 +659,8 @@ class TestAxClient(TestCase):
         ax_client = AxClient(random_seed=239)
         ax_client.create_experiment(
             parameters=[
-                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             name="sobol_init_position_test",
         )
@@ -666,7 +683,7 @@ class TestAxClient(TestCase):
                     ],
                     idx + 1,
                 )
-            ax_client.complete_trial(idx, branin(params.get("x1"), params.get("x2")))
+            ax_client.complete_trial(idx, branin(params.get("x"), params.get("y")))
 
     @patch(
         "ax.modelbridge.base.observations_from_data",
