@@ -9,6 +9,7 @@
     <script type='text/javascript'>{{js_requires}}</script>
 </head>
 <body>
+  <div class="report_content">
   {% for cell in cells %}
   {% if cell.html %}
   <div class="cell_header">
@@ -19,5 +20,6 @@
   </div>
   {% endif %}
   {% endfor %}
+  </div>
 </body>
 </html>
