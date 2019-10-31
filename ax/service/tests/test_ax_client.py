@@ -116,7 +116,12 @@ class TestAxClient(TestCase):
         autospec=True,
         return_value=[get_observation1trans().data],
     )
-    def test_default_generation_strategy_continuous(self, _a, _b, _c) -> None:
+    @patch(
+        "ax.modelbridge.random.RandomModelBridge.feature_importances",
+        autospec=True,
+        return_value={"x": 0.9, "y": 1.1},
+    )
+    def test_default_generation_strategy_continuous(self, _a, _b, _c, _d) -> None:
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -149,8 +154,10 @@ class TestAxClient(TestCase):
                 },
                 sample_size=i,
             )
+        self.assertEqual(ax_client.generation_strategy.model._model_key, "GPEI")
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
+        ax_client.get_feature_importances()
         self.assertIn("x", ax_client.get_trials_data_frame())
         self.assertIn("y", ax_client.get_trials_data_frame())
         self.assertIn("a", ax_client.get_trials_data_frame())
@@ -555,6 +562,8 @@ class TestAxClient(TestCase):
         )
         with self.assertRaisesRegex(ValueError, ".* there are no trials"):
             ax_client.get_contour_plot()
+        with self.assertRaisesRegex(ValueError, ".* there are no trials"):
+            ax_client.get_feature_importances()
         ax_client.get_next_trial()
         with self.assertRaisesRegex(ValueError, ".* less than 2 parameters"):
             ax_client.get_contour_plot()
@@ -582,6 +591,8 @@ class TestAxClient(TestCase):
             ax_client.get_contour_plot(
                 param_x="x", param_y="y", metric_name="objective"
             )
+        with self.assertRaisesRegex(ValueError, "Could not obtain feature"):
+            ax_client.get_feature_importances()
 
     def test_sqa_storage(self):
         init_test_engine_and_session_factory(force_init=True)

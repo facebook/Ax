@@ -54,6 +54,10 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
             logger.warning(
                 f"Model for {metric_name} does not support feature importances."
             )
+    if not importances:
+        raise NotImplementedError(
+            "Feature importances could not be calculated for any metric"
+        )
     df = pd.DataFrame(importances)
 
     # plot_feature_importance expects index in first column
@@ -67,7 +71,7 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
 
 
 def plot_feature_importance_by_feature(
-    model: ModelBridge, relative=True
+    model: ModelBridge, relative: bool = True
 ) -> AxPlotConfig:
     """One plot per metric, showing importances by feature."""
     traces = []
@@ -107,6 +111,8 @@ def plot_feature_importance_by_feature(
         dropdown.append(
             {"args": ["visible", is_visible], "label": metric_name, "method": "restyle"}
         )
+    if not traces:
+        raise NotImplementedError("No traces found for metric")
 
     updatemenus = [
         {

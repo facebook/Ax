@@ -26,6 +26,7 @@ from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.exp_utils import exp_to_df
+from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict, _get_in_sample_arms
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.instantiation import (
@@ -523,6 +524,37 @@ class AxClient:
             f'Could not obtain contour plot of "{metric_name}" for parameters '
             f'"{param_x}" and "{param_y}", as a model with predictive ability, '
             "such as a Gaussian Process, has not yet been trained in the course "
+            "of this optimization."
+        )
+
+    def get_feature_importances(self, relative: bool = True) -> AxPlotConfig:
+        """
+        Get a bar chart showing feature_importances for a metric.
+
+        A drop-down controls the metric for which the importances are displayed.
+
+        Args:
+            relative: Whether the values are displayed as percentiles or
+                as raw importance metrics.
+        """
+        if not self.experiment.trials:
+            raise ValueError("Cannot generate plot as there are no trials.")
+        cur_model = self.generation_strategy.model
+        if cur_model is not None:
+            try:
+                return plot_feature_importance_by_feature(cur_model, relative=relative)
+            except NotImplementedError:
+                logger.info(
+                    f"Model {self.generation_strategy.model} does not implement "
+                    "`feature_importances`, so it cannot be used to generate "
+                    "this plot. Only certain models, specifically GPEI, implement "
+                    "feature importances."
+                )
+
+        raise ValueError(
+            "Could not obtain feature_importances for any metrics "
+            " as a model that can produce feature importances, such as a "
+            "Gaussian Process, has not yet been trained in the course "
             "of this optimization."
         )
 
