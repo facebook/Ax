@@ -19,7 +19,7 @@ class TestInstantiationtUtils(TestCase):
             _get_parameter_type(list)
 
     def test_constraint_from_str(self):
-        with self.assertRaisesRegex(ValueError, "Bound for sum constraint"):
+        with self.assertRaisesRegex(ValueError, "Bound for the constraint"):
             constraint_from_str(
                 "x1 + x2 <= not_numerical_bound", {"x1": None, "x2": None}
             )
@@ -39,10 +39,7 @@ class TestInstantiationtUtils(TestCase):
                 ),
             },
         )
-        self.assertEqual(
-            [p.name for p in three_val_constaint.parameters], ["x1", "x2", "x3"]
-        )
-        self.assertTrue(three_val_constaint._is_upper_bound)
+
         self.assertEqual(three_val_constaint.bound, 3.0)
         with self.assertRaisesRegex(ValueError, "Parameter constraint should"):
             constraint_from_str("x1 + x2 + <= 3", {"x1": None, "x2": None, "x3": None})
@@ -50,3 +47,22 @@ class TestInstantiationtUtils(TestCase):
             constraint_from_str(
                 "x1 + x2 + x3 = 3", {"x1": None, "x2": None, "x3": None}
             )
+        three_val_constaint = constraint_from_str(
+            "x1 - x2 - x3 >= 3",
+            {
+                "x1": RangeParameter(
+                    name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
+                ),
+                "x2": RangeParameter(
+                    name="x2", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
+                ),
+                "x3": RangeParameter(
+                    name="x3", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
+                ),
+            },
+        )
+
+        self.assertEqual(three_val_constaint.bound, -3.0)
+        self.assertEqual(
+            three_val_constaint.constraint_dict, {"x1": -1.0, "x2": 1.0, "x3": 1.0}
+        )

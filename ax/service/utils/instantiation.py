@@ -20,11 +20,7 @@ from ax.core.parameter import (
     RangeParameter,
     TParameterType,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import OrderConstraint, ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import DEFAULT_OBJECTIVE_NAME
 from ax.core.types import (
@@ -201,23 +197,32 @@ def constraint_from_str(
             )
         )
 
-    try:  # Case "x1 + x3 >= 2" => sum constraint.
+    try:  # Case "x1 -x2 + x3 >= 2" => parameter constraint.
         bound = float(tokens[-1])
     except ValueError:
-        raise ValueError(f"Bound for sum constraint must be a number; got {tokens[-1]}")
-    used_parameters = []
+        raise ValueError(f"Bound for the constraint must be a number; got {tokens[-1]}")
+    used_parameter_weight = {}
+    comparison_multiplier = (
+        1.0 if COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ else -1.0
+    )
+    current_weight = 1.0
     for idx, token in enumerate(tokens[:-2]):
         if idx % 2 == 0:
             assert (
                 token in parameter_names
             ), f"Parameter {token} not in {parameter_names}."
-            used_parameters.append(token)
+            used_parameter_weight[token] = current_weight
         else:
-            assert token == "+", f"Expected a sum constraint, found operator {token}."
-    return SumConstraint(
-        parameters=[parameters[p] for p in parameters if p in used_parameters],
-        is_upper_bound=COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ,
-        bound=bound,
+            assert (
+                token == "+" or token == "-"
+            ), f"Expected a mixed constraint, found operator {token}."
+            current_weight = 1.0 if token == "+" else -1.0
+    return ParameterConstraint(
+        constraint_dict={
+            p: comparison_multiplier * used_parameter_weight[p]
+            for p in used_parameter_weight
+        },
+        bound=comparison_multiplier * bound,
     )
 
 
@@ -251,8 +256,8 @@ def make_experiment(
     status_quo: Optional[TParameterization] = None,
     experiment_type: Optional[str] = None,
 ) -> Experiment:
-    """Instantiation wrapper that allows for creation of SimpleExperiment without
-    importing or instantiating any Ax classes."""
+    """Instantiation wrapper that allows for creation of SimpleExperiment
+    without importing or instantiating any Ax classes."""
 
     exp_parameters: List[Parameter] = [parameter_from_json(p) for p in parameters]
     status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
