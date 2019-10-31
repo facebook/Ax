@@ -65,17 +65,14 @@ def load_mnist(
         DataLoader: test data
     """
     # Specify transforms
-    # pyre-fixme[16]: Module `transforms` has no attribute `Compose`.
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
     # Load training set
-    # pyre-fixme[16]: Module `datasets` has no attribute `MNIST`.
     train_valid_set = torchvision.datasets.MNIST(
         root=data_path, train=True, download=True, transform=transform
     )
     # Load test set
-    # pyre-fixme[16]: Module `datasets` has no attribute `MNIST`.
     test_set = torchvision.datasets.MNIST(
         root=data_path, train=False, download=True, transform=transform
     )

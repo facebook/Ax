@@ -96,4 +96,6 @@ def _load_generation_strategy_by_experiment_name(
             "attached to it."
         )
     gs_sqa = experiment_sqa.generation_strategy
+    # pyre-fixme[6]: Expected `SQAGenerationStrategy` for 1st param but got
+    #  `Optional[SQAGenerationStrategy]`.
     return decoder.generation_strategy_from_sqa(gs_sqa=gs_sqa)

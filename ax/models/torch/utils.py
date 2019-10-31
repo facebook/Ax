@@ -11,12 +11,12 @@ from botorch.models.model import Model
 from torch import Tensor
 
 
-NOISELESS_MODELS = {SingleTaskGP}  # pyre-ignore [16]
+NOISELESS_MODELS = {SingleTaskGP}
 
 
 def is_noiseless(model: Model) -> bool:
     """Check if a given (single-task) botorch model is noiseless"""
-    if isinstance(model, ModelListGP):  # pyre-ignore: [16]
+    if isinstance(model, ModelListGP):
         raise ModelError(
             "Checking for noisless models only applies to sub-models of ModelListGP"
         )

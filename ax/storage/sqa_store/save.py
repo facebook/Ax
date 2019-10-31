@@ -100,7 +100,10 @@ def _save_generation_strategy(
         # Experiment was set on the generation strategy, so need to check whether
         # if has been saved and create a relationship b/w GS and experiment if so.
         experiment_id = _get_experiment_id(
-            experiment=generation_strategy._experiment, encoder=encoder
+            # pyre-fixme[6]: Expected `Experiment` for 1st param but got
+            #  `Optional[Experiment]`.
+            experiment=generation_strategy._experiment,
+            encoder=encoder,
         )
 
     gs_sqa = encoder.generation_strategy_to_sqa(
@@ -124,6 +127,7 @@ def _save_generation_strategy(
             # need to update that manually
             existing_gs_sqa.experiment_id = gs_sqa.experiment_id
 
+    # pyre-fixme[7]: Expected `int` but got `Optional[int]`.
     return generation_strategy._db_id
 
 

@@ -102,6 +102,7 @@ class TorchModelBridge(ArrayModelBridge):
         Xs: List[Tensor] = self._array_list_to_tensors(Xs)
         Ys: List[Tensor] = self._array_list_to_tensors(Ys)
         Yvars: List[Tensor] = self._array_list_to_tensors(Yvars)
+        # pyre-fixme[16]: `Optional` has no attribute `fit`.
         self.model.fit(
             Xs=Xs,
             Ys=Ys,

@@ -234,6 +234,7 @@ class AxClient:
         )
         if self._generation_strategy is None:
             self._generation_strategy = choose_generation_strategy(
+                # pyre-fixme[16]: `Optional` has no attribute `search_space`.
                 search_space=self._experiment.search_space,
                 enforce_sequential_optimization=self._enforce_sequential_optimization,
                 random_seed=self._random_seed,
@@ -580,6 +581,7 @@ class AxClient:
         logger.info(f"Loaded {experiment}.")
         if generation_strategy is None:  # pragma: no cover
             self._generation_strategy = choose_generation_strategy(
+                # pyre-fixme[16]: `Optional` has no attribute `search_space`.
                 search_space=self._experiment.search_space,
                 enforce_sequential_optimization=self._enforce_sequential_optimization,
                 random_seed=self._random_seed,

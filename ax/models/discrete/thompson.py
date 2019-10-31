@@ -57,7 +57,11 @@ class ThompsonSampler(DiscreteModel):
             Ys=Ys, Yvars=Yvars, outcome_names=outcome_names
         )
         self.X_to_Ys_and_Yvars = self._fit_X_to_Ys_and_Yvars(
-            X=self.X, Ys=self.Ys, Yvars=self.Yvars
+            # pyre-fixme[6]: Expected `List[List[Optional[Union[bool, float, int,
+            #  str]]]]` for 1st param but got `None`.
+            X=self.X,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
         )
 
     @copy_doc(DiscreteModel.gen)

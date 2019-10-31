@@ -142,6 +142,7 @@ class GenerationStrategy(Base):
         # Trim the "get_" beginning of the factory function if it's there.
         factory_names = (n[4:] if n[:4] == "get_" else n for n in factory_names)
         self._name = "+".join(factory_names)
+        # pyre-fixme[7]: Expected `str` but got `Optional[str]`.
         return self._name
 
     @property

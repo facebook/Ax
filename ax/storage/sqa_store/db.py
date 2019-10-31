@@ -332,6 +332,7 @@ def init_engine_and_session_factory(
 
     if SESSION_FACTORY is not None:
         if force_init:
+            # pyre-fixme[16]: `Optional` has no attribute `bind`.
             SESSION_FACTORY.bind.dispose()
         else:
             return  # pragma: no cover
@@ -372,6 +373,7 @@ def init_test_engine_and_session_factory(
 
     if SESSION_FACTORY is not None:
         if force_init:
+            # pyre-fixme[16]: `Optional` has no attribute `bind`.
             SESSION_FACTORY.bind.dispose()
         else:
             return
@@ -435,6 +437,7 @@ def get_engine() -> Engine:
     global SESSION_FACTORY
     if SESSION_FACTORY is None:
         raise ValueError("Engine must be initialized first.")  # pragma: no cover
+    # pyre-fixme[16]: `Optional` has no attribute `bind`.
     return SESSION_FACTORY.bind
 
 

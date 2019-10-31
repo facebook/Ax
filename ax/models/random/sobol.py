@@ -60,6 +60,7 @@ class SobolGenerator(RandomModel):
             self._engine = SobolEngine(
                 dimension=n_tunable_features, scramble=self.scramble, seed=self.seed
             ).fast_forward(self.init_position)
+        # pyre-fixme[7]: Expected `SobolEngine` but got `None`.
         return self._engine
 
     @property
