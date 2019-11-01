@@ -8,6 +8,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.discrete import DiscreteModelBridge
@@ -85,6 +86,29 @@ ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
     StratifiedStandardizeY,
     TaskEncode,
 ]
+
+
+def get_model_from_generator_run(
+    generator_run: GeneratorRun, experiment: Experiment, data: Data
+) -> ModelBridge:
+    """Reinstantiate a model from model key and kwargs stored on a given generator
+    run, with the given experiment and the data to initialize the model with.
+
+    Note: requires that the model that was used to get the generator run, is part
+    of the `Models` registry enum.
+    """
+    if not generator_run._model_key:  # pragma: no cover
+        raise ValueError(
+            "Cannot restore model from generator run as no model key was "
+            "on the generator run stored."
+        )
+    model = Models(generator_run._model_key)
+    return model(
+        experiment=experiment,
+        data=data,
+        **(generator_run._model_kwargs or {}),
+        **(generator_run._bridge_kwargs or {}),
+    )
 
 
 class ModelSetup(NamedTuple):

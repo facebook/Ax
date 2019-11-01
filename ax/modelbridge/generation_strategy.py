@@ -10,7 +10,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Models, get_model_from_generator_run
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -27,26 +27,6 @@ def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
     """Filter out kwargs that are not applicable for a given function.
     Return a copy of given kwargs dict with only the required kwargs."""
     return {k: v for k, v in kwargs.items() if k in signature(function).parameters}
-
-
-def get_model_from_generator_run(
-    generator_run: GeneratorRun, experiment: Experiment, data: Data
-) -> ModelBridge:
-    """Reinstantiate a model from model key and kwargs stored on a given generator
-    run, with the given experiment and the data to initialize the model with.
-    """
-    if not generator_run._model_key:  # pragma: no cover
-        raise ValueError(
-            "Cannot restore model from generator run as no model key was "
-            "on the generator run stored."
-        )
-    model = Models(generator_run._model_key)
-    return model(
-        experiment=experiment,
-        data=data,
-        **(generator_run._model_kwargs or {}),
-        **(generator_run._bridge_kwargs or {}),
-    )
 
 
 class GenerationStep(NamedTuple):

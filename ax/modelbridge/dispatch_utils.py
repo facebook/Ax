@@ -95,6 +95,7 @@ def choose_generation_strategy(
     random_seed: Optional[int] = None,
     winsorize_botorch_model: bool = False,
     winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
+    no_bayesian_optimization: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space.
@@ -113,10 +114,12 @@ def choose_generation_strategy(
         winsorization_limits: Bounds for winsorization, if winsorizing, expressed
             as percentile. Usually only the upper winsorization trim is used when
             minimizing, and only the lower when maximizing.
+        no_bayesian_optimization: If True, Bayesian optimization generation
+            strategy will not be suggested and quasi-random strategy will be used.
     """
     # If there are more discrete choices than continuous parameters, Sobol
     # will do better than GP+EI.
-    if _should_use_gp(search_space=search_space):
+    if not no_bayesian_optimization and _should_use_gp(search_space=search_space):
         # Ensure that number of arms per model is divisible by batch size.
         sobol_arms = max(5, len(search_space.parameters))
         if arms_per_trial != 1:  # pragma: no cover
