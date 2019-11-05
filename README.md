@@ -136,7 +136,7 @@ To support plotly-based plotting in newer Jupyer notebook versions
 pip install "notebook>=5.3" "ipywidgets==7.5"
 ```
 
-[See plotly repo's README](https://github.com/plotly/plotly.py#jupyter-notebook-support) for details and Jupyterlab instructions.
+[See Plotly repo's README](https://github.com/plotly/plotly.py#jupyter-notebook-support) for details and JupyterLab instructions.
 
 If storing Ax experiments via SQLAlchemy in MySQL or SQLite:
 ```
