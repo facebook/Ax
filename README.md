@@ -130,6 +130,14 @@ If using Ax in Jupyter notebooks:
 pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=Ax[notebook]
 ```
 
+To support plotly-based plotting in newer Jupyter notebook versions 
+
+```
+pip install "notebook>=5.3" "ipywidgets==7.5"
+```
+
+[See Plotly repo's README](https://github.com/plotly/plotly.py#jupyter-notebook-support) for details and JupyterLab instructions.
+
 If storing Ax experiments via SQLAlchemy in MySQL or SQLite:
 ```
 pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=Ax[mysql]
