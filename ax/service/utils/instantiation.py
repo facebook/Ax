@@ -178,8 +178,8 @@ def constraint_from_str(
         raise ValueError(
             "Parameter constraint should be of form <parameter_name> >= "
             "<other_parameter_name> for order constraints or `<parameter_name> "
-            "+ <other_parameter_name> >= x, where any number of parameters can be "
-            "summed up and `x` is a float bound. Acceptable comparison operators "
+            "+ <other_parameter_name> >= x, where any number of terms can be "
+            "added and `x` is a float bound. Acceptable comparison operators "
             'are ">=" and "<=".'
         )
 
@@ -196,31 +196,54 @@ def constraint_from_str(
                 lower_parameter=parameters[right], upper_parameter=parameters[left]
             )
         )
-
-    try:  # Case "x1 -x2 + x3 >= 2" => parameter constraint.
+    try:  # Case "x1 - 2*x2 + x3 >= 2" => parameter constraint.
         bound = float(tokens[-1])
     except ValueError:
         raise ValueError(f"Bound for the constraint must be a number; got {tokens[-1]}")
-    used_parameter_weight = {}
+    if any(token[0] == "*" or token[-1] == "*" for token in tokens):
+        raise ValueError(
+            "A linear constraint should be the form a*x + b*y - c*z <= d"
+            ", where a,b,c,d are float constants and x,y,z are parameters. "
+            "There should be no space in each term around the operator * while "
+            "there should be a single space around each operator +, -, <= and >=."
+        )
+    parameter_weight = {}
     comparison_multiplier = (
         1.0 if COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ else -1.0
     )
-    current_weight = 1.0
+    operator_sign = 1.0  # Determines whether the operator is + or -
     for idx, token in enumerate(tokens[:-2]):
         if idx % 2 == 0:
+            split_token = token.split("*")
+            parameter = ""  # Initializing the parameter
+            multiplier = 1.0  # Initializing the multiplier
+            if len(split_token) == 2:  # There is a non-unit multiplier
+                try:
+                    multiplier = float(split_token[0])
+                except ValueError:
+                    raise ValueError(
+                        f"Multiplier should be float; got {split_token[0]}"
+                    )
+                parameter = split_token[1]
+            elif len(split_token) == 1:  # The multiplier is either -1 or 1
+                parameter = split_token[0]
+                if parameter[0] == "-":  # The multiplier is -1
+                    parameter = parameter[1:]
+                    multiplier = -1.0
+                else:
+                    multiplier = 1.0
             assert (
-                token in parameter_names
-            ), f"Parameter {token} not in {parameter_names}."
-            used_parameter_weight[token] = current_weight
+                parameter in parameter_names
+            ), f"Parameter {parameter} not in {parameter_names}."
+            parameter_weight[parameter] = operator_sign * multiplier
         else:
             assert (
                 token == "+" or token == "-"
             ), f"Expected a mixed constraint, found operator {token}."
-            current_weight = 1.0 if token == "+" else -1.0
+            operator_sign = 1.0 if token == "+" else -1.0
     return ParameterConstraint(
         constraint_dict={
-            p: comparison_multiplier * used_parameter_weight[p]
-            for p in used_parameter_weight
+            p: comparison_multiplier * parameter_weight[p] for p in parameter_weight
         },
         bound=comparison_multiplier * bound,
     )

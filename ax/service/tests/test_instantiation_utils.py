@@ -47,8 +47,8 @@ class TestInstantiationtUtils(TestCase):
             constraint_from_str(
                 "x1 + x2 + x3 = 3", {"x1": None, "x2": None, "x3": None}
             )
-        three_val_constaint = constraint_from_str(
-            "x1 - x2 - x3 >= 3",
+        three_val_constaint2 = constraint_from_str(
+            "-x1 + 2.1*x2 - 4*x3 <= 3",
             {
                 "x1": RangeParameter(
                     name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
@@ -62,7 +62,23 @@ class TestInstantiationtUtils(TestCase):
             },
         )
 
-        self.assertEqual(three_val_constaint.bound, -3.0)
+        self.assertEqual(three_val_constaint2.bound, 3.0)
         self.assertEqual(
-            three_val_constaint.constraint_dict, {"x1": -1.0, "x2": 1.0, "x3": 1.0}
+            three_val_constaint2.constraint_dict, {"x1": -1.0, "x2": 2.1, "x3": -4.0}
         )
+        with self.assertRaisesRegex(ValueError, "Multiplier should be float"):
+            constraint_from_str(
+                "x1 - e*x2 + x3 <= 3", {"x1": None, "x2": None, "x3": None}
+            )
+        with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
+            constraint_from_str(
+                "x1 - 2 *x2 + 3 *x3 <= 3", {"x1": None, "x2": None, "x3": None}
+            )
+        with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
+            constraint_from_str(
+                "x1 - 2* x2 + 3* x3 <= 3", {"x1": None, "x2": None, "x3": None}
+            )
+        with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
+            constraint_from_str(
+                "x1 - 2 * x2 + 3*x3 <= 3", {"x1": None, "x2": None, "x3": None}
+            )
