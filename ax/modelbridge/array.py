@@ -9,7 +9,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.core.types import TBounds, TConfig
+from ax.core.types import TBounds, TConfig, TGenMetadata
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,
@@ -153,7 +153,12 @@ class ArrayModelBridge(ModelBridge):
         fixed_features: ObservationFeatures,
         model_gen_options: Optional[TConfig] = None,
         optimization_config: Optional[OptimizationConfig] = None,
-    ) -> Tuple[List[ObservationFeatures], List[float], Optional[ObservationFeatures]]:
+    ) -> Tuple[
+        List[ObservationFeatures],
+        List[float],
+        Optional[ObservationFeatures],
+        TGenMetadata,
+    ]:
         """Generate new candidates according to search_space and
         optimization_config.
 
@@ -187,7 +192,7 @@ class ArrayModelBridge(ModelBridge):
             pending_observations, self.outcomes, self.parameters
         )
         # Generate the candidates
-        X, w = self._model_gen(
+        X, w, gen_metadata = self._model_gen(
             n=n,
             bounds=bounds,
             objective_weights=objective_weights,
@@ -215,7 +220,7 @@ class ArrayModelBridge(ModelBridge):
                 parameters={p: float(xbest[i]) for i, p in enumerate(self.parameters)}
             )
         )
-        return observation_features, w.tolist(), best_obsf
+        return observation_features, w.tolist(), best_obsf, gen_metadata
 
     def _model_gen(
         self,
@@ -228,7 +233,7 @@ class ArrayModelBridge(ModelBridge):
         pending_observations: Optional[List[np.ndarray]],
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
-    ) -> Tuple[np.ndarray, np.ndarray]:  # pragma: no cover
+    ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata]:  # pragma: no cover
         return self.model.gen(
             n=n,
             bounds=bounds,

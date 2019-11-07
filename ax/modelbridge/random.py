@@ -8,7 +8,7 @@ from ax.core.experiment import Experiment
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
+from ax.core.types import TConfig, TGenMetadata
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,
@@ -64,7 +64,12 @@ class RandomModelBridge(ModelBridge):
         fixed_features: ObservationFeatures,
         optimization_config: Optional[OptimizationConfig],
         model_gen_options: Optional[TConfig],
-    ) -> Tuple[List[ObservationFeatures], List[float], Optional[ObservationFeatures]]:
+    ) -> Tuple[
+        List[ObservationFeatures],
+        List[float],
+        Optional[ObservationFeatures],
+        TGenMetadata,
+    ]:
         """Generate new candidates according to a search_space."""
         # Extract parameter values
         bounds, _, _ = get_bounds_and_task(search_space, self.parameters)
@@ -85,7 +90,7 @@ class RandomModelBridge(ModelBridge):
         )
 
         observation_features = parse_observation_features(X, self.parameters)
-        return observation_features, w.tolist(), None
+        return observation_features, w.tolist(), None, {}
 
     def _predict(
         self, observation_features: List[ObservationFeatures]

@@ -149,6 +149,7 @@ class NumpyModelBridgeTest(TestCase):
         return_value=(
             np.array([[1.0, 2.0, 3.0], [3.0, 4.0, 3.0]]),
             np.array([1.0, 2.0]),
+            {},
         ),
     )
     @mock.patch(
@@ -169,7 +170,7 @@ class NumpyModelBridgeTest(TestCase):
         ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
         ma.transforms = OrderedDict()
-        observation_features, weights, best_obsf = ma._gen(
+        observation_features, weights, best_obsf, _ = ma._gen(
             n=3,
             search_space=self.search_space,
             optimization_config=optimization_config,
@@ -222,7 +223,7 @@ class NumpyModelBridgeTest(TestCase):
                 metrics=[Metric(name="a"), Metric(name="b")], minimize=True
             )
         )
-        observation_features, weights, best_obsf = ma._gen(
+        observation_features, weights, best_obsf, _ = ma._gen(
             n=3,
             search_space=self.search_space,
             optimization_config=oc2,

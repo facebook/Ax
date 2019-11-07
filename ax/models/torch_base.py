@@ -4,7 +4,7 @@
 from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
-from ax.core.types import TConfig
+from ax.core.types import TConfig, TGenMetadata
 from ax.models.base import Model
 from torch import Tensor
 
@@ -74,7 +74,7 @@ class TorchModel(Model):
         pending_observations: Optional[List[Tensor]] = None,
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, TGenMetadata]:
         """
         Generate new candidates.
 
@@ -97,10 +97,12 @@ class TorchModel(Model):
                 model-specific options.
 
         Returns:
-            2-element tuple containing
+            3-element tuple containing
 
             - (n x d) tensor of generated points.
             - n-tensor of weights for each point.
+            - Dictionary of model-specific metadata for the given
+                generation candidates
         """
         raise NotImplementedError
 

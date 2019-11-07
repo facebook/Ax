@@ -7,7 +7,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TParamValueList
+from ax.core.types import TConfig, TGenMetadata, TParamValueList
 from ax.modelbridge.array import (
     array_to_observation_data,
     extract_objective_weights,
@@ -87,7 +87,12 @@ class DiscreteModelBridge(ModelBridge):
         fixed_features: ObservationFeatures,
         model_gen_options: Optional[TConfig] = None,
         optimization_config: Optional[OptimizationConfig] = None,
-    ) -> Tuple[List[ObservationFeatures], List[float], Optional[ObservationFeatures]]:
+    ) -> Tuple[
+        List[ObservationFeatures],
+        List[float],
+        Optional[ObservationFeatures],
+        TGenMetadata,
+    ]:
         """Generate new candidates according to search_space and
         optimization_config.
 
@@ -132,7 +137,7 @@ class DiscreteModelBridge(ModelBridge):
                 ]
 
         # Generate the candidates
-        X, w = self.model.gen(
+        X, w, gen_metadata = self.model.gen(
             n=n,
             parameter_values=parameter_values,
             objective_weights=objective_weights,
@@ -150,7 +155,7 @@ class DiscreteModelBridge(ModelBridge):
             )
         # TODO[drfreund, bletham]: implement best_point identification and
         # return best_point instead of None
-        return observation_features, w, None
+        return observation_features, w, None, gen_metadata
 
     def _cross_validate(
         self,

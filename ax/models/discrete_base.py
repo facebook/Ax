@@ -4,7 +4,7 @@
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types import TConfig, TParamValue, TParamValueList
+from ax.core.types import TConfig, TGenMetadata, TParamValue, TParamValueList
 from ax.models.base import Model
 
 
@@ -61,7 +61,7 @@ class DiscreteModel(Model):
         fixed_features: Optional[Dict[int, TParamValue]] = None,
         pending_observations: Optional[List[List[TParamValueList]]] = None,
         model_gen_options: Optional[TConfig] = None,
-    ) -> Tuple[List[TParamValueList], List[float]]:
+    ) -> Tuple[List[TParamValueList], List[float], TGenMetadata]:
         """
         Generate new candidates.
 

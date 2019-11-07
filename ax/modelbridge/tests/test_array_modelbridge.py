@@ -124,7 +124,7 @@ class ArrayModelBridgeTest(TestCase):
     )
     @patch(
         f"{NumpyModel.__module__}.NumpyModel.gen",
-        return_value=(np.array([[1, 2]]), np.array([1])),
+        return_value=(np.array([[1, 2]]), np.array([1]), {}),
         autospec=True,
     )
     def test_best_point(

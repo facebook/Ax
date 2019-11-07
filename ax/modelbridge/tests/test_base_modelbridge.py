@@ -113,7 +113,7 @@ class BaseModelBridgeTest(TestCase):
         modelbridge._gen = mock.MagicMock(
             "ax.modelbridge.base.ModelBridge._gen",
             autospec=True,
-            return_value=([get_observation1trans().features], [2], None),
+            return_value=([get_observation1trans().features], [2], None, {}),
         )
         oc = OptimizationConfig(objective=Objective(metric=Metric(name="test_metric")))
         modelbridge._set_kwargs_to_save(
@@ -360,7 +360,7 @@ class BaseModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.base.ModelBridge._gen",
         autospec=True,
-        return_value=([get_observation1trans().features], [2], None),
+        return_value=([get_observation1trans().features], [2], None, {}),
     )
     @mock.patch(
         "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
@@ -388,9 +388,9 @@ class BaseModelBridgeTest(TestCase):
         "ax.modelbridge.base.ModelBridge._gen",
         autospec=True,
         side_effect=[
-            ([get_observation1trans().features], [2], None),
-            ([get_observation2trans().features], [2], None),
-            ([get_observation2().features], [2], None),
+            ([get_observation1trans().features], [2], None, {}),
+            ([get_observation2trans().features], [2], None, {}),
+            ([get_observation2().features], [2], None, {}),
         ],
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._update", autospec=True)

@@ -11,7 +11,7 @@ class FullFactorialGeneratorTest(TestCase):
     def testFullFactorial(self):
         generator = FullFactorialGenerator()
         parameter_values = [[1, 2], ["foo", "bar"]]
-        generated_points, weights = generator.gen(
+        generated_points, weights, _ = generator.gen(
             n=-1, parameter_values=parameter_values, objective_weights=np.ones(1)
         )
         expected_points = [[1, "foo"], [1, "bar"], [2, "foo"], [2, "bar"]]
@@ -23,7 +23,7 @@ class FullFactorialGeneratorTest(TestCase):
         generator = FullFactorialGenerator(max_cardinality=5, check_cardinality=True)
         parameter_values = [[1, 2], ["foo", "bar"], [True, False]]
         with self.assertRaises(ValueError):
-            generated_points, weights = generator.gen(
+            generated_points, weights, _ = generator.gen(
                 n=-1, parameter_values=parameter_values, objective_weights=np.ones(1)
             )
 
@@ -31,14 +31,14 @@ class FullFactorialGeneratorTest(TestCase):
         generator = FullFactorialGenerator()
         parameter_values = [[1, 2], ["foo", "bar"]]
         with self.assertRaises(ValueError):
-            generated_points, weights = generator.gen(
+            generated_points, weights, _ = generator.gen(
                 n=5, parameter_values=parameter_values, objective_weights=np.ones(1)
             )
 
     def testFullFactorialFixedFeatures(self):
         generator = FullFactorialGenerator(max_cardinality=5, check_cardinality=True)
         parameter_values = [[1, 2], ["foo", "bar"]]
-        generated_points, weights = generator.gen(
+        generated_points, weights, _ = generator.gen(
             n=-1,
             parameter_values=parameter_values,
             objective_weights=np.ones(1),

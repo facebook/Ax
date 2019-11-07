@@ -18,7 +18,7 @@ from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
-from botorch.optim.optimize import joint_optimize, sequential_optimize
+from botorch.optim.optimize import optimize_acqf
 from botorch.utils import (
     get_objective_weights_transform,
     get_outcome_constraint_transforms,
@@ -208,7 +208,7 @@ def scipy_optimizer(
     fixed_features: Optional[Dict[int, float]] = None,
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
     **kwargs: Any,
-) -> Tensor:
+) -> Tuple[Tensor, Tensor]:
     r"""Optimizer using scipy's minimize module on a numpy-adpator.
 
     Args:
@@ -239,29 +239,13 @@ def scipy_optimizer(
     raw_samples: int = kwargs.get("num_raw_samples", 50 * num_restarts)
 
     if kwargs.get("joint_optimization", False):
-        optimize = joint_optimize
+        sequential = False
     else:
-        optimize = sequential_optimize
+        sequential = True
         # use SLSQP by default for small problems since it yields faster wall times
         if "method" not in kwargs:
             kwargs["method"] = "SLSQP"
-
-    # pyre-fixme[29]: `Union[(acq_function: AcquisitionFunction, bounds: Tensor, q:
-    #  int, num_restarts: int, raw_samples: int, options: Optional[Dict[str,
-    #  Union[bool, float, int]]] = ..., inequality_constraints:
-    #  Optional[List[Tuple[Tensor, Tensor, float]]] = ..., equality_constraints:
-    #  Optional[List[Tuple[Tensor, Tensor, float]]] = ..., fixed_features:
-    #  Optional[Dict[int, float]] = ..., post_processing_func: Optional[(Tensor) ->
-    #  Tensor] = ..., batch_initial_conditions: Optional[Tensor] = ...,
-    #  return_best_only: bool = ...) -> Tuple[Tensor, Tensor], (acq_function:
-    #  AcquisitionFunction, bounds: Tensor, q: int, num_restarts: int, raw_samples:
-    #  int, options: Optional[Dict[str, Union[bool, float, int]]] = ...,
-    #  inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = ...,
-    #  equality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = ...,
-    #  fixed_features: Optional[Dict[int, float]] = ..., post_processing_func:
-    #  Optional[(Tensor) -> Tensor] = ...) -> Tuple[Tensor, Tensor]]` is not a
-    #  function.
-    X = optimize(
+    X, expected_acquistion_value = optimize_acqf(
         acq_function=acq_function,
         bounds=bounds,
         q=n,
@@ -270,12 +254,9 @@ def scipy_optimizer(
         options=kwargs,
         inequality_constraints=inequality_constraints,
         fixed_features=fixed_features,
-        post_processing_func=rounding_func,
+        sequential=sequential,
     )
-    # TODO: Un-hack this once botorch #234 is part of a stable release
-    if isinstance(X, tuple):
-        X, _ = X  # pragma: no cover
-    return X
+    return X, expected_acquistion_value
 
 
 def _get_model(

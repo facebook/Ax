@@ -49,7 +49,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
-        arms, weights = generator.gen(
+        arms, weights, _ = generator.gen(
             n=5,
             parameter_values=self.parameter_values,
             objective_weights=np.array([1, 0]),
@@ -67,7 +67,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
-        arms, weights = generator.gen(
+        arms, weights, _ = generator.gen(
             n=5,
             parameter_values=self.parameter_values,
             objective_weights=np.array([1, 0]),

@@ -8,7 +8,7 @@ from operator import mul
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types import TConfig, TParamValue, TParamValueList
+from ax.core.types import TConfig, TGenMetadata, TParamValue, TParamValueList
 from ax.models.discrete_base import DiscreteModel
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
@@ -52,7 +52,7 @@ class FullFactorialGenerator(DiscreteModel):
         fixed_features: Optional[Dict[int, TParamValue]] = None,
         pending_observations: Optional[List[List[TParamValueList]]] = None,
         model_gen_options: Optional[TConfig] = None,
-    ) -> Tuple[List[TParamValueList], List[float]]:
+    ) -> Tuple[List[TParamValueList], List[float], TGenMetadata]:
         if n != -1:
             raise ValueError(
                 "FullFactorialGenerator will ignore the specified value of n. "
@@ -73,4 +73,4 @@ class FullFactorialGenerator(DiscreteModel):
             )
 
         points = [list(x) for x in itertools.product(*parameter_values)]
-        return (points, [1.0 for _ in range(len(points))])
+        return (points, [1.0 for _ in range(len(points))], {})

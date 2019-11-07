@@ -97,8 +97,12 @@ class TorchModelBridgeTest(TestCase):
         self.assertTrue(np.array_equal(f, np.array([3.0])))
         self.assertTrue(np.array_equal(var, np.array([4.0])))
         # Gen
-        model.gen.return_value = (torch.tensor([1.0, 2.0, 3.0]), torch.tensor([1.0]))
-        X, w = ma._model_gen(
+        model.gen.return_value = (
+            torch.tensor([1.0, 2.0, 3.0]),
+            torch.tensor([1.0]),
+            {},
+        )
+        X, w, _ = ma._model_gen(
             n=3,
             bounds=[(0, 1)],
             objective_weights=np.array([1.0, 0.0]),

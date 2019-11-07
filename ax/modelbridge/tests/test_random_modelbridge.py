@@ -68,7 +68,7 @@ class RandomModelBridgeTest(TestCase):
         modelbridge.parameters = ["x", "y", "z"]
         modelbridge.transforms = OrderedDict()
         modelbridge.model = RandomModel()
-        observation_features, weights, best_obsf = modelbridge._gen(
+        observation_features, weights, best_obsf, _ = modelbridge._gen(
             n=3,
             search_space=self.search_space,
             pending_observations={},

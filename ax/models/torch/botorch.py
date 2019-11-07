@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import torch
-from ax.core.types import TConfig
+from ax.core.types import TConfig, TGenMetadata
 from ax.models.model_utils import best_observed_point
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
@@ -56,7 +56,7 @@ TOptimizer = Callable[
         Optional[Callable[[Tensor], Tensor]],
         Any,
     ],
-    Tensor,
+    Tuple[Tensor, Tensor],
 ]
 
 
@@ -249,7 +249,7 @@ class BotorchModel(TorchModel):
         pending_observations: Optional[List[Tensor]] = None,
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, TGenMetadata]:
         """Generate new candidates.
 
         An initialized acquisition function can be passed in as
@@ -317,8 +317,8 @@ class BotorchModel(TorchModel):
             inequality_constraints = None
 
         botorch_rounding_func = get_rounding_func(rounding_func)
-
-        candidates = self.acqf_optimizer(  # pyre-ignore: [28]
+        # pyre-ignore: [28]
+        candidates, expected_acquistion_value = self.acqf_optimizer(
             acq_function=checked_cast(AcquisitionFunction, acquisition_function),
             bounds=bounds_,
             n=n,
@@ -327,7 +327,15 @@ class BotorchModel(TorchModel):
             rounding_func=botorch_rounding_func,
             **optimizer_options,
         )
-        return candidates.detach().cpu(), torch.ones(n, dtype=self.dtype)
+        return (
+            candidates.detach().cpu(),
+            torch.ones(n, dtype=self.dtype),
+            {
+                "expected_acquistion_value": expected_acquistion_value.cpu()
+                .numpy()
+                .tolist()
+            },
+        )
 
     @copy_doc(TorchModel.best_point)
     def best_point(

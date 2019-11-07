@@ -137,11 +137,11 @@ class DiscreteModelBridgeTest(TestCase):
         )
         ma = DiscreteModelBridge()
         model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
-        model.gen.return_value = ([[0.0, 2.0, 3.0], [1.0, 1.0, 3.0]], [1.0, 2.0])
+        model.gen.return_value = ([[0.0, 2.0, 3.0], [1.0, 1.0, 3.0]], [1.0, 2.0], {})
         ma.model = model
         ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
-        observation_features, weights, best_observation = ma._gen(
+        observation_features, weights, best_observation, _ = ma._gen(
             n=3,
             search_space=self.search_space,
             optimization_config=optimization_config,

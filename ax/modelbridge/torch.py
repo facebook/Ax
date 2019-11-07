@@ -10,7 +10,7 @@ from ax.core.experiment import Experiment
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
+from ax.core.types import TConfig, TGenMetadata
 from ax.modelbridge.array import FIT_MODEL_ERROR, ArrayModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchModel
@@ -184,7 +184,7 @@ class TorchModelBridge(ArrayModelBridge):
         pending_observations: Optional[List[np.ndarray]],
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
         obj_w, oc_c, l_c, pend_obs = self._validate_and_convert_to_tensors(
@@ -195,7 +195,7 @@ class TorchModelBridge(ArrayModelBridge):
         )
         tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
         # pyre-fixme[16]: `Optional` has no attribute `gen`.
-        X, w = self.model.gen(
+        X, w, gen_metadata = self.model.gen(
             n=n,
             bounds=bounds,
             objective_weights=obj_w,
@@ -206,7 +206,11 @@ class TorchModelBridge(ArrayModelBridge):
             model_gen_options=model_gen_options,
             rounding_func=tensor_rounding_func,
         )
-        return X.detach().cpu().clone().numpy(), w.detach().cpu().clone().numpy()
+        return (
+            X.detach().cpu().clone().numpy(),
+            w.detach().cpu().clone().numpy(),
+            gen_metadata,
+        )
 
     def _model_best_point(
         self,

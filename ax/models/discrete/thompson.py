@@ -6,7 +6,7 @@ import json
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types import TConfig, TParamValue, TParamValueList
+from ax.core.types import TConfig, TGenMetadata, TParamValue, TParamValueList
 from ax.models.discrete_base import DiscreteModel
 from ax.utils.common.docutils import copy_doc
 
@@ -74,7 +74,7 @@ class ThompsonSampler(DiscreteModel):
         fixed_features: Optional[Dict[int, TParamValue]] = None,
         pending_observations: Optional[List[List[TParamValueList]]] = None,
         model_gen_options: Optional[TConfig] = None,
-    ) -> Tuple[List[TParamValueList], List[float]]:
+    ) -> Tuple[List[TParamValueList], List[float], TGenMetadata]:
         if objective_weights is None:
             raise ValueError("ThompsonSampler requires objective weights.")
 
@@ -113,7 +113,7 @@ class ThompsonSampler(DiscreteModel):
         if self.uniform_weights:
             top_weights = [1 / len(top_arms) for _ in top_arms]
 
-        return top_arms, [x / sum(top_weights) for x in top_weights]
+        return top_arms, [x / sum(top_weights) for x in top_weights], {}
 
     @copy_doc(DiscreteModel.predict)
     def predict(self, X: List[TParamValueList]) -> Tuple[np.ndarray, np.ndarray]:

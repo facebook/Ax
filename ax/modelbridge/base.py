@@ -20,7 +20,7 @@ from ax.core.observation import (
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TModelCov, TModelMean, TModelPredict
+from ax.core.types import TConfig, TGenMetadata, TModelCov, TModelMean, TModelPredict
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
@@ -596,7 +596,7 @@ class ModelBridge(ABC):
             fixed_features = t.transform_observation_features([fixed_features])[0]
 
         # Apply terminal transform and gen
-        observation_features, weights, best_obsf = self._gen(
+        observation_features, weights, best_obsf, gen_metadata = self._gen(
             n=n,
             search_space=search_space,
             optimization_config=optimization_config,
@@ -650,6 +650,7 @@ class ModelBridge(ABC):
             model_key=self._model_key,
             model_kwargs=self._model_kwargs,
             bridge_kwargs=self._bridge_kwargs,
+            gen_metadata=gen_metadata,
         )
         self._save_model_state_if_possible()
         self.fit_time_since_gen = 0.0
@@ -663,7 +664,12 @@ class ModelBridge(ABC):
         pending_observations: Dict[str, List[ObservationFeatures]],
         fixed_features: ObservationFeatures,
         model_gen_options: Optional[TConfig],
-    ) -> Tuple[List[ObservationFeatures], List[float], Optional[ObservationFeatures]]:
+    ) -> Tuple[
+        List[ObservationFeatures],
+        List[float],
+        Optional[ObservationFeatures],
+        TGenMetadata,
+    ]:
         """Apply terminal transform, gen, and reverse terminal transform on
         output.
         """
