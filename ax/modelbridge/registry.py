@@ -91,6 +91,11 @@ ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
     TaskEncode,
 ]
 
+STANDARD_TORCH_BRIDGE_KWARGS: Dict[str, Any] = {
+    "torch_dtype": torch.double,
+    "torch_device": torch.device("cpu"),  # pyre-fixme[19]
+}
+
 
 class ModelSetup(NamedTuple):
     """A model setup defines a coupled combination of a model, a model bridge,
@@ -114,19 +119,13 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
         transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs={
-            "torch_dtype": torch.double,
-            "torch_device": torch.device("cpu"),  # pyre-fixme[19]
-        },
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "GPEI": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
         transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs={
-            "torch_dtype": torch.double,
-            "torch_device": torch.device("cpu"),  # pyre-fixme[19]
-        },
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "EB": ModelSetup(
         bridge_class=DiscreteModelBridge,
@@ -190,7 +189,7 @@ class Models(Enum):
         silently_filter_kwargs: bool = True,  # TODO[Lena]: default to False
         **kwargs: Any,
     ) -> ModelBridge:
-        assert self.value in MODEL_KEY_TO_MODEL_SETUP
+        assert self.value in MODEL_KEY_TO_MODEL_SETUP, f"Unknown model {self.value}"
         # All model bridges require either a search space or an experiment.
         assert search_space or experiment, "Search space or experiment required."
         model_setup_info = MODEL_KEY_TO_MODEL_SETUP[self.value]
