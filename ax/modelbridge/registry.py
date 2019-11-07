@@ -53,6 +53,10 @@ logger = get_logger(__name__)
 """
 Module containing a registry of standard models (and generators, samplers etc.)
 such as Sobol generator, GP+EI, Thompson sampler, etc.
+
+Use of `Models` enum allows for serialization and reinstantiation of models and
+generation strategies from generator runs they produced. To reinstantiate a model
+from generator run, use `get_model_from_generator_run` utility from this module.
 """
 
 
@@ -86,29 +90,6 @@ ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
     StratifiedStandardizeY,
     TaskEncode,
 ]
-
-
-def get_model_from_generator_run(
-    generator_run: GeneratorRun, experiment: Experiment, data: Data
-) -> ModelBridge:
-    """Reinstantiate a model from model key and kwargs stored on a given generator
-    run, with the given experiment and the data to initialize the model with.
-
-    Note: requires that the model that was used to get the generator run, is part
-    of the `Models` registry enum.
-    """
-    if not generator_run._model_key:  # pragma: no cover
-        raise ValueError(
-            "Cannot restore model from generator run as no model key was "
-            "on the generator run stored."
-        )
-    model = Models(generator_run._model_key)
-    return model(
-        experiment=experiment,
-        data=data,
-        **(generator_run._model_kwargs or {}),
-        **(generator_run._bridge_kwargs or {}),
-    )
 
 
 class ModelSetup(NamedTuple):
@@ -175,7 +156,7 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
 }
 
 
-class Models(str, Enum):  # String enum.
+class Models(Enum):
     """Registry of available models.
 
     Uses MODEL_KEY_TO_MODEL_SETUP to retrieve settings for model and model bridge,
@@ -319,3 +300,36 @@ class Models(str, Enum):  # String enum.
                 info.bridge_class, omit=["experiment", "search_space", "data"]
             ),
         )
+
+
+def get_model_from_generator_run(
+    generator_run: GeneratorRun,
+    experiment: Experiment,
+    data: Data,
+    models_enum: Optional[Type["Models"]] = None,
+) -> ModelBridge:
+    """Reinstantiate a model from model key and kwargs stored on a given generator
+    run, with the given experiment and the data to initialize the model with.
+
+    Note: requires that the model that was used to get the generator run, is part
+    of the `Models` registry enum.
+    """
+    if not generator_run._model_key:  # pragma: no cover
+        raise ValueError(
+            "Cannot restore model from generator run as no model key was "
+            "on the generator run stored."
+        )
+    model = (models_enum or Models)(generator_run._model_key)
+    model_kwargs = generator_run._model_kwargs or {}
+    bridge_kwargs = generator_run._bridge_kwargs or {}
+    model_keywords = list(model_kwargs.keys())
+    for key in model_keywords:
+        if key in bridge_kwargs:  # pragma: no cover
+            logger.info(
+                f"Keyword argument `{key}` occurs in both model and model bridge "
+                f"kwargs stored in the generator run. Assuming the `{key}` kwarg "
+                "is passed into the model by the model bridge and removing its "
+                "value from the model kwargs."
+            )
+            del model_kwargs[key]
+    return model(experiment=experiment, data=data, **bridge_kwargs, **model_kwargs)

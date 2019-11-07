@@ -2,7 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from inspect import signature
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type, Union
 
 import pandas as pd
 from ax.core.base import Base
@@ -289,7 +289,9 @@ class GenerationStrategy(Base):
             )
         )
 
-    def _restore_model_from_generator_run(self) -> None:
+    def _restore_model_from_generator_run(
+        self, models_enum: Optional[Type[Models]] = None
+    ) -> None:
         generator_run = self.last_generator_run
         if generator_run is None:
             raise ValueError("No generator run was stored on generation strategy.")
@@ -297,10 +299,9 @@ class GenerationStrategy(Base):
             raise ValueError("No experiment was set on this generation strategy.")
         self._model = get_model_from_generator_run(
             generator_run=generator_run,
-            # pyre-fixme[6]: Expected `Experiment` for 2nd param but got
-            #  `Optional[Experiment]`.
-            experiment=self._experiment,
+            experiment=not_none(self._experiment),
             data=self._data,
+            models_enum=models_enum,
         )
 
     def _change_model(self, experiment: Experiment, data: Data, **kwargs: Any) -> None:
@@ -356,12 +357,11 @@ class GenerationStrategy(Base):
         """
         if (
             self._experiment is not None
-            # pyre-fixme[16]: `Optional` has no attribute `_name`.
-            and experiment._name is not self._experiment._name
+            and experiment._name is not not_none(self._experiment)._name
         ):  # pragma: no cover
             logger.info(
                 "This generation strategy has been used for experiment "
-                f"{self._experiment._name} so far; generating trials for "
+                f"{not_none(self._experiment)._name} so far; generating trials for "
                 f"{experiment._name} from now on. If this is a new optimization, "
                 "a new generation strategy should be created instead."
             )

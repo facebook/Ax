@@ -25,6 +25,7 @@ from ax.core.simple_experiment import (
 )
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.base import Transform
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
 from ax.storage.json_store.registry import DECODER_REGISTRY
@@ -277,5 +278,15 @@ def generation_strategy_from_json(
         generation_strategy_json.pop("generator_runs")
     )
     if generation_strategy_json.pop("had_initialized_model"):  # pragma: no cover
+        # If model in the current step was not directly from the `Models` enum,
+        # pass its type to `restore_model_from_generator_run`, which will then
+        # attempt to use this type to recreate the model.
+        if type(gs._curr.model) != Models:
+            models_enum = type(gs._curr.model)
+            assert issubclass(models_enum, Models)
+            # pyre-ignore[6]: `models_enum` typing hackiness
+            gs._restore_model_from_generator_run(models_enum=models_enum)
+            return gs
+
         gs._restore_model_from_generator_run()
     return gs
