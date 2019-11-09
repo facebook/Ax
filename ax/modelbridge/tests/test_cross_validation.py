@@ -7,6 +7,7 @@ import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.modelbridge.cross_validation import (
     CVResult,
+    assess_model_fit,
     compute_diagnostics,
     cross_validate,
     cross_validate_by_trial,
@@ -191,3 +192,31 @@ class CrossValidationTest(TestCase):
         self.assertAlmostEqual(diag["MAPE"]["a"], 0.4984126984126984)
         self.assertAlmostEqual(diag["Total raw effect"]["a"], 3.5)
         self.assertAlmostEqual(diag["Total raw effect"]["b"], 1.5)
+
+    def testAssessModelFit(self):
+        # Construct diagnostics
+        result = []
+        for i, obs in enumerate(self.training_data):
+            result.append(CVResult(observed=obs, predicted=self.observation_data[i]))
+        diag = compute_diagnostics(result=result)
+        for v in diag.values():
+            self.assertEqual(set(v.keys()), {"a", "b"})
+        # Check for correct computation, relative to manually computed result
+        self.assertAlmostEqual(diag["Fisher exact test p"]["a"], 0.10)
+        self.assertAlmostEqual(diag["Fisher exact test p"]["b"], 0.166666666)
+
+        good_fit_metrics, bad_fit_metrics = assess_model_fit(
+            diag, significance_level=0.05
+        )
+        self.assertTrue("a" in bad_fit_metrics)
+        self.assertTrue("b" in bad_fit_metrics)
+        good_fit_metrics, bad_fit_metrics = assess_model_fit(
+            diag, significance_level=0.15
+        )
+        self.assertTrue("a" in good_fit_metrics)
+        self.assertTrue("b" in bad_fit_metrics)
+        good_fit_metrics, bad_fit_metrics = assess_model_fit(
+            diag, significance_level=0.2
+        )
+        self.assertTrue("a" in good_fit_metrics)
+        self.assertTrue("b" in good_fit_metrics)

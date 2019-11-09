@@ -7,7 +7,19 @@ from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tu
 import numpy as np
 from ax.core.observation import Observation, ObservationData
 from ax.modelbridge.base import ModelBridge
+from ax.utils.common.logger import get_logger
 from scipy.stats import fisher_exact, pearsonr, spearmanr
+
+
+logger = get_logger(__name__)
+
+
+MEAN_PREDICTION_CI = "Mean prediction CI"
+MAPE = "MAPE"
+TOTAL_RAW_EFFECT = "Total raw effect"
+CORRELATION_COEFFICIENT = "Correlation coefficient"
+RANK_CORRELATION = "Rank correlation"
+FISHER_EXACT_TEST_P = "Fisher exact test p"
 
 
 class CVResult(NamedTuple):
@@ -189,12 +201,12 @@ def compute_diagnostics(result: List[CVResult]) -> Dict[str, Dict[str, float]]:
             se_pred[metric_name].append(np.sqrt(res.predicted.covariance[k, k]))
 
     diagnostic_fns = {
-        "Mean prediction CI": _mean_prediction_ci,
-        "MAPE": _mape,
-        "Total raw effect": _total_raw_effect,
-        "Correlation coefficient": _correlation_coefficient,
-        "Rank correlation": _rank_correlation,
-        "Fisher exact test p": _fisher_exact_test_p,
+        MEAN_PREDICTION_CI: _mean_prediction_ci,
+        MAPE: _mape,
+        TOTAL_RAW_EFFECT: _total_raw_effect,
+        CORRELATION_COEFFICIENT: _correlation_coefficient,
+        RANK_CORRELATION: _rank_correlation,
+        FISHER_EXACT_TEST_P: _fisher_exact_test_p,
     }
 
     diagnostics: Dict[str, Dict[str, float]] = defaultdict(dict)
@@ -207,6 +219,40 @@ def compute_diagnostics(result: List[CVResult]) -> Dict[str, Dict[str, float]]:
                 se_pred=np.array(se_pred[metric_name]),
             )
     return diagnostics
+
+
+def assess_model_fit(
+    diagnostics: Dict[str, Dict[str, float]], significance_level: float = 0.1
+) -> Tuple[Dict[str, float], Dict[str, float]]:
+    """Assess model fit for given diagnostics results.
+
+    It determines if a model fit is good or bad based on Fisher exact test p
+
+    Args:
+        diagnostics: Output of compute_diagnostics
+
+    Returns:
+        Two dictionaries, one for good metrics, one for bad metrics, each
+        mapping metric name to p-value
+    """
+
+    good_fit_metrics: Dict[str, float] = {}
+    bad_fit_metrics: Dict[str, float] = {}
+
+    for metric, score in diagnostics[FISHER_EXACT_TEST_P].items():
+        if score > significance_level:
+            bad_fit_metrics[metric] = score
+        else:
+            good_fit_metrics[metric] = score
+    if len(bad_fit_metrics) > 0:
+        logger.warning(
+            "{} {} {} unable to be reliably fit.".format(
+                ("Metrics" if len(bad_fit_metrics) > 1 else "Metric"),
+                (" , ".join(bad_fit_metrics.keys())),
+                ("were" if len(bad_fit_metrics) > 1 else "was"),
+            )
+        )
+    return good_fit_metrics, bad_fit_metrics
 
 
 def _gen_train_test_split(
