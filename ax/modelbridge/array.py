@@ -51,15 +51,10 @@ class ArrayModelBridge(ModelBridge):
     ) -> None:
         # Convert observations to arrays
         self.parameters = list(search_space.parameters.keys())
-        # move fidelity parameters to the last columns
-        for para in search_space.parameters:
-            if search_space.parameters[para].is_fidelity:
-                self.parameters.remove(para)
-                self.parameters.append(para)
         all_metric_names: Set[str] = set()
         for od in observation_data:
             all_metric_names.update(od.metric_names)
-        self.outcomes = sorted(list(all_metric_names))  # Deterministic order.
+        self.outcomes = sorted(all_metric_names)  # Deterministic order
         # Convert observations to arrays
         Xs_array, Ys_array, Yvars_array = _convert_observations(
             observation_data=observation_data,
@@ -68,8 +63,8 @@ class ArrayModelBridge(ModelBridge):
             parameters=self.parameters,
         )
         # Extract bounds and task features
-        bounds, task_features, fidelity_features = get_bounds_and_task(
-            search_space, self.parameters
+        bounds, task_features, target_fidelities = get_bounds_and_task(
+            search_space=search_space, param_names=self.parameters
         )
 
         # Fit
@@ -81,7 +76,7 @@ class ArrayModelBridge(ModelBridge):
             bounds=bounds,
             task_features=task_features,
             feature_names=self.parameters,
-            fidelity_features=fidelity_features,
+            fidelity_features=list(target_fidelities.keys()),
         )
 
     def _model_fit(
@@ -168,7 +163,13 @@ class ArrayModelBridge(ModelBridge):
         if not self.parameters:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
         # Extract bounds
-        bounds, _, _ = get_bounds_and_task(search_space, self.parameters)
+        bounds, _, target_fidelities = get_bounds_and_task(
+            search_space=search_space, param_names=self.parameters
+        )
+        target_fidelities = {
+            i: float(v) for i, v in target_fidelities.items()  # pyre-ignore [6]
+        }
+
         if optimization_config is None:
             raise ValueError(
                 "ArrayModelBridge requires an OptimizationConfig to be specified"
@@ -202,6 +203,7 @@ class ArrayModelBridge(ModelBridge):
             pending_observations=pending_array,
             model_gen_options=model_gen_options,
             rounding_func=transform_callback(self.parameters, self.transforms),
+            target_fidelities=target_fidelities,
         )
         # Transform array to observations
         observation_features = parse_observation_features(X, self.parameters)
@@ -212,6 +214,7 @@ class ArrayModelBridge(ModelBridge):
             linear_constraints=linear_constraints,
             fixed_features=fixed_features_dict,
             model_gen_options=model_gen_options,
+            target_fidelities=target_fidelities,
         )
         best_obsf = (
             None
@@ -233,7 +236,12 @@ class ArrayModelBridge(ModelBridge):
         pending_observations: Optional[List[np.ndarray]],
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
+        target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata]:  # pragma: no cover
+        if target_fidelities:
+            raise NotImplementedError(
+                "target_fidelities not supported by ArrayModelBridge"
+            )
         return self.model.gen(
             n=n,
             bounds=bounds,
@@ -254,7 +262,12 @@ class ArrayModelBridge(ModelBridge):
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         fixed_features: Optional[Dict[int, float]],
         model_gen_options: Optional[TConfig],
+        target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Optional[np.ndarray]:  # pragma: no cover
+        if target_fidelities:
+            raise NotImplementedError(
+                "target_fidelities not supported by ArrayModelBridge"
+            )
         try:
             return self.model.best_point(
                 bounds=bounds,

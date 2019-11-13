@@ -6,7 +6,6 @@ from ax.models.torch.botorch_kg import (
     KnowledgeGradient,
     _get_objective,
     _instantiate_KG,
-    _set_best_point_acq,
 )
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.analytic import PosteriorMean
@@ -27,66 +26,74 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 
 
 class KnowledgeGradientTest(TestCase):
-    def test_KnowledgeGradient(self):
-        device = torch.device("cpu")
-        dtype = torch.double
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.dtype = torch.double
 
-        Xs = [
-            torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=dtype, device=device)
+        self.Xs = [
+            torch.tensor(
+                [[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=self.dtype, device=self.device
+            )
         ]
-        Ys = [torch.tensor([[3.0], [4.0]], dtype=dtype, device=device)]
-        Yvars = [torch.tensor([[0.0], [2.0]], dtype=dtype, device=device)]
-        bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
-        task_features = []
-        feature_names = ["x1", "x2", "x3"]
-
-        acq_options = {"num_fantasies": 30, "mc_samples": 30}
-
-        optimizer_options = {
+        self.Ys = [torch.tensor([[3.0], [4.0]], dtype=self.dtype, device=self.device)]
+        self.Yvars = [
+            torch.tensor([[0.0], [2.0]], dtype=self.dtype, device=self.device)
+        ]
+        self.bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
+        self.feature_names = ["x1", "x2", "x3"]
+        self.acq_options = {"num_fantasies": 30, "mc_samples": 30}
+        self.objective_weights = torch.tensor(
+            [1.0], dtype=self.dtype, device=self.device
+        )
+        self.optimizer_options = {
             "num_restarts": 12,
             "raw_samples": 12,
             "maxiter": 5,
             "batch_limit": 1,
         }
 
+    def test_KnowledgeGradient(self):
+
         model = KnowledgeGradient()
-        objective_weights = torch.tensor([1.0], dtype=dtype, device=device)
         model.fit(
-            Xs=Xs,
-            Ys=Ys,
-            Yvars=Yvars,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            feature_names=self.feature_names,
+            task_features=[],
             fidelity_features=[],
         )
 
         n = 2
 
-        X_dummy = torch.rand(1, n, 4, dtype=dtype, device=device)
-        acq_dummy = torch.tensor(0.0, dtype=dtype, device=device)
+        best_point_dummy = torch.rand(1, 3, dtype=self.dtype, device=self.device)
+        X_dummy = torch.rand(1, n, 4, dtype=self.dtype, device=self.device)
+        acq_dummy = torch.tensor(0.0, dtype=self.dtype, device=self.device)
 
         with mock.patch(
-            "ax.models.torch.botorch_kg.optimize_acqf",
-            return_value=(X_dummy, acq_dummy),
+            "ax.models.torch.botorch_kg.optimize_acqf"
         ) as mock_optimize_acqf:
+            mock_optimize_acqf.side_effect = [
+                (best_point_dummy, None),
+                (X_dummy, acq_dummy),
+            ]
             Xgen, wgen, _ = model.gen(
                 n=n,
-                bounds=bounds,
-                objective_weights=objective_weights,
+                bounds=self.bounds,
+                objective_weights=self.objective_weights,
                 outcome_constraints=None,
                 linear_constraints=None,
                 model_gen_options={
-                    "acquisition_function_kwargs": acq_options,
-                    "optimizer_kwargs": optimizer_options,
+                    "acquisition_function_kwargs": self.acq_options,
+                    "optimizer_kwargs": self.optimizer_options,
                 },
             )
-            self.assertTrue(torch.equal(Xgen, X_dummy[:, :2, :].cpu()))
-            self.assertEqual(Xgen.size(), torch.Size([1, 2, 4]))
-            self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
+            self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
+            self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=self.dtype)))
             mock_optimize_acqf.assert_called()  # called twice, once for best_point
 
-        ini_dummy = torch.rand(10, 32, 3, dtype=dtype, device=device)
+        ini_dummy = torch.rand(10, 32, 3, dtype=self.dtype, device=self.device)
         optimizer_options2 = {
             "num_restarts": 10,
             "raw_samples": 12,
@@ -100,89 +107,47 @@ class KnowledgeGradientTest(TestCase):
         ) as mock_warmstart_initialization:
             Xgen, wgen, _ = model.gen(
                 n=n,
-                bounds=bounds,
-                objective_weights=objective_weights,
+                bounds=self.bounds,
+                objective_weights=self.objective_weights,
                 outcome_constraints=None,
                 linear_constraints=None,
                 model_gen_options={
-                    "acquisition_function_kwargs": acq_options,
+                    "acquisition_function_kwargs": self.acq_options,
                     "optimizer_kwargs": optimizer_options2,
                 },
             )
             mock_warmstart_initialization.assert_called_once()
 
-        obj = ScalarizedObjective(weights=objective_weights)
+        obj = ScalarizedObjective(weights=self.objective_weights)
         dummy_acq = PosteriorMean(model=model.model, objective=obj)
         with mock.patch(
             "ax.models.torch.botorch_kg.PosteriorMean", return_value=dummy_acq
         ) as mock_posterior_mean:
             Xgen, wgen, _ = model.gen(
                 n=n,
-                bounds=bounds,
-                objective_weights=objective_weights,
+                bounds=self.bounds,
+                objective_weights=self.objective_weights,
                 outcome_constraints=None,
                 linear_constraints=None,
                 model_gen_options={
-                    "acquisition_function_kwargs": acq_options,
+                    "acquisition_function_kwargs": self.acq_options,
                     "optimizer_kwargs": optimizer_options2,
                 },
             )
             self.assertEqual(mock_posterior_mean.call_count, 2)
 
+        # Check best point selection
         X_dummy = torch.rand(3)
         acq_dummy = torch.tensor(0.0)
-        # Check best point selection
         with mock.patch(
             "ax.models.torch.botorch_kg.optimize_acqf",
             return_value=(X_dummy, acq_dummy),
         ) as mock_optimize_acqf:
-            xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
+            xbest = model.best_point(
+                bounds=self.bounds, objective_weights=self.objective_weights
+            )
             self.assertTrue(torch.equal(xbest, X_dummy))
             mock_optimize_acqf.assert_called_once()
-
-        X_dummy = torch.tensor([1.0, 2.0])
-        acq_dummy = torch.tensor(0.0)
-        model.fit(
-            Xs=Xs,
-            Ys=Ys,
-            Yvars=Yvars,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
-            fidelity_features=[-1],
-        )
-        # Check best point selection
-        with mock.patch(
-            "ax.models.torch.botorch_kg.optimize_acqf",
-            return_value=(X_dummy, acq_dummy),
-        ) as mock_optimize_acqf:
-            xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
-            self.assertTrue(torch.equal(xbest, torch.tensor([1.0, 2.0, 1.0])))
-            mock_optimize_acqf.assert_called_once()
-
-        X_dummy = torch.zeros(12, 1, 2, dtype=dtype, device=device)
-        X_dummy2 = torch.zeros(1, 32, 3, dtype=dtype, device=device)
-        acq_dummy = torch.tensor(0.0, dtype=dtype, device=device)
-        dummy1 = (X_dummy, acq_dummy)
-        dummy2 = (X_dummy2, acq_dummy)
-        with mock.patch(
-            "ax.models.torch.botorch_kg.optimize_acqf",
-            side_effect=[dummy1, dummy2, dummy1, dummy2],
-        ) as mock_optimize_acqf:
-            mock_optimize_acqf(
-                Xgen,
-                wgen=model.gen(
-                    n=n,
-                    bounds=bounds,
-                    objective_weights=objective_weights,
-                    outcome_constraints=None,
-                    linear_constraints=None,
-                    model_gen_options={
-                        "acquisition_function_kwargs": acq_options,
-                        "optimizer_kwargs": optimizer_options,
-                    },
-                ),
-            )
 
         # test error message
         linear_constraints = (
@@ -190,24 +155,104 @@ class KnowledgeGradientTest(TestCase):
             torch.tensor([[0.5], [1.0]]),
         )
         with self.assertRaises(UnsupportedError):
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen = model.gen(
                 n=n,
-                bounds=bounds,
-                objective_weights=objective_weights,
+                bounds=self.bounds,
+                objective_weights=self.objective_weights,
                 outcome_constraints=None,
                 linear_constraints=linear_constraints,
             )
 
-        with self.assertRaises(UnsupportedError):
+    def test_KnowledgeGradient_multifidelity(self):
+        model = KnowledgeGradient()
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            task_features=[],
+            feature_names=self.feature_names,
+            fidelity_features=[-1],
+        )
+
+        # Check best point selection
+        X_dummy = torch.tensor([1.0, 2.0])
+        acq_dummy = torch.tensor(0.0)
+        with mock.patch(
+            "ax.models.torch.botorch_kg.optimize_acqf",
+            return_value=(X_dummy, acq_dummy),
+        ) as mock_optimize_acqf:
             xbest = model.best_point(
-                bounds=bounds,
-                linear_constraints=linear_constraints,
-                objective_weights=objective_weights,
+                bounds=self.bounds,
+                objective_weights=self.objective_weights,
+                target_fidelities={2: 1.0},
+            )
+            self.assertTrue(torch.equal(xbest, torch.tensor([1.0, 2.0, 1.0])))
+            mock_optimize_acqf.assert_called_once()
+
+        # check error whenf no target fidelities are specified
+        with self.assertRaises(RuntimeError):
+            model.best_point(
+                bounds=self.bounds, objective_weights=self.objective_weights
             )
 
+        # check generation
+        n = 2
+        X_dummy = torch.zeros(12, 1, 2, dtype=self.dtype, device=self.device)
+        X_dummy2 = torch.zeros(1, n, 3, dtype=self.dtype, device=self.device)
+        acq_dummy = torch.tensor(0.0, dtype=self.dtype, device=self.device)
+        dummy1 = (X_dummy, acq_dummy)
+        dummy2 = (X_dummy2, acq_dummy)
+        with mock.patch(
+            "ax.models.torch.botorch_kg.optimize_acqf",
+            side_effect=[dummy1, dummy2, dummy1, dummy2],
+        ) as mock_optimize_acqf:
+            Xgen, wgen, _ = model.gen(
+                n=n,
+                bounds=self.bounds,
+                objective_weights=self.objective_weights,
+                outcome_constraints=None,
+                linear_constraints=None,
+                model_gen_options={
+                    "acquisition_function_kwargs": self.acq_options,
+                    "optimizer_kwargs": self.optimizer_options,
+                },
+                target_fidelities={2: 1.0},
+            )
+            self.assertTrue(torch.equal(Xgen, X_dummy2.cpu()))
+            self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=self.dtype)))
+            mock_optimize_acqf.assert_called()  # called twice, once for best_point
+
+        # test error message
+        linear_constraints = (
+            torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
+            torch.tensor([[0.5], [1.0]]),
+        )
+        with self.assertRaises(UnsupportedError):
+            xbest = model.best_point(
+                bounds=self.bounds,
+                linear_constraints=linear_constraints,
+                objective_weights=self.objective_weights,
+                target_fidelities={2: 1.0},
+            )
+
+    def test_KnowledgeGradient_helpers(self):
+
+        model = KnowledgeGradient()
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            feature_names=self.feature_names,
+            task_features=[],
+            fidelity_features=[],
+        )
+
         # test _instantiate_KG
-        objective = ScalarizedObjective(weights=objective_weights)
-        X_dummy = torch.ones(1, 3, dtype=dtype, device=device)
+        objective = ScalarizedObjective(weights=self.objective_weights)
+        X_dummy = torch.ones(1, 3, dtype=self.dtype, device=self.device)
+
         # test acquisition setting
         acq_function = _instantiate_KG(
             model=model.model, objective=objective, n_fantasies=10, qmc=True
@@ -232,19 +277,6 @@ class KnowledgeGradientTest(TestCase):
         self.assertIsNone(acq_function.inner_sampler)
         self.assertTrue(torch.equal(acq_function.X_pending, X_dummy))
 
-        acq_function = _instantiate_KG(
-            model=model.model,
-            objective=objective,
-            fidelity_features=[-1],
-            current_value=0,
-        )
-        self.assertIsInstance(acq_function, qMultiFidelityKnowledgeGradient)
-
-        acq_function = _instantiate_KG(
-            model=model.model, objective=LinearMCObjective(weights=objective_weights)
-        )
-        self.assertIsInstance(acq_function.inner_sampler, SobolQMCNormalSampler)
-
         # test _get_obj()
         outcome_constraints = (
             torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
@@ -260,30 +292,109 @@ class KnowledgeGradientTest(TestCase):
             ),
             ConstrainedMCObjective,
         )
-        # test _set_best_point_acq
-        acq_function = _set_best_point_acq(
-            model=model.model,
+
+        # test _get_best_point_acqf
+        acq_function, non_fixed_idcs = model._get_best_point_acqf(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             X_observed=X_dummy,
         )
         self.assertIsInstance(acq_function, qSimpleRegret)
         self.assertIsInstance(acq_function.sampler, SobolQMCNormalSampler)
+        self.assertIsNone(non_fixed_idcs)
 
-        acq_function = _set_best_point_acq(
-            model=model.model,
+        acq_function, non_fixed_idcs = model._get_best_point_acqf(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             X_observed=X_dummy,
             qmc=False,
         )
         self.assertIsInstance(acq_function.sampler, IIDNormalSampler)
+        self.assertIsNone(non_fixed_idcs)
 
-        objective_weights = torch.tensor([1.0], dtype=dtype, device=device)
-        acq_function = _set_best_point_acq(
-            model=model.model,
-            objective_weights=objective_weights,
-            X_observed=X_dummy,
+        with self.assertRaises(RuntimeError):
+            model._get_best_point_acqf(
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_dummy,
+                target_fidelities={1: 1.0},
+            )
+
+        # multi-fidelity tests
+
+        model = KnowledgeGradient()
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            task_features=[],
+            feature_names=self.feature_names,
             fidelity_features=[-1],
         )
+
+        acq_function = _instantiate_KG(
+            model=model.model,
+            objective=objective,
+            target_fidelities={2: 1.0},
+            current_value=0,
+        )
+        self.assertIsInstance(acq_function, qMultiFidelityKnowledgeGradient)
+
+        acq_function = _instantiate_KG(
+            model=model.model,
+            objective=LinearMCObjective(weights=self.objective_weights),
+        )
+        self.assertIsInstance(acq_function.inner_sampler, SobolQMCNormalSampler)
+
+        # test error that target fidelity and fidelity weight indices must match
+        with self.assertRaises(RuntimeError):
+            _instantiate_KG(
+                model=model.model,
+                objective=objective,
+                target_fidelities={1: 1.0},
+                fidelity_weights={2: 1.0},
+                current_value=0,
+            )
+
+        # test _get_best_point_acqf
+        acq_function, non_fixed_idcs = model._get_best_point_acqf(
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_dummy,
+            target_fidelities={2: 1.0},
+        )
         self.assertIsInstance(acq_function, FixedFeatureAcquisitionFunction)
+        self.assertIsInstance(acq_function.acq_func.sampler, SobolQMCNormalSampler)
+        self.assertEqual(non_fixed_idcs, [0, 1])
+
+        acq_function, non_fixed_idcs = model._get_best_point_acqf(
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_dummy,
+            target_fidelities={2: 1.0},
+            qmc=False,
+        )
+        self.assertIsInstance(acq_function, FixedFeatureAcquisitionFunction)
+        self.assertIsInstance(acq_function.acq_func.sampler, IIDNormalSampler)
+        self.assertEqual(non_fixed_idcs, [0, 1])
+
+        # test error that fixed features are provided
+        with self.assertRaises(RuntimeError):
+            model._get_best_point_acqf(
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_dummy,
+                qmc=False,
+            )
+
+        # test error if fixed features are also fidelity features
+        with self.assertRaises(RuntimeError):
+            model._get_best_point_acqf(
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_dummy,
+                fixed_features={2: 2.0},
+                target_fidelities={2: 1.0},
+                qmc=False,
+            )

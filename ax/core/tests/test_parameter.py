@@ -136,6 +136,10 @@ class ChoiceParameterTest(TestCase):
         self.param1 = ChoiceParameter(
             name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
         )
+        self.param1_repr = (
+            "ChoiceParameter(name='x', parameter_type=STRING, "
+            "values=['foo', 'bar', 'baz'])"
+        )
         self.param2 = ChoiceParameter(
             name="x",
             parameter_type=ParameterType.STRING,
@@ -143,22 +147,29 @@ class ChoiceParameterTest(TestCase):
             is_ordered=True,
             is_task=True,
         )
-        self.param1_repr = (
+        self.param3 = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.STRING,
+            values=["foo", "bar"],
+            is_fidelity=True,
+            target_value="bar",
+        )
+        self.param3_repr = (
             "ChoiceParameter(name='x', parameter_type=STRING, "
-            "values=['foo', 'bar', 'baz'])"
+            "values=['foo', 'bar'], fidelity=True, target_value='bar')"
         )
 
     def testEq(self):
-        param3 = ChoiceParameter(
+        param4 = ChoiceParameter(
             name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
         )
-        self.assertEqual(self.param1, param3)
+        self.assertEqual(self.param1, param4)
         self.assertNotEqual(self.param1, self.param2)
 
-        param4 = ChoiceParameter(
+        param5 = ChoiceParameter(
             name="x", parameter_type=ParameterType.STRING, values=["foo", "foobar"]
         )
-        self.assertNotEqual(self.param1, param4)
+        self.assertNotEqual(self.param1, param5)
 
     def testProperties(self):
         self.assertEqual(self.param1.name, "x")
@@ -172,6 +183,7 @@ class ChoiceParameterTest(TestCase):
 
     def testRepr(self):
         self.assertEqual(str(self.param1), self.param1_repr)
+        self.assertEqual(str(self.param3), self.param3_repr)
 
     def testValidate(self):
         self.assertFalse(self.param1.validate(None))

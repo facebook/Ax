@@ -155,6 +155,9 @@ class ArrayModelBridgeTest(TestCase):
         self.assertEqual(arm.parameters, {})
         self.assertEqual(predictions[0], {"m": 1.0})
         self.assertEqual(predictions[1], {"m": {"m": 2.0}})
+        # test check that optimization config is required
+        with self.assertRaises(ValueError):
+            run = modelbridge.gen(n=1, optimization_config=None)
 
     @patch(
         f"{ModelBridge.__module__}.observations_from_data",

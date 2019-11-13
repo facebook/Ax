@@ -184,6 +184,7 @@ class TorchModelBridge(ArrayModelBridge):
         pending_observations: Optional[List[np.ndarray]],
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
+        target_fidelities: Optional[Dict[int, float]],
     ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
@@ -205,6 +206,7 @@ class TorchModelBridge(ArrayModelBridge):
             pending_observations=pend_obs,
             model_gen_options=model_gen_options,
             rounding_func=tensor_rounding_func,
+            target_fidelities=target_fidelities,
         )
         return (
             X.detach().cpu().clone().numpy(),
@@ -220,6 +222,7 @@ class TorchModelBridge(ArrayModelBridge):
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
         fixed_features: Optional[Dict[int, float]],
         model_gen_options: Optional[TConfig],
+        target_fidelities: Optional[Dict[int, float]],
     ) -> Optional[np.ndarray]:  # pragma: no cover
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
@@ -238,6 +241,7 @@ class TorchModelBridge(ArrayModelBridge):
                 linear_constraints=l_c,
                 fixed_features=fixed_features,
                 model_gen_options=model_gen_options,
+                target_fidelities=target_fidelities,
             )
             return None if X is None else X.detach().cpu().clone().numpy()
 

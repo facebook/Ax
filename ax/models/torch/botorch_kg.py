@@ -8,8 +8,6 @@ from ax.core.types import TConfig, TGenMetadata
 from ax.models.model_utils import get_observed
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.utils import _get_X_pending_and_observed
-from ax.models.torch_base import TorchModel
-from ax.utils.common.docutils import copy_doc
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility
@@ -61,7 +59,6 @@ class KnowledgeGradient(BotorchModel):
         super().__init__(linear_truncated=linear_truncated, **kwargs)
         self.cost_intercept = cost_intercept
 
-    @copy_doc(TorchModel.gen)
     def gen(
         self,
         n: int,
@@ -73,7 +70,40 @@ class KnowledgeGradient(BotorchModel):
         pending_observations: Optional[List[Tensor]] = None,
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
+        target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Tuple[Tensor, Tensor, TGenMetadata]:
+        """
+        Generate new candidates.
+
+        Args:
+            n: Number of candidates to generate.
+            bounds: A list of (lower, upper) tuples for each column of X.
+            objective_weights: The objective is to maximize a weighted sum of
+                the columns of f(x). These are the weights.
+            outcome_constraints: A tuple of (A, b). For k outcome constraints
+                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+                A f(x) <= b.
+            linear_constraints: A tuple of (A, b). For k linear constraints on
+                d-dimensional x, A is (k x d) and b is (k x 1) such that
+                A x <= b.
+            fixed_features: A map {feature_index: value} for features that
+                should be fixed to a particular value during generation.
+            pending_observations:  A list of m (k_i x d) feature tensors X
+                for m outcomes and k_i pending observations for outcome i.
+            model_gen_options: A config dictionary that can contain
+                model-specific options.
+            rounding_func: A function that rounds an optimization result
+                appropriately (i.e., according to `round-trip` transformations).
+            target_fidelities: A map {feature_index: value} of fidelity feature
+                column indices to their respective target fidelities. Used for
+                multi-fidelity optimization.
+
+        Returns:
+            2-element tuple containing
+
+            - (n x d) tensor of generated points.
+            - n-tensor of weights for each point.
+        """
         options = model_gen_options or {}
         acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
@@ -108,15 +138,16 @@ class KnowledgeGradient(BotorchModel):
             )
 
         # get current value
-        best_point_acqf = _set_best_point_acq(
-            model=self.model,  # pyre-ignore: [6]
+        best_point_acqf, non_fixed_idcs = self._get_best_point_acqf(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
+            X_observed=X_observed,  # pyre-ignore: [6]
             seed_inner=seed_inner,
-            fidelity_features=self.fidelity_features,
+            fixed_features=fixed_features,
+            target_fidelities=target_fidelities,
             qmc=qmc,
         )
+
         # solution from previous iteration
         recommended_point = self.best_point(
             bounds=bounds,
@@ -125,15 +156,13 @@ class KnowledgeGradient(BotorchModel):
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
             model_gen_options=model_gen_options,
+            target_fidelities=target_fidelities,
         )
-        recommended_point = recommended_point.detach()  # pyre-ignore: [16]
-        idxr = [
-            i
-            for i in range(X_observed.size(-1))  # pyre-ignore: [16]
-            if i not in self.fidelity_features
-        ]
-        acq_value = best_point_acqf(recommended_point.unsqueeze(0)[..., idxr])
-        current_value = acq_value.max()
+        recommended_point = recommended_point.detach().unsqueeze(0)  # pyre-ignore: [16]
+        # Extract acquisition value (TODO: Make this less painful and repetitive)
+        if non_fixed_idcs is not None:
+            recommended_point = recommended_point[..., non_fixed_idcs]
+        current_value = best_point_acqf(recommended_point).max()
 
         acq_function = _instantiate_KG(
             model=self.model,  # pyre-ignore: [6]
@@ -145,7 +174,8 @@ class KnowledgeGradient(BotorchModel):
             seed_inner=seed_inner,
             seed_outer=acf_options.get("seed_outer", None),
             X_pending=X_pending,
-            fidelity_features=self.fidelity_features,
+            target_fidelities=target_fidelities,
+            fidelity_weights=options.get("fidelity_weights"),
             current_value=current_value,
             cost_intercept=self.cost_intercept,
         )
@@ -189,7 +219,6 @@ class KnowledgeGradient(BotorchModel):
         new_x = candidates.detach().cpu()
         return new_x, torch.ones(n, dtype=self.dtype), {}
 
-    @copy_doc(TorchModel.best_point)
     def best_point(
         self,
         bounds: List[Tuple[float, float]],
@@ -198,39 +227,69 @@ class KnowledgeGradient(BotorchModel):
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         model_gen_options: Optional[TConfig] = None,
+        target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Optional[Tensor]:
+        """
+        Identify the current best point, satisfying the constraints in the same
+        format as to gen.
+
+        Return None if no such point can be identified.
+
+        Args:
+            bounds: A list of (lower, upper) tuples for each column of X.
+            objective_weights: The objective is to maximize a weighted sum of
+                the columns of f(x). These are the weights.
+            outcome_constraints: A tuple of (A, b). For k outcome constraints
+                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+                A f(x) <= b.
+            linear_constraints: A tuple of (A, b). For k linear constraints on
+                d-dimensional x, A is (k x d) and b is (k x 1) such that
+                A x <= b.
+            fixed_features: A map {feature_index: value} for features that
+                should be fixed to a particular value in the best point.
+            model_gen_options: A config dictionary that can contain
+                model-specific options.
+            target_fidelities: A map {feature_index: value} of fidelity feature
+                column indices to their respective target fidelities. Used for
+                multi-fidelity optimization.
+
+        Returns:
+            d-tensor of the best point.
+        """
         options = model_gen_options or {}
+        fixed_features = fixed_features or {}
         acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
 
-        inequality_constraints = _to_inequality_constraints(linear_constraints)
-        # TODO: update optimizers to handle inequality_constraints
-        if inequality_constraints is not None:
-            raise UnsupportedError("Inequality constraints are not supported!")
-
-        # The only difference between constrained and unconstrained version is the
-        # `acq_function` in optimize_acqf.
         X_observed = get_observed(
             Xs=self.Xs,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
         )
 
-        acq_function = _set_best_point_acq(
-            model=self.model,  # pyre-ignore: [6]
+        acq_function, non_fixed_idcs = self._get_best_point_acqf(
             mc_samples=acf_options.get("mc_samples", 512),
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
             seed_inner=acf_options.get("seed_inner", None),
-            fidelity_features=self.fidelity_features,
+            fixed_features=fixed_features,
+            target_fidelities=target_fidelities,
             qmc=acf_options.get("qmc", True),
         )
+
+        inequality_constraints = _to_inequality_constraints(linear_constraints)
+        # TODO: update optimizers to handle inequality_constraints
+        # (including transforming constraints b/c of fixed features)
+        if inequality_constraints is not None:
+            raise UnsupportedError("Inequality constraints are not supported!")
+
         return_best_only = optimizer_options.get("return_best_only", True)
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
-        is_fixed = isinstance(acq_function, FixedFeatureAcquisitionFunction)
-        dimension = X_observed.shape[-1] - is_fixed * len(self.fidelity_features)
-        bounds_ = bounds_.transpose(0, 1)[..., :dimension]
+        bounds_ = bounds_.transpose(-1, -2)
+        if non_fixed_idcs is not None:
+            bounds_ = bounds_[..., non_fixed_idcs]
+
         candidates, _ = optimize_acqf(
             acq_function=acq_function,
             bounds=bounds_,
@@ -238,7 +297,7 @@ class KnowledgeGradient(BotorchModel):
             num_restarts=optimizer_options.get("num_restarts", 60),
             raw_samples=optimizer_options.get("raw_samples", 1024),
             inequality_constraints=inequality_constraints,
-            fixed_features=fixed_features,
+            fixed_features=None,  # handled inside the acquisition function
             options={
                 "batch_limit": optimizer_options.get("batch_limit", 8),
                 "maxiter": optimizer_options.get("maxiter", 200),
@@ -247,14 +306,79 @@ class KnowledgeGradient(BotorchModel):
             },
             return_best_only=return_best_only,
         )
-        recommended_point = candidates.detach().cpu()
-        if is_fixed:
-            recommended_point = acq_function._construct_X_full(  # pyre-ignore: [16]
-                recommended_point
-            )
+        rec_point = candidates.detach().cpu()
+        if isinstance(acq_function, FixedFeatureAcquisitionFunction):
+            rec_point = acq_function._construct_X_full(rec_point)
         if return_best_only:
-            recommended_point = recommended_point.view(-1)
-        return recommended_point
+            rec_point = rec_point.view(-1)
+        return rec_point
+
+    def _get_best_point_acqf(
+        self,
+        X_observed: Tensor,
+        objective_weights: Tensor,
+        mc_samples: int = 512,
+        fixed_features: Optional[Dict[int, float]] = None,
+        target_fidelities: Optional[Dict[int, float]] = None,
+        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        seed_inner: Optional[int] = None,
+        qmc: bool = True,
+    ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
+        model = self.model
+        fixed_features = fixed_features or {}
+        target_fidelities = target_fidelities or {}
+        objective = _get_objective(
+            model=model,  # pyre-ignore [6]
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+        )
+        if isinstance(objective, ScalarizedObjective):
+            acq_function = PosteriorMean(
+                model=model, objective=objective  # pyre-ignore: [6]
+            )
+        elif isinstance(objective, MCAcquisitionObjective):
+            if qmc:
+                sampler = SobolQMCNormalSampler(num_samples=mc_samples, seed=seed_inner)
+            else:
+                sampler = IIDNormalSampler(num_samples=mc_samples, seed=seed_inner)
+            acq_function = qSimpleRegret(
+                model=model, sampler=sampler, objective=objective  # pyre-ignore [6]
+            )
+        else:
+            raise UnsupportedError(
+                f"Unknown objective type: {objective.__class__}"  # pragma: nocover
+            )
+
+        if self.fidelity_features:
+            # we need to optimize at the target fidelities
+            if any(f in self.fidelity_features for f in fixed_features):
+                raise RuntimeError("Fixed features cannot also be fidelity features")
+            elif not set(self.fidelity_features) == set(target_fidelities):
+                raise RuntimeError(
+                    "Must provide a target fidelity for every fidelity feature"
+                )
+            # make sure to not modify fixed_features in-place
+            fixed_features = {**fixed_features, **target_fidelities}
+        elif target_fidelities:
+            raise RuntimeError(
+                "Must specify fidelity_features in fit() when using target fidelities"
+            )
+
+        if fixed_features:
+            acq_function = FixedFeatureAcquisitionFunction(
+                acq_function=acq_function,
+                d=X_observed.size(-1),
+                columns=list(fixed_features.keys()),
+                values=list(fixed_features.values()),
+            )
+            non_fixed_idcs = [
+                i for i in range(self.Xs[0].size(-1)) if i not in fixed_features
+            ]
+        else:
+            non_fixed_idcs = None
+
+        return acq_function, non_fixed_idcs
 
 
 def _get_objective(
@@ -287,7 +411,8 @@ def _instantiate_KG(
     seed_outer: Optional[int] = None,
     X_pending: Optional[Tensor] = None,
     current_value: Optional[Tensor] = None,
-    fidelity_features: Optional[List[int]] = None,
+    target_fidelities: Optional[Dict[int, float]] = None,
+    fidelity_weights: Optional[Dict[int, float]] = None,
     cost_intercept: float = 1.0,
 ) -> qKnowledgeGradient:
     sampler_cls = SobolQMCNormalSampler if qmc else IIDNormalSampler
@@ -296,13 +421,19 @@ def _instantiate_KG(
         inner_sampler = sampler_cls(num_samples=mc_samples, seed=seed_inner)
     else:
         inner_sampler = None
-    if fidelity_features:
+    if target_fidelities:
+        if fidelity_weights is None:
+            fidelity_weights = {f: 1.0 for f in target_fidelities}
+        if not set(target_fidelities) == set(fidelity_weights):
+            raise RuntimeError(
+                "Must provide the same indices for target_fidelities "
+                f"({set(target_fidelities)}) and fidelity_weights "
+                f" ({set(fidelity_weights)})."
+            )
         cost_model = AffineFidelityCostModel(
-            fidelity_weights={f: 1.0 for f in fidelity_features},
-            fixed_cost=cost_intercept,
+            fidelity_weights=fidelity_weights, fixed_cost=cost_intercept
         )
         cost_aware_utility = InverseCostWeightedUtility(cost_model=cost_model)
-        target_fidelities = {i: 1.0 for i in fidelity_features}
 
         def project(X: Tensor) -> Tensor:
             return project_to_target_fidelity(X=X, target_fidelities=target_fidelities)
@@ -310,7 +441,7 @@ def _instantiate_KG(
         def expand(X: Tensor) -> Tensor:
             return expand_trace_observations(
                 X=X,
-                fidelity_dims=sorted(target_fidelities),
+                fidelity_dims=sorted(target_fidelities),  # pyre-ignore: [6]
                 num_trace_obs=num_trace_observations,
             )
 
@@ -336,44 +467,6 @@ def _instantiate_KG(
         X_pending=X_pending,
         current_value=current_value,
     )
-
-
-def _set_best_point_acq(
-    model: Model,
-    X_observed: Tensor,
-    objective_weights: Tensor,
-    mc_samples: int = 512,
-    fidelity_features: Optional[List[int]] = None,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    seed_inner: Optional[int] = None,
-    qmc: bool = True,
-) -> AcquisitionFunction:
-    objective = _get_objective(
-        model=model,
-        objective_weights=objective_weights,
-        outcome_constraints=outcome_constraints,
-        X_observed=X_observed,
-    )
-    if isinstance(objective, ScalarizedObjective):
-        acq_function = PosteriorMean(model=model, objective=objective)
-    elif isinstance(objective, MCAcquisitionObjective):
-        if qmc:
-            sampler = SobolQMCNormalSampler(num_samples=mc_samples, seed=seed_inner)
-        else:
-            sampler = IIDNormalSampler(num_samples=mc_samples, seed=seed_inner)
-        acq_function = qSimpleRegret(model=model, sampler=sampler, objective=objective)
-    else:
-        raise UnsupportedError(
-            f"Unknown objective type: {objective.__class__}"  # pragma: nocover
-        )
-    if fidelity_features:
-        acq_function = FixedFeatureAcquisitionFunction(
-            acq_function=acq_function,
-            d=X_observed.size(-1),
-            columns=fidelity_features,
-            values=[1.0],
-        )
-    return acq_function
 
 
 def _to_inequality_constraints(

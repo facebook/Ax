@@ -74,6 +74,7 @@ class TorchModel(Model):
         pending_observations: Optional[List[Tensor]] = None,
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
+        target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Tuple[Tensor, Tensor, TGenMetadata]:
         """
         Generate new candidates.
@@ -95,6 +96,11 @@ class TorchModel(Model):
                 for m outcomes and k_i pending observations for outcome i.
             model_gen_options: A config dictionary that can contain
                 model-specific options.
+            rounding_func: A function that rounds an optimization result
+                appropriately (i.e., according to `round-trip` transformations).
+            target_fidelities: A map {feature_index: value} of fidelity feature
+                column indices to their respective target fidelities. Used for
+                multi-fidelity optimization.
 
         Returns:
             3-element tuple containing
@@ -114,6 +120,7 @@ class TorchModel(Model):
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         model_gen_options: Optional[TConfig] = None,
+        target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Optional[Tensor]:
         """
         Identify the current best point, satisfying the constraints in the same
@@ -135,6 +142,9 @@ class TorchModel(Model):
                 should be fixed to a particular value in the best point.
             model_gen_options: A config dictionary that can contain
                 model-specific options.
+            target_fidelities: A map {feature_index: value} of fidelity feature
+                column indices to their respective target fidelities. Used for
+                multi-fidelity optimization.
 
         Returns:
             d-tensor of the best point.

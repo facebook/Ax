@@ -117,7 +117,7 @@ class RangeParameter(Parameter):
                 random values of the parameter.
             digits: Number of digits to round values to for float type.
             is_fidelity: Whether this parameter is a fidelity parameter.
-            target_value: Target value of this parameter if it's fidelity.
+            target_value: Target value of this parameter if it is a fidelity.
         """
         self._name = name
         self._parameter_type = parameter_type
@@ -276,6 +276,7 @@ class RangeParameter(Parameter):
             log_scale=self._log_scale,
             digits=self._digits,
             is_fidelity=self._is_fidelity,
+            target_value=self._target_value,
         )
 
     def _cast(self, value: TParamValue) -> TParamValue:
@@ -408,15 +409,22 @@ class ChoiceParameter(Parameter):
             values=self._values,
             is_task=self._is_task,
             is_fidelity=self._is_fidelity,
+            target_value=self._target_value,
         )
 
     def __repr__(self) -> str:
-        return (
-            f"ChoiceParameter("
+        ret_val = (
+            "ChoiceParameter("
             f"name='{self._name}', "
             f"parameter_type={self.parameter_type.name}, "
-            f"values={self._values})"
+            f"values={self._values}"
         )
+        if self._is_fidelity:
+            tval_rep = self.target_value
+            if self.parameter_type == ParameterType.STRING:
+                tval_rep = f"'{tval_rep}'"
+            ret_val += f", fidelity={self.is_fidelity}, target_value={tval_rep}"
+        return ret_val + ")"
 
 
 class FixedParameter(Parameter):
@@ -437,7 +445,7 @@ class FixedParameter(Parameter):
             parameter_type: Enum indicating the type of parameter
                 value (e.g. string, int).
             value: The fixed value of the parameter.
-            target_value: Target value of this parameter if it's fidelity.
+            target_value: Target value of this parameter if it is a fidelity.
         """
         self._name = name
         self._parameter_type = parameter_type
@@ -478,12 +486,18 @@ class FixedParameter(Parameter):
             parameter_type=self._parameter_type,
             value=self._value,
             is_fidelity=self._is_fidelity,
+            target_value=self._target_value,
         )
 
     def __repr__(self) -> str:
-        return (
+        ret_val = (
             f"FixedParameter("
             f"name='{self._name}', "
             f"parameter_type={self.parameter_type.name}, "
-            f"value={self._value})"
+            f"value={self._value}"
         )
+        if self._is_fidelity:
+            ret_val += (
+                f", fidelity={self.is_fidelity}, target_value={self.target_value}"
+            )
+        return ret_val + ")"

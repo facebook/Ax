@@ -112,6 +112,7 @@ class TorchModelBridgeTest(TestCase):
             pending_observations=[np.array([]), np.array([1.0, 2.0, 3.0])],
             model_gen_options={"option": "yes"},
             rounding_func=np.round,
+            target_fidelities=None,
         )
         gen_args = model.gen.mock_calls[0][2]
         self.assertEqual(gen_args["n"], 3)
@@ -138,8 +139,14 @@ class TorchModelBridgeTest(TestCase):
             )
         )
         self.assertEqual(gen_args["model_gen_options"], {"option": "yes"})
+        self.assertIsNone(gen_args["target_fidelities"])
+        # check rounding function
+        t = torch.tensor([0.1, 0.6], dtype=torch_dtype, device=torch_device)
+        self.assertTrue(torch.equal(gen_args["rounding_func"](t), torch.round(t)))
+
         self.assertTrue(np.array_equal(X, np.array([1.0, 2.0, 3.0])))
         self.assertTrue(np.array_equal(w, np.array([1.0])))
+
         # Cross-validate
         model.cross_validate.return_value = (torch.tensor([3.0]), torch.tensor([4.0]))
         f, var = ma._model_cross_validate(
