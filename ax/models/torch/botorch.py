@@ -242,6 +242,7 @@ class BotorchModel(TorchModel):
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         return self.model_predictor(model=self.model, X=X)  # pyre-ignore [28]
 
+    @copy_doc(TorchModel.gen)
     def gen(
         self,
         n: int,
@@ -253,39 +254,16 @@ class BotorchModel(TorchModel):
         pending_observations: Optional[List[Tensor]] = None,
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
+        target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Tuple[Tensor, Tensor, TGenMetadata]:
-        """Generate new candidates.
-
-        An initialized acquisition function can be passed in as
-        model_gen_options["acquisition_function"].
-
-        Args:
-            n: Number of candidates to generate.
-            bounds: A list of (lower, upper) tuples for each column of X.
-            objective_weights: The objective is to maximize a weighted sum of
-                the columns of f(x). These are the weights.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints
-                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                A f(x) <= b. (Not used by single task models)
-            linear_constraints: A tuple of (A, b). For k linear constraints on
-                d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b.
-            fixed_features: A map {feature_index: value} for features that
-                should be fixed to a particular value during generation.
-            pending_observations:  A list of m (k_i x d) feature tensors X
-                for m outcomes and k_i pending observations for outcome i.
-            model_gen_options: A config dictionary that can contain
-                model-specific options.
-            rounding_func: A function that rounds an optimization result
-                appropriately (i.e., according to `round-trip` transformations).
-
-        Returns:
-            Tensor: `n x d`-dim Tensor of generated points.
-            Tensor: `n`-dim Tensor of weights for each point.
-        """
         options = model_gen_options or {}
         acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
+
+        if target_fidelities:
+            raise NotImplementedError(
+                "target_fidelities not implemented for base BotorchModel"
+            )
 
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,
@@ -346,7 +324,14 @@ class BotorchModel(TorchModel):
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         model_gen_options: Optional[TConfig] = None,
+        target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Optional[Tensor]:
+
+        if target_fidelities:
+            raise NotImplementedError(
+                "target_fidelities not implemented for base BotorchModel"
+            )
+
         x_best = best_observed_point(
             model=self,
             bounds=bounds,

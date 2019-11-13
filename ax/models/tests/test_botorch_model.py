@@ -190,6 +190,20 @@ class BotorchModelTest(TestCase):
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
             mock_optimize_acqf.assert_called_once()
 
+        # test that fidelity features are unsupported
+        with self.assertRaises(NotImplementedError):
+            Xgen, wgen = model.gen(
+                n=n,
+                bounds=bounds,
+                objective_weights=objective_weights,
+                outcome_constraints=None,
+                linear_constraints=None,
+                fixed_features=fixed_features,
+                pending_observations=pending_observations,
+                model_gen_options={"optimizer_kwargs": {"joint_optimization": True}},
+                target_fidelities={0: 3.0},
+            )
+
         # test get_rounding_func
         dummy_rounding = get_rounding_func(rounding_func=dummy_func)
         X_temp = torch.rand(1, 2, 3, 4)
@@ -203,6 +217,15 @@ class BotorchModelTest(TestCase):
             fixed_features={0: 100.0},
         )
         self.assertIsNone(xbest)
+
+        # test that fidelity features are unsupported
+        with self.assertRaises(NotImplementedError):
+            xbest = model.best_point(
+                bounds=bounds,
+                objective_weights=objective_weights,
+                fixed_features={0: 100.0},
+                target_fidelities={0: 3.0},
+            )
 
         # Test cross-validation
         mean, variance = model.cross_validate(

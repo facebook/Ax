@@ -11,7 +11,7 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.core.types import TBounds
+from ax.core.types import TBounds, TParamValue
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.typeutils import not_none
 
@@ -35,13 +35,13 @@ def extract_parameter_constraints(
 
 def get_bounds_and_task(
     search_space: SearchSpace, param_names: List[str]
-) -> Tuple[List[Tuple[float, float]], List[int], List[int]]:
+) -> Tuple[List[Tuple[float, float]], List[int], Dict[int, TParamValue]]:
     """Extract box bounds from a search space in the usual Scipy format.
     Identify integer parameters as task features.
     """
     bounds: List[Tuple[float, float]] = []
     task_features: List[int] = []
-    fidelity_features: List[int] = []
+    target_fidelities: Dict[int, TParamValue] = {}
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
         # Validation
@@ -54,9 +54,9 @@ def get_bounds_and_task(
         if p.parameter_type == ParameterType.INT:
             task_features.append(i)
         if p.is_fidelity:
-            fidelity_features.append(i)
+            target_fidelities[i] = p.target_value
 
-    return bounds, task_features, fidelity_features
+    return bounds, task_features, target_fidelities
 
 
 def get_fixed_features(
