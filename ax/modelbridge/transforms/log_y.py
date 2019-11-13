@@ -88,7 +88,8 @@ class LogY(Transform):
             ]
             if len(idcs) != len(obsd.metric_names):
                 # TODO: Support covariances for a subset of observations
-                if not np.all(cov - np.diag(np.diag(cov)) == 0):
+                diff = cov - np.diag(np.diag(cov))
+                if not np.all(np.isnan(diff) | (diff == 0)):
                     raise NotImplementedError(
                         "LogY transform for a subset of metrics not supported for "
                         " correlated observations"
