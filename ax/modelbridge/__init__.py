@@ -22,6 +22,7 @@ __all__ = [
     "TorchModelBridge",
     "get_factorial",
     "get_GPEI",
+    "get_GPKG",
     "get_sobol",
     "get_thompson",
     "get_uniform",

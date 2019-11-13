@@ -14,10 +14,10 @@ from ax.models.torch.botorch_defaults import (
     predict_from_model,
     scipy_optimizer,
 )
-from ax.models.torch.utils import _get_X_pending_and_observed
+from ax.models.torch.utils import _get_X_pending_and_observed, normalize_indices
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from torch import Tensor
@@ -28,6 +28,7 @@ TModelConstructor = Callable[
         List[Tensor],
         List[Tensor],
         List[Tensor],
+        List[int],
         List[int],
         Optional[Dict[str, Tensor]],
         Any,
@@ -70,7 +71,7 @@ class BotorchModel(TorchModel):
     components:
 
     - a `model_constructor` that instantiates and fits a model on data
-    - a `model_predictor` that predicts using the fitted model
+    - a `model_predictor` that predicts outcomes using the fitted model
     - a `acqf_constructor` that creates an acquisition function from a fitted model
     - a `acqf_optimizer` that optimizes the acquisition function
 
@@ -85,6 +86,10 @@ class BotorchModel(TorchModel):
             signature as described below.
         refit_on_cv: If True, refit the model for each fold when performing
             cross-validation.
+        refit_on_update: If True, refit the model after updating the training
+            data using the `update` method.
+        warm_start_refitting: If True, start model refitting from previous
+            model parameters in order to speed up the fitting process.
 
 
     Call signatures:
@@ -96,27 +101,26 @@ class BotorchModel(TorchModel):
             Ys,
             Yvars,
             task_features,
-            state_dict,
             fidelity_features,
-            **kwargs
+            state_dict,
+            **kwargs,
         ) -> model
 
     Here `Xs`, `Ys`, `Yvars` are lists of tensors (one element per outcome),
-    `task_features` identifies columns of Xs that should be modeled
-    as a task, `state_dict` is a pytorch module state dict, 'fidelity_features' is
-    a list of ints that specify the positions of fidelity parameters in 'Xs',
-    and `model` is a botorch `Model`. Optional kwargs are being passed through
-    from the `BotorchModel` constructor. This callable is assumed to return a fitted
-    botorch model that has the same dtype and lives on the same device as the
+    `task_features` identifies columns of Xs that should be modeled as a task,
+    `fidelity_features` is a list of ints that specify the positions of fidelity
+    parameters in 'Xs', `state_dict` is a pytorch module state dict, and `model`
+    is a BoTorch `Model`. Optional kwargs are being passed through from the
+    `BotorchModel` constructor. This callable is assumed to return a fitted
+    BoTorch model that has the same dtype and lives on the same device as the
     input tensors.
 
     ::
 
         model_predictor(model, X) -> [mean, cov]
 
-    Here `model` is a fitted botorch model, `X` is a tensor of candidate
-    points, and `mean` and `cov` are the posterior mean and covariance,
-    respectively.
+    Here `model` is a fitted botorch model, `X` is a tensor of candidate points,
+    and `mean` and `cov` are the posterior mean and covariance, respectively.
 
     ::
 
@@ -130,12 +134,12 @@ class BotorchModel(TorchModel):
         ) -> acq_function
 
 
-    Here `model` is a botorch `Model`, `objective_weights` is a tensor of
-    weights for the model outputs, `outcome_constraints` is a tuple of
-    tensors describing the (linear) outcome constraints, `X_observed` are
-    previously observed points, and `X_pending` are points whose evaluation
-    is pending. `acq_function` is a botorch acquisition function crafted
-    from these inputs. For additional details on the arguments, see `get_NEI`.
+    Here `model` is a botorch `Model`, `objective_weights` is a tensor of weights
+    for the model outputs, `outcome_constraints` is a tuple of tensors describing
+    the (linear) outcome constraints, `X_observed` are previously observed points,
+    and `X_pending` are points whose evaluation is pending. `acq_function` is a
+    BoTorch acquisition function crafted from these inputs. For additional
+    details on the arguments, see `get_NEI`.
 
     ::
 
@@ -149,14 +153,13 @@ class BotorchModel(TorchModel):
             **kwargs,
         ) -> candidates
 
-    Here `acq_function` is a BoTorch `AcquisitionFunction`, `bounds` is a
-    tensor containing bounds on the parameters, `n` is the number of
-    candidates to be generated, `inequality_constraints` are inequality
-    constraints on parameter values, `fixed_features` specifies features that
-    should be fixed during generation, and `rounding_func` is a callback
-    that rounds an optimization result appropriately. `candidates` is
-    a tensor of generated candidates. For additional details on the
-    arguments, see `scipy_optimizer`.
+    Here `acq_function` is a BoTorch `AcquisitionFunction`, `bounds` is a tensor
+    containing bounds on the parameters, `n` is the number of candidates to be
+    generated, `inequality_constraints` are inequality constraints on parameter
+    values, `fixed_features` specifies features that should be fixed during
+    generation, and `rounding_func` is a callback that rounds an optimization
+    result appropriately. `candidates` is a tensor of generated candidates.
+    For additional details on the arguments, see `scipy_optimizer`.
     """
 
     dtype: Optional[torch.dtype]
@@ -167,10 +170,6 @@ class BotorchModel(TorchModel):
 
     def __init__(
         self,
-        # pyre-fixme[9]: model_constructor has type `Callable[[List[Tensor],
-        #  List[Tensor], List[Tensor], List[int], Optional[Dict[str, Tensor]], Any],
-        #  Model]`; used as `Callable[[List[Tensor], List[Tensor], List[Tensor],
-        #  List[int], Optional[Dict[str, Tensor]], **(Any)], MultiOutputGP]`.
         model_constructor: TModelConstructor = get_and_fit_model,
         model_predictor: TModelPredictor = predict_from_model,
         # pyre-fixme[9]: acqf_constructor has type `Callable[[Model, Tensor,
@@ -194,9 +193,11 @@ class BotorchModel(TorchModel):
         self.model_predictor = model_predictor
         self.acqf_constructor = acqf_constructor
         self.acqf_optimizer = acqf_optimizer
+        self._kwargs = kwargs
         self.refit_on_cv = refit_on_cv
         self.refit_on_update = refit_on_update
-        self.model = None
+        self.warm_start_refitting = warm_start_refitting
+        self.model: Optional[Model] = None
         self.Xs = []
         self.Ys = []
         self.Yvars = []
@@ -204,8 +205,6 @@ class BotorchModel(TorchModel):
         self.device = None
         self.task_features: List[int] = []
         self.fidelity_features: List[int] = []
-        self.fidelity_model_id = kwargs.get("fidelity_model_id", None)
-        self.warm_start_refitting = warm_start_refitting
 
     @copy_doc(TorchModel.fit)
     def fit(
@@ -223,15 +222,20 @@ class BotorchModel(TorchModel):
         self.Xs = Xs
         self.Ys = Ys
         self.Yvars = Yvars
-        self.task_features = task_features
-        self.fidelity_features = fidelity_features
+        # ensure indices are non-negative
+        self.task_features = normalize_indices(task_features, d=Xs[0].size(-1))
+        self.fidelity_features = normalize_indices(fidelity_features, d=Xs[0].size(-1))
+        kwargs = self._kwargs
+        if len(self.fidelity_features) == 0:
+            # only pass linear_truncated arg if there are fidelities
+            kwargs = {k: v for k, v in kwargs.items() if k != "linear_truncated"}
         self.model = self.model_constructor(  # pyre-ignore [28]
             Xs=Xs,
             Ys=Ys,
             Yvars=Yvars,
             task_features=self.task_features,
             fidelity_features=self.fidelity_features,
-            fidelity_model_id=self.fidelity_model_id,
+            **kwargs,
         )
 
     @copy_doc(TorchModel.predict)
@@ -318,7 +322,7 @@ class BotorchModel(TorchModel):
 
         botorch_rounding_func = get_rounding_func(rounding_func)
         # pyre-ignore: [28]
-        candidates, expected_acquistion_value = self.acqf_optimizer(
+        candidates, expected_acquisition_value = self.acqf_optimizer(
             acq_function=checked_cast(AcquisitionFunction, acquisition_function),
             bounds=bounds_,
             n=n,
@@ -330,11 +334,7 @@ class BotorchModel(TorchModel):
         return (
             candidates.detach().cpu(),
             torch.ones(n, dtype=self.dtype),
-            {
-                "expected_acquistion_value": expected_acquistion_value.cpu()
-                .numpy()
-                .tolist()
-            },
+            {"expected_acquisition_value": expected_acquisition_value.tolist()},
         )
 
     @copy_doc(TorchModel.best_point)
@@ -382,7 +382,7 @@ class BotorchModel(TorchModel):
             task_features=self.task_features,
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
-            fidelity_model_id=self.fidelity_model_id,
+            **self._kwargs,
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
@@ -404,8 +404,8 @@ class BotorchModel(TorchModel):
             task_features=self.task_features,
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
-            fidelity_model_id=self.fidelity_model_id,
             refit_model=self.refit_on_update,
+            **self._kwargs,
         )
 
     def feature_importances(self) -> np.ndarray:
@@ -414,7 +414,7 @@ class BotorchModel(TorchModel):
                 "Cannot calculate feature_importances without a fitted model"
             )
         else:
-            ls = not_none(self.model).covar_module.base_kernel.lengthscale
+            ls = self.model.covar_module.base_kernel.lengthscale  # pyre-ignore: [16]
             return cast(Tensor, (1 / ls)).detach().cpu().numpy()
 
 

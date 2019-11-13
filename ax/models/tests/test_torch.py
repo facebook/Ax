@@ -2,6 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import numpy as np
+from ax.models.torch.utils import normalize_indices
 from ax.models.torch_base import TorchModel
 from ax.utils.common.testutils import TestCase
 
@@ -51,3 +52,19 @@ class TorchModelTest(TestCase):
         numpy_model = TorchModel()
         with self.assertRaises(NotImplementedError):
             numpy_model.update(Xs=[np.array(0)], Ys=[np.array(0)], Yvars=[np.array(1)])
+
+
+class TorchUtilsTest(TestCase):
+    def testNormalizeIndices(self):
+        indices = [0, 2]
+        nlzd_indices = normalize_indices(indices, 3)
+        self.assertEqual(nlzd_indices, indices)
+        nlzd_indices = normalize_indices(indices, 4)
+        self.assertEqual(nlzd_indices, indices)
+        indices = [0, -1]
+        nlzd_indices = normalize_indices(indices, 3)
+        self.assertEqual(nlzd_indices, [0, 2])
+        with self.assertRaises(ValueError):
+            nlzd_indices = normalize_indices([3], 3)
+        with self.assertRaises(ValueError):
+            nlzd_indices = normalize_indices([-4], 3)

@@ -7,6 +7,7 @@ from ax.modelbridge.factory import (
     get_empirical_bayes_thompson,
     get_factorial,
     get_GPEI,
+    get_GPKG,
     get_MTGP,
     get_sobol,
     get_thompson,
@@ -78,6 +79,23 @@ class ModelBridgeFactoryTest(TestCase):
 
         with self.assertRaises(ValueError):
             get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=0)
+
+    def test_GPKG(self):
+        """Tests GPKG instantiation."""
+        exp = get_branin_experiment(with_batch=True)
+        with self.assertRaises(ValueError):
+            get_GPKG(experiment=exp, data=exp.fetch_data())
+        exp.trials[0].run()
+        gpkg = get_GPKG(experiment=exp, data=exp.fetch_data())
+        self.assertIsInstance(gpkg, TorchModelBridge)
+        gpkg_win = get_GPKG(
+            experiment=exp, data=exp.fetch_data(), winsorization_limits=[0.1, 0.1]
+        )
+        self.assertIsInstance(gpkg_win, TorchModelBridge)
+        configs_expected = {
+            "Winsorize": {"winsorization_lower": 0.1, "winsorization_upper": 0.1}
+        }
+        self.assertEqual(gpkg_win._transform_configs, configs_expected)
 
     def test_model_kwargs(self):
         """Tests that model kwargs are passed correctly."""
