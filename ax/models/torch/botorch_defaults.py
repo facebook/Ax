@@ -7,13 +7,9 @@ import torch
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
-from botorch.exceptions.errors import UnsupportedError
 from botorch.fit import fit_gpytorch_model
-from botorch.models.fidelity.gp_regression_fidelity import (
-    SingleTaskGPLTKernel,
-    SingleTaskMultiFidelityGP,
-)
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
+from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -29,7 +25,6 @@ from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
-model_list = [SingleTaskGPLTKernel, SingleTaskMultiFidelityGP]
 
 
 def get_and_fit_model(
@@ -38,9 +33,8 @@ def get_and_fit_model(
     Yvars: List[Tensor],
     task_features: List[int],
     fidelity_features: List[int],
-    refit_model: bool = True,
     state_dict: Optional[Dict[str, Tensor]] = None,
-    fidelity_model_id: Optional[int] = None,
+    refit_model: bool = True,
     **kwargs: Any,
 ) -> GPyTorchModel:
     r"""Instantiates and fits a botorch ModelListGP using the given data.
@@ -51,34 +45,30 @@ def get_and_fit_model(
         Yvars: List of observed variance of Ys.
         task_features: List of columns of X that are tasks.
         fidelity_features: List of columns of X that are fidelity parameters.
-        refit_model: Flag for refitting model.
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
-        fidelity_model_id: set this if you want to use GP models from `model_list`
-            defined above. The `SingleTaskGPLTKernel` model uses linear truncated
-            kernel; the `SingleTaskMultiFidelityGP` model uses exponential decay
-            kernel.
+        refit_model: Flag for refitting model.
 
     Returns:
-        A fitted ModelListGP.
+        A fitted GPyTorchModel.
     """
-    if fidelity_model_id is not None and len(task_features) > 0:
+    if len(fidelity_features) > 0 and len(task_features) > 0:
         raise NotImplementedError(
             "Currently do not support MF-GP models with task_features!"
         )
-    if fidelity_model_id is not None and len(fidelity_features) > 1:
-        raise UnsupportedError(
-            "Fidelity MF-GP models currently support only one fidelity parameter!"
+    if len(fidelity_features) > 1:
+        raise NotImplementedError(
+            "Fidelity MF-GP models currently support only a single fidelity parameter!"
         )
-    model = None
     if len(task_features) > 1:
-        raise ValueError(
+        raise NotImplementedError(
             f"This model only supports 1 task feature (got {task_features})"
         )
     elif len(task_features) == 1:
         task_feature = task_features[0]
     else:
         task_feature = None
+    model = None
     if task_feature is None:
         if len(Xs) == 1:
             # Use single output, single task GP
@@ -88,7 +78,7 @@ def get_and_fit_model(
                 Yvar=Yvars[0],
                 task_feature=task_feature,
                 fidelity_features=fidelity_features,
-                fidelity_model_id=fidelity_model_id,
+                **kwargs,
             )
         elif all(torch.equal(Xs[0], X) for X in Xs[1:]):
             # Use batched multioutput, single task GP
@@ -100,12 +90,12 @@ def get_and_fit_model(
                 Yvar=Yvar,
                 task_feature=task_feature,
                 fidelity_features=fidelity_features,
-                fidelity_model_id=fidelity_model_id,
+                **kwargs,
             )
     if model is None:
-        # Use model list
+        # Use a ModelListGP
         models = [
-            _get_model(X=X, Y=Y, Yvar=Yvar, task_feature=task_feature)
+            _get_model(X=X, Y=Y, Yvar=Yvar, task_feature=task_feature, **kwargs)
             for X, Y, Yvar in zip(Xs, Ys, Yvars)
         ]
         model = ModelListGP(*models)
@@ -245,7 +235,7 @@ def scipy_optimizer(
         # use SLSQP by default for small problems since it yields faster wall times
         if "method" not in kwargs:
             kwargs["method"] = "SLSQP"
-    X, expected_acquistion_value = optimize_acqf(
+    X, expected_acquisition_value = optimize_acqf(
         acq_function=acq_function,
         bounds=bounds,
         q=n,
@@ -256,45 +246,62 @@ def scipy_optimizer(
         fixed_features=fixed_features,
         sequential=sequential,
     )
-    return X, expected_acquistion_value
+    return X, expected_acquisition_value
 
 
 def _get_model(
     X: Tensor,
     Y: Tensor,
     Yvar: Tensor,
-    task_feature: Optional[int],
+    task_feature: Optional[int] = None,
     fidelity_features: Optional[List[int]] = None,
-    fidelity_model_id: Optional[int] = None,
+    **kwargs: Any,
 ) -> GPyTorchModel:
-    """Instantiate a model of type depending on the input data."""
+    """Instantiate a model of type depending on the input data.
+
+    Args:
+        X: A `n x d` tensor of input features.
+        Y: A `n x m` tensor of input observations.
+        Yvar: A `n x m` tensor of input variances (NaN if unobserved).
+        task_feature: The index of the column pertaining to the task feature
+            (if present).
+        fidelity_features: List of columns of X that are fidelity parameters.
+
+    Returns:
+        A GPyTorchModel (unfitted).
+    """
     Yvar = Yvar.clamp_min_(MIN_OBSERVED_NOISE_LEVEL)  # pyre-ignore: [16]
     is_nan = torch.isnan(Yvar)
     any_nan_Yvar = torch.any(is_nan)
     all_nan_Yvar = torch.all(is_nan)
     if any_nan_Yvar and not all_nan_Yvar:
         raise ValueError(
-            "Mix of known and unknown variances indicates "
-            "valuation function errors. Variances should all be specified, or "
-            "none should be."
+            "Mix of known and unknown variances indicates valuation function "
+            "errors. Variances should all be specified, or none should be."
         )
     if fidelity_features is None:
         fidelity_features = []
-    if fidelity_model_id is None or len(fidelity_features) == 0:
-        if task_feature is None and all_nan_Yvar:
-            gp = SingleTaskGP(train_X=X, train_Y=Y)
-        elif task_feature is None:
-            gp = FixedNoiseGP(train_X=X, train_Y=Y, train_Yvar=Yvar)
-        elif all_nan_Yvar:
-            gp = MultiTaskGP(train_X=X, train_Y=Y, task_feature=task_feature)
-        else:
-            gp = FixedNoiseMultiTaskGP(
-                train_X=X,
-                train_Y=Y.view(-1),
-                train_Yvar=Yvar.view(-1),
-                task_feature=task_feature,
+    if len(fidelity_features) > 0:
+        if task_feature:
+            raise NotImplementedError(
+                "multi-task multi-fidelity models not yet available"
             )
+        # at this point we can assume that there is only a single fidelity parameter
+        gp = SingleTaskMultiFidelityGP(
+            train_X=X, train_Y=Y, data_fidelity=fidelity_features[0], **kwargs
+        )
+    elif task_feature is None and all_nan_Yvar:
+        gp = SingleTaskGP(train_X=X, train_Y=Y, **kwargs)
+    elif task_feature is None:
+        gp = FixedNoiseGP(train_X=X, train_Y=Y, train_Yvar=Yvar, **kwargs)
+    elif all_nan_Yvar:
+        gp = MultiTaskGP(train_X=X, train_Y=Y, task_feature=task_feature, **kwargs)
     else:
-        gp_model = model_list[fidelity_model_id]
-        gp = gp_model(train_X=X, train_Y=Y, train_data_fidelity=False)
+        gp = FixedNoiseMultiTaskGP(
+            train_X=X,
+            train_Y=Y.view(-1),
+            train_Yvar=Yvar.view(-1),
+            task_feature=task_feature,
+            **kwargs,
+        )
     return gp

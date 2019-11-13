@@ -36,6 +36,7 @@ from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
+from ax.models.torch.botorch_kg import KnowledgeGradient
 from ax.models.torch_base import TorchModel
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
@@ -127,6 +128,12 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
+    "GPKG": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=KnowledgeGradient,
+        transforms=Cont_X_trans + Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
     "EB": ModelSetup(
         bridge_class=DiscreteModelBridge,
         model_class=EmpiricalBayesThompsonSampler,
@@ -174,6 +181,7 @@ class Models(Enum):
 
     SOBOL = "Sobol"
     GPEI = "GPEI"
+    GPKG = "GPKG"
     FACTORIAL = "Factorial"
     THOMPSON = "Thompson"
     BOTORCH = "BO"

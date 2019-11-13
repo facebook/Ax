@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import Dict, List, Optional, Type
+from logging import Logger
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.data import Data
@@ -40,7 +41,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 
 
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 # pyre-fixme[19]: __init__ expects 0 args but got 1.
@@ -113,7 +114,7 @@ def get_botorch(
     device: torch.device = DEFAULT_TORCH_DEVICE,
     transforms: List[Type[Transform]] = Cont_X_trans + Y_trans,
     transform_configs: Optional[Dict[str, TConfig]] = None,
-    model_constructor: TModelConstructor = get_and_fit_model,  # pyre-ignore[9]
+    model_constructor: TModelConstructor = get_and_fit_model,
     model_predictor: TModelPredictor = predict_from_model,
     acqf_constructor: TAcqfConstructor = get_NEI,  # pyre-ignore[9]
     acqf_optimizer: TOptimizer = scipy_optimizer,  # pyre-ignore[9]
@@ -163,6 +164,44 @@ def get_GPEI(
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
+        ),
+    )
+
+
+def get_GPKG(
+    experiment: Experiment,
+    data: Data,
+    search_space: Optional[SearchSpace] = None,
+    cost_intercept: float = 0.01,
+    dtype: torch.dtype = torch.double,
+    device: torch.device = DEFAULT_TORCH_DEVICE,
+    transforms: List[Type[Transform]] = Cont_X_trans + Y_trans,
+    winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
+    **kwargs: Any,
+) -> TorchModelBridge:
+    """Instantiates a GP model that generates points with KG."""
+    if search_space is None:
+        search_space = experiment.search_space
+    if data.df.empty:  # pragma: no cover
+        raise ValueError("GP+KG BotorchModel requires non-empty data.")
+    transform_configs = {}
+    if winsorization_limits is not None:
+        transform_configs["Winsorize"] = {
+            "winsorization_lower": winsorization_limits[0] or 0.0,
+            "winsorization_upper": winsorization_limits[1] or 0.0,
+        }
+    return checked_cast(
+        TorchModelBridge,
+        Models.GPKG(
+            search_space=search_space,
+            experiment=experiment,
+            data=data,
+            cost_intercept=cost_intercept,
+            linear_truncated=kwargs.get("linear_truncated", True),
+            torch_dtype=dtype,
+            torch_device=device,
+            transforms=transforms,
+            transform_configs=transform_configs,
         ),
     )
 
