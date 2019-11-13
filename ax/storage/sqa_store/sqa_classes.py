@@ -171,6 +171,7 @@ class SQAGeneratorRun(Base):
     model_kwargs: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
     bridge_kwargs: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
     gen_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    model_state_after_gen: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
     generation_strategy_id: Optional[int] = Column(
         Integer, ForeignKey("generation_strategy.id")
     )

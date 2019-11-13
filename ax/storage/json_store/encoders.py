@@ -247,6 +247,7 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
         "model_kwargs": generator_run._model_kwargs,
         "bridge_kwargs": generator_run._bridge_kwargs,
         "gen_metadata": generator_run._gen_metadata,
+        "model_state_after_gen": generator_run._model_state_after_gen,
     }
 
 
