@@ -426,10 +426,9 @@ class ModelBridge(ABC):
             except (TypeError, ValueError) as e:
                 # If the prediction is not out of design, this is a real error.
                 # Let's re-raise.
-                logger.info(obsf.parameters)
-                logger.info(self.model_space.check_membership(obsf.parameters))
-                logger.info(self.model_space)
                 if self.model_space.check_membership(obsf.parameters):
+                    logger.debug(obsf.parameters)
+                    logger.debug(self.model_space)
                     raise e from None
                 # Prediction is out of design.
                 # Training data is untranformed already.
@@ -438,6 +437,7 @@ class ModelBridge(ABC):
                         data
                         for data in self.get_training_data()
                         if obsf.parameters == data.features.parameters
+                        and obsf.trial_index == data.features.trial_index
                     ),
                     None,
                 )
