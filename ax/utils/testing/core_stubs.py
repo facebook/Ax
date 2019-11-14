@@ -81,7 +81,7 @@ def get_branin_experiment(
     )
 
     if with_status_quo:
-        exp.status_quo = Arm(parameters={"x1": 0, "x2": 0})
+        exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
 
     if with_batch:
         sobol_generator = get_sobol(search_space=exp.search_space)
