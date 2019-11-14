@@ -101,15 +101,15 @@ class BatchTrial(BaseTrial):
         return self._generator_run_structs
 
     @property
-    def arm_weights(self) -> Optional[MutableMapping[Arm, float]]:
+    def arm_weights(self) -> MutableMapping[Arm, float]:
         """The set of arms and associated weights for the trial.
 
         These are constructed by merging the arms and weights from
         each generator run that is attached to the trial.
         """
-        if len(self._generator_run_structs) == 0 and self.status_quo is None:
-            return None
         arm_weights = OrderedDict()
+        if len(self._generator_run_structs) == 0 and self.status_quo is None:
+            return arm_weights
         for struct in self._generator_run_structs:
             multiplier = struct.weight
             for arm, weight in struct.generator_run.arm_weights.items():
