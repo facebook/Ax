@@ -119,6 +119,12 @@ class RangeParameter(Parameter):
             is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it is a fidelity.
         """
+        if is_fidelity and (target_value is None):
+            raise ValueError(
+                "`target_value` should not be None for the fidelity parameter: "
+                "{}".format(name)
+            )
+
         self._name = name
         self._parameter_type = parameter_type
         self._digits = digits
@@ -332,6 +338,12 @@ class ChoiceParameter(Parameter):
             is_task: Treat the parameter as a task parameter for modeling.
             target_value: Target value of this parameter if it's fidelity.
         """
+        if is_fidelity and (target_value is None):
+            raise ValueError(
+                "`target_value` should not be None for the fidelity parameter: "
+                "{}".format(name)
+            )
+
         self._is_ordered = is_ordered
         self._is_task = is_task
         self._is_fidelity = is_fidelity
@@ -447,6 +459,12 @@ class FixedParameter(Parameter):
             value: The fixed value of the parameter.
             target_value: Target value of this parameter if it is a fidelity.
         """
+        if is_fidelity and (target_value is None):
+            raise ValueError(
+                "`target_value` should not be None for the fidelity parameter: "
+                "{}".format(name)
+            )
+
         self._name = name
         self._parameter_type = parameter_type
         self._value = self._cast(value)
