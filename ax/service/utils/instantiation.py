@@ -85,6 +85,7 @@ def _make_range_param(
         upper=checked_cast_to_tuple((float, int), bounds[1]),
         log_scale=checked_cast(bool, representation.get("log_scale", False)),
         is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
+        target_value=representation.get("target_value", None),  # pyre-ignore[6]
     )
 
 
@@ -102,6 +103,8 @@ def _make_choice_param(
         parameter_type=_to_parameter_type(values, parameter_type, name, "values"),
         values=values,
         is_ordered=checked_cast(bool, representation.get("is_ordered", False)),
+        is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
+        target_value=representation.get("target_value", None),  # pyre-ignore[6]
     )
 
 
@@ -120,6 +123,8 @@ def _make_fixed_param(
         if parameter_type is None
         else _get_parameter_type(PARAM_TYPES[parameter_type]),  # pyre-ignore[6]
         value=value,
+        is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
+        target_value=representation.get("target_value", None),
     )
 
 

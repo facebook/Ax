@@ -86,6 +86,9 @@ class RangeParameterTest(TestCase):
         with self.assertRaises(ValueError):
             RangeParameter("x", ParameterType.INT, 0.5, 1)
 
+        with self.assertRaises(ValueError):
+            RangeParameter("x", ParameterType.INT, 0.5, 1, is_fidelity=True)
+
     def testBadSetter(self):
         with self.assertRaises(ValueError):
             self.param1.update_range(upper="foo")
@@ -159,6 +162,15 @@ class ChoiceParameterTest(TestCase):
             "values=['foo', 'bar'], fidelity=True, target_value='bar')"
         )
 
+    def testBadCreations(self):
+        with self.assertRaises(ValueError):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["foo", "foo2"],
+                is_fidelity=True,
+            )
+
     def testEq(self):
         param4 = ChoiceParameter(
             name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
@@ -222,6 +234,15 @@ class FixedParameterTest(TestCase):
             name="x", parameter_type=ParameterType.BOOL, value=True
         )
         self.param1_repr = "FixedParameter(name='x', parameter_type=BOOL, value=True)"
+
+    def testBadCreations(self):
+        with self.assertRaises(ValueError):
+            FixedParameter(
+                name="x",
+                parameter_type=ParameterType.BOOL,
+                value=True,
+                is_fidelity=True,
+            )
 
     def testEq(self):
         param2 = FixedParameter(name="x", parameter_type=ParameterType.BOOL, value=True)
