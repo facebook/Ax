@@ -77,6 +77,8 @@ def object_from_json(object_json: Any) -> Any:
             return _class[object_json["name"]]
         elif _class == GeneratorRun:
             return generator_run_from_json(object_json=object_json)
+        elif _class == GenerationStrategy:
+            return generation_strategy_from_json(generation_strategy_json=object_json)
         elif _class == SimpleExperiment:
             return simple_experiment_from_json(object_json=object_json)
         elif _class == Experiment:

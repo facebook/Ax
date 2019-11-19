@@ -15,7 +15,11 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
-from ax.utils.testing.core_stubs import get_search_space, get_search_space_for_value
+from ax.utils.testing.core_stubs import (
+    get_experiment,
+    get_search_space,
+    get_search_space_for_value,
+)
 
 
 logger = get_logger("ae_experiment")
@@ -133,8 +137,11 @@ def get_observation2trans() -> Observation:
 # Modeling layer
 
 
-def get_generation_strategy() -> GenerationStrategy:
-    return choose_generation_strategy(search_space=get_search_space())
+def get_generation_strategy(with_experiment: bool = False) -> GenerationStrategy:
+    gs = choose_generation_strategy(search_space=get_search_space())
+    if with_experiment:
+        gs._experiment = get_experiment()
+    return gs
 
 
 def get_transform_type() -> Type[Transform]:

@@ -280,7 +280,7 @@ def generation_strategy_to_dict(
     generation_strategy: GenerationStrategy,
 ) -> Dict[str, Any]:
     if generation_strategy.uses_non_registered_models:
-        raise ValueError(
+        raise ValueError(  # pragma: no cover
             "Generation strategies that use custom models provided through "
             "callables cannot be serialized and stored."
         )

@@ -3,6 +3,7 @@
 
 import os
 import tempfile
+from functools import partial
 
 from ax.core.metric import Metric
 from ax.core.runner import Runner
@@ -64,7 +65,7 @@ TEST_CASES = [
     ("FactorialMetric", get_factorial_metric),
     ("FixedParameter", get_fixed_parameter),
     ("Hartmann6Metric", get_hartmann_metric),
-    ("GenerationStrategy", get_generation_strategy),
+    ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
     ("GeneratorRun", get_generator_run),
     ("Metric", get_metric),
     ("ObservationFeatures", get_observation_features),
@@ -166,16 +167,8 @@ class JSONStoreTest(TestCase):
             # a SearchSpace in order to be initialized
             if class_ == "OrderConstraint" or class_ == "SumConstraint":
                 continue
+
             original_object = fake_func()
-
-            # Can't load generation strategy from JSON, because it requires an
-            # experiment to reload.
-            if class_ == "GenerationStrategy":
-                with self.assertRaisesRegex(ValueError, ".* custom .* cannot "):
-                    original_object._uses_registered_models = False
-                    object_to_json(original_object)
-                continue
-
             json_object = object_to_json(original_object)
             converted_object = object_from_json(json_object)
 
