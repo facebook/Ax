@@ -696,6 +696,18 @@ class TestAxClient(TestCase):
                 )
             ax_client.complete_trial(idx, branin(params.get("x"), params.get("y")))
 
+    def test_unnamed_experiment_snapshot(self):
+        ax_client = AxClient(random_seed=239)
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ]
+        )
+        serialized = ax_client.to_json_snapshot()
+        ax_client = AxClient.from_json_snapshot(serialized)
+        self.assertIsNone(ax_client.experiment._name)
+
     @patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,

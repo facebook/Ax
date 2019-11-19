@@ -33,7 +33,7 @@ def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
     """Convert Ax experiment to a dictionary."""
     return {
         "__type": experiment.__class__.__name__,
-        "name": experiment.name,
+        "name": experiment._name,
         "description": experiment.description,
         "experiment_type": experiment.experiment_type,
         "search_space": experiment.search_space,
