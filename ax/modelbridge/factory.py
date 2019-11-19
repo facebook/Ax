@@ -44,7 +44,6 @@ from ax.utils.common.typeutils import checked_cast
 logger: Logger = get_logger(__name__)
 
 
-# pyre-fixme[19]: __init__ expects 0 args but got 1.
 DEFAULT_TORCH_DEVICE = torch.device("cpu")
 
 
