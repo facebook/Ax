@@ -117,7 +117,9 @@ class SobolGenerator(RandomModel):
 
     @copy_doc(Model._get_state)
     def _get_state(self) -> Dict[str, Any]:
-        return {"init_position": self.init_position}
+        state = super()._get_state()
+        state.update({"init_position": self.init_position})
+        return state
 
     @copy_doc(RandomModel._gen_unconstrained)
     def _gen_unconstrained(

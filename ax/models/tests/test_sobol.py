@@ -199,6 +199,7 @@ class SobolGeneratorTest(TestCase):
             fixed_features={fixed_param_index: 1},
             rounding_func=lambda x: x,
         )
+        self.assertEqual(len(generated_points), 2)
         generated_points, weights = generator.gen(
             n=1,
             bounds=bounds,
@@ -210,3 +211,4 @@ class SobolGeneratorTest(TestCase):
             rounding_func=lambda x: x,
         )
         self.assertEqual(len(generated_points), 1)
+        self.assertIsNotNone(generator._get_state().get("generated_points"))

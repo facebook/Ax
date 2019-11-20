@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.types import TConfig
@@ -12,6 +12,7 @@ from ax.models.model_utils import (
     tunable_feature_indices,
     validate_bounds,
 )
+from ax.utils.common.docutils import copy_doc
 
 
 class RandomModel(Model):
@@ -36,12 +37,17 @@ class RandomModel(Model):
         seed: An optional seed value for scrambling.
     """
 
-    def __init__(self, deduplicate: bool = False, seed: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        deduplicate: bool = False,
+        seed: Optional[int] = None,
+        generated_points: Optional[np.ndarray] = None,
+    ) -> None:
         super().__init__()
         self.deduplicate = deduplicate
         self.seed = seed
         # Used for deduplication.
-        self.generated_points: Optional[np.ndarray] = None
+        self.generated_points = generated_points
 
     def gen(
         self,
@@ -114,6 +120,14 @@ class RandomModel(Model):
                 #  got `List[Optional[ndarray]]`.
                 self.generated_points = np.vstack([self.generated_points, points])
         return (points, np.ones(len(points)))
+
+    @copy_doc(Model._get_state)
+    def _get_state(self) -> Dict[str, Any]:
+        state = super()._get_state()
+        if not self.deduplicate:
+            return state
+        state.update({"generated_points": self.generated_points})
+        return state
 
     def _gen_unconstrained(
         self,

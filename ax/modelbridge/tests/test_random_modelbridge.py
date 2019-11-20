@@ -10,8 +10,11 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import OrderConstraint, SumConstraint
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.random import RandomModelBridge
+from ax.modelbridge.registry import Cont_X_trans
 from ax.models.random.base import RandomModel
+from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_discrete_search_space
 
 
 class RandomModelBridgeTest(TestCase):
@@ -113,3 +116,14 @@ class RandomModelBridgeTest(TestCase):
         self.assertEqual(gen_args["bounds"], [(0.0, 1.0), (1.0, 2.0)])
         self.assertIsNone(gen_args["linear_constraints"])
         self.assertIsNone(gen_args["fixed_features"])
+
+    def test_deduplicate(self):
+        sobol = RandomModelBridge(
+            search_space=get_discrete_search_space(),
+            model=SobolGenerator(deduplicate=True),
+            transforms=Cont_X_trans,
+        )
+        for _ in range(24):  # Search space is {[0, 3], [5, 7], {"red", "panda"}}
+            self.assertEqual(len(sobol.gen(1).arms), 1)
+        with self.assertRaises(ValueError):
+            sobol.gen(1)

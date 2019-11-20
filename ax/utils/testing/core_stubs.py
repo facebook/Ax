@@ -304,6 +304,16 @@ def get_search_space_for_range_values(
     )
 
 
+def get_discrete_search_space() -> SearchSpace:
+    return SearchSpace(
+        [
+            RangeParameter("x", ParameterType.INT, 0, 3),
+            RangeParameter("y", ParameterType.INT, 5, 7),
+            ChoiceParameter("z", ParameterType.STRING, ["red", "panda"]),
+        ]
+    )
+
+
 # Trials
 
 
