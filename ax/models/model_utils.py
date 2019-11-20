@@ -88,9 +88,9 @@ def rejection_sample(
         duplicate = False
         if deduplicate:
             if existing_points is not None:
-                prev_points = np.vstack([points, existing_points])
+                prev_points = np.vstack([points[:successful_draws, :], existing_points])
             else:
-                prev_points = points
+                prev_points = points[:successful_draws, :]
             duplicate = check_duplicate(point=point, points=prev_points)
 
         # Add point if valid.
@@ -114,12 +114,15 @@ def check_duplicate(point: np.ndarray, points: np.ndarray) -> bool:
 
     Args:
         point: Newly generated point to check.
-        prev_points: Points previously generated.
+        points: Points previously generated.
 
     Returns:
         True if the point is contained in points, else False
     """
-    return np.any(np.isin(points, point).all(axis=1))
+    for p in points:
+        if np.array_equal(p, point):
+            return True
+    return False
 
 
 def add_fixed_features(
