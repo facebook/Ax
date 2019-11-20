@@ -7,6 +7,7 @@ from collections import OrderedDict
 from inspect import isclass
 from typing import Any, Type
 
+import numpy as np
 import pandas as pd
 from ax.exceptions.storage import JSONEncodeError
 from ax.modelbridge.transforms.base import Transform
@@ -59,6 +60,8 @@ def object_to_json(object: Any) -> Any:
         }
     elif issubclass(_type, enum.Enum):
         return {"__type": _type.__name__, "name": object.name}
+    elif _type is np.ndarray or issubclass(_type, np.ndarray):
+        return {"__type": _type.__name__, "value": object.tolist()}
     elif isclass(object) and issubclass(object, Transform):
         # There is no other way to check is object is of type Type[Transform].
         _type = Type[Transform]

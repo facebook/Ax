@@ -5,6 +5,7 @@ import os
 import tempfile
 from functools import partial
 
+import numpy as np
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
@@ -260,6 +261,10 @@ class JSONStoreTest(TestCase):
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)
+
+    def test_encode_decode_numpy(self):
+        arr = np.array([[1, 2, 3], [4, 5, 6]])
+        self.assertTrue(np.array_equal(arr, object_from_json(object_to_json(arr))))
 
     def testRegistryAdditions(self):
         class MyRunner(Runner):

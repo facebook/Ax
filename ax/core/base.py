@@ -17,7 +17,7 @@ class Base(object):
     """Metaclass for core Ax classes."""
 
     @equality_typechecker
-    def __eq__(self, other: "Base"):
+    def __eq__(self, other: "Base") -> bool:
         for field in self.__dict__.keys():
             self_val = getattr(self, field)
             other_val = getattr(other, field)
@@ -30,7 +30,7 @@ class Base(object):
             if field == "_experiment":
                 # prevent infinite loop when checking equality of Trials
                 equal = self_val is other_val is None or (
-                    self_val.name == other_val.name
+                    self_val._name == other_val._name
                 )
             elif field == "_model":  # pragma: no cover (tested in modelbridge)
                 # TODO[T52643706]: replace with per-`ModelBridge` method like
@@ -44,6 +44,11 @@ class Base(object):
                     equal = isinstance(self_val.model, type(other_val.model))
             elif isinstance(self_val, list):
                 equal = same_elements(self_val, other_val)
+            elif isinstance(self_val, dict):
+                equal = sorted(self_val.keys()) == sorted(other_val.keys())
+                equal = equal and same_elements(
+                    list(self_val.values()), list(other_val.values())
+                )
             elif isinstance(self_val, np.ndarray):
                 equal = np.array_equal(self_val, other_val)
             elif isinstance(self_val, datetime):

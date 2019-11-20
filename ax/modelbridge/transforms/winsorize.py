@@ -34,16 +34,12 @@ class Winsorize(Transform):
         # we can just replace that limit(s) with 0.0, as in those cases the
         # percentile will just interpret them as 0-th or 100-th percentile,
         # leaving the data unclipped.
-        lower = (
-            0.0
-            if config is None
-            else float(checked_cast(float, config.get("winsorization_lower", 0.0)))
-        )
-        upper = (
-            0.0
-            if config is None
-            else float(checked_cast(float, config.get("winsorization_upper", 0.0)))
-        )
+        lower = 0.0
+        if config is not None and "winsorization_lower" in config:
+            lower = checked_cast(float, (config.get("winsorization_lower") or 0.0))
+        upper = 0.0
+        if config is not None and "winsorization_upper" in config:
+            upper = checked_cast(float, (config.get("winsorization_upper") or 0.0))
         metric_names = {x for obsd in observation_data for x in obsd.metric_names}
         metric_values = {metric_name: [] for metric_name in metric_names}
         for obsd in observation_data:

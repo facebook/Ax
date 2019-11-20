@@ -4,6 +4,8 @@
 from datetime import datetime
 from typing import Any, Callable, List, Optional
 
+import numpy as np
+
 
 def equality_typechecker(eq_func: Callable) -> Callable:
     """A decorator to wrap all __eq__ methods to ensure that the inputs
@@ -36,7 +38,11 @@ def same_elements(list1: List[Any], list2: List[Any]) -> bool:
     for item1 in list1:
         found = False
         for item2 in list2:
-            if item1 == item2:
+            if isinstance(item1, np.ndarray):
+                if isinstance(item2, np.ndarray) and np.array_equal(item1, item2):
+                    found = True
+                    break
+            elif item1 == item2:
                 found = True
                 break
         if not found:

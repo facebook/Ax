@@ -232,12 +232,19 @@ class AxClient:
             status_quo=status_quo,
             experiment_type=experiment_type,
         )
+        choose_generation_strategy_kwargs = choose_generation_strategy_kwargs or {}
+        random_seed = choose_generation_strategy_kwargs.pop(
+            "random_seed", self._random_seed
+        )
+        enforce_sequential_optimization = choose_generation_strategy_kwargs.pop(
+            "enforce_sequential_optimization", self._enforce_sequential_optimization
+        )
         if self._generation_strategy is None:
             self._generation_strategy = choose_generation_strategy(
-                # pyre-fixme[16]: `Optional` has no attribute `search_space`.
-                search_space=self._experiment.search_space,
-                enforce_sequential_optimization=self._enforce_sequential_optimization,
-                random_seed=self._random_seed,
+                search_space=not_none(self._experiment).search_space,
+                enforce_sequential_optimization=enforce_sequential_optimization,
+                random_seed=random_seed,
+                **choose_generation_strategy_kwargs,
             )
         self._save_experiment_and_generation_strategy_to_db_if_possible(
             overwrite_existing_experiment=True

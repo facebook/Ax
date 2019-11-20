@@ -7,6 +7,7 @@ from enum import Enum
 from inspect import isclass
 from typing import Any, Dict, List, Type
 
+import numpy as np
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data  # noqa F401
@@ -62,6 +63,9 @@ def object_from_json(object_json: Any) -> Any:
             # Need dtype=False, otherwise infers arm_names like "4_1"
             # should be int 41
             return pd.read_json(object_json["value"], dtype=False)
+        elif _type == "ndarray":
+            return np.array(object_json["value"])
+
         elif _type not in DECODER_REGISTRY:
             err = (
                 f"The JSON dictionary passed to `object_from_json` has a type "

@@ -5,6 +5,7 @@ from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_search_space,
+    get_discrete_search_space,
     get_experiment,
     get_factorial_search_space,
 )
@@ -50,3 +51,14 @@ class TestDispatchUtils(TestCase):
         self.assertIn(
             "Winsorize", winsorized._steps[1].model_kwargs.get("transform_configs")
         )
+
+    def test_num_trials(self):
+        ss = get_discrete_search_space()
+        # Check that with budget that is lower than exhaustive, BayesOpt is used.
+        sobol_gpei = choose_generation_strategy(search_space=ss, num_trials=11)
+        self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
+        self.assertEqual(sobol_gpei._steps[1].model.value, "GPEI")
+        # Check that with budget that is exhaustive, Sobol is used.
+        sobol = choose_generation_strategy(search_space=ss, num_trials=12)
+        self.assertEqual(sobol._steps[0].model.value, "Sobol")
+        self.assertEqual(len(sobol._steps), 1)
