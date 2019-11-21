@@ -57,14 +57,14 @@ class TutorialHome extends React.Component {
                 constrained synthetic Hartmann6 problem.
               </li>
             </ul>
-            <ul>
+            {/* <ul>
               <li>
                 <a href="benchmarking_suite_example.html">Benchmarking Suite</a>
                 &nbsp; demonstrates how to use the Ax benchmarking suite to
                 compare Bayesian Optimization algorithm performances and
                 generate a comparative report with visualizations.
               </li>
-            </ul>
+            </ul> */}
             <p>
               For experiments done in a real-life setting, refer to our field
               experiments tutorials:

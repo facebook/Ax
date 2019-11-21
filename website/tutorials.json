@@ -21,11 +21,6 @@
     {
       "id": "multi_task",
       "title": "Multi-Task Modeling"
-    },
-    {
-      "id": "benchmarking_suite_example",
-      "title": "Benchmarking Suite",
-      "exec_on_build": false
     }
   ],
   "Field Experiments": [
