@@ -667,13 +667,15 @@ class AxClient:
             logger.info(f"Saved JSON-serialized state of optimization to `{filepath}`.")
 
     @staticmethod
-    def load_from_json_file(filepath: str = "ax_client_snapshot.json") -> "AxClient":
+    def load_from_json_file(
+        filepath: str = "ax_client_snapshot.json", **kwargs
+    ) -> "AxClient":
         """Restore an `AxClient` and its state from a JSON-serialized snapshot,
         residing in a .json file by the given path.
         """
         with open(filepath, "r") as file:  # pragma: no cover
             serialized = json.loads(file.read())
-            return AxClient.from_json_snapshot(serialized=serialized)
+            return AxClient.from_json_snapshot(serialized=serialized, **kwargs)
 
     def to_json_snapshot(self) -> Dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
@@ -691,7 +693,7 @@ class AxClient:
         }
 
     @staticmethod
-    def from_json_snapshot(serialized: Dict[str, Any]) -> "AxClient":
+    def from_json_snapshot(serialized: Dict[str, Any], **kwargs) -> "AxClient":
         """Recreate an `AxClient` from a JSON snapshot."""
         experiment = object_from_json(serialized.pop("experiment"))
         serialized_generation_strategy = serialized.pop("generation_strategy")
@@ -704,6 +706,7 @@ class AxClient:
             enforce_sequential_optimization=serialized.pop(
                 "_enforce_sequential_optimization"
             ),
+            **kwargs,
         )
         ax_client._experiment = experiment
         ax_client._updated_trials = object_from_json(serialized.pop("_updated_trials"))
