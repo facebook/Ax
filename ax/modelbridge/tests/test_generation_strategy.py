@@ -178,7 +178,7 @@ class TestGenerationStrategy(TestCase):
             ],
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
-        self.assertEqual(sobol_GPEI_generation_strategy.generator_changes, [5])
+        self.assertEqual(sobol_GPEI_generation_strategy.model_transitions, [5])
         exp.new_trial(generator_run=sobol_GPEI_generation_strategy.gen(exp)).run()
         for i in range(1, 8):
             if i == 7:
@@ -248,7 +248,7 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
-        self.assertEqual(sobol_GPEI_generation_strategy.generator_changes, [5])
+        self.assertEqual(sobol_GPEI_generation_strategy.model_transitions, [5])
         exp.new_trial(generator_run=sobol_GPEI_generation_strategy.gen(exp)).run()
         for i in range(1, 15):
             # Passing in all experiment data should cause an error as only
@@ -291,7 +291,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             factorial_thompson_generation_strategy.name, "Factorial+Thompson"
         )
-        self.assertEqual(factorial_thompson_generation_strategy.generator_changes, [1])
+        self.assertEqual(factorial_thompson_generation_strategy.model_transitions, [1])
         for i in range(2):
             data = get_data() if i > 0 else None
             factorial_thompson_generation_strategy.gen(experiment=exp, new_data=data)
@@ -364,7 +364,7 @@ class TestGenerationStrategy(TestCase):
             ],
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
-        self.assertEqual(sobol_GPEI_generation_strategy.generator_changes, [5])
+        self.assertEqual(sobol_GPEI_generation_strategy.model_transitions, [5])
         exp.new_batch_trial(
             generator_run=sobol_GPEI_generation_strategy.gen(exp, n=2)
         ).run()

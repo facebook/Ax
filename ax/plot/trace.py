@@ -112,15 +112,15 @@ def optimum_objective_scatter(
     )
 
 
-def generator_changes_scatter(
-    generator_changes: List[int],
+def model_transitions_scatter(
+    model_transitions: List[int],
     y_range: List[float],
     generator_change_color: Tuple[int] = COLORS.TEAL.value,
 ) -> List[go.Scatter]:
     """Creates a graph object for the line(s) representing generator changes.
 
     Args:
-        generator_changes: iterations, before which generators
+        model_transitions: iterations, before which generators
             changed
         y_range: upper and lower values of the y-range of the plot
         generator_change_color: tuple of 3 int values representing
@@ -133,7 +133,7 @@ def generator_changes_scatter(
     if len(y_range) != 2:  # pragma: no cover
         raise ValueError("y_range should have two values, lower and upper.")
     data: List[go.Scatter] = []
-    for change in generator_changes:
+    for change in model_transitions:
         data.append(
             go.Scatter(
                 x=[change] * 2,
@@ -149,7 +149,7 @@ def generator_changes_scatter(
 def optimization_trace_single_method(
     y: np.ndarray,
     optimum: Optional[float] = None,
-    generator_changes: Optional[List[int]] = None,
+    model_transitions: Optional[List[int]] = None,
     title: str = "",
     ylabel: str = "",
     hover_labels: Optional[List[str]] = None,
@@ -162,7 +162,7 @@ def optimization_trace_single_method(
     Args:
         y: (r x t) array; result to plot, with r runs and t trials
         optimum: value of the optimal objective
-        generator_changes: iterations, before which generators
+        model_transitions: iterations, before which generators
             changed
         title: title for this plot.
         ylabel: label for the Y-axis.
@@ -197,7 +197,7 @@ def optimization_trace_single_method(
             )
         )
 
-    if generator_changes is not None:  # pragma: no cover
+    if model_transitions is not None:  # pragma: no cover
         y_lower = np.min(np.percentile(y, 25, axis=0))
         y_upper = np.max(np.percentile(y, 75, axis=0))
         if optimum is not None and optimum < y_lower:
@@ -205,8 +205,8 @@ def optimization_trace_single_method(
         if optimum is not None and optimum > y_upper:
             y_upper = optimum
         data.extend(
-            generator_changes_scatter(
-                generator_changes=generator_changes,
+            model_transitions_scatter(
+                model_transitions=model_transitions,
                 y_range=[y_lower, y_upper],
                 generator_change_color=generator_change_color,
             )

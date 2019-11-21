@@ -126,7 +126,7 @@ class GenerationStrategy(Base):
         return self._name
 
     @property
-    def generator_changes(self) -> List[int]:
+    def model_transitions(self) -> List[int]:
         """List of arm indices where a transition happened from one model to
         another."""
         gen_changes = [step.num_arms for step in self._steps]

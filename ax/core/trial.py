@@ -122,10 +122,8 @@ class Trial(BaseTrial):
     @property
     def abandoned_arms(self) -> List[Arm]:
         """Abandoned arms attached to this trial."""
-        # pyre-fixme[7]: Expected `List[Arm]` but got `Union[List[Optional[Arm]],
-        #  List[_T]]`.
         return (
-            [self.arm]
+            [not_none(self.arm)]
             if self.generator_run is not None
             and self.arm is not None
             and self.is_abandoned
