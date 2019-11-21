@@ -131,16 +131,35 @@ class Trial(BaseTrial):
         )
 
     @property
-    def objective_mean(self) -> Optional[float]:
-        """Objective mean for the arm attached to this trial."""
+    def objective_mean(self) -> float:
+        """Objective mean for the arm attached to this trial, retrieved from the
+        latest data available for the objective for the trial.
+
+        Note: the retrieved objective is the experiment-level objective at the
+        time of the call to `objective_mean`, which is not necessarily the
+        objective that was set at the time the trial was created or ran.
+        """
         # For SimpleExperiment, fetch_data just executes eval_trial.
         df = self.fetch_data().df
-        if df.empty or self.experiment.optimization_config is None:
-            return None
-        objective_name = not_none(
-            self.experiment.optimization_config
-        ).objective.metric.name
-        return df.loc[df["metric_name"] == objective_name].iloc[0]["mean"]
+        if df.empty:
+            raise ValueError(f"No data was retrieved for trial {self.index}.")
+        opt_config = self.experiment.optimization_config
+        if opt_config is None:
+            raise ValueError(  # pragma: no cover
+                "Experiment optimization config (and thus the objective) is not set."
+            )
+        return self.get_metric_mean(metric_name=opt_config.objective.metric.name)
+
+    def get_metric_mean(self, metric_name: str) -> float:
+        """Metric mean for the arm attached to this trial, retrieved from the
+        latest data available for the metric for the trial.
+        """
+        # For SimpleExperiment, fetch_data just executes eval_trial.
+        df = self.fetch_data().df
+        try:
+            return df.loc[df["metric_name"] == metric_name].iloc[0]["mean"]
+        except IndexError:  # pragma: no cover
+            raise ValueError(f"Metric {metric_name} not yet in data for trial.")
 
     def __repr__(self) -> str:
         return (

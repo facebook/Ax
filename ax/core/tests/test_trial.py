@@ -115,7 +115,8 @@ class TrialTest(TestCase):
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data", return_value=Data()
     )
     def test_objective_mean_empty_df(self, _mock):
-        self.assertIsNone(self.trial.objective_mean)
+        with self.assertRaisesRegex(ValueError, "No data was retrieved for trial"):
+            self.assertIsNone(self.trial.objective_mean)
 
     def testRepr(self):
         repr_ = (
