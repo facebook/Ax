@@ -63,8 +63,8 @@ class TutorialHome extends React.Component {
                 &nbsp; demonstrates how to use the Ax benchmarking suite to
                 compare Bayesian Optimization algorithm performances and
                 generate a comparative report with visualizations.
-              </li>
-            </ul> */}
+              </li> */}
+            </ul>
             <p>
               For experiments done in a real-life setting, refer to our field
               experiments tutorials:

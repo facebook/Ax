@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import numpy as np
 import pandas as pd
 from ax.core.data import Data
 from ax.core.metric import Metric
@@ -10,6 +11,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
     MissingMetrics,
+    best_feasible_objective,
     get_missing_metrics,
     get_missing_metrics_by_name,
 )
@@ -91,16 +93,21 @@ class UtilsTest(TestCase):
         self.optimization_config = OptimizationConfig(
             objective=Objective(metric=Metric(name="a")),
             outcome_constraints=[
-                OutcomeConstraint(metric=Metric(name="b"), op=ComparisonOp.GEQ, bound=0)
+                OutcomeConstraint(
+                    metric=Metric(name="b"),
+                    op=ComparisonOp.GEQ,
+                    bound=0,
+                    relative=False,
+                )
             ],
         )
 
-    def testGetMissingMetricsByName(self):
+    def test_get_missing_metrics_by_name(self):
         expected = {"a": {("0_1", 1)}, "b": {("0_2", 1)}}
         actual = get_missing_metrics_by_name(self.data, ["a", "b"])
         self.assertEqual(actual, expected)
 
-    def testGetMissingMetrics(self):
+    def test_get_missing_metrics(self):
         expected = MissingMetrics(
             {"a": {("0_1", 1)}},
             {"b": {("0_2", 1)}},
@@ -108,3 +115,10 @@ class UtilsTest(TestCase):
         )
         actual = get_missing_metrics(self.data, self.optimization_config)
         self.assertEqual(actual, expected)
+
+    def test_best_feasible_objective(self):
+        bfo = best_feasible_objective(
+            self.optimization_config,
+            values={"a": np.array([1.0, 3.0, 2.0]), "b": np.array([0.0, -1.0, 0.0])},
+        )
+        self.assertEqual(list(bfo), [1.0, 1.0, 2.0])

@@ -183,6 +183,14 @@ class FromBotorch(SyntheticFunction):
         return float(self._botorch_function(X=torch.from_numpy(X)).item())
 
 
+def from_botorch(
+    botorch_synthetic_function: botorch_synthetic.SyntheticTestFunction
+) -> SyntheticFunction:
+    """Utility to generate Ax synthetic functions from BoTorch synthetic functions.
+    """
+    return FromBotorch(botorch_synthetic_function=botorch_synthetic_function)
+
+
 class Hartmann6(SyntheticFunction):
     """Hartmann6 function (6-dimensional with 1 global minimum)."""
 
@@ -318,4 +326,6 @@ hartmann6 = Hartmann6()
 aug_hartmann6 = Aug_Hartmann6()
 branin = Branin()
 aug_branin = Aug_Branin()
-ackley = FromBotorch(botorch_synthetic_function=botorch_synthetic.Ackley())
+
+# Synthetic functions constructed from BoTorch.
+ackley = from_botorch(botorch_synthetic_function=botorch_synthetic.Ackley())

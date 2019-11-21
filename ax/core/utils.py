@@ -3,11 +3,20 @@
 
 from typing import Dict, Iterable, NamedTuple, Set, Tuple
 
+import numpy as np
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.trial import Trial
+from ax.core.types import ComparisonOp
+from ax.utils.common.typeutils import not_none
 
 
 TArmTrial = Tuple[str, int]
+
+
+# --------------------------- Data intergrity utils. ---------------------------
 
 
 class MissingMetrics(NamedTuple):
@@ -91,3 +100,59 @@ def _get_missing_arm_trial_pairs(data: Data, metric_name: str) -> Set[TArmTrial]
     )
     missing_arm_trial_pairs = arm_trial_pairs.difference(arm_trial_pairs_with_metric)
     return missing_arm_trial_pairs
+
+
+# -------------------- Experiment result extraction utils. ---------------------
+
+
+def best_feasible_objective(  # pragma: no cover
+    optimization_config: OptimizationConfig, values: Dict[str, np.ndarray]
+) -> np.ndarray:
+    """Compute the best feasible objective value found by each iteration.
+
+    Args:
+        optimization_config: Optimization config.
+        values: Dictionary from metric name to array of value at each
+            iteration. If optimization config contains outcome constraints, values
+            for them must be present in `values`.
+
+    Returns: Array of cumulative best feasible value.
+    """
+    # Get objective at each iteration
+    objective = optimization_config.objective
+    f = values[objective.metric.name]
+    # Set infeasible points to have infinitely bad values
+    infeas_val = np.Inf if objective.minimize else -np.Inf
+    for oc in optimization_config.outcome_constraints:
+        if oc.relative:
+            raise ValueError(  # pragma: no cover
+                "Benchmark aggregation does not support relative constraints"
+            )
+        g = values[oc.metric.name]
+        feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
+        f[~feas] = infeas_val
+
+    # Get cumulative best
+    minimize = objective.minimize
+    accumulate = np.minimum.accumulate if minimize else np.maximum.accumulate
+    return accumulate(f)
+
+
+def get_model_times(experiment: Experiment) -> Tuple[float, float]:  # pragma: no cover
+    """Get total times spent fitting the model and generating candidates in the
+    course of the experiment.
+    """
+    fit_time = 0.0
+    gen_time = 0.0
+    for trial in experiment.trials.values():
+        if isinstance(trial, BatchTrial):  # pragma: no cover
+            gr = trial._generator_run_structs[0].generator_run
+        elif isinstance(trial, Trial):
+            gr = not_none(trial.generator_run)
+        else:
+            raise ValueError("Unexpected trial type")  # pragma: no cover
+        if gr.fit_time is not None:
+            fit_time += not_none(gr.fit_time)
+        if gr.gen_time is not None:
+            gen_time += not_none(gr.gen_time)
+    return fit_time, gen_time

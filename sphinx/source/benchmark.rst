@@ -8,7 +8,7 @@ ax.benchmark
 .. currentmodule:: ax.benchmark
 
 
-Benchmark Problems
+Benchmark Problem
 ~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.benchmark_problem
@@ -16,18 +16,28 @@ Benchmark Problems
     :undoc-members:
     :show-inheritance:
 
-Benchmark Runner
-~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.benchmark.benchmark_runner
+Benchmark Result
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.benchmark_result
     :members:
     :undoc-members:
     :show-inheritance:
 
-Benchmark Suite
-~~~~~~~~~~~~~~~~
+Benchmark
+~~~~~~~~~
 
-.. automodule:: ax.benchmark.benchmark_suite
+.. automodule:: ax.benchmark.benchmark
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Benchmark Utilities
+~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.utils
     :members:
     :undoc-members:
     :show-inheritance:
