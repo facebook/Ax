@@ -189,20 +189,22 @@ def get_GPKG(
             "winsorization_lower": winsorization_limits[0] or 0.0,
             "winsorization_upper": winsorization_limits[1] or 0.0,
         }
-    return checked_cast(
-        TorchModelBridge,
-        Models.GPKG(
-            search_space=search_space,
-            experiment=experiment,
-            data=data,
-            cost_intercept=cost_intercept,
-            linear_truncated=kwargs.get("linear_truncated", True),
-            torch_dtype=dtype,
-            torch_device=device,
-            transforms=transforms,
-            transform_configs=transform_configs,
-        ),
-    )
+
+    inputs = {
+        "search_space": search_space,
+        "experiment": experiment,
+        "data": data,
+        "cost_intercept": cost_intercept,
+        "torch_dtype": dtype,
+        "torch_device": device,
+        "transforms": transforms,
+        "transform_configs": transform_configs,
+    }
+
+    is_fidelity = any(p.is_fidelity for k, p in experiment.parameters.items())
+    if is_fidelity:
+        inputs["linear_truncated"] = kwargs.get("linear_truncated", True)
+    return checked_cast(TorchModelBridge, Models.GPKG(**inputs))  # pyre-ignore: [16]
 
 
 # TODO[Lena]: how to instantiate MTGP through the enum? The Multi-type MTGP requires

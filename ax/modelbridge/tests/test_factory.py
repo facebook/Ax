@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+from ax.core.parameter import RangeParameter
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import (
     get_botorch,
@@ -96,6 +97,18 @@ class ModelBridgeFactoryTest(TestCase):
             "Winsorize": {"winsorization_lower": 0.1, "winsorization_upper": 0.1}
         }
         self.assertEqual(gpkg_win._transform_configs, configs_expected)
+
+        # test multi-fidelity optimization
+        exp.parameters["x2"] = RangeParameter(
+            name="x2",
+            parameter_type=exp.parameters["x2"].parameter_type,
+            lower=-5.0,
+            upper=10.0,
+            is_fidelity=True,
+            target_value=10.0,
+        )
+        gpkg_mf = get_GPKG(experiment=exp, data=exp.fetch_data())
+        self.assertIsInstance(gpkg_mf, TorchModelBridge)
 
     def test_model_kwargs(self):
         """Tests that model kwargs are passed correctly."""
