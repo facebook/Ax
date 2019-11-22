@@ -27,6 +27,11 @@ class SearchSpaceToChoice(Transform):
         observation_data: List[ObservationData],
         config: Optional[TConfig] = None,
     ) -> None:
+        if any(p.is_fidelity for p in search_space.parameters.values()):
+            raise ValueError(
+                "Cannot perform SearchSpaceToChoice conversion if fidelity "
+                "parameters are present"
+            )
         self.parameter_name = "arms"
         self.signature_to_parameterization = {
             Arm(parameters=obsf.parameters).signature: obsf.parameters

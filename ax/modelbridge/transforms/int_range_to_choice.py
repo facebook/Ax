@@ -11,7 +11,7 @@ from ax.modelbridge.transforms.base import Transform
 
 
 class IntRangeToChoice(Transform):
-    """Convert a RangeParameter of type int to a ChoiceParameter.
+    """Convert a RangeParameter of type int to a ordered ChoiceParameter.
 
     Transform is done in-place.
     """
@@ -32,20 +32,26 @@ class IntRangeToChoice(Transform):
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: Dict[str, Parameter] = {}
-        for p in search_space.parameters.values():
-            if p.name in self.transform_parameters:
-                # pyre: p_cast is declared to have type `RangeParameter` but
-                # pyre-fixme[9]: is used as type `Parameter`.
-                p_cast: RangeParameter = p
-                transformed_parameters[p.name] = ChoiceParameter(
-                    name=p_cast.name,
-                    parameter_type=p_cast.parameter_type,
+        for p_name, p in search_space.parameters.items():
+            if p_name in self.transform_parameters and isinstance(p, RangeParameter):
+                values = list(range(p.lower, p.upper + 1))
+                target_value = (
+                    None
+                    if p.target_value is None
+                    else next(i for i, v in enumerate(values) if v == p.target_value)
+                )
+                transformed_parameters[p_name] = ChoiceParameter(
+                    name=p_name,
+                    parameter_type=p.parameter_type,
                     # Expected `List[Optional[typing.Union[bool, float, str]]]` for
                     # 4th parameter `values` to call
                     # `ax.core.parameter.ChoiceParameter.__init__` but got
                     # `List[int]`.
                     # pyre-fixme[6]:
-                    values=list(range(p_cast.lower, p_cast.upper + 1)),
+                    values=values,
+                    is_ordered=True,
+                    is_fidelity=p.is_fidelity,
+                    target_value=target_value,
                 )
             else:
                 transformed_parameters[p.name] = p

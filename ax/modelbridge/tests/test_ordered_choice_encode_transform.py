@@ -96,3 +96,22 @@ class OrderedChoiceEncodeTransformTest(TestCase):
         self.assertEqual(ss2.parameters["b"].upper, 2)
         self.assertEqual(ss2.parameters["c"].lower, 0)
         self.assertEqual(ss2.parameters["c"].upper, 2)
+
+        # Ensure we error if we try to transform a fidelity parameter
+        ss3 = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    "b",
+                    parameter_type=ParameterType.FLOAT,
+                    values=[1.0, 10.0, 100.0],
+                    is_ordered=True,
+                    is_fidelity=True,
+                    target_value=100.0,
+                )
+            ]
+        )
+        t = OrderedChoiceEncode(
+            search_space=ss3, observation_features=None, observation_data=None
+        )
+        with self.assertRaises(ValueError):
+            t.transform_search_space(ss3)

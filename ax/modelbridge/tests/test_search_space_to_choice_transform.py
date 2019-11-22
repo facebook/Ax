@@ -70,6 +70,26 @@ class SearchSpaceToChoiceTest(TestCase):
         )
         self.assertEqual(ss2.parameters.get("arms"), expected_parameter)
 
+        # Test error if there are fidelities
+        ss3 = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "a",
+                    lower=1,
+                    upper=3,
+                    parameter_type=ParameterType.FLOAT,
+                    is_fidelity=True,
+                    target_value=3,
+                )
+            ]
+        )
+        with self.assertRaises(ValueError):
+            SearchSpaceToChoice(
+                search_space=ss3,
+                observation_features=self.observation_features,
+                observation_data=None,
+            )
+
     def testTransformSearchSpaceWithFixedParam(self):
         ss2 = self.search_space.clone()
         ss2 = self.t2.transform_search_space(ss2)

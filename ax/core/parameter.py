@@ -132,7 +132,7 @@ class RangeParameter(Parameter):
         self._upper = self._cast(upper)
         self._log_scale = log_scale
         self._is_fidelity = is_fidelity
-        self._target_value = target_value
+        self._target_value = self._cast(target_value)
 
         self._validate_range_param(
             parameter_type=parameter_type, lower=lower, upper=upper, log_scale=log_scale
@@ -336,6 +336,7 @@ class ChoiceParameter(Parameter):
             values: List of allowed values for the parameter.
             is_ordered: If False, the parameter is a categorical variable.
             is_task: Treat the parameter as a task parameter for modeling.
+            is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it's fidelity.
         """
         if is_fidelity and (target_value is None):
@@ -344,12 +345,12 @@ class ChoiceParameter(Parameter):
                 "{}".format(name)
             )
 
+        self._name = name
+        self._parameter_type = parameter_type
         self._is_ordered = is_ordered
         self._is_task = is_task
         self._is_fidelity = is_fidelity
-        self._target_value = target_value
-        self._name = name
-        self._parameter_type = parameter_type
+        self._target_value = self._cast(target_value)
         # A choice parameter with only one value is a FixedParameter.
         if not len(values) > 1:
             raise ValueError(FIXED_CHOICE_PARAM_ERROR)
@@ -457,6 +458,7 @@ class FixedParameter(Parameter):
             parameter_type: Enum indicating the type of parameter
                 value (e.g. string, int).
             value: The fixed value of the parameter.
+            is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it is a fidelity.
         """
         if is_fidelity and (target_value is None):
@@ -469,7 +471,7 @@ class FixedParameter(Parameter):
         self._parameter_type = parameter_type
         self._value = self._cast(value)
         self._is_fidelity = is_fidelity
-        self._target_value = target_value
+        self._target_value = self._cast(target_value)
 
     @property
     def value(self) -> TParamValue:

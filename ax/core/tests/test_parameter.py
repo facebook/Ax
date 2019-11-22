@@ -25,7 +25,7 @@ class RangeParameterTest(TestCase):
         self.param1_repr = (
             "RangeParameter(name='x', parameter_type=FLOAT, "
             "range=[1.0, 3.0], log_scale=True, digits=5, fidelity=True, target_"
-            "value=2)"
+            "value=2.0)"
         )
 
         self.param2 = RangeParameter(

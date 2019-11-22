@@ -47,13 +47,12 @@ class Log(Transform):
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, p in search_space.parameters.items():
-            if p_name in self.transform_parameters:
-                # pyre: p_cast is declared to have type `RangeParameter` but
-                # pyre-fixme[9]: is used as type `ax.core.parameter.Parameter`.
-                p_cast: RangeParameter = p
-                p_cast.set_log_scale(False).update_range(
-                    lower=math.log10(p_cast.lower), upper=math.log10(p_cast.upper)
+            if p_name in self.transform_parameters and isinstance(p, RangeParameter):
+                p.set_log_scale(False).update_range(
+                    lower=math.log10(p.lower), upper=math.log10(p.upper)
                 )
+                if p.target_value is not None:
+                    p._target_value = math.log10(p.target_value)  # pyre-ignore [6]
         return search_space
 
     def untransform_observation_features(

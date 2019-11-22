@@ -69,3 +69,21 @@ class TaskEncodeTransformTest(TestCase):
 
         self.assertEqual(ss2.parameters["c"].lower, 0)
         self.assertEqual(ss2.parameters["c"].upper, 1)
+
+        # Test error if there are fidelities
+        ss3 = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    "c",
+                    parameter_type=ParameterType.STRING,
+                    values=["online", "offline"],
+                    is_task=True,
+                    is_fidelity=True,
+                    target_value="online",
+                )
+            ]
+        )
+        with self.assertRaises(ValueError):
+            TaskEncode(
+                search_space=ss3, observation_features=None, observation_data=None
+            )

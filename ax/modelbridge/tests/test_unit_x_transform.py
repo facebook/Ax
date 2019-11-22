@@ -43,6 +43,18 @@ class UnitXTransformTest(TestCase):
             observation_features=None,
             observation_data=None,
         )
+        self.search_space_with_target = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "x",
+                    lower=1,
+                    upper=3,
+                    parameter_type=ParameterType.FLOAT,
+                    is_fidelity=True,
+                    target_value=3,
+                )
+            ]
+        )
 
     def testInit(self):
         self.assertEqual(self.t.bounds, {"x": (1.0, 3.0), "y": (1.0, 2.0)})
@@ -95,3 +107,14 @@ class UnitXTransformTest(TestCase):
             ss2.parameter_constraints[1].constraint_dict, {"x": -1.0, "a": 1.0}
         )
         self.assertEqual(ss2.parameter_constraints[1].bound, 1.0)
+
+        # Test transform of target value
+        t = UnitX(
+            search_space=self.search_space_with_target,
+            observation_features=None,
+            observation_data=None,
+        )
+        t.transform_search_space(self.search_space_with_target)
+        self.assertEqual(
+            self.search_space_with_target.parameters["x"].target_value, 1.0
+        )

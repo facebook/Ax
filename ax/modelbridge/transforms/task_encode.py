@@ -32,6 +32,11 @@ class TaskEncode(OrderedChoiceEncode):
         self.encoded_parameters: Dict[str, Dict[TParamValue, int]] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and p.is_task:
+                if p.is_fidelity:
+                    raise ValueError(
+                        f"Task parameter {p.name} cannot simultaneously be "
+                        "fideliy parameter"
+                    )
                 self.encoded_parameters[p.name] = {
                     original_value: transformed_value
                     for transformed_value, original_value in enumerate(p.values)

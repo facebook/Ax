@@ -53,8 +53,12 @@ class CenteredUnitX(Transform):
     @copy_doc(Transform.transform_search_space)
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, p in search_space.parameters.items():
-            if isinstance(p, RangeParameter) and p_name in self.bounds:
+            if p_name in self.bounds and isinstance(p, RangeParameter):
                 p.update_range(lower=-1.0, upper=1.0)
+            if p.target_value is not None:
+                l, u = self.bounds[p_name]
+                new_tval = -1 + 2 * (p.target_value - l) / (u - l)  # pyre-ignore [16]
+                p._target_value = new_tval
         for c in search_space.parameter_constraints:
             for p_name in c.constraint_dict:
                 if p_name in self.bounds:
