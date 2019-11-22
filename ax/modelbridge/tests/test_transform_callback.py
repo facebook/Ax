@@ -6,10 +6,12 @@ import numpy as np
 import torch
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.unit_x import UnitX
+from ax.models.numpy_base import NumpyModel
 from ax.models.torch.botorch import BotorchModel
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -36,6 +38,15 @@ class TransformCallbackTest(TestCase):
             torch_dtype=torch.double,
         )
         transformed = gpei._transform_callback([5.4, 7.6])
+        self.assertTrue(np.allclose(transformed, [5, 8]))
+        np_mb = ArrayModelBridge(
+            experiment=exp,
+            data=exp.fetch_data(),
+            search_space=SearchSpace(parameters=parameters),
+            model=NumpyModel(),
+            transforms=[IntToFloat],
+        )
+        transformed = np_mb._transform_callback(np.array([5.4, 7.6]))
         self.assertTrue(np.allclose(transformed, [5, 8]))
 
     @patch("ax.modelbridge.torch.TorchModelBridge._model_fit", return_value=None)

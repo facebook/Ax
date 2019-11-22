@@ -13,7 +13,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import not_none
 from ax.utils.measurement.synthetic_functions import SyntheticFunction
 
 
@@ -388,18 +388,14 @@ def _benchmark_replication_Dev_API(
         optimization_config=problem.optimization_config,
         runner=SyntheticRunner(),
     )
-    new_data = Data()
-    for trial_idx in range(num_trials):
+    for _ in range(num_trials):
         try:
-            gr = method.gen(experiment=experiment, new_data=new_data, n=batch_size)
+            gr = method.gen(experiment=experiment, n=batch_size)
             if batch_size == 1:
                 experiment.new_trial(generator_run=gr).run()
             else:
                 assert batch_size > 1
                 experiment.new_batch_trial(generator_run=gr).run()
-            new_data = checked_cast(
-                Data, benchmark_trial(experiment=experiment, trial_index=trial_idx)
-            )
         except Exception as err:  # TODO[T53975770]: test
             if raise_all_exceptions:
                 raise

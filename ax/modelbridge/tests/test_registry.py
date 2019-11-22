@@ -3,7 +3,7 @@
 
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.registry import Cont_X_trans, Models
+from ax.modelbridge.registry import Cont_X_trans, Models, get_model_from_generator_run
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
@@ -101,6 +101,7 @@ class ModelRegistryTest(TestCase):
                     "deduplicate": False,
                     "init_position": 0,
                     "scramble": True,
+                    "generated_points": None,
                 },
                 {
                     "optimization_config": None,
@@ -132,3 +133,24 @@ class ModelRegistryTest(TestCase):
                 ]
             ),
         )
+
+    def test_get_model_from_generator_run(self):
+        """Tests that it is possible to restore a model from a generator run it
+        produced, if `Models` registry was used.
+        """
+        exp = get_branin_experiment()
+        initial_sobol = Models.SOBOL(experiment=exp, seed=239)
+        gr = initial_sobol.gen(n=1)
+        # Restore the model as it was before generation.
+        sobol = get_model_from_generator_run(
+            generator_run=gr, experiment=exp, data=exp.fetch_data()
+        )
+        self.assertEqual(sobol.model.init_position, 0)
+        self.assertEqual(sobol.model.seed, 239)
+        # Restore the model as it was after generation (to resume generation).
+        sobol_after_gen = get_model_from_generator_run(
+            generator_run=gr, experiment=exp, data=exp.fetch_data(), after_gen=True
+        )
+        self.assertEqual(sobol_after_gen.model.init_position, 1)
+        self.assertEqual(sobol_after_gen.model.seed, 239)
+        self.assertEqual(initial_sobol.gen(n=1).arms, sobol_after_gen.gen(n=1).arms)

@@ -316,7 +316,7 @@ class ArrayModelBridge(ModelBridge):
             Xs_train=Xs_train, Ys_train=Ys_train, Yvars_train=Yvars_train, X_test=X_test
         )
 
-    def _transform_callback(self, x: np.ndarray) -> np.ndarray:
+    def _transform_callback(self, x: np.ndarray) -> np.ndarray:  # pragma: no cover
         """A function that performs the `round trip` transformations.
         This function is passed to _model_gen.
         """

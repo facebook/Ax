@@ -127,16 +127,10 @@ class OptimizationLoop:
             raise ValueError(f"Optimization is complete, cannot run another trial.")
         logger.info(f"Running optimization trial {self.current_trial + 1}...")
         arms_per_trial = self.arms_per_trial
-        dat = (
-            self.experiment._fetch_trial_data(self.current_trial - 1)
-            if self.current_trial > 0
-            else None
-        )
         if arms_per_trial == 1:
             trial = self.experiment.new_trial(
                 generator_run=self.generation_strategy.gen(
                     experiment=self.experiment,
-                    new_data=dat,
                     pending_observations=get_pending_observation_features(
                         experiment=self.experiment
                     ),
@@ -145,7 +139,7 @@ class OptimizationLoop:
         elif arms_per_trial > 1:
             trial = self.experiment.new_batch_trial(
                 generator_run=self.generation_strategy.gen(
-                    experiment=self.experiment, new_data=dat, n=arms_per_trial
+                    experiment=self.experiment, n=arms_per_trial
                 )
             )
         else:  # pragma: no cover
