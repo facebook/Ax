@@ -228,14 +228,14 @@ class BotorchModel(TorchModel):
         kwargs = self._kwargs
         if len(self.fidelity_features) == 0:
             # only pass linear_truncated arg if there are fidelities
-            kwargs = {k: v for k, v in kwargs.items() if k != "linear_truncated"}
+            self._kwargs = {k: v for k, v in kwargs.items() if k != "linear_truncated"}
         self.model = self.model_constructor(  # pyre-ignore [28]
             Xs=Xs,
             Ys=Ys,
             Yvars=Yvars,
             task_features=self.task_features,
             fidelity_features=self.fidelity_features,
-            **kwargs,
+            **self._kwargs,
         )
 
     @copy_doc(TorchModel.predict)
