@@ -125,3 +125,19 @@ class OneHotTransformTest(TestCase):
         self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "_1"].upper, 1.0)
         self.assertEqual(ss2.parameters["c" + OH_PARAM_INFIX].lower, 0.0)
         self.assertEqual(ss2.parameters["c" + OH_PARAM_INFIX].upper, 1.0)
+
+        # Ensure we error if we try to transform a fidelity parameter
+        ss3 = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    "b",
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "b", "c"],
+                    is_fidelity=True,
+                    target_value="c",
+                )
+            ]
+        )
+        t = OneHot(search_space=ss3, observation_features=None, observation_data=None)
+        with self.assertRaises(ValueError):
+            t.transform_search_space(ss3)

@@ -35,6 +35,18 @@ class CenteredUnitXTransformTest(TestCase):
             ],
             parameter_constraints=[],
         )
+        self.search_space_with_target = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "x",
+                    lower=1,
+                    upper=3,
+                    parameter_type=ParameterType.FLOAT,
+                    is_fidelity=True,
+                    target_value=3,
+                )
+            ]
+        )
         self.t = CenteredUnitX(
             search_space=self.search_space,
             observation_features=None,
@@ -92,3 +104,12 @@ class CenteredUnitXTransformTest(TestCase):
         )
         with self.assertRaises(ValueError):
             ss2 = self.t.transform_search_space(ss2)
+        t = CenteredUnitX(
+            search_space=self.search_space_with_target,
+            observation_features=None,
+            observation_data=None,
+        )
+        t.transform_search_space(self.search_space_with_target)
+        self.assertEqual(
+            self.search_space_with_target.parameters["x"].target_value, 1.0
+        )

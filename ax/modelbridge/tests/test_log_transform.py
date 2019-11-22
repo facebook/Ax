@@ -33,6 +33,19 @@ class LogTransformTest(TestCase):
             observation_features=None,
             observation_data=None,
         )
+        self.search_space_with_target = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "x",
+                    lower=1,
+                    upper=3,
+                    parameter_type=ParameterType.FLOAT,
+                    log_scale=True,
+                    is_fidelity=True,
+                    target_value=3,
+                )
+            ]
+        )
 
     def testInit(self):
         self.assertEqual(self.t.transform_parameters, {"x"})
@@ -56,3 +69,12 @@ class LogTransformTest(TestCase):
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(ss2.parameters["x"].lower, math.log10(1))
         self.assertEqual(ss2.parameters["x"].upper, math.log10(3))
+        t2 = Log(
+            search_space=self.search_space_with_target,
+            observation_features=None,
+            observation_data=None,
+        )
+        t2.transform_search_space(self.search_space_with_target)
+        self.assertEqual(
+            self.search_space_with_target.parameters["x"].target_value, math.log10(3)
+        )

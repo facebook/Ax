@@ -118,9 +118,13 @@ class OneHot(Transform):
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: Dict[str, Parameter] = {}
-        for p in search_space.parameters.values():
-            if p.name in self.encoded_parameters:
-                for new_p_name in self.encoded_parameters[p.name]:
+        for p_name, p in search_space.parameters.items():
+            if p_name in self.encoded_parameters:
+                if p.is_fidelity:
+                    raise ValueError(
+                        f"Cannot one-hot-encode fidelity parameter {p_name}"
+                    )
+                for new_p_name in self.encoded_parameters[p_name]:
                     transformed_parameters[new_p_name] = RangeParameter(
                         name=new_p_name,
                         parameter_type=ParameterType.FLOAT,
@@ -128,7 +132,7 @@ class OneHot(Transform):
                         upper=1,
                     )
             else:
-                transformed_parameters[p.name] = p
+                transformed_parameters[p_name] = p
         return SearchSpace(
             parameters=list(transformed_parameters.values()),
             parameter_constraints=[

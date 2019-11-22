@@ -52,19 +52,17 @@ class IntToFloat(Transform):
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: Dict[str, Parameter] = {}
-        for p in search_space.parameters.values():
-            # Refine type, since we've only added RangeParameters above.
-            if p.name in self.transform_parameters:
-                # pyre: p_cast is declared to have type `RangeParameter` but
-                # pyre-fixme[9]: is used as type `Parameter`.
-                p_cast: RangeParameter = p
-                transformed_parameters[p.name] = RangeParameter(
-                    name=p_cast.name,
+        for p_name, p in search_space.parameters.items():
+            if p_name in self.transform_parameters and isinstance(p, RangeParameter):
+                transformed_parameters[p_name] = RangeParameter(
+                    name=p_name,
                     parameter_type=ParameterType.FLOAT,
-                    lower=p_cast.lower,
-                    upper=p_cast.upper,
-                    log_scale=p_cast.log_scale,
-                    digits=p_cast.digits,
+                    lower=p.lower,
+                    upper=p.upper,
+                    log_scale=p.log_scale,
+                    digits=p.digits,
+                    is_fidelity=p.is_fidelity,
+                    target_value=p.target_value,  # casting happens in constructor
                 )
             else:
                 transformed_parameters[p.name] = p

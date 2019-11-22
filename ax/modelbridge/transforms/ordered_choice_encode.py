@@ -58,18 +58,18 @@ class OrderedChoiceEncode(Transform):
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: Dict[str, Parameter] = {}
-        for p in search_space.parameters.values():
-            if p.name in self.encoded_parameters:
-                # TypeAssert. Only ChoiceParameters present here.
-                # pyre: p_ is declared to have type `ChoiceParameter` but is
-                # pyre-fixme[9]: used as type `Parameter`.
-                p_: ChoiceParameter = p
+        for p_name, p in search_space.parameters.items():
+            if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
+                if p.is_fidelity:
+                    raise ValueError(
+                        f"Cannot choice-encode fidelity parameter {p_name}"
+                    )
                 # Choice(|K|) => Range(0, K-1)
-                transformed_parameters[p.name] = RangeParameter(
-                    name=p_.name,
+                transformed_parameters[p_name] = RangeParameter(
+                    name=p_name,
                     parameter_type=ParameterType.INT,
                     lower=0,
-                    upper=len(p_.values) - 1,
+                    upper=len(p.values) - 1,
                 )
             else:
                 transformed_parameters[p.name] = p
