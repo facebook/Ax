@@ -6,6 +6,12 @@ from ax.core.objective import Objective, ScalarizedObjective
 from ax.utils.common.testutils import TestCase
 
 
+OBJ_STR = (
+    "ScalarizedObjective(metric_names=['m1', 'm2'], weights=[1.0, 1.0], "
+    "minimize=False)"
+)
+
+
 class ObjectiveTest(TestCase):
     def setUp(self):
         self.metrics = {"m1": Metric(name="m1"), "m2": Metric(name="m2")}
@@ -28,3 +34,4 @@ class ObjectiveTest(TestCase):
         weights = [mw[1] for mw in self.multi_objective.metric_weights]
         self.assertEqual(weights, [1.0, 1.0])
         self.assertEqual(self.multi_objective.clone(), self.multi_objective)
+        self.assertEqual(str(self.multi_objective), OBJ_STR)
