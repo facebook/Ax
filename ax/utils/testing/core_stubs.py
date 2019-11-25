@@ -14,7 +14,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import Objective
+from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
@@ -477,6 +477,14 @@ def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
 
 def get_objective() -> Objective:
     return Objective(metric=Metric(name="m1"), minimize=False)
+
+
+def get_scalarized_objective() -> Objective:
+    return ScalarizedObjective(
+        metrics=[Metric(name="m1"), Metric(name="m2")],
+        weights=[1.0, 2.0],
+        minimize=False,
+    )
 
 
 def get_outcome_constraint() -> OutcomeConstraint:

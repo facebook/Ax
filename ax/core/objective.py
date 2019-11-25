@@ -100,3 +100,8 @@ class ScalarizedObjective(Objective):
             weights=self.weights.copy(),
             minimize=self.minimize,
         )
+
+    def __repr__(self) -> str:
+        return "ScalarizedObjective(metric_names={}, weights={}, minimize={})".format(
+            [metric.name for metric in self.metrics], self.weights, self.minimize
+        )

@@ -11,7 +11,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.objective import Objective
+from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
@@ -56,6 +56,7 @@ from ax.storage.json_store.encoders import (
     parameter_constraint_to_dict,
     range_parameter_to_dict,
     runner_to_dict,
+    scalarized_objective_to_dict,
     search_space_to_dict,
     simple_experiment_to_dict,
     sum_parameter_constraint_to_dict,
@@ -87,6 +88,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     OutcomeConstraint: outcome_constraint_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
     RangeParameter: range_parameter_to_dict,
+    ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
     SimpleExperiment: simple_experiment_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
@@ -126,6 +128,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "ParameterConstraintType": ParameterConstraintType,
     "ParameterType": ParameterType,
     "RangeParameter": RangeParameter,
+    "ScalarizedObjective": ScalarizedObjective,
     "SearchSpace": SearchSpace,
     "SimpleExperiment": SimpleExperiment,
     "SumConstraint": SumConstraint,
