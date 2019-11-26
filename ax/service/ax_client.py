@@ -188,10 +188,9 @@ class AxClient:
             status_quo: Parameterization of the current state of the system.
                 If set, this will be added to each trial to be evaluated alongside
                 test configurations.
-            overwrite_existing_experiment: If `DBSettings` were provided on
-                instantiation and the experiment being created has the same name
-                as some experiment already stored, whether to overwrite the
-                existing experiment. Defaults to False.
+            overwrite_existing_experiment: If the experiment being created has the same
+                name as the locally created experiment or a DB stored experiment, 
+                whether to overwrite the existing experiment. Defaults to False.
             choose_generation_strategy_kwargs: Keyword arguments to pass to
                 `choose_generation_strategy` function which determines what
                 generation strategy should be used when none was specified on init.
@@ -217,6 +216,13 @@ class AxClient:
                     "or use `ax_client.load_experiment_from_database` to "
                     "continue an existing experiment."
                 )
+        if not overwrite_existing_experiment and self._experiment and name == self._experiment._name:
+            # todo: Replace this with a less generic error
+            raise ValueError(
+                f"Experiment already created {f'with name "{name}"' if name} "
+                "for this client. Set the `overwrite_existing_experiment` to "
+                "`True` to overwrite with new experiment."
+            )
 
         self._experiment = make_experiment(
             name=name,
