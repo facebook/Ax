@@ -130,7 +130,7 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     mean = posterior.mean.cpu().detach()
     # TODO: Allow Posterior to (optionally) return the full covariance matrix
     variance = posterior.variance.cpu().detach().clamp_min(0)  # pyre-ignore
-    cov = variance.unsqueeze(-1) * torch.eye(variance.shape[-1], dtype=variance.dtype)
+    cov = torch.diag_embed(variance)
     return mean, cov
 
 
