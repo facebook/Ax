@@ -219,9 +219,9 @@ class AxClient:
         if not overwrite_existing_experiment and self._experiment and name == self._experiment._name:
             # todo: Replace this with a less generic error
             raise ValueError(
-                f"Experiment already created {f'with name "{name}"' if name} "
-                "for this client. Set the `overwrite_existing_experiment` to "
-                "`True` to overwrite with new experiment."
+                f"Experiment already created for this client instance. "
+                "Set the `overwrite_existing_experiment` to `True` to overwrite "
+                "with new experiment."
             )
 
         self._experiment = make_experiment(
