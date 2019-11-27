@@ -69,11 +69,8 @@ Cont_X_trans: List[Type[Transform]] = [
     Log,
     UnitX,
 ]
-
 Discrete_X_trans: List[Type[Transform]] = [IntRangeToChoice]
-
 Y_trans: List[Type[Transform]] = [IVW, Derelativize, StandardizeY]
-
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
 TS_trans: List[Type[Transform]] = Y_trans + [SearchSpaceToChoice]
@@ -97,7 +94,7 @@ ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
 
 STANDARD_TORCH_BRIDGE_KWARGS: Dict[str, Any] = {
     "torch_dtype": torch.double,
-    "torch_device": torch.device("cpu"),  # pyre-ignore[19]
+    "torch_device": torch.device("cpu"),
 }
 
 
@@ -317,29 +314,12 @@ def get_model_from_generator_run(
     experiment: Experiment,
     data: Data,
     models_enum: Optional[Type["Models"]] = None,
-    after_gen: bool = False,
 ) -> ModelBridge:
     """Reinstantiate a model from model key and kwargs stored on a given generator
     run, with the given experiment and the data to initialize the model with.
 
     Note: requires that the model that was used to get the generator run, is part
     of the `Models` registry enum.
-
-    Args:
-        generator_run: A `GeneratorRun` created by the model we are looking to
-            reinstantiate.
-        experiment: The experiment for which the model is reinstantiated.
-        data: Data, with which to reinstantiate the model.
-        models_enum: Optional subclass of `Models` registry, from which to obtain
-            the settings of the model. Useful only if the generator run was
-            created via a model that could not be included into the main registry,
-            but can still be represented as a `ModelSetup` and was added to a
-            registry that extends `Models`.
-        after_gen: Whether to reinstantiate the model in the state, in which it
-            was after it created this generator run, as opposed to before.
-            Defaults to False, useful when reinstantiating the model to resume
-            optimization, rather than to recreate its state at the time of
-            generation.
     """
     if not generator_run._model_key:  # pragma: no cover
         raise ValueError(
@@ -348,8 +328,6 @@ def get_model_from_generator_run(
         )
     model = (models_enum or Models)(generator_run._model_key)
     model_kwargs = generator_run._model_kwargs or {}
-    if after_gen and generator_run._model_state_after_gen is not None:
-        model_kwargs.update(not_none(generator_run._model_state_after_gen))
     bridge_kwargs = generator_run._bridge_kwargs or {}
     model_keywords = list(model_kwargs.keys())
     for key in model_keywords:

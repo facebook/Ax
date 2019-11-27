@@ -38,11 +38,8 @@ class SobolGenerator(RandomModel):
         deduplicate: bool = False,
         init_position: int = 0,
         scramble: bool = True,
-        generated_points: Optional[np.ndarray] = None,
     ) -> None:
-        super().__init__(
-            deduplicate=deduplicate, seed=seed, generated_points=generated_points
-        )
+        super().__init__(deduplicate=deduplicate, seed=seed)
         self.init_position = init_position
         self.scramble = scramble
         # Initialize engine on gen.

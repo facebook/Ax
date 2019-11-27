@@ -10,6 +10,7 @@ import ax.service.utils.best_point as best_point_utils
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
@@ -122,7 +123,7 @@ class AxClient:
         verbose_logging: bool = True,
     ) -> None:
         if not verbose_logging:
-            logger.setLevel(logging.WARNING)  # pragma: no cover
+            logger.setLevel(logging.WARNING)
         else:
             logger.info(
                 "Starting optimization with verbose logging. To disable logging, "
@@ -149,6 +150,9 @@ class AxClient:
                 "will make the generated trials similar, but not exactly the same, "
                 "and over time the trials will diverge more."
             )
+        # Trials, for which we received data since last `GenerationStrategy.gen`,
+        # used to make sure that generation strategy is updated with new data.
+        self._updated_trials: List[int] = []
 
     # ------------------------ Public API methods. ------------------------
 
@@ -261,6 +265,7 @@ class AxClient:
             f"{_round_floats_for_logging(item=not_none(trial.arm).parameters)}."
         )
         trial.mark_dispatched()
+        self._updated_trials = []
         self._save_experiment_and_generation_strategy_to_db_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
@@ -326,6 +331,7 @@ class AxClient:
             f"Completed trial {trial_index} with data: "
             f"{_round_floats_for_logging(item=data_for_logging)}."
         )
+        self._updated_trials.append(trial_index)
         self._save_experiment_and_generation_strategy_to_db_if_possible()
 
     def log_trial_failure(
@@ -683,6 +689,7 @@ class AxClient:
             "experiment": object_to_json(self._experiment),
             "generation_strategy": object_to_json(self._generation_strategy),
             "_enforce_sequential_optimization": self._enforce_sequential_optimization,
+            "_updated_trials": object_to_json(self._updated_trials),
         }
 
     @staticmethod
@@ -702,6 +709,7 @@ class AxClient:
             **kwargs,
         )
         ax_client._experiment = experiment
+        ax_client._updated_trials = object_from_json(serialized.pop("_updated_trials"))
         return ax_client
 
     # ---------------------- Private helper methods. ---------------------
@@ -756,12 +764,27 @@ class AxClient:
             return True
         return False
 
+    def _get_new_data(self) -> Data:
+        """
+        Returns new data since the last run of the generator.
+
+        Returns:
+            Latest data.
+        """
+        return Data.from_multiple_data(
+            [
+                self.experiment.lookup_data_for_trial(idx)[0]
+                for idx in self._updated_trials
+            ]
+        )
+
     def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
         """Generate new generator run for this experiment.
 
         Args:
             n: Number of arms to generate.
         """
+        new_data = self._get_new_data()
         # If random seed is not set for this optimization, context manager does
         # nothing; otherwise, it sets the random seed for torch, but only for the
         # scope of this call. This is important because torch seed is set globally,
@@ -773,6 +796,7 @@ class AxClient:
             warnings.simplefilter("ignore")
             return not_none(self.generation_strategy).gen(
                 experiment=self.experiment,
+                new_data=new_data,
                 n=n,
                 pending_observations=get_pending_observation_features(
                     experiment=self.experiment

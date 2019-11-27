@@ -38,12 +38,8 @@ def same_elements(list1: List[Any], list2: List[Any]) -> bool:
     for item1 in list1:
         found = False
         for item2 in list2:
-            if isinstance(item1, np.ndarray) or isinstance(item2, np.ndarray):
-                if (
-                    isinstance(item1, np.ndarray)
-                    and isinstance(item2, np.ndarray)
-                    and np.array_equal(item1, item2)
-                ):
+            if isinstance(item1, np.ndarray):
+                if isinstance(item2, np.ndarray) and np.array_equal(item1, item2):
                     found = True
                     break
             elif item1 == item2:

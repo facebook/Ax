@@ -19,7 +19,6 @@ from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge, gen_arms, unwrap_observation_data
 from ax.modelbridge.transforms.log import Log
-from ax.models.base import Model
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_repeated_arms,
@@ -56,13 +55,7 @@ class BaseModelBridgeTest(TestCase):
         transforms = [transform_1, transform_2]
         exp = get_experiment_for_value()
         ss = get_search_space_for_value()
-        modelbridge = ModelBridge(
-            search_space=ss,
-            model=Model(),
-            transforms=transforms,
-            experiment=exp,
-            data=0,
-        )
+        modelbridge = ModelBridge(ss, 0, transforms, exp, 0)
         self.assertEqual(
             list(modelbridge.transforms.keys()), ["transform_1", "transform_2"]
         )
@@ -376,9 +369,7 @@ class BaseModelBridgeTest(TestCase):
         exp = get_experiment_for_value()
         exp.optimization_config = get_optimization_config_no_constraints()
         ss = get_search_space_for_range_value()
-        modelbridge = ModelBridge(
-            search_space=ss, model=Model(), transforms=[], experiment=exp
-        )
+        modelbridge = ModelBridge(ss, None, [], exp)
         modelbridge.gen(1)
         mock_gen.assert_called_with(
             modelbridge,
@@ -408,9 +399,7 @@ class BaseModelBridgeTest(TestCase):
         exp.optimization_config = get_optimization_config_no_constraints()
         ss = get_search_space_for_range_values()
         exp.search_space = ss
-        modelbridge = ModelBridge(
-            search_space=ss, model=Model(), transforms=[Log], experiment=exp
-        )
+        modelbridge = ModelBridge(ss, None, [Log], exp)
         exp.new_trial(generator_run=modelbridge.gen(1))
         modelbridge._set_training_data(
             observations_from_data(

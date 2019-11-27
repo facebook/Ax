@@ -54,7 +54,7 @@ class RandomModelBridge(ModelBridge):
 
     @copy_doc(ModelBridge.update)
     def update(self, data: Data, experiment: Experiment) -> None:
-        pass  # pragma: no cover
+        pass
 
     def _gen(
         self,

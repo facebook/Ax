@@ -136,8 +136,7 @@ class ModelBridge(ABC):
             transform_configs=transform_configs,
         )
 
-        # Save model, apply terminal transform, and fit
-        self.model = model
+        # Apply terminal transform and fit
         try:
             self._fit(
                 model=model,
@@ -310,7 +309,7 @@ class ModelBridge(ABC):
             if len(sq_obs) == 0:
                 logger.warning(f"Status quo {status_quo_name} not present in data")
             elif len(sq_obs) > 1:
-                logger.warning(  # pragma: no cover
+                logger.warning(
                     f"Status quo {status_quo_name} found in data with multiple "
                     "features. Use status_quo_features to specify which to use."
                 )
@@ -633,6 +632,7 @@ class ModelBridge(ABC):
                 arms_by_signature=self._arms_by_signature,
             )[0]
         )
+
         gr = GeneratorRun(
             arms=gen_arms(
                 observation_features=observation_features,
@@ -651,8 +651,8 @@ class ModelBridge(ABC):
             model_kwargs=self._model_kwargs,
             bridge_kwargs=self._bridge_kwargs,
             gen_metadata=gen_metadata,
-            model_state_after_gen=self._get_model_state(),
         )
+        self._save_model_state_if_possible()
         self.fit_time_since_gen = 0.0
         return gr
 
@@ -738,9 +738,23 @@ class ModelBridge(ABC):
         self._model_kwargs = model_kwargs
         self._bridge_kwargs = bridge_kwargs
 
-    def _get_model_state(self) -> Dict[str, Any]:
-        """Obtains the state of the underlying model if using a stateful one."""
-        return not_none(self.model)._get_state()
+    def _save_model_state_if_possible(self) -> None:
+        """Stores state of stateful models together with the model and bridge
+        kwargs.
+
+        Currently the only stateful model is the `SobolGenerator`, for which it
+        is enough to update the stored model kwargs with that state. However, as
+        the number of stateful models increases, this function may require
+        additional logic.
+        """
+        if (
+            hasattr(self, "model")
+            and hasattr(self, "_model_kwargs")
+            and self._model_kwargs is not None
+        ):
+            # `ModelBridge` still has no attr. `model` after `hasattr` call,
+            # pyre-fixme[16]: which should've ensured its presence to typechecker.
+            not_none(self._model_kwargs).update(self.model._get_state())
 
     def feature_importances(self, metric_name: str) -> Dict[str, float]:
         raise NotImplementedError(

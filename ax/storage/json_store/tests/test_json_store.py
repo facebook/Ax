@@ -252,7 +252,7 @@ class JSONStoreTest(TestCase):
         # it has generated some trials and been updated with some data.
         generation_strategy = new_generation_strategy
         experiment.new_trial(
-            generation_strategy.gen(experiment, data=get_branin_data())
+            generation_strategy.gen(experiment, new_data=get_branin_data())
         )
         self.assertGreater(len(generation_strategy._generated), 0)
         self.assertGreater(len(generation_strategy._observed), 0)

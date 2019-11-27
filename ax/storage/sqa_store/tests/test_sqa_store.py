@@ -852,9 +852,9 @@ class SQAStoreTest(TestCase):
         # Check that we can encode and decode the generation strategy *after*
         # it has generated some trials and been updated with some data.
         generation_strategy = new_generation_strategy
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
+        experiment.new_trial(generator_run=generation_strategy.gen(experiment))
         experiment.new_trial(
-            generation_strategy.gen(experiment, data=get_branin_data())
+            generation_strategy.gen(experiment, new_data=get_branin_data())
         )
         self.assertGreater(len(generation_strategy._generated), 0)
         self.assertGreater(len(generation_strategy._observed), 0)
@@ -901,7 +901,9 @@ class SQAStoreTest(TestCase):
 
         # add another generator run, save, reload
         experiment.new_trial(
-            generator_run=generation_strategy.gen(experiment, data=get_branin_data())
+            generator_run=generation_strategy.gen(
+                experiment, new_data=get_branin_data()
+            )
         )
         save_generation_strategy(generation_strategy=generation_strategy)
         save_experiment(experiment)

@@ -4,6 +4,7 @@
 from inspect import signature
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type, Union
 
+import pandas as pd
 from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -83,12 +84,12 @@ class GenerationStrategy(Base):
         for idx, step in enumerate(self._steps):
             if step.num_arms == -1:
                 if idx < len(self._steps) - 1:
-                    raise ValueError(  # pragma: no cover
+                    raise ValueError(
                         "Only last step in generation strategy can have num_arms "
                         "set to -1 to indicate that the model in the step should "
                         "be used to generate new arms indefinitely."
                     )
-            elif step.num_arms < 1:  # pragma: no cover
+            elif step.num_arms < 1:
                 raise ValueError("`num_arms` must be positive or -1 for all models.")
             self._steps[idx] = step._replace(index=idx)
             if not isinstance(step.model, Models):
@@ -105,21 +106,24 @@ class GenerationStrategy(Base):
     def name(self) -> str:
         """Name of this generation strategy. Defaults to a combination of model
         names provided in generation steps."""
-        if self._name is not None:
-            return not_none(self._name)
+        if self._name:
+            # pyre-fixme[7]: Expected `str` but got `Optional[str]`.
+            return self._name
 
         # Model can be defined as member of Models enum or as a factory function,
         # so we use Models member (str) value if former and function name if latter.
         factory_names = (
-            checked_cast(str, checked_cast(Models, step.model).value)
+            # pyre-fixme[16]: `Union` has no attribute `value`.
+            checked_cast(str, step.model.value)
             if isinstance(step.model, Models)
-            else step.model.__name__  # pyre-ignore[16]: `Models` has no attr.
+            else step.model.__name__  # pyre-ignore[16]
             for step in self._steps
         )
         # Trim the "get_" beginning of the factory function if it's there.
         factory_names = (n[4:] if n[:4] == "get_" else n for n in factory_names)
         self._name = "+".join(factory_names)
-        return not_none(self._name)
+        # pyre-fixme[7]: Expected `str` but got `Optional[str]`.
+        return self._name
 
     @property
     def model_transitions(self) -> List[int]:
@@ -150,42 +154,19 @@ class GenerationStrategy(Base):
     def gen(
         self,
         experiment: Experiment,
-        data: Optional[Data] = None,
+        new_data: Optional[Data] = None,  # Take in just the new data.
         n: int = 1,
         **kwargs: Any,
     ) -> GeneratorRun:
         """Produce the next points in the experiment."""
         self._set_experiment(experiment=experiment)
-        new_arm_signatures = set()
-        data = data or experiment.fetch_data()
-        if data is not None and not data.df.empty:
-            if self._data.df.empty:
-                new_data = data.df
-            else:
-                # Select only the new data to determine how many new arms were
-                # evaluated since the generation strategy was last updated with
-                # data (find rows that are in `data.df`, but not in `self._data.df`)
-                merged = data.df.merge(
-                    self._data.df,
-                    on=["arm_name", "trial_index", "metric_name", "mean", "sem"],
-                    how="left",
-                    indicator=True,
-                )
-                new_data = merged[merged["_merge"] == "left_only"]
-            # Get arm signatures for each entry in data that the GS hasn't seen yet.
-            new_arm_signatures = {
-                not_none(experiment.arms_by_name.get(row["arm_name"])).signature
-                for _, row in new_data.iterrows()
-                if (
-                    row["arm_name"] in experiment.arms_by_name
-                    and not not_none(
-                        experiment.trials.get(row["trial_index"])
-                    ).status.is_failed
-                )
-            }
 
+        # Get arm signatures for each entry in new_data that is indeed new.
+        new_arms = self._get_new_arm_signatures(
+            experiment=experiment, new_data=new_data
+        )
         enough_observed = (
-            len(self._observed) + len(new_arm_signatures)
+            len(self._observed) + len(new_arms)
         ) >= self._curr.min_arms_observed
         unlimited_arms = self._curr.num_arms == -1
         enough_generated = (
@@ -202,28 +183,33 @@ class GenerationStrategy(Base):
             # TODO[Lena, T44021164]: take into account failed trials. Potentially
             # reduce `_generated` count when a trial mentioned in new data failed.
 
-        lgr = self.last_generator_run
+        all_data = (
+            Data.from_multiple_data(data=[self._data, new_data])
+            if new_data
+            else self._data
+        )
 
-        if enough_generated and enough_observed:
+        if self._model is None:
+            # Instantiate the first model.
+            self._set_current_model(experiment=experiment, data=all_data)
+        elif enough_generated and enough_observed:
             # Change to the next model.
-            self._change_model(experiment=experiment, data=data)
-        elif lgr is not None and lgr._model_state_after_gen is not None:
-            model_state = not_none(lgr._model_state_after_gen)
-            self._set_current_model(experiment=experiment, data=data, **model_state)
-        else:
-            self._set_current_model(experiment=experiment, data=data)
+            self._change_model(experiment=experiment, data=all_data)
+        elif new_data is not None:
+            # We're sticking with the curr. model, but should update with new data.
+            # pyre-fixme[16]: `Optional` has no attribute `update`.
+            self._model.update(experiment=experiment, data=new_data)
 
-        model = not_none(self._model)
         kwargs = consolidate_kwargs(
             kwargs_iterable=[self._curr.model_gen_kwargs, kwargs],
             keywords=get_function_argument_names(not_none(self._model).gen),
         )
-        gen_run = model.gen(n=n, **kwargs)
+        gen_run = not_none(self._model).gen(n=n, **kwargs)
 
         # If nothing failed, update known data, _generated, and _observed.
-        self._data = data
+        self._data = all_data
         self._generated.extend([arm.signature for arm in gen_run.arms])
-        self._observed.extend(new_arm_signatures)
+        self._observed.extend(new_arms)
         self._generator_runs.append(gen_run)
         return gen_run
 
@@ -238,7 +224,7 @@ class GenerationStrategy(Base):
         for step in self._steps:
             num_arms = f"{step.num_arms}" if step.num_arms != -1 else remaining_arms
             if isinstance(step.model, Models):
-                # pyre-ignore[16]: `Union` has no attribute `value`.
+                # pyre-fixme[16]: `Union` has no attribute `value`.
                 repr += f"{step.model.value} for {num_arms} arms, "
         repr = repr[:-2]
         repr += f"], generated {len(self._generated)} arm(s) so far)"
@@ -249,7 +235,6 @@ class GenerationStrategy(Base):
     ) -> None:
         """Instantiate the current model with all available data.
         """
-        kwargs = kwargs or {}
         if isinstance(self._curr.model, Models):
             self._set_current_model_from_models_enum(
                 experiment=experiment, data=data, **kwargs
@@ -279,11 +264,11 @@ class GenerationStrategy(Base):
     ) -> None:
         """Instantiate the current model, provided through a callable factory
         function, with all available data."""
-        model = self._curr.model
-        assert not isinstance(model, Models) and callable(model)
+        assert not isinstance(self._curr.model, Models)
         fxn_name = (  # Only grab the name when available; without this ternary
-            f"` {model.__name__}`"  # operator, grabbing the __name__
-            if hasattr(model, "__name__")  # will error for mocks.
+            # pyre-ignore[16]
+            f"` {self._curr.model.__name__}`"  # operator, grabbing the __name__
+            if hasattr(self._curr.model, "__name__")  # will error for mocks.
             else ""
         )
         logger.info(
@@ -319,7 +304,7 @@ class GenerationStrategy(Base):
             models_enum=models_enum,
         )
 
-    def _change_model(self, experiment: Experiment, data: Data) -> None:
+    def _change_model(self, experiment: Experiment, data: Data, **kwargs: Any) -> None:
         """Get a new model for the next step.
         """
         # Increment the model
@@ -328,7 +313,41 @@ class GenerationStrategy(Base):
         self._curr = self._steps[not_none(self._curr.index) + 1]
         # New step => reset _generated and _observed.
         self._generated, self._observed = [], []
-        self._set_current_model(experiment=experiment, data=data)
+        self._set_current_model(experiment=experiment, data=data, **kwargs)
+
+    def _get_new_arm_signatures(
+        self, experiment: Experiment, new_data: Optional[Data]
+    ) -> List[str]:
+        new_signatures = []
+        if new_data is not None:
+            for _, row in new_data.df.iterrows():
+                # If a row with the same trial index, arm name, and metric name
+                # has already been seen in this generation strategy, the
+                # data passed into this function is not entirely new.
+                if not self._data.df.empty:
+                    if not pd.merge(
+                        new_data.df,
+                        self._data.df,
+                        on=["arm_name", "metric_name", "trial_index"],
+                    ).empty:
+                        arm = row["arm_name"]
+                        trial = row["trial_index"]
+                        metric = row["metric_name"]
+                        raise ValueError(
+                            f"Data for arm {arm} in trial {trial} for metric "
+                            f"{metric} has already been seen. Please only pass "
+                            "new data to `GenerationStrategy.gen`."
+                        )
+                if (
+                    row["arm_name"] in experiment.arms_by_name
+                    # pyre-fixme[16]: `Optional` has no attribute `status`.
+                    and not experiment.trials.get(row["trial_index"]).status.is_failed
+                ):
+                    new_signatures.append(
+                        # pyre-fixme[16]: `Optional` has no attribute `signature`.
+                        experiment.arms_by_name.get(row["arm_name"]).signature
+                    )
+        return new_signatures
 
     def _set_experiment(self, experiment: Experiment) -> None:
         """If there is an experiment set on this generation strategy as the

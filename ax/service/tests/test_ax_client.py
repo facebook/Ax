@@ -533,7 +533,6 @@ class TestAxClient(TestCase):
             run_trials_using_recommended_parallelism(ax_client, [(6, 6), (-1, 3)], 20)
 
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
-    @patch.dict(sys.modules, {"sqalchemy": None})
     def test_no_sqa(self):
         # Pretend we couldn't import sqa_store.structs (this could happen when
         # SQLAlchemy is not installed).
@@ -541,8 +540,6 @@ class TestAxClient(TestCase):
         patcher.start()
         with self.assertRaises(ModuleNotFoundError):
             import ax_client.storage.sqa_store.structs  # noqa F401
-        # Make sure we can still import ax_client.
-        __import__("ax.service.ax_client")
         AxClient()  # Make sure we still can instantiate client w/o db settings.
         # Even with correctly typed DBSettings, `AxClient` instantiation should
         # fail here, because `DBSettings` are mocked to None in `ax_client`.
@@ -692,9 +689,9 @@ class TestAxClient(TestCase):
                 self.assertEqual(params, new_params)
                 self.assertEqual(idx, new_idx)
                 self.assertEqual(
-                    ax_client.experiment.trials[
-                        idx
-                    ]._generator_run._model_state_after_gen["init_position"],
+                    ax_client.experiment.trials[idx]._generator_run._model_kwargs[
+                        "init_position"
+                    ],
                     idx + 1,
                 )
             ax_client.complete_trial(idx, branin(params.get("x"), params.get("y")))
