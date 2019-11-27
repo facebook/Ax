@@ -270,7 +270,7 @@ def _get_model(
     Returns:
         A GPyTorchModel (unfitted).
     """
-    Yvar = Yvar.clamp_min_(MIN_OBSERVED_NOISE_LEVEL)  # pyre-ignore: [16]
+    Yvar = Yvar.clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
     is_nan = torch.isnan(Yvar)
     any_nan_Yvar = torch.any(is_nan)
     all_nan_Yvar = torch.all(is_nan)
