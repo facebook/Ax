@@ -87,3 +87,4 @@ class PlotMetric(NamedTuple):
     # @TODO T40555279: metric --> metric_name everywhere in plotting
     metric: str
     pred: bool
+    rel: bool

@@ -115,9 +115,8 @@ def _obs_vs_pred_dropdown_plot(
             # `List[PlotInSampleArm]`.
             # pyre-fixme[6]:
             list(data.in_sample.values()),
-            y_axis_var=PlotMetric(metric, True),
-            x_axis_var=PlotMetric(metric, False),
-            rel=rel,
+            y_axis_var=PlotMetric(metric, pred=True, rel=rel),
+            x_axis_var=PlotMetric(metric, pred=False, rel=rel),
             status_quo_arm=status_quo_arm,
         )
         min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw or [], se_hat)
@@ -131,16 +130,15 @@ def _obs_vs_pred_dropdown_plot(
                 # pyre-fixme[6]:
                 arms=list(data.in_sample.values()),
                 hoverinfo="text",
-                rel=rel,
                 show_arm_details_on_hover=True,
                 show_CI=True,
                 show_context=show_context,
                 status_quo_arm=status_quo_arm,
                 visible=(i == 0),
                 x_axis_label=xlabel,
-                x_axis_var=PlotMetric(metric, False),
+                x_axis_var=PlotMetric(metric, pred=False, rel=rel),
                 y_axis_label=ylabel,
-                y_axis_var=PlotMetric(metric, True),
+                y_axis_var=PlotMetric(metric, pred=True, rel=rel),
             )
         )
 
@@ -478,8 +476,8 @@ def tile_cross_validation(
                 # got `List[PlotInSampleArm]`.
                 # pyre-fixme[6]:
                 list(data.in_sample.values()),
-                y_axis_var=PlotMetric(metric, True),
-                x_axis_var=PlotMetric(metric, False),
+                y_axis_var=PlotMetric(metric, pred=True, rel=False),
+                x_axis_var=PlotMetric(metric, pred=False, rel=False),
                 y_axis_label="Predicted",
                 x_axis_label="Actual",
                 hoverinfo="text",

@@ -658,6 +658,37 @@ def rgb(arr: List[int]) -> str:
     return "rgb({},{},{})".format(*arr)
 
 
+def infer_is_relative(
+    model: ModelBridge, metrics: List[str], non_constraint_rel: bool
+) -> Dict[str, bool]:
+    """Determine whether or not to relativize a metric.
+
+    Metrics that are constraints will get this decision from their `relative` flag.
+    Other metrics will use the `default_rel`.
+
+    Args:
+        model: model fit on metrics.
+        metrics: list of metric names.
+        non_constraint_rel: whether or not to relativize non-constraint metrics
+
+    Returns:
+        Dict[str, bool] containing whether or not to relativize each input metric.
+    """
+    relative = {}
+    constraint_relativity = {}
+    if model._optimization_config:
+        constraints = not_none(model._optimization_config).outcome_constraints
+        constraint_relativity = {
+            constraint.metric.name: constraint.relative for constraint in constraints
+        }
+    for metric in metrics:
+        if metric not in constraint_relativity:
+            relative[metric] = non_constraint_rel
+        else:
+            relative[metric] = constraint_relativity[metric]
+    return relative
+
+
 def slice_config_to_trace(
     arm_data,
     arm_name_to_parameters,

@@ -92,9 +92,8 @@ def table_view_plot(
     for metric_name in metric_names:
         arm_names, _, ys, ys_se = _error_scatter_data(
             arms=list(plot_data.in_sample.values()),
-            y_axis_var=PlotMetric(metric_name, True),
+            y_axis_var=PlotMetric(metric_name, pred=True, rel=rel),
             x_axis_var=None,
-            rel=rel,
             status_quo_arm=status_quo_arm,
         )
 

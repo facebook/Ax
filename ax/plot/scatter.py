@@ -27,6 +27,7 @@ from ax.plot.helper import (
     _wrap_metric,
     arm_name_to_tuple,
     get_plot_data,
+    infer_is_relative,
     resize_subtitles,
 )
 from ax.utils.stats.statstools import relativize
@@ -41,7 +42,6 @@ def _error_scatter_data(
     arms: List[Union[PlotInSampleArm, PlotOutOfSampleArm]],
     y_axis_var: PlotMetric,
     x_axis_var: Optional[PlotMetric] = None,
-    rel: bool = False,
     status_quo_arm: Optional[PlotInSampleArm] = None,
 ) -> Tuple[List[float], Optional[List[float]], List[float], List[float]]:
     y_metric_key = "y_hat" if y_axis_var.pred else "y"
@@ -52,7 +52,7 @@ def _error_scatter_data(
     y_se = [getattr(a, y_sd_key).get(y_axis_var.metric, np.nan) for a in arms]
 
     # Delta method if relative to status quo arm
-    if rel:
+    if y_axis_var.rel:
         if status_quo_arm is None:
             raise ValueError("`status_quo_arm` cannot be None for relative effects.")
         y_rel, y_se_rel = relativize(
@@ -75,7 +75,7 @@ def _error_scatter_data(
         x = [getattr(a, x_metric_key).get(x_axis_var.metric, np.nan) for a in arms]
         x_se = [getattr(a, x_sd_key).get(x_axis_var.metric, np.nan) for a in arms]
 
-        if rel:
+        if x_axis_var.rel:
             # Delta method if relative to status quo arm
             x_rel, x_se_rel = relativize(
                 means_t=x,
@@ -95,7 +95,6 @@ def _error_scatter_trace(
     x_axis_var: Optional[PlotMetric] = None,
     y_axis_label: Optional[str] = None,
     x_axis_label: Optional[str] = None,
-    rel: bool = False,
     status_quo_arm: Optional[PlotInSampleArm] = None,
     show_CI: bool = True,
     name: str = "In-sample",
@@ -125,9 +124,6 @@ def _error_scatter_trace(
             If None, use metric name from `y_axis_var`.
         x_axis_label: custom label to use for x axis.
             If None, use metric name from `x_axis_var` if that is not None.
-        rel: if True, points are treated as relative to status
-            quo and '%' is appended to labels. If rel=True, `status_quo_arm`
-            must be set.
         status_quo_arm: the status quo
             arm. Necessary for relative metrics.
         show_CI: if True, plot confidence intervals.
@@ -149,12 +145,16 @@ def _error_scatter_trace(
         arms=arms,
         y_axis_var=y_axis_var,
         x_axis_var=x_axis_var,
-        rel=rel,
         status_quo_arm=status_quo_arm,
     )
     labels = []
 
     arm_names = [a.name for a in arms]
+
+    # No relativization if no x variable.
+    rel_x = x_axis_var.rel if x_axis_var else False
+    rel_y = y_axis_var.rel
+
     for i in range(len(arm_names)):
         heading = f"<b>{arm_noun.title()} {arm_names[i]}</b><br>"
         x_lab = (
@@ -163,8 +163,8 @@ def _error_scatter_trace(
                 estimate=(
                     round(x[i], DECIMALS) if isinstance(x[i], numbers.Number) else x[i]
                 ),
-                ci="" if x_se is None else _format_CI(x[i], x_se[i], rel),
-                perc="%" if rel else "",
+                ci="" if x_se is None else _format_CI(x[i], x_se[i], rel_x),
+                perc="%" if rel_x else "",
             )
             if x_axis_var is not None
             else ""
@@ -174,8 +174,8 @@ def _error_scatter_trace(
             estimate=(
                 round(y[i], DECIMALS) if isinstance(y[i], numbers.Number) else y[i]
             ),
-            ci="" if y_se is None else _format_CI(y[i], y_se[i], rel),
-            perc="%" if rel else "",
+            ci="" if y_se is None else _format_CI(y[i], y_se[i], rel_y),
+            perc="%" if rel_y else "",
         )
 
         parameterization = (
@@ -247,7 +247,8 @@ def _multiple_metric_traces(
     metric_x: str,
     metric_y: str,
     generator_runs_dict: TNullableGeneratorRunsDict,
-    rel: bool,
+    rel_x: bool,
+    rel_y: bool,
     fixed_features: Optional[ObservationFeatures] = None,
 ) -> Traces:
     """Plot traces for multiple metrics given a model and metrics.
@@ -258,7 +259,8 @@ def _multiple_metric_traces(
         metric_y: metric to plot on the y-axis.
         generator_runs_dict: a mapping from
             generator run name to generator run.
-        rel: if True, use relative effects.
+        rel_x: if True, use relative effects on metric_x.
+        rel_y: if True, use relative effects on metric_y.
         fixed_features: Fixed features to use when making model predictions.
 
     """
@@ -284,9 +286,8 @@ def _multiple_metric_traces(
             # `List[PlotInSampleArm]`.
             # pyre-fixme[6]:
             list(plot_data.in_sample.values()),
-            x_axis_var=PlotMetric(metric_x, pred=False),
-            y_axis_var=PlotMetric(metric_y, pred=False),
-            rel=rel,
+            x_axis_var=PlotMetric(metric_x, pred=False, rel=rel_x),
+            y_axis_var=PlotMetric(metric_y, pred=False, rel=rel_y),
             status_quo_arm=status_quo_arm,
             visible=False,
         ),
@@ -297,9 +298,8 @@ def _multiple_metric_traces(
             # `List[PlotInSampleArm]`.
             # pyre-fixme[6]:
             list(plot_data.in_sample.values()),
-            x_axis_var=PlotMetric(metric_x, pred=True),
-            y_axis_var=PlotMetric(metric_y, pred=True),
-            rel=rel,
+            x_axis_var=PlotMetric(metric_x, pred=True, rel=rel_x),
+            y_axis_var=PlotMetric(metric_y, pred=True, rel=rel_y),
             status_quo_arm=status_quo_arm,
             visible=True,
         ),
@@ -311,9 +311,8 @@ def _multiple_metric_traces(
         traces.append(
             _error_scatter_trace(
                 list(cand_arms.values()),
-                x_axis_var=PlotMetric(metric_x, pred=True),
-                y_axis_var=PlotMetric(metric_y, pred=True),
-                rel=rel,
+                x_axis_var=PlotMetric(metric_x, pred=True, rel=rel_x),
+                y_axis_var=PlotMetric(metric_y, pred=True, rel=rel_y),
                 status_quo_arm=status_quo_arm,
                 name=generator_run_name,
                 color=DISCRETE_COLOR_SCALE[i],
@@ -344,7 +343,7 @@ def plot_multiple_metrics(
 
     """
     traces = _multiple_metric_traces(
-        model, metric_x, metric_y, generator_runs_dict, rel
+        model, metric_x, metric_y, generator_runs_dict, rel_x=rel, rel_y=rel
     )
     num_cand_traces = len(generator_runs_dict) if generator_runs_dict is not None else 0
 
@@ -452,6 +451,7 @@ def plot_objective_vs_constraints(
     subset_metrics: Optional[List[str]] = None,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
+    infer_relative_constraints: Optional[bool] = False,
     fixed_features: Optional[ObservationFeatures] = None,
 ) -> AxPlotConfig:
     """Plot the tradeoff between an objetive and all other metrics in a model.
@@ -470,6 +470,11 @@ def plot_objective_vs_constraints(
         generator_runs_dict: a mapping from
             generator run name to generator run.
         rel: if True, use relative effects. Default is True.
+        infer_relative_constraints: if True, read relative spec from model's
+            optimization config. Absolute constraints will not be relativized;
+            relative ones will be.
+            Objectives will respect the `rel` parameter.
+            Metrics that are not constraints will be relativized.
         fixed_features: Fixed features to use when making model predictions.
 
     """
@@ -480,13 +485,28 @@ def plot_objective_vs_constraints(
 
     metric_dropdown = []
 
+    if infer_relative_constraints:
+        rels = infer_is_relative(model, metrics, non_constraint_rel=rel)
+        if rel:
+            rels[objective] = True
+        else:
+            rels[objective] = False
+    else:
+        if rel:
+            rels = {metric: True for metric in metrics}
+            rels[objective] = True
+        else:
+            rels = {metric: False for metric in metrics}
+            rels[objective] = False
+
     # set plotted data to the first outcome
     plot_data = _multiple_metric_traces(
         model,
         objective,
         metrics[0],
         generator_runs_dict,
-        rel,
+        rel_x=rels[objective],
+        rel_y=rels[metrics[0]],
         fixed_features=fixed_features,
     )
 
@@ -496,7 +516,8 @@ def plot_objective_vs_constraints(
             objective,
             metric,
             generator_runs_dict,
-            rel,
+            rel_x=rels[objective],
+            rel_y=rels[metric],
             fixed_features=fixed_features,
         )
 
@@ -510,7 +531,7 @@ def plot_objective_vs_constraints(
                         "error_y.array": [t["error_y"]["array"] for t in otraces],
                         "text": [t["text"] for t in otraces],
                     },
-                    {"yaxis.title": metric + (" (%)" if rel else "")},
+                    {"yaxis.title": metric + (" (%)" if rels[metric] else "")},
                 ],
                 "label": metric,
                 "method": "update",
@@ -615,12 +636,12 @@ def plot_objective_vs_constraints(
             },
         ],
         xaxis={
-            "title": objective + (" (%)" if rel else ""),
+            "title": objective + (" (%)" if rels[objective] else ""),
             "zeroline": True,
             "zerolinecolor": "red",
         },
         yaxis={
-            "title": metrics[0] + (" (%)" if rel else ""),
+            "title": metrics[0] + (" (%)" if rels[metrics[0]] else ""),
             "zeroline": True,
             "zerolinecolor": "red",
         },
@@ -681,9 +702,8 @@ def lattice_multiple_metrics(
                     # `List[PlotInSampleArm]`.
                     # pyre-fixme[6]:
                     list(plot_data.in_sample.values()),
-                    x_axis_var=PlotMetric(o1, pred=False),
-                    y_axis_var=PlotMetric(o2, pred=False),
-                    rel=rel,
+                    x_axis_var=PlotMetric(o1, pred=False, rel=rel),
+                    y_axis_var=PlotMetric(o2, pred=False, rel=rel),
                     status_quo_arm=status_quo_arm,
                     showlegend=(i == 1 and j == 2),
                     legendgroup="In-sample",
@@ -697,9 +717,8 @@ def lattice_multiple_metrics(
                     # `List[PlotInSampleArm]`.
                     # pyre-fixme[6]:
                     list(plot_data.in_sample.values()),
-                    x_axis_var=PlotMetric(o1, pred=True),
-                    y_axis_var=PlotMetric(o2, pred=True),
-                    rel=rel,
+                    x_axis_var=PlotMetric(o1, pred=True, rel=rel),
+                    y_axis_var=PlotMetric(o2, pred=True, rel=rel),
                     status_quo_arm=status_quo_arm,
                     legendgroup="In-sample",
                     showlegend=(i == 1 and j == 2),
@@ -716,9 +735,8 @@ def lattice_multiple_metrics(
                     fig.append_trace(
                         _error_scatter_trace(
                             list(cand_arms.values()),
-                            x_axis_var=PlotMetric(o1, pred=True),
-                            y_axis_var=PlotMetric(o2, pred=True),
-                            rel=rel,
+                            x_axis_var=PlotMetric(o1, pred=True, rel=rel),
+                            y_axis_var=PlotMetric(o2, pred=True, rel=rel),
                             status_quo_arm=status_quo_arm,
                             name=generator_run_name,
                             color=DISCRETE_COLOR_SCALE[k],
@@ -961,8 +979,7 @@ def _single_metric_traces(
             # pyre-fixme[6]:
             list(plot_data.in_sample.values()),
             x_axis_var=None,
-            y_axis_var=PlotMetric(metric, pred=True),
-            rel=rel,
+            y_axis_var=PlotMetric(metric, pred=True, rel=rel),
             status_quo_arm=status_quo_arm,
             legendgroup="In-sample",
             showlegend=showlegend,
@@ -980,8 +997,7 @@ def _single_metric_traces(
             _error_scatter_trace(
                 list(cand_arms.values()),
                 x_axis_var=None,
-                y_axis_var=PlotMetric(metric, pred=True),
-                rel=rel,
+                y_axis_var=PlotMetric(metric, pred=True, rel=rel),
                 status_quo_arm=status_quo_arm,
                 name=generator_run_name,
                 color=DISCRETE_COLOR_SCALE[i],
