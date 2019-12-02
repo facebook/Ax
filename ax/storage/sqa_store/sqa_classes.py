@@ -117,7 +117,7 @@ class SQAMetric(Base):
     trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     canonical_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
 
-    immutable_fields = ["name", "metric_type"]
+    immutable_fields = ["name"]
     unique_id = "name"
 
 
