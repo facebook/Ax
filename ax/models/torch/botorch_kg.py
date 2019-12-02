@@ -47,16 +47,14 @@ class KnowledgeGradient(BotorchModel):
             `cost_intercept + n`, where `n` is the number of generated points.
             Only used for multi-fidelity optimzation (i.e., if fidelity_features
             are present).
-        linear_truncated: If `False`, use an alternate downsampling + exponential
-            decay Kernel instead of the default `LinearTruncatedFidelityKernel`
-            (only relevant for multi-fidelity optimization).
-        kwargs: Model-specific kwargs.
+        kwargs: Model-specific kwargs. E.g. specifying `linear_truncated=False`
+            will use an alternate downsampling + exponential decay Kernel
+            instead of the default `LinearTruncatedFidelityKernel` (only relevant
+            for multi-fidelity optimization).
     """
 
-    def __init__(
-        self, cost_intercept: float = 1.0, linear_truncated: bool = True, **kwargs: Any
-    ) -> None:
-        super().__init__(linear_truncated=linear_truncated, **kwargs)
+    def __init__(self, cost_intercept: float = 1.0, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
         self.cost_intercept = cost_intercept
 
     def gen(

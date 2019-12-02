@@ -220,6 +220,12 @@ class Models(Enum):
             kwargs_iterable=[get_function_default_arguments(model_class), kwargs],
             keywords=get_function_argument_names(model_class),
         )
+        # linear_truncated is needed for multi-fidelty models.
+        search_space = search_space or not_none(experiment).search_space
+        is_fidelity = any(p.is_fidelity for k, p in search_space.parameters.items())
+        if is_fidelity and ("linear_truncated" in kwargs):
+            model_kwargs["linear_truncated"] = kwargs["linear_truncated"]
+
         model = model_class(**model_kwargs)
 
         # Create `ModelBridge`: defaults + standard kwargs + passed in kwargs.
