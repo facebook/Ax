@@ -97,7 +97,7 @@ ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
 
 STANDARD_TORCH_BRIDGE_KWARGS: Dict[str, Any] = {
     "torch_dtype": torch.double,
-    "torch_device": torch.device("cpu"),  # pyre-ignore[19]
+    "torch_device": torch.device("cpu"),
 }
 
 
