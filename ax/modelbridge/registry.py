@@ -235,6 +235,8 @@ class Models(Enum):
             ),
         )
 
+        print(bridge_kwargs)
+
         # Create model bridge with the consolidated kwargs.
         model_bridge = bridge_class(
             search_space=search_space or not_none(experiment).search_space,

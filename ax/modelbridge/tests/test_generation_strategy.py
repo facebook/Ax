@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+from functools import partial
 from unittest.mock import patch
 
 from ax.core.arm import Arm
@@ -24,19 +25,35 @@ from ax.utils.testing.core_stubs import (
 
 class TestGenerationStrategy(TestCase):
     def setUp(self):
+        # Othewise inspecting signatures of mocks yields just `(*args, **kwargs)`
         self.gr = GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": 2})])
 
-        # Mock out slow GPEI.
-        self.mock_torch_model_bridge = patch(
-            f"{TorchModelBridge.__module__}.TorchModelBridge", spec=True
+        # Mock out slow GPEI; patch `gen` first to avoid patching an already
+        # mocked `TorchModelBridge` class.
+        self.mock_torch_model_bridge_gen = patch(
+            f"{TorchModelBridge.__module__}.TorchModelBridge.gen",
+            autospec=True,
+            return_value=self.gr,
         ).start()
-        self.mock_torch_model_bridge.return_value.gen.return_value = self.gr
+        self.mock_torch_model_bridge = patch(
+            f"{TorchModelBridge.__module__}.TorchModelBridge", autospec=True
+        ).start()
+        self.mock_torch_model_bridge.return_value.gen = partial(
+            self.mock_torch_model_bridge_gen, self.mock_torch_model_bridge.return_value
+        )
 
         # Mock out slow TS.
-        self.mock_discrete_model_bridge = patch(
-            f"{DiscreteModelBridge.__module__}.DiscreteModelBridge", spec=True
+        mock_gen = patch(
+            f"{DiscreteModelBridge.__module__}.DiscreteModelBridge.gen",
+            autospec=True,
+            return_value=self.gr,
         ).start()
-        self.mock_discrete_model_bridge.return_value.gen.return_value = self.gr
+        self.mock_discrete_model_bridge = patch(
+            f"{DiscreteModelBridge.__module__}.DiscreteModelBridge", autospec=True
+        ).start()
+        self.mock_discrete_model_bridge.return_value.gen = partial(
+            mock_gen, self.mock_discrete_model_bridge.return_value
+        )
 
         # Mock in `Models` registry
         self.mock_in_registry = patch.dict(
@@ -53,8 +70,6 @@ class TestGenerationStrategy(TestCase):
                 ),
             },
         ).start()
-        self.mock_discrete_model_bridge.return_value.gen.return_value = self.gr
-        self.mock_torch_model_bridge.return_value.gen.return_value = self.gr
 
     def test_validation(self):
         # num_arms can be positive or -1.
@@ -256,7 +271,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(sobol_GPEI_generation_strategy.model_transitions, [5])
         exp.new_trial(generator_run=sobol_GPEI_generation_strategy.gen(exp)).run()
         for i in range(1, 15):
-            g = sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())
+            g = sobol_GPEI_generation_strategy.gen(exp)
             exp.new_trial(generator_run=g).run()
             if i > 4:
                 self.assertIsInstance(
@@ -313,8 +328,7 @@ class TestGenerationStrategy(TestCase):
         self.assertFalse(gs._model.model.scramble)
 
     def test_sobol_GPEI_strategy_batches(self):
-        mock_GPEI_gen = self.mock_torch_model_bridge.return_value.gen
-        mock_GPEI_gen.return_value = GeneratorRun(
+        self.mock_torch_model_bridge_gen.return_value = GeneratorRun(
             arms=[
                 Arm(parameters={"x1": 1, "x2": 2}),
                 Arm(parameters={"x1": 3, "x2": 4}),
@@ -339,10 +353,8 @@ class TestGenerationStrategy(TestCase):
                 with self.assertRaisesRegex(ValueError, "Generation strategy"):
                     g = sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data(), n=2)
             else:
-                g = sobol_GPEI_generation_strategy.gen(
-                    exp, exp._fetch_trial_data(trial_index=i - 1), n=2
-                )
-            exp.new_batch_trial(generator_run=g).run()
+                g = sobol_GPEI_generation_strategy.gen(exp, n=2)
+                exp.new_batch_trial(generator_run=g).run()
         with self.assertRaises(ValueError):
             sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())
         self.assertIsInstance(sobol_GPEI_generation_strategy.model, TorchModelBridge)
@@ -362,6 +374,8 @@ class TestGenerationStrategy(TestCase):
         sobol_generation_strategy = GenerationStrategy(
             steps=[GenerationStep(model=get_sobol, num_arms=5)]
         )
+        self.assertFalse(sobol_generation_strategy._uses_registered_models)
+        self.assertTrue(sobol_generation_strategy.uses_non_registered_models)
         g = sobol_generation_strategy.gen(exp)
         self.assertIsInstance(sobol_generation_strategy.model, RandomModelBridge)
         self.assertIsNone(g._model_key)

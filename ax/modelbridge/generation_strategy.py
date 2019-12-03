@@ -10,7 +10,11 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models, get_model_from_generator_run
-from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
+from ax.utils.common.kwargs import (
+    consolidate_kwargs,
+    filter_kwargs,
+    get_function_argument_names,
+)
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -19,13 +23,6 @@ logger = get_logger(__name__)
 
 
 TModelFactory = Callable[..., ModelBridge]
-MAX_CONDITIONS_GENERATED = 10000
-
-
-def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
-    """Filter out kwargs that are not applicable for a given function.
-    Return a copy of given kwargs dict with only the required kwargs."""
-    return {k: v for k, v in kwargs.items() if k in signature(function).parameters}
 
 
 class GenerationStep(NamedTuple):
@@ -294,7 +291,7 @@ class GenerationStrategy(Base):
             "registry enum (`ax.modelbridge.registry.Models`)."
         )
         self._model = self._curr.model(
-            **_filter_kwargs(
+            **filter_kwargs(
                 self._curr.model,
                 experiment=experiment,
                 data=data,

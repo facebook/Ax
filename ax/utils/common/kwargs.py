@@ -1,8 +1,23 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from inspect import Parameter, signature
+from inspect import Parameter, Signature, signature
 from typing import Any, Callable, Dict, Iterable, List, Optional
+from unittest.mock import Mock
+
+
+def _signature(callable: Any) -> Signature:
+    """Utility that wraps `inspect.signature` and makes it return the signature
+    of the mocked object when a signature of the mock is requested. (Othewise
+    inspecting signatures of mocks yields just `(*args, **kwargs)` as parameters).
+    """
+    if isinstance(callable, Mock):
+        # Mocks that have a spec set, use the spec object class as `__class__`.
+        # Ones that do not have a spec have their `__class__` as just `MagicMock`.
+        if issubclass(callable.__class__, Mock):
+            raise ValueError(f"Cannot get signature of unspecced mock: {callable}.")
+        return signature(callable.__class__)
+    return signature(callable)
 
 
 def consolidate_kwargs(
@@ -32,7 +47,7 @@ def get_function_argument_names(
 ) -> List[str]:
     """Extract parameter names from function signature."""
     omit = omit or []
-    return [p for p in signature(function).parameters.keys() if p not in omit]
+    return [p for p in _signature(function).parameters.keys() if p not in omit]
 
 
 def get_function_default_arguments(function: Callable) -> Dict[str, Any]:
@@ -41,6 +56,12 @@ def get_function_default_arguments(function: Callable) -> Dict[str, Any]:
     return {
         kw: p.default for kw, p in params.items() if p.default is not Parameter.empty
     }
+
+
+def filter_kwargs(function: Callable, **kwargs: Any) -> Any:
+    """Filter out kwargs that are not applicable for a given function.
+    Return a copy of given kwargs dict with only the required kwargs."""
+    return {k: v for k, v in kwargs.items() if k in _signature(function).parameters}
 
 
 def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> None:
