@@ -42,6 +42,7 @@ class KnowledgeGradientTest(TestCase):
         ]
         self.bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
         self.feature_names = ["x1", "x2", "x3"]
+        self.metric_names = ["y"]
         self.acq_options = {"num_fantasies": 30, "mc_samples": 30}
         self.objective_weights = torch.tensor(
             [1.0], dtype=self.dtype, device=self.device
@@ -63,6 +64,7 @@ class KnowledgeGradientTest(TestCase):
             Yvars=self.Yvars,
             bounds=self.bounds,
             feature_names=self.feature_names,
+            metric_names=self.metric_names,
             task_features=[],
             fidelity_features=[],
         )
@@ -171,6 +173,7 @@ class KnowledgeGradientTest(TestCase):
             bounds=self.bounds,
             task_features=[],
             feature_names=self.feature_names,
+            metric_names=[],
             fidelity_features=[-1],
         )
 
@@ -242,6 +245,7 @@ class KnowledgeGradientTest(TestCase):
             Yvars=self.Yvars,
             bounds=self.bounds,
             feature_names=self.feature_names,
+            metric_names=self.metric_names,
             task_features=[],
             fidelity_features=[],
         )
@@ -327,6 +331,7 @@ class KnowledgeGradientTest(TestCase):
             bounds=self.bounds,
             task_features=[],
             feature_names=self.feature_names,
+            metric_names=self.metric_names,
             fidelity_features=[-1],
         )
 

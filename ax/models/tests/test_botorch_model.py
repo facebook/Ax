@@ -31,15 +31,16 @@ def _get_torch_test_data(dtype=torch.float, cuda=False, constant_noise=True):
     bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
     task_features = []
     feature_names = ["x1", "x2", "x3"]
-    return Xs, Ys, Yvars, bounds, task_features, feature_names
+    metric_names = ["y"]
+    return Xs, Ys, Yvars, bounds, task_features, feature_names, metric_names
 
 
 class BotorchModelTest(TestCase):
     def test_BotorchModel(self, dtype=torch.float, cuda=False):
-        Xs1, Ys1, Yvars1, bounds, task_features, feature_names = _get_torch_test_data(
+        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
-        Xs2, Ys2, Yvars2, _, _, _ = _get_torch_test_data(
+        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         model = BotorchModel()
@@ -52,8 +53,9 @@ class BotorchModelTest(TestCase):
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
                 bounds=bounds,
-                task_features=task_features,
-                feature_names=feature_names,
+                task_features=tfs,
+                feature_names=fns,
+                metric_names=mns,
                 fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
@@ -80,8 +82,9 @@ class BotorchModelTest(TestCase):
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
                 bounds=bounds,
-                task_features=task_features,
-                feature_names=feature_names,
+                task_features=tfs,
+                feature_names=fns,
+                metric_names=mns,
                 fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
@@ -304,6 +307,7 @@ class BotorchModelTest(TestCase):
             Yvars=Yvars1,
             task_features=[],
             fidelity_features=[],
+            metric_names=[],
             state_dict=true_state_dict,
             refit_model=False,
         )
@@ -323,6 +327,7 @@ class BotorchModelTest(TestCase):
             Yvars=Yvars1,
             task_features=[],
             fidelity_features=[],
+            metric_names=[],
             state_dict=true_state_dict,
             refit_model=True,
         )
@@ -345,7 +350,7 @@ class BotorchModelTest(TestCase):
             self.test_BotorchModel(dtype=torch.double, cuda=True)
 
     def test_BotorchModelOneOutcome(self):
-        Xs1, Ys1, Yvars1, bounds, task_features, feature_names = _get_torch_test_data(
+        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
         model = BotorchModel()
@@ -355,8 +360,9 @@ class BotorchModelTest(TestCase):
                 Ys=Ys1,
                 Yvars=Yvars1,
                 bounds=bounds,
-                task_features=task_features,
-                feature_names=feature_names,
+                task_features=tfs,
+                feature_names=fns,
+                metric_names=mns,
                 fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
@@ -366,10 +372,10 @@ class BotorchModelTest(TestCase):
         self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
 
     def test_BotorchModelConstraints(self):
-        Xs1, Ys1, Yvars1, bounds, task_features, feature_names = _get_torch_test_data(
+        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
-        Xs2, Ys2, Yvars2, _, _, _ = _get_torch_test_data(
+        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
         # make infeasible
@@ -385,8 +391,9 @@ class BotorchModelTest(TestCase):
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1,
                 bounds=bounds,
-                task_features=task_features,
-                feature_names=feature_names,
+                task_features=tfs,
+                feature_names=fns,
+                metric_names=mns,
                 fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()

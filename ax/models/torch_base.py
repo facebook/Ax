@@ -29,6 +29,7 @@ class TorchModel(Model):
         bounds: List[Tuple[float, float]],
         task_features: List[int],
         feature_names: List[str],
+        metric_names: List[str],
         fidelity_features: List[int],
     ) -> None:
         """Fit model to m outcomes.
@@ -43,6 +44,7 @@ class TorchModel(Model):
             task_features: Columns of X that take integer values and should be
                 treated as task parameters.
             feature_names: Names of each column of X.
+            metric_names: Names of each outcome Y in Ys.
             fidelity_features: Columns of X that should be treated as fidelity
                 parameters.
         """

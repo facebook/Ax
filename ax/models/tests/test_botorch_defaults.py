@@ -46,6 +46,7 @@ class BotorchDefaultsTest(TestCase):
             Yvars=yvars,
             task_features=[1],
             fidelity_features=[],
+            metric_names=[],
             state_dict=[],
             refit_model=False,
         )
@@ -60,6 +61,7 @@ class BotorchDefaultsTest(TestCase):
                 Yvars=yvars,
                 task_features=[0, 1],
                 fidelity_features=[],
+                metric_names=[],
                 state_dict=[],
                 refit_model=False,
             )
@@ -72,6 +74,7 @@ class BotorchDefaultsTest(TestCase):
                 Yvars=yvars,
                 task_features=[],
                 fidelity_features=[-1, -2],
+                metric_names=[],
                 state_dict=[],
                 refit_model=False,
             )
@@ -84,6 +87,7 @@ class BotorchDefaultsTest(TestCase):
                 Yvars=yvars,
                 task_features=[1],
                 fidelity_features=[-1],
+                metric_names=[],
                 state_dict=[],
                 refit_model=False,
             )

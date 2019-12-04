@@ -33,6 +33,7 @@ def get_and_fit_model(
     Yvars: List[Tensor],
     task_features: List[int],
     fidelity_features: List[int],
+    metric_names: List[str],
     state_dict: Optional[Dict[str, Tensor]] = None,
     refit_model: bool = True,
     **kwargs: Any,
@@ -40,11 +41,12 @@ def get_and_fit_model(
     r"""Instantiates and fits a botorch ModelListGP using the given data.
 
     Args:
-        Xs: List of X data, one tensor per outcome
-        Ys: List of Y data, one tensor per outcome
+        Xs: List of X data, one tensor per outcome.
+        Ys: List of Y data, one tensor per outcome.
         Yvars: List of observed variance of Ys.
         task_features: List of columns of X that are tasks.
         fidelity_features: List of columns of X that are fidelity parameters.
+        metric_names: Names of each outcome Y in Ys.
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
         refit_model: Flag for refitting model.

@@ -76,6 +76,7 @@ class ArrayModelBridge(ModelBridge):
             bounds=bounds,
             task_features=task_features,
             feature_names=self.parameters,
+            metric_names=self.outcomes,
             fidelity_features=list(target_fidelities.keys()),
         )
 
@@ -88,6 +89,7 @@ class ArrayModelBridge(ModelBridge):
         bounds: List[Tuple[float, float]],
         task_features: List[int],
         feature_names: List[str],
+        metric_names: List[str],
         fidelity_features: List[int],
     ) -> None:
         """Fit the model, given numpy types.
@@ -100,6 +102,7 @@ class ArrayModelBridge(ModelBridge):
             bounds=bounds,
             task_features=task_features,
             feature_names=feature_names,
+            metric_names=metric_names,
             fidelity_features=fidelity_features,
         )
 

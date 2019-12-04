@@ -42,6 +42,7 @@ class TorchModelBridgeTest(TestCase):
             Yvars=[var],
             bounds=None,
             feature_names=[],
+            metric_names=[],
             task_features=[],
             fidelity_features=[],
         )
