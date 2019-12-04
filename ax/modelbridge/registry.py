@@ -37,6 +37,7 @@ from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_kg import KnowledgeGradient
+from ax.models.torch.botorch_mes import MaxValueEntropySearch
 from ax.models.torch_base import TorchModel
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
@@ -137,6 +138,12 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
+    "GPMES": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=MaxValueEntropySearch,
+        transforms=Cont_X_trans + Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
     "EB": ModelSetup(
         bridge_class=DiscreteModelBridge,
         model_class=EmpiricalBayesThompsonSampler,
@@ -185,6 +192,7 @@ class Models(Enum):
     SOBOL = "Sobol"
     GPEI = "GPEI"
     GPKG = "GPKG"
+    GPMES = "GPMES"
     FACTORIAL = "Factorial"
     THOMPSON = "Thompson"
     BOTORCH = "BO"
