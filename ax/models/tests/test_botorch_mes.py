@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import mock
+from unittest import mock
+
 import torch
 from ax.models.torch.botorch_mes import MaxValueEntropySearch, _instantiate_MES
 from ax.utils.common.testutils import TestCase
