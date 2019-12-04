@@ -9,6 +9,7 @@ from ax.modelbridge.factory import (
     get_factorial,
     get_GPEI,
     get_GPKG,
+    get_GPMES,
     get_MTGP,
     get_sobol,
     get_thompson,
@@ -89,14 +90,16 @@ class ModelBridgeFactoryTest(TestCase):
         exp.trials[0].run()
         gpkg = get_GPKG(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(gpkg, TorchModelBridge)
-        gpkg_win = get_GPKG(
-            experiment=exp, data=exp.fetch_data(), winsorization_limits=[0.1, 0.1]
-        )
-        self.assertIsInstance(gpkg_win, TorchModelBridge)
-        configs_expected = {
+
+        # test transform_configs with winsorization
+        configs = {
             "Winsorize": {"winsorization_lower": 0.1, "winsorization_upper": 0.1}
         }
-        self.assertEqual(gpkg_win._transform_configs, configs_expected)
+        gpkg_win = get_GPKG(
+            experiment=exp, data=exp.fetch_data(), transform_configs=configs
+        )
+        self.assertIsInstance(gpkg_win, TorchModelBridge)
+        self.assertEqual(gpkg_win._transform_configs, configs)
 
         # test multi-fidelity optimization
         exp.parameters["x2"] = RangeParameter(
@@ -109,6 +112,37 @@ class ModelBridgeFactoryTest(TestCase):
         )
         gpkg_mf = get_GPKG(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(gpkg_mf, TorchModelBridge)
+
+    def test_GPMES(self):
+        """Tests GPMES instantiation."""
+        exp = get_branin_experiment(with_batch=True)
+        with self.assertRaises(ValueError):
+            get_GPMES(experiment=exp, data=exp.fetch_data())
+        exp.trials[0].run()
+        gpmes = get_GPMES(experiment=exp, data=exp.fetch_data())
+        self.assertIsInstance(gpmes, TorchModelBridge)
+
+        # test transform_configs with winsorization
+        configs = {
+            "Winsorize": {"winsorization_lower": 0.1, "winsorization_upper": 0.1}
+        }
+        gpmes_win = get_GPMES(
+            experiment=exp, data=exp.fetch_data(), transform_configs=configs
+        )
+        self.assertIsInstance(gpmes_win, TorchModelBridge)
+        self.assertEqual(gpmes_win._transform_configs, configs)
+
+        # test multi-fidelity optimization
+        exp.parameters["x2"] = RangeParameter(
+            name="x2",
+            parameter_type=exp.parameters["x2"].parameter_type,
+            lower=-5.0,
+            upper=10.0,
+            is_fidelity=True,
+            target_value=10.0,
+        )
+        gpmes_mf = get_GPMES(experiment=exp, data=exp.fetch_data())
+        self.assertIsInstance(gpmes_mf, TorchModelBridge)
 
     def test_model_kwargs(self):
         """Tests that model kwargs are passed correctly."""

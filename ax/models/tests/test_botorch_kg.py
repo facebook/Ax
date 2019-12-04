@@ -51,6 +51,7 @@ class KnowledgeGradientTest(TestCase):
             "maxiter": 5,
             "batch_limit": 1,
         }
+        self.optimize_acqf = "ax.models.torch.botorch_kg.optimize_acqf"
 
     def test_KnowledgeGradient(self):
 
@@ -71,9 +72,7 @@ class KnowledgeGradientTest(TestCase):
         X_dummy = torch.rand(1, n, 4, dtype=self.dtype, device=self.device)
         acq_dummy = torch.tensor(0.0, dtype=self.dtype, device=self.device)
 
-        with mock.patch(
-            "ax.models.torch.botorch_kg.optimize_acqf"
-        ) as mock_optimize_acqf:
+        with mock.patch(self.optimize_acqf) as mock_optimize_acqf:
             mock_optimize_acqf.side_effect = [
                 (best_point_dummy, None),
                 (X_dummy, acq_dummy),
@@ -95,8 +94,8 @@ class KnowledgeGradientTest(TestCase):
 
         ini_dummy = torch.rand(10, 32, 3, dtype=self.dtype, device=self.device)
         optimizer_options2 = {
-            "num_restarts": 10,
-            "raw_samples": 12,
+            "num_restarts": 1,
+            "raw_samples": 1,
             "maxiter": 5,
             "batch_limit": 1,
             "partial_restarts": 2,
@@ -140,8 +139,7 @@ class KnowledgeGradientTest(TestCase):
         X_dummy = torch.rand(3)
         acq_dummy = torch.tensor(0.0)
         with mock.patch(
-            "ax.models.torch.botorch_kg.optimize_acqf",
-            return_value=(X_dummy, acq_dummy),
+            self.optimize_acqf, return_value=(X_dummy, acq_dummy)
         ) as mock_optimize_acqf:
             xbest = model.best_point(
                 bounds=self.bounds, objective_weights=self.objective_weights
@@ -179,8 +177,7 @@ class KnowledgeGradientTest(TestCase):
         X_dummy = torch.tensor([1.0, 2.0])
         acq_dummy = torch.tensor(0.0)
         with mock.patch(
-            "ax.models.torch.botorch_kg.optimize_acqf",
-            return_value=(X_dummy, acq_dummy),
+            self.optimize_acqf, return_value=(X_dummy, acq_dummy)
         ) as mock_optimize_acqf:
             xbest = model.best_point(
                 bounds=self.bounds,
@@ -204,8 +201,7 @@ class KnowledgeGradientTest(TestCase):
         dummy1 = (X_dummy, acq_dummy)
         dummy2 = (X_dummy2, acq_dummy)
         with mock.patch(
-            "ax.models.torch.botorch_kg.optimize_acqf",
-            side_effect=[dummy1, dummy2, dummy1, dummy2],
+            self.optimize_acqf, side_effect=[dummy1, dummy2, dummy1, dummy2]
         ) as mock_optimize_acqf:
             Xgen, wgen, _ = model.gen(
                 n=n,

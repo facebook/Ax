@@ -8,39 +8,30 @@ from ax.core.types import TConfig, TGenMetadata
 from ax.models.model_utils import get_observed
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.utils import _get_X_pending_and_observed
+from ax.models.torch_base import TorchModel
+from ax.utils.common.docutils import copy_doc
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
-from botorch.acquisition.knowledge_gradient import (
-    qKnowledgeGradient,
-    qMultiFidelityKnowledgeGradient,
+from botorch.acquisition.max_value_entropy_search import (
+    qMaxValueEntropy,
+    qMultiFidelityMaxValueEntropy,
 )
-from botorch.acquisition.monte_carlo import qSimpleRegret
-from botorch.acquisition.objective import (
-    AcquisitionObjective,
-    ConstrainedMCObjective,
-    MCAcquisitionObjective,
-    ScalarizedObjective,
-)
+from botorch.acquisition.objective import ScalarizedObjective
 from botorch.acquisition.utils import (
     expand_trace_observations,
-    get_infeasible_cost,
     project_to_target_fidelity,
 )
 from botorch.exceptions.errors import UnsupportedError
 from botorch.models.cost import AffineFidelityCostModel
 from botorch.models.model import Model
-from botorch.optim.initializers import gen_one_shot_kg_initial_conditions
 from botorch.optim.optimize import optimize_acqf
-from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
-from botorch.utils.constraints import get_outcome_constraint_transforms
-from botorch.utils.objective import get_objective_weights_transform
 from torch import Tensor
 
 
-class KnowledgeGradient(BotorchModel):
-    r""" The Knowledge Gradient with one shot optimization
+class MaxValueEntropySearch(BotorchModel):
+    r"""Max-value entropy search.
 
     Args:
         cost_intercept: The cost intercept for the affine cost of the form
@@ -59,6 +50,7 @@ class KnowledgeGradient(BotorchModel):
         super().__init__(linear_truncated=linear_truncated, **kwargs)
         self.cost_intercept = cost_intercept
 
+    @copy_doc(TorchModel.gen)
     def gen(
         self,
         n: int,
@@ -72,40 +64,16 @@ class KnowledgeGradient(BotorchModel):
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Tuple[Tensor, Tensor, TGenMetadata]:
-        """
-        Generate new candidates.
+        if linear_constraints is not None or outcome_constraints is not None:
+            raise UnsupportedError(
+                "Constraints are not yet supported by max-value entropy search!"
+            )
 
-        Args:
-            n: Number of candidates to generate.
-            bounds: A list of (lower, upper) tuples for each column of X.
-            objective_weights: The objective is to maximize a weighted sum of
-                the columns of f(x). These are the weights.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints
-                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                A f(x) <= b.
-            linear_constraints: A tuple of (A, b). For k linear constraints on
-                d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b.
-            fixed_features: A map {feature_index: value} for features that
-                should be fixed to a particular value during generation.
-            pending_observations:  A list of m (k_i x d) feature tensors X
-                for m outcomes and k_i pending observations for outcome i.
-            model_gen_options: A config dictionary that can contain
-                model-specific options.
-            rounding_func: A function that rounds an optimization result
-                appropriately (i.e., according to `round-trip` transformations).
-            target_fidelities: A map {feature_index: value} of fidelity feature
-                column indices to their respective target fidelities. Used for
-                multi-fidelity optimization.
+        if len(objective_weights) > 1:
+            raise UnsupportedError(
+                "Models with multiple outcomes are not yet supported by MES!"
+            )
 
-        Returns:
-            3-element tuple containing
-
-            - (n x d) tensor of generated points.
-            - n-tensor of weights for each point.
-            - Dictionary of model-specific metadata for the given
-                generation candidates.
-        """
         options = model_gen_options or {}
         acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
@@ -119,93 +87,43 @@ class KnowledgeGradient(BotorchModel):
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
         )
-        objective = _get_objective(
-            model=self.model,  # pyre-ignore: [6]
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
-        )
+
         # get the acquisition function
-        n_fantasies = acf_options.get("num_fantasies", 64)
-        qmc = acf_options.get("qmc", True)
-        seed_inner = acf_options.get("seed_inner", None)
+        num_fantasies = acf_options.get("num_fantasies", 16)
+        num_mv_samples = acf_options.get("num_mv_samples", 10)
+        num_y_samples = acf_options.get("num_y_samples", 128)
+        candidate_size = acf_options.get("candidate_size", 1000)
         num_restarts = optimizer_options.get("num_restarts", 40)
         raw_samples = optimizer_options.get("raw_samples", 1024)
 
-        inequality_constraints = _to_inequality_constraints(linear_constraints)
-        # TODO: update optimizers to handle inequality_constraints
-        if inequality_constraints is not None:
-            raise UnsupportedError(
-                "Inequality constraints are not yet supported for KnowledgeGradient!"
-            )
+        # generate the discrete points in the design space to sample max values
+        bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
+        bounds_ = bounds_.transpose(0, 1)
 
-        # get current value
-        best_point_acqf, non_fixed_idcs = self._get_best_point_acqf(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,  # pyre-ignore: [6]
-            seed_inner=seed_inner,
-            fixed_features=fixed_features,
-            target_fidelities=target_fidelities,
-            qmc=qmc,
-        )
+        candidate_set = torch.rand(candidate_size, bounds_.size(1))
+        candidate_set = bounds_[0] + (bounds_[1] - bounds_[0]) * candidate_set
 
-        # solution from previous iteration
-        recommended_point = self.best_point(
-            bounds=bounds,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
-            model_gen_options=model_gen_options,
-            target_fidelities=target_fidelities,
-        )
-        recommended_point = recommended_point.detach().unsqueeze(0)  # pyre-ignore: [16]
-        # Extract acquisition value (TODO: Make this less painful and repetitive)
-        if non_fixed_idcs is not None:
-            recommended_point = recommended_point[..., non_fixed_idcs]
-        current_value = best_point_acqf(recommended_point).max()
-
-        acq_function = _instantiate_KG(
+        acq_function = _instantiate_MES(
             model=self.model,  # pyre-ignore: [6]
-            objective=objective,
-            qmc=qmc,
-            n_fantasies=n_fantasies,
+            candidate_set=candidate_set,
+            num_fantasies=num_fantasies,
             num_trace_observations=options.get("num_trace_observations", 0),
-            mc_samples=acf_options.get("mc_samples", 256),
-            seed_inner=seed_inner,
-            seed_outer=acf_options.get("seed_outer", None),
+            num_mv_samples=num_mv_samples,
+            num_y_samples=num_y_samples,
             X_pending=X_pending,
+            maximize=True if objective_weights[0] == 1 else False,
             target_fidelities=target_fidelities,
             fidelity_weights=options.get("fidelity_weights"),
-            current_value=current_value,
             cost_intercept=self.cost_intercept,
         )
 
         # optimize and get new points
-        bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
-        bounds_ = bounds_.transpose(0, 1)
-
-        batch_initial_conditions = gen_one_shot_kg_initial_conditions(
-            acq_function=acq_function,
-            bounds=bounds_,
-            q=n,
-            num_restarts=num_restarts,
-            raw_samples=raw_samples,
-            options={
-                "frac_random": optimizer_options.get("frac_random", 0.1),
-                "num_inner_restarts": num_restarts,
-                "raw_inner_samples": raw_samples,
-            },
-        )
-
         botorch_rounding_func = get_rounding_func(rounding_func)
-
         candidates, _ = optimize_acqf(
             acq_function=acq_function,
             bounds=bounds_,
             q=n,
-            inequality_constraints=inequality_constraints,
+            inequality_constraints=None,
             fixed_features=fixed_features,
             post_processing_func=botorch_rounding_func,
             num_restarts=num_restarts,
@@ -216,7 +134,7 @@ class KnowledgeGradient(BotorchModel):
                 "method": "L-BFGS-B",
                 "nonnegative": optimizer_options.get("nonnegative", False),
             },
-            batch_initial_conditions=batch_initial_conditions,
+            sequential=True,
         )
         new_x = candidates.detach().cpu()
         return new_x, torch.ones(n, dtype=self.dtype), {}
@@ -258,9 +176,13 @@ class KnowledgeGradient(BotorchModel):
         Returns:
             d-tensor of the best point.
         """
+        if linear_constraints is not None or outcome_constraints is not None:
+            raise UnsupportedError(
+                "Constraints are not yet supported by max-value entropy search!"
+            )
+
         options = model_gen_options or {}
         fixed_features = fixed_features or {}
-        acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
 
         X_observed = get_observed(
@@ -270,25 +192,15 @@ class KnowledgeGradient(BotorchModel):
         )
 
         acq_function, non_fixed_idcs = self._get_best_point_acqf(
-            mc_samples=acf_options.get("mc_samples", 512),
+            X_observed=X_observed,  # pyre-ignore: [6]
             objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
-            seed_inner=acf_options.get("seed_inner", None),
             fixed_features=fixed_features,
             target_fidelities=target_fidelities,
-            qmc=acf_options.get("qmc", True),
         )
-
-        inequality_constraints = _to_inequality_constraints(linear_constraints)
-        # TODO: update optimizers to handle inequality_constraints
-        # (including transforming constraints b/c of fixed features)
-        if inequality_constraints is not None:
-            raise UnsupportedError("Inequality constraints are not supported!")
 
         return_best_only = optimizer_options.get("return_best_only", True)
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
-        bounds_ = bounds_.transpose(-1, -2)
+        bounds_ = bounds_.transpose(0, 1)
         if non_fixed_idcs is not None:
             bounds_ = bounds_[..., non_fixed_idcs]
 
@@ -298,7 +210,7 @@ class KnowledgeGradient(BotorchModel):
             q=1,
             num_restarts=optimizer_options.get("num_restarts", 60),
             raw_samples=optimizer_options.get("raw_samples", 1024),
-            inequality_constraints=inequality_constraints,
+            inequality_constraints=None,
             fixed_features=None,  # handled inside the acquisition function
             options={
                 "batch_limit": optimizer_options.get("batch_limit", 8),
@@ -319,38 +231,15 @@ class KnowledgeGradient(BotorchModel):
         self,
         X_observed: Tensor,
         objective_weights: Tensor,
-        mc_samples: int = 512,
         fixed_features: Optional[Dict[int, float]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        seed_inner: Optional[int] = None,
-        qmc: bool = True,
     ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
-        model = self.model
         fixed_features = fixed_features or {}
         target_fidelities = target_fidelities or {}
-        objective = _get_objective(
-            model=model,  # pyre-ignore [6]
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
+        objective = ScalarizedObjective(weights=objective_weights)
+        acq_function = PosteriorMean(
+            model=self.model, objective=objective  # pyre-ignore: [6]
         )
-        if isinstance(objective, ScalarizedObjective):
-            acq_function = PosteriorMean(
-                model=model, objective=objective  # pyre-ignore: [6]
-            )
-        elif isinstance(objective, MCAcquisitionObjective):
-            if qmc:
-                sampler = SobolQMCNormalSampler(num_samples=mc_samples, seed=seed_inner)
-            else:
-                sampler = IIDNormalSampler(num_samples=mc_samples, seed=seed_inner)
-            acq_function = qSimpleRegret(
-                model=model, sampler=sampler, objective=objective  # pyre-ignore [6]
-            )
-        else:
-            raise UnsupportedError(
-                f"Unknown objective type: {objective.__class__}"  # pragma: nocover
-            )
 
         if self.fidelity_features:
             # we need to optimize at the target fidelities
@@ -383,46 +272,20 @@ class KnowledgeGradient(BotorchModel):
         return acq_function, non_fixed_idcs
 
 
-def _get_objective(
+def _instantiate_MES(
     model: Model,
-    objective_weights: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    X_observed: Optional[Tensor] = None,
-) -> AcquisitionObjective:
-    if outcome_constraints is None:
-        objective = ScalarizedObjective(weights=objective_weights)
-    else:
-        X_observed = torch.as_tensor(X_observed)
-        obj_tf = get_objective_weights_transform(objective_weights)
-        con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
-        objective = ConstrainedMCObjective(
-            objective=obj_tf, constraints=con_tfs or [], infeasible_cost=inf_cost
-        )
-    return objective
-
-
-def _instantiate_KG(
-    model: Model,
-    objective: AcquisitionObjective,
-    qmc: bool = True,
-    n_fantasies: int = 64,
-    mc_samples: int = 256,
-    num_trace_observations: int = 0,
-    seed_inner: Optional[int] = None,
-    seed_outer: Optional[int] = None,
+    candidate_set: Tensor,
+    num_fantasies: int = 16,
+    num_mv_samples: int = 10,
+    num_y_samples: int = 128,
+    use_gumbel: bool = True,
     X_pending: Optional[Tensor] = None,
-    current_value: Optional[Tensor] = None,
+    maximize: bool = True,
+    num_trace_observations: int = 0,
     target_fidelities: Optional[Dict[int, float]] = None,
     fidelity_weights: Optional[Dict[int, float]] = None,
     cost_intercept: float = 1.0,
-) -> qKnowledgeGradient:
-    sampler_cls = SobolQMCNormalSampler if qmc else IIDNormalSampler
-    fantasy_sampler = sampler_cls(num_samples=n_fantasies, seed=seed_outer)
-    if isinstance(objective, MCAcquisitionObjective):
-        inner_sampler = sampler_cls(num_samples=mc_samples, seed=seed_inner)
-    else:
-        inner_sampler = None
+) -> qMaxValueEntropy:
     if target_fidelities:
         if fidelity_weights is None:
             fidelity_weights = {f: 1.0 for f in target_fidelities}
@@ -447,42 +310,25 @@ def _instantiate_KG(
                 num_trace_obs=num_trace_observations,
             )
 
-        return qMultiFidelityKnowledgeGradient(
+        return qMultiFidelityMaxValueEntropy(
             model=model,
-            num_fantasies=n_fantasies,
-            sampler=fantasy_sampler,
-            objective=objective,
-            inner_sampler=inner_sampler,
+            candidate_set=candidate_set,
+            num_fantasies=num_fantasies,
+            num_mv_samples=num_mv_samples,
+            num_y_samples=num_y_samples,
             X_pending=X_pending,
-            current_value=current_value,
+            maximize=maximize,
             cost_aware_utility=cost_aware_utility,
             project=project,
             expand=expand,
         )
 
-    return qKnowledgeGradient(
+    return qMaxValueEntropy(
         model=model,
-        num_fantasies=n_fantasies,
-        sampler=fantasy_sampler,
-        objective=objective,
-        inner_sampler=inner_sampler,
+        candidate_set=candidate_set,
+        num_fantasies=num_fantasies,
+        num_mv_samples=num_mv_samples,
+        num_y_samples=num_y_samples,
         X_pending=X_pending,
-        current_value=current_value,
+        maximize=maximize,
     )
-
-
-def _to_inequality_constraints(
-    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None
-) -> Optional[List[Tuple[Tensor, Tensor, float]]]:
-    if linear_constraints is not None:
-        A, b = linear_constraints
-        inequality_constraints = []
-        k, d = A.shape
-        for i in range(k):
-            indicies = A[i, :].nonzero().squeeze()
-            coefficients = -A[i, indicies]
-            rhs = -b[i, 0]
-            inequality_constraints.append((indicies, coefficients, rhs))
-    else:
-        inequality_constraints = None
-    return inequality_constraints
