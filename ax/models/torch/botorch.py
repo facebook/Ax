@@ -30,6 +30,7 @@ TModelConstructor = Callable[
         List[Tensor],
         List[int],
         List[int],
+        List[str],
         Optional[Dict[str, Tensor]],
         Any,
     ],
@@ -102,6 +103,7 @@ class BotorchModel(TorchModel):
             Yvars,
             task_features,
             fidelity_features,
+            metric_names,
             state_dict,
             **kwargs,
         ) -> model
@@ -109,11 +111,11 @@ class BotorchModel(TorchModel):
     Here `Xs`, `Ys`, `Yvars` are lists of tensors (one element per outcome),
     `task_features` identifies columns of Xs that should be modeled as a task,
     `fidelity_features` is a list of ints that specify the positions of fidelity
-    parameters in 'Xs', `state_dict` is a pytorch module state dict, and `model`
-    is a BoTorch `Model`. Optional kwargs are being passed through from the
-    `BotorchModel` constructor. This callable is assumed to return a fitted
-    BoTorch model that has the same dtype and lives on the same device as the
-    input tensors.
+    parameters in 'Xs', `metric_names` provides the names of each `Y` in `Ys`,
+    `state_dict` is a pytorch module state dict, and `model` is a BoTorch `Model`.
+    Optional kwargs are being passed through from the `BotorchModel` constructor.
+    This callable is assumed to return a fitted BoTorch model that has the same
+    dtype and lives on the same device as the input tensors.
 
     ::
 
@@ -205,6 +207,7 @@ class BotorchModel(TorchModel):
         self.device = None
         self.task_features: List[int] = []
         self.fidelity_features: List[int] = []
+        self.metric_names: List[str] = []
 
     @copy_doc(TorchModel.fit)
     def fit(
@@ -215,6 +218,7 @@ class BotorchModel(TorchModel):
         bounds: List[Tuple[float, float]],
         task_features: List[int],
         feature_names: List[str],
+        metric_names: List[str],
         fidelity_features: List[int],
     ) -> None:
         self.dtype = Xs[0].dtype
@@ -225,12 +229,14 @@ class BotorchModel(TorchModel):
         # ensure indices are non-negative
         self.task_features = normalize_indices(task_features, d=Xs[0].size(-1))
         self.fidelity_features = normalize_indices(fidelity_features, d=Xs[0].size(-1))
+        self.metric_names = metric_names
         self.model = self.model_constructor(  # pyre-ignore [28]
             Xs=Xs,
             Ys=Ys,
             Yvars=Yvars,
             task_features=self.task_features,
             fidelity_features=self.fidelity_features,
+            metric_names=self.metric_names,
             **self._kwargs,
         )
 
@@ -362,6 +368,7 @@ class BotorchModel(TorchModel):
             task_features=self.task_features,
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
+            metric_names=self.metric_names,
             **self._kwargs,
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
@@ -384,6 +391,7 @@ class BotorchModel(TorchModel):
             task_features=self.task_features,
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
+            metric_names=self.metric_names,
             refit_model=self.refit_on_update,
             **self._kwargs,
         )

@@ -41,6 +41,7 @@ class RandomForest(NumpyModel):
         bounds: List[Tuple[float, float]],
         task_features: List[int],
         feature_names: List[str],
+        metric_names: List[str],
         fidelity_features: List[int],
     ) -> None:
         for i, X in enumerate(Xs):

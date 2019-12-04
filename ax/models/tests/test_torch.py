@@ -20,6 +20,7 @@ class TorchModelTest(TestCase):
             bounds=[(0, 1)],
             task_features=[],
             feature_names=["x1"],
+            metric_names=["y"],
             fidelity_features=[],
         )
 
