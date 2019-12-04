@@ -281,6 +281,9 @@ def _get_model(
         )
     if fidelity_features is None:
         fidelity_features = []
+    if len(fidelity_features) == 0:
+        # only pass linear_truncated arg if there are fidelities
+        kwargs = {k: v for k, v in kwargs.items() if k != "linear_truncated"}
     if len(fidelity_features) > 0:
         if task_feature:
             raise NotImplementedError(

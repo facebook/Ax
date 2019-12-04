@@ -225,10 +225,6 @@ class BotorchModel(TorchModel):
         # ensure indices are non-negative
         self.task_features = normalize_indices(task_features, d=Xs[0].size(-1))
         self.fidelity_features = normalize_indices(fidelity_features, d=Xs[0].size(-1))
-        kwargs = self._kwargs
-        if len(self.fidelity_features) == 0:
-            # only pass linear_truncated arg if there are fidelities
-            self._kwargs = {k: v for k, v in kwargs.items() if k != "linear_truncated"}
         self.model = self.model_constructor(  # pyre-ignore [28]
             Xs=Xs,
             Ys=Ys,
