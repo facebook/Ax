@@ -27,19 +27,21 @@ class TestGenerationStrategy(TestCase):
         self.gr = GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": 2})])
 
         # Mock out slow GPEI.
-        self.mock_torch_model_bridge = patch(
+        self.torch_model_bridge_patcher = patch(
             f"{TorchModelBridge.__module__}.TorchModelBridge", spec=True
-        ).start()
+        )
+        self.mock_torch_model_bridge = self.torch_model_bridge_patcher.start()
         self.mock_torch_model_bridge.return_value.gen.return_value = self.gr
 
         # Mock out slow TS.
-        self.mock_discrete_model_bridge = patch(
+        self.discrete_model_bridge_patcher = patch(
             f"{DiscreteModelBridge.__module__}.DiscreteModelBridge", spec=True
-        ).start()
+        )
+        self.mock_discrete_model_bridge = self.discrete_model_bridge_patcher.start()
         self.mock_discrete_model_bridge.return_value.gen.return_value = self.gr
 
         # Mock in `Models` registry
-        self.mock_in_registry = patch.dict(
+        self.registry_setup_dict_patcher = patch.dict(
             f"{Models.__module__}.MODEL_KEY_TO_MODEL_SETUP",
             {
                 "Factorial": MODEL_KEY_TO_MODEL_SETUP["Factorial"]._replace(
@@ -52,9 +54,13 @@ class TestGenerationStrategy(TestCase):
                     bridge_class=self.mock_torch_model_bridge
                 ),
             },
-        ).start()
-        self.mock_discrete_model_bridge.return_value.gen.return_value = self.gr
-        self.mock_torch_model_bridge.return_value.gen.return_value = self.gr
+        )
+        self.mock_in_registry = self.registry_setup_dict_patcher.start()
+
+    def tearDown(self):
+        self.torch_model_bridge_patcher.stop()
+        self.discrete_model_bridge_patcher.stop()
+        self.registry_setup_dict_patcher.stop()
 
     def test_validation(self):
         # num_arms can be positive or -1.
