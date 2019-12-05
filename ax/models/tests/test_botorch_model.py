@@ -389,7 +389,7 @@ class BotorchModelTest(TestCase):
             model.fit(
                 Xs=Xs1 + Xs2,
                 Ys=Ys1 + Ys2,
-                Yvars=Yvars1,
+                Yvars=Yvars1 + Yvars2,
                 bounds=bounds,
                 task_features=tfs,
                 feature_names=fns,
