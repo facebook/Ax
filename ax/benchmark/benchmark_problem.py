@@ -193,7 +193,7 @@ class SimpleBenchmarkProblem(BenchmarkProblem):
         self.evaluate_suggested = evaluate_suggested
 
     def domain_as_ax_client_parameters(
-        self
+        self,
     ) -> List[Dict[str, Union[TParamValue, List[TParamValue]]]]:
         return [  # pyre-ignore[7]: Union subtype
             {

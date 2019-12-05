@@ -1,6 +1,22 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+"""
+Module for benchmarking Ax algorithms.
+
+Key terms used:
+
+* Trial –– usual Ax `Trial` or `BatchTral`, one execution of a given arm or
+  group of arms.
+* Replication –– one run of an optimization loop; 1 method + problem combination.
+* Test –– multiple replications, ran for statistical significance.
+* Full run –– multiple tests: run all methods with all problems.
+* Method –– (one of) the algorithm(s) being benchmarked.
+* Problem –– a synthetic function, a surrogate surface, or an ML model, on which
+  to assess the performance of algorithms.
+
+"""
+
 from types import FunctionType
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -18,22 +34,6 @@ from ax.utils.measurement.synthetic_functions import SyntheticFunction
 
 
 logger = get_logger(__name__)
-
-
-"""
-Module for benchmarking Ax algorithms.
-
-Key terms used:
-1. Trial –– usual Ax `Trial` or `BatchTral`, one execution of a given arm or
-   group of arms.
-2. Replication –– one run of an optimization loop; 1 method + problem combination.
-3. Test –– multiple replications, ran for statistical significance.
-4. Full run –– multiple tests: run all methods with all problems.
-
-5. Method –– (one of) the algorithm(s) being benchmarked.
-6. Problem –– a synthetic function, a surrogate surface, or an ML model, on which
-   to assess the performance of algorithms.
-"""
 
 
 # To bypass catching of exceptions during benchmarking, since all other exceptions
