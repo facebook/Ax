@@ -29,6 +29,7 @@ class MaxValueEntropySearchTest(TestCase):
         ]
         self.bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
         self.feature_names = ["x1", "x2", "x3"]
+        self.metric_names = ["y"]
         self.acq_options = {"num_fantasies": 30, "candidate_size": 100}
         self.objective_weights = torch.tensor(
             [1.0], dtype=self.dtype, device=self.device
@@ -50,6 +51,7 @@ class MaxValueEntropySearchTest(TestCase):
             Yvars=self.Yvars,
             bounds=self.bounds,
             feature_names=self.feature_names,
+            metric_names=self.metric_names,
             task_features=[],
             fidelity_features=[],
         )
@@ -136,6 +138,7 @@ class MaxValueEntropySearchTest(TestCase):
             bounds=self.bounds,
             task_features=[],
             feature_names=self.feature_names,
+            metric_names=self.metric_names,
             fidelity_features=[-1],
         )
 
@@ -201,6 +204,7 @@ class MaxValueEntropySearchTest(TestCase):
             Yvars=self.Yvars,
             bounds=self.bounds,
             feature_names=self.feature_names,
+            metric_names=self.metric_names,
             task_features=[],
             fidelity_features=[],
         )
@@ -232,6 +236,7 @@ class MaxValueEntropySearchTest(TestCase):
             bounds=self.bounds,
             task_features=[],
             feature_names=self.feature_names,
+            metric_names=self.metric_names,
             fidelity_features=[-1],
         )
 
