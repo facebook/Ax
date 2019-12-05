@@ -490,7 +490,7 @@ class Experiment(Base):
             The index of the trial within the experiment's trial list.
         """
 
-        if trial.experiment != self:
+        if trial.experiment is not self:
             raise ValueError("BatchTrial does not belong to this experiment.")
 
         for existing_trial in self._trials.values():
