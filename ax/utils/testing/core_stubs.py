@@ -536,9 +536,6 @@ def get_status_quo() -> Arm:
 
 
 def get_arm_weights1() -> MutableMapping[Arm, float]:
-    # pyre: parameters_dicts is declared to have type `List[Dict[str, typing.
-    # pyre: Optional[typing.Union[bool, float, str]]]]` but is used as type
-    # pyre-fixme[9]: `List[Dict[str, typing.Union[float, str]]]`.
     parameters_dicts: List[TParameterization] = [
         {"w": 0.85, "x": 1, "y": "baz", "z": False},
         {"w": 0.75, "x": 1, "y": "foo", "z": True},
@@ -550,9 +547,6 @@ def get_arm_weights1() -> MutableMapping[Arm, float]:
 
 
 def get_arm_weights2() -> MutableMapping[Arm, float]:  # update
-    # pyre: parameters_dicts is declared to have type `List[Dict[str, typing.
-    # pyre: Optional[typing.Union[bool, float, str]]]]` but is used as type
-    # pyre-fixme[9]: `List[Dict[str, typing.Union[float, str]]]`.
     parameters_dicts: List[TParameterization] = [
         {"w": 0.96, "x": 3, "y": "hello", "z": True},
         {"w": 0.16, "x": 4, "y": "dear", "z": True},
@@ -661,16 +655,11 @@ def get_branin_data() -> Data:
 
 
 def get_model_mean() -> TModelMean:
-    # pyre: mean is declared to have type `Dict[str, List[float]]` but is used
-    # pyre-fixme[9]: as type `Dict[str, List[int]]`.
     mean: TModelMean = {"test_metric_1": [1, 2, 3], "test_metric_2": [3, 4, 5]}
     return mean
 
 
 def get_model_covariance() -> TModelCov:
-    # pyre: covariance is declared to have type `Dict[str, Dict[str,
-    # pyre: List[float]]]` but is used as type `Dict[str, Dict[str,
-    # pyre-fixme[9]: List[int]]]`.
     covariance: TModelCov = {
         "test_metric_1": {"test_metric_1": [5, 6, 7], "test_metric_2": [7, 8, 9]},
         "test_metric_2": {"test_metric_1": [9, 10, 11], "test_metric_2": [11, 12, 13]},
