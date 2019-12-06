@@ -143,3 +143,49 @@ def normalize_indices(indices: List[int], d: int) -> List[int]:
             raise ValueError(f"Index {i} out of bounds for tensor or length {d}.")
         normalized_indices.append(i)
     return normalized_indices
+
+
+def subset_model(
+    model: Model,
+    objective_weights: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+) -> Tuple[Model, Tensor, Optional[Tuple[Tensor, Tensor]]]:
+    """Subset a botorch model to the outputs used in the optimization.
+
+    Args:
+        model: A BoTorch Model. If the model does not implement the
+            `subset_outputs` method, this function is a null-op and returns the
+            input arguments.
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b. (Not used by single task models)
+
+    Returns:
+        A three-tuple of model, objective_weights, and outcome_constraints, all
+        subset to only those outputs that appear in either the objective weights
+        or the outcome constraints.
+    """
+    nonzero = objective_weights != 0
+    if outcome_constraints is not None:
+        A, _ = outcome_constraints
+        nonzero = nonzero | torch.any(A != 0, dim=0)
+    idcs = torch.arange(nonzero.size(0))[nonzero].tolist()
+    if len(idcs) == model.num_outputs:
+        # if we use all model outputs, just return the inputs
+        return model, objective_weights, outcome_constraints
+    elif len(idcs) > model.num_outputs:
+        raise RuntimeError(
+            "Model size inconsistency. Tryting to subset a model with "
+            f"{model.num_outputs} outputs to {len(idcs)} outputs"
+        )
+    try:
+        model = model.subset_output(idcs=idcs)
+        objective_weights = objective_weights[nonzero]
+        if outcome_constraints is not None:
+            A, b = outcome_constraints
+            outcome_constraints = A[:, nonzero], b
+    except NotImplementedError:
+        pass
+    return model, objective_weights, outcome_constraints
