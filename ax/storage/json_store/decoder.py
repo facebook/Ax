@@ -31,6 +31,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
 from ax.storage.json_store.registry import DECODER_REGISTRY
 from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
+from ax.utils.common.typeutils import torch_type_from_str
 
 
 def object_from_json(object_json: Any) -> Any:
@@ -65,6 +66,11 @@ def object_from_json(object_json: Any) -> Any:
             return pd.read_json(object_json["value"], dtype=False)
         elif _type == "ndarray":
             return np.array(object_json["value"])
+        elif _type.startswith("torch"):
+            # Torch types will be encoded as "torch_<type_name>", so we drop prefix
+            return torch_type_from_str(
+                identifier=object_json["value"], type_name=_type[6:]
+            )
 
         elif _type not in DECODER_REGISTRY:
             err = (

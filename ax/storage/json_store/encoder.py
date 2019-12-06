@@ -13,7 +13,7 @@ from ax.exceptions.storage import JSONEncodeError
 from ax.modelbridge.transforms.base import Transform
 from ax.storage.json_store.registry import ENCODER_REGISTRY
 from ax.utils.common.serialization import _is_named_tuple
-from ax.utils.common.typeutils import numpy_type_to_python_type
+from ax.utils.common.typeutils import numpy_type_to_python_type, torch_type_to_str
 
 
 def object_to_json(object: Any) -> Any:
@@ -33,6 +33,8 @@ def object_to_json(object: Any) -> Any:
     """
     object = numpy_type_to_python_type(object)
     _type = type(object)
+
+    # Python built-in types + `typing` module types
     if _type in (str, int, float, bool, type(None)):
         return object
     elif _type is list:
@@ -41,6 +43,13 @@ def object_to_json(object: Any) -> Any:
         return tuple(object_to_json(x) for x in object)
     elif _type is dict:
         return {k: object_to_json(v) for k, v in object.items()}
+    elif _is_named_tuple(object):
+        return {
+            "__type": _type.__name__,
+            **{k: object_to_json(v) for k, v in object._asdict().items()},
+        }
+
+    # Types from libraries, commonly used in Ax (e.g., numpy, pandas, torch)
     elif _type is OrderedDict:
         return {
             "__type": _type.__name__,
@@ -53,15 +62,15 @@ def object_to_json(object: Any) -> Any:
         }
     elif _type is pd.DataFrame:
         return {"__type": _type.__name__, "value": object.to_json()}
-    elif _is_named_tuple(object):
-        return {
-            "__type": _type.__name__,
-            **{k: object_to_json(v) for k, v in object._asdict().items()},
-        }
     elif issubclass(_type, enum.Enum):
         return {"__type": _type.__name__, "name": object.name}
     elif _type is np.ndarray or issubclass(_type, np.ndarray):
         return {"__type": _type.__name__, "value": object.tolist()}
+    elif _type.__module__ == "torch":
+        # Torch does not support saving to string, so save to buffer first
+        return {"__type": f"torch_{_type.__name__}", "value": torch_type_to_str(object)}
+
+    # Ax types
     elif isclass(object) and issubclass(object, Transform):
         # There is no other way to check is object is of type Type[Transform].
         _type = Type[Transform]

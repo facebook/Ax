@@ -7,6 +7,7 @@ from typing import Dict, List, MutableMapping
 
 import numpy as np
 import pandas as pd
+import torch
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
@@ -607,8 +608,8 @@ def get_generator_run() -> GeneratorRun:
         fit_time=10.0,
         gen_time=5.0,
         model_key="Sobol",
-        model_kwargs={"scramble": False},
-        bridge_kwargs={"transforms": Cont_X_trans},
+        model_kwargs={"scramble": False, "torch_device": torch.device("cpu")},
+        bridge_kwargs={"transforms": Cont_X_trans, "torch_dtype": torch.double},
     )
 
 

@@ -256,9 +256,7 @@ class Models(Enum):
         # are not serializable to JSON out-of-the-box. TODO[Lena]: T46527142
         if isinstance(model, TorchModel):
             model_kwargs = {kw: p for kw, p in model_kwargs.items() if not callable(p)}
-            bridge_kwargs = {
-                kw: p for kw, p in bridge_kwargs.items() if kw[:5] != "torch"
-            }
+            bridge_kwargs = {kw: p for kw, p in bridge_kwargs.items()}
 
         # Store all kwargs on model bridge, to be saved on generator run.
         model_bridge._set_kwargs_to_save(

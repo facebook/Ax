@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
+import torch
 
 
 T = TypeVar("T")
@@ -109,3 +110,22 @@ def numpy_type_to_python_type(value: Any) -> Any:
     if isinstance(value, np.floating):
         value = float(value)  # pragma: nocover  (covered by generator tests)
     return value
+
+
+def torch_type_to_str(value: Any) -> str:
+    """Converts torch types, commonly used in Ax, to string representations."""
+    if isinstance(value, torch.dtype):
+        return str(value)
+    if isinstance(value, torch.device):
+        return checked_cast(str, value.type)  # pyre-fixme[16]: device has to attr. type
+    raise ValueError(f"Object {value} was of unexpected torch type.")
+
+
+def torch_type_from_str(
+    identifier: str, type_name: str
+) -> Union[torch.dtype, torch.device]:
+    if type_name == "device":
+        return torch.device(identifier)
+    if type_name == "dtype":
+        return getattr(torch, identifier[6:])
+    raise ValueError(f"Unexpected type: {type_name} for identifier: {identifier}.")
