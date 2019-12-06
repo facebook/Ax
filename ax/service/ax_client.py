@@ -188,10 +188,10 @@ class AxClient:
             status_quo: Parameterization of the current state of the system.
                 If set, this will be added to each trial to be evaluated alongside
                 test configurations.
-            overwrite_existing_experiment: If `DBSettings` were provided on
-                instantiation and the experiment being created has the same name
-                as some experiment already stored, whether to overwrite the
-                existing experiment. Defaults to False.
+            overwrite_existing_experiment: If an experiment has already been set
+                on this `AxClient` instance, whether to reset it to the new one.
+                If overwriting the experiment, generation strategy will be
+                re-selected for the new experiment and restarted.
             choose_generation_strategy_kwargs: Keyword arguments to pass to
                 `choose_generation_strategy` function which determines what
                 generation strategy should be used when none was specified on init.
@@ -216,6 +216,22 @@ class AxClient:
                     "experiment` to `True` to overwrite with new experiment "
                     "or use `ax_client.load_experiment_from_database` to "
                     "continue an existing experiment."
+                )
+        if self._experiment is not None:
+            if overwrite_existing_experiment:
+                exp_name = self.experiment._name or "untitled"
+                new_exp_name = name or "untitled"
+                logger.info(
+                    f"Overwriting existing experiment ({exp_name}) on this client "
+                    f"with new experiment ({new_exp_name}) and restarting the "
+                    "generation strategy."
+                )
+                self._generation_strategy = None
+            else:
+                raise ValueError(
+                    f"Experiment already created for this client instance. "
+                    "Set the `overwrite_existing_experiment` to `True` to overwrite "
+                    "with new experiment."
                 )
 
         self._experiment = make_experiment(

@@ -640,6 +640,54 @@ class TestAxClient(TestCase):
         # There should be no trials, as we just put in a fresh experiment.
         self.assertEqual(len(ax_client.experiment.trials), 0)
 
+    def test_overwrite(self):
+        init_test_engine_and_session_factory(force_init=True)
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+
+        # Log a trial
+        parameters, trial_index = ax_client.get_next_trial()
+        ax_client.complete_trial(
+            trial_index=trial_index, raw_data=branin(*parameters.values())
+        )
+
+        with self.assertRaises(ValueError):
+            # Overwriting existing experiment.
+            ax_client.create_experiment(
+                name="test_experiment",
+                parameters=[
+                    {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                    {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+                ],
+                minimize=True,
+            )
+        # Overwriting existing experiment with overwrite flag.
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            overwrite_existing_experiment=True,
+        )
+        # There should be no trials, as we just put in a fresh experiment.
+        self.assertEqual(len(ax_client.experiment.trials), 0)
+
+        # Log a trial
+        parameters, trial_index = ax_client.get_next_trial()
+        self.assertIn("x1", parameters.keys())
+        self.assertIn("x2", parameters.keys())
+        ax_client.complete_trial(
+            trial_index=trial_index, raw_data=branin(*parameters.values())
+        )
+
     def test_fixed_random_seed_reproducibility(self):
         ax_client = AxClient(random_seed=239)
         ax_client.create_experiment(
