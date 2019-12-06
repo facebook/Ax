@@ -22,6 +22,8 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from torch import Tensor
 
+from .utils import subset_model
+
 
 TModelConstructor = Callable[
     [
@@ -277,14 +279,15 @@ class BotorchModel(TorchModel):
             fixed_features=fixed_features,
         )
 
-        acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
-            model=self.model,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
-            X_pending=X_pending,
-            **acf_options,
-        )
+        model = self.model
+
+        # subset model only to the outcomes we need for the optimization
+        if options.get("subset_model", True):
+            model, objective_weights, outcome_constraints = subset_model(
+                model=model,  # pyre-ignore [6]
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+            )
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
@@ -299,6 +302,15 @@ class BotorchModel(TorchModel):
                 inequality_constraints.append((indicies, coefficients, rhs))
         else:
             inequality_constraints = None
+
+        acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
+            model=model,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+            X_pending=X_pending,
+            **acf_options,
+        )
 
         botorch_rounding_func = get_rounding_func(rounding_func)
         # pyre-ignore: [28]
