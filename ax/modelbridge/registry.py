@@ -2,7 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from enum import Enum
-from inspect import signature
+from inspect import isfunction, signature
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 import torch
@@ -38,7 +38,6 @@ from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_kg import KnowledgeGradient
 from ax.models.torch.botorch_mes import MaxValueEntropySearch
-from ax.models.torch_base import TorchModel
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
@@ -46,7 +45,8 @@ from ax.utils.common.kwargs import (
     validate_kwarg_typing,
 )
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.serialization import callable_from_reference, callable_to_reference
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger = get_logger(__name__)
@@ -252,15 +252,11 @@ class Models(Enum):
             **bridge_kwargs,
         )
 
-        # Temporarily ignore Botorch callable & torch-typed arguments, as those
-        # are not serializable to JSON out-of-the-box. TODO[Lena]: T46527142
-        if isinstance(model, TorchModel):
-            model_kwargs = {kw: p for kw, p in model_kwargs.items() if not callable(p)}
-            bridge_kwargs = {kw: p for kw, p in bridge_kwargs.items()}
-
         # Store all kwargs on model bridge, to be saved on generator run.
         model_bridge._set_kwargs_to_save(
-            model_key=self.value, model_kwargs=model_kwargs, bridge_kwargs=bridge_kwargs
+            model_key=self.value,
+            model_kwargs=_encode_callables_as_references(model_kwargs),
+            bridge_kwargs=_encode_callables_as_references(bridge_kwargs),
         )
         return model_bridge
 
@@ -357,6 +353,8 @@ def get_model_from_generator_run(
     if after_gen and generator_run._model_state_after_gen is not None:
         model_kwargs.update(not_none(generator_run._model_state_after_gen))
     bridge_kwargs = generator_run._bridge_kwargs or {}
+    model_kwargs = _decode_callables_from_references(model_kwargs)
+    bridge_kwargs = _decode_callables_from_references(bridge_kwargs)
     model_keywords = list(model_kwargs.keys())
     for key in model_keywords:
         if key in bridge_kwargs:  # pragma: no cover
@@ -368,3 +366,27 @@ def get_model_from_generator_run(
             )
             del model_kwargs[key]
     return model(experiment=experiment, data=data, **bridge_kwargs, **model_kwargs)
+
+
+def _encode_callables_as_references(kwarg_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Converts callables to references of form <module>.<qualname>, and returns
+    the resulting dictionary.
+    """
+    return {
+        k: {"is_callable_as_path": True, "value": callable_to_reference(v)}
+        if isfunction(v)
+        else v
+        for k, v in kwarg_dict.items()
+    }
+
+
+def _decode_callables_from_references(kwarg_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Retrieves callables from references of form <module>.<qualname>, and returns
+    the resulting dictionary.
+    """
+    return {
+        k: callable_from_reference(checked_cast(str, v.get("value")))
+        if isinstance(v, dict) and v.get("is_callable_as_path", False)
+        else v
+        for k, v in kwarg_dict.items()
+    }

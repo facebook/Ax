@@ -97,6 +97,4 @@ class IVWTransformTest(TestCase):
             self.assertEqual(observation_data2[i].metric_names, obsd.metric_names)
             self.assertTrue(np.array_equal(observation_data2[i].means, obsd.means))
             discrep = np.max(np.abs(observation_data2[i].covariance - obsd.covariance))
-            print(observation_data2[i].covariance)
-            print(obsd.covariance)
             self.assertTrue(discrep < 1e-8)

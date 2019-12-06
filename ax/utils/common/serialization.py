@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-from typing import Any
+import pydoc
+from types import FunctionType
+from typing import Any, Callable
 
 
 # https://stackoverflow.com/a/39235373
@@ -32,3 +34,23 @@ def _is_named_tuple(x: Any) -> bool:
     if not isinstance(f, tuple):
         return False  # pragma nocover
     return all(type(n) == str for n in f)
+
+
+def callable_to_reference(callable: Callable) -> str:
+    """Obtains path to the callable of form <module>.<name>."""
+    if not isinstance(callable, (FunctionType, type)):
+        raise TypeError(f"Expected to encode function or class, got: {callable}.")
+    name = f"{callable.__module__}.{callable.__qualname__}"
+    try:
+        assert pydoc.locate(name) is callable
+        return name
+    except Exception as err:
+        raise TypeError(
+            f"Callable {callable.__qualname__} is not properly exposed in "
+            f"{callable.__module__} (exception: {err})."
+        )
+
+
+def callable_from_reference(path: str) -> Callable:
+    """Retrieves a callable by its path."""
+    return pydoc.locate(path)  # pyre-ignore[7]

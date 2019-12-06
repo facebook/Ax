@@ -1,23 +1,33 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+from collections import OrderedDict
+
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.registry import Cont_X_trans, Models, get_model_from_generator_run
+from ax.modelbridge.registry import (
+    Cont_X_trans,
+    Models,
+    Y_trans,
+    get_model_from_generator_run,
+)
 from ax.modelbridge.torch import TorchModelBridge
+from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_data,
     get_branin_experiment,
     get_branin_optimization_config,
     get_factorial_experiment,
 )
+from torch import device as torch_device, float64 as torch_float64
 
 
 class ModelRegistryTest(TestCase):
     def test_enum_sobol_GPEI(self):
-        """Tests Sobol instantiation through the Models enum."""
+        """Tests Soboland GPEI instantiation through the Models enum."""
         exp = get_branin_experiment()
         # Check that factory generates a valid sobol modelbridge.
         sobol = Models.SOBOL(search_space=exp.search_space)
@@ -30,6 +40,45 @@ class ModelRegistryTest(TestCase):
         exp.optimization_config = get_branin_optimization_config()
         gpei = Models.GPEI(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(gpei, TorchModelBridge)
+        self.assertEqual(gpei._model_key, "GPEI")
+        botorch_defaults = "ax.models.torch.botorch_defaults"
+        # Check that the callable kwargs and the torch kwargs were recorded.
+        self.assertEqual(
+            gpei._model_kwargs,
+            {
+                "acqf_constructor": {
+                    "is_callable_as_path": True,
+                    "value": f"{botorch_defaults}.get_NEI",
+                },
+                "acqf_optimizer": {
+                    "is_callable_as_path": True,
+                    "value": f"{botorch_defaults}.scipy_optimizer",
+                },
+                "model_constructor": {
+                    "is_callable_as_path": True,
+                    "value": f"{botorch_defaults}.get_and_fit_model",
+                },
+                "model_predictor": {
+                    "is_callable_as_path": True,
+                    "value": f"{botorch_defaults}.predict_from_model",
+                },
+                "refit_on_cv": False,
+                "refit_on_update": True,
+                "warm_start_refitting": True,
+            },
+        )
+        self.assertEqual(
+            gpei._bridge_kwargs,
+            {
+                "transform_configs": None,
+                "torch_dtype": torch_float64,
+                "torch_device": torch_device(type="cpu"),
+                "status_quo_name": None,
+                "status_quo_features": None,
+                "optimization_config": None,
+                "transforms": Cont_X_trans + Y_trans,
+            },
+        )
         gpei = Models.GPEI(
             experiment=exp, data=exp.fetch_data(), search_space=exp.search_space
         )
@@ -154,3 +203,37 @@ class ModelRegistryTest(TestCase):
         self.assertEqual(sobol_after_gen.model.init_position, 1)
         self.assertEqual(sobol_after_gen.model.seed, 239)
         self.assertEqual(initial_sobol.gen(n=1).arms, sobol_after_gen.gen(n=1).arms)
+        exp.new_trial(generator_run=gr)
+        # Check restoration of GPEI, to ensure proper restoration of callable kwargs
+        gpei = Models.GPEI(experiment=exp, data=get_branin_data())
+        # Punch GPEI model + bridge kwargs into the Sobol generator run, to avoid
+        # a slow call to `gpei.gen`.
+        gr._model_key = "GPEI"
+        gr._model_kwargs = gpei._model_kwargs
+        gr._bridge_kwargs = gpei._bridge_kwargs
+        gpei_restored = get_model_from_generator_run(
+            gr, experiment=exp, data=get_branin_data()
+        )
+        for key in gpei.__dict__:
+            self.assertIn(key, gpei_restored.__dict__)
+            original, restored = gpei.__dict__[key], gpei_restored.__dict__[key]
+            # Fit times are set in instantiation so not same and model compared below
+            if key in ["fit_time", "fit_time_since_gen", "model"]:
+                continue  # Fit times are set in instantiation so won't be same
+            if isinstance(original, OrderedDict) and isinstance(restored, OrderedDict):
+                original, restored = list(original.keys()), list(restored.keys())
+            if isinstance(original, Model) and isinstance(restored, Model):
+                continue  # Model equality is tough to compare.
+            self.assertEqual(original, restored)
+
+        for key in gpei.model.__dict__:
+            self.assertIn(key, gpei_restored.model.__dict__)
+            original, restored = (
+                gpei.model.__dict__[key],
+                gpei_restored.model.__dict__[key],
+            )
+            # Botorch model equality is tough to compare and training data
+            # is unnecessary to compare, because data passed to model was the same
+            if key in ["model", "warm_start_refitting", "Xs", "Ys"]:
+                continue
+            self.assertEqual(original, restored)
