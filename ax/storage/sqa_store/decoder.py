@@ -250,6 +250,8 @@ class Decoder:
                 upper=parameter_sqa.upper,
                 log_scale=parameter_sqa.log_scale or False,
                 digits=parameter_sqa.digits,
+                is_fidelity=parameter_sqa.is_fidelity or False,
+                target_value=parameter_sqa.target_value,
             )
         elif parameter_sqa.domain_type == DomainType.CHOICE:
             if parameter_sqa.choice_values is None:
@@ -263,6 +265,8 @@ class Decoder:
                 #  str]]]` for 3rd param but got `Optional[List[Optional[Union[bool,
                 #  float, int, str]]]]`.
                 values=parameter_sqa.choice_values,
+                is_fidelity=parameter_sqa.is_fidelity or False,
+                target_value=parameter_sqa.target_value,
             )
         elif parameter_sqa.domain_type == DomainType.FIXED:
             # Don't throw an error if parameter_sqa.fixed_value is None;
@@ -271,6 +275,8 @@ class Decoder:
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
                 value=parameter_sqa.fixed_value,
+                is_fidelity=parameter_sqa.is_fidelity or False,
+                target_value=parameter_sqa.target_value,
             )
         else:
             raise SQADecodeError(
