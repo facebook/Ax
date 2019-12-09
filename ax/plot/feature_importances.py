@@ -9,7 +9,7 @@ from ax.exceptions.core import NoDataError
 from ax.modelbridge import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.utils.common.logger import get_logger
-from plotly import tools
+from plotly import subplots
 
 
 logger = get_logger("FeatureImportance")
@@ -23,7 +23,7 @@ def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
         go.Bar(y=df.index, x=df[column_name], name=column_name, orientation="h")
         for column_name in df.columns
     ]
-    fig = tools.make_subplots(
+    fig = subplots.make_subplots(
         rows=len(df.columns),
         cols=1,
         subplot_titles=df.columns,
@@ -34,7 +34,7 @@ def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
     for idx, item in enumerate(data):
         fig.append_trace(item, idx + 1, 1)
     fig.layout.showlegend = False
-    fig.layout.margin = go.Margin(
+    fig.layout.margin = go.layout.Margin(
         l=8 * min(max(len(idx) for idx in df.index), 75)  # noqa E741
     )
     fig.layout.title = title
@@ -133,7 +133,9 @@ def plot_feature_importance_by_feature(
     layout = go.Layout(
         height=200 + len(features) * 20,
         hovermode="closest",
-        margin=go.Margin(l=8 * min(max(len(idx) for idx in features), 75)),  # noqa E741
+        margin=go.layout.Margin(
+            l=8 * min(max(len(idx) for idx in features), 75)  # noqa E741
+        ),
         showlegend=False,
         title=title,
         updatemenus=updatemenus,
@@ -168,7 +170,7 @@ def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
         for column_name in df.columns
     ]
     layout = go.Layout(
-        margin=go.Margin(l=250),  # noqa E741
+        margin=go.layout.Margin(l=250),  # noqa E741
         barmode="grouped",
         yaxis={"title": ""},
         xaxis={"title": "Relative Feature importance"},

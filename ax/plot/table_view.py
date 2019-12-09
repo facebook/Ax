@@ -141,7 +141,7 @@ def table_view_plot(
     )
     layout = go.Layout(
         width=sum(column_widths),
-        margin=go.Margin(l=0, r=20, b=20, t=20, pad=4),  # noqa E741
+        margin=go.layout.Margin(l=0, r=20, b=20, t=20, pad=4),  # noqa E741
     )
     fig = go.Figure(data=[trace], layout=layout)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

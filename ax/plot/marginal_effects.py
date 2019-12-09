@@ -9,7 +9,7 @@ from ax.modelbridge.base import ModelBridge
 from ax.plot.base import DECIMALS, AxPlotConfig, AxPlotTypes
 from ax.plot.helper import get_plot_data
 from ax.utils.stats.statstools import marginal_effects
-from plotly import tools
+from plotly import subplots
 
 
 def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
@@ -47,7 +47,7 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
                 name=varname,
             )
         ]
-    fig = tools.make_subplots(
+    fig = subplots.make_subplots(
         cols=len(varnames),
         rows=1,
         subplot_titles=list(varnames),
@@ -57,7 +57,7 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
     for idx, item in enumerate(data):
         fig.append_trace(item, 1, idx + 1)
     fig.layout.showlegend = False
-    # fig.layout.margin = go.Margin(l=2, r=2)
+    # fig.layout.margin = go.layout.Margin(l=2, r=2)
     fig.layout.title = "Marginal Effects by Factor"
     fig.layout.yaxis = {
         "title": "% better than experiment average",
