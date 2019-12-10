@@ -1,12 +1,7 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+# Copyright (c) Facebook, Inc. and its affiliates.
 #
-# Powershell script, used for building the Python wheel distribution for Ax
-#
-# Notes:
-# * Requires VS C++ Build Tools
-# * This script should be run from the repo's parent dir
-#
-# Usage: ./scripts/wheel_build.ps1 -pypath [PATH_TO_PYTHON] [-upload]
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 
 # Python path to use for build, flag to upload file
 param(

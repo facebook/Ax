@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 
 import io
 import sys
@@ -40,7 +43,7 @@ class TestTestUtils(TestCase):
         with self.assertRaisesOn(RuntimeError) as cm:
             _f()
         self.assertEqual(cm.filename, __file__)
-        self.assertEqual(cm.lineno, 12)
+        self.assertEqual(cm.lineno, 15)
 
     def test_silence_warning_normal(self):
         new_stderr = io.StringIO()
