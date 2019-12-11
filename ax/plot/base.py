@@ -43,8 +43,6 @@ class AxPlotConfig(_AxPlotConfigBase):
         # Convert data to json-encodable form (strips out NamedTuple and numpy
         # array). This is a lossy conversion.
         dict_data = json.loads(
-            # pyre-fixme[6]: Expected `Optional[Type[JSONEncoder]]` for 2nd param
-            #  but got `Type[PlotlyJSONEncoder]`.
             json.dumps(named_tuple_to_dict(data), cls=utils.PlotlyJSONEncoder)
         )
         # pyre-fixme[19]: Expected 2 positional arguments.
