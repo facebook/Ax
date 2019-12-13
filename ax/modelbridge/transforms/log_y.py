@@ -136,7 +136,7 @@ def match_ci_width(
     transform: Callable[[np.ndarray], np.ndarray],
     level: float = 0.95,
 ) -> np.ndarray:
-    fac = norm.ppf(1 - (1 - level) / 2)  # pyre-ignore [16]
+    fac = norm.ppf(1 - (1 - level) / 2)
     d = fac * np.sqrt(variance)
     width_asym = transform(mean + d) - transform(mean - d)
     new_mean = transform(mean)
