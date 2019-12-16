@@ -56,6 +56,7 @@ logger = get_logger(__name__)
 
 
 try:  # We don't require SQLAlchemy by default.
+    from sqlalchemy.exc import OperationalError
     from ax.storage.sqa_store.structs import DBSettings
     from ax.service.utils.storage import (
         load_experiment_and_generation_strategy,
@@ -766,12 +767,19 @@ class AxClient:
             bool: Whether the experiment was saved.
         """
         if self.db_settings is not None:
-            save_experiment_and_generation_strategy(
-                experiment=self.experiment,
-                generation_strategy=self.generation_strategy,
-                db_settings=self.db_settings,
-                overwrite_existing_experiment=overwrite_existing_experiment,
-            )
+            for i in range(3):
+                try:
+                    save_experiment_and_generation_strategy(
+                        experiment=self.experiment,
+                        generation_strategy=self.generation_strategy,
+                        db_settings=self.db_settings,
+                        overwrite_existing_experiment=overwrite_existing_experiment,
+                    )
+                    break
+                except OperationalError:  # pragma: no covert
+                    if i < 2:
+                        continue
+                    raise
             return True
         return False
 
