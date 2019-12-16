@@ -338,7 +338,7 @@ def raw_data_to_evaluation(
     elif isinstance(raw_data, tuple):
         return {objective_name: raw_data}
     elif isinstance(raw_data, (float, int)):
-        return {objective_name: (raw_data, None)}  # pyre-fixme[7]
+        return {objective_name: (raw_data, None)}
     elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
         return {objective_name: (numpy_type_to_python_type(raw_data), None)}
     else:

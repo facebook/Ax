@@ -144,7 +144,6 @@ def get_factorial_experiment(
         else None,
         runner=SyntheticRunner(),
         is_test=True,
-        # pyre-fixme[6]: Expected `typing.Option...`List[FactorialMetric]`.
         tracking_metrics=[get_factorial_metric("secondary_metric")],
     )
 
