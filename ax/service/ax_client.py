@@ -280,7 +280,7 @@ class AxClient:
             f"Generated new trial {trial.index} with parameters "
             f"{_round_floats_for_logging(item=not_none(trial.arm).parameters)}."
         )
-        trial.mark_dispatched()
+        trial.mark_running(no_runner_required=True)
         self._save_experiment_and_generation_strategy_to_db_if_possible()
         return not_none(trial.arm).parameters, trial.index
 
@@ -335,10 +335,11 @@ class AxClient:
                 else None
             ),
         )
+        self.experiment.attach_data(data)
         # In service API, a trial may be completed multiple times (for multiple
         # metrics, for example).
-        trial.mark_completed(allow_repeat_completion=True)
-        self.experiment.attach_data(data)
+        if not trial.is_complete:
+            trial.mark_completed()
         data_for_logging = _round_floats_for_logging(
             item=evaluations[next(iter(evaluations.keys()))]
         )
@@ -376,7 +377,7 @@ class AxClient:
             Tuple of parameterization and trial index from newly created trial.
         """
         trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
-        trial.mark_dispatched()
+        trial.mark_running(no_runner_required=True)
         logger.info(
             "Attached custom parameterization "
             f"{_round_floats_for_logging(item=parameters)} as trial {trial.index}."

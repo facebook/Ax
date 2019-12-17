@@ -56,6 +56,9 @@ class TrialTest(TestCase):
         with self.assertRaises(AttributeError):
             self.experiment.new_trial().arm_weights
 
+        self.trial._status = TrialStatus.COMPLETED
+        self.assertTrue(self.trial.is_complete)
+
     def test_adding_new_trials(self):
         new_arm = get_arms()[1]
         new_trial = self.experiment.new_trial(
@@ -92,20 +95,6 @@ class TrialTest(TestCase):
         self.trial.mark_abandoned(reason="testing")
         self.assertTrue(self.trial.is_abandoned)
         self.assertFalse(self.trial.status.is_failed)
-        with self.assertRaises(ValueError):
-            self.trial.mark_dispatched()
-
-    def test_dispatch_failure(self):
-        self.trial.mark_dispatched()
-        self.assertEqual(self.trial.status, TrialStatus.DISPATCHED)
-        self.trial.mark_failed()
-        self.assertEqual(self.trial.status, TrialStatus.FAILED)
-
-    def test_dispatch_completion(self):
-        self.trial.mark_dispatched()
-        self.assertEqual(self.trial.status, TrialStatus.DISPATCHED)
-        self.trial.mark_completed()
-        self.assertEqual(self.trial.status, TrialStatus.COMPLETED)
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data",

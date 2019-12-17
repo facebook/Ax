@@ -359,11 +359,9 @@ class Experiment(Base):
             )
         trial = self.trials[trial_index]
 
-        if (
-            trial.status == TrialStatus.CANDIDATE
-            or trial.status == TrialStatus.DISPATCHED
-        ):
+        if trial.status == TrialStatus.CANDIDATE:
             return self.lookup_data_for_trial(trial_index=trial_index)[0]
+
         elif not trial.status.expecting_data:
             return Data()
 
