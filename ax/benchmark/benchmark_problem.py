@@ -143,7 +143,7 @@ class SimpleBenchmarkProblem(BenchmarkProblem):
     # compare to the model predictions. Should only be `False` if the problem
     # is expensive to evaluate and therefore no extra evaluations beyond the one
     # optimization loop should be performed.
-    evaluate_suggested: bool
+    evaluate_suggested: bool  # NOTE: not yet implemented
 
     def __init__(
         self,

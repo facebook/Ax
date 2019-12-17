@@ -41,3 +41,12 @@ Benchmark Utilities
     :members:
     :undoc-members:
     :show-inheritance:
+
+
+BoTorch Methods
+~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.botorch_methods
+    :members:
+    :undoc-members:
+    :show-inheritance:
