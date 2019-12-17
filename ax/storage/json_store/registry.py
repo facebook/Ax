@@ -6,7 +6,7 @@
 
 from typing import Any, Callable, Dict, Type
 
-from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
+from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -74,7 +74,7 @@ from ax.storage.utils import DomainType, ParameterConstraintType
 ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Arm: arm_to_dict,
     BatchTrial: batch_to_dict,
-    SimpleBenchmarkProblem: benchmark_problem_to_dict,
+    BenchmarkProblem: benchmark_problem_to_dict,
     BraninMetric: metric_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
@@ -96,6 +96,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     RangeParameter: range_parameter_to_dict,
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
+    SimpleBenchmarkProblem: benchmark_problem_to_dict,
     SimpleExperiment: simple_experiment_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
     SyntheticRunner: runner_to_dict,
@@ -108,7 +109,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "AbandonedArm": AbandonedArm,
     "Arm": Arm,
     "BatchTrial": BatchTrial,
-    "SimpleBenchmarkProblem": SimpleBenchmarkProblem,
+    "BenchmarkProblem": BenchmarkProblem,
     "BraninMetric": BraninMetric,
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
@@ -137,6 +138,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "RangeParameter": RangeParameter,
     "ScalarizedObjective": ScalarizedObjective,
     "SearchSpace": SearchSpace,
+    "SimpleBenchmarkProblem": SimpleBenchmarkProblem,
     "SimpleExperiment": SimpleExperiment,
     "SumConstraint": SumConstraint,
     "SyntheticRunner": SyntheticRunner,

@@ -348,5 +348,9 @@ def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, 
             "evaluate_suggested": benchmark_problem.evaluate_suggested,
             "optimal_value": benchmark_problem.optimal_value,
         }
-    # TODO[Lena]: implement `BenchmarkProblem` conversion
-    raise NotImplementedError  # pragma: no cover
+    elif isinstance(benchmark_problem, BenchmarkProblem):
+        properties = get_object_properties(object=benchmark_problem)
+        properties["__type"] = benchmark_problem.__class__.__name__
+        return properties
+    else:  # pragma: no cover
+        raise ValueError(f"Expected benchmark problem, got: {benchmark_problem}.")

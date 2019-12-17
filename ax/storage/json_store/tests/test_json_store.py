@@ -28,8 +28,9 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import branin
 from ax.utils.testing.benchmark_stubs import (
     get_branin_benchmark_problem,
+    get_branin_simple_benchmark_problem,
     get_mult_simple_benchmark_problem,
-    get_sum_benchmark_problem,
+    get_sum_simple_benchmark_problem,
 )
 from ax.utils.testing.core_stubs import (
     get_arm,
@@ -68,9 +69,8 @@ from ax.utils.testing.modeling_stubs import (
 
 TEST_CASES = [
     ("BatchTrial", get_batch_trial),
+    ("BenchmarkProblem", get_branin_benchmark_problem),
     ("BraninMetric", get_branin_metric),
-    ("SimpleBenchmarkProblem", get_branin_benchmark_problem),
-    ("SimpleBenchmarkProblem", get_sum_benchmark_problem),
     ("ChoiceParameter", get_choice_parameter),
     ("Arm", get_arm),
     ("Experiment", get_experiment_with_batch_and_single_trial),
@@ -91,6 +91,8 @@ TEST_CASES = [
     ("ScalarizedObjective", get_scalarized_objective),
     ("SearchSpace", get_search_space),
     ("SimpleBenchmarkProblem", get_mult_simple_benchmark_problem),
+    ("SimpleBenchmarkProblem", get_branin_simple_benchmark_problem),
+    ("SimpleBenchmarkProblem", get_sum_simple_benchmark_problem),
     ("SimpleExperiment", get_simple_experiment_with_batch_trial),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
@@ -282,8 +284,8 @@ class JSONStoreTest(TestCase):
         self.assertTrue(np.array_equal(arr, object_from_json(object_to_json(arr))))
 
     def testEncodeDecodeSimpleBenchmarkProblem(self):
-        branin_problem = get_branin_benchmark_problem()
-        sum_problem = get_sum_benchmark_problem()
+        branin_problem = get_branin_simple_benchmark_problem()
+        sum_problem = get_sum_simple_benchmark_problem()
         new_branin_problem = object_from_json(object_to_json(branin_problem))
         new_sum_problem = object_from_json(object_to_json(sum_problem))
         self.assertEqual(
