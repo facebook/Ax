@@ -4,8 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import pickle
 from typing import Any, Dict, Type
 
+from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
@@ -322,3 +324,29 @@ def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str,
         "end_time": obs_features.end_time,
         "random_split": obs_features.random_split,
     }
+
+
+def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, Any]:
+    """Converts an Ax benchmark problem to a serializable dictionary."""
+    if isinstance(benchmark_problem, SimpleBenchmarkProblem):
+        if benchmark_problem.uses_synthetic_function:
+            function_name = benchmark_problem.f.name  # pyre-ignore[16]
+            f = None
+        else:
+            function_name = benchmark_problem.f.__name__  # pyre-ignore[16]
+            f = pickle.dumps(benchmark_problem.f, 0).decode()
+        return {
+            "__type": benchmark_problem.__class__.__name__,
+            "uses_synthetic_function": benchmark_problem.uses_synthetic_function,
+            "function_name": function_name,
+            # If the benchamrk problem uses a custom callable, pickle it.
+            "f": f,
+            "name": benchmark_problem.name,
+            "domain": benchmark_problem.domain,
+            "minimize": benchmark_problem.minimize,
+            "noise_sd": benchmark_problem.noise_sd,
+            "evaluate_suggested": benchmark_problem.evaluate_suggested,
+            "optimal_value": benchmark_problem.optimal_value,
+        }
+    # TODO[Lena]: implement `BenchmarkProblem` conversion
+    raise NotImplementedError  # pragma: no cover

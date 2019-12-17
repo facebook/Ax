@@ -25,6 +25,12 @@ from ax.storage.metric_registry import register_metric
 from ax.storage.runner_registry import register_runner
 from ax.storage.utils import EncodeDecodeFieldsMap, remove_prefix
 from ax.utils.common.testutils import TestCase
+from ax.utils.measurement.synthetic_functions import branin
+from ax.utils.testing.benchmark_stubs import (
+    get_branin_benchmark_problem,
+    get_mult_simple_benchmark_problem,
+    get_sum_benchmark_problem,
+)
 from ax.utils.testing.core_stubs import (
     get_arm,
     get_batch_trial,
@@ -63,6 +69,8 @@ from ax.utils.testing.modeling_stubs import (
 TEST_CASES = [
     ("BatchTrial", get_batch_trial),
     ("BraninMetric", get_branin_metric),
+    ("SimpleBenchmarkProblem", get_branin_benchmark_problem),
+    ("SimpleBenchmarkProblem", get_sum_benchmark_problem),
     ("ChoiceParameter", get_choice_parameter),
     ("Arm", get_arm),
     ("Experiment", get_experiment_with_batch_and_single_trial),
@@ -82,6 +90,7 @@ TEST_CASES = [
     ("RangeParameter", get_range_parameter),
     ("ScalarizedObjective", get_scalarized_objective),
     ("SearchSpace", get_search_space),
+    ("SimpleBenchmarkProblem", get_mult_simple_benchmark_problem),
     ("SimpleExperiment", get_simple_experiment_with_batch_trial),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
@@ -100,6 +109,7 @@ TEST_CASES = [
 ENCODE_DECODE_FIELD_MAPS = {
     "Experiment": EncodeDecodeFieldsMap(python_only=["arms_by_signature"]),
     "BatchTrial": EncodeDecodeFieldsMap(python_only=["experiment"]),
+    "SimpleBenchmarkProblem": EncodeDecodeFieldsMap(encoded_only=["function_name"]),
     "GenerationStrategy": EncodeDecodeFieldsMap(
         python_only=["model", "uses_registered_models"],
         encoded_only=["had_initialized_model"],
@@ -270,6 +280,16 @@ class JSONStoreTest(TestCase):
     def test_encode_decode_numpy(self):
         arr = np.array([[1, 2, 3], [4, 5, 6]])
         self.assertTrue(np.array_equal(arr, object_from_json(object_to_json(arr))))
+
+    def testEncodeDecodeSimpleBenchmarkProblem(self):
+        branin_problem = get_branin_benchmark_problem()
+        sum_problem = get_sum_benchmark_problem()
+        new_branin_problem = object_from_json(object_to_json(branin_problem))
+        new_sum_problem = object_from_json(object_to_json(sum_problem))
+        self.assertEqual(
+            branin_problem.f(1, 2), new_branin_problem.f(1, 2), branin(1, 2)
+        )
+        self.assertEqual(sum_problem.f([1, 2]), new_sum_problem.f([1, 2]), 3)
 
     def testRegistryAdditions(self):
         class MyRunner(Runner):

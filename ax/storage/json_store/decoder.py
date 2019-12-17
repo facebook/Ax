@@ -5,13 +5,15 @@
 # LICENSE file in the root directory of this source tree.
 
 import datetime
+import pickle
 from collections import OrderedDict
 from enum import Enum
 from inspect import isclass
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Tuple, Type, cast
 
 import numpy as np
 import pandas as pd
+from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data  # noqa F401
 from ax.core.experiment import Experiment
@@ -35,6 +37,7 @@ from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_jso
 from ax.storage.json_store.registry import DECODER_REGISTRY
 from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
 from ax.utils.common.typeutils import torch_type_from_str
+from ax.utils.measurement import synthetic_functions
 
 
 def object_from_json(object_json: Any) -> Any:
@@ -100,6 +103,8 @@ def object_from_json(object_json: Any) -> Any:
             return search_space_from_json(search_space_json=object_json)
         elif _class == Type[Transform]:
             return transform_type_from_json(object_json=object_json)
+        elif _class == SimpleBenchmarkProblem:
+            return simple_benchmark_problem_from_json(object_json=object_json)
 
         return _class(**{k: object_from_json(v) for k, v in object_json.items()})
     else:
@@ -305,3 +310,22 @@ def generation_strategy_from_json(
 
         gs._restore_model_from_generator_run()
     return gs
+
+
+def simple_benchmark_problem_from_json(
+    object_json: Dict[str, Any]
+) -> SimpleBenchmarkProblem:
+    """Load a benchmark problem from JSON."""
+    uses_synthetic_function = object_json.pop("uses_synthetic_function")
+    if uses_synthetic_function:
+        f = getattr(synthetic_functions, object_json.pop("function_name"))()
+    else:
+        f = pickle.loads(object_json.pop("f").encode())
+    domain = object_from_json(object_json.pop("domain"))
+    assert isinstance(domain, list) and all(isinstance(x, tuple) for x in domain)
+    return SimpleBenchmarkProblem(
+        f=f,
+        name=object_json.pop("name"),
+        domain=cast(List[Tuple[float, float]], domain),
+        minimize=object_json.pop("minimize"),
+    )

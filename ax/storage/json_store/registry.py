@@ -6,6 +6,7 @@
 
 from typing import Any, Callable, Dict, Type
 
+from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -44,6 +45,7 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.storage.json_store.encoders import (
     arm_to_dict,
     batch_to_dict,
+    benchmark_problem_to_dict,
     choice_parameter_to_dict,
     data_to_dict,
     experiment_to_dict,
@@ -72,6 +74,7 @@ from ax.storage.utils import DomainType, ParameterConstraintType
 ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Arm: arm_to_dict,
     BatchTrial: batch_to_dict,
+    SimpleBenchmarkProblem: benchmark_problem_to_dict,
     BraninMetric: metric_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
@@ -105,6 +108,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "AbandonedArm": AbandonedArm,
     "Arm": Arm,
     "BatchTrial": BatchTrial,
+    "SimpleBenchmarkProblem": SimpleBenchmarkProblem,
     "BraninMetric": BraninMetric,
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
