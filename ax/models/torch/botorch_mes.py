@@ -8,8 +8,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from ax.core.types import TConfig, TGenMetadata
-from ax.models.model_utils import get_observed
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
+from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
 from ax.models.torch.utils import _get_X_pending_and_observed
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
@@ -50,7 +50,11 @@ class MaxValueEntropySearch(BotorchModel):
     def __init__(
         self, cost_intercept: float = 1.0, linear_truncated: bool = True, **kwargs: Any
     ) -> None:
-        super().__init__(linear_truncated=linear_truncated, **kwargs)
+        super().__init__(
+            best_point_recommender=recommend_best_out_of_sample_point,
+            linear_truncated=linear_truncated,
+            **kwargs,
+        )
         self.cost_intercept = cost_intercept
 
     @copy_doc(TorchModel.gen)
@@ -142,100 +146,16 @@ class MaxValueEntropySearch(BotorchModel):
         new_x = candidates.detach().cpu()
         return new_x, torch.ones(n, dtype=self.dtype), {}
 
-    def best_point(
-        self,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Optional[Tensor]:
-        """
-        Identify the current best point, satisfying the constraints in the same
-        format as to gen.
-
-        Return None if no such point can be identified.
-
-        Args:
-            bounds: A list of (lower, upper) tuples for each column of X.
-            objective_weights: The objective is to maximize a weighted sum of
-                the columns of f(x). These are the weights.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints
-                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                A f(x) <= b.
-            linear_constraints: A tuple of (A, b). For k linear constraints on
-                d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b.
-            fixed_features: A map {feature_index: value} for features that
-                should be fixed to a particular value in the best point.
-            model_gen_options: A config dictionary that can contain
-                model-specific options.
-            target_fidelities: A map {feature_index: value} of fidelity feature
-                column indices to their respective target fidelities. Used for
-                multi-fidelity optimization.
-
-        Returns:
-            d-tensor of the best point.
-        """
-        if linear_constraints is not None or outcome_constraints is not None:
-            raise UnsupportedError(
-                "Constraints are not yet supported by max-value entropy search!"
-            )
-
-        options = model_gen_options or {}
-        fixed_features = fixed_features or {}
-        optimizer_options = options.get("optimizer_kwargs", {})
-
-        X_observed = get_observed(
-            Xs=self.Xs,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-        )
-
-        acq_function, non_fixed_idcs = self._get_best_point_acqf(
-            X_observed=X_observed,  # pyre-ignore: [6]
-            objective_weights=objective_weights,
-            fixed_features=fixed_features,
-            target_fidelities=target_fidelities,
-        )
-
-        return_best_only = optimizer_options.get("return_best_only", True)
-        bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
-        bounds_ = bounds_.transpose(0, 1)
-        if non_fixed_idcs is not None:
-            bounds_ = bounds_[..., non_fixed_idcs]
-
-        candidates, _ = optimize_acqf(
-            acq_function=acq_function,
-            bounds=bounds_,
-            q=1,
-            num_restarts=optimizer_options.get("num_restarts", 60),
-            raw_samples=optimizer_options.get("raw_samples", 1024),
-            inequality_constraints=None,
-            fixed_features=None,  # handled inside the acquisition function
-            options={
-                "batch_limit": optimizer_options.get("batch_limit", 8),
-                "maxiter": optimizer_options.get("maxiter", 200),
-                "nonnegative": optimizer_options.get("nonnegative", False),
-                "method": "L-BFGS-B",
-            },
-            return_best_only=return_best_only,
-        )
-        rec_point = candidates.detach().cpu()
-        if isinstance(acq_function, FixedFeatureAcquisitionFunction):
-            rec_point = acq_function._construct_X_full(rec_point)
-        if return_best_only:
-            rec_point = rec_point.view(-1)
-        return rec_point
-
     def _get_best_point_acqf(
         self,
         X_observed: Tensor,
         objective_weights: Tensor,
+        mc_samples: int = 512,
         fixed_features: Optional[Dict[int, float]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
+        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        seed_inner: Optional[int] = None,
+        qmc: bool = True,
     ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
         fixed_features = fixed_features or {}
         target_fidelities = target_fidelities or {}

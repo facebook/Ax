@@ -10,11 +10,11 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 import numpy as np
 import torch
 from ax.core.types import TConfig, TGenMetadata
-from ax.models.model_utils import best_observed_point
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     get_NEI,
     predict_from_model,
+    recommend_best_observed_point,
     scipy_optimizer,
 )
 from ax.models.torch.utils import _get_X_pending_and_observed, normalize_indices
@@ -65,6 +65,19 @@ TOptimizer = Callable[
     ],
     Tuple[Tensor, Tensor],
 ]
+TBestPointRecommender = Callable[
+    [
+        TorchModel,
+        List[Tuple[float, float]],
+        Tensor,
+        Optional[Tuple[Tensor, Tensor]],
+        Optional[Tuple[Tensor, Tensor]],
+        Optional[Dict[int, float]],
+        Optional[TConfig],
+        Optional[Dict[int, float]],
+    ],
+    Optional[Tensor],
+]
 
 
 class BotorchModel(TorchModel):
@@ -80,6 +93,8 @@ class BotorchModel(TorchModel):
     - a `model_predictor` that predicts outcomes using the fitted model
     - a `acqf_constructor` that creates an acquisition function from a fitted model
     - a `acqf_optimizer` that optimizes the acquisition function
+    - a `best_point_recommender` that recommends a current "best" point (i.e.,
+        what the model recommends if the learning process ended now)
 
     Args:
         model_constructor: A callable that instantiates and fits a model on data,
@@ -89,6 +104,8 @@ class BotorchModel(TorchModel):
         acqf_constructor: A callable that creates an acquisition function from a
             fitted model, with signature as described below.
         acqf_optimizer: A callable that optimizes the acquisition function, with
+            signature as described below.
+        best_point_recommender: A callable that recommends the best point, with
             signature as described below.
         refit_on_cv: If True, refit the model for each fold when performing
             cross-validation.
@@ -167,6 +184,29 @@ class BotorchModel(TorchModel):
     generation, and `rounding_func` is a callback that rounds an optimization
     result appropriately. `candidates` is a tensor of generated candidates.
     For additional details on the arguments, see `scipy_optimizer`.
+
+    ::
+
+        best_point_recommender(
+            model,
+            bounds,
+            objective_weights,
+            outcome_constraints,
+            linear_constraints,
+            fixed_features,
+            model_gen_options,
+            target_fidelities,
+        ) -> candidates
+
+    Here `model` is a TorchModel, `bounds` is a list of tuples containing bounds
+    on the parameters, `objective_weights` is a tensor of weights for the model outputs,
+    `outcome_constraints` is a tuple of tensors describing the (linear) outcome
+    constraints, `linear_constraints` is a tuple of tensors describing constraints
+    on the design, `fixed_features` specifies features that should be fixed during
+    generation, `model_gen_options` is a config dictionary that can contain
+    model-specific options, and `target_fidelities` is a map from fidelity feature
+    column indices to their respective target fidelities, used for multi-fidelity
+    optimization problems. % TODO: refer to an example.
     """
 
     dtype: Optional[torch.dtype]
@@ -191,6 +231,7 @@ class BotorchModel(TorchModel):
         #  int, Optional[Dict[int, float]], Optional[Callable[[Tensor], Tensor]],
         #  **(Any)], Tensor]`.
         acqf_optimizer: TOptimizer = scipy_optimizer,
+        best_point_recommender: TBestPointRecommender = recommend_best_observed_point,
         refit_on_cv: bool = False,
         refit_on_update: bool = True,
         warm_start_refitting: bool = True,
@@ -200,6 +241,7 @@ class BotorchModel(TorchModel):
         self.model_predictor = model_predictor
         self.acqf_constructor = acqf_constructor
         self.acqf_optimizer = acqf_optimizer
+        self.best_point_recommender = best_point_recommender
         self._kwargs = kwargs
         self.refit_on_cv = refit_on_cv
         self.refit_on_update = refit_on_update
@@ -344,23 +386,16 @@ class BotorchModel(TorchModel):
         target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Optional[Tensor]:
 
-        if target_fidelities:
-            raise NotImplementedError(
-                "target_fidelities not implemented for base BotorchModel"
-            )
-
-        x_best = best_observed_point(
+        return self.best_point_recommender(
             model=self,
             bounds=bounds,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
-            options=model_gen_options,
+            model_gen_options=model_gen_options,
+            target_fidelities=target_fidelities,
         )
-        if x_best is None:
-            return None
-        return x_best.to(dtype=self.dtype, device=torch.device("cpu"))
 
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(

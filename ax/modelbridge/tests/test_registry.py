@@ -65,6 +65,10 @@ class ModelRegistryTest(TestCase):
                     "is_callable_as_path": True,
                     "value": f"{botorch_defaults}.predict_from_model",
                 },
+                "best_point_recommender": {
+                    "is_callable_as_path": True,
+                    "value": f"{botorch_defaults}.recommend_best_observed_point",
+                },
                 "refit_on_cv": False,
                 "refit_on_update": True,
                 "warm_start_refitting": True,

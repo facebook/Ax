@@ -79,22 +79,21 @@ class MaxValueEntropySearchTest(TestCase):
             self.assertTrue(torch.equal(wgen, torch.ones(1, dtype=self.dtype)))
             mock_optimize_acqf.assert_called_once()
 
-        # test model.best_point()
-        best_point_dummy = torch.rand(1, 3, dtype=self.dtype, device=self.device)
-        with mock.patch(self.optimize_acqf) as mock_optimize_acqf:
-            mock_optimize_acqf.side_effect = [(best_point_dummy, None)]
-            rec_point = model.best_point(
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                outcome_constraints=None,
-                linear_constraints=None,
-                model_gen_options={
-                    "acquisition_function_kwargs": self.acq_options,
-                    "optimizer_kwargs": self.optimizer_options,
-                },
-            )
-            self.assertTrue(torch.equal(rec_point, best_point_dummy.cpu().view(-1)))
-            mock_optimize_acqf.assert_called_once()
+        # Check best point selection within bounds (some numerical tolerance)
+        xbest = model.best_point(
+            bounds=self.bounds,
+            objective_weights=self.objective_weights,
+            outcome_constraints=None,
+            linear_constraints=None,
+            model_gen_options={
+                "acquisition_function_kwargs": self.acq_options,
+                "optimizer_kwargs": self.optimizer_options,
+            },
+        )
+        lb = torch.tensor([b[0] for b in self.bounds]) - 1e-5
+        ub = torch.tensor([b[1] for b in self.bounds]) + 1e-5
+        self.assertTrue(torch.all(xbest <= ub))
+        self.assertTrue(torch.all(xbest >= lb))
 
         # test error message in case of constraints
         linear_constraints = (
@@ -146,21 +145,16 @@ class MaxValueEntropySearchTest(TestCase):
             fidelity_features=[-1],
         )
 
-        # Check best point selection
-        X_dummy = torch.tensor([1.0, 2.0], dtype=self.dtype, device=self.device)
-        acq_dummy = torch.tensor(0.0, dtype=self.dtype, device=self.device)
-        exp_best = torch.tensor([1.0, 2.0, 1.0], dtype=self.dtype, device=self.device)
-        with mock.patch(
-            self.optimize_acqf, return_value=(X_dummy, acq_dummy)
-        ) as mock_optimize_acqf:
-            xbest = model.best_point(
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                target_fidelities={2: 1.0},
-            )
-
-            self.assertTrue(torch.equal(xbest, exp_best))
-            mock_optimize_acqf.assert_called_once()
+        # Check best point selection within bounds (some numerical tolerance)
+        xbest = model.best_point(
+            bounds=self.bounds,
+            objective_weights=self.objective_weights,
+            target_fidelities={2: 5.0},
+        )
+        lb = torch.tensor([b[0] for b in self.bounds]) - 1e-5
+        ub = torch.tensor([b[1] for b in self.bounds]) + 1e-5
+        self.assertTrue(torch.all(xbest <= ub))
+        self.assertTrue(torch.all(xbest >= lb))
 
         # check error when no target fidelities are specified
         with self.assertRaises(RuntimeError):
