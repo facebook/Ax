@@ -75,15 +75,11 @@ class KnowledgeGradientTest(TestCase):
 
         n = 2
 
-        best_point_dummy = torch.rand(1, 3, dtype=self.dtype, device=self.device)
         X_dummy = torch.rand(1, n, 4, dtype=self.dtype, device=self.device)
         acq_dummy = torch.tensor(0.0, dtype=self.dtype, device=self.device)
 
         with mock.patch(self.optimize_acqf) as mock_optimize_acqf:
-            mock_optimize_acqf.side_effect = [
-                (best_point_dummy, None),
-                (X_dummy, acq_dummy),
-            ]
+            mock_optimize_acqf.side_effect = [(X_dummy, acq_dummy)]
             Xgen, wgen, _ = model.gen(
                 n=n,
                 bounds=self.bounds,
@@ -97,7 +93,9 @@ class KnowledgeGradientTest(TestCase):
             )
             self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=self.dtype)))
-            mock_optimize_acqf.assert_called()  # called twice, once for best_point
+
+            # called once, the best point call is not caught by mock
+            mock_optimize_acqf.assert_called_once()
 
         ini_dummy = torch.rand(10, 32, 3, dtype=self.dtype, device=self.device)
         optimizer_options2 = {
@@ -142,17 +140,14 @@ class KnowledgeGradientTest(TestCase):
             )
             self.assertEqual(mock_posterior_mean.call_count, 2)
 
-        # Check best point selection
-        X_dummy = torch.rand(3)
-        acq_dummy = torch.tensor(0.0)
-        with mock.patch(
-            self.optimize_acqf, return_value=(X_dummy, acq_dummy)
-        ) as mock_optimize_acqf:
-            xbest = model.best_point(
-                bounds=self.bounds, objective_weights=self.objective_weights
-            )
-            self.assertTrue(torch.equal(xbest, X_dummy))
-            mock_optimize_acqf.assert_called_once()
+        # Check best point selection within bounds (some numerical tolerance)
+        xbest = model.best_point(
+            bounds=self.bounds, objective_weights=self.objective_weights
+        )
+        lb = torch.tensor([b[0] for b in self.bounds]) - 1e-5
+        ub = torch.tensor([b[1] for b in self.bounds]) + 1e-5
+        self.assertTrue(torch.all(xbest <= ub))
+        self.assertTrue(torch.all(xbest >= lb))
 
         # test error message
         linear_constraints = (
@@ -178,24 +173,21 @@ class KnowledgeGradientTest(TestCase):
             task_features=[],
             feature_names=self.feature_names,
             metric_names=[],
-            fidelity_features=[-1],
+            fidelity_features=[2],
         )
 
-        # Check best point selection
-        X_dummy = torch.tensor([1.0, 2.0])
-        acq_dummy = torch.tensor(0.0)
-        with mock.patch(
-            self.optimize_acqf, return_value=(X_dummy, acq_dummy)
-        ) as mock_optimize_acqf:
-            xbest = model.best_point(
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                target_fidelities={2: 1.0},
-            )
-            self.assertTrue(torch.equal(xbest, torch.tensor([1.0, 2.0, 1.0])))
-            mock_optimize_acqf.assert_called_once()
+        # Check best point selection within bounds (some numerical tolerance)
+        xbest = model.best_point(
+            bounds=self.bounds,
+            objective_weights=self.objective_weights,
+            target_fidelities={2: 5.0},
+        )
+        lb = torch.tensor([b[0] for b in self.bounds]) - 1e-5
+        ub = torch.tensor([b[1] for b in self.bounds]) + 1e-5
+        self.assertTrue(torch.all(xbest <= ub))
+        self.assertTrue(torch.all(xbest >= lb))
 
-        # check error whenf no target fidelities are specified
+        # check error when no target fidelities are specified
         with self.assertRaises(RuntimeError):
             model.best_point(
                 bounds=self.bounds, objective_weights=self.objective_weights
@@ -203,14 +195,10 @@ class KnowledgeGradientTest(TestCase):
 
         # check generation
         n = 2
-        X_dummy = torch.zeros(12, 1, 2, dtype=self.dtype, device=self.device)
-        X_dummy2 = torch.zeros(1, n, 3, dtype=self.dtype, device=self.device)
+        X_dummy = torch.zeros(1, n, 3, dtype=self.dtype, device=self.device)
         acq_dummy = torch.tensor(0.0, dtype=self.dtype, device=self.device)
-        dummy1 = (X_dummy, acq_dummy)
-        dummy2 = (X_dummy2, acq_dummy)
-        with mock.patch(
-            self.optimize_acqf, side_effect=[dummy1, dummy2, dummy1, dummy2]
-        ) as mock_optimize_acqf:
+        dummy = (X_dummy, acq_dummy)
+        with mock.patch(self.optimize_acqf, side_effect=[dummy]) as mock_optimize_acqf:
             Xgen, wgen, _ = model.gen(
                 n=n,
                 bounds=self.bounds,
@@ -221,9 +209,9 @@ class KnowledgeGradientTest(TestCase):
                     "acquisition_function_kwargs": self.acq_options,
                     "optimizer_kwargs": self.optimizer_options,
                 },
-                target_fidelities={2: 1.0},
+                target_fidelities={2: 5.0},
             )
-            self.assertTrue(torch.equal(Xgen, X_dummy2.cpu()))
+            self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=self.dtype)))
             mock_optimize_acqf.assert_called()  # called twice, once for best_point
 
