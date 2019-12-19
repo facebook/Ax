@@ -19,6 +19,10 @@
       "title": "Hyperparameter Optimization for PyTorch"
     },
     {
+      "id": "raytune_pytorch_cnn",
+      "title": "Hyperparameter Optimization via Raytune"
+    },
+    {
       "id": "multi_task",
       "title": "Multi-Task Modeling",
       "exec_on_build": false
