@@ -387,6 +387,7 @@ def _benchmark_replication_Dev_API(
     """
     exceptions = []
     experiment = Experiment(
+        name=experiment_name,
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
         runner=SyntheticRunner(),
