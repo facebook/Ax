@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import datetime
 import subprocess
 
 from setuptools import find_packages, setup
@@ -50,7 +51,8 @@ def get_git_version(abbreviate: bool = False) -> str:
         out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         return out.strip().decode("ascii")
     except (subprocess.SubprocessError, OSError):
-        return "Unknown"
+        d = datetime.datetime.today()
+        return f"{d.year}.{d.month}.{d.day}.{d.hour}"
 
 
 def write_version_py(version: str) -> None:
