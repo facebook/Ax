@@ -213,10 +213,10 @@ def _extract_optimization_trace_from_synthetic_function(
     if any(isinstance(trial, BatchTrial) for trial in experiment.trials.values()):
         raise NotImplementedError("Batched trials are not yet supported.")
     true_values = []
-    for trial in experiment.trials:
+    for trial in experiment.trials.values():
         parameters = not_none(checked_cast(Trial, trial).arm).parameters
         # Expecting numerical parameters only.
-        value = problem.f([float(x) for x in parameters.values()])  # pyre-ignore[6]
+        value = problem.f(*[float(x) for x in parameters.values()])  # pyre-ignore[6]
         true_values.append(value)
     return best_feasible_objective(
         optimization_config=experiment.optimization_config,
