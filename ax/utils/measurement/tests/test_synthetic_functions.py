@@ -91,7 +91,7 @@ class TestSyntheticFunctions(TestCase):
 
     def test_botorch_ackley(self):
         ackley = FromBotorch(botorch_synthetic_function=botorch_synthetic.Ackley())
-        self.assertEqual(ackley.name, "Ackley")
+        self.assertEqual(ackley.name, "FromBotorch_Ackley")
         self.assertEqual(ackley(1.0, 2.0), 5.422131717799505)
         self.assertEqual(ackley(x1=1.0, x2=2.0), 5.422131717799505)
         self.assertEqual(ackley(np.array([1, 2])), 5.422131717799505)

@@ -303,6 +303,7 @@ def full_benchmark_run(  # Full run, multiple tests.
                 if raise_all_exceptions:
                     raise
                 exceptions.append(err)  # TODO[T53975770]: test
+    logger.info(f"Obtained benchmarking test experiments: {tests}")
     return tests
 
 
