@@ -8,7 +8,7 @@ from setuptools import find_packages, setup
 
 
 REQUIRES = [
-    "botorch>=0.1.3",
+    "botorch==0.1.4",
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
