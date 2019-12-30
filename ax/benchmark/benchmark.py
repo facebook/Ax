@@ -20,14 +20,19 @@ Key terms used:
 
 """
 
+import time
 from types import FunctionType
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from ax.benchmark import utils
 from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
+from ax.core.observation import ObservationFeatures
+from ax.core.parameter import RangeParameter
+from ax.modelbridge.base import gen_arms
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
@@ -118,7 +123,7 @@ def benchmark_replication(  # One optimization loop.
     """
     trial_exceptions = []
     experiment_name = f"{method.name}_on_{problem.name}"
-    if replication_index:
+    if replication_index is not None:
         experiment_name += f"__v{replication_index}"
     # Make sure the generation strategy starts from the beginning.
     method = method.clone_reset()
@@ -410,3 +415,102 @@ def _benchmark_replication_Dev_API(
                 f"More than {failed_trials_tolerated} failed for {experiment_name}."
             )
     return experiment, exceptions
+
+
+def benchmark_minimize_callable(
+    problem: BenchmarkProblem,
+    num_trials: int,
+    method_name: str,
+    replication_index: Optional[int] = None,
+) -> Tuple[Experiment, Callable[[List[float]], float]]:
+    """
+    An interface for evaluating external methods on Ax benchmark problems. The
+    arms run and performance will be tracked by Ax, so the external method can
+    be evaluated alongside Ax methods.
+
+    It is designed around methods that implement an interface like
+    scipy.optimize.minimize. This function will return a callable evaluation
+    function that takes in an array of parameter values and returns a float
+    objective value. The evaluation function should always be minimized: if the
+    benchmark problem is a maximization problem, then the value returned by
+    the evaluation function will be negated so it can be used directly by
+    methods that minimize. This callable can be given to an external
+    minimization function, and Ax will track all of the calls made to it and
+    the arms that were evaluated.
+
+    This will also return an Experiment object that will track the arms
+    evaluated by the external method in the same way as done for Ax
+    internal benchmarks. This function should thus be used for each benchmark
+    replication.
+
+    Args:
+        problem: The Ax benchmark problem to be used to construct the
+            evalutaion function.
+        num_trials: The maximum number of trials for a benchmark run.
+        method_name: Name of the method being tested.
+        replication_index: Replicate number, if multiple replicates are being
+            run.
+    """
+    # Some validation
+    if isinstance(problem, SimpleBenchmarkProblem):
+        raise NonRetryableBenchmarkingError("`SimpleBenchmarkProblem` not supported.")
+    if not all(
+        isinstance(p, RangeParameter) for p in problem.search_space.parameters.values()
+    ):
+        raise NonRetryableBenchmarkingError("Only continuous search spaces supported.")
+    if any(
+        p.log_scale for p in problem.search_space.parameters.values()  # pyre-ignore
+    ):
+        raise NonRetryableBenchmarkingError("Log-scale parameters not supported.")
+
+    # Create Ax experiment
+    experiment_name = f"{method_name}_on_{problem.name}"
+    if replication_index is not None:
+        experiment_name += f"__v{replication_index}"
+    experiment = Experiment(
+        name=experiment_name,
+        search_space=problem.search_space,
+        optimization_config=problem.optimization_config,
+        runner=SyntheticRunner(),
+    )
+    max_trials = num_trials  # to be used below
+
+    # Construct the evaluation function
+    def evaluation_function(x: List[float]) -> float:
+        # Check if we have exhuasted the evaluation budget
+        if len(experiment.trials) >= max_trials:
+            raise ValueError(f"Evaluation budget ({max_trials} trials) exhuasted.")
+
+        # Create an ObservationFeatures
+        param_dict = {
+            pname: x[i]
+            for i, pname in enumerate(problem.search_space.parameters.keys())
+        }
+        obsf = ObservationFeatures(parameters=param_dict)  # pyre-ignore
+        # Get the time since last call
+        num_trials = len(experiment.trials)
+        if num_trials == 0:
+            gen_time = None
+        else:
+            previous_ts = experiment.trials[num_trials - 1].time_created.timestamp()
+            gen_time = time.time() - previous_ts
+        # Create a GR
+        gr = GeneratorRun(
+            arms=gen_arms(
+                observation_features=[obsf],
+                arms_by_signature=experiment.arms_by_signature,
+            ),
+            gen_time=gen_time,
+        )
+        # Add it as a trial
+        trial = experiment.new_trial().add_generator_run(gr).run()
+        # Evaluate function
+        df = trial.fetch_data().df
+        if len(df) > 1:
+            raise Exception("Does not support multiple outcomes")  # pragma: no cover
+        obj = float(df["mean"].values[0])
+        if not problem.optimization_config.objective.minimize:
+            obj = -obj
+        return obj
+
+    return experiment, evaluation_function
