@@ -27,6 +27,9 @@ pip3 install ax-platform
 
 Installation will use Python wheels from PyPI, available for [OSX, Linux, and Windows](https://pypi.org/project/ax-platform/#files).
 
+*Note*: Make sure the `pip3` being used to install `ax-platform` is actually the one from the newly created Conda environment.
+If you're using a Unix-based OS, you can use `which pip3` to check.
+
 *Recommendation for MacOS users*: PyTorch is a required dependency of BoTorch, and can be automatically installed via pip.
 However, **we recommend you [install PyTorch manually](https://pytorch.org/get-started/locally/#anaconda-1) before installing Ax, using the Anaconda package manager**.
 Installing from Anaconda will link against MKL (a library that optimizes mathematical computation for Intel processors).
