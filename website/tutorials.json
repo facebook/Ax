@@ -25,7 +25,6 @@
     {
       "id": "multi_task",
       "title": "Multi-Task Modeling",
-      "exec_on_build": false
     }
   ],
   "Field Experiments": [
