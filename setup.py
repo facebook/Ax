@@ -26,6 +26,9 @@ DEV_REQUIRES = [
     "sphinx",
     "sphinx-autodoc-typehints",
     "torchvision",
+    # TODO(jej): Remove pillow from dependencies after torchvision includes the
+    # following change: https://github.com/pytorch/vision/pull/1501.
+    "pillow<7",
 ]
 
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
