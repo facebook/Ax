@@ -7,6 +7,7 @@
 from typing import Any, Callable, Dict, Type
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
+from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -110,6 +111,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "Arm": Arm,
     "BatchTrial": BatchTrial,
     "BenchmarkProblem": BenchmarkProblem,
+    "BenchmarkResult": BenchmarkResult,
     "BraninMetric": BraninMetric,
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
