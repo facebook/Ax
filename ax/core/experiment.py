@@ -10,6 +10,7 @@ from datetime import datetime
 from functools import reduce
 from typing import Any, Dict, List, Optional, Tuple, Type
 
+import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base import Base
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -379,11 +380,24 @@ class Experiment(Base):
             # fall back to data that has been attached.
             return self.lookup_data_for_trial(trial_index=trial_index)[0]
 
-    def attach_data(self, data: Data) -> int:
-        """Attach data to experiment.
+    def attach_data(self, data: Data, combine_with_last_data: bool = False) -> int:
+        """Attach data to experiment. Stores data in `experiment._data_by_trial`,
+        to be looked up via `experiment.lookup_data_by_trial`.
 
         Args:
             data: Data object to store.
+            combine_with_last_data: By default, when attaching data, it's identified
+                by its timestamp, and `experiment.lookup_data_by_trial` returns
+                data by most recent timestamp. In some cases, however, the goal
+                is to combine all data attached for a trial into a single `Data`
+                object. To achieve that goal, every call to `attach_data` after
+                the initial data is attached to trials, should be set to `True`.
+                Then, the newly attached data will be appended to existing data,
+                rather than stored as a separate object, and `lookup_data_by_trial`
+                will return the combined data object, rather than just the most
+                recently added data. This will validate that the newly added data
+                does not contain observations for the metrics that already have
+                observations in the most recent data stored.
 
         Returns:
             Timestamp of storage in millis.
@@ -395,7 +409,24 @@ class Experiment(Base):
                 if trial_index in self._data_by_trial
                 else OrderedDict()
             )
-            current_trial_data[cur_time_millis] = Data(trial_df)
+            if combine_with_last_data and len(current_trial_data) > 0:
+                last_ts, last_data = list(current_trial_data.items())[-1]
+                merged = pd.merge(
+                    last_data.df,
+                    trial_df,
+                    on=["trial_index", "metric_name", "arm_name"],
+                    how="inner",
+                )
+                if not merged.empty:
+                    raise ValueError(
+                        f"Last data for trial {trial_index} already contained an "
+                        f"observation for metric {merged.head()['metric_name']}."
+                    )
+                current_trial_data[cur_time_millis] = Data.from_multiple_data(
+                    [last_data, Data(trial_df)]
+                )
+            else:
+                current_trial_data[cur_time_millis] = Data(trial_df)
             self._data_by_trial[trial_index] = current_trial_data
 
         return cur_time_millis

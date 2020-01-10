@@ -57,6 +57,7 @@ class TrialTest(TestCase):
             self.experiment.new_trial().arm_weights
 
         self.trial._status = TrialStatus.COMPLETED
+        self.assertTrue(self.trial.status.is_completed)
         self.assertTrue(self.trial.is_complete)
 
     def test_adding_new_trials(self):
@@ -91,9 +92,9 @@ class TrialTest(TestCase):
             )
 
     def test_abandonment(self):
-        self.assertFalse(self.trial.is_abandoned)
+        self.assertFalse(self.trial.status.is_abandoned)
         self.trial.mark_abandoned(reason="testing")
-        self.assertTrue(self.trial.is_abandoned)
+        self.assertTrue(self.trial.status.is_abandoned)
         self.assertFalse(self.trial.status.is_failed)
 
     @patch(

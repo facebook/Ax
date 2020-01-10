@@ -322,7 +322,7 @@ class TestAxClient(TestCase):
             x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(trial_index, raw_data=(branin(x, y), 0.0))
         with self.assertRaisesRegex(ValueError, "Raw data has an invalid type"):
-            ax_client.complete_trial(trial_index, raw_data="invalid_data")
+            ax_client.update_trial_data(trial_index, raw_data="invalid_data")
 
     def test_raw_data_format_with_fidelities(self):
         ax_client = AxClient()
@@ -381,7 +381,27 @@ class TestAxClient(TestCase):
             minimize=True,
         )
         params, idx = ax_client.get_next_trial()
+        # Can't update before completing.
+        with self.assertRaisesRegex(ValueError, ".* not yet"):
+            ax_client.update_trial_data(
+                trial_index=idx, raw_data={"objective": (0, 0.0)}
+            )
         ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
+        # Cannot complete a trial twice, should use `update_trial_data`.
+        with self.assertRaisesRegex(ValueError, ".* already been completed"):
+            ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
+        # Cannot update trial data with observation for a metric it already has.
+        with self.assertRaisesRegex(ValueError, ".* contained an observation"):
+            ax_client.update_trial_data(
+                trial_index=idx, raw_data={"objective": (0, 0.0)}
+            )
+        # Same as above, except objective name should be getting inferred.
+        with self.assertRaisesRegex(ValueError, ".* contained an observation"):
+            ax_client.update_trial_data(trial_index=idx, raw_data=1.0)
+        ax_client.update_trial_data(trial_index=idx, raw_data={"m1": (1, 0.0)})
+        metrics_in_data = ax_client.experiment.fetch_data().df["metric_name"].values
+        self.assertIn("m1", metrics_in_data)
+        self.assertIn("objective", metrics_in_data)
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         params2, idy = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
@@ -455,6 +475,8 @@ class TestAxClient(TestCase):
         self.assertEqual(
             ax_client.experiment.trials.get(idx).run_metadata.get("dummy"), "test"
         )
+        with self.assertRaisesRegex(ValueError, ".* no longer expects"):
+            ax_client.complete_trial(idx, {})
 
     def test_attach_trial_and_get_trial_parameters(self):
         ax_client = AxClient()
@@ -465,7 +487,7 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
-        params, idx = ax_client.attach_trial(parameters={"x": 0, "y": 1})
+        params, idx = ax_client.attach_trial(parameters={"x": 0.0, "y": 1.0})
         ax_client.complete_trial(trial_index=idx, raw_data=5)
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         self.assertEqual(
@@ -485,7 +507,7 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
-        params, idx = ax_client.attach_trial(parameters={"x": 0, "y": 1})
+        params, idx = ax_client.attach_trial(parameters={"x": 0.0, "y": 1.0})
         ax_client.complete_trial(trial_index=idx, raw_data=np.int32(5))
         self.assertEqual(ax_client.get_best_parameters()[0], params)
 

@@ -13,6 +13,9 @@ import ax.service.utils.best_point as best_point_utils
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.base_trial import BaseTrial
+from ax.core.batch_trial import BatchTrial
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
@@ -306,46 +309,73 @@ class AxClient:
             sample_size: Number of samples collected for the underlying arm,
                 optional.
         """
-        assert isinstance(
-            trial_index, int
-        ), f"Trial index must be an int, got: {trial_index}."  # pragma: no cover
+        # Validate that trial can be completed.
+        if not isinstance(trial_index, int):  # pragma: no cover
+            raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         trial = self._get_trial(trial_index=trial_index)
-        if metadata is not None:
-            trial._run_metadata = metadata
+        self._validate_can_complete_trial(trial=trial)
 
-        arm_name = not_none(trial.arm).name
-        evaluations = {
-            arm_name: raw_data_to_evaluation(
-                raw_data=raw_data, objective_name=self.objective_name
-            )
-        }
-        sample_sizes = {arm_name: sample_size} if sample_size else {}
-        data = data_from_evaluations(
-            evaluations=evaluations,
-            trial_index=trial.index,
-            sample_sizes=sample_sizes,
-            start_time=(
-                checked_cast_optional(int, metadata.get("start_time"))
-                if metadata is not None
-                else None
-            ),
-            end_time=(
-                checked_cast_optional(int, metadata.get("end_time"))
-                if metadata is not None
-                else None
-            ),
+        # Format the data to save.
+        sample_sizes = {not_none(trial.arm).name: sample_size} if sample_size else {}
+        evaluations, data = self._make_evaluations_and_data(
+            trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
-        self.experiment.attach_data(data)
-        # In service API, a trial may be completed multiple times (for multiple
-        # metrics, for example).
-        if not trial.is_complete:
-            trial.mark_completed()
+        trial._run_metadata = metadata or {}
+        self.experiment.attach_data(data=data)
+        trial.mark_completed()
         data_for_logging = _round_floats_for_logging(
             item=evaluations[next(iter(evaluations.keys()))]
         )
         logger.info(
             f"Completed trial {trial_index} with data: "
             f"{_round_floats_for_logging(item=data_for_logging)}."
+        )
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
+
+    def update_trial_data(
+        self,
+        trial_index: int,
+        raw_data: TEvaluationOutcome,
+        metadata: Optional[Dict[str, Union[str, int]]] = None,
+        sample_size: Optional[int] = None,
+    ) -> None:
+        """
+        Attaches additional data for completed trial (for example, if trial was
+        completed with data for only one of the required metrics and more data
+        needs to be attached).
+
+        Args:
+            trial_index: Index of trial within the experiment.
+            raw_data: Evaluation data for the trial. Can be a mapping from
+                metric name to a tuple of mean and SEM, just a tuple of mean and
+                SEM if only one metric in optimization, or just the mean if there
+                is no SEM.  Can also be a list of (fidelities, mapping from
+                metric name to a tuple of mean and SEM).
+            metadata: Additional metadata to track about this run.
+            sample_size: Number of samples collected for the underlying arm,
+                optional.
+        """
+        assert isinstance(
+            trial_index, int
+        ), f"Trial index must be an int, got: {trial_index}."  # pragma: no cover
+        trial = self._get_trial(trial_index=trial_index)
+        if not trial.status.is_completed:
+            raise ValueError(
+                f"Trial {trial.index} has not yet been completed with data."
+                "To complete it, use `ax_client.complete_trial`."
+            )
+        sample_sizes = {not_none(trial.arm).name: sample_size} if sample_size else {}
+        evaluations, data = self._make_evaluations_and_data(
+            trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
+        )
+        trial._run_metadata.update(metadata or {})
+        self.experiment.attach_data(data, combine_with_last_data=True)
+        data_for_logging = _round_floats_for_logging(
+            item=evaluations[next(iter(evaluations.keys()))]
+        )
+        logger.info(
+            f"Added data: {_round_floats_for_logging(item=data_for_logging)} "
+            f"to trial {trial.index}."
         )
         self._save_experiment_and_generation_strategy_to_db_if_possible()
 
@@ -376,6 +406,7 @@ class AxClient:
         Returns:
             Tuple of parameterization and trial index from newly created trial.
         """
+        self._validate_search_space_membership(parameters=parameters)
         trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
         trial.mark_running(no_runner_required=True)
         logger.info(
@@ -829,6 +860,79 @@ class AxClient:
                 return trial_idx
         raise ValueError(
             f"No trial on experiment matches parameterization {parameterization}."
+        )
+
+    def _make_evaluations_and_data(
+        self,
+        trial: BaseTrial,
+        raw_data: Union[TEvaluationOutcome, Dict[str, TEvaluationOutcome]],
+        metadata: Optional[Dict[str, Union[str, int]]],
+        sample_sizes: Optional[Dict[str, int]] = None,
+    ) -> Tuple[Dict[str, TEvaluationOutcome], Data]:
+        """Formats given raw data as Ax evaluations and `Data`.
+
+        Args:
+            trial: Trial within the experiment.
+            raw_data: Metric outcomes for 1-arm trials, map from arm name to
+                metric outcomes for batched trials.
+            sample_size: Integer sample size for 1-arm trials, dict from arm
+                name to sample size for batched trials. Optional.
+            metadata: Additional metadata to track about this run.
+            data_is_for_batched_trials: Whether making evaluations and data for
+                a batched trial or a 1-arm trial.
+        """
+        if isinstance(trial, BatchTrial):
+            assert isinstance(  # pragma: no cover
+                raw_data, dict
+            ), f"Raw data must be a dict for batched trials."
+        elif isinstance(trial, Trial):
+            arm_name = not_none(trial.arm).name
+            raw_data = {arm_name: raw_data}  # pyre-ignore[9]
+        else:  # pragma: no cover
+            raise ValueError(f"Unexpected trial type: {type(trial)}.")
+        assert isinstance(raw_data, dict)
+        evaluations = {
+            arm_name: raw_data_to_evaluation(
+                raw_data=raw_data[arm_name], objective_name=self.objective_name
+            )
+            for arm_name in raw_data
+        }
+        data = data_from_evaluations(
+            evaluations=evaluations,
+            trial_index=trial.index,
+            sample_sizes=sample_sizes or {},
+            start_time=(
+                checked_cast_optional(int, metadata.get("start_time"))
+                if metadata is not None
+                else None
+            ),
+            end_time=(
+                checked_cast_optional(int, metadata.get("end_time"))
+                if metadata is not None
+                else None
+            ),
+        )
+        return evaluations, data
+
+    # ------------------------------ Validators. -------------------------------
+
+    @staticmethod
+    def _validate_can_complete_trial(trial: BaseTrial) -> None:
+        if trial.status.is_completed:
+            raise ValueError(
+                f"Trial {trial.index} has already been completed with data."
+                "To add more data to it (for example, for a different metric), "
+                "use `ax_client.update_trial_data`."
+            )
+        if trial.status.is_abandoned or trial.status.is_failed:
+            raise ValueError(
+                f"Trial {trial.index} has been marked {trial.status.name}, so it "
+                "no longer expects data."
+            )
+
+    def _validate_search_space_membership(self, parameters: TParameterization) -> None:
+        self.experiment.search_space.check_membership(
+            parameterization=parameters, raise_error=True
         )
 
     # -------- Backward-compatibility with old save / load method names. -------

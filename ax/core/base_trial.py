@@ -47,7 +47,7 @@ class TrialStatus(Enum):
     COMPLETED = 3
     RUNNING = 4
     ABANDONED = 5
-    DISPATCHED = 6
+    DISPATCHED = 6  # Deprecated.
 
     @property
     def is_terminal(self) -> bool:
@@ -72,6 +72,16 @@ class TrialStatus(Enum):
     def is_failed(self) -> bool:
         """True if this trial is a failed one."""
         return self == TrialStatus.FAILED
+
+    @property
+    def is_abandoned(self) -> bool:
+        """True if this trial is an abandoned one."""
+        return self == TrialStatus.ABANDONED
+
+    @property
+    def is_completed(self) -> bool:
+        """True if this trial is a successfully completed one."""
+        return self == TrialStatus.COMPLETED
 
 
 def immutable_once_run(func: Callable) -> Callable:
