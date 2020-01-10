@@ -81,9 +81,7 @@ def get_best_from_model_predictions(
     Returns:
         Tuple of parameterization and model predictions for it.
     """
-    for _, trial in sorted(
-        list(experiment.trials.items()), key=lambda x: x[0], reverse=True
-    ):
+    for _, trial in sorted(experiment.trials.items(), key=lambda x: x[0], reverse=True):
         gr = None
         if isinstance(trial, Trial):
             gr = trial.generator_run
