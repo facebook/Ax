@@ -855,7 +855,7 @@ class AxClient:
         """Given a parameterization, find the last trial in the experiment that
         contains an arm with that parameterization.
         """
-        for trial_idx in reversed(sorted(self.experiment.trials.keys())):
+        for trial_idx in sorted(self.experiment.trials.keys(), reverse=True):
             if not_none(self._get_trial(trial_idx).arm).parameters == parameterization:
                 return trial_idx
         raise ValueError(
