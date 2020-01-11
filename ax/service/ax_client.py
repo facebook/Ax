@@ -118,6 +118,11 @@ class AxClient:
 
         verbose_logging: Whether Ax should log significant optimization events,
             defaults to `True`.
+
+        suppress_storage_errors: Whether to suppress SQL storage-related errors if
+            encounted. Only use if SQL storage is not important for the given use
+            case, since this will only log, but not raise, an exception if its
+            encountered while saving to DB or loading from it.
     """
 
     def __init__(
@@ -127,6 +132,7 @@ class AxClient:
         enforce_sequential_optimization: bool = True,
         random_seed: Optional[int] = None,
         verbose_logging: bool = True,
+        suppress_storage_errors: bool = False,
     ) -> None:
         if not verbose_logging:
             logger.setLevel(logging.WARNING)  # pragma: no cover
@@ -147,6 +153,7 @@ class AxClient:
         self._experiment: Optional[Experiment] = None
         self._enforce_sequential_optimization = enforce_sequential_optimization
         self._random_seed = random_seed
+        self._suppress_storage_errors = suppress_storage_errors
         if random_seed is not None:
             logger.warning(
                 f"Random seed set to {random_seed}. Note that this setting "
@@ -807,12 +814,12 @@ class AxClient:
                         db_settings=self.db_settings,
                         overwrite_existing_experiment=overwrite_existing_experiment,
                     )
-                    break
-                except OperationalError:  # pragma: no covert
-                    if i < 2:
+                    return True
+                except OperationalError as err:  # pragma: no covert
+                    if i < 2 or self._suppress_storage_errors:
+                        logger.exception(err)
                         continue
                     raise
-            return True
         return False
 
     def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
