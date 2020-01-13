@@ -941,6 +941,17 @@ class AxClient:
         self.experiment.search_space.check_membership(
             parameterization=parameters, raise_error=True
         )
+        # `check_membership` uses int and float interchangeably, which we don't
+        # want here.
+        for p_name, parameter in self.experiment.search_space.parameters.items():
+            if not isinstance(parameters[p_name], parameter.python_type):
+                typ = type(parameters[p_name])
+                raise ValueError(
+                    f"Value for parameter {p_name} is of type {typ}, expected "
+                    f"{parameter.python_type}. If the intention was to have the "
+                    f"parameter on experiment be of type {typ}, set `value_type` "
+                    "on experiment creation for {p_name}."
+                )
 
     # -------- Backward-compatibility with old save / load method names. -------
 

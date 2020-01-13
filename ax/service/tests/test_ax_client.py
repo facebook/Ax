@@ -497,6 +497,8 @@ class TestAxClient(TestCase):
             ax_client.get_trial_parameters(
                 trial_index=10
             )  # No trial #10 in experiment.
+        with self.assertRaisesRegex(ValueError, ".* is of type"):
+            ax_client.attach_trial({"x": 1, "y": 2})
 
     def test_attach_trial_numpy(self):
         ax_client = AxClient()
