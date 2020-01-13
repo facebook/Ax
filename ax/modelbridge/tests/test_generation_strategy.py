@@ -10,6 +10,7 @@ from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -184,7 +185,7 @@ class TestGenerationStrategy(TestCase):
         self.assertFalse(gs.uses_non_registered_models)
         for _ in range(5):
             gs.gen(exp)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataRequiredError):
             gs.gen(exp)
 
     def test_do_not_enforce_min_observations(self):

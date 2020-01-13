@@ -22,6 +22,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import DataRequiredError
 from ax.metrics.branin import branin
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
@@ -356,7 +357,7 @@ class TestAxClient(TestCase):
         )
         for _ in range(5):
             parameterization, trial_index = ax_client.get_next_trial()
-        with self.assertRaisesRegex(ValueError, "All trials for current model"):
+        with self.assertRaisesRegex(DataRequiredError, "All trials for current model"):
             ax_client.get_next_trial()
         # Check thatwith enforce_sequential_optimization off, we can keep
         # generating.
@@ -556,7 +557,7 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
-        with self.assertRaisesRegex(ValueError, "All trials for current model "):
+        with self.assertRaisesRegex(DataRequiredError, "All trials for current model "):
             run_trials_using_recommended_parallelism(ax_client, [(6, 6), (-1, 3)], 20)
 
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})

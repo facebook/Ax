@@ -11,6 +11,7 @@ from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models, get_model_from_generator_run
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
@@ -207,7 +208,7 @@ class GenerationStrategy(Base):
 
         # Check that minimum observed_arms is satisfied if it's enforced.
         if self._curr.enforce_num_arms and enough_generated and not enough_observed:
-            raise ValueError(
+            raise DataRequiredError(
                 "All trials for current model have been generated, but not enough "
                 "data has been observed to fit next model. Try again when more data "
                 "are available."
