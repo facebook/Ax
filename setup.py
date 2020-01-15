@@ -33,7 +33,7 @@ DEV_REQUIRES = [
 
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 
-NOTEBOOK_REQUIRES = ["jupyter"]
+NOTEBOOK_REQUIRES = ["jupyter", "ray"]
 
 
 def get_git_version(abbreviate: bool = False) -> str:
