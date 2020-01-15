@@ -192,3 +192,20 @@ def subset_model(
     except NotImplementedError:
         pass
     return model, objective_weights, outcome_constraints
+
+
+def _to_inequality_constraints(
+    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None
+) -> Optional[List[Tuple[Tensor, Tensor, float]]]:
+    if linear_constraints is not None:
+        A, b = linear_constraints
+        inequality_constraints = []
+        k, d = A.shape
+        for i in range(k):
+            indicies = A[i, :].nonzero().squeeze()
+            coefficients = -A[i, indicies]
+            rhs = -b[i, 0]
+            inequality_constraints.append((indicies, coefficients, rhs))
+    else:
+        inequality_constraints = None
+    return inequality_constraints

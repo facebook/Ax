@@ -13,6 +13,7 @@ from ax.core.simple_experiment import SimpleExperiment, TEvaluationFunction
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.service.utils.best_point import (
     get_best_from_model_predictions,
@@ -42,6 +43,7 @@ class OptimizationLoop:
         random_seed: Optional[int] = None,
         wait_time: int = 0,
         run_async: bool = False,  # TODO[Lena],
+        generation_strategy: Optional[GenerationStrategy] = None,
     ) -> None:
         assert not run_async, "OptimizationLoop does not yet support async."
         self.wait_time = wait_time
@@ -53,11 +55,14 @@ class OptimizationLoop:
             "that has trials already."
         )
         self.experiment = experiment
-        self.generation_strategy = choose_generation_strategy(
-            search_space=experiment.search_space,
-            arms_per_trial=self.arms_per_trial,
-            random_seed=self.random_seed,
-        )
+        if generation_strategy is None:
+            self.generation_strategy = choose_generation_strategy(
+                search_space=experiment.search_space,
+                arms_per_trial=self.arms_per_trial,
+                random_seed=self.random_seed,
+            )
+        else:
+            self.generation_strategy = generation_strategy
         self.current_trial = 0
 
     @staticmethod
@@ -73,6 +78,7 @@ class OptimizationLoop:
         arms_per_trial: int = 1,
         wait_time: int = 0,
         random_seed: Optional[int] = None,
+        generation_strategy: Optional[GenerationStrategy] = None,
     ) -> "OptimizationLoop":
         """Constructs a synchronous `OptimizationLoop` using an evaluation
         function."""
@@ -101,6 +107,7 @@ class OptimizationLoop:
             arms_per_trial=arms_per_trial,
             random_seed=random_seed,
             wait_time=wait_time,
+            generation_strategy=generation_strategy,
         )
 
     @classmethod
@@ -196,6 +203,7 @@ def optimize(
     total_trials: int = 20,
     arms_per_trial: int = 1,
     random_seed: Optional[int] = None,
+    generation_strategy: Optional[GenerationStrategy] = None,
 ) -> Tuple[
     TParameterization, Optional[TModelPredictArm], Experiment, Optional[ModelBridge]
 ]:
@@ -211,6 +219,7 @@ def optimize(
         total_trials=total_trials,
         arms_per_trial=arms_per_trial,
         random_seed=random_seed,
+        generation_strategy=generation_strategy,
     )
     loop.full_run()
     parameterization, values = loop.get_best_point()

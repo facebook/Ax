@@ -91,7 +91,9 @@ def trial_from_json(
     trial = Trial(experiment=experiment, generator_run=generator_run)
     trial._index = index
     trial._trial_type = trial_type
-    trial._status = status
+    # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
+    # equivalent to `RUNNING`.
+    trial._status = status if status != TrialStatus.DISPATCHED else TrialStatus.RUNNING
     trial._time_created = time_created
     trial._time_completed = time_completed
     trial._time_staged = time_staged

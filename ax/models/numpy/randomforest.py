@@ -106,9 +106,7 @@ def _get_rf(
         n_estimators=num_trees, max_features=max_features, bootstrap=True
     )
     # pyre-fixme[16]: `RandomForestRegressor` has no attribute `estimators_`.
-    r.estimators_ = [
-        DecisionTreeRegressor() for i in range(r.n_estimators)  # pyre-ignore
-    ]
+    r.estimators_ = [DecisionTreeRegressor() for i in range(r.n_estimators)]
     for estimator in r.estimators_:
         # Parametric bootstrap
         y = np.random.normal(loc=Y[:, 0], scale=np.sqrt(Yvar[:, 0]))

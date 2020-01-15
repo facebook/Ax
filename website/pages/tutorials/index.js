@@ -52,6 +52,15 @@ class TutorialHome extends React.Component {
             </ul>
             <ul>
               <li>
+                <a href="raytune_pytorch_cnn.html">
+                  Hyperparameter Optimization via Raytune
+                </a>
+                &nbsp; provides an example of hyperparameter optimization with
+                Ax + Raytune.
+              </li>
+            </ul>
+            <ul>
+              <li>
                 <a href="multi_task.html">Multi-Task Modeling</a>
                 &nbsp; illustrates multi-task Bayesian Optimization on a
                 constrained synthetic Hartmann6 problem.
@@ -63,8 +72,8 @@ class TutorialHome extends React.Component {
                 &nbsp; demonstrates how to use the Ax benchmarking suite to
                 compare Bayesian Optimization algorithm performances and
                 generate a comparative report with visualizations.
-              </li> */}
-            </ul>
+              </li>
+            </ul> */}
             <p>
               For experiments done in a real-life setting, refer to our field
               experiments tutorials:

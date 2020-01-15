@@ -8,7 +8,7 @@ from copy import deepcopy
 
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
-from ax.core.parameter_constraint import OrderConstraint
+from ax.core.parameter_constraint import OrderConstraint, SumConstraint
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.utils.common.testutils import TestCase
@@ -97,3 +97,55 @@ class IntToFloatTransformTest(TestCase):
         ss2 = self.t.transform_search_space(ss2)
         self.assertTrue(ss2.parameters["a"].parameter_type, ParameterType.FLOAT)
         self.assertTrue(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
+
+    def testRoundingWithConstrainedIntRanges(self):
+        parameters = [
+            RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
+            RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
+        ]
+        constrained_int_search_space = SearchSpace(
+            parameters=parameters,
+            parameter_constraints=[
+                SumConstraint(parameters=parameters, is_upper_bound=True, bound=5)
+            ],
+        )
+        t = IntToFloat(
+            search_space=constrained_int_search_space,
+            observation_features=None,
+            observation_data=None,
+        )
+        self.assertEqual(t.rounding, "randomized")
+        observation_features = [ObservationFeatures(parameters={"x": 2.6, "y": 2.6})]
+        self.assertTrue(
+            constrained_int_search_space.check_membership(
+                t.untransform_observation_features(
+                    observation_features=observation_features
+                )[0].parameters
+            )
+        )
+
+    def testRoundingWithImpossiblyConstrainedIntRanges(self):
+        parameters = [
+            RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
+            RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
+        ]
+        constrained_int_search_space = SearchSpace(
+            parameters=parameters,
+            parameter_constraints=[
+                SumConstraint(parameters=parameters, is_upper_bound=True, bound=3)
+            ],
+        )
+        t = IntToFloat(
+            search_space=constrained_int_search_space,
+            observation_features=None,
+            observation_data=None,
+        )
+        self.assertEqual(t.rounding, "randomized")
+        observation_features = [ObservationFeatures(parameters={"x": 2.6, "y": 2.6})]
+        self.assertFalse(
+            constrained_int_search_space.check_membership(
+                t.untransform_observation_features(
+                    observation_features=observation_features
+                )[0].parameters
+            )
+        )

@@ -22,6 +22,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import DataRequiredError
 from ax.metrics.branin import branin
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
@@ -322,7 +323,7 @@ class TestAxClient(TestCase):
             x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(trial_index, raw_data=(branin(x, y), 0.0))
         with self.assertRaisesRegex(ValueError, "Raw data has an invalid type"):
-            ax_client.complete_trial(trial_index, raw_data="invalid_data")
+            ax_client.update_trial_data(trial_index, raw_data="invalid_data")
 
     def test_raw_data_format_with_fidelities(self):
         ax_client = AxClient()
@@ -356,7 +357,7 @@ class TestAxClient(TestCase):
         )
         for _ in range(5):
             parameterization, trial_index = ax_client.get_next_trial()
-        with self.assertRaisesRegex(ValueError, "All trials for current model"):
+        with self.assertRaisesRegex(DataRequiredError, "All trials for current model"):
             ax_client.get_next_trial()
         # Check thatwith enforce_sequential_optimization off, we can keep
         # generating.
@@ -381,7 +382,27 @@ class TestAxClient(TestCase):
             minimize=True,
         )
         params, idx = ax_client.get_next_trial()
+        # Can't update before completing.
+        with self.assertRaisesRegex(ValueError, ".* not yet"):
+            ax_client.update_trial_data(
+                trial_index=idx, raw_data={"objective": (0, 0.0)}
+            )
         ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
+        # Cannot complete a trial twice, should use `update_trial_data`.
+        with self.assertRaisesRegex(ValueError, ".* already been completed"):
+            ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
+        # Cannot update trial data with observation for a metric it already has.
+        with self.assertRaisesRegex(ValueError, ".* contained an observation"):
+            ax_client.update_trial_data(
+                trial_index=idx, raw_data={"objective": (0, 0.0)}
+            )
+        # Same as above, except objective name should be getting inferred.
+        with self.assertRaisesRegex(ValueError, ".* contained an observation"):
+            ax_client.update_trial_data(trial_index=idx, raw_data=1.0)
+        ax_client.update_trial_data(trial_index=idx, raw_data={"m1": (1, 0.0)})
+        metrics_in_data = ax_client.experiment.fetch_data().df["metric_name"].values
+        self.assertIn("m1", metrics_in_data)
+        self.assertIn("objective", metrics_in_data)
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         params2, idy = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
@@ -455,6 +476,8 @@ class TestAxClient(TestCase):
         self.assertEqual(
             ax_client.experiment.trials.get(idx).run_metadata.get("dummy"), "test"
         )
+        with self.assertRaisesRegex(ValueError, ".* no longer expects"):
+            ax_client.complete_trial(idx, {})
 
     def test_attach_trial_and_get_trial_parameters(self):
         ax_client = AxClient()
@@ -465,7 +488,7 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
-        params, idx = ax_client.attach_trial(parameters={"x": 0, "y": 1})
+        params, idx = ax_client.attach_trial(parameters={"x": 0.0, "y": 1.0})
         ax_client.complete_trial(trial_index=idx, raw_data=5)
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         self.assertEqual(
@@ -475,6 +498,8 @@ class TestAxClient(TestCase):
             ax_client.get_trial_parameters(
                 trial_index=10
             )  # No trial #10 in experiment.
+        with self.assertRaisesRegex(ValueError, ".* is of type"):
+            ax_client.attach_trial({"x": 1, "y": 2})
 
     def test_attach_trial_numpy(self):
         ax_client = AxClient()
@@ -485,7 +510,7 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
-        params, idx = ax_client.attach_trial(parameters={"x": 0, "y": 1})
+        params, idx = ax_client.attach_trial(parameters={"x": 0.0, "y": 1.0})
         ax_client.complete_trial(trial_index=idx, raw_data=np.int32(5))
         self.assertEqual(ax_client.get_best_parameters()[0], params)
 
@@ -532,7 +557,7 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
-        with self.assertRaisesRegex(ValueError, "All trials for current model "):
+        with self.assertRaisesRegex(DataRequiredError, "All trials for current model "):
             run_trials_using_recommended_parallelism(ax_client, [(6, 6), (-1, 3)], 20)
 
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
@@ -858,3 +883,33 @@ class TestAxClient(TestCase):
                 parameterization={k: v + 1.0 for k, v in params.items()},
             )
         )
+
+    # Patching `OperationalError`, since its hard to instantiate.
+    @patch(f"{AxClient.__module__}.OperationalError", new=RuntimeError)
+    @patch(
+        f"{AxClient.__module__}.save_experiment_and_generation_strategy",
+        side_effect=RuntimeError,
+    )
+    def test_storage_error_handling(self, mock_save_fails):
+        """Check that if `suppress_storage_errors` is True, AxClient won't
+        visibly fail if encountered storage errors.
+        """
+        init_test_engine_and_session_factory(force_init=True)
+        config = SQAConfig()
+        encoder = Encoder(config=config)
+        decoder = Decoder(config=config)
+        db_settings = DBSettings(encoder=encoder, decoder=decoder)
+        ax_client = AxClient(db_settings=db_settings, suppress_storage_errors=True)
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        for _ in range(3):
+            parameters, trial_index = ax_client.get_next_trial()
+            ax_client.complete_trial(
+                trial_index=trial_index, raw_data=branin(*parameters.values())
+            )

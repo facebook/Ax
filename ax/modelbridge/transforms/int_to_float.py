@@ -11,7 +11,17 @@ from ax.core.parameter import Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.rounding import randomized_round
+from ax.modelbridge.transforms.rounding import (
+    contains_constrained_integer,
+    randomized_round_parameters,
+)
+from ax.utils.common.logger import get_logger
+
+
+logger = get_logger(__name__)
+
+
+DEFAULT_MAX_ROUND_ATTEMPTS = 10000
 
 
 class IntToFloat(Transform):
@@ -30,9 +40,15 @@ class IntToFloat(Transform):
         observation_data: List[ObservationData],
         config: Optional[TConfig] = None,
     ) -> None:
+        self.search_space = search_space
         self.rounding = "strict"
         if config is not None:
             self.rounding = config.get("rounding", "strict")
+            self.max_round_attempts = config.get(
+                "max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS
+            )
+        else:
+            self.max_round_attempts = DEFAULT_MAX_ROUND_ATTEMPTS
 
         # Identify parameters that should be transformed
         self.transform_parameters: Set[str] = {
@@ -40,6 +56,8 @@ class IntToFloat(Transform):
             for p_name, p in search_space.parameters.items()
             if isinstance(p, RangeParameter) and p.parameter_type == ParameterType.INT
         }
+        if contains_constrained_integer(self.search_space, self.transform_parameters):
+            self.rounding = "randomized"
 
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
@@ -84,12 +102,32 @@ class IntToFloat(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in self.transform_parameters:
-                # pyre: param is declared to have type `float` but is used as
-                # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
-                param: float = obsf.parameters.get(p_name)
-                if self.rounding == "strict":
+            if self.rounding == "strict":
+                for p_name in self.transform_parameters:
+                    # pyre: param is declared to have type `float` but is used as
+                    # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
+                    param: float = obsf.parameters.get(p_name)
                     obsf.parameters[p_name] = int(round(param))  # TODO: T41938776
-                else:
-                    obsf.parameters[p_name] = randomized_round(param)
+            else:
+                round_attempts = 0
+                rounded_parameters = randomized_round_parameters(
+                    obsf.parameters, self.transform_parameters
+                )
+                # Try to round up to max_round_attempt times)
+                while (
+                    not self.search_space.check_membership(rounded_parameters)
+                    and round_attempts < self.max_round_attempts
+                ):
+                    rounded_parameters = randomized_round_parameters(
+                        obsf.parameters, self.transform_parameters
+                    )
+                    round_attempts += 1
+                # Update observation with successful rounding or log warning.
+                for p_name in self.transform_parameters:
+                    obsf.parameters[p_name] = rounded_parameters[p_name]
+                if not self.search_space.check_membership(rounded_parameters):
+                    logger.warning(
+                        f"Unable to round {obsf.parameters}"
+                        f"to meet constraints of {self.search_space}"
+                    )
         return observation_features

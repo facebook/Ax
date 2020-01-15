@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base import Base
-from ax.core.base_trial import BaseTrial
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -660,7 +660,13 @@ class Decoder:
                 )
         trial._index = trial_sqa.index
         trial._trial_type = trial_sqa.trial_type
-        trial._status = trial_sqa.status
+        # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
+        # equivalent to `RUNNING`.
+        trial._status = (
+            trial_sqa.status
+            if trial_sqa.status != TrialStatus.DISPATCHED
+            else TrialStatus.RUNNING
+        )
         trial._time_created = trial_sqa.time_created
         trial._time_completed = trial_sqa.time_completed
         trial._time_staged = trial_sqa.time_staged

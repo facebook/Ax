@@ -7,9 +7,15 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
+from ax.core.types import TConfig
+from ax.models.model_utils import best_observed_point, get_observed
+from ax.models.torch.utils import _to_inequality_constraints
+from ax.models.torch_base import TorchModel
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
+from botorch.exceptions.errors import UnsupportedError
 from botorch.fit import fit_gpytorch_model
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
@@ -252,6 +258,161 @@ def scipy_optimizer(
         sequential=sequential,
     )
     return X, expected_acquisition_value
+
+
+def recommend_best_observed_point(
+    model: TorchModel,
+    bounds: List[Tuple[float, float]],
+    objective_weights: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    fixed_features: Optional[Dict[int, float]] = None,
+    model_gen_options: Optional[TConfig] = None,
+    target_fidelities: Optional[Dict[int, float]] = None,
+) -> Optional[Tensor]:
+    """
+    A wrapper around `ax.models.model_utils.best_observed_point` for TorchModel
+    that recommends a best point from previously observed points using either a
+    "max_utility" or "feasible_threshold" strategy.
+
+    Args:
+        model: A TorchModel.
+        bounds: A list of (lower, upper) tuples for each column of X.
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b.
+        linear_constraints: A tuple of (A, b). For k linear constraints on
+            d-dimensional x, A is (k x d) and b is (k x 1) such that
+            A x <= b.
+        fixed_features: A map {feature_index: value} for features that
+            should be fixed to a particular value in the best point.
+        model_gen_options: A config dictionary that can contain
+            model-specific options.
+        target_fidelities: A map {feature_index: value} of fidelity feature
+            column indices to their respective target fidelities. Used for
+            multi-fidelity optimization.
+
+    Returns:
+        A d-array of the best point, or None if no feasible point was observed.
+    """
+    if target_fidelities:
+        raise NotImplementedError(
+            "target_fidelities not implemented for base BotorchModel"
+        )
+
+    x_best = best_observed_point(
+        model=model,
+        bounds=bounds,
+        objective_weights=objective_weights,
+        outcome_constraints=outcome_constraints,
+        linear_constraints=linear_constraints,
+        fixed_features=fixed_features,
+        options=model_gen_options,
+    )
+    if x_best is None:
+        return None
+    return x_best.to(dtype=model.dtype, device=torch.device("cpu"))
+
+
+def recommend_best_out_of_sample_point(
+    model: TorchModel,
+    bounds: List[Tuple[float, float]],
+    objective_weights: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    fixed_features: Optional[Dict[int, float]] = None,
+    model_gen_options: Optional[TConfig] = None,
+    target_fidelities: Optional[Dict[int, float]] = None,
+) -> Optional[Tensor]:
+    """
+    Identify the current best point by optimizing the posterior mean of the model.
+    This is "out-of-sample" because it considers un-observed designs as well.
+
+    Return None if no such point can be identified.
+
+    Args:
+        model: A TorchModel.
+        bounds: A list of (lower, upper) tuples for each column of X.
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b.
+        linear_constraints: A tuple of (A, b). For k linear constraints on
+            d-dimensional x, A is (k x d) and b is (k x 1) such that
+            A x <= b.
+        fixed_features: A map {feature_index: value} for features that
+            should be fixed to a particular value in the best point.
+        model_gen_options: A config dictionary that can contain
+            model-specific options.
+        target_fidelities: A map {feature_index: value} of fidelity feature
+            column indices to their respective target fidelities. Used for
+            multi-fidelity optimization.
+
+    Returns:
+        A d-array of the best point, or None if no feasible point exists.
+    """
+    options = model_gen_options or {}
+    fixed_features = fixed_features or {}
+    acf_options = options.get("acquisition_function_kwargs", {})
+    optimizer_options = options.get("optimizer_kwargs", {})
+
+    X_observed = get_observed(
+        Xs=model.Xs,  # pyre-ignore: [16]
+        objective_weights=objective_weights,
+        outcome_constraints=outcome_constraints,
+    )
+
+    if hasattr(model, "_get_best_point_acqf"):
+        acq_function, non_fixed_idcs = model._get_best_point_acqf(  # pyre-ignore: [16]
+            X_observed=X_observed,
+            objective_weights=objective_weights,
+            mc_samples=acf_options.get("mc_samples", 512),
+            fixed_features=fixed_features,
+            target_fidelities=target_fidelities,
+            outcome_constraints=outcome_constraints,
+            seed_inner=acf_options.get("seed_inner", None),
+            qmc=acf_options.get("qmc", True),
+        )
+    else:
+        raise RuntimeError("The model should implement _get_best_point_acqf.")
+
+    inequality_constraints = _to_inequality_constraints(linear_constraints)
+    # TODO: update optimizers to handle inequality_constraints
+    # (including transforming constraints b/c of fixed features)
+    if inequality_constraints is not None:
+        raise UnsupportedError("Inequality constraints are not supported!")
+
+    return_best_only = optimizer_options.get("return_best_only", True)
+    bounds_ = torch.tensor(bounds, dtype=model.dtype, device=model.device)
+    bounds_ = bounds_.transpose(-1, -2)
+    if non_fixed_idcs is not None:
+        bounds_ = bounds_[..., non_fixed_idcs]
+
+    candidates, _ = optimize_acqf(
+        acq_function=acq_function,
+        bounds=bounds_,
+        q=1,
+        num_restarts=optimizer_options.get("num_restarts", 60),
+        raw_samples=optimizer_options.get("raw_samples", 1024),
+        inequality_constraints=inequality_constraints,
+        fixed_features=None,  # handled inside the acquisition function
+        options={
+            "batch_limit": optimizer_options.get("batch_limit", 8),
+            "maxiter": optimizer_options.get("maxiter", 200),
+            "nonnegative": optimizer_options.get("nonnegative", False),
+            "method": "L-BFGS-B",
+        },
+        return_best_only=return_best_only,
+    )
+    rec_point = candidates.detach().cpu()
+    if isinstance(acq_function, FixedFeatureAcquisitionFunction):
+        rec_point = acq_function._construct_X_full(rec_point)
+    if return_best_only:
+        rec_point = rec_point.view(-1)
+    return rec_point
 
 
 def _get_model(

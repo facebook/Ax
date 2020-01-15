@@ -7,6 +7,7 @@
 from unittest.mock import patch
 
 from ax.metrics.branin import branin
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.service.managed_loop import OptimizationLoop, optimize
 from ax.utils.common.testutils import TestCase
@@ -231,3 +232,30 @@ class TestManagedLoop(TestCase):
             random_seed=12345,
         )
         self.assertEqual(12345, model.model.seed)
+
+    def test_custom_gs(self) -> None:
+        """Managed loop with custom generation strategy"""
+        strategy0 = GenerationStrategy(
+            name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
+        )
+        loop = OptimizationLoop.with_evaluation_function(
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [-5.0, 10.0],
+                    "value_type": "float",
+                    "log_scale": False,
+                },
+                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
+            ],
+            experiment_name="test",
+            objective_name="branin",
+            minimize=True,
+            evaluation_function=_branin_evaluation_function,
+            total_trials=6,
+            generation_strategy=strategy0,
+        )
+        bp, _ = loop.full_run().get_best_point()
+        self.assertIn("x1", bp)
+        self.assertIn("x2", bp)

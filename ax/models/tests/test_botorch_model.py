@@ -9,7 +9,10 @@ from unittest import mock
 
 import torch
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
-from ax.models.torch.botorch_defaults import get_and_fit_model
+from ax.models.torch.botorch_defaults import (
+    get_and_fit_model,
+    recommend_best_out_of_sample_point,
+)
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import FixedNoiseGP, ModelListGP
@@ -340,6 +343,22 @@ class BotorchModelTest(TestCase):
                 for k, v in chain(model.named_parameters(), model.named_buffers())
             )
         )
+
+        # Test that recommend_best_out_of_sample_point errors w/o _get_best_point_acqf
+        model = BotorchModel(best_point_recommender=recommend_best_out_of_sample_point)
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1 + Xs2_diff,
+                Ys=Ys1 + Ys2,
+                Yvars=Yvars1 + Yvars2,
+                bounds=bounds,
+                task_features=tfs,
+                feature_names=fns,
+                metric_names=mns,
+                fidelity_features=[],
+            )
+        with self.assertRaises(RuntimeError):
+            xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
 
     def test_BotorchModel_cuda(self):
         if torch.cuda.is_available():

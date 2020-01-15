@@ -11,6 +11,7 @@ from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models, get_model_from_generator_run
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
@@ -35,6 +36,11 @@ class GenerationStep(NamedTuple):
     """One step in the generation strategy, corresponds to a single model.
     Describes the model, how many arms will be generated with this model, what
     minimum number of observations is required to proceed to the next model, etc.
+
+    Model can be specified either from the model registry
+    (ax.modelbridge.registry.Models or using a callable model constructor. Only
+    models from the registry can be saved, and thus optimization can only be
+    resumed if interrupted when using models from the registry.
     """
 
     model: Union[Models, Callable[..., ModelBridge]]
@@ -96,6 +102,11 @@ class GenerationStrategy(Base):
             self._steps[idx] = step._replace(index=idx)
             if not isinstance(step.model, Models):
                 self._uses_registered_models = False
+        if not self._uses_registered_models:
+            logger.info(
+                "Using model via callable function, "
+                "so optimization is not resumable if interrupted."
+            )
         self._generated = []
         self._observed = []
         self._model = None
@@ -197,7 +208,7 @@ class GenerationStrategy(Base):
 
         # Check that minimum observed_arms is satisfied if it's enforced.
         if self._curr.enforce_num_arms and enough_generated and not enough_observed:
-            raise ValueError(
+            raise DataRequiredError(
                 "All trials for current model have been generated, but not enough "
                 "data has been observed to fit next model. Try again when more data "
                 "are available."
@@ -284,18 +295,6 @@ class GenerationStrategy(Base):
         function, with all available data."""
         model = self._curr.model
         assert not isinstance(model, Models) and callable(model)
-        fxn_name = (  # Only grab the name when available; without this ternary
-            f"` {model.__name__}`"  # operator, grabbing the __name__
-            if hasattr(model, "__name__")  # will error for mocks.
-            else ""
-        )
-        logger.info(
-            f"Using a custom model provided through a callable function {fxn_name}"
-            ". Note that Ax cannot save models provided through functions, "
-            "so this optimization will not be resumable if interrupted. For "
-            "resumable optimization, use models, registered in the `Models` "
-            "registry enum (`ax.modelbridge.registry.Models`)."
-        )
         self._model = self._curr.model(
             **_filter_kwargs(
                 self._curr.model,

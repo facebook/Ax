@@ -179,7 +179,7 @@ class FromBotorch(SyntheticFunction):
 
     @property
     def name(self) -> str:
-        return f"{self._botorch_function.__class__.__name__}"
+        return f"{self.__class__.__name__}_{self._botorch_function.__class__.__name__}"
 
     def _f(self, X: np.ndarray) -> float:
         # TODO: support batch evaluation

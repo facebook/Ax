@@ -4,7 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from ax.benchmark.benchmark import full_benchmark_run
+import numpy as np
+from ax.benchmark.benchmark import benchmark_minimize_callable, full_benchmark_run
 from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -16,6 +17,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_optimization_config,
 )
+from scipy.optimize import minimize
 
 
 class TestBenchmark(TestCase):
@@ -67,4 +69,30 @@ class TestBenchmark(TestCase):
                 num_trials=5,
                 raise_all_exceptions=True,
                 benchmark_replication=broken_benchmark_replication,
+            )
+
+    def test_minimize_callable(self):
+        problem = BenchmarkProblem(
+            name="Branin",
+            search_space=get_branin_search_space(),
+            optimization_config=get_branin_optimization_config(),
+        )
+
+        experiment, f = benchmark_minimize_callable(
+            problem=problem, num_trials=20, method_name="scipy", replication_index=2
+        )
+        res = minimize(
+            fun=f,
+            x0=np.zeros(2),
+            bounds=[(-5, 10), (0, 15)],
+            options={"maxiter": 3},
+            method="Nelder-Mead",
+        )
+        self.assertTrue(res.fun < 0)  # maximization problem
+        self.assertEqual(len(experiment.trials), res.nfev)
+        self.assertEqual(len(experiment.fetch_data().df), res.nfev)
+        self.assertEqual(experiment.name, "scipy_on_Branin__v2")
+        with self.assertRaises(ValueError):
+            minimize(
+                fun=f, x0=np.zeros(2), bounds=[(-5, 10), (0, 15)], method="Nelder-Mead"
             )

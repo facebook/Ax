@@ -318,11 +318,17 @@ def simple_benchmark_problem_from_json(
     """Load a benchmark problem from JSON."""
     uses_synthetic_function = object_json.pop("uses_synthetic_function")
     if uses_synthetic_function:
-        f = getattr(synthetic_functions, object_json.pop("function_name"))()
+        function_name = object_json.pop("function_name")
+        if function_name.startswith(synthetic_functions.FromBotorch.__name__):
+            raise NotImplementedError  # TODO[Lena], pragma: no cover
+        else:
+            f = getattr(synthetic_functions, function_name)()
     else:
         f = pickle.loads(object_json.pop("f").encode())
     domain = object_from_json(object_json.pop("domain"))
-    assert isinstance(domain, list) and all(isinstance(x, tuple) for x in domain)
+    assert isinstance(domain, list) and all(
+        isinstance(x, (tuple, list)) for x in domain
+    )
     return SimpleBenchmarkProblem(
         f=f,
         name=object_json.pop("name"),

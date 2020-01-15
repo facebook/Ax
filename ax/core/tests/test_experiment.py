@@ -4,8 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.parameter import FixedParameter, ParameterType
@@ -255,6 +257,7 @@ class ExperimentTest(TestCase):
 
         # Test fetch data
         batch_data = batch.fetch_data()
+        print(batch_data.df)
         self.assertEqual(len(batch_data.df), n)
 
         exp_data = exp.fetch_data()
@@ -281,6 +284,20 @@ class ExperimentTest(TestCase):
 
         # Test retrieving full exp data
         self.assertEqual(len(exp.lookup_data_for_ts(t2).df), 4 * n)
+
+        with self.assertRaisesRegex(ValueError, ".* for metric"):
+            exp.attach_data(batch_data, combine_with_last_data=True)
+
+        new_data = Data(
+            df=pd.DataFrame.from_records(
+                [{"arm_name": "0_0", "metric_name": "z", "mean": 3, "trial_index": 0}]
+            )
+        )
+        t3 = exp.attach_data(new_data, combine_with_last_data=True)
+        self.assertEqual(len(full_dict[0]), 3)  # 3 data objs for batch 0 now
+        self.assertIn("z", exp.lookup_data_for_ts(t3).df["metric_name"].tolist())
+        # Remove the newly added data.
+        del exp._data_by_trial[0][t3]
 
         # Verify we don't get the data if the trial is abandoned
         batch._status = TrialStatus.ABANDONED

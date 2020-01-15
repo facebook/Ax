@@ -33,7 +33,7 @@ class TestModelbridgeUtils(TestCase):
         # Pending observations should be none if there aren't any.
         self.assertIsNone(get_pending_observation_features(self.experiment))
 
-        self.trial.mark_dispatched()
+        self.trial.mark_running(no_runner_required=True)
         # Now that the trial is deployed, it should become a pending trial on the
         # experiment and appear as pending for all metrics.
         self.assertEqual(
@@ -65,7 +65,7 @@ class TestModelbridgeUtils(TestCase):
     def test_get_pending_observation_features_batch_trial(self):
         # Check the same functionality for batched trials.
         self.assertIsNone(get_pending_observation_features(self.experiment_2))
-        self.batch_trial.mark_dispatched()
+        self.batch_trial.mark_running(no_runner_required=True)
         sq_obs_feat = ObservationFeatures.from_arm(
             self.batch_trial.arms_by_name.get("status_quo"),
             trial_index=self.batch_trial.index,
@@ -81,7 +81,7 @@ class TestModelbridgeUtils(TestCase):
 
     def test_pending_observations_as_array(self):
         # Mark a trial dispatched so that there are pending observations.
-        self.trial.mark_dispatched()
+        self.trial.mark_running(no_runner_required=True)
         # If outcome names are respected, unlisted metrics should be filtered out.
         self.assertEqual(
             [

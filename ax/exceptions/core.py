@@ -19,7 +19,7 @@ class AxError(Exception):
         self.hint: str = hint
 
     def __str__(self) -> str:
-        return " ".join([self.message, getattr(self, "hint", "")])
+        return " ".join([self.message, getattr(self, "hint", "")]).rstrip()
 
 
 class UnsupportedError(AxError):
@@ -50,6 +50,17 @@ class NoDataError(AxError):
     """Raised when no data is found for experiment in underlying data store.
 
     Useful to distinguish data failure reasons in automated analyses.
+    """
+
+    pass
+
+
+class DataRequiredError(AxError):
+    """Raised when more observed data is needed by the model to continue the
+    optimization.
+
+    Useful to distinguish when user needs to wait to request more trials until
+    more data is available.
     """
 
     pass

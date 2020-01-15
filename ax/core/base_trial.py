@@ -30,7 +30,6 @@ class TrialStatus(Enum):
         CANDIDATE --> STAGED --> RUNNING --> COMPLETED
                   ------------->         --> FAILED (machine failure)
                   -------------------------> ABANDONED (human-initiated action)
-                  --> DISPATCHED ---------->
 
     Trials may be abandoned at any time prior to completion or failure
     via human intervention. The difference between abandonment and failure
@@ -40,11 +39,6 @@ class TrialStatus(Enum):
     Additionally, when trials are deployed, they may be in an intermediate
     staged state (e.g. scheduled but waiting for resources) or immediately
     transition to running.
-
-    When used though the service API, Ax proposes trials and expects the client
-    application to compelete them with evaluation data when available. In this
-    case, a trial is set to 'dispatched' right after the trial is created, and
-    when user completes the trial with data, its status is set to 'completed'.
     """
 
     CANDIDATE = 0
@@ -53,7 +47,7 @@ class TrialStatus(Enum):
     COMPLETED = 3
     RUNNING = 4
     ABANDONED = 5
-    DISPATCHED = 6
+    DISPATCHED = 6  # Deprecated.
 
     @property
     def is_terminal(self) -> bool:
@@ -72,16 +66,22 @@ class TrialStatus(Enum):
     @property
     def is_deployed(self) -> bool:
         """True if trial has been deployed but not completed."""
-        return (
-            self == TrialStatus.STAGED
-            or self == TrialStatus.RUNNING
-            or self == TrialStatus.DISPATCHED
-        )
+        return self == TrialStatus.STAGED or self == TrialStatus.RUNNING
 
     @property
     def is_failed(self) -> bool:
         """True if this trial is a failed one."""
         return self == TrialStatus.FAILED
+
+    @property
+    def is_abandoned(self) -> bool:
+        """True if this trial is an abandoned one."""
+        return self == TrialStatus.ABANDONED
+
+    @property
+    def is_completed(self) -> bool:
+        """True if this trial is a successfully completed one."""
+        return self == TrialStatus.COMPLETED
 
 
 def immutable_once_run(func: Callable) -> Callable:
@@ -160,6 +160,11 @@ class BaseTrial(ABC, Base):
     def status(self) -> TrialStatus:
         """The status of the trial in the experimentation lifecycle."""
         return self._status
+
+    @property
+    def is_complete(self) -> bool:
+        """Checks if trial status is `COMPLETED`."""
+        return self.status == TrialStatus.COMPLETED
 
     @status.setter
     def status(self, status: TrialStatus) -> None:
@@ -352,7 +357,7 @@ class BaseTrial(ABC, Base):
         self._time_staged = datetime.now()
         return self
 
-    def mark_running(self) -> "BaseTrial":
+    def mark_running(self, no_runner_required: bool = False) -> "BaseTrial":
         """Mark trial has started running.
 
         Returns:
@@ -364,25 +369,25 @@ class BaseTrial(ABC, Base):
             self._time_run_started = datetime.now()
             return self
 
-        if self._runner is None:
+        if self._runner is None and not no_runner_required:
             raise ValueError("Cannot mark trial running without setting runner.")
 
         prev_step = (
             TrialStatus.STAGED
             # pyre-fixme[16]: `Optional` has no attribute `staging_required`.
-            if self._runner.staging_required
+            if self._runner is not None and self._runner.staging_required
             else TrialStatus.CANDIDATE
         )
-        prev_step_str = "staged." if prev_step == TrialStatus.STAGED else "candidate."
+        prev_step_str = "staged" if prev_step == TrialStatus.STAGED else "candidate"
         if self._status != prev_step:
             raise ValueError(
-                f"Can only mark this trial as running when {prev_step_str}"
+                f"Can only mark this trial as running when {prev_step_str}."
             )
         self._status = TrialStatus.RUNNING
         self._time_run_started = datetime.now()
         return self
 
-    def mark_completed(self, allow_repeat_completion: bool = False) -> "BaseTrial":
+    def mark_completed(self) -> "BaseTrial":
         """Mark trial as completed.
 
         Args:
@@ -393,18 +398,8 @@ class BaseTrial(ABC, Base):
         Returns:
             The trial instance.
         """
-        repeat_completion = (
-            self._status == TrialStatus.COMPLETED and allow_repeat_completion
-        )
-        if (
-            self._status != TrialStatus.RUNNING
-            and self._status != TrialStatus.DISPATCHED
-            and not repeat_completion
-        ):
-            raise ValueError(
-                "Can only complete trial that is currently running, dispatched "
-                "or completed (for latter, `allow_repeat_completion` must be True)."
-            )
+        if self._status != TrialStatus.RUNNING:
+            raise ValueError("Can only complete trial that is currently running.")
         self._status = TrialStatus.COMPLETED
         self._time_completed = datetime.now()
         return self
@@ -433,25 +428,9 @@ class BaseTrial(ABC, Base):
         Returns:
             The trial instance.
         """
-        if (
-            self._status != TrialStatus.RUNNING
-            and self._status != TrialStatus.DISPATCHED
-        ):
-            raise ValueError(
-                "Can only mark failed a trial that is currently running or dispatched."
-            )
+        if self._status != TrialStatus.RUNNING:
+            raise ValueError("Can only mark failed a trial that is currently running.")
 
         self._status = TrialStatus.FAILED
         self._time_completed = datetime.now()
-        return self
-
-    def mark_dispatched(self) -> "BaseTrial":
-        """Mark trial as dispatched through the service API to await completion.
-
-        Returns:
-            The trial instance.
-        """
-        if self._status != TrialStatus.CANDIDATE:
-            raise ValueError("Can only mark a candidate trial as dispatched.")
-        self._status = TrialStatus.DISPATCHED
         return self
