@@ -220,6 +220,7 @@ def relativize(
     r_hat = ~same * r_hat
     var = ((s_t ** 2) - 2 * c * cov_t + (c ** 2) * (sem_c ** 2)) / (mean_c ** 2)
     if as_percent:
+        # pyre-fixme[7]: Expected `Tuple[ndarray, ndarray]` but got `Tuple[int, int]`.
         return (r_hat * 100, np.sqrt(var) * 100)
     else:
         return (r_hat, np.sqrt(var))

@@ -45,6 +45,9 @@ class LogY(Transform):
     ) -> None:
         if config is None:
             raise ValueError(f"LogY requires a config.")
+        # pyre-fixme[6]: Expected `Iterable[Variable[_T]]` for 1st param but got
+        #  `Union[List[Variable[_T]],
+        #  botorch.acquisition.acquisition.AcquisitionFunction, float, int, str]`.
         metric_names = list(config.get("metrics", []))
         if len(metric_names) == 0:
             raise ValueError(f"Must specify at least one metric in the config.")
@@ -141,6 +144,7 @@ def match_ci_width(
     width_asym = transform(mean + d) - transform(mean - d)
     new_mean = transform(mean)
     new_variance = (width_asym / 2 / fac) ** 2
+    # pyre-fixme[7]: Expected `ndarray` but got `Tuple[ndarray, float]`.
     return new_mean, new_variance
 
 

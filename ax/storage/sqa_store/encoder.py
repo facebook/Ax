@@ -411,6 +411,9 @@ class Encoder:
             best_arm_name = best_arm._name
             best_arm_parameters = best_arm.parameters
         model_predictions = (
+            # pyre-fixme[6]: Expected `Iterable[Variable[_T]]` for 1st param but got
+            #  `Optional[typing.Tuple[Dict[str, List[float]], Dict[str, Dict[str,
+            #  List[float]]]]]`.
             list(generator_run.model_predictions)
             if generator_run.model_predictions is not None
             else None

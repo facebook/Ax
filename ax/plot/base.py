@@ -45,7 +45,6 @@ class AxPlotConfig(_AxPlotConfigBase):
         dict_data = json.loads(
             json.dumps(named_tuple_to_dict(data), cls=utils.PlotlyJSONEncoder)
         )
-        # pyre-fixme[19]: Expected 2 positional arguments.
         # pyre-fixme[7]: Expected `AxPlotConfig` but got `NamedTuple`.
         return super(AxPlotConfig, cls).__new__(cls, dict_data, plot_type)
 
