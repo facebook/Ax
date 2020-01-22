@@ -7,6 +7,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+import torch
 from ax.core.types import TConfig
 from ax.models.base import Model
 from ax.models.model_utils import tunable_feature_indices
@@ -163,4 +164,4 @@ class SobolGenerator(RandomModel):
             raise ValueError(  # pragma: no cover
                 "Sobol Engine must be initialized before candidate generation."
             )
-        return not_none(self.engine).draw(n)
+        return not_none(self.engine).draw(n, dtype=torch.double).numpy()
