@@ -10,7 +10,7 @@ from setuptools import find_packages, setup
 REQUIRES = [
     "botorch==0.2.1",
     "jinja2",  # also a Plotly dep
-    "pandas",
+    "pandas<1.0.0",
     "scipy",
     "scikit-learn",
     "plotly",
