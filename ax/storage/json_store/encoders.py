@@ -78,6 +78,7 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,
         "optimize_for_power": batch.optimize_for_power,
+        "generation_step_index": batch._generation_step_index,
     }
 
 
@@ -97,6 +98,7 @@ def trial_to_dict(trial: Trial) -> Dict[str, Any]:
         "generator_run": trial.generator_run,
         "runner": trial.runner,
         "num_arms_created": trial._num_arms_created,
+        "generation_step_index": trial._generation_step_index,
     }
 
 
@@ -263,6 +265,7 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
         "bridge_kwargs": generator_run._bridge_kwargs,
         "gen_metadata": generator_run._gen_metadata,
         "model_state_after_gen": generator_run._model_state_after_gen,
+        "generation_step_index": generator_run._generation_step_index,
     }
 
 

@@ -95,6 +95,9 @@ class Trial(BaseTrial):
 
         self._generator_run = generator_run
         generator_run.index = 0
+        self._set_generation_step_index(
+            generation_step_index=generator_run._generation_step_index
+        )
         return self
 
     @property

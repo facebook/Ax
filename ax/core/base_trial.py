@@ -146,6 +146,11 @@ class BaseTrial(ABC, Base):
         # Counter to maintain how many arms have been named by this BatchTrial
         self._num_arms_created = 0
 
+        # If generator run(s) in this trial were generated from a generation
+        # strategy, this property will be set to the generation step that produced
+        # the generator run(s).
+        self._generation_step_index = None
+
     @property
     def experiment(self) -> "core.experiment.Experiment":
         """The experiment this trial belongs to."""
@@ -295,6 +300,22 @@ class BaseTrial(ABC, Base):
         # If arm was named using given name, incremement the count
         if arm.name == proposed_name:
             self._num_arms_created += 1
+
+    def _set_generation_step_index(self, generation_step_index: Optional[int]) -> None:
+        """Sets the `generation_step_index` property of the trial, to reflect which
+        generation step of a given generation strategy (if any) produced the generator
+        run(s) attached to this trial.
+        """
+        if (
+            self._generation_step_index is not None
+            and generation_step_index is not None
+            and self._generation_step_index != generation_step_index
+        ):
+            raise ValueError(
+                "Cannot add generator runs from different generation steps to a "
+                "single trial."
+            )
+        self._generation_step_index = generation_step_index
 
     @abstractproperty
     def arms(self) -> List[Arm]:

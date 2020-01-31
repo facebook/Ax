@@ -84,6 +84,7 @@ class GeneratorRun(Base):
         bridge_kwargs: Optional[Dict[str, Any]] = None,
         gen_metadata: Optional[TGenMetadata] = None,
         model_state_after_gen: Optional[Dict[str, Any]] = None,
+        generation_step_index: Optional[int] = None,
     ) -> None:
         """
         Inits GeneratorRun.
@@ -119,6 +120,9 @@ class GeneratorRun(Base):
                 model when reinstantiating it to continue generation from it,
                 rather than to reproduce the conditions, in which this generator
                 run was created.
+            generation_step_index: Optional index of the generation step that produced
+                this generator run. Applicable only if the genetator run was created
+                via a generation strategy.
         """
         self._arm_weight_table: OrderedDict[str, ArmWeight] = OrderedDict()
         if weights is None:
@@ -160,6 +164,10 @@ class GeneratorRun(Base):
         self._bridge_kwargs = bridge_kwargs
         self._gen_metadata = gen_metadata
         self._model_state_after_gen = model_state_after_gen
+
+        # Validate that generation step index is non-negative.
+        assert generation_step_index is None or generation_step_index >= 0
+        self._generation_step_index = generation_step_index
 
     @property
     def arms(self) -> List[Arm]:

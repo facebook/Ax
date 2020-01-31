@@ -330,6 +330,7 @@ def get_batch_trial(abandon_arm: bool = True) -> BatchTrial:
         batch.mark_arm_abandoned(batch.arms[0].name, "abandoned reason")
     batch.runner = SyntheticRunner()
     batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
+    batch._generation_step_index = 0
     return batch
 
 
@@ -381,6 +382,7 @@ def get_trial() -> Trial:
     arm = get_arms_from_dict(get_arm_weights1())[0]
     trial.add_arm(arm)
     trial.runner = SyntheticRunner()
+    trial._generation_step_index = 0
     return trial
 
 
@@ -612,6 +614,7 @@ def get_generator_run() -> GeneratorRun:
         model_key="Sobol",
         model_kwargs={"scramble": False, "torch_device": torch.device("cpu")},
         bridge_kwargs={"transforms": Cont_X_trans, "torch_dtype": torch.double},
+        generation_step_index=0,
     )
 
 

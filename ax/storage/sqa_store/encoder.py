@@ -449,6 +449,7 @@ class Encoder:
             bridge_kwargs=object_to_json(generator_run._bridge_kwargs),
             gen_metadata=object_to_json(generator_run._gen_metadata),
             model_state_after_gen=object_to_json(generator_run._model_state_after_gen),
+            generation_step_index=generator_run._generation_step_index,
         )
 
     def generation_strategy_to_sqa(
@@ -575,6 +576,7 @@ class Encoder:
             abandoned_arms=abandoned_arms,
             generator_runs=generator_runs,
             runner=runner,
+            generation_step_index=trial._generation_step_index,
         )
 
     def data_to_sqa(

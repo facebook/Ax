@@ -565,6 +565,7 @@ class Decoder:
             model_state_after_gen=object_from_json(
                 generator_run_sqa.model_state_after_gen
             ),
+            generation_step_index=generator_run_sqa.generation_step_index,
         )
         generator_run._time_created = generator_run_sqa.time_created
         generator_run._generator_run_type = self.get_enum_name(
@@ -685,6 +686,7 @@ class Decoder:
         trial._runner = (
             self.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None
         )
+        trial._generation_step_index = trial_sqa.generation_step_index
         return trial
 
     def data_from_sqa(self, data_sqa: SQAData) -> Data:

@@ -210,6 +210,9 @@ class BatchTrial(BaseTrial):
         if self.status_quo is not None and self.optimize_for_power:
             self.set_status_quo_and_optimize_power(status_quo=not_none(self.status_quo))
 
+        self._set_generation_step_index(
+            generation_step_index=generator_run._generation_step_index
+        )
         return self
 
     @property

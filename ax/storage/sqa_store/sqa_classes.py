@@ -178,6 +178,7 @@ class SQAGeneratorRun(Base):
     generation_strategy_id: Optional[int] = Column(
         Integer, ForeignKey("generation_strategy.id")
     )
+    generation_step_index: Optional[int] = Column(Integer)
 
     # relationships
     # Use selectin loading for collections to prevent idle timeout errors
@@ -279,6 +280,7 @@ class SQATrial(Base):
     time_staged: Optional[datetime] = Column(IntTimestamp)
     time_run_started: Optional[datetime] = Column(IntTimestamp)
     trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    generation_step_index: Optional[int] = Column(Integer)
 
     # relationships
     # Trials and experiments are mutable, so the children relationships need

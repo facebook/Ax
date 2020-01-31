@@ -604,10 +604,7 @@ class SQAStoreTest(TestCase):
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 3)
 
-        generator_run = get_generator_run()  # TODO[Lena, T46190605]: remove
-        generator_run._model_key = None
-        generator_run._model_kwargs = None
-        generator_run._bridge_kwargs = None
+        generator_run = get_generator_run()
         trial.add_generator_run(generator_run=generator_run, multiplier=0.5)
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 4)
