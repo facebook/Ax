@@ -54,7 +54,6 @@ from ax.storage.utils import (
     ParameterConstraintType,
     get_object_properties,
 )
-from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import not_none
 
 
