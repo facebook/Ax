@@ -153,6 +153,30 @@ class GenerationStrategy(Base):
         return self._model  # pragma: no cover
 
     @property
+    def experiment(self) -> Experiment:
+        """Experiment, currently set on this generation strategy."""
+        if self._experiment is None:  # pragma: no cover
+            raise ValueError("No experiment set on generation strategy.")
+        return not_none(self._experiment)
+
+    @experiment.setter
+    def experiment(self, experiment: Experiment) -> None:
+        """If there is an experiment set on this generation strategy as the
+        experiment it has been generating generator runs for, check if the
+        experiment passed in is the same as the one saved and log an information
+        statement if its not. Set the new experiment on this generation strategy.
+        """
+        if self._experiment is None or experiment._name == self.experiment._name:
+            self._experiment = experiment
+        else:  # pragma: no cover
+            raise ValueError(
+                "This generation strategy has been used for experiment "
+                f"{self.experiment._name} so far; cannot reset experiment"
+                f" to {experiment._name}. If this is a new optimization, "
+                "a new generation strategy should be created instead."
+            )
+
+    @property
     def uses_non_registered_models(self) -> bool:
         """Whether this generation strategy involves models that are not
         registered and therefore cannot be stored."""
@@ -171,11 +195,8 @@ class GenerationStrategy(Base):
         """Find trials in experiment that are not mapped to a generation step yet
         and add them to the mapping of trials by generation step.
         """
-        if self._experiment is None:  # pragma: no cover
-            raise ValueError("No experiment set on generation strategy.")
-
         trial_indices_by_step = defaultdict(list)
-        for trial_index, trial in not_none(self._experiment).trials.items():
+        for trial_index, trial in self.experiment.trials.items():
             if (
                 trial._generation_step_index is not None
                 and trial._generation_step_index <= self._curr.index
@@ -200,16 +221,15 @@ class GenerationStrategy(Base):
             len(l) == 0 for l in self.trial_indices_by_step.values()
         ):
             return None
-        experiment_trials = not_none(self._experiment).trials
         records = [
             {
                 "Generation Step": step_idx,
                 "Generation Model": self._steps[step_idx].model_name,
                 "Trial Index": trial_idx,
-                "Trial Status": experiment_trials[trial_idx].status.name,
+                "Trial Status": self.experiment.trials[trial_idx].status.name,
                 "Arm Parameterizations": {
                     arm.name: _round_floats_for_logging(arm.parameters)
-                    for arm in experiment_trials[trial_idx].arms
+                    for arm in self.experiment.trials[trial_idx].arms
                 },
             }
             for step_idx, trials in self.trial_indices_by_step.items()
@@ -233,7 +253,7 @@ class GenerationStrategy(Base):
         **kwargs: Any,
     ) -> GeneratorRun:
         """Produce the next points in the experiment."""
-        self._set_experiment(experiment=experiment)
+        self.experiment = experiment
         self._set_model(experiment=experiment, data=data or experiment.fetch_data())
         model = not_none(self.model)
         generator_run = model.gen(
@@ -265,6 +285,8 @@ class GenerationStrategy(Base):
         repr = repr[:-2]
         repr += f"])"
         return repr
+
+    # ------------------------- Model selection logic helpers. -------------------------
 
     def _set_model(self, experiment: Experiment, data: Data) -> None:
         model_state = {}
@@ -361,26 +383,7 @@ class GenerationStrategy(Base):
             raise ValueError("No experiment was set on this generation strategy.")
         self._model = get_model_from_generator_run(
             generator_run=generator_run,
-            experiment=not_none(self._experiment),
-            data=not_none(self._experiment).fetch_data(),
+            experiment=self.experiment,
+            data=self.experiment.fetch_data(),
             models_enum=models_enum,
         )
-
-    def _set_experiment(self, experiment: Experiment) -> None:
-        """If there is an experiment set on this generation strategy as the
-        experiment it has been generating generator runs for, check if the
-        experiment passed in is the same as the one saved and log an information
-        statement if its not. Set the new experiment on this generation strategy.
-        """
-        if (
-            self._experiment is None
-            or experiment._name == not_none(self._experiment)._name
-        ):
-            self._experiment = experiment
-        else:  # pragma: no cover
-            raise ValueError(
-                "This generation strategy has been used for experiment "
-                f"{not_none(self._experiment)._name} so far; cannot reset experiment"
-                f" to {experiment._name}. If this is a new optimization, "
-                "a new generation strategy should be created instead."
-            )
