@@ -129,7 +129,9 @@ def gen_tutorials(
         if exec_tutorials and exec_on_build:
             print("Executing tutorial {}".format(tid))
             kwargs = {"kernel_name": kernel_name} if kernel_name is not None else {}
-            ep = ExecutePreprocessor(timeout=600, **kwargs)
+            # 2.5 hours, in seconds
+            timeout = 60 * 60 * 2.5
+            ep = ExecutePreprocessor(timeout=timeout, **kwargs)
             start_time = time.time()
 
             # try / catch failures for now; should remove once tutorials

@@ -78,10 +78,15 @@ def table_view_plot(
     }
 
     plot_data, _, _ = get_plot_data(
-        model=model, generator_runs_dict={}, metric_names=metric_names
+        model=model,
+        generator_runs_dict={},
+        # pyre-fixme[6]: Expected `Optional[typing.Set[str]]` for 3rd param but got
+        #  `List[str]`.
+        metric_names=metric_names,
     )
 
     if plot_data.status_quo_name:
+        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         status_quo_arm = plot_data.in_sample.get(plot_data.status_quo_name)
         rel = True
     else:
@@ -94,6 +99,10 @@ def table_view_plot(
     records_with_ci = []
     for metric_name in metric_names:
         arm_names, _, ys, ys_se = _error_scatter_data(
+            # pyre-fixme[6]: Expected
+            #  `List[typing.Union[ax.plot.base.PlotInSampleArm,
+            #  ax.plot.base.PlotOutOfSampleArm]]` for 1st param but got
+            #  `List[ax.plot.base.PlotInSampleArm]`.
             arms=list(plot_data.in_sample.values()),
             y_axis_var=PlotMetric(metric_name, pred=True, rel=rel),
             x_axis_var=None,
@@ -107,6 +116,8 @@ def table_view_plot(
                     x=y,
                     ci=Z * y_se,
                     rel=rel,
+                    # pyre-fixme[6]: Expected `bool` for 4th param but got
+                    #  `Optional[bool]`.
                     reverse=metric_name_to_lower_is_better[metric_name],
                 )
                 for (_, y, y_se) in results_by_arm
@@ -134,6 +145,7 @@ def table_view_plot(
 
     records = [[name.replace(":", " : ") for name in metric_names]] + transpose(records)
     colors = [["#ffffff"] * len(metric_names)] + transpose(colors)
+    # pyre-fixme[18]: Global name `arm_names` is undefined.
     header = [f"<b>{x}</b>" for x in [f"{arm_noun}s"] + arm_names]
     column_widths = [300] + [150] * len(arm_names)
 

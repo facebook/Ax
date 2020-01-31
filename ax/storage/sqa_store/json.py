@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import json
+from json import JSONDecodeError
 from typing import Any, Dict, List, Optional
 
 from ax.storage.sqa_store.db import JSON_FIELD_LENGTH, MEDIUMTEXT_BYTES
@@ -37,7 +38,10 @@ class JSONEncodedObject(TypeDecorator):
 
     def process_result_value(self, value: Any, dialect: Any) -> Any:
         if value is not None:
-            return json.loads(value, object_pairs_hook=self.object_pairs_hook)
+            try:  # TODO T61331534: revert this; just a hotfix for AutoML
+                return json.loads(value, object_pairs_hook=self.object_pairs_hook)
+            except JSONDecodeError:
+                return None
         else:
             return None
 

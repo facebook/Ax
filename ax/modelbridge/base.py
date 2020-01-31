@@ -92,6 +92,8 @@ class ModelBridge(ABC):
                 Either this or status_quo_name should be specified, not both.
             optimization_config: Optimization config defining how to optimize
                 the model.
+            fit_out_of_design: If specified, all training data is returned.
+                Otherwise, only in design points are returned.
         """
         t_fit_start = time.time()
         self._metric_names: Set[str] = set()

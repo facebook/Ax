@@ -125,6 +125,8 @@ def cross_validate_by_trial(model: ModelBridge, trial: int = -1) -> List[CVResul
         if model.training_in_design[i]
     ]
     all_trials = {
+        # pyre-fixme[6]: Expected `Union[bytes, str, typing.SupportsInt]` for 1st
+        #  param but got `Optional[np.int64]`.
         int(d.features.trial_index)
         for d in training_data
         if d.features.trial_index is not None

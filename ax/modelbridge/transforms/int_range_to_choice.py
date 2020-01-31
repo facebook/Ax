@@ -37,6 +37,7 @@ class IntRangeToChoice(Transform):
         transformed_parameters: Dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.transform_parameters and isinstance(p, RangeParameter):
+                # pyre-fixme[6]: Expected `int` for 1st param but got `float`.
                 values = list(range(p.lower, p.upper + 1))
                 target_value = (
                     None

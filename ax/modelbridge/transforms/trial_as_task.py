@@ -72,6 +72,8 @@ class TrialAsTask(Transform):
                     )
         else:
             # Set TRIAL_PARAM for each trial to the corresponding trial_index.
+            # pyre-fixme[6]: Expected `Union[bytes, str, typing.SupportsInt]` for
+            #  1st param but got `Optional[np.int64]`.
             self.trial_level_map = {TRIAL_PARAM: {int(b): str(b) for b in trials}}
         if len(self.trial_level_map) == 1:
             level_dict = next(iter(self.trial_level_map.values()))
@@ -87,6 +89,8 @@ class TrialAsTask(Transform):
         for obsf in observation_features:
             if obsf.trial_index is not None:
                 for p_name, level_dict in self.trial_level_map.items():
+                    # pyre-fixme[6]: Expected `Union[bytes, str,
+                    #  typing.SupportsInt]` for 1st param but got `Optional[np.int64]`.
                     obsf.parameters[p_name] = level_dict[int(obsf.trial_index)]
                 obsf.trial_index = None
         return observation_features

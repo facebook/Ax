@@ -227,6 +227,7 @@ def train(
     num_epochs = parameters.get("num_epochs", 1)
 
     # Train Network
+    # pyre-fixme[6]: Expected `int` for 1st param but got `float`.
     for _ in range(num_epochs):
         for inputs, labels in train_loader:
             # move data to proper dtype and device

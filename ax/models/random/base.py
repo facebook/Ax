@@ -98,6 +98,10 @@ class RandomModel(Model):
         if model_gen_options:
             max_draws = model_gen_options.get("max_rs_draws")
             if max_draws is not None:
+                # pyre-fixme[6]: Expected `Union[bytes, str, typing.SupportsInt]`
+                #  for 1st param but got
+                #  `Union[botorch.acquisition.acquisition.AcquisitionFunction, float,
+                #  int, str]`.
                 max_draws: int = int(max_draws)
         # Always rejection sample, but this only rejects if there are
         # constraints or actual duplicates and deduplicate is specified.
