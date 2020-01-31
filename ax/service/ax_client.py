@@ -258,7 +258,9 @@ class AxClient:
             status_quo=status_quo,
             experiment_type=experiment_type,
         )
-        self._set_generation_strategy(choose_generation_strategy_kwargs)
+        self._set_generation_strategy(
+            choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
+        )
         self._save_experiment_and_generation_strategy_to_db_if_possible(
             overwrite_existing_experiment=True
         )
@@ -606,7 +608,11 @@ class AxClient:
             "of this optimization."
         )
 
-    def load_experiment_from_database(self, experiment_name: str) -> None:
+    def load_experiment_from_database(
+        self,
+        experiment_name: str,
+        choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Load an existing experiment from database using the `DBSettings`
         passed to this `AxClient` on instantiation.
 
@@ -627,11 +633,8 @@ class AxClient:
         self._experiment = experiment
         logger.info(f"Loaded {experiment}.")
         if generation_strategy is None:  # pragma: no cover
-            self._generation_strategy = choose_generation_strategy(
-                # pyre-fixme[16]: `Optional` has no attribute `search_space`.
-                search_space=self._experiment.search_space,
-                enforce_sequential_optimization=self._enforce_sequential_optimization,
-                random_seed=self._random_seed,
+            self._set_generation_strategy(
+                choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
             )
         else:
             self._generation_strategy = generation_strategy
