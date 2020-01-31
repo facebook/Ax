@@ -67,21 +67,21 @@ class TestGenerationStrategy(TestCase):
         self.registry_setup_dict_patcher.stop()
 
     def test_validation(self):
-        # num_arms can be positive or -1.
+        # num_trials can be positive or -1.
         with self.assertRaises(ValueError):
             GenerationStrategy(
                 steps=[
-                    GenerationStep(model=Models.SOBOL, num_arms=5),
-                    GenerationStep(model=Models.GPEI, num_arms=-10),
+                    GenerationStep(model=Models.SOBOL, num_trials=5),
+                    GenerationStep(model=Models.GPEI, num_trials=-10),
                 ]
             )
 
-        # only last num_arms can be -1.
+        # only last num_trials can be -1.
         with self.assertRaises(ValueError):
             GenerationStrategy(
                 steps=[
-                    GenerationStep(model=Models.SOBOL, num_arms=-1),
-                    GenerationStep(model=Models.GPEI, num_arms=10),
+                    GenerationStep(model=Models.SOBOL, num_trials=-1),
+                    GenerationStep(model=Models.GPEI, num_trials=10),
                 ]
             )
 
@@ -90,8 +90,8 @@ class TestGenerationStrategy(TestCase):
         )
         factorial_thompson_generation_strategy = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.FACTORIAL, num_arms=1),
-                GenerationStep(model=Models.THOMPSON, num_arms=2),
+                GenerationStep(model=Models.FACTORIAL, num_trials=1),
+                GenerationStep(model=Models.THOMPSON, num_trials=2),
             ]
         )
         self.assertTrue(factorial_thompson_generation_strategy._uses_registered_models)
@@ -104,7 +104,7 @@ class TestGenerationStrategy(TestCase):
     def test_custom_callables_for_models(self):
         exp = get_branin_experiment()
         sobol_factory_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=get_sobol, num_arms=-1)]
+            steps=[GenerationStep(model=get_sobol, num_trials=-1)]
         )
         self.assertFalse(sobol_factory_generation_strategy._uses_registered_models)
         self.assertTrue(sobol_factory_generation_strategy.uses_non_registered_models)
@@ -114,41 +114,37 @@ class TestGenerationStrategy(TestCase):
     def test_string_representation(self):
         gs1 = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.SOBOL, num_arms=5),
-                GenerationStep(model=Models.GPEI, num_arms=-1),
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
             ]
         )
         self.assertEqual(
             str(gs1),
             (
-                "GenerationStrategy(name='Sobol+GPEI', steps=[Sobol for 5 arms,"
-                " GPEI for subsequent arms], generated 0 arm(s) so far)"
+                "GenerationStrategy(name='Sobol+GPEI', steps=[Sobol for 5 trials,"
+                " GPEI for subsequent trials])"
             ),
         )
         gs2 = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
+            steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
         )
         self.assertEqual(
-            str(gs2),
-            (
-                "GenerationStrategy(name='Sobol', steps=[Sobol for all arms], "
-                "generated 0 arm(s) so far)"
-            ),
+            str(gs2), ("GenerationStrategy(name='Sobol', steps=[Sobol for all trials])")
         )
 
     def test_equality(self):
         gs1 = GenerationStrategy(
             name="Sobol+GPEI",
             steps=[
-                GenerationStep(model=Models.SOBOL, num_arms=5),
-                GenerationStep(model=Models.GPEI, num_arms=-1),
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
             ],
         )
         gs2 = GenerationStrategy(
             name="Sobol+GPEI",
             steps=[
-                GenerationStep(model=Models.SOBOL, num_arms=5),
-                GenerationStep(model=Models.GPEI, num_arms=-1),
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
             ],
         )
         self.assertEqual(gs1, gs2)
@@ -160,8 +156,8 @@ class TestGenerationStrategy(TestCase):
     def test_restore_from_generator_run(self):
         gs = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.SOBOL, num_arms=5),
-                GenerationStep(model=Models.GPEI, num_arms=-1),
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
             ]
         )
         with self.assertRaises(ValueError):
@@ -178,8 +174,8 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment(get_branin_experiment())
         gs = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.SOBOL, num_arms=5, min_arms_observed=5),
-                GenerationStep(model=Models.GPEI, num_arms=1),
+                GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
+                GenerationStep(model=Models.GPEI, num_trials=1),
             ]
         )
         self.assertFalse(gs.uses_non_registered_models)
@@ -190,18 +186,18 @@ class TestGenerationStrategy(TestCase):
 
     def test_do_not_enforce_min_observations(self):
         # We should be able to move on to the next model if there is not
-        # enough data observed if `enforce_num_arms` setting is False, in which
+        # enough data observed if `enforce_num_trials` setting is False, in which
         # case the previous model should be used until there is enough data.
         exp = get_branin_experiment()
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
                     model=Models.SOBOL,
-                    num_arms=1,
-                    min_arms_observed=5,
-                    enforce_num_arms=False,
+                    num_trials=1,
+                    min_trials_observed=5,
+                    enforce_num_trials=False,
                 ),
-                GenerationStep(model=Models.GPEI, num_arms=1),
+                GenerationStep(model=Models.GPEI, num_trials=1),
             ]
         )
         for _ in range(2):
@@ -214,8 +210,8 @@ class TestGenerationStrategy(TestCase):
         sobol_GPEI = GenerationStrategy(
             name="Sobol+GPEI",
             steps=[
-                GenerationStep(model=Models.SOBOL, num_arms=5),
-                GenerationStep(model=Models.GPEI, num_arms=2),
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=2),
             ],
         )
         self.assertEqual(sobol_GPEI.name, "Sobol+GPEI")
@@ -258,8 +254,8 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
         sobol_GPEI_generation_strategy = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.SOBOL, num_arms=5),
-                GenerationStep(model=Models.GPEI, num_arms=-1),
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
             ]
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
@@ -277,8 +273,8 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
         factorial_thompson_generation_strategy = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.FACTORIAL, num_arms=1),
-                GenerationStep(model=Models.THOMPSON, num_arms=-1),
+                GenerationStep(model=Models.FACTORIAL, num_trials=1),
+                GenerationStep(model=Models.THOMPSON, num_trials=-1),
             ]
         )
         self.assertEqual(
@@ -302,8 +298,8 @@ class TestGenerationStrategy(TestCase):
     def test_clone_reset(self):
         ftgs = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.FACTORIAL, num_arms=1),
-                GenerationStep(model=Models.THOMPSON, num_arms=2),
+                GenerationStep(model=Models.FACTORIAL, num_trials=1),
+                GenerationStep(model=Models.THOMPSON, num_trials=2),
             ]
         )
         ftgs._curr = ftgs._steps[1]
@@ -314,7 +310,7 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL, num_arms=1, model_kwargs={"scramble": False}
+                    model=Models.SOBOL, num_trials=1, model_kwargs={"scramble": False}
                 )
             ]
         )
@@ -334,8 +330,8 @@ class TestGenerationStrategy(TestCase):
         sobol_GPEI_generation_strategy = GenerationStrategy(
             name="Sobol+GPEI",
             steps=[
-                GenerationStep(model=Models.SOBOL, num_arms=5),
-                GenerationStep(model=Models.GPEI, num_arms=8),
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=8),
             ],
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
@@ -370,7 +366,7 @@ class TestGenerationStrategy(TestCase):
 
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=get_sobol, num_arms=5)]
+            steps=[GenerationStep(model=get_sobol, num_trials=5)]
         )
         g = sobol_generation_strategy.gen(exp)
         self.assertIsInstance(sobol_generation_strategy.model, RandomModelBridge)
@@ -381,7 +377,7 @@ class TestGenerationStrategy(TestCase):
     def test_store_experiment(self):
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_arms=5)]
+            steps=[GenerationStep(model=Models.SOBOL, num_trials=5)]
         )
         self.assertIsNone(sobol_generation_strategy._experiment)
         sobol_generation_strategy.gen(exp)

@@ -189,7 +189,9 @@ class TestAxClient(TestCase):
     def test_create_experiment(self) -> None:
         """Test basic experiment creation."""
         ax_client = AxClient(
-            GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
+            GenerationStrategy(
+                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+            )
         )
         with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
             ax_client.experiment
@@ -297,7 +299,9 @@ class TestAxClient(TestCase):
     def test_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""
         ax_client = AxClient(
-            GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
+            GenerationStrategy(
+                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+            )
         )
         with self.assertRaises(ValueError):
             ax_client.create_experiment(

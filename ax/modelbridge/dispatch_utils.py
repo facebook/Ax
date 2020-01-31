@@ -21,28 +21,28 @@ logger: logging.Logger = get_logger(__name__)
 
 
 def _make_sobol_step(
-    num_arms: int = -1,
-    min_arms_observed: Optional[int] = None,
-    enforce_num_arms: bool = True,
+    num_trials: int = -1,
+    min_trials_observed: Optional[int] = None,
+    enforce_num_trials: bool = True,
     recommended_max_parallelism: Optional[int] = None,
     seed: Optional[int] = None,
 ) -> GenerationStep:
     """Shortcut for creating a Sobol generation step."""
     return GenerationStep(
         model=Models.SOBOL,
-        num_arms=num_arms,
-        # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num arms is -1.
-        min_arms_observed=min_arms_observed or ceil(num_arms / 2),
-        enforce_num_arms=enforce_num_arms,
+        num_trials=num_trials,
+        # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
+        min_trials_observed=min_trials_observed or ceil(num_trials / 2),
+        enforce_num_trials=enforce_num_trials,
         recommended_max_parallelism=recommended_max_parallelism,
         model_kwargs={"deduplicate": True, "seed": seed},
     )
 
 
 def _make_botorch_step(
-    num_arms: int = -1,
-    min_arms_observed: Optional[int] = None,
-    enforce_num_arms: bool = True,
+    num_trials: int = -1,
+    min_trials_observed: Optional[int] = None,
+    enforce_num_trials: bool = True,
     recommended_max_parallelism: Optional[int] = None,
     winsorize: bool = False,
     winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
@@ -69,10 +69,10 @@ def _make_botorch_step(
         }
     return GenerationStep(
         model=Models.GPEI,
-        num_arms=num_arms,
-        # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num arms is -1.
-        min_arms_observed=min_arms_observed or ceil(num_arms / 2),
-        enforce_num_arms=enforce_num_arms,
+        num_trials=num_trials,
+        # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
+        min_trials_observed=min_trials_observed or ceil(num_trials / 2),
+        enforce_num_trials=enforce_num_trials,
         recommended_max_parallelism=recommended_max_parallelism,
         model_kwargs=model_kwargs,
     )
@@ -111,24 +111,27 @@ def _should_use_gp(search_space: SearchSpace, num_trials: Optional[int] = None) 
 
 def choose_generation_strategy(
     search_space: SearchSpace,
-    arms_per_trial: int = 1,
+    use_batch_trials: bool = False,
     enforce_sequential_optimization: bool = True,
     random_seed: Optional[int] = None,
     winsorize_botorch_model: bool = False,
     winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
     no_bayesian_optimization: bool = False,
     num_trials: Optional[int] = None,
+    num_initialization_trials: Optional[int] = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
-    the search space.
+    the search space and expected settings of the experiment, such as number of
+    arms per trial, optimization algorithm settings, expected number of trials
+    in the experiment, etc.
 
     Args:
         search_space: SearchSpace, based on the properties of which to select the
             generation strategy.
-        arms_per_trial: If a trial is batched, how many arms will be in each batch.
-            Defaults to 1, which corresponds to a regular, non-batched, `Trial`.
+        use_batch_trials: Whether this generation strategy will be used to generate
+            batched trials instead of 1-arm trials.
         enforce_sequential_optimization: Whether to enforce that the generation
-            strategy needs to be updated with `min_arms_observed` observations for
+            strategy needs to be updated with `min_trials_observed` observations for
             a given generation step before proceeding to the next one.
         random_seed: Fixed random seed for the Sobol generator.
         winsorize_botorch_model: Whether to apply the winsorization transform
@@ -140,23 +143,25 @@ def choose_generation_strategy(
             strategy will not be suggested and quasi-random strategy will be used.
         num_trials: Total number of trials in the optimization, if
             known in advance.
+        num_initialization_trials: Specific number of initialization trials, if wanted.
+            Typically, initialization trials are generated quasi-randomly.
     """
     # If there are more discrete choices than continuous parameters, Sobol
     # will do better than GP+EI.
     if not no_bayesian_optimization and _should_use_gp(
         search_space=search_space, num_trials=num_trials
     ):
-        # Ensure that number of arms per model is divisible by batch size.
-        sobol_arms = max(5, len(search_space.parameters))
-        if arms_per_trial != 1:  # pragma: no cover
-            # If using batches, ensure that initialization sample is divisible by
-            # the batch size.
-            sobol_arms = ceil(sobol_arms / arms_per_trial) * arms_per_trial
+        # If number of initialization trials is not specified, estimate it.
+        if num_initialization_trials is None:
+            if use_batch_trials:  # Batched trials.
+                num_initialization_trials = 1
+            else:  # 1-arm trials.
+                num_initialization_trials = max(5, len(search_space.parameters))
         gs = GenerationStrategy(
             steps=[
                 _make_sobol_step(
-                    num_arms=sobol_arms,
-                    enforce_num_arms=enforce_sequential_optimization,
+                    num_trials=num_initialization_trials,
+                    enforce_num_trials=enforce_sequential_optimization,
                     seed=random_seed,
                 ),
                 _make_botorch_step(
@@ -167,8 +172,9 @@ def choose_generation_strategy(
             ]
         )
         logger.info(
-            f"Using Bayesian Optimization generation strategy: {gs}. Iterations "
-            f"after {sobol_arms} will take longer to generate due to model-fitting."
+            f"Using Bayesian Optimization generation strategy: {gs}. Iterations after"
+            f" {num_initialization_trials} will take longer to generate due to "
+            " model-fitting."
         )
         return gs
 

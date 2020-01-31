@@ -38,7 +38,7 @@ class TestBenchmark(TestCase):
             ],
             methods=[
                 GenerationStrategy(
-                    steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
+                    steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
                 )
             ],
             num_replications=3,
@@ -62,7 +62,7 @@ class TestBenchmark(TestCase):
                 problems=[SimpleBenchmarkProblem(branin, noise_sd=0.4)],
                 methods=[
                     GenerationStrategy(
-                        steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
+                        steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
                     )
                 ],
                 num_replications=3,

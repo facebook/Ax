@@ -93,7 +93,7 @@ class AxClient:
 
         enforce_sequential_optimization: Whether to enforce that when it is
             reasonable to switch models during the optimization (as prescribed
-            by `num_arms` in generation strategy), Ax will wait for enough trials
+            by `num_trials` in generation strategy), Ax will wait for enough trials
             to be completed with data to proceed. Defaults to True. If set to
             False, Ax will keep generating new trials from the previous model
             until enough data is gathered. Use this only if necessary;
@@ -258,20 +258,7 @@ class AxClient:
             status_quo=status_quo,
             experiment_type=experiment_type,
         )
-        choose_generation_strategy_kwargs = choose_generation_strategy_kwargs or {}
-        random_seed = choose_generation_strategy_kwargs.pop(
-            "random_seed", self._random_seed
-        )
-        enforce_sequential_optimization = choose_generation_strategy_kwargs.pop(
-            "enforce_sequential_optimization", self._enforce_sequential_optimization
-        )
-        if self._generation_strategy is None:
-            self._generation_strategy = choose_generation_strategy(
-                search_space=not_none(self._experiment).search_space,
-                enforce_sequential_optimization=enforce_sequential_optimization,
-                random_seed=random_seed,
-                **choose_generation_strategy_kwargs,
-            )
+        self._set_generation_strategy(choose_generation_strategy_kwargs)
         self._save_experiment_and_generation_strategy_to_db_if_possible(
             overwrite_existing_experiment=True
         )
@@ -464,7 +451,7 @@ class AxClient:
         parallelism_settings = []
         for step in self.generation_strategy._steps:
             parallelism_settings.append(
-                (step.num_arms, step.recommended_max_parallelism or step.num_arms)
+                (step.num_trials, step.recommended_max_parallelism or step.num_trials)
             )
         return parallelism_settings
 
@@ -789,6 +776,27 @@ class AxClient:
         """Returns the name of the objective in this optimization."""
         opt_config = not_none(self.experiment.optimization_config)
         return opt_config.objective.metric.name
+
+    def _set_generation_strategy(
+        self, choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Selects the generation strategy and applies specified dispatch kwargs,
+        if any.
+        """
+        choose_generation_strategy_kwargs = choose_generation_strategy_kwargs or {}
+        random_seed = choose_generation_strategy_kwargs.pop(
+            "random_seed", self._random_seed
+        )
+        enforce_sequential_optimization = choose_generation_strategy_kwargs.pop(
+            "enforce_sequential_optimization", self._enforce_sequential_optimization
+        )
+        if self._generation_strategy is None:
+            self._generation_strategy = choose_generation_strategy(
+                search_space=not_none(self._experiment).search_space,
+                enforce_sequential_optimization=enforce_sequential_optimization,
+                random_seed=random_seed,
+                **choose_generation_strategy_kwargs,
+            )
 
     def _save_experiment_and_generation_strategy_to_db_if_possible(
         self, overwrite_existing_experiment: bool = False

@@ -58,7 +58,7 @@ class OptimizationLoop:
         if generation_strategy is None:
             self.generation_strategy = choose_generation_strategy(
                 search_space=experiment.search_space,
-                arms_per_trial=self.arms_per_trial,
+                use_batch_trials=self.arms_per_trial > 1,
                 random_seed=self.random_seed,
             )
         else:

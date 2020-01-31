@@ -236,7 +236,7 @@ class TestManagedLoop(TestCase):
     def test_custom_gs(self) -> None:
         """Managed loop with custom generation strategy"""
         strategy0 = GenerationStrategy(
-            name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
+            name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
         )
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[

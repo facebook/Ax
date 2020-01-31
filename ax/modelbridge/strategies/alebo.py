@@ -98,12 +98,12 @@ class ALEBOStrategy(GenerationStrategy):
         steps = [
             GenerationStep(
                 model=get_ALEBOInitializer,
-                num_arms=init_size,
+                num_trials=init_size,
                 model_kwargs=self.random_kwargs,
             ),
             GenerationStep(
                 model=get_ALEBO,
-                num_arms=-1,
+                num_trials=-1,
                 model_kwargs=self.gp_kwargs,
                 model_gen_kwargs=gp_gen_kwargs,
             ),

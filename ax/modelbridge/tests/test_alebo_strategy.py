@@ -47,7 +47,7 @@ class ALEBOStrategyTest(TestCase):
         d = 3
         init_size = 5
         s = ALEBOStrategy(D=D, d=d, init_size=init_size)
-        self.assertEqual(s._steps[0].num_arms, init_size)
+        self.assertEqual(s._steps[0].num_trials, init_size)
         random_B = s._steps[0].model_kwargs["B"]
         gp_B = s._steps[1].model_kwargs["B"]
         # Check that random and GP have the same projection
@@ -64,7 +64,7 @@ class ALEBOStrategyTest(TestCase):
         # Check that attributes copied, but not B
         self.assertEqual(s2.d, d)
         self.assertEqual(s2.D, D)
-        self.assertEqual(s2._steps[0].num_arms, init_size)
+        self.assertEqual(s2._steps[0].num_trials, init_size)
         random_B2 = s2._steps[0].model_kwargs["B"]
         self.assertEqual(random_B2.shape, (d, D))
         self.assertFalse(np.allclose(random_B, random_B2))

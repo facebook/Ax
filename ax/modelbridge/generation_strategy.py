@@ -34,7 +34,7 @@ def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
 
 class GenerationStep(NamedTuple):
     """One step in the generation strategy, corresponds to a single model.
-    Describes the model, how many arms will be generated with this model, what
+    Describes the model, how many trials will be generated with this model, what
     minimum number of observations is required to proceed to the next model, etc.
 
     Model can be specified either from the model registry
@@ -44,15 +44,15 @@ class GenerationStep(NamedTuple):
     """
 
     model: Union[Models, Callable[..., ModelBridge]]
-    num_arms: int
-    min_arms_observed: int = 0
+    num_trials: int
+    min_trials_observed: int = 0
     recommended_max_parallelism: Optional[int] = None
-    enforce_num_arms: bool = True
+    enforce_num_trials: bool = True
     # Kwargs to pass into the Models constructor (or factory function).
     model_kwargs: Optional[Dict[str, Any]] = None
     # Kwargs to pass into the Model's `.gen` function.
     model_gen_kwargs: Optional[Dict[str, Any]] = None
-    # pyre-fixme[15]: `index` overrides attribute defined in `tuple` inconsistently.
+    # pyre-ignore[15]: inconsistent override
     index: Optional[int] = None  # Index of this step, set internally.
 
 
@@ -62,8 +62,8 @@ class GenerationStrategy(Base):
     throughout the optimization process. For instance, it allows to use one
     model for the initialization trials, and another one for all subsequent
     trials. In the general case, this allows to automate use of an arbitrary
-    number of models to generate an arbitrary numbers of arms
-    described in the `arms_per_model` argument.
+    number of models to generate an arbitrary numbers of trials
+    described in the `trials_per_model` argument.
     """
 
     _name: Optional[str]
@@ -90,15 +90,15 @@ class GenerationStrategy(Base):
         assert isinstance(self._steps, list), "Steps must be a GenerationStep list."
         self._uses_registered_models = True
         for idx, step in enumerate(self._steps):
-            if step.num_arms == -1:
+            if step.num_trials == -1:
                 if idx < len(self._steps) - 1:
                     raise ValueError(  # pragma: no cover
-                        "Only last step in generation strategy can have num_arms "
+                        "Only last step in generation strategy can have `num_trials` "
                         "set to -1 to indicate that the model in the step should "
-                        "be used to generate new arms indefinitely."
+                        "be used to generate new trials indefinitely."
                     )
-            elif step.num_arms < 1:  # pragma: no cover
-                raise ValueError("`num_arms` must be positive or -1 for all models.")
+            elif step.num_trials < 1:  # pragma: no cover
+                raise ValueError("`num_trials` must be positive or -1 for all models.")
             self._steps[idx] = step._replace(index=idx)
             if not isinstance(step.model, Models):
                 self._uses_registered_models = False
@@ -137,9 +137,9 @@ class GenerationStrategy(Base):
 
     @property
     def model_transitions(self) -> List[int]:
-        """List of arm indices where a transition happened from one model to
+        """List of trial indices where a transition happened from one model to
         another."""
-        gen_changes = [step.num_arms for step in self._steps]
+        gen_changes = [step.num_trials for step in self._steps]
         return [sum(gen_changes[: i + 1]) for i in range(len(gen_changes))][:-1]
 
     @property
@@ -200,14 +200,14 @@ class GenerationStrategy(Base):
 
         enough_observed = (
             len(self._observed) + len(new_arm_signatures)
-        ) >= self._curr.min_arms_observed
-        unlimited_arms = self._curr.num_arms == -1
+        ) >= self._curr.min_trials_observed
+        unlimited_arms = self._curr.num_trials == -1
         enough_generated = (
-            not unlimited_arms and len(self._generated) >= self._curr.num_arms
+            not unlimited_arms and len(self._generated) >= self._curr.num_trials
         )
 
         # Check that minimum observed_arms is satisfied if it's enforced.
-        if self._curr.enforce_num_arms and enough_generated and not enough_observed:
+        if self._curr.enforce_num_trials and enough_generated and not enough_observed:
             raise DataRequiredError(
                 "All trials for current model have been generated, but not enough "
                 "data has been observed to fit next model. Try again when more data "
@@ -250,12 +250,14 @@ class GenerationStrategy(Base):
         repr = f"GenerationStrategy(name='{self.name}', steps=["
         remaining_arms = "subsequent" if len(self._steps) > 1 else "all"
         for step in self._steps:
-            num_arms = f"{step.num_arms}" if step.num_arms != -1 else remaining_arms
+            num_trials = (
+                f"{step.num_trials}" if step.num_trials != -1 else remaining_arms
+            )
             if isinstance(step.model, Models):
                 # pyre-ignore[16]: `Union` has no attribute `value`.
-                repr += f"{step.model.value} for {num_arms} arms, "
+                repr += f"{step.model.value} for {num_trials} trials, "
         repr = repr[:-2]
-        repr += f"], generated {len(self._generated)} arm(s) so far)"
+        repr += f"])"
         return repr
 
     def _set_current_model(

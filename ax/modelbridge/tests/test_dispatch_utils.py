@@ -21,10 +21,15 @@ class TestDispatchUtils(TestCase):
     def test_choose_generation_strategy(self):
         sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
         self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
+        self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
         self.assertEqual(sobol_gpei._steps[1].model.value, "GPEI")
         sobol = choose_generation_strategy(search_space=get_factorial_search_space())
         self.assertEqual(sobol._steps[0].model.value, "Sobol")
         self.assertEqual(len(sobol._steps), 1)
+        sobol_gpei_batched = choose_generation_strategy(
+            search_space=get_branin_search_space(), use_batch_trials=3
+        )
+        self.assertEqual(sobol_gpei_batched._steps[0].num_trials, 1)
 
     def test_setting_random_seed(self):
         sobol = choose_generation_strategy(
@@ -36,14 +41,14 @@ class TestDispatchUtils(TestCase):
 
     def test_enforce_sequential_optimization(self):
         sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
-        self.assertEqual(sobol_gpei._steps[0].num_arms, 5)
-        self.assertTrue(sobol_gpei._steps[0].enforce_num_arms)
+        self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
+        self.assertTrue(sobol_gpei._steps[0].enforce_num_trials)
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(),
             enforce_sequential_optimization=False,
         )
-        self.assertEqual(sobol_gpei._steps[0].num_arms, 5)
-        self.assertFalse(sobol_gpei._steps[0].enforce_num_arms)
+        self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
+        self.assertFalse(sobol_gpei._steps[0].enforce_num_trials)
 
     def test_winsorization(self):
         winsorized = choose_generation_strategy(
@@ -65,3 +70,17 @@ class TestDispatchUtils(TestCase):
         sobol = choose_generation_strategy(search_space=ss, num_trials=12)
         self.assertEqual(sobol._steps[0].model.value, "Sobol")
         self.assertEqual(len(sobol._steps), 1)
+
+    def test_use_batch_trials(self):
+        sobol_gpei = choose_generation_strategy(
+            search_space=get_branin_search_space(), use_batch_trials=True
+        )
+        self.assertEqual(sobol_gpei._steps[0].num_trials, 1)
+
+    def test_fixed_num_initialization_trials(self):
+        sobol_gpei = choose_generation_strategy(
+            search_space=get_branin_search_space(),
+            use_batch_trials=True,
+            num_initialization_trials=3,
+        )
+        self.assertEqual(sobol_gpei._steps[0].num_trials, 3)

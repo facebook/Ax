@@ -130,7 +130,7 @@ class REMBOStrategy(GenerationStrategy):
         steps = [
             GenerationStep(
                 model=get_rembo_initializer,
-                num_arms=1,
+                num_trials=1,
                 model_kwargs={"A": A, "bounds_d": bounds_d},
             )
         ]

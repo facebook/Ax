@@ -45,10 +45,10 @@ def fixed_noise_gp_model_constructor(
 winsorized_fixed_noise_GPEI = GenerationStrategy(
     name="Sobol+fixed_noise_GPEI",
     steps=[
-        GenerationStep(model=Models.SOBOL, num_arms=5, min_arms_observed=3),
+        GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=3),
         GenerationStep(
             model=Models.BOTORCH,  # Note: can use FBModels, like FBModels.GPKG
-            num_arms=-1,
+            num_trials=-1,
             model_kwargs={
                 "model_constructor": fixed_noise_gp_model_constructor,
                 "transforms": [Winsorize] + Cont_X_trans + Y_trans,
