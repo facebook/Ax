@@ -198,6 +198,7 @@ class GenerationStrategy(Base):
                 )
             }
 
+        # TODO[Lena, T44021164]: fix this logic to use only trials and not arms.
         enough_observed = (
             len(self._observed) + len(new_arm_signatures)
         ) >= self._curr.min_trials_observed
