@@ -88,6 +88,7 @@ jobs:
       install:
         - pip install -q -e .[dev,mysql,notebook]
         - pip install torchvision  # Required for building tutorial notebooks.
+        - pip install raytune  # required for Raytune tutorial
       script:
         - travis_wait 90 bash scripts/publish_site.sh -d -v $TRAVIS_TAG
         # - python -c "print('Skipping website deployment...')"  # Use for testing deployment.
@@ -109,6 +110,7 @@ jobs:
         - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
         - pip install torchvision  # required for tutorials
+        - pip install raytune  # required for Raytune tutorial
       script:
         - travis_wait 90 bash scripts/publish_site.sh -d
       # Uploading to test.pypi to check that deployment works.
