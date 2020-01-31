@@ -271,8 +271,6 @@ class JSONStoreTest(TestCase):
         experiment.new_trial(
             generation_strategy.gen(experiment, data=get_branin_data())
         )
-        self.assertGreater(len(generation_strategy._generated), 0)
-        self.assertGreater(len(generation_strategy._observed), 0)
         gs_json = object_to_json(generation_strategy)
         new_generation_strategy = generation_strategy_from_json(gs_json)
         self.assertEqual(generation_strategy, new_generation_strategy)

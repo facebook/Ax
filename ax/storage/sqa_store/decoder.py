@@ -581,11 +581,7 @@ class Decoder:
         """Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""
         steps = object_from_json(gs_sqa.steps)
         gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
-        gs._generated = list(gs_sqa.generated)
-        gs._observed = list(gs_sqa.observed)
         gs._curr = gs._steps[gs_sqa.curr_index]
-        # There is just one data object on generation strategy.
-        gs._data = self.data_from_sqa(gs_sqa.data)
         gs._generator_runs = [
             self.generator_run_from_sqa(gr) for gr in gs_sqa.generator_runs
         ]

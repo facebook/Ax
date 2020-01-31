@@ -58,7 +58,7 @@ class TrialTest(TestCase):
 
         self.trial._status = TrialStatus.COMPLETED
         self.assertTrue(self.trial.status.is_completed)
-        self.assertTrue(self.trial.is_complete)
+        self.assertTrue(self.trial.completed_successfully)
 
     def test_adding_new_trials(self):
         new_arm = get_arms()[1]
@@ -96,6 +96,7 @@ class TrialTest(TestCase):
         self.trial.mark_abandoned(reason="testing")
         self.assertTrue(self.trial.status.is_abandoned)
         self.assertFalse(self.trial.status.is_failed)
+        self.assertTrue(self.trial.did_not_complete)
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data",

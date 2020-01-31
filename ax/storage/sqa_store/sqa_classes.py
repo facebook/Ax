@@ -241,8 +241,6 @@ class SQAGenerationStrategy(Base):
     id: int = Column(Integer, primary_key=True)
     name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
     steps: List[Dict[str, Any]] = Column(JSONEncodedList, nullable=False)
-    generated: List[str] = Column(JSONEncodedList, nullable=False)
-    observed: List[str] = Column(JSONEncodedList, nullable=False)
     curr_index: int = Column(Integer, nullable=False)
     experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
 

@@ -840,8 +840,6 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsNone(generation_strategy._experiment)
-        self.assertEqual(len(generation_strategy._generated), 0)
-        self.assertEqual(len(generation_strategy._observed), 0)
 
         # Cannot load generation strategy before it has been saved
         experiment = get_branin_experiment()
@@ -856,8 +854,6 @@ class SQAStoreTest(TestCase):
         experiment.new_trial(
             generation_strategy.gen(experiment, data=get_branin_data())
         )
-        self.assertGreater(len(generation_strategy._generated), 0)
-        self.assertGreater(len(generation_strategy._observed), 0)
         save_generation_strategy(generation_strategy=generation_strategy)
         save_experiment(experiment)
         # Try restoring the generation strategy using the experiment its
@@ -874,18 +870,6 @@ class SQAStoreTest(TestCase):
     def testUpdateGenerationStrategy(self):
         generation_strategy = get_generation_strategy()
         save_generation_strategy(generation_strategy=generation_strategy)
-
-        # Add data, save, reload
-        generation_strategy._data = Data(
-            df=pd.DataFrame.from_records(
-                [{"metric_name": "foo", "mean": 1, "arm_name": "bar"}]
-            )
-        )
-        save_generation_strategy(generation_strategy=generation_strategy)
-        loaded_generation_strategy = load_generation_strategy_by_id(
-            gs_id=generation_strategy._db_id
-        )
-        self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         experiment = get_branin_experiment()
         generation_strategy = get_generation_strategy()

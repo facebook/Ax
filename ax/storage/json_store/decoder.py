@@ -290,9 +290,6 @@ def generation_strategy_from_json(
     gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
     gs._db_id = object_from_json(generation_strategy_json.pop("db_id"))
     gs._experiment = object_from_json(generation_strategy_json.pop("experiment"))
-    gs._generated = generation_strategy_json.pop("generated")
-    gs._observed = generation_strategy_json.pop("observed")
-    gs._data = object_from_json(generation_strategy_json.pop("data"))
     gs._curr = gs._steps[generation_strategy_json.pop("curr_index")]
     gs._generator_runs = object_from_json(
         generation_strategy_json.pop("generator_runs")

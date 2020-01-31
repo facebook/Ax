@@ -4,9 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from collections import defaultdict
 from inspect import signature
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type, Union
 
+import pandas as pd
 from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -15,7 +17,7 @@ from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models, get_model_from_generator_run
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
-from ax.utils.common.logger import get_logger
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
 
@@ -53,7 +55,19 @@ class GenerationStep(NamedTuple):
     # Kwargs to pass into the Model's `.gen` function.
     model_gen_kwargs: Optional[Dict[str, Any]] = None
     # pyre-ignore[15]: inconsistent override
-    index: Optional[int] = None  # Index of this step, set internally.
+    index: int = -1  # Index of this step, set internally.
+
+    @property
+    def model_name(self) -> str:
+        # Model can be defined as member of Models enum or as a factory function,
+        # so we use Models member (str) value if former and function name if latter.
+        if isinstance(self.model, Models):
+            return checked_cast(str, checked_cast(Models, self.model).value)
+        if callable(self.model):
+            return self.model.__name__  # pyre-fixme[16]: union has no attr __name__
+        raise TypeError(  # pragma: no cover
+            "`model` was not a member of `Models` or a callable."
+        )
 
 
 class GenerationStrategy(Base):
@@ -68,10 +82,7 @@ class GenerationStrategy(Base):
 
     _name: Optional[str]
     _steps: List[GenerationStep]
-    _generated: List[str]  # Arms generated in the current generation step.
-    _observed: List[str]  # Arms in the current step for which we observed data.
     _model: Optional[ModelBridge]  # Current model.
-    _data: Data  # All data this strategy has been updated with.
     _curr: GenerationStep  # Current step in the strategy.
     # Whether all models in this GS are in Models registry enum.
     _uses_registered_models: bool
@@ -84,11 +95,16 @@ class GenerationStrategy(Base):
     _db_id: Optional[int]  # Used when storing to DB.
 
     def __init__(self, steps: List[GenerationStep], name: Optional[str] = None) -> None:
+        assert isinstance(steps, list) and all(
+            isinstance(s, GenerationStep) for s in steps
+        ), "Steps must be a GenerationStep list."
         self._db_id = None
         self._name = name
         self._steps = steps
-        assert isinstance(self._steps, list), "Steps must be a GenerationStep list."
         self._uses_registered_models = True
+        self._generator_runs = []
+        self._model = None
+        self._experiment = None
         for idx, step in enumerate(self._steps):
             if step.num_trials == -1:
                 if idx < len(self._steps) - 1:
@@ -107,13 +123,7 @@ class GenerationStrategy(Base):
                 "Using model via callable function, "
                 "so optimization is not resumable if interrupted."
             )
-        self._generated = []
-        self._observed = []
-        self._model = None
-        self._data = Data()
         self._curr = steps[0]
-        self._generator_runs = []
-        self._experiment = None
 
     @property
     def name(self) -> str:
@@ -122,14 +132,7 @@ class GenerationStrategy(Base):
         if self._name is not None:
             return not_none(self._name)
 
-        # Model can be defined as member of Models enum or as a factory function,
-        # so we use Models member (str) value if former and function name if latter.
-        factory_names = (
-            checked_cast(str, checked_cast(Models, step.model).value)
-            if isinstance(step.model, Models)
-            else step.model.__name__  # pyre-ignore[16]: `Models` has no attr.
-            for step in self._steps
-        )
+        factory_names = (step.model_name for step in self._steps)
         # Trim the "get_" beginning of the factory function if it's there.
         factory_names = (n[4:] if n[:4] == "get_" else n for n in factory_names)
         self._name = "+".join(factory_names)
@@ -144,7 +147,9 @@ class GenerationStrategy(Base):
 
     @property
     def model(self) -> Optional[ModelBridge]:
-        """Current model in this strategy."""
+        """Current model in this strategy. Returns None if no model has been set
+        yet (i.e., if no generator runs have been produced from this GS).
+        """
         return self._model  # pragma: no cover
 
     @property
@@ -161,6 +166,65 @@ class GenerationStrategy(Base):
         # Used to restore current model when decoding a serialized GS.
         return self._generator_runs[-1] if self._generator_runs else None
 
+    @property
+    def trial_indices_by_step(self) -> Dict[int, List[int]]:
+        """Find trials in experiment that are not mapped to a generation step yet
+        and add them to the mapping of trials by generation step.
+        """
+        if self._experiment is None:  # pragma: no cover
+            raise ValueError("No experiment set on generation strategy.")
+
+        trial_indices_by_step = defaultdict(list)
+        for trial_index, trial in not_none(self._experiment).trials.items():
+            if (
+                trial._generation_step_index is not None
+                and trial._generation_step_index <= self._curr.index
+            ):
+                trial_indices_by_step[trial._generation_step_index].append(trial_index)
+
+        return trial_indices_by_step
+
+    @property
+    def trials_as_df(self) -> Optional[pd.DataFrame]:
+        """Puts information on individual trials into a data frame for easy
+        viewing. For example:
+        Gen. Step | Model | Trial Index | Trial Status | Arm Parameterizations
+        0         | Sobol | 0           | RUNNING      | {"0_0":{"x":9.17...}}
+        """
+        logger.info(
+            "Note that parameter values in dataframe are rounded to 2 decimal "
+            "points; the values in the dataframe are thus not the exact ones "
+            "suggested by Ax in trials."
+        )
+        if self._experiment is None or all(
+            len(l) == 0 for l in self.trial_indices_by_step.values()
+        ):
+            return None
+        experiment_trials = not_none(self._experiment).trials
+        records = [
+            {
+                "Generation Step": step_idx,
+                "Generation Model": self._steps[step_idx].model_name,
+                "Trial Index": trial_idx,
+                "Trial Status": experiment_trials[trial_idx].status.name,
+                "Arm Parameterizations": {
+                    arm.name: _round_floats_for_logging(arm.parameters)
+                    for arm in experiment_trials[trial_idx].arms
+                },
+            }
+            for step_idx, trials in self.trial_indices_by_step.items()
+            for trial_idx in trials
+        ]
+        return pd.DataFrame.from_records(records).reindex(
+            columns=[
+                "Generation Step",
+                "Generation Model",
+                "Trial Index",
+                "Trial Status",
+                "Arm Parameterizations",
+            ]
+        )
+
     def gen(
         self,
         experiment: Experiment,
@@ -170,77 +234,18 @@ class GenerationStrategy(Base):
     ) -> GeneratorRun:
         """Produce the next points in the experiment."""
         self._set_experiment(experiment=experiment)
-        new_arm_signatures = set()
-        data = data or experiment.fetch_data()
-        if data is not None and not data.df.empty:
-            if self._data.df.empty:
-                new_data = data.df
-            else:
-                # Select only the new data to determine how many new arms were
-                # evaluated since the generation strategy was last updated with
-                # data (find rows that are in `data.df`, but not in `self._data.df`)
-                merged = data.df.merge(
-                    self._data.df,
-                    on=["arm_name", "trial_index", "metric_name", "mean", "sem"],
-                    how="left",
-                    indicator=True,
-                )
-                new_data = merged[merged["_merge"] == "left_only"]
-            # Get arm signatures for each entry in data that the GS hasn't seen yet.
-            new_arm_signatures = {
-                not_none(experiment.arms_by_name.get(row["arm_name"])).signature
-                for _, row in new_data.iterrows()
-                if (
-                    row["arm_name"] in experiment.arms_by_name
-                    and not not_none(
-                        experiment.trials.get(row["trial_index"])
-                    ).status.is_failed
-                )
-            }
-
-        # TODO[Lena, T44021164]: fix this logic to use only trials and not arms.
-        enough_observed = (
-            len(self._observed) + len(new_arm_signatures)
-        ) >= self._curr.min_trials_observed
-        unlimited_arms = self._curr.num_trials == -1
-        enough_generated = (
-            not unlimited_arms and len(self._generated) >= self._curr.num_trials
+        self._set_model(experiment=experiment, data=data or experiment.fetch_data())
+        model = not_none(self.model)
+        generator_run = model.gen(
+            n=n,
+            **consolidate_kwargs(
+                kwargs_iterable=[self._curr.model_gen_kwargs, kwargs],
+                keywords=get_function_argument_names(model.gen),
+            ),
         )
-
-        # Check that minimum observed_arms is satisfied if it's enforced.
-        if self._curr.enforce_num_trials and enough_generated and not enough_observed:
-            raise DataRequiredError(
-                "All trials for current model have been generated, but not enough "
-                "data has been observed to fit next model. Try again when more data "
-                "are available."
-            )
-            # TODO[Lena, T44021164]: take into account failed trials. Potentially
-            # reduce `_generated` count when a trial mentioned in new data failed.
-
-        lgr = self.last_generator_run
-
-        if enough_generated and enough_observed:
-            # Change to the next model.
-            self._change_model(experiment=experiment, data=data)
-        elif lgr is not None and lgr._model_state_after_gen is not None:
-            model_state = not_none(lgr._model_state_after_gen)
-            self._set_current_model(experiment=experiment, data=data, **model_state)
-        else:
-            self._set_current_model(experiment=experiment, data=data)
-
-        model = not_none(self._model)
-        kwargs = consolidate_kwargs(
-            kwargs_iterable=[self._curr.model_gen_kwargs, kwargs],
-            keywords=get_function_argument_names(not_none(self._model).gen),
-        )
-        gen_run = model.gen(n=n, **kwargs)
-
-        # If nothing failed, update known data, _generated, and _observed.
-        self._data = data
-        self._generated.extend([arm.signature for arm in gen_run.arms])
-        self._observed.extend(new_arm_signatures)
-        self._generator_runs.append(gen_run)
-        return gen_run
+        generator_run._generation_step_index = self._curr.index
+        self._generator_runs.append(generator_run)
+        return generator_run
 
     def clone_reset(self) -> "GenerationStrategy":
         """Copy this generation strategy without it's state."""
@@ -249,10 +254,10 @@ class GenerationStrategy(Base):
     def __repr__(self) -> str:
         """String representation of this generation strategy."""
         repr = f"GenerationStrategy(name='{self.name}', steps=["
-        remaining_arms = "subsequent" if len(self._steps) > 1 else "all"
+        remaining_trials = "subsequent" if len(self._steps) > 1 else "all"
         for step in self._steps:
             num_trials = (
-                f"{step.num_trials}" if step.num_trials != -1 else remaining_arms
+                f"{step.num_trials}" if step.num_trials != -1 else remaining_trials
             )
             if isinstance(step.model, Models):
                 # pyre-ignore[16]: `Union` has no attribute `value`.
@@ -260,6 +265,43 @@ class GenerationStrategy(Base):
         repr = repr[:-2]
         repr += f"])"
         return repr
+
+    def _set_model(self, experiment: Experiment, data: Data) -> None:
+        model_state = {}
+        lgr = self.last_generator_run
+        if lgr is not None and lgr._model_state_after_gen is not None:
+            model_state = not_none(lgr._model_state_after_gen)
+
+        if self._curr.num_trials == -1:  # Unlimited trials, just use curr. model.
+            self._set_current_model(experiment=experiment, data=data, **model_state)
+            return
+
+        # Not unlimited trials => determine whether to transition to next model.
+        step_trials = self.trial_indices_by_step[self._curr.index]
+        all_trials = experiment.trials
+        completed = sum(1 for i in step_trials if all_trials[i].completed_successfully)
+        did_not_complete = sum(1 for i in step_trials if all_trials[i].did_not_complete)
+
+        enough_observed = completed >= self._curr.min_trials_observed
+        enough_generated = len(step_trials) - did_not_complete >= self._curr.num_trials
+
+        # Check that minimum observed_trials is satisfied if it's enforced.
+        if self._curr.enforce_num_trials and enough_generated and not enough_observed:
+            raise DataRequiredError(
+                "All trials for current model have been generated, but not enough "
+                "data has been observed to fit next model. Try again when more data "
+                "are available."
+            )
+
+        if enough_generated and enough_observed:
+            # Change to the next model.
+            if len(self._steps) == self._curr.index + 1:
+                raise ValueError(f"Generation strategy {self.name} is completed.")
+            self._curr = self._steps[self._curr.index + 1]
+            self._set_current_model(experiment=experiment, data=data)
+        else:
+            # Continue generating from the current model.
+            self._set_current_model(experiment=experiment, data=data, **model_state)
 
     def _set_current_model(
         self, experiment: Experiment, data: Data, **kwargs: Any
@@ -320,20 +362,9 @@ class GenerationStrategy(Base):
         self._model = get_model_from_generator_run(
             generator_run=generator_run,
             experiment=not_none(self._experiment),
-            data=self._data,
+            data=not_none(self._experiment).fetch_data(),
             models_enum=models_enum,
         )
-
-    def _change_model(self, experiment: Experiment, data: Data) -> None:
-        """Get a new model for the next step.
-        """
-        # Increment the model
-        if len(self._steps) == not_none(self._curr.index) + 1:
-            raise ValueError(f"Generation strategy {self.name} is completed.")
-        self._curr = self._steps[not_none(self._curr.index) + 1]
-        # New step => reset _generated and _observed.
-        self._generated, self._observed = [], []
-        self._set_current_model(experiment=experiment, data=data)
 
     def _set_experiment(self, experiment: Experiment) -> None:
         """If there is an experiment set on this generation strategy as the
@@ -342,13 +373,14 @@ class GenerationStrategy(Base):
         statement if its not. Set the new experiment on this generation strategy.
         """
         if (
-            self._experiment is not None
-            and experiment._name is not not_none(self._experiment)._name
-        ):  # pragma: no cover
-            logger.info(
+            self._experiment is None
+            or experiment._name == not_none(self._experiment)._name
+        ):
+            self._experiment = experiment
+        else:  # pragma: no cover
+            raise ValueError(
                 "This generation strategy has been used for experiment "
-                f"{not_none(self._experiment)._name} so far; generating trials for "
-                f"{experiment._name} from now on. If this is a new optimization, "
+                f"{not_none(self._experiment)._name} so far; cannot reset experiment"
+                f" to {experiment._name}. If this is a new optimization, "
                 "a new generation strategy should be created instead."
             )
-        self._experiment = experiment

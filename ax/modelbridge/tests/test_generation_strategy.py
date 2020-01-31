@@ -7,6 +7,7 @@
 from unittest.mock import patch
 
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
@@ -100,6 +101,7 @@ class TestGenerationStrategy(TestCase):
         )
         with self.assertRaises(ValueError):
             factorial_thompson_generation_strategy.gen(exp)
+        self.assertEqual(GenerationStep(model=sum, num_trials=1).model_name, "sum")
 
     def test_custom_callables_for_models(self):
         exp = get_branin_experiment()
@@ -180,7 +182,7 @@ class TestGenerationStrategy(TestCase):
         )
         self.assertFalse(gs.uses_non_registered_models)
         for _ in range(5):
-            gs.gen(exp)
+            exp.new_trial(gs.gen(exp))
         with self.assertRaises(DataRequiredError):
             gs.gen(exp)
 
@@ -330,15 +332,14 @@ class TestGenerationStrategy(TestCase):
         sobol_GPEI_generation_strategy = GenerationStrategy(
             name="Sobol+GPEI",
             steps=[
-                GenerationStep(model=Models.SOBOL, num_trials=5),
-                GenerationStep(model=Models.GPEI, num_trials=8),
+                GenerationStep(model=Models.SOBOL, num_trials=1),
+                GenerationStep(model=Models.GPEI, num_trials=6),
             ],
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
-        self.assertEqual(sobol_GPEI_generation_strategy.model_transitions, [5])
-        exp.new_batch_trial(
-            generator_run=sobol_GPEI_generation_strategy.gen(exp, n=2)
-        ).run()
+        self.assertEqual(sobol_GPEI_generation_strategy.model_transitions, [1])
+        gr = sobol_GPEI_generation_strategy.gen(exp, n=2)
+        exp.new_batch_trial(generator_run=gr).run()
         for i in range(1, 8):
             if i == 7:
                 # Check completeness error message.
@@ -382,3 +383,23 @@ class TestGenerationStrategy(TestCase):
         self.assertIsNone(sobol_generation_strategy._experiment)
         sobol_generation_strategy.gen(exp)
         self.assertIsNotNone(sobol_generation_strategy._experiment)
+
+    def test_trials_as_df(self):
+        exp = get_branin_experiment()
+        sobol_generation_strategy = GenerationStrategy(
+            steps=[GenerationStep(model=Models.SOBOL, num_trials=5)]
+        )
+        # No trials yet, so the DF will be None.
+        self.assertIsNone(sobol_generation_strategy.trials_as_df)
+        # Now the trial should appear in the DF.
+        trial = exp.new_trial(sobol_generation_strategy.gen(exp))
+        self.assertFalse(sobol_generation_strategy.trials_as_df.empty)
+        self.assertEqual(
+            sobol_generation_strategy.trials_as_df.head()["Trial Status"][0],
+            "CANDIDATE",
+        )
+        # Changes in trial status should be reflected in the DF.
+        trial._status = TrialStatus.RUNNING
+        self.assertEqual(
+            sobol_generation_strategy.trials_as_df.head()["Trial Status"][0], "RUNNING"
+        )

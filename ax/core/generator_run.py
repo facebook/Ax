@@ -289,6 +289,12 @@ class GeneratorRun(Base):
             type=self.generator_run_type,
             fit_time=self.fit_time,
             gen_time=self.gen_time,
+            model_key=self._model_key,
+            model_kwargs=self._model_kwargs,
+            bridge_kwargs=self._bridge_kwargs,
+            gen_metadata=self._gen_metadata,
+            model_state_after_gen=self._model_state_after_gen,
+            generation_step_index=self._generation_step_index,
         )
         generator_run._time_created = self._time_created
         generator_run._index = self._index

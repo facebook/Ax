@@ -167,9 +167,14 @@ class BaseTrial(ABC, Base):
         return self._status
 
     @property
-    def is_complete(self) -> bool:
+    def completed_successfully(self) -> bool:
         """Checks if trial status is `COMPLETED`."""
         return self.status == TrialStatus.COMPLETED
+
+    @property
+    def did_not_complete(self) -> bool:
+        """Checks if trial status is terminal, but not `COMPLETED`."""
+        return self.status.is_terminal and not self.completed_successfully
 
     @status.setter
     def status(self, status: TrialStatus) -> None:
@@ -311,7 +316,7 @@ class BaseTrial(ABC, Base):
             and generation_step_index is not None
             and self._generation_step_index != generation_step_index
         ):
-            raise ValueError(
+            raise ValueError(  # pragma: no cover
                 "Cannot add generator runs from different generation steps to a "
                 "single trial."
             )

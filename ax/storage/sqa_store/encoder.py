@@ -467,21 +467,11 @@ class Encoder:
         return gs_class(
             name=generation_strategy.name,
             steps=object_to_json(generation_strategy._steps),
-            generated=generation_strategy._generated,
-            observed=generation_strategy._observed,
             curr_index=generation_strategy._curr.index,
             generator_runs=[
                 self.generator_run_to_sqa(gr)
                 for gr in generation_strategy._generator_runs
             ],
-            data=self.data_to_sqa(
-                data=generation_strategy._data,
-                # Generation strategy data is a compilation of data, so it does
-                # not strictly speaking have a timestamp. Setting timestamp to
-                # current.
-                timestamp=current_timestamp_in_millis(),
-                trial_index=None,
-            ),
             experiment_id=experiment_id,
         )
 
