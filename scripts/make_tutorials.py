@@ -130,7 +130,7 @@ def gen_tutorials(
             print("Executing tutorial {}".format(tid))
             kwargs = {"kernel_name": kernel_name} if kernel_name is not None else {}
             # 2.5 hours, in seconds
-            timeout = 60 * 60 * 2.5
+            timeout = int(60 * 60 * 2.5)
             ep = ExecutePreprocessor(timeout=timeout, **kwargs)
             start_time = time.time()
 
