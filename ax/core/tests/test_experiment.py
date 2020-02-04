@@ -257,7 +257,6 @@ class ExperimentTest(TestCase):
 
         # Test fetch data
         batch_data = batch.fetch_data()
-        print(batch_data.df)
         self.assertEqual(len(batch_data.df), n)
 
         exp_data = exp.fetch_data()

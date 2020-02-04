@@ -24,7 +24,6 @@ class Base(object):
         for field in self.__dict__.keys():
             self_val = getattr(self, field)
             other_val = getattr(other, field)
-            print(self_val, other_val)
             self_val = numpy_type_to_python_type(self_val)
             other_val = numpy_type_to_python_type(other_val)
 
