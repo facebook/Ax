@@ -30,7 +30,7 @@ from ax.core.simple_experiment import (
     unimplemented_evaluation_function,
 )
 from ax.exceptions.storage import JSONDecodeError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.base import Transform
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
@@ -106,13 +106,28 @@ def object_from_json(object_json: Any) -> Any:
         elif _class == SimpleBenchmarkProblem:
             return simple_benchmark_problem_from_json(object_json=object_json)
 
-        return _class(**{k: object_from_json(v) for k, v in object_json.items()})
+        return ax_class_from_json_dict(_class=_class, object_json=object_json)
     else:
         err = (
             f"The object {object_json} passed to `object_from_json` has an "
             f"unsupported type: {type(object_json)}."
         )
         raise JSONDecodeError(err)
+
+
+def ax_class_from_json_dict(_class: Type, object_json: Dict[str, Any]) -> Any:
+    """Reinstantiates an Ax class registered in `DECODER_REGISTRY` from a JSON
+    dict.
+    """
+    # NOTE: this is a hack to make generation steps able to load after the
+    # renaming of generation step fields to be in terms of 'trials' rather than
+    # 'arms'.
+    if _class is GenerationStep:
+        keys = list(object_json.keys())
+        for k in keys:
+            if "arms" in k:  # pragma: no cover
+                object_json[k.replace("arms", "trials")] = object_json.pop(k)
+    return _class(**{k: object_from_json(v) for k, v in object_json.items()})
 
 
 def generator_run_from_json(object_json: Dict[str, Any]) -> GeneratorRun:
