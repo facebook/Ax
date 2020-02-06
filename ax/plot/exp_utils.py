@@ -75,6 +75,7 @@ def exp_to_df(
             for i, (name, arm) in enumerate(exp.arms_by_name.items())
         ]
     )
+    metrics_pivot = metrics_pivot.reset_index(drop=True)
     results = metrics_pivot.merge(inputs, on="arm_name", copy=False)
 
     results.rename(columns=_rename_tuples, inplace=True)
