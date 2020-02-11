@@ -36,8 +36,8 @@ class Data(Base):
     """Class storing data for an experiment.
 
     The dataframe is retrieved via the `df` property. The data can be stored
-    to gluster for future use by attaching it to an experiment using
-    `experiment.add_data()` (this requires a description to be set.)
+    to an external store for future use by attaching it to an experiment using
+    `experiment.attach_data()` (this requires a description to be set.)
 
 
     Attributes:
