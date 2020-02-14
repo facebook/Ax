@@ -562,6 +562,17 @@ class Experiment(Base):
                 arm.name = proposed_name
             self._arms_by_signature[arm.signature] = arm
 
+    def reset_runners(self, runner: Runner) -> None:
+        """Replace all candidate trials runners.
+
+        Args:
+            runner: New runner to replace with.
+        """
+        for trial in self._trials.values():
+            if trial.status == TrialStatus.CANDIDATE:
+                trial.runner = runner
+        self.runner = runner
+
     def __repr__(self) -> str:
         return self.__class__.__name__ + f"({self._name})"
 

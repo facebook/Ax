@@ -245,3 +245,8 @@ class MultiTypeExperiment(Experiment):
         Only trial types defined in the trial_type_to_runner are allowed.
         """
         return trial_type in self._trial_type_to_runner.keys()
+
+    def reset_runners(self, runner: Runner) -> None:
+        raise NotImplementedError(
+            "MultiTypeExperiment does not support resetting all runners."
+        )

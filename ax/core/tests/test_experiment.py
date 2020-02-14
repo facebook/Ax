@@ -350,3 +350,26 @@ class ExperimentTest(TestCase):
         batch.add_arms_and_weights(arms=get_branin_arms(n=5, seed=0))
         batch.run()
         self.assertEqual(batch.run_metadata, {"name": "0"})
+
+    def testExperimentRunners(self):
+        original_runner = SyntheticRunner()
+        self.experiment.runner = original_runner
+        batch = self.experiment.new_batch_trial()
+        batch.run()
+        self.assertEqual(batch.runner, original_runner)
+
+        # Simulate a failed run/deployment, in which the runner is attached
+        # but the actual run fails, and so the trial remains CANDIDATE.
+        candidate_batch = self.experiment.new_batch_trial()
+        candidate_batch.run()
+        candidate_batch._status = TrialStatus.CANDIDATE
+
+        identifier = {"new_runner": True}
+        new_runner = SyntheticRunner(dummy_metadata=identifier)
+        self.experiment.reset_runners(new_runner)
+        # Don't update trials that have been run.
+        self.assertEqual(batch.runner, original_runner)
+        # Update default runner
+        self.assertEqual(self.experiment.runner, new_runner)
+        # Update candidate trial runners.
+        self.assertEqual(self.experiment.trials[1].runner, new_runner)
