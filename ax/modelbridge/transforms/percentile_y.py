@@ -79,16 +79,20 @@ class PercentileY(Transform):
                         f" for unknown metric {metric_name}"
                     )
                 # apply map function
-                vals = self.percentiles[metric_name]
-
-                percentile = (
-                    # pyre-fixme[16]: `scipy.stats` has no attr `percentileofscore`.
-                    stats.percentileofscore(vals, obsd.means[idx], kind="weak")
-                    / 100.0
-                )
+                percentile = self._map(obsd.means[idx], metric_name)
                 # apply winsorization. If winsorization_rate is 0, has no effect.
                 metric_wr = winsorization_rates[metric_name]
                 percentile = max(metric_wr, percentile)
                 percentile = min((1 - metric_wr), percentile)
                 obsd.means[idx] = percentile
+                obsd.covariance.fill(float("nan"))
         return observation_data
+
+    def _map(self, val: float, metric_name: str) -> float:
+        vals = self.percentiles[metric_name]
+        mapped_val = (
+            # pyre-fixme[16]: `scipy.stats` has no attr `percentileofscore`.
+            stats.percentileofscore(vals, val, kind="weak")
+            / 100.0
+        )
+        return mapped_val
