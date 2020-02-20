@@ -206,6 +206,9 @@ class AxClient:
                 on this `AxClient` instance, whether to reset it to the new one.
                 If overwriting the experiment, generation strategy will be
                 re-selected for the new experiment and restarted.
+                To protect experiments in production, one cannot overwrite existing
+                experiments if the experiment is already stored in the database,
+                regardless of the value of `overwrite_existing_experiment`.
             choose_generation_strategy_kwargs: Keyword arguments to pass to
                 `choose_generation_strategy` function which determines what
                 generation strategy should be used when none was specified on init.
@@ -222,14 +225,13 @@ class AxClient:
                 )
             except ValueError:  # Experiment does not exist, nothing to do.
                 pass
-            if existing and overwrite_existing_experiment:
-                logger.info(f"Overwriting existing experiment {name}.")
-            elif existing:
+            if existing:
                 raise ValueError(
-                    f"Experiment {name} exists; set the `overwrite_existing_"
-                    "experiment` to `True` to overwrite with new experiment "
-                    "or use `ax_client.load_experiment_from_database` to "
-                    "continue an existing experiment."
+                    f"Experiment {name} already exists in the database. "
+                    "To protect experiments that are running in production, "
+                    "overwriting stored experiments is not allowed. To "
+                    "start a new experiment and store it, change the "
+                    "experiment's name."
                 )
         if self._experiment is not None:
             if overwrite_existing_experiment:
@@ -261,9 +263,7 @@ class AxClient:
         self._set_generation_strategy(
             choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
         )
-        self._save_experiment_and_generation_strategy_to_db_if_possible(
-            overwrite_existing_experiment=True
-        )
+        self._save_experiment_and_generation_strategy_to_db_if_possible()
 
     def get_next_trial(self) -> Tuple[TParameterization, int]:
         """
@@ -801,17 +801,9 @@ class AxClient:
                 **choose_generation_strategy_kwargs,
             )
 
-    def _save_experiment_and_generation_strategy_to_db_if_possible(
-        self, overwrite_existing_experiment: bool = False
-    ) -> bool:
+    def _save_experiment_and_generation_strategy_to_db_if_possible(self) -> bool:
         """Saves attached experiment and generation strategy if DB settings are
         set on this AxClient instance.
-
-        Args:
-            overwrite_existing_experiment: If the experiment being created
-                has the same name as some experiment already stored, this flag
-                determines whether to overwrite the existing experiment.
-                Defaults to False.
 
         Returns:
             bool: Whether the experiment was saved.
@@ -823,7 +815,6 @@ class AxClient:
                         experiment=self.experiment,
                         generation_strategy=self.generation_strategy,
                         db_settings=self.db_settings,
-                        overwrite_existing_experiment=overwrite_existing_experiment,
                     )
                     return True
                 except OperationalError as err:  # pragma: no covert

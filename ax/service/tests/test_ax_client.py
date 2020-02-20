@@ -663,14 +663,17 @@ class TestAxClient(TestCase):
                 ],
                 minimize=True,
             )
-        # Overwriting existing experiment with overwrite flag.
-        ax_client.create_experiment(
-            name="test_experiment",
-            parameters=[{"name": "x", "type": "range", "bounds": [-5.0, 10.0]}],
-            overwrite_existing_experiment=True,
-        )
-        # There should be no trials, as we just put in a fresh experiment.
-        self.assertEqual(len(ax_client.experiment.trials), 0)
+        with self.assertRaises(ValueError):
+            # Overwriting existing experiment with overwrite flag with present
+            # DB settings. This should fail as we no longer allow overwriting
+            # experiments stored in the DB.
+            ax_client.create_experiment(
+                name="test_experiment",
+                parameters=[{"name": "x", "type": "range", "bounds": [-5.0, 10.0]}],
+                overwrite_existing_experiment=True,
+            )
+        # Original experiment should still be in DB and not have been overwritten.
+        self.assertEqual(len(ax_client.experiment.trials), 5)
 
     def test_overwrite(self):
         init_test_engine_and_session_factory(force_init=True)
