@@ -126,7 +126,10 @@ class SearchSpace(Base):
         for name, value in parameterization.items():
             if name not in self._parameters:
                 if raise_error:
-                    raise ValueError(f"Parameter {name} not defined in search space")
+                    raise ValueError(
+                        f"Parameter {name} not defined in search space"
+                        f"with parameters {self._parameters}"
+                    )
                 return False
 
             if not self._parameters[name].validate(value):
