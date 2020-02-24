@@ -20,6 +20,9 @@ from ax.models.torch_base import TorchModel
 from torch import Tensor
 
 
+# pyre-fixme[13]: Attribute `model` is never initialized.
+# pyre-fixme[13]: Attribute `outcomes` is never initialized.
+# pyre-fixme[13]: Attribute `parameters` is never initialized.
 class TorchModelBridge(ArrayModelBridge):
     """A model bridge for using torch-based models.
 
@@ -42,9 +45,6 @@ class TorchModelBridge(ArrayModelBridge):
     #  inconsistently.
     parameters: Optional[List[str]]
 
-    # pyre-fixme[13]: Attribute `model` is never initialized.
-    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
-    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     def __init__(
         self,
         experiment: Experiment,

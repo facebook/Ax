@@ -74,7 +74,6 @@ class ALEBOInitializer(UniformGenerator):
             # Map to [-b, b]
             X_b = 2 * b * X01 - b
             # Project down to B and back up
-            # pyre-fixme[16]: `float` has no attribute `__matmul__`.
             X = X_b @ np.transpose(self.Q)
             # Filter out to points in [-1, 1]^D
             X = X[(X >= -1.0).all(axis=1) & (X <= 1.0).all(axis=1)]

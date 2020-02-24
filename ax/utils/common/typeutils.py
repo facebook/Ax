@@ -101,6 +101,7 @@ def checked_cast_to_tuple(typ: Tuple[Type[V], ...], val: V) -> T:
     """
     if not isinstance(val, typ):
         raise ValueError(f"Value was not of type {type!r}:\n{val!r}")
+    # pyre-fixme[7]: Expected `T` but got `V`.
     return val
 
 

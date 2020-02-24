@@ -31,6 +31,7 @@ from ax.utils.common.timeutils import current_timestamp_in_millis
 logger: logging.Logger = get_logger(__name__)
 
 
+# pyre-fixme[13]: Attribute `_search_space` is never initialized.
 class Experiment(Base):
     """Base class for defining an experiment."""
 
