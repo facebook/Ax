@@ -79,7 +79,7 @@ def _make_range_param(
     bounds = representation["bounds"]
     assert isinstance(bounds, list) and len(bounds) == 2, (
         f"Cannot parse parameter {name}: for range parameters, json representation "
-        "should include a list of two values, lower and upper bounds of the bounds."
+        "should include a list of two values, lower and upper bounds of the range."
     )
     return RangeParameter(
         name=name,
@@ -99,7 +99,7 @@ def _make_choice_param(
     values = representation["values"]
     assert isinstance(values, list) and len(values) > 1, (
         f"Cannot parse parameter {name}: for choice parameters, json representation"
-        " should include a list values, lower and upper bounds of the range."
+        " should include a list values."
     )
     return ChoiceParameter(
         name=name,
