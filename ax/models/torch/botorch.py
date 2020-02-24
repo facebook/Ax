@@ -17,15 +17,17 @@ from ax.models.torch.botorch_defaults import (
     recommend_best_observed_point,
     scipy_optimizer,
 )
-from ax.models.torch.utils import _get_X_pending_and_observed, normalize_indices
+from ax.models.torch.utils import (
+    _get_X_pending_and_observed,
+    normalize_indices,
+    subset_model,
+)
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from torch import Tensor
-
-from .utils import subset_model
 
 
 TModelConstructor = Callable[

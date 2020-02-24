@@ -271,11 +271,8 @@ class KnowledgeGradientTest(TestCase):
         self.assertTrue(torch.equal(acq_function.X_pending, X_dummy))
 
         # test _get_obj()
-        outcome_constraints = (
-            torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
-            torch.tensor([[0.5], [1.0]]),
-        )
-        objective_weights = None
+        outcome_constraints = (torch.tensor([[1.0]]), torch.tensor([[0.5]]))
+        objective_weights = torch.ones(1, dtype=self.dtype, device=self.device)
         self.assertIsInstance(
             _get_objective(
                 model=model.model,
@@ -392,3 +389,5 @@ class KnowledgeGradientTest(TestCase):
                 target_fidelities={2: 1.0},
                 qmc=False,
             )
+
+        # TODO: Test subsetting multi-output model

@@ -13,6 +13,7 @@ from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     _to_inequality_constraints,
+    subset_model,
 )
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
@@ -129,12 +130,24 @@ class KnowledgeGradient(BotorchModel):
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
         )
+
+        model = self.model
+
+        # subset model only to the outcomes we need for the optimization
+        if options.get("subset_model", True):
+            model, objective_weights, outcome_constraints = subset_model(
+                model=model,  # pyre-ignore [6]
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+            )
+
         objective = _get_objective(
-            model=self.model,  # pyre-ignore: [6]
+            model=model,  # pyre-ignore [6]
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
         )
+
         # get the acquisition function
         n_fantasies = acf_options.get("num_fantasies", 64)
         qmc = acf_options.get("qmc", True)
@@ -177,7 +190,7 @@ class KnowledgeGradient(BotorchModel):
         current_value = best_point_acqf(recommended_point).max()
 
         acq_function = _instantiate_KG(
-            model=self.model,  # pyre-ignore: [6]
+            model=model,  # pyre-ignore [6]
             objective=objective,
             qmc=qmc,
             n_fantasies=n_fantasies,
@@ -241,8 +254,18 @@ class KnowledgeGradient(BotorchModel):
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         seed_inner: Optional[int] = None,
         qmc: bool = True,
+        **kwargs: Any,
     ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
         model = self.model
+
+        # subset model only to the outcomes we need for the optimization
+        if kwargs.get("subset_model", True):
+            model, objective_weights, outcome_constraints = subset_model(
+                model=model,  # pyre-ignore [6]
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+            )
+
         fixed_features = fixed_features or {}
         target_fidelities = target_fidelities or {}
         objective = _get_objective(

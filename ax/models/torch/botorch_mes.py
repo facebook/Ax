@@ -32,6 +32,8 @@ from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf
 from torch import Tensor
 
+from .utils import subset_model
+
 
 class MaxValueEntropySearch(BotorchModel):
     r"""Max-value entropy search.
@@ -95,6 +97,16 @@ class MaxValueEntropySearch(BotorchModel):
             fixed_features=fixed_features,
         )
 
+        model = self.model
+
+        # subset model only to the outcomes we need for the optimization
+        if options.get("subset_model", True):
+            model, objective_weights, outcome_constraints = subset_model(
+                model=model,  # pyre-ignore [6]
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+            )
+
         # get the acquisition function
         num_fantasies = acf_options.get("num_fantasies", 16)
         num_mv_samples = acf_options.get("num_mv_samples", 10)
@@ -111,7 +123,7 @@ class MaxValueEntropySearch(BotorchModel):
         candidate_set = bounds_[0] + (bounds_[1] - bounds_[0]) * candidate_set
 
         acq_function = _instantiate_MES(
-            model=self.model,  # pyre-ignore: [6]
+            model=model,  # pyre-ignore [6]
             candidate_set=candidate_set,
             num_fantasies=num_fantasies,
             num_trace_observations=options.get("num_trace_observations", 0),
@@ -156,12 +168,24 @@ class MaxValueEntropySearch(BotorchModel):
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         seed_inner: Optional[int] = None,
         qmc: bool = True,
+        **kwargs: Any,
     ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
+
+        model = self.model
+
+        # subset model only to the outcomes we need for the optimization
+        if kwargs.get("subset_model", True):
+            model, objective_weights, outcome_constraints = subset_model(
+                model=model,  # pyre-ignore: [6]
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+            )
+
         fixed_features = fixed_features or {}
         target_fidelities = target_fidelities or {}
         objective = ScalarizedObjective(weights=objective_weights)
         acq_function = PosteriorMean(
-            model=self.model, objective=objective  # pyre-ignore: [6]
+            model=model, objective=objective  # pyre-ignore: [6]
         )
 
         if self.fidelity_features:
