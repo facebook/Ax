@@ -24,7 +24,7 @@ def _make_sobol_step(
     num_trials: int = -1,
     min_trials_observed: Optional[int] = None,
     enforce_num_trials: bool = True,
-    recommended_max_parallelism: Optional[int] = None,
+    max_parallelism: Optional[int] = None,
     seed: Optional[int] = None,
 ) -> GenerationStep:
     """Shortcut for creating a Sobol generation step."""
@@ -34,7 +34,7 @@ def _make_sobol_step(
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
         enforce_num_trials=enforce_num_trials,
-        recommended_max_parallelism=recommended_max_parallelism,
+        max_parallelism=max_parallelism,
         model_kwargs={"deduplicate": True, "seed": seed},
     )
 
@@ -43,7 +43,7 @@ def _make_botorch_step(
     num_trials: int = -1,
     min_trials_observed: Optional[int] = None,
     enforce_num_trials: bool = True,
-    recommended_max_parallelism: Optional[int] = None,
+    max_parallelism: Optional[int] = None,
     winsorize: bool = False,
     winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
 ) -> GenerationStep:
@@ -73,7 +73,7 @@ def _make_botorch_step(
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
         enforce_num_trials=enforce_num_trials,
-        recommended_max_parallelism=recommended_max_parallelism,
+        max_parallelism=max_parallelism,
         model_kwargs=model_kwargs,
     )
 
@@ -165,7 +165,7 @@ def choose_generation_strategy(
                     seed=random_seed,
                 ),
                 _make_botorch_step(
-                    recommended_max_parallelism=3,
+                    max_parallelism=3,
                     winsorize=winsorize_botorch_model,
                     winsorization_limits=winsorization_limits,
                 ),

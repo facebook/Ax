@@ -434,13 +434,14 @@ class AxClient:
     def get_trials_data_frame(self) -> pd.DataFrame:
         return exp_to_df(exp=self.experiment)
 
-    def get_recommended_max_parallelism(self) -> List[Tuple[int, int]]:
-        """Recommends maximum number of trials that can be scheduled in parallel
+    def get_max_parallelism(self) -> List[Tuple[int, int]]:
+        """Retrieves maximum number of trials that can be scheduled in parallel
         at different stages of optimization.
 
         Some optimization algorithms profit significantly from sequential
-        optimization (e.g. suggest a few points, get updated with data for them,
-        repeat). This setting indicates how many trials should be in flight
+        optimization (i.e. suggest a few points, get updated with data for them,
+        repeat, see https://ax.dev/docs/bayesopt.html).
+        Parallelism setting indicates how many trials should be running simulteneously
         (generated, but not yet completed with data).
 
         The output of this method is mapping of form
@@ -451,7 +452,7 @@ class AxClient:
         should be used for all subsequent trials.
 
         For example, if the returned list is [(5, -1), (12, 6), (-1, 3)],
-        the schedule could be: run 5 trials in parallel, run 6 trials in
+        the schedule could be: run 5 trials with any parallelism, run 6 trials in
         parallel twice, run 3 trials in parallel for as long as needed. Here,
         'running' a trial means obtaining a next trial from `AxClient` through
         get_next_trials and completing it with data when available.
@@ -462,7 +463,7 @@ class AxClient:
         parallelism_settings = []
         for step in self.generation_strategy._steps:
             parallelism_settings.append(
-                (step.num_trials, step.recommended_max_parallelism or step.num_trials)
+                (step.num_trials, step.max_parallelism or step.num_trials)
             )
         return parallelism_settings
 
@@ -972,6 +973,14 @@ class AxClient:
                 )
 
     # -------- Backward-compatibility with old save / load method names. -------
+
+    @staticmethod
+    def get_recommended_max_parallelism() -> None:
+        raise NotImplementedError(
+            "Use `get_max_parallelism` instead; parallelism levels are now "
+            "enforced in generation strategy, so max parallelism is no longer "
+            "just recommended."
+        )
 
     @staticmethod
     def load_experiment(experiment_name: str) -> None:

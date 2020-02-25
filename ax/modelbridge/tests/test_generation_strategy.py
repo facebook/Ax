@@ -14,7 +14,11 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+    MaxParallelismReachedException,
+)
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Cont_X_trans, Models
 from ax.modelbridge.torch import TorchModelBridge
@@ -392,7 +396,7 @@ class TestGenerationStrategy(TestCase):
         # No trials yet, so the DF will be None.
         self.assertIsNone(sobol_generation_strategy.trials_as_df)
         # Now the trial should appear in the DF.
-        trial = exp.new_trial(sobol_generation_strategy.gen(exp))
+        trial = exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
         self.assertFalse(sobol_generation_strategy.trials_as_df.empty)
         self.assertEqual(
             sobol_generation_strategy.trials_as_df.head()["Trial Status"][0],
@@ -403,3 +407,14 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             sobol_generation_strategy.trials_as_df.head()["Trial Status"][0], "RUNNING"
         )
+
+    def test_max_parallelism_reached(self):
+        exp = get_branin_experiment()
+        sobol_generation_strategy = GenerationStrategy(
+            steps=[GenerationStep(model=Models.SOBOL, num_trials=5, max_parallelism=1)]
+        )
+        exp.new_trial(
+            generator_run=sobol_generation_strategy.gen(experiment=exp)
+        ).mark_running(no_runner_required=True)
+        with self.assertRaises(MaxParallelismReachedException):
+            sobol_generation_strategy.gen(experiment=exp)

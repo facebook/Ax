@@ -183,7 +183,7 @@ class TestAxClient(TestCase):
             [s.model for s in not_none(ax_client.generation_strategy)._steps],
             [Models.SOBOL],
         )
-        self.assertEqual(ax_client.get_recommended_max_parallelism(), [(-1, -1)])
+        self.assertEqual(ax_client.get_max_parallelism(), [(-1, -1)])
         self.assertTrue(ax_client.get_trials_data_frame().empty)
 
     def test_create_experiment(self) -> None:
@@ -536,7 +536,7 @@ class TestAxClient(TestCase):
     def test_recommended_parallelism(self):
         ax_client = AxClient()
         with self.assertRaisesRegex(ValueError, "No generation strategy"):
-            ax_client.get_recommended_max_parallelism()
+            ax_client.get_max_parallelism()
         ax_client.create_experiment(
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
@@ -544,10 +544,10 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
-        self.assertEqual(ax_client.get_recommended_max_parallelism(), [(5, 5), (-1, 3)])
+        self.assertEqual(ax_client.get_max_parallelism(), [(5, 5), (-1, 3)])
         self.assertEqual(
             run_trials_using_recommended_parallelism(
-                ax_client, ax_client.get_recommended_max_parallelism(), 20
+                ax_client, ax_client.get_max_parallelism(), 20
             ),
             0,
         )

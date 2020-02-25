@@ -40,7 +40,7 @@ class GenerationStep(NamedTuple):
     minimum number of observations is required to proceed to the next model, etc.
 
     Model can be specified either from the model registry
-    (ax.modelbridge.registry.Models or using a callable model constructor. Only
+    (`ax.modelbridge.registry.Models` or using a callable model constructor. Only
     models from the registry can be saved, and thus optimization can only be
     resumed if interrupted when using models from the registry.
     """
@@ -48,7 +48,7 @@ class GenerationStep(NamedTuple):
     model: Union[Models, Callable[..., ModelBridge]]
     num_trials: int
     min_trials_observed: int = 0
-    recommended_max_parallelism: Optional[int] = None
+    max_parallelism: Optional[int] = None
     enforce_num_trials: bool = True
     # Kwargs to pass into the Models constructor (or factory function).
     model_kwargs: Optional[Dict[str, Any]] = None
@@ -67,6 +67,23 @@ class GenerationStep(NamedTuple):
             return self.model.__name__  # pyre-fixme[16]: union has no attr __name__
         raise TypeError(  # pragma: no cover
             "`model` was not a member of `Models` or a callable."
+        )
+
+
+class MaxParallelismReachedException(Exception):
+    """Special exception indicating that maximum number of trials running in
+    parallel set on a given step (as `GenerationStep.max_parallelism`) has been
+    reached. Upon getting this exception, users should wait until more trials
+    are completed with data, to generate new trials.
+    """
+
+    def __init__(self, step: GenerationStep, num_running: int) -> None:
+        super().__init__(
+            f"Maximum parallelism for generation step #{step.index} ({step.model_name})"
+            f" has been reached: {num_running} trials are currently 'running'. Some "
+            "trials need to be completed before more trials can be generated. See "
+            "https://ax.dev/docs/bayesopt.html to understand why limited parallelism "
+            "improves performance of Bayesian optimization."
         )
 
 
@@ -245,6 +262,20 @@ class GenerationStrategy(Base):
             ]
         )
 
+    @property
+    def num_running_trials_for_current_step(self) -> int:
+        """Number of trials in status `RUNNING` for the current generation step
+        of this strategy.
+        """
+        num_running = 0
+        for trial in self.experiment.trials.values():
+            if (
+                trial._generation_step_index == self._curr.index
+                and trial.status.is_running
+            ):
+                num_running += 1
+        return num_running
+
     def gen(
         self,
         experiment: Experiment,
@@ -255,6 +286,12 @@ class GenerationStrategy(Base):
         """Produce the next points in the experiment."""
         self.experiment = experiment
         self._set_model(experiment=experiment, data=data or experiment.fetch_data())
+        max_parallelism = self._curr.max_parallelism
+        num_running = self.num_running_trials_for_current_step
+        if max_parallelism is not None and num_running >= max_parallelism:
+            raise MaxParallelismReachedException(
+                step=self._curr, num_running=num_running
+            )
         model = not_none(self.model)
         generator_run = model.gen(
             n=n,
