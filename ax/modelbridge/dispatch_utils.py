@@ -119,6 +119,7 @@ def choose_generation_strategy(
     no_bayesian_optimization: bool = False,
     num_trials: Optional[int] = None,
     num_initialization_trials: Optional[int] = None,
+    no_max_parallelism: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -145,6 +146,9 @@ def choose_generation_strategy(
             known in advance.
         num_initialization_trials: Specific number of initialization trials, if wanted.
             Typically, initialization trials are generated quasi-randomly.
+        no_max_parallelism: If True, no limit on parallelism will be imposed. Be aware
+            that parallelism is limited to improve performance of Bayesian optimization,
+            so only disable its limiting if there is a good reason to do so.
     """
     # If there are more discrete choices than continuous parameters, Sobol
     # will do better than GP+EI.
@@ -165,7 +169,7 @@ def choose_generation_strategy(
                     seed=random_seed,
                 ),
                 _make_botorch_step(
-                    max_parallelism=3,
+                    max_parallelism=None if no_max_parallelism else 3,
                     winsorize=winsorize_botorch_model,
                     winsorization_limits=winsorization_limits,
                 ),
