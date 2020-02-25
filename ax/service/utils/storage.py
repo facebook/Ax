@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import time
 from typing import Optional, Tuple
 
 from ax.core.experiment import Experiment
@@ -15,6 +16,10 @@ from ax.storage.sqa_store.load import (
 )
 from ax.storage.sqa_store.save import _save_experiment, _save_generation_strategy
 from ax.storage.sqa_store.structs import DBSettings
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
+
+
+logger = get_logger(__name__)
 
 
 """Utilities for storing experiment to the database for AxClient."""
@@ -32,9 +37,14 @@ def load_experiment(name: str, db_settings: DBSettings) -> Experiment:
         ax.core.Experiment: Loaded experiment.
     """
     init_engine_and_session_factory(creator=db_settings.creator, url=db_settings.url)
+    start_time = time.time()
     experiment = _load_experiment(name, decoder=db_settings.decoder)
     if not isinstance(experiment, Experiment) or experiment.is_simple_experiment:
         raise ValueError("Service API only supports Experiment")
+    logger.info(
+        f"Loaded experiment {name} in "
+        f"{_round_floats_for_logging(time.time() - start_time)} seconds"
+    )
     return experiment
 
 
@@ -47,7 +57,12 @@ def save_experiment(experiment: Experiment, db_settings: DBSettings) -> None:
         db_settings: Defines behavior for loading/saving experiment to/from db.
     """
     init_engine_and_session_factory(creator=db_settings.creator, url=db_settings.url)
+    start_time = time.time()
     _save_experiment(experiment, encoder=db_settings.encoder, overwrite=False)
+    logger.info(
+        f"Saved experiment {experiment.name} in "
+        f"{_round_floats_for_logging(time.time() - start_time)} seconds"
+    )
 
 
 def load_experiment_and_generation_strategy(
