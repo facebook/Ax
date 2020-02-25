@@ -20,6 +20,9 @@ from ax.utils.common.logger import get_logger
 logger: logging.Logger = get_logger(__name__)
 
 
+DEFAULT_BAYESIAN_PARALLELISM = 3
+
+
 def _make_sobol_step(
     num_trials: int = -1,
     min_trials_observed: Optional[int] = None,
@@ -120,6 +123,7 @@ def choose_generation_strategy(
     num_trials: Optional[int] = None,
     num_initialization_trials: Optional[int] = None,
     no_max_parallelism: bool = False,
+    max_parallelism_cap: Optional[int] = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -149,6 +153,13 @@ def choose_generation_strategy(
         no_max_parallelism: If True, no limit on parallelism will be imposed. Be aware
             that parallelism is limited to improve performance of Bayesian optimization,
             so only disable its limiting if there is a good reason to do so.
+        max_parallelism_cap: Integer representing a cap on parallelism in this gen.
+            strategy; if specified, generation strategy will not generate trials if
+            more than `max_parallelism_cap` trials for current generation step are
+            running. Note that less than `max_parallelism_cap` may be scheduled in
+            parallel if beneficial for Bayesian optimization performance;
+            `max_parallelism_cap` is meant to just be a hard limit on parallelism (e.g.,
+            to avoid overloading machine(s) that evaluate the experiment trials).
     """
     # If there are more discrete choices than continuous parameters, Sobol
     # will do better than GP+EI.
@@ -161,17 +172,24 @@ def choose_generation_strategy(
                 num_initialization_trials = 1
             else:  # 1-arm trials.
                 num_initialization_trials = max(5, len(search_space.parameters))
+        if no_max_parallelism:
+            bo_parallelism = None
+        elif max_parallelism_cap is None:
+            bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
+        else:
+            bo_parallelism = min(max_parallelism_cap, DEFAULT_BAYESIAN_PARALLELISM)
         gs = GenerationStrategy(
             steps=[
                 _make_sobol_step(
                     num_trials=num_initialization_trials,
                     enforce_num_trials=enforce_sequential_optimization,
                     seed=random_seed,
+                    max_parallelism=max_parallelism_cap,
                 ),
                 _make_botorch_step(
-                    max_parallelism=None if no_max_parallelism else 3,
                     winsorize=winsorize_botorch_model,
                     winsorization_limits=winsorization_limits,
+                    max_parallelism=bo_parallelism,
                 ),
             ]
         )

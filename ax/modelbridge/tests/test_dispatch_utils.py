@@ -84,3 +84,18 @@ class TestDispatchUtils(TestCase):
             num_initialization_trials=3,
         )
         self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
+
+    def test_max_parallelism_adjustments(self):
+        sobol_gpei = choose_generation_strategy(
+            search_space=get_branin_search_space(), max_parallelism_cap=1
+        )
+        self.assertEqual(
+            sobol_gpei._steps[0].max_parallelism,
+            sobol_gpei._steps[1].max_parallelism,
+            1,
+        )
+        sobol_gpei = choose_generation_strategy(
+            search_space=get_branin_search_space(), no_max_parallelism=True
+        )
+        self.assertIsNone(sobol_gpei._steps[0].max_parallelism)
+        self.assertIsNone(sobol_gpei._steps[1].max_parallelism)
