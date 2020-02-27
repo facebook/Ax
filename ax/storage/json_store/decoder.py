@@ -127,6 +127,8 @@ def ax_class_from_json_dict(_class: Type, object_json: Dict[str, Any]) -> Any:
         for k in keys:
             if "arms" in k:  # pragma: no cover
                 object_json[k.replace("arms", "trials")] = object_json.pop(k)
+            if k == "recommended_max_parallelism":  # pragma: no cover
+                object_json["max_parallelism"] = object_json.pop(k)
     return _class(**{k: object_from_json(v) for k, v in object_json.items()})
 
 
