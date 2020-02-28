@@ -41,7 +41,9 @@ class Metric(Base):
         self, trial: "core.base_trial.BaseTrial", **kwargs: Any
     ) -> Data:
         """Fetch data for one trial."""
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError(
+            f"Metric {self.name} does not implement data-fetching logic."
+        )  # pragma: no cover
 
     def fetch_experiment_data(
         self, experiment: "core.experiment.Experiment", **kwargs: Any

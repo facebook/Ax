@@ -368,18 +368,30 @@ class Experiment(Base):
             return Data()
 
         try:
-            return Data.from_multiple_data(
-                [
-                    metric_cls.fetch_trial_data_multi(trial, metric_list, **kwargs)
-                    for metric_cls, metric_list in self._metrics_by_class(
-                        metrics=metrics
-                    ).items()
-                ]
+            return self._fetch_trial_data_no_lookup(
+                trial_index=trial_index, metrics=metrics
             )
         except NotImplementedError:
             # If some of the metrics do not implement data fetching, we should
             # fall back to data that has been attached.
             return self.lookup_data_for_trial(trial_index=trial_index)[0]
+
+    def _fetch_trial_data_no_lookup(
+        self, trial_index: int, metrics: Optional[List[Metric]], **kwargs: Any
+    ) -> Data:
+        """Fetches data explicitly from metric logic, does not look up attached
+        data on experiment.
+        """
+        return Data.from_multiple_data(
+            [
+                metric_cls.fetch_trial_data_multi(
+                    self.trials[trial_index], metric_list, **kwargs
+                )
+                for metric_cls, metric_list in self._metrics_by_class(
+                    metrics=metrics
+                ).items()
+            ]
+        )
 
     def attach_data(self, data: Data, combine_with_last_data: bool = False) -> int:
         """Attach data to experiment. Stores data in `experiment._data_by_trial`,
