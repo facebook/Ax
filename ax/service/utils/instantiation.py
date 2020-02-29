@@ -107,6 +107,7 @@ def _make_choice_param(
         values=values,
         is_ordered=checked_cast(bool, representation.get("is_ordered", False)),
         is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
+        is_task=checked_cast(bool, representation.get("is_task", False)),
         target_value=representation.get("target_value", None),  # pyre-ignore[6]
     )
 

@@ -180,7 +180,9 @@ class SearchSpace(Base):
             if raise_error:
                 raise ValueError(
                     f"Parameterization has {len(parameterization)} parameters "
-                    f"but search space has {len(self._parameters)}."
+                    f"but search space has {len(self._parameters)}.\n"
+                    f"Parameterization: {parameterization}.\n"
+                    f"Search Space: {self._parameters}."
                 )
             return False
 

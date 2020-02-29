@@ -30,6 +30,8 @@ class BotorchDefaultsTest(TestCase):
         self.assertTrue(type(model) == MultiTaskGP)  # Don't accept subclasses.
         model = _get_model(X=x, Y=y, Yvar=var, task_feature=1)
         self.assertIsInstance(model, FixedNoiseMultiTaskGP)
+        model = _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1)
+        self.assertIsInstance(model, FixedNoiseMultiTaskGP)
         with self.assertRaises(ValueError):
             model = _get_model(X=x, Y=y, Yvar=partial_var, task_feature=None)
         model = _get_model(X=x, Y=y, Yvar=var, fidelity_features=[-1])

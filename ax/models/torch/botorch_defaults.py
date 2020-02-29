@@ -103,6 +103,7 @@ def get_and_fit_model(
                 fidelity_features=fidelity_features,
                 **kwargs,
             )
+    # TODO: Is this equivalent an "else:" here?
     if model is None:
         # Use a ModelListGP
         models = [
@@ -441,10 +442,14 @@ def _get_model(
     any_nan_Yvar = torch.any(is_nan)
     all_nan_Yvar = torch.all(is_nan)
     if any_nan_Yvar and not all_nan_Yvar:
-        raise ValueError(
-            "Mix of known and unknown variances indicates valuation function "
-            "errors. Variances should all be specified, or none should be."
-        )
+        if task_feature:
+            # TODO (jej): Replace with inferred noise before making performance judgments.
+            Yvar[Yvar != Yvar] = MIN_OBSERVED_NOISE_LEVEL
+        else:
+            raise ValueError(
+                "Mix of known and unknown variances indicates valuation function "
+                "errors. Variances should all be specified, or none should be."
+            )
     if fidelity_features is None:
         fidelity_features = []
     if len(fidelity_features) == 0:
@@ -452,7 +457,7 @@ def _get_model(
         kwargs = {k: v for k, v in kwargs.items() if k != "linear_truncated"}
     if len(fidelity_features) > 0:
         if task_feature:
-            raise NotImplementedError(
+            raise NotImplementedError(  # pragma: no cover
                 "multi-task multi-fidelity models not yet available"
             )
         # at this point we can assume that there is only a single fidelity parameter
