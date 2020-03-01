@@ -62,7 +62,7 @@ artificial evaluation function):
 ## Installation
 
 ### Requirements
-You need Python 3.6 or later to run Ax.
+You need Python 3.7 or later to run Ax.
 
 The required Python dependencies are:
 
