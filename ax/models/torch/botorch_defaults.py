@@ -443,7 +443,7 @@ def _get_model(
     all_nan_Yvar = torch.all(is_nan)
     if any_nan_Yvar and not all_nan_Yvar:
         if task_feature:
-            # TODO (jej): Replace with inferred noise before making performance judgments.
+            # TODO (jej): Replace with inferred noise before making perf judgements.
             Yvar[Yvar != Yvar] = MIN_OBSERVED_NOISE_LEVEL
         else:
             raise ValueError(
