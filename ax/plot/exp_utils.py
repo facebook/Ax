@@ -76,7 +76,7 @@ def exp_to_df(
         ]
     )
     metrics_pivot = metrics_pivot.reset_index(drop=True)
-    results = metrics_pivot.merge(inputs, on="arm_name", copy=False)
+    results = metrics_pivot.merge(inputs, on="arm_name", copy=False)  # pyre-ignore
 
     results.rename(columns=_rename_tuples, inplace=True)
     results = results.loc[:, ~results.columns.duplicated()]

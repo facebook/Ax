@@ -230,7 +230,7 @@ class Data(Base):
             str: The hash of the DataFrame.
 
         """
-        return md5(self.df.to_json().encode("utf-8")).hexdigest()
+        return md5(self.df.to_json().encode("utf-8")).hexdigest()  # pyre-ignore
 
 
 def set_single_trial(data: Data) -> Data:
