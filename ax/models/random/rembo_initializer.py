@@ -63,6 +63,6 @@ class REMBOInitializer(UniformGenerator):
         up = np.array(up)
         X_d = X_01 * (up - lw) + lw
         # Store
-        self.X_d_gen.extend([x for x in X_d])
+        self.X_d_gen.extend(list(X_d))
         # And finally project up
         return self.project_up(X_d), w
