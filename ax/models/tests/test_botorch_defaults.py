@@ -19,8 +19,8 @@ class BotorchDefaultsTest(TestCase):
         x = torch.zeros(2, 2)
         y = torch.zeros(2, 1)
         var = torch.zeros(2, 1)
-        partial_var = torch.tensor([0, float("nan")])
-        unknown_var = torch.tensor([float("nan"), float("nan")])
+        partial_var = torch.tensor([0, float("nan")]).unsqueeze(-1)
+        unknown_var = torch.tensor([float("nan"), float("nan")]).unsqueeze(-1)
         model = _get_model(x, y, unknown_var, None)
         self.assertIsInstance(model, SingleTaskGP)
 
@@ -39,9 +39,8 @@ class BotorchDefaultsTest(TestCase):
         with self.assertRaises(NotImplementedError):
             _get_model(X=x, Y=y, Yvar=var, task_feature=1, fidelity_features=[-1])
 
-    @mock.patch("ax.models.torch.botorch_defaults._get_model", autospec=True)
-    @mock.patch("ax.models.torch.botorch_defaults.ModelListGP", autospec=True)
-    def test_task_feature(self, gp_mock, get_model_mock):
+    @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
+    def test_task_feature(self, get_model_mock):
         x = [torch.zeros(2, 2)]
         y = [torch.zeros(2, 1)]
         yvars = [torch.ones(2, 1)]
@@ -52,7 +51,7 @@ class BotorchDefaultsTest(TestCase):
             task_features=[1],
             fidelity_features=[],
             metric_names=[],
-            state_dict=[],
+            state_dict=None,
             refit_model=False,
         )
         # Check that task feature was correctly passed to _get_model
@@ -67,7 +66,7 @@ class BotorchDefaultsTest(TestCase):
                 task_features=[0, 1],
                 fidelity_features=[],
                 metric_names=[],
-                state_dict=[],
+                state_dict=None,
                 refit_model=False,
             )
 
@@ -80,7 +79,7 @@ class BotorchDefaultsTest(TestCase):
                 task_features=[],
                 fidelity_features=[-1, -2],
                 metric_names=[],
-                state_dict=[],
+                state_dict=None,
                 refit_model=False,
             )
 
@@ -93,6 +92,6 @@ class BotorchDefaultsTest(TestCase):
                 task_features=[1],
                 fidelity_features=[-1],
                 metric_names=[],
-                state_dict=[],
+                state_dict=None,
                 refit_model=False,
             )

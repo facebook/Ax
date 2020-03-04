@@ -283,9 +283,6 @@ class BotorchModel(TorchModel):
         self.task_features = normalize_indices(task_features, d=Xs[0].size(-1))
         self.fidelity_features = normalize_indices(fidelity_features, d=Xs[0].size(-1))
         self.metric_names = metric_names
-        # TODO (jej): Why is squeezing necessary? Needs careful fix.
-        Ys = [Y.squeeze() for Y in Ys] if self.task_features else Ys
-        Yvars = [Yvar.squeeze() for Yvar in Yvars] if self.task_features else Yvars
         self.model = self.model_constructor(  # pyre-ignore [28]
             Xs=Xs,
             Ys=Ys,

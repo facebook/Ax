@@ -472,10 +472,6 @@ def _get_model(
         gp = MultiTaskGP(train_X=X, train_Y=Y, task_feature=task_feature, **kwargs)
     else:
         gp = FixedNoiseMultiTaskGP(
-            train_X=X,
-            train_Y=Y.view(-1),
-            train_Yvar=Yvar.view(-1),
-            task_feature=task_feature,
-            **kwargs,
+            train_X=X, train_Y=Y, train_Yvar=Yvar, task_feature=task_feature, **kwargs
         )
     return gp
