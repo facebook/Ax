@@ -38,7 +38,7 @@ def batch_trial_from_json(
     status_quo: Optional[Arm],
     status_quo_weight_override: float,
     optimize_for_power: Optional[bool],
-    generation_step_index: Optional[int],
+    generation_step_index: Optional[int] = None,
 ) -> BatchTrial:
     """Load Ax BatchTrial from JSON.
 
@@ -82,7 +82,7 @@ def trial_from_json(
     generator_run: GeneratorRun,
     runner: Optional[Runner],
     num_arms_created: int,
-    generation_step_index: Optional[int],
+    generation_step_index: Optional[int] = None,
 ) -> Trial:
     """Load Ax trial from JSON.
 
