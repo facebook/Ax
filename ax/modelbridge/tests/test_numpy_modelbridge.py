@@ -9,7 +9,7 @@ from unittest import mock
 
 import numpy as np
 from ax.core.metric import Metric
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
@@ -242,12 +242,35 @@ class NumpyModelBridgeTest(TestCase):
             np.array_equal(gen_args["objective_weights"], np.array([-1.0, -1.0]))
         )
 
+        # Test with MultiObjective (unweighted multiple objectives)
+        oc3 = OptimizationConfig(
+            objective=MultiObjective(
+                metrics=[Metric(name="a", lower_is_better=False), Metric(name="b")],
+                minimize=True,
+            )
+        )
+        search_space = SearchSpace(self.parameters)  # Unconstrained
+        observation_features, weights, best_obsf, _ = ma._gen(
+            n=3,
+            search_space=search_space,
+            optimization_config=oc3,
+            pending_observations=self.pending_observations,
+            fixed_features=ObservationFeatures({"z": 3.0}),
+            model_gen_options=self.model_gen_options,
+        )
+        gen_args = mock_gen.mock_calls[2][2]
+        self.assertEqual(gen_args["bounds"], [(0.0, 1.0), (1.0, 2.0), (0.0, 5.0)])
+        self.assertIsNone(gen_args["outcome_constraints"])
+        self.assertTrue(
+            np.array_equal(gen_args["objective_weights"], np.array([1.0, -1.0]))
+        )
+
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])
         optimization_config.outcome_constraints = []
         ma.parameters = ["x", "y"]
         ma._gen(3, search_space, {}, ObservationFeatures({}), None, optimization_config)
-        gen_args = mock_gen.mock_calls[2][2]
+        gen_args = mock_gen.mock_calls[3][2]
         self.assertEqual(gen_args["bounds"], [(0.0, 1.0), (1.0, 2.0)])
         self.assertIsNone(gen_args["outcome_constraints"])
         self.assertIsNone(gen_args["linear_constraints"])

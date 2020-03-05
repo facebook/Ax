@@ -6,7 +6,13 @@
 
 import torch
 from ax.exceptions.model import ModelError
-from ax.models.torch.utils import is_noiseless, normalize_indices, subset_model
+from ax.models.torch.utils import (
+    is_noiseless,
+    normalize_indices,
+    sample_hypersphere_positive_quadrant,
+    sample_simplex,
+    subset_model,
+)
 from ax.utils.common.testutils import TestCase
 from botorch.models import HeteroskedasticSingleTaskGP, ModelListGP, SingleTaskGP
 
@@ -80,3 +86,21 @@ class TorchUtilsTest(TestCase):
         obj_weights = torch.ones(3)
         with self.assertRaises(RuntimeError):
             subset_model(model, obj_weights)
+
+    def testSampleSimplex(self):
+        for d in range(1, 10):
+            self.assertTrue(
+                sample_simplex(d)
+                .sum()
+                .isclose(torch.tensor([1.0], dtype=torch.double)),
+                "sampled simplex point's components do not sum to 1.0",
+            )
+
+    def testSampleHyperspherePositiveQuadrant(self):
+        for d in range(1, 10):
+            self.assertTrue(
+                sample_hypersphere_positive_quadrant(d)
+                .norm()
+                .isclose(torch.tensor([1.0], dtype=torch.double)),
+                "sampled hypersphere point's norm is not 1.0",
+            )

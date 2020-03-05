@@ -13,6 +13,7 @@ from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     recommend_best_out_of_sample_point,
 )
+from ax.models.torch.utils import HYPERSPHERE
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import FixedNoiseGP, ModelListGP
@@ -21,6 +22,10 @@ from gpytorch.likelihoods import _GaussianLikelihoodBase
 
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
+SAMPLE_SIMPLEX_UTIL_PATH = "ax.models.torch.botorch_defaults.sample_simplex"
+SAMPLE_HYPERSPHERE_UTIL_PATH = (
+    "ax.models.torch.botorch_defaults.sample_hypersphere_positive_quadrant"
+)
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -423,3 +428,84 @@ class BotorchModelTest(TestCase):
         # because there are no feasible points:
         with self.assertRaises(ValueError):
             model.gen(n, bounds, objective_weights)
+
+    @mock.patch(
+        "ax.models.torch.botorch_defaults.optimize_acqf",
+        return_value=(
+            torch.tensor([[[1.0, 2.0, 3.0]]]),
+            torch.tensor([[[1.0, 2.0, 3.0]]]),
+        ),
+    )
+    def test_BotorchModel_with_random_scalarization(
+        self, dtype=torch.float, cuda=False
+    ):
+        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
+            dtype=torch.float, cuda=False, constant_noise=True
+        )
+        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
+            dtype=torch.float, cuda=False, constant_noise=True
+        )
+        n = 3
+        objective_weights = torch.tensor(
+            [1.0, 1.0], dtype=torch.float, device=torch.device("cpu")
+        )
+        model = BotorchModel()
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1 + Xs2,
+                Ys=Ys1 + Ys2,
+                Yvars=Yvars1 + Yvars2,
+                bounds=bounds,
+                task_features=tfs,
+                feature_names=fns,
+                metric_names=mns,
+                fidelity_features=[],
+            )
+            _mock_fit_model.assert_called_once()
+
+        with mock.patch(
+            SAMPLE_SIMPLEX_UTIL_PATH,
+            autospec=True,
+            return_value=torch.tensor([0.7, 0.3]),
+        ) as _mock_sample_simplex:
+            model.gen(
+                n,
+                bounds,
+                objective_weights,
+                model_gen_options={
+                    "acquisition_function_kwargs": {"random_scalarization": True}
+                },
+            )
+            _mock_sample_simplex.assert_called_once()
+
+        with mock.patch(
+            SAMPLE_HYPERSPHERE_UTIL_PATH,
+            autospec=True,
+            return_value=torch.tensor([0.6, 0.8]),
+        ) as _mock_sample_hypersphere:
+            model.gen(
+                n,
+                bounds,
+                objective_weights,
+                model_gen_options={
+                    "acquisition_function_kwargs": {
+                        "random_scalarization": True,
+                        "random_scalarization_distribution": HYPERSPHERE,
+                    }
+                },
+            )
+            _mock_sample_hypersphere.assert_called_once()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "pareto frontier exploration is incompatible with outcome constraints.",
+        ):
+            model.gen(
+                n,
+                bounds,
+                objective_weights,
+                outcome_constraints=(torch.Tensor([[1.0, 1.0]]), torch.Tensor([[1.0]])),
+                model_gen_options={
+                    "acquisition_function_kwargs": {"random_scalarization": True}
+                },
+            )

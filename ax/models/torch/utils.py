@@ -6,6 +6,7 @@
 
 from typing import Dict, List, Optional, Tuple
 
+import botorch.utils.sampling as botorch_sampling
 import torch
 from ax.exceptions.model import ModelError
 from ax.models.model_utils import filter_constraints_and_fixed_features, get_observed
@@ -15,6 +16,11 @@ from torch import Tensor
 
 
 NOISELESS_MODELS = {SingleTaskGP}
+
+
+# Distributions
+SIMPLEX = "simplex"
+HYPERSPHERE = "hypersphere"
 
 
 def is_noiseless(model: Model) -> bool:
@@ -209,3 +215,15 @@ def _to_inequality_constraints(
     else:
         inequality_constraints = None
     return inequality_constraints
+
+
+def sample_simplex(dim: int) -> Tensor:
+    """Sample uniformly from a dim-simplex."""
+    return botorch_sampling.sample_simplex(dim, dtype=torch.double).squeeze()
+
+
+def sample_hypersphere_positive_quadrant(dim: int) -> Tensor:
+    """Sample uniformly from the positive quadrant of a dim-sphere."""
+    return torch.abs(
+        botorch_sampling.sample_hypersphere(dim, dtype=torch.double).squeeze()
+    )

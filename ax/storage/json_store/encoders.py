@@ -15,7 +15,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
@@ -209,6 +209,16 @@ def objective_to_dict(objective: Objective) -> Dict[str, Any]:
     return {
         "__type": objective.__class__.__name__,
         "metric": objective.metric,
+        "minimize": objective.minimize,
+    }
+
+
+def multi_objective_to_dict(objective: MultiObjective) -> Dict[str, Any]:
+    """Convert Ax objective to a dictionary."""
+    return {
+        "__type": objective.__class__.__name__,
+        "metrics": objective.metrics,
+        "weights": objective.weights,
         "minimize": objective.minimize,
     }
 

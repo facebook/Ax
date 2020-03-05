@@ -4,10 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple
 
 from ax.core.base import Base
 from ax.core.metric import Metric
+from ax.utils.common.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class Objective(Base):
@@ -48,7 +52,79 @@ class Objective(Base):
         )
 
 
-class ScalarizedObjective(Objective):
+# TODO (jej): Support sqa_store encoding. Currenlty only single metric obj supported.
+class MultiObjective(Objective):
+    """Class for an objective composed of a multiple component objectives.
+
+    The Acquisition function determines how the objectives are weighted.
+
+    Attributes:
+        metrics: List of metrics.
+    """
+
+    weights: List[float]
+
+    def __init__(
+        self,
+        metrics: List[Metric],
+        minimize: bool = False,
+        **extra_kwargs: Any,  # Here to satisfy serialization.
+    ) -> None:
+        """Create a new objective.
+
+        Args:
+            metrics: The list of metrics to be jointly optimized.
+            minimize: If true, minimize the aggregate of these metrics.
+
+        """
+        self._metrics = metrics
+        self.weights = []
+        for metric in metrics:
+            # Set weights from "lower_is_better"
+            if metric.lower_is_better is None:
+                logger.warning(
+                    "metric {metric.name} has not set `lower_is_better`. "
+                    "Treating as `False` (Metric should be maximized)."
+                )
+            self.weights.append(
+                -1.0
+                if metric.lower_is_better is True
+                else 1.0
+                if metric.lower_is_better is False
+                else 0.0
+            )
+        self.minimize = minimize
+
+    @property
+    def metric_weights(self) -> Iterable[Tuple[Metric, float]]:
+        """Get the objective metrics and weights."""
+        return zip(self.metrics, self.weights)
+
+    @property
+    def metric(self) -> Metric:
+        """Override base method to error."""
+        raise NotImplementedError(
+            f"{type(self).__name__} is composed of multiple metrics"
+        )
+
+    @property
+    def metrics(self) -> List[Metric]:
+        """Get the objective metrics."""
+        return self._metrics
+
+    def clone(self) -> "Objective":
+        """Create a copy of the objective."""
+        return MultiObjective(
+            metrics=[m.clone() for m in self.metrics], minimize=self.minimize
+        )
+
+    def __repr__(self) -> str:
+        return "MultiObjective(metric_names={}, minimize={})".format(
+            [metric.name for metric in self.metrics], self.minimize
+        )
+
+
+class ScalarizedObjective(MultiObjective):
     """Class for an objective composed of a linear scalarization of metrics.
 
     Attributes:
@@ -77,24 +153,8 @@ class ScalarizedObjective(Objective):
         else:
             if len(weights) != len(metrics):
                 raise ValueError("Length of weights must equal length of metrics")
-        self._metrics = metrics
-        self.minimize = minimize
+        super().__init__(metrics, minimize)
         self.weights = weights
-
-    @property
-    def metric(self) -> Metric:
-        """Override base method to error."""
-        raise NotImplementedError("ScalarizedObjective is composed of multiple metrics")
-
-    @property
-    def metrics(self) -> List[Metric]:
-        """Get the objective metrics."""
-        return self._metrics
-
-    @property
-    def metric_weights(self) -> Iterable[Tuple[Metric, float]]:
-        """Get the objective metrics and weights."""
-        return zip(self.metrics, self.weights)
 
     def clone(self) -> "Objective":
         """Create a copy of the objective."""

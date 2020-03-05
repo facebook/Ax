@@ -16,7 +16,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
@@ -54,6 +54,7 @@ from ax.storage.json_store.encoders import (
     generation_strategy_to_dict,
     generator_run_to_dict,
     metric_to_dict,
+    multi_objective_to_dict,
     objective_to_dict,
     observation_features_to_dict,
     optimization_config_to_dict,
@@ -87,6 +88,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Hartmann6Metric: metric_to_dict,
     L2NormMetric: metric_to_dict,
     Metric: metric_to_dict,
+    MultiObjective: multi_objective_to_dict,
     NegativeBraninMetric: metric_to_dict,
     NoisyFunctionMetric: metric_to_dict,
     Objective: objective_to_dict,
@@ -128,6 +130,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "L2NormMetric": L2NormMetric,
     "Metric": Metric,
     "Models": Models,
+    "MultiObjective": MultiObjective,
     "NegativeBraninMetric": NegativeBraninMetric,
     "NoisyFunctionMetric": NoisyFunctionMetric,
     "Objective": Objective,

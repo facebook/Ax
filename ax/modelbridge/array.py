@@ -7,7 +7,7 @@
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import numpy as np
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
@@ -434,6 +434,10 @@ def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.n
     if isinstance(objective, ScalarizedObjective):
         for obj_metric, obj_weight in objective.metric_weights:
             objective_weights[outcomes.index(obj_metric.name)] = obj_weight * s
+    elif isinstance(objective, MultiObjective):
+        for obj_metric, obj_weight in objective.metric_weights:
+            # Rely on previously extracted lower_is_better weights not objective.
+            objective_weights[outcomes.index(obj_metric.name)] = obj_weight or s
     else:
         objective_weights[outcomes.index(objective.metric.name)] = s
     return objective_weights

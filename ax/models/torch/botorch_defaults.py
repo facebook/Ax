@@ -9,7 +9,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import torch
 from ax.core.types import TConfig
 from ax.models.model_utils import best_observed_point, get_observed
-from ax.models.torch.utils import _to_inequality_constraints
+from ax.models.torch.utils import (
+    HYPERSPHERE,
+    SIMPLEX,
+    _to_inequality_constraints,
+    sample_hypersphere_positive_quadrant,
+    sample_simplex,
+)
 from ax.models.torch_base import TorchModel
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
@@ -178,6 +184,10 @@ def get_NEI(
     """
     if X_observed is None:
         raise ValueError("There are no feasible observed points.")
+    # Parse random_scalarization params
+    objective_weights = _extract_random_scalarization_settings(
+        objective_weights, outcome_constraints, **kwargs
+    )
     # construct Objective module
     if outcome_constraints is None:
         objective = LinearMCObjective(weights=objective_weights)
@@ -475,3 +485,27 @@ def _get_model(
             train_X=X, train_Y=Y, train_Yvar=Yvar, task_feature=task_feature, **kwargs
         )
     return gp
+
+
+def _extract_random_scalarization_settings(
+    objective_weights: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    **kwargs: Any,
+) -> Tensor:
+    use_random_scalarization = kwargs.get("random_scalarization", False)
+    if use_random_scalarization:
+        # Pareto Optimization incompatible with outcome constraints.
+        if outcome_constraints is not None:
+            raise ValueError(
+                "Random scalarization for pareto frontier exploration "
+                "is incompatible with outcome constraints. Remove one."
+            )
+        # Set distribution and sample weights.
+        distribution = kwargs.get("random_scalarization_distribution", SIMPLEX)
+        if distribution == SIMPLEX:
+            objective_weights = sample_simplex(len(objective_weights))
+        elif distribution == HYPERSPHERE:
+            objective_weights = sample_hypersphere_positive_quadrant(
+                len(objective_weights)
+            )
+    return objective_weights
