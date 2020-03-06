@@ -113,23 +113,26 @@ def _save_generation_strategy(
         generation_strategy=generation_strategy, experiment_id=experiment_id
     )
 
-    with session_scope() as session:
-        if generation_strategy._db_id is None:
-            session.add(gs_sqa)
-            session.flush()  # Ensures generation strategy id is set.
-            generation_strategy._db_id = gs_sqa.id
-        else:
-            gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
+    if generation_strategy._db_id is not None:
+        gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
+        with session_scope() as session:
             existing_gs_sqa = session.query(gs_sqa_class).get(
                 generation_strategy._db_id
             )
-            existing_gs_sqa.update(gs_sqa)
-            # our update logic ignores foreign keys, i.e. fields ending in _id,
-            # because we want SQLAlchemy to handle those relationships for us
-            # however, generation_strategy.experiment_id is an exception, so we
-            # need to update that manually
-            existing_gs_sqa.experiment_id = gs_sqa.experiment_id
 
+        existing_gs_sqa.update(gs_sqa)
+        # our update logic ignores foreign keys, i.e. fields ending in _id,
+        # because we want SQLAlchemy to handle those relationships for us
+        # however, generation_strategy.experiment_id is an exception, so we
+        # need to update that manually
+        existing_gs_sqa.experiment_id = gs_sqa.experiment_id
+        gs_sqa = existing_gs_sqa
+
+    with session_scope() as session:
+        session.add(gs_sqa)
+        session.flush()  # Ensures generation strategy id is set.
+
+    generation_strategy._db_id = gs_sqa.id
     # pyre-fixme[7]: Expected `int` but got `Optional[int]`.
     return generation_strategy._db_id
 
