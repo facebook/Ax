@@ -38,7 +38,11 @@ from ax.storage.sqa_store.load import (
     load_generation_strategy_by_experiment_name,
     load_generation_strategy_by_id,
 )
-from ax.storage.sqa_store.save import save_experiment, save_generation_strategy
+from ax.storage.sqa_store.save import (
+    save_experiment,
+    save_generation_strategy,
+    save_new_trial,
+)
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAExperiment,
@@ -200,6 +204,35 @@ class SQAStoreTest(TestCase):
         self.assertEqual(loaded_experiment.metric_to_trial_type["m2"], "type2")
         self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
         self.assertEqual(len(loaded_experiment.trials), 2)
+
+    def testExperimentNewTrial(self):
+        save_experiment(self.experiment)
+        trial = self.experiment.new_batch_trial()
+        save_new_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(len(loaded_experiment.trials), 2)
+        self.assertEqual(trial, loaded_experiment.trials[1])
+
+        trial = self.experiment.new_batch_trial()
+        save_new_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(len(loaded_experiment.trials), 3)
+        self.assertEqual(trial, loaded_experiment.trials[2])
+
+    def testExperimentNewTrialValidation(self):
+        trial = self.experiment.new_batch_trial()
+
+        with self.assertRaises(ValueError):
+            # must save experiment first
+            save_new_trial(experiment=self.experiment, trial=trial)
+
+        save_experiment(self.experiment)
+
+        with self.assertRaises(ValueError):
+            # can't save new trial twice
+            save_new_trial(experiment=self.experiment, trial=trial)
 
     def testSaveValidation(self):
         with self.assertRaises(ValueError):

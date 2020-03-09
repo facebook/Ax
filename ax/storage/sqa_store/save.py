@@ -6,6 +6,7 @@
 
 from typing import Optional
 
+from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
@@ -148,3 +149,34 @@ def _get_experiment_id(experiment: Experiment, encoder: Encoder) -> int:
             "The undelying experiment must be saved before the generation strategy."
         )
     return sqa_experiment.id
+
+
+def save_new_trial(
+    experiment: Experiment, trial: BaseTrial, config: Optional[SQAConfig] = None
+) -> None:
+    """Add new trial to the experiment (using default SQAConfig)."""
+    config = config or SQAConfig()
+    encoder = Encoder(config=config)
+    _save_new_trial(experiment=experiment, trial=trial, encoder=encoder)
+
+
+def _save_new_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) -> None:
+    """Add new trial to the experiment, using given Encoder instance."""
+    exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
+    with session_scope() as session:
+        existing_sqa_experiment = (
+            session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
+        )
+
+    if existing_sqa_experiment is None:
+        raise ValueError("Must save experiment before adding a new trial.")
+
+    existing_trial_indices = {trial.index for trial in existing_sqa_experiment.trials}
+    if trial.index in existing_trial_indices:
+        raise ValueError(f"Trial {trial.index} already attached to experiment.")
+
+    new_sqa_trial = encoder.trial_to_sqa(trial)
+
+    with session_scope() as session:
+        existing_sqa_experiment.trials.append(new_sqa_trial)
+        session.add(existing_sqa_experiment)
