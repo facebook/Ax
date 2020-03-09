@@ -64,3 +64,20 @@ class DataRequiredError(AxError):
     """
 
     pass
+
+
+class AxWarning(Warning):
+    """Base Ax warning.
+
+    All warnings derived from AxWarning need to define a custom warning message.
+    Additionally, warnings can define a hint property that provides additional
+    guidance as to how to remedy the warning.
+
+    """
+
+    def __init__(self, message: str, hint: str = "") -> None:
+        self.message: str = message
+        self.hint: str = hint
+
+    def __str__(self) -> str:
+        return " ".join([self.message, getattr(self, "hint", "")]).rstrip()
