@@ -3,6 +3,13 @@ language: python
 python:
   - 3.7
 
+notifications:
+  email:
+  - recipients:
+    - scubasteve@fb.com
+    if: branch = master
+    on_success: never 
+    on_failure: always 
 
 jobs:
   allow_failures:
