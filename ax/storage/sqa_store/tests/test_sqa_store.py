@@ -42,6 +42,7 @@ from ax.storage.sqa_store.save import (
     save_experiment,
     save_generation_strategy,
     save_new_trial,
+    update_trial,
 )
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -71,6 +72,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_metric,
     get_choice_parameter,
+    get_data,
     get_experiment_with_batch_trial,
     get_fixed_parameter,
     get_generator_run,
@@ -214,7 +216,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(len(loaded_experiment.trials), 2)
         self.assertEqual(trial, loaded_experiment.trials[1])
 
-        trial = self.experiment.new_batch_trial()
+        trial = self.experiment.new_batch_trial(generator_run=get_generator_run())
         save_new_trial(experiment=self.experiment, trial=trial)
 
         loaded_experiment = load_experiment(self.experiment.name)
@@ -233,6 +235,50 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(ValueError):
             # can't save new trial twice
             save_new_trial(experiment=self.experiment, trial=trial)
+
+    def testExperimentUpdateTrial(self):
+        save_experiment(self.experiment)
+
+        trial = self.experiment.trials[0]
+        trial.mark_staged()
+        update_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(trial, loaded_experiment.trials[0])
+
+        trial._run_metadata = {"foo": "bar"}
+        update_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(trial, loaded_experiment.trials[0])
+
+        self.experiment.attach_data(get_data(trial_index=trial.index))
+        update_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(self.experiment, loaded_experiment)
+
+        trial = self.experiment.new_batch_trial(generator_run=get_generator_run())
+        save_new_trial(experiment=self.experiment, trial=trial)
+        self.experiment.attach_data(get_data(trial_index=trial.index))
+        update_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(self.experiment, loaded_experiment)
+
+    def testExperimentUpdateTrialValidation(self):
+        trial = self.experiment.trials[0]
+
+        with self.assertRaises(ValueError):
+            # must save experiment first
+            update_trial(experiment=self.experiment, trial=trial)
+
+        save_experiment(self.experiment)
+        trial._index = 1
+
+        with self.assertRaises(ValueError):
+            # has bad index
+            update_trial(experiment=self.experiment, trial=trial)
 
     def testSaveValidation(self):
         with self.assertRaises(ValueError):

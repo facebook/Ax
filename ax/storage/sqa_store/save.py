@@ -180,3 +180,50 @@ def _save_new_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) 
     with session_scope() as session:
         existing_sqa_experiment.trials.append(new_sqa_trial)
         session.add(existing_sqa_experiment)
+
+
+def update_trial(
+    experiment: Experiment, trial: BaseTrial, config: Optional[SQAConfig] = None
+) -> None:
+    """Update trial and attach data (using default SQAConfig)."""
+    config = config or SQAConfig()
+    encoder = Encoder(config=config)
+    _update_trial(experiment=experiment, trial=trial, encoder=encoder)
+
+
+def _update_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) -> None:
+    """Update trial and attach data, using given Encoder instance."""
+    exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
+    with session_scope() as session:
+        existing_sqa_experiment = (
+            session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
+        )
+
+    if existing_sqa_experiment is None:
+        raise ValueError("Must save experiment before updating a trial.")
+
+    existing_trial_indices = {trial.index for trial in existing_sqa_experiment.trials}
+    if trial.index not in existing_trial_indices:
+        raise ValueError(f"Trial {trial.index} is not attached to the experiment.")
+
+    # There should only be one existing trial with the same index
+    existing_sqa_trials = [
+        sqa_trial
+        for sqa_trial in existing_sqa_experiment.trials
+        if sqa_trial.index == trial.index
+    ]
+    assert len(existing_sqa_trials) == 1
+    existing_sqa_trial = existing_sqa_trials[0]
+
+    new_sqa_trial = encoder.trial_to_sqa(trial)
+    existing_sqa_trial.update(new_sqa_trial)
+
+    with session_scope() as session:
+        session.add(existing_sqa_trial)
+
+    data, ts = experiment.lookup_data_for_trial(trial_index=trial.index)
+    if ts != -1:
+        sqa_data = encoder.data_to_sqa(data=data, trial_index=trial.index, timestamp=ts)
+        with session_scope() as session:
+            existing_sqa_experiment.data.append(sqa_data)
+            session.add(existing_sqa_experiment)

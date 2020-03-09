@@ -6,7 +6,7 @@
 
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, MutableMapping
+from typing import Dict, List, MutableMapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -640,9 +640,9 @@ def get_synthetic_runner() -> SyntheticRunner:
 # Data
 
 
-def get_data() -> Data:
+def get_data(trial_index: Optional[int] = 0) -> Data:
     df_dict = {
-        "trial_index": 0,
+        "trial_index": trial_index,
         "metric_name": "ax_test_metric",
         "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3"],
         "mean": [1, 3, 2, 2.25, 1.75],
