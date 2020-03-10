@@ -16,7 +16,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import Objective
+from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
@@ -310,6 +310,10 @@ class Encoder:
 
     def objective_to_sqa(self, objective: Objective) -> SQAMetric:
         """Convert Ax Objective to SQLAlchemy."""
+
+        if isinstance(objective, ScalarizedObjective):
+            return self.scalarized_objective_to_sqa(objective)
+
         metric = objective.metric
         metric_type, properties = self.get_metric_type_and_properties(metric=metric)
 
@@ -324,6 +328,68 @@ class Encoder:
             properties=properties,
             lower_is_better=metric.lower_is_better,
         )
+
+    def scalarized_objective_to_sqa(self, objective: ScalarizedObjective) -> SQAMetric:
+        """Convert Ax Scalarized Objective to SQLAlchemy. Returns a parent
+        SQAMetric, whose children are the SQAMetrics corresponding to
+        metrics attribute of Scalarized Objective. The parent is used as a placeholder
+        for storage purposes."""
+        metrics, weights = objective.metrics, objective.weights
+
+        if metrics is None or weights is None or len(metrics) != len(weights):
+            raise SQAEncodeError(
+                "Metrics and weights in scalarized objective \
+                must be lists of equal length."
+            )  # pragma: no cover
+
+        # pyre-fixme[9]: Expected SQABase type of an attribute;
+        # re-defined to be SQAMetric.
+        metrics_by_name: Dict[
+            str, Tuple[Metric, float, SQAMetric, Tuple[int, Dict[str, Any]]]
+        ] = {
+            metric.name: (
+                metric,
+                weight,
+                self.config.class_to_sqa_class[Metric],
+                self.get_metric_type_and_properties(metric=metric),
+            )
+            for (metric, weight) in zip(metrics, weights)
+        }
+
+        # Constructing children SQAMetric classes
+        children_metrics = [
+            # pyre-fixme[29]: `SQAMetric` is not a function.
+            metric_class(
+                name=metric_name,
+                metric_type=metrics_type_and_properties[0],
+                intent=MetricIntent.OBJECTIVE,
+                minimize=objective.minimize,
+                properties=metrics_type_and_properties[1],
+                lower_is_better=metric.lower_is_better,
+                scalarized_objective_weight=weight,
+            )
+            for metric_name, (
+                metric,
+                weight,
+                metric_class,
+                metrics_type_and_properties,
+            ) in metrics_by_name.items()
+        ]
+
+        # Constructing a parent SQAMetric class
+        # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
+        parent_metric: SQAMetric = self.config.class_to_sqa_class[Metric]
+        # pyre-fixme[29]: `SQAMetric` is not a function.
+        parent_metric = parent_metric(
+            name="scalarized_objective",
+            metric_type=METRIC_REGISTRY[Metric],
+            intent=MetricIntent.SCALARIZED_OBJECTIVE,
+            minimize=objective.minimize,
+            lower_is_better=objective.minimize,
+            scalarized_objective_children_metrics=children_metrics,
+        )
+
+        return parent_metric
 
     def outcome_constraint_to_sqa(
         self, outcome_constraint: OutcomeConstraint

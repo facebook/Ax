@@ -23,6 +23,7 @@ class MetricIntent(enum.Enum):
     """Class for enumerating metric use types."""
 
     OBJECTIVE: str = "objective"
+    SCALARIZED_OBJECTIVE: str = "scalarized_objective"
     # Additional objective is not yet supported in Ax open-source.
     ADDITIONAL_OBJECTIVE: str = "additional_objective"
     OUTCOME_CONSTRAINT: str = "outcome_constraint"

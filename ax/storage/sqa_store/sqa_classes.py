@@ -123,6 +123,19 @@ class SQAMetric(Base):
     immutable_fields = ["name"]
     unique_id = "name"
 
+    scalarized_objective_id = Column(Integer, ForeignKey("metric_v2.id"))
+
+    # Relationship containing SQAMetric(s) only defined for the parent metric
+    # of Scalarized Objective contains all children of the parent metric
+    # join_depth argument: used for loading self-referential relationships
+    # https://docs.sqlalchemy.org/en/13/orm/self_referential.html#configuring-self-referential-eager-loading
+    scalarized_objective_children_metrics = relationship(
+        "SQAMetric", cascade="all, delete-orphan", lazy="selectin", join_depth=4
+    )
+
+    # Attribute only defined for the children of Scalarized Objective
+    scalarized_objective_weight: Optional[float] = Column(Float)
+
 
 # pyre-fixme[11]: Type `Base` is not defined.
 class SQAArm(Base):

@@ -19,7 +19,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import Objective
+from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
@@ -398,23 +398,28 @@ class Decoder:
             args[arg] = value
         return args
 
-    def metric_from_sqa(
-        self, metric_sqa: SQAMetric
-    ) -> Union[Metric, Objective, OutcomeConstraint]:
-        """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
+    def metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
+        """Convert SQLAlchemy Metric to Ax Metric"""
         metric_class = REVERSE_METRIC_REGISTRY.get(metric_sqa.metric_type)
         if metric_class is None:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type."
             )
-
         args = self.get_init_args_from_properties(
             # pyre-fixme[6]: Expected `SQABase` for ...es` but got `SQAMetric`.
             object_sqa=metric_sqa,
             class_=metric_class,
         )
         metric = metric_class(**args)
+        return metric
+
+    def metric_from_sqa(
+        self, metric_sqa: SQAMetric
+    ) -> Union[Metric, Objective, OutcomeConstraint]:
+        """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
+
+        metric = self.metric_from_sqa_util(metric_sqa)
 
         if metric_sqa.intent == MetricIntent.TRACKING:
             return metric
@@ -423,8 +428,45 @@ class Decoder:
                 raise SQADecodeError(  # pragma: no cover
                     "Cannot decode SQAMetric to Objective because minimize is None."
                 )
+            if metric_sqa.scalarized_objective_weight is not None:
+                raise SQADecodeError(  # pragma: no cover
+                    "The metric corresponding to regular objective does not \
+                    have weight attribute"
+                )
             # pyre-fixme[6]: Expected `bool` for 2nd param but got `Optional[bool]`.
             return Objective(metric=metric, minimize=metric_sqa.minimize)
+        elif (
+            metric_sqa.intent == MetricIntent.SCALARIZED_OBJECTIVE
+        ):  # metric_sqa is a parent whose children are individual
+            # metrics in Scalarized Objective
+            if metric_sqa.minimize is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to Scalarized Objective \
+                    because minimize is None."
+                )
+            metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
+            if metrics_sqa_children is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to Scalarized Objective \
+                    because the parent metric has no children metrics."
+                )
+
+            # Extracting metric and weight for each child
+            metrics, weights = zip(
+                *[
+                    (
+                        self.metric_from_sqa_util(child),
+                        child.scalarized_objective_weight,
+                    )
+                    for child in metrics_sqa_children
+                ]
+            )
+            return ScalarizedObjective(
+                metrics=list(metrics),
+                weights=list(weights),
+                # pyre-fixme[6]: Expected `bool` for 3nd param but got `Optional[bool]`.
+                minimize=metric_sqa.minimize,
+            )
         elif metric_sqa.intent == MetricIntent.OUTCOME_CONSTRAINT:
             if (
                 metric_sqa.bound is None
