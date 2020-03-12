@@ -45,6 +45,7 @@ from ax.storage.json_store.decoder import (
 )
 from ax.storage.json_store.encoder import object_to_json
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.exec_utils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
@@ -264,7 +265,9 @@ class AxClient:
         self._set_generation_strategy(
             choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
         )
-        self._save_experiment_and_maybe_generation_strategy_to_db_if_possible()
+        self._save_experiment_and_maybe_generation_strategy_to_db_if_possible(
+            suppress_all_errors=self._suppress_storage_errors
+        )
 
     def get_next_trial(self) -> Tuple[TParameterization, int]:
         """
@@ -281,7 +284,9 @@ class AxClient:
             f"{_round_floats_for_logging(item=not_none(trial.arm).parameters)}."
         )
         trial.mark_running(no_runner_required=True)
-        self._save_experiment_and_maybe_generation_strategy_to_db_if_possible()
+        self._save_experiment_and_maybe_generation_strategy_to_db_if_possible(
+            suppress_all_errors=self._suppress_storage_errors
+        )
         return not_none(trial.arm).parameters, trial.index
 
     def complete_trial(
@@ -328,7 +333,8 @@ class AxClient:
             f"{_round_floats_for_logging(item=data_for_logging)}."
         )
         self._save_experiment_and_maybe_generation_strategy_to_db_if_possible(
-            save_generation_strategy=False  # No changes were made to gen. strategy.
+            save_generation_strategy=False,  # No changes were made to gen. strategy.
+            suppress_all_errors=self._suppress_storage_errors,
         )
 
     def update_trial_data(
@@ -377,7 +383,8 @@ class AxClient:
             f"to trial {trial.index}."
         )
         self._save_experiment_and_maybe_generation_strategy_to_db_if_possible(
-            save_generation_strategy=False  # No changes were made to gen. strategy.
+            save_generation_strategy=False,  # No changes were made to gen. strategy.
+            suppress_all_errors=self._suppress_storage_errors,
         )
 
     def log_trial_failure(
@@ -395,7 +402,8 @@ class AxClient:
         if metadata is not None:
             trial._run_metadata = metadata
         self._save_experiment_and_maybe_generation_strategy_to_db_if_possible(
-            save_generation_strategy=False  # No changes were made to gen. strategy.
+            save_generation_strategy=False,  # No changes were made to gen. strategy.
+            suppress_all_errors=self._suppress_storage_errors,
         )
 
     def attach_trial(
@@ -417,7 +425,8 @@ class AxClient:
             f"{_round_floats_for_logging(item=parameters)} as trial {trial.index}."
         )
         self._save_experiment_and_maybe_generation_strategy_to_db_if_possible(
-            save_generation_strategy=False  # No changes were made to gen. strategy.
+            save_generation_strategy=False,  # No changes were made to gen. strategy.
+            suppress_all_errors=self._suppress_storage_errors,
         )
         return not_none(trial.arm).parameters, trial.index
 
@@ -811,8 +820,13 @@ class AxClient:
                 **choose_generation_strategy_kwargs,
             )
 
+    @retry_on_exception(
+        retries=3,
+        default_return_on_suppression=False,
+        exception_type=(OperationalError,),
+    )
     def _save_experiment_and_maybe_generation_strategy_to_db_if_possible(
-        self, save_generation_strategy: bool = True
+        self, save_generation_strategy: bool = True, suppress_all_errors: bool = False
     ) -> bool:
         """Saves attached experiment and generation strategy if DB settings are
         set on this AxClient instance.
@@ -821,24 +835,17 @@ class AxClient:
             bool: Whether the experiment was saved.
         """
         if self.db_settings is not None:
-            for i in range(3):
-                try:
-                    if save_generation_strategy:
-                        save_experiment_and_generation_strategy(
-                            experiment=self.experiment,
-                            generation_strategy=self.generation_strategy,
-                            db_settings=self.db_settings,
-                        )
-                    else:
-                        save_experiment(
-                            experiment=self.experiment, db_settings=self.db_settings
-                        )
-                    return True
-                except OperationalError as err:  # pragma: no covert
-                    if i < 2 or self._suppress_storage_errors:
-                        logger.exception(err)
-                        continue
-                    raise
+            if save_generation_strategy:
+                save_experiment_and_generation_strategy(
+                    experiment=self.experiment,
+                    generation_strategy=self.generation_strategy,
+                    db_settings=self.db_settings,
+                )
+            else:
+                save_experiment(
+                    experiment=self.experiment, db_settings=self.db_settings
+                )
+            return True
         return False
 
     def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
