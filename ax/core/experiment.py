@@ -369,7 +369,7 @@ class Experiment(Base):
 
         try:
             return self._fetch_trial_data_no_lookup(
-                trial_index=trial_index, metrics=metrics
+                trial_index=trial_index, metrics=metrics, **kwargs
             )
         except NotImplementedError:
             # If some of the metrics do not implement data fetching, we should
