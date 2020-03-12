@@ -66,6 +66,11 @@ class DataRequiredError(AxError):
     pass
 
 
+class MisconfiguredExperiment(AxError):
+    "Raised when experiment has incomplete or incorrect information."
+    pass
+
+
 class AxWarning(Warning):
     """Base Ax warning.
 
