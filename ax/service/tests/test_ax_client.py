@@ -890,33 +890,3 @@ class TestAxClient(TestCase):
                 parameterization={k: v + 1.0 for k, v in params.items()},
             )
         )
-
-    # Patching `OperationalError`, since its hard to instantiate.
-    @patch(f"{AxClient.__module__}.OperationalError", new=RuntimeError)
-    @patch(
-        f"{AxClient.__module__}.save_experiment_and_generation_strategy",
-        side_effect=RuntimeError,
-    )
-    def test_storage_error_handling(self, mock_save_fails):
-        """Check that if `suppress_storage_errors` is True, AxClient won't
-        visibly fail if encountered storage errors.
-        """
-        init_test_engine_and_session_factory(force_init=True)
-        config = SQAConfig()
-        encoder = Encoder(config=config)
-        decoder = Decoder(config=config)
-        db_settings = DBSettings(encoder=encoder, decoder=decoder)
-        ax_client = AxClient(db_settings=db_settings, suppress_storage_errors=True)
-        ax_client.create_experiment(
-            name="test_experiment",
-            parameters=[
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-            minimize=True,
-        )
-        for _ in range(3):
-            parameters, trial_index = ax_client.get_next_trial()
-            ax_client.complete_trial(
-                trial_index=trial_index, raw_data=branin(*parameters.values())
-            )
