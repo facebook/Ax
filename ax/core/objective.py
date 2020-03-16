@@ -83,7 +83,7 @@ class MultiObjective(Objective):
             # Set weights from "lower_is_better"
             if metric.lower_is_better is None:
                 logger.warning(
-                    "metric {metric.name} has not set `lower_is_better`. "
+                    f"metric {metric.name} has not set `lower_is_better`. "
                     "Treating as `False` (Metric should be maximized)."
                 )
             self.weights.append(
