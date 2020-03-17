@@ -48,7 +48,7 @@ class Parameter(Base, metaclass=ABCMeta):
     _name: str
     _target_value: Optional[TParamValue] = None
 
-    def _cast(self, value: TParamValue) -> TParamValue:
+    def cast(self, value: TParamValue) -> TParamValue:
         if value is None:
             return None
         return self.python_type(value)
@@ -131,11 +131,11 @@ class RangeParameter(Parameter):
         self._name = name
         self._parameter_type = parameter_type
         self._digits = digits
-        self._lower = self._cast(lower)
-        self._upper = self._cast(upper)
+        self._lower = self.cast(lower)
+        self._upper = self.cast(upper)
         self._log_scale = log_scale
         self._is_fidelity = is_fidelity
-        self._target_value = self._cast(target_value)
+        self._target_value = self.cast(target_value)
 
         self._validate_range_param(
             parameter_type=parameter_type, lower=lower, upper=upper, log_scale=log_scale
@@ -217,8 +217,8 @@ class RangeParameter(Parameter):
             lower = self._lower
         if upper is None:
             upper = self._upper
-        cast_lower = self._cast(lower)
-        cast_upper = self._cast(upper)
+        cast_lower = self.cast(lower)
+        cast_upper = self.cast(upper)
         self._validate_range_param(
             lower=cast_lower, upper=cast_upper, log_scale=self.log_scale
         )
@@ -230,8 +230,8 @@ class RangeParameter(Parameter):
         self._digits = digits
 
         # Re-scale min and max to new digits definition
-        cast_lower = self._cast(self._lower)
-        cast_upper = self._cast(self._upper)
+        cast_lower = self.cast(self._lower)
+        cast_upper = self.cast(self._upper)
         if cast_lower >= cast_upper:
             raise ValueError(
                 f"Lower bound {cast_lower} is >= upper bound {cast_upper}."
@@ -288,7 +288,7 @@ class RangeParameter(Parameter):
             target_value=self._target_value,
         )
 
-    def _cast(self, value: TParamValue) -> TParamValue:
+    def cast(self, value: TParamValue) -> TParamValue:
         if value is None:
             return None
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
@@ -353,7 +353,7 @@ class ChoiceParameter(Parameter):
         self._is_ordered = is_ordered
         self._is_task = is_task
         self._is_fidelity = is_fidelity
-        self._target_value = self._cast(target_value)
+        self._target_value = self.cast(target_value)
         # A choice parameter with only one value is a FixedParameter.
         if not len(values) > 1:
             raise ValueError(FIXED_CHOICE_PARAM_ERROR)
@@ -416,7 +416,7 @@ class ChoiceParameter(Parameter):
         return value in self._values
 
     def _cast_values(self, values: List[TParamValue]) -> List[TParamValue]:
-        return [self._cast(value) for value in values]
+        return [self.cast(value) for value in values]
 
     def clone(self) -> "ChoiceParameter":
         return ChoiceParameter(
@@ -472,9 +472,9 @@ class FixedParameter(Parameter):
 
         self._name = name
         self._parameter_type = parameter_type
-        self._value = self._cast(value)
+        self._value = self.cast(value)
         self._is_fidelity = is_fidelity
-        self._target_value = self._cast(target_value)
+        self._target_value = self.cast(target_value)
 
     @property
     def value(self) -> TParamValue:
@@ -489,7 +489,7 @@ class FixedParameter(Parameter):
         return self._name
 
     def set_value(self, value: TParamValue) -> "FixedParameter":
-        self._value = self._cast(value)
+        self._value = self.cast(value)
         return self
 
     def validate(self, value: TParamValue) -> bool:

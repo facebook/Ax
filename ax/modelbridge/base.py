@@ -25,6 +25,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig, TGenMetadata, TModelCov, TModelMean, TModelPredict
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.cast import Cast
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
@@ -96,6 +97,10 @@ class ModelBridge(ABC):
                 Otherwise, only in design points are returned.
         """
         t_fit_start = time.time()
+        transforms = transforms or []
+        # pyre-ignore: Cast is a Tranform
+        transforms: List[Type[Transform]] = [Cast] + transforms
+
         self._metric_names: Set[str] = set()
         self._training_data: List[Observation] = []
         self._optimization_config: Optional[OptimizationConfig] = optimization_config

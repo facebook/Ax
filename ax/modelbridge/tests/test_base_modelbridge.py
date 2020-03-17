@@ -67,7 +67,7 @@ class BaseModelBridgeTest(TestCase):
             data=0,
         )
         self.assertEqual(
-            list(modelbridge.transforms.keys()), ["transform_1", "transform_2"]
+            list(modelbridge.transforms.keys()), ["Cast", "transform_1", "transform_2"]
         )
         fit_args = mock_fit.mock_calls[0][2]
         self.assertTrue(fit_args["search_space"] == get_search_space_for_value(8.0))

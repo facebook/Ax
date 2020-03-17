@@ -125,9 +125,9 @@ class RangeParameterTest(TestCase):
         self.assertEqual(self.param1.upper, 3.0)
 
     def testCast(self):
-        self.assertEqual(self.param2._cast(2.5), 2)
-        self.assertEqual(self.param2._cast(3), 3)
-        self.assertEqual(self.param2._cast(None), None)
+        self.assertEqual(self.param2.cast(2.5), 2)
+        self.assertEqual(self.param2.cast(3), 3)
+        self.assertEqual(self.param2.cast(None), None)
 
     def testClone(self):
         param_clone = self.param1.clone()
@@ -283,9 +283,9 @@ class FixedParameterTest(TestCase):
         self.assertNotEqual(self.param1.value, param_clone.value)
 
     def testCast(self):
-        self.assertEqual(self.param1._cast(1), True)
-        self.assertEqual(self.param1._cast(False), False)
-        self.assertEqual(self.param1._cast(None), None)
+        self.assertEqual(self.param1.cast(1), True)
+        self.assertEqual(self.param1.cast(False), False)
+        self.assertEqual(self.param1.cast(None), None)
 
 
 class ParameterEqualityTest(TestCase):

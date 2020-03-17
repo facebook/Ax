@@ -444,7 +444,7 @@ def get_fixed_values(
             elif isinstance(parameter, ChoiceParameter):
                 setx[p_name] = Counter(vals).most_common(1)[0][0]
             elif isinstance(parameter, RangeParameter):
-                setx[p_name] = parameter._cast(np.mean(vals))
+                setx[p_name] = parameter.cast(np.mean(vals))
 
     if slice_values is not None:
         # slice_values has type Dictionary[str, Any]

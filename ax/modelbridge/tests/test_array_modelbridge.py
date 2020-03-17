@@ -144,7 +144,7 @@ class ArrayModelBridgeTest(TestCase):
         modelbridge = ArrayModelBridge(
             get_search_space_for_range_value(), NumpyModel(), [t1, t2], exp, 0
         )
-        self.assertEqual(list(modelbridge.transforms.keys()), ["t1", "t2"])
+        self.assertEqual(list(modelbridge.transforms.keys()), ["Cast", "t1", "t2"])
         # _fit is mocked, which typically sets this.
         modelbridge.outcomes = ["a"]
         run = modelbridge.gen(

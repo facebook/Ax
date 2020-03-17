@@ -224,7 +224,7 @@ class SearchSpace(Base):
             if name not in self._parameters:
                 new_parameters[name] = value
             else:
-                new_parameters[name] = self._parameters[name]._cast(value)
+                new_parameters[name] = self._parameters[name].cast(value)
         return Arm(new_parameters, arm.name if arm.has_name else None)
 
     def out_of_design_arm(self) -> Arm:
