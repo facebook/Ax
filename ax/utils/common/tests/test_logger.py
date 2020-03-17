@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from tempfile import NamedTemporaryFile
 from unittest import mock
 
 from ax.utils.common.logger import get_logger
@@ -19,3 +20,10 @@ class LoggerTest(TestCase):
         logger.warning = mock.MagicMock(name="warning")
         logger.warning(self.warning_string)
         logger.warning.assert_called_once_with(self.warning_string)
+
+    def testLoggerWithFile(self):
+        with NamedTemporaryFile() as tf:
+            logger = get_logger(__name__, tf.name)
+            logger.warning(self.warning_string)
+            self.assertIn(self.warning_string, str(tf.readline()))
+            tf.close()

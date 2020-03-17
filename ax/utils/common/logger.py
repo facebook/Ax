@@ -7,22 +7,24 @@
 # pyre-strict
 
 import logging
-from typing import Any
+import os
+from typing import Any, Optional
 
 
-def get_logger(name: str) -> logging.Logger:
+def get_logger(
+    name: str, filepath: Optional[str] = None, level: int = logging.INFO
+) -> logging.Logger:
     """Get an Axlogger.
 
     Sets default level to INFO, instead of WARNING.
     Adds timestamps to logger messages.
     """
     logger = logging.getLogger(name)
-    if logger.level == 0:
-        logger.setLevel(logging.INFO)
+    logger.setLevel(level=level)
     # Add timestamps to log messages.
     if not logger.handlers:
         console = logging.StreamHandler()
-        console.setLevel(logging.INFO)
+        console.setLevel(level=level)
         formatter = logging.Formatter(
             fmt="[%(levelname)s %(asctime)s] %(name)s: %(message)s",
             datefmt="%m-%d %H:%M:%S",
@@ -30,6 +32,13 @@ def get_logger(name: str) -> logging.Logger:
         console.setFormatter(formatter)
         logger.addHandler(console)
         logger.propagate = False
+    if filepath is None:
+        return logger
+    if os.path.isfile(filepath):
+        logger.warning(f"Log file ({filepath}) already exists, appending logs.")
+    logfile = logging.FileHandler(filepath)
+    logfile.setLevel(level=level)
+    logger.addHandler(logfile)
     return logger
 
 
