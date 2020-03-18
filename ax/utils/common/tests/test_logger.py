@@ -29,5 +29,5 @@ class LoggerTest(TestCase):
         logger.warning(self.warning_string)
         with open(filepath, "r") as log_file:
             contents = log_file.read()
-            self.assertIn(self.warning_string, contents)
-        tf.close()
+            self.assertIsInstance(contents, str, msg=f"Type of contents: {type(contents)}.")
+            self.assertIn(self.warning_string, contents, msg=f"Contents: {contents}.")
