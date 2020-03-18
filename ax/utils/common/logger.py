@@ -34,6 +34,7 @@ def get_logger(
         logger.propagate = False
     if filepath is None:
         return logger
+    assert os.path.isfile(filepath), f"{filepath}"
     if os.path.isfile(filepath):
         logger.warning(f"Log file ({filepath}) already exists, appending logs.")
     logfile = logging.FileHandler(filepath)
