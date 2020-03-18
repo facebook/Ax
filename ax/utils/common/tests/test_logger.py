@@ -26,6 +26,6 @@ class LoggerTest(TestCase):
             logger = get_logger(name=__name__, filepath=tf.name)
             logger.warning(self.warning_string)
             with open(tf.name) as log_file:
-                line = log_file.readline()
-                self.assertIn(self.warning_string, line)
+                contents = log_file.read()
+                self.assertIn(self.warning_string, contents)
             tf.close()
