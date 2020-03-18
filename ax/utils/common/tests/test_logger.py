@@ -25,7 +25,7 @@ class LoggerTest(TestCase):
         with NamedTemporaryFile(mode="w") as tf:
             logger = get_logger(name=__name__, filepath=tf.name)
             logger.warning(self.warning_string)
-            with open(tf.name) as log_file:
+            with open(tf.name, "r") as log_file:
                 contents = log_file.read()
                 self.assertIn(self.warning_string, contents)
             tf.close()
