@@ -14,20 +14,21 @@ from ax.utils.common.testutils import TestCase
 class LoggerTest(TestCase):
     def setUp(self):
         self.warning_string = "Test warning"
-
+    
     def testLogger(self):
         logger = get_logger(__name__)
-        logger.warning = mock.MagicMock(name="warning")
+        patcher = patch.object(logger, "warning")
+        mock_warning = patcher.start()
         logger.warning(self.warning_string)
-        logger.warning.assert_called_once_with(self.warning_string)
+        mock_warning.assert_called_once_with(self.warning_string)
+        # Need to stop patcher, else in some environments (like pytest)
+        # the mock will leak into other tests, since it's getting set 
+        # onto the python logger directly.
+        patcher.stop()
 
     def testLoggerWithFile(self):
-        with NamedTemporaryFile(mode="w", delete=False) as tf:
-            filepath = tf.name
+        with NamedTemporaryFile() as tf:
+            logger = get_logger(__name__, tf.name)
+            logger.warning(self.warning_string)
+            self.assertIn(self.warning_string, str(tf.read()))
             tf.close()
-        logger = get_logger(name=__name__, filepath=filepath)
-        logger.warning(self.warning_string)
-        with open(filepath, "r") as log_file:
-            contents = log_file.read()
-            self.assertIsInstance(contents, str, msg=f"Type of contents: {type(contents)}.")
-            self.assertIn(self.warning_string, contents, msg=f"Contents: {contents}.")
