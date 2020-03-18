@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from tempfile import NamedTemporaryFile
-from unittest import mock
+from unittest.mock import patch
 
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
