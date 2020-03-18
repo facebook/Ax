@@ -14,7 +14,7 @@ from ax.utils.common.testutils import TestCase
 class LoggerTest(TestCase):
     def setUp(self):
         self.warning_string = "Test warning"
-    
+   
     def testLogger(self):
         logger = get_logger(__name__)
         patcher = patch.object(logger, "warning")
@@ -22,7 +22,7 @@ class LoggerTest(TestCase):
         logger.warning(self.warning_string)
         mock_warning.assert_called_once_with(self.warning_string)
         # Need to stop patcher, else in some environments (like pytest)
-        # the mock will leak into other tests, since it's getting set 
+        # the mock will leak into other tests, since it's getting set
         # onto the python logger directly.
         patcher.stop()
 
