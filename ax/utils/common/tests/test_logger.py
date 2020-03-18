@@ -22,10 +22,12 @@ class LoggerTest(TestCase):
         logger.warning.assert_called_once_with(self.warning_string)
 
     def testLoggerWithFile(self):
-        with NamedTemporaryFile(mode="w") as tf:
-            logger = get_logger(name=__name__, filepath=tf.name)
-            logger.warning(self.warning_string)
-            with open(tf.name, "r") as log_file:
-                contents = log_file.read()
-                self.assertIn(self.warning_string, contents)
+        with NamedTemporaryFile(mode="w", delete=False) as tf:
+            filepath = tf.name
             tf.close()
+        logger = get_logger(name=__name__, filepath=filepath)
+        logger.warning(self.warning_string)
+        with open(filepath, "r") as log_file:
+            contents = log_file.read()
+            self.assertIn(self.warning_string, contents)
+        tf.close()
