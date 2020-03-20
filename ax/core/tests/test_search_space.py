@@ -302,3 +302,28 @@ class SearchSpaceTest(TestCase):
         arm1_nones = [p is None for p in arm1.parameters.values()]
         self.assertTrue(all(arm1_nones))
         self.assertTrue(arm1 == arm2)
+
+    def testConstructArm(self):
+        # Test constructing an arm of default values
+        arm = self.ss1.construct_arm(name="test")
+        self.assertEqual(arm.name, "test")
+        for p_name in self.ss1.parameters.keys():
+            self.assertTrue(p_name in arm.parameters)
+            self.assertEqual(arm.parameters[p_name], None)
+
+        # Test constructing an arm with a custom value
+        arm = self.ss1.construct_arm({"a": 1.0})
+        for p_name in self.ss1.parameters.keys():
+            self.assertTrue(p_name in arm.parameters)
+            if p_name == "a":
+                self.assertEqual(arm.parameters[p_name], 1.0)
+            else:
+                self.assertEqual(arm.parameters[p_name], None)
+
+        # Test constructing an arm with a bad param name
+        with self.assertRaises(ValueError):
+            self.ss1.construct_arm({"IDONTEXIST_a": 1.0})
+
+        # Test constructing an arm with a bad param name
+        with self.assertRaises(ValueError):
+            self.ss1.construct_arm({"a": "notafloat"})
