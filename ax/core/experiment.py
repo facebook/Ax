@@ -77,8 +77,7 @@ class Experiment(Base):
         self._trials: Dict[int, BaseTrial] = {}
         self._arms_by_signature: Dict[str, Arm] = {}
 
-        for metric in tracking_metrics or []:
-            self.add_tracking_metric(metric)
+        self.add_tracking_metrics(tracking_metrics or [])
 
         # call setters defined below
         self.search_space = search_space
@@ -269,6 +268,38 @@ class Experiment(Base):
             )
 
         self._tracking_metrics[metric.name] = metric
+        return self
+
+    def add_tracking_metrics(self, metrics: List[Metric]) -> "Experiment":
+        """Add a list of new metrics to the experiment.
+
+        If any of the metrics are already defined on the experiment,
+        we raise an error and don't add any of them to the experiment
+
+        Args:
+            metrics: Metrics to be added.
+        """
+        # Before setting any metrics, we validate none are already on
+        # the experiment
+        for metric in metrics:
+            if metric.name in self._tracking_metrics:
+                raise ValueError(
+                    f"Metric `{metric.name}` already defined on experiment. "
+                    "Use `update_tracking_metric` to update an existing metric"
+                    " definition."
+                )
+
+            if (
+                self.optimization_config
+                and metric.name in self.optimization_config.metrics
+            ):
+                raise ValueError(
+                    f"Metric `{metric.name}` already present in experiment's "
+                    "OptimizationConfig. Set a new OptimizationConfig without"
+                    " this metric before adding it to tracking metrics."
+                )
+        for metric in metrics:
+            self._tracking_metrics[metric.name] = metric
         return self
 
     def update_tracking_metric(self, metric: Metric) -> "Experiment":

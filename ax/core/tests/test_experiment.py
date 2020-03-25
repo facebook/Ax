@@ -119,6 +119,12 @@ class ExperimentTest(TestCase):
             len(get_optimization_config().metrics) + 2, len(self.experiment.metrics)
         )
 
+        # Test adding new tracking metrics
+        self.experiment.add_tracking_metrics([Metric(name="z1")])
+        self.assertEqual(
+            len(get_optimization_config().metrics) + 3, len(self.experiment.metrics)
+        )
+
         # Verify update_tracking_metric updates the metric definition
         self.assertIsNone(self.experiment.metrics["m4"].lower_is_better)
         self.experiment.update_tracking_metric(Metric(name="m4", lower_is_better=True))
@@ -128,9 +134,17 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.add_tracking_metric(Metric(name="m4"))
 
+        # Verify unable to add existing metric
+        with self.assertRaises(ValueError):
+            self.experiment.add_tracking_metrics([Metric(name="z1"), Metric(name="m4")])
+
         # Verify unable to add metric in optimization config
         with self.assertRaises(ValueError):
             self.experiment.add_tracking_metric(Metric(name="m1"))
+
+        # Verify unable to add metric in optimization config
+        with self.assertRaises(ValueError):
+            self.experiment.add_tracking_metrics([Metric(name="z2"), Metric(name="m1")])
 
         # Cannot update metric not already on experiment
         with self.assertRaises(ValueError):
