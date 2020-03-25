@@ -4,12 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import botorch.utils.sampling as botorch_sampling
+import numpy as np
 import torch
 from ax.exceptions.model import ModelError
 from ax.models.model_utils import filter_constraints_and_fixed_features, get_observed
+from ax.models.random.sobol import SobolGenerator
 from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.model import Model
 from torch import Tensor
@@ -133,6 +135,39 @@ def _get_X_pending_and_observed(
     return X_pending, X_observed
 
 
+def _generate_sobol_points(
+    n_sobol: int,
+    bounds: List[Tuple[float, float]],
+    device: torch.device,
+    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    fixed_features: Optional[Dict[int, float]] = None,
+    rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
+) -> Tensor:
+    linear_constraints_array = None
+
+    if linear_constraints is not None:
+        linear_constraints_array = (
+            linear_constraints[0].detach().numpy(),
+            linear_constraints[1].detach().numpy(),
+        )
+
+    array_rounding_func = None
+    if rounding_func is not None:
+        array_rounding_func = tensor_callable_to_array_callable(
+            tensor_func=rounding_func, device=device
+        )
+
+    sobol = SobolGenerator(deduplicate=False, seed=np.random.randint(10000))
+    array_X, _ = sobol.gen(
+        n=n_sobol,
+        bounds=bounds,
+        linear_constraints=linear_constraints_array,
+        fixed_features=fixed_features,
+        rounding_func=array_rounding_func,
+    )
+    return torch.from_numpy(array_X).to(device)
+
+
 def normalize_indices(indices: List[int], d: int) -> List[int]:
     r"""Normalize a list of indices to ensure that they are positive.
 
@@ -227,3 +262,15 @@ def sample_hypersphere_positive_quadrant(dim: int) -> Tensor:
     return torch.abs(
         botorch_sampling.sample_hypersphere(dim, dtype=torch.double).squeeze()
     )
+
+
+def tensor_callable_to_array_callable(
+    tensor_func: Callable[[Tensor], Tensor], device: torch.device
+) -> Callable[[np.ndarray], np.ndarray]:
+    """"transfer a tensor callable to an array callable"""
+    # TODO: move this reuseable function and its  equivalent reverse functions
+    # to some utils files
+    def array_func(x: np.ndarray) -> np.ndarray:
+        return tensor_func(torch.from_numpy(x).to(device)).detach().numpy()
+
+    return array_func

@@ -4,17 +4,21 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import numpy as np
 import torch
 from ax.exceptions.model import ModelError
 from ax.models.torch.utils import (
+    _generate_sobol_points,
     is_noiseless,
     normalize_indices,
     sample_hypersphere_positive_quadrant,
     sample_simplex,
     subset_model,
+    tensor_callable_to_array_callable,
 )
 from ax.utils.common.testutils import TestCase
 from botorch.models import HeteroskedasticSingleTaskGP, ModelListGP, SingleTaskGP
+from torch import Tensor
 
 
 class TorchUtilsTest(TestCase):
@@ -87,6 +91,26 @@ class TorchUtilsTest(TestCase):
         with self.assertRaises(RuntimeError):
             subset_model(model, obj_weights)
 
+    def testGenerateSobolPoints(self):
+        bounds = [(0.0, 1.0) for _ in range(3)]
+        linear_constraints = (
+            torch.tensor([[1, -1, 0]], dtype=torch.double),
+            torch.tensor([[0]], dtype=torch.double),
+        )
+
+        def test_rounding_func(x: Tensor) -> Tensor:
+            return x
+
+        gen_sobol = _generate_sobol_points(
+            n_sobol=100,
+            bounds=bounds,
+            device=torch.device("cpu"),
+            linear_constraints=linear_constraints,
+            rounding_func=test_rounding_func,
+        )
+        self.assertEqual(len(gen_sobol), 100)
+        self.assertIsInstance(gen_sobol, Tensor)
+
     def testSampleSimplex(self):
         for d in range(1, 10):
             self.assertTrue(
@@ -104,3 +128,13 @@ class TorchUtilsTest(TestCase):
                 .isclose(torch.tensor([1.0], dtype=torch.double)),
                 "sampled hypersphere point's norm is not 1.0",
             )
+
+    def testTensorCallableToArrayCallable(self):
+        def tensor_func(x: Tensor) -> Tensor:
+            return np.exp(x)
+
+        new_func = tensor_callable_to_array_callable(
+            tensor_func=tensor_func, device=torch.device("cpu")
+        )
+        self.assertTrue(callable(new_func))
+        self.assertIsInstance(new_func(np.array([1.0, 2.0])), np.ndarray)
