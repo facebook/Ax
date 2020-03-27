@@ -7,6 +7,7 @@
 import time
 from typing import Optional, Tuple
 
+from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import init_engine_and_session_factory
@@ -14,7 +15,12 @@ from ax.storage.sqa_store.load import (
     _load_experiment,
     _load_generation_strategy_by_experiment_name,
 )
-from ax.storage.sqa_store.save import _save_experiment, _save_generation_strategy
+from ax.storage.sqa_store.save import (
+    _save_experiment,
+    _save_generation_strategy,
+    _save_new_trial,
+    _update_trial,
+)
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 
@@ -87,19 +93,55 @@ def load_experiment_and_generation_strategy(
     return experiment, generation_strategy
 
 
-def save_experiment_and_generation_strategy(
-    experiment: Experiment,
-    generation_strategy: GenerationStrategy,
-    db_settings: DBSettings,
+def save_generation_strategy(
+    generation_strategy: GenerationStrategy, db_settings: DBSettings
 ) -> None:
-    """Save experiment and generation strategy to DB.
+    """Save generation strategy to DB.
 
     Args:
-        experiment: `Experiment` object.
         generation_strategy: Corresponding generation strategy.
         db_settings: Defines behavior for loading/saving experiment to/from db.
     """
-    save_experiment(experiment=experiment, db_settings=db_settings)
     _save_generation_strategy(
         generation_strategy=generation_strategy, encoder=db_settings.encoder
+    )
+
+
+def save_new_trial(
+    experiment: Experiment, trial: BaseTrial, db_settings: DBSettings
+) -> None:
+    """
+    Save experiment to db.
+
+    Args:
+        experiment: `Experiment` object.
+        trial: `BaseTrial` object.
+        db_settings: Defines behavior for loading/saving experiment to/from db.
+    """
+    init_engine_and_session_factory(creator=db_settings.creator, url=db_settings.url)
+    start_time = time.time()
+    _save_new_trial(experiment=experiment, trial=trial, encoder=db_settings.encoder)
+    logger.info(
+        f"Saved trial {trial.index} in "
+        f"{_round_floats_for_logging(time.time() - start_time)} seconds"
+    )
+
+
+def save_updated_trial(
+    experiment: Experiment, trial: BaseTrial, db_settings: DBSettings
+) -> None:
+    """
+    Save experiment to db.
+
+    Args:
+        experiment: `Experiment` object.
+        trial: `BaseTrial` object.
+        db_settings: Defines behavior for loading/saving experiment to/from db.
+    """
+    init_engine_and_session_factory(creator=db_settings.creator, url=db_settings.url)
+    start_time = time.time()
+    _update_trial(experiment=experiment, trial=trial, encoder=db_settings.encoder)
+    logger.info(
+        f"Saved trial {trial.index} in "
+        f"{_round_floats_for_logging(time.time() - start_time)} seconds"
     )
