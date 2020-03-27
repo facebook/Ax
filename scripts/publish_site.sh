@@ -216,13 +216,12 @@ else
   cd "${WORK_DIR}" || exit
   python3 Ax-master/scripts/update_versions_html.py -p "${WORK_DIR}"
 
-  # move contents of newsite to Ax-gh-pages, preserving commit history
-  rm -rfv ./Ax-gh-pages/*
-  rsync -avh ./new-site/ ./Ax-gh-pages/
-  cd Ax-gh-pages
+  # Init as Git repo and push to gh-pages
+  cd new-site || exit
+  git init
   git add --all
   git commit -m "Publish version ${VERSION} of site"
-  git push
+  git push --force "https://github.com/facebook/Ax" master:gh-pages
 
 fi
 
