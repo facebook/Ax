@@ -832,6 +832,8 @@ class TestAxClient(TestCase):
             ax_client.load()
         with self.assertRaises(NotImplementedError):
             ax_client.load_experiment("test_experiment")
+        with self.assertRaises(NotImplementedError):
+            ax_client.get_recommended_max_parallelism()
 
     def test_find_last_trial_with_parameterization(self):
         ax_client = AxClient()
