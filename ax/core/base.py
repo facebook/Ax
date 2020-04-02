@@ -9,6 +9,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from ax.utils.common.equality import (
+    dataframe_equals,
     datetime_equals,
     equality_typechecker,
     same_elements,
@@ -59,18 +60,7 @@ class Base(object):
             elif isinstance(self_val, float):
                 equal = np.isclose(self_val, other_val)
             elif isinstance(self_val, pd.DataFrame):
-                try:
-                    if self_val.empty and other_val.empty:
-                        equal = True
-                    else:
-                        pd.testing.assert_frame_equal(
-                            self_val.sort_index(axis=1),
-                            other_val.sort_index(axis=1),
-                            check_exact=False,
-                        )
-                        equal = True
-                except AssertionError:
-                    equal = False
+                equal = dataframe_equals(self_val, other_val)
             else:
                 equal = self_val == other_val
             if not equal:
