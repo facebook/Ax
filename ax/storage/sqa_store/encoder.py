@@ -288,7 +288,7 @@ class Encoder:
         # name and lower_is_better are stored directly on the metric,
         # so we don't need to include these in the properties blob
         properties = get_object_properties(
-            object=metric, exclude_fields=["name", "lower_is_better"]
+            object=metric, exclude_fields=["name", "lower_is_better", "precomp_config"]
         )
 
         return metric_type, properties
