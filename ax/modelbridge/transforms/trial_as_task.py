@@ -97,6 +97,12 @@ class TrialAsTask(Transform):
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, level_dict in self.trial_level_map.items():
+            level_values = list(set(level_dict.values()))
+            if len(level_values) == 1:
+                raise ValueError(
+                    f"TrialAsTask transform expects 2+ task params, "
+                    + f"only 1 found: {level_values}"
+                )
             trial_param = ChoiceParameter(
                 name=p_name,
                 parameter_type=ParameterType.STRING,
@@ -105,7 +111,7 @@ class TrialAsTask(Transform):
                 # `ax.core.parameter.ChoiceParameter.__init__` but got
                 # `List[str]`.
                 # pyre-fixme[6]:
-                values=list(set(level_dict.values())),
+                values=level_values,
                 is_ordered=False,
                 is_task=True,
             )
