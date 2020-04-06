@@ -264,6 +264,8 @@ class FixedParameterTest(TestCase):
 
     def testRepr(self):
         self.assertEqual(str(self.param1), self.param1_repr)
+        self.param1._is_fidelity = True
+        self.assertNotEqual(str(self.param1), self.param1_repr)
 
     def testValidate(self):
         self.assertFalse(self.param1.validate(None))

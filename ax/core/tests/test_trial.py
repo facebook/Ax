@@ -56,6 +56,9 @@ class TrialTest(TestCase):
         with self.assertRaises(AttributeError):
             self.experiment.new_trial().arm_weights
 
+        self.trial._status = TrialStatus.RUNNING
+        self.assertTrue(self.trial.status.is_running)
+
         self.trial._status = TrialStatus.COMPLETED
         self.assertTrue(self.trial.status.is_completed)
         self.assertTrue(self.trial.completed_successfully)

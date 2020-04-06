@@ -365,7 +365,7 @@ class ExperimentTest(TestCase):
         batch.run()
         self.assertEqual(batch.run_metadata, {"name": "0"})
 
-    def testExperimentRunners(self):
+    def testExperimentRunner(self):
         original_runner = SyntheticRunner()
         self.experiment.runner = original_runner
         batch = self.experiment.new_batch_trial()
@@ -377,9 +377,11 @@ class ExperimentTest(TestCase):
         candidate_batch = self.experiment.new_batch_trial()
         candidate_batch.run()
         candidate_batch._status = TrialStatus.CANDIDATE
+        self.assertEqual(self.experiment.trials_expecting_data, [batch])
 
         identifier = {"new_runner": True}
         new_runner = SyntheticRunner(dummy_metadata=identifier)
+
         self.experiment.reset_runners(new_runner)
         # Don't update trials that have been run.
         self.assertEqual(batch.runner, original_runner)
