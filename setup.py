@@ -23,7 +23,7 @@ DEV_REQUIRES = [
     "flake8",
     "pytest>=3.6",
     "pytest-cov",
-    "sphinx",
+    "sphinx<3.0.0",
     "sphinx-autodoc-typehints",
     "torchvision>=0.5.0",
 ]
