@@ -307,7 +307,10 @@ def make_experiment(
         ),
         optimization_config=OptimizationConfig(
             objective=Objective(
-                metric=Metric(name=objective_name or DEFAULT_OBJECTIVE_NAME),
+                metric=Metric(
+                    name=objective_name or DEFAULT_OBJECTIVE_NAME,
+                    lower_is_better=minimize,
+                ),
                 minimize=minimize,
             ),
             outcome_constraints=ocs,
