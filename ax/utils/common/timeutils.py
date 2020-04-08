@@ -10,6 +10,19 @@ from time import time
 import pandas as pd
 
 
+DS_FRMT = "%Y-%m-%d"  # Format to use for parsing DS strings.
+
+
+def to_ds(ts: datetime) -> str:
+    """Convert a `datetime` to a DS string."""
+    return datetime.strftime(ts, DS_FRMT)
+
+
+def to_ts(ds: str) -> datetime:
+    """Convert a DS string to a `datetime`."""
+    return datetime.strptime(ds, DS_FRMT)
+
+
 def _ts_to_pandas(ts: int) -> pd.Timestamp:  # pyre-ignore[11]
     """Convert int timestamp into pandas timestamp."""
     return pd.Timestamp(datetime.fromtimestamp(ts))
