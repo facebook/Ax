@@ -69,8 +69,13 @@ try:  # We don't require SQLAlchemy by default.
         save_new_trial,
         save_updated_trial,
     )
+
+    retry_exception_type_tuple = (OperationalError,)
 except ModuleNotFoundError:  # pragma: no cover
     DBSettings = None
+    # Return a list of suppressable exceptions not including unimportable ones.
+    # pyre-fixme[9]: declared as `Tuple[...[OperationalError]]` but used as `Tuple[]`.
+    retry_exception_type_tuple = ()
 
 
 class AxClient:
@@ -827,7 +832,7 @@ class AxClient:
     @retry_on_exception(
         retries=3,
         default_return_on_suppression=False,
-        exception_type=(OperationalError,),
+        exception_type=retry_exception_type_tuple,
     )
     def _save_experiment_to_db_if_possible(
         self, suppress_all_errors: bool = False
@@ -846,7 +851,7 @@ class AxClient:
     @retry_on_exception(
         retries=3,
         default_return_on_suppression=False,
-        exception_type=(OperationalError,),
+        exception_type=retry_exception_type_tuple,
     )
     def _save_new_trial_to_db_if_possible(
         self, trial: BaseTrial, suppress_all_errors: bool = False
@@ -867,7 +872,7 @@ class AxClient:
     @retry_on_exception(
         retries=3,
         default_return_on_suppression=False,
-        exception_type=(OperationalError,),
+        exception_type=retry_exception_type_tuple,
     )
     def _save_updated_trial_to_db_if_possible(
         self, trial: BaseTrial, suppress_all_errors: bool = False
@@ -888,7 +893,7 @@ class AxClient:
     @retry_on_exception(
         retries=3,
         default_return_on_suppression=False,
-        exception_type=(OperationalError,),
+        exception_type=retry_exception_type_tuple,
     )
     def _save_generation_strategy_to_db_if_possible(
         self, suppress_all_errors: bool = False

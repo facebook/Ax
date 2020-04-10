@@ -67,12 +67,37 @@ class TestRetryDecorator(TestCase):
                 suppress_all_errors=False,
             )
             def error_throwing_function(self):
-                # The execption thrown below should be caught and handled since it
+                # The exception thrown below should be caught and handled since it
                 # has the keywords we want
                 raise RuntimeError("Hello World")
 
         decorator_tester = DecoratorTester()
         self.assertEqual("SUCCESS", decorator_tester.error_throwing_function())
+
+    def test_empty_exception_type_tuple(self):
+        """
+        Tests if the decorator correctly handles an empty list
+        of exception types to suppress.
+        """
+
+        # Also pass along the logger to ensure coverage
+        logger = logging.getLogger("test_message_checking")
+
+        class DecoratorTester:
+            @retry_on_exception(
+                default_return_on_suppression="SUCCESS",
+                exception_type=(),
+                logger=logger,
+                suppress_all_errors=False,
+            )
+            def error_throwing_function(self):
+                # The exception thrown below should not be caught
+                # because we specified an empty list.
+                raise RuntimeError("Hello World")
+
+        decorator_tester = DecoratorTester()
+        with self.assertRaises(RuntimeError):
+            decorator_tester.error_throwing_function()
 
     def test_message_checking_fail(self):
         """
