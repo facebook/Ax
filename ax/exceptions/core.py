@@ -67,7 +67,8 @@ class DataRequiredError(AxError):
 
 
 class MisconfiguredExperiment(AxError):
-    "Raised when experiment has incomplete or incorrect information."
+    """Raised when experiment has incomplete or incorrect information."""
+
     pass
 
 
