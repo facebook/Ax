@@ -378,6 +378,10 @@ class ExperimentTest(TestCase):
         candidate_batch.run()
         candidate_batch._status = TrialStatus.CANDIDATE
         self.assertEqual(self.experiment.trials_expecting_data, [batch])
+        tbs = self.experiment.trials_by_status
+        self.assertEqual(len(tbs), 2)
+        self.assertEqual(tbs[TrialStatus.RUNNING], [batch])
+        self.assertEqual(tbs[TrialStatus.CANDIDATE], [candidate_batch])
 
         identifier = {"new_runner": True}
         new_runner = SyntheticRunner(dummy_metadata=identifier)
