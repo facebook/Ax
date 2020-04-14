@@ -530,6 +530,14 @@ class Experiment(Base):
         """The trials associated with the experiment."""
         return self._trials
 
+    @property
+    def trials_by_status(self) -> Dict[TrialStatus, List[BaseTrial]]:
+        """The trials associated with the experiment grouped by trial status."""
+        output = defaultdict(list)
+        for trial in self.trials.values():
+            output[trial.status].append(trial)
+        return dict(output)
+
     def new_trial(
         self,
         generator_run: Optional[GeneratorRun] = None,
