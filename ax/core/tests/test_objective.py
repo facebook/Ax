@@ -36,7 +36,7 @@ class ObjectiveTest(TestCase):
 
         self.assertEqual(self.multi_objective.metrics, list(self.metrics.values()))
         weights = [mw[1] for mw in self.multi_objective.metric_weights]
-        self.assertEqual(weights, [0, -1.0, 1.0])
+        self.assertEqual(weights, [1.0, -1.0, 1.0])
         self.assertEqual(self.multi_objective.clone(), self.multi_objective)
         self.assertEqual(
             str(self.multi_objective),

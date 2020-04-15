@@ -10,6 +10,7 @@ from unittest import mock
 import torch
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import (
+    _extract_random_scalarization_settings,
     get_and_fit_model,
     recommend_best_out_of_sample_point,
 )
@@ -495,6 +496,21 @@ class BotorchModelTest(TestCase):
                 },
             )
             _mock_sample_hypersphere.assert_called_once()
+
+        with mock.patch(
+            SAMPLE_HYPERSPHERE_UTIL_PATH,
+            autospec=True,
+            return_value=torch.tensor([0.6, 0.8]),
+        ) as _mock_sample_hypersphere:
+            expected = torch.tensor([0.6, -0.8])
+            actual = _extract_random_scalarization_settings(
+                objective_weights=torch.tensor([1.0, -1.0]),
+                **{
+                    "random_scalarization": True,
+                    "random_scalarization_distribution": HYPERSPHERE,
+                }
+            )
+            self.assertTrue(torch.allclose(expected, actual))
 
         with self.assertRaisesRegex(
             ValueError,

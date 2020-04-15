@@ -86,13 +86,7 @@ class MultiObjective(Objective):
                     f"metric {metric.name} has not set `lower_is_better`. "
                     "Treating as `False` (Metric should be maximized)."
                 )
-            self.weights.append(
-                -1.0
-                if metric.lower_is_better is True
-                else 1.0
-                if metric.lower_is_better is False
-                else 0.0
-            )
+            self.weights.append(-1.0 if metric.lower_is_better is True else 1.0)
         self.minimize = minimize
 
     @property

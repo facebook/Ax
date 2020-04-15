@@ -492,7 +492,9 @@ def _extract_random_scalarization_settings(
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     **kwargs: Any,
 ) -> Tensor:
+    """Generate a random weighting based on scalarization settings."""
     use_random_scalarization = kwargs.get("random_scalarization", False)
+    random_weights = None
     if use_random_scalarization:
         # Pareto Optimization incompatible with outcome constraints.
         if outcome_constraints is not None:
@@ -503,9 +505,12 @@ def _extract_random_scalarization_settings(
         # Set distribution and sample weights.
         distribution = kwargs.get("random_scalarization_distribution", SIMPLEX)
         if distribution == SIMPLEX:
-            objective_weights = sample_simplex(len(objective_weights))
+            random_weights = sample_simplex(len(objective_weights))
         elif distribution == HYPERSPHERE:
-            objective_weights = sample_hypersphere_positive_quadrant(
+            random_weights = sample_hypersphere_positive_quadrant(
                 len(objective_weights)
             )
+
+    if random_weights is not None:
+        objective_weights = torch.mul(objective_weights, random_weights)
     return objective_weights

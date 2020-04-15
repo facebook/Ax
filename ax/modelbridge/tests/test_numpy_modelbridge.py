@@ -245,7 +245,7 @@ class NumpyModelBridgeTest(TestCase):
         # Test with MultiObjective (unweighted multiple objectives)
         oc3 = OptimizationConfig(
             objective=MultiObjective(
-                metrics=[Metric(name="a", lower_is_better=False), Metric(name="b")],
+                metrics=[Metric(name="a"), Metric(name="b", lower_is_better=True)],
                 minimize=True,
             )
         )
