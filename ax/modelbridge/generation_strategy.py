@@ -39,10 +39,50 @@ class GenerationStep(NamedTuple):
     Describes the model, how many trials will be generated with this model, what
     minimum number of observations is required to proceed to the next model, etc.
 
-    Model can be specified either from the model registry
+    NOTE: Model can be specified either from the model registry
     (`ax.modelbridge.registry.Models` or using a callable model constructor. Only
     models from the registry can be saved, and thus optimization can only be
     resumed if interrupted when using models from the registry.
+
+    Args:
+        model: A member of `Models` enum or a callable returning an instance of
+            `ModelBridge` with an instantiated underlying `Model`. Refer to
+            `ax/modelbridge/factory.py` for examples of such callables.
+        num_trials: How many trials to generate with the model from this step.
+            If set to -1, trials will continue to be generated from this model
+            as long as `generation_strategy.gen` is called (available only for
+            the last of the generation steps).
+        min_trials_observed: How many trials must be completed before the
+            generation strategy can proceed to the next step. Defaults to 0.
+            If `num_trials` of a given step have been generated but `min_trials_
+            observed` have not been completed, a call to `generation_strategy.gen`
+            will fail with a `DataRequiredError`.
+        max_parallelism: How many trials generated in the course of this step are
+            allowed to be run (i.e. have `trial.status` of `RUNNING`) simultaneously.
+            If `max_parallelism` trials from this step are already running, a call
+            to `generation_strategy.gen` will fail with a `MaxParallelismReached
+            Exception`, indicating that more trials need to be completed before
+            generating and running next trials.
+        enforce_num_trials: Whether to enforce that only `num_trials` are generated
+            from the given step. If False and `num_trials` have been generated, but
+            `min_trials_observed` have not been completed, `generation_strategy.gen`
+            will continue generating trials from the current step, exceeding `num_
+            trials` for it. Allows to avoid `DataRequiredError`, but delays
+            proceeding to next generation step.
+        model_kwargs: Dictionary of kwargs to pass into the model constructor on
+            instantiation. E.g. if `model` is `Models.SOBOL`, kwargs will be applied
+            as `Models.SOBOL(**model_kwargs)`; if `model` is `get_sobol`, `get_sobol(
+            **model_kwargs)`. NOTE: if generation strategy is interrupted and
+            resumed from a stored snapshot and its last used model has state saved on
+            its generator runs, `model_kwargs` is updated with the state dict of the
+            model, retrieved from the last generator run of this generation strategy.
+        model_gen_kwargs: Each call to `generation_strategy.gen` performs a call to the
+            step's model's `gen` under the hood; `model_gen_kwargs` will be passed to
+            the model's `gen` like so: `model.gen(**model_gen_kwargs)`.
+        index: Index of this generation step, for use internally in `Generation
+            Strategy`. Do not assign as it will be reassigned when instantiating
+            `GenerationStrategy` with a list of its steps.
+
     """
 
     model: Union[Models, Callable[..., ModelBridge]]
@@ -95,6 +135,11 @@ class GenerationStrategy(Base):
     trials. In the general case, this allows to automate use of an arbitrary
     number of models to generate an arbitrary numbers of trials
     described in the `trials_per_model` argument.
+
+    Args:
+        steps: A list of `GenerationStep` describing steps of this strategy.
+        name: An optional name for this generaiton strategy. If not specified,
+            strategy's name will be names of its steps' models joined with '+'.
     """
 
     _name: Optional[str]
