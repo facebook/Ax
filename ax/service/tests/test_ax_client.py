@@ -373,6 +373,10 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
+        self.assertFalse(
+            ax_client.generation_strategy._steps[0].enforce_num_trials, False
+        )
+        self.assertFalse(ax_client.generation_strategy._steps[1].max_parallelism, None)
         for _ in range(10):
             parameterization, trial_index = ax_client.get_next_trial()
 

@@ -124,6 +124,7 @@ def choose_generation_strategy(
     num_initialization_trials: Optional[int] = None,
     no_max_parallelism: bool = False,
     max_parallelism_cap: Optional[int] = None,
+    max_parallelism_override: Optional[int] = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -135,9 +136,14 @@ def choose_generation_strategy(
             generation strategy.
         use_batch_trials: Whether this generation strategy will be used to generate
             batched trials instead of 1-arm trials.
-        enforce_sequential_optimization: Whether to enforce that the generation
+        enforce_sequential_optimization: Whether to enforce that 1) the generation
             strategy needs to be updated with `min_trials_observed` observations for
-            a given generation step before proceeding to the next one.
+            a given generation step before proceeding to the next one and 2) maximum
+            number of trials running at once (max_parallelism) if enforced for the
+            BayesOpt step. NOTE: `max_parallelism_override` and `max_parallelism_cap`
+            settings will still take their effect on max parallelism even if
+            `enforce_sequential_optimization=False`, so if those settings are specified,
+            max parallelism will be enforced.
         random_seed: Fixed random seed for the Sobol generator.
         winsorize_botorch_model: Whether to apply the winsorization transform
             prior to applying other transforms for fitting the BoTorch model.
@@ -150,41 +156,72 @@ def choose_generation_strategy(
             known in advance.
         num_initialization_trials: Specific number of initialization trials, if wanted.
             Typically, initialization trials are generated quasi-randomly.
-        no_max_parallelism: If True, no limit on parallelism will be imposed. Be aware
-            that parallelism is limited to improve performance of Bayesian optimization,
-            so only disable its limiting if there is a good reason to do so.
-        max_parallelism_cap: Integer representing a cap on parallelism in this gen.
-            strategy; if specified, generation strategy will not generate trials if
-            more than `max_parallelism_cap` trials for current generation step are
-            running. Note that less than `max_parallelism_cap` may be scheduled in
-            parallel if beneficial for Bayesian optimization performance;
-            `max_parallelism_cap` is meant to just be a hard limit on parallelism (e.g.,
-            to avoid overloading machine(s) that evaluate the experiment trials).
+        max_parallelism_override: Integer, with which to override the default max
+            parallelism setting for all steps in the generation strategy returned from
+            this function. Each generation step has a `max_parallelism` value, which
+            restricts how many trials can run simultaneously during a given generation
+            step. By default, the parallelism setting is chosen as appropriate for the
+            model in a given generation step. If `max_parallelism_override` is -1,
+            no max parallelism will be enforced for any step of the generation strategy.
+            Be aware that parallelism is limited to improve performance of Bayesian
+            optimization, so only disable its limiting if necessary.
+        max_parallelism_cap: Integer cap on parallelism in this generation strategy.
+            If specified, `max_parallelism` setting in each generation step will be set
+            to the minimum of the default setting for that step and the value of this
+            cap. `max_parallelism_cap` is meant to just be a hard limit on parallelism
+            (e.g. to avoid overloading machine(s) that evaluate the experiment trials).
+            Specify only if not specifying `max_parallelism_override`.
     """
     # If there are more discrete choices than continuous parameters, Sobol
     # will do better than GP+EI.
     if not no_bayesian_optimization and _should_use_gp(
         search_space=search_space, num_trials=num_trials
     ):
+        if not enforce_sequential_optimization and (
+            max_parallelism_override or max_parallelism_cap
+        ):
+            logger.info(
+                "If `enforce_sequential_optimization` is False, max parallelism is "
+                "not enforced and other max parallelism settings will be ignored."
+            )
+        if max_parallelism_override and max_parallelism_cap:
+            raise ValueError(
+                "If `max_parallelism_override` specified, cannot also apply "
+                "`max_parallelism_cap`."
+            )
+
         # If number of initialization trials is not specified, estimate it.
         if num_initialization_trials is None:
             if use_batch_trials:  # Batched trials.
                 num_initialization_trials = 1
             else:  # 1-arm trials.
                 num_initialization_trials = max(5, len(search_space.parameters))
-        if no_max_parallelism:
-            bo_parallelism = None
-        elif max_parallelism_cap is None:
-            bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
-        else:
+
+        # Determine max parallelism for the generation steps.
+        if max_parallelism_override == -1:
+            # `max_parallelism_override` of -1 means no max parallelism enforcement in
+            # the generation strategy, which means `max_parallelism=None` in gen. steps.
+            sobol_parallelism = bo_parallelism = None
+        elif max_parallelism_override is not None:
+            sobol_parallelism = bo_parallelism = max_parallelism_override
+        elif max_parallelism_cap is not None:  # Max parallelism override is None by now
+            sobol_parallelism = max_parallelism_cap
             bo_parallelism = min(max_parallelism_cap, DEFAULT_BAYESIAN_PARALLELISM)
+        elif not enforce_sequential_optimization:
+            # If no max parallelism settings specified and not enforcing sequential
+            # optimization, do not limit parallelism.
+            sobol_parallelism = bo_parallelism = None
+        else:  # No additional max parallelism settings, use defaults
+            sobol_parallelism = None  # No restriction on Sobol phase
+            bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
+
         gs = GenerationStrategy(
             steps=[
                 _make_sobol_step(
                     num_trials=num_initialization_trials,
                     enforce_num_trials=enforce_sequential_optimization,
                     seed=random_seed,
-                    max_parallelism=max_parallelism_cap,
+                    max_parallelism=sobol_parallelism,
                 ),
                 _make_botorch_step(
                     winsorize=winsorize_botorch_model,

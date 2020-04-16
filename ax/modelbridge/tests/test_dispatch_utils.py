@@ -4,7 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
+from ax.modelbridge.dispatch_utils import (
+    DEFAULT_BAYESIAN_PARALLELISM,
+    choose_generation_strategy,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_search_space,
@@ -43,12 +46,20 @@ class TestDispatchUtils(TestCase):
         sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
         self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
         self.assertTrue(sobol_gpei._steps[0].enforce_num_trials)
+        self.assertIsNotNone(sobol_gpei._steps[1].max_parallelism)
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(),
             enforce_sequential_optimization=False,
         )
         self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
         self.assertFalse(sobol_gpei._steps[0].enforce_num_trials)
+        self.assertIsNone(sobol_gpei._steps[1].max_parallelism)
+
+    def test_max_parallelism_override(self):
+        sobol_gpei = choose_generation_strategy(
+            search_space=get_branin_search_space(), max_parallelism_override=10
+        )
+        self.assertTrue(all(s.max_parallelism == 10 for s in sobol_gpei._steps))
 
     def test_winsorization(self):
         winsorized = choose_generation_strategy(
@@ -86,6 +97,13 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
 
     def test_max_parallelism_adjustments(self):
+        # No adjustment.
+        sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
+        self.assertIsNone(sobol_gpei._steps[0].max_parallelism)
+        self.assertEqual(
+            sobol_gpei._steps[1].max_parallelism, DEFAULT_BAYESIAN_PARALLELISM
+        )
+        # Impose a cap of 1 on max parallelism for all steps.
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(), max_parallelism_cap=1
         )
@@ -94,8 +112,15 @@ class TestDispatchUtils(TestCase):
             sobol_gpei._steps[1].max_parallelism,
             1,
         )
+        # Disable enforcing max parallelism for all steps.
         sobol_gpei = choose_generation_strategy(
-            search_space=get_branin_search_space(), no_max_parallelism=True
+            search_space=get_branin_search_space(), max_parallelism_override=-1
         )
         self.assertIsNone(sobol_gpei._steps[0].max_parallelism)
         self.assertIsNone(sobol_gpei._steps[1].max_parallelism)
+        # Override max parallelism for all steps.
+        sobol_gpei = choose_generation_strategy(
+            search_space=get_branin_search_space(), max_parallelism_override=10
+        )
+        self.assertEqual(sobol_gpei._steps[0].max_parallelism, 10)
+        self.assertEqual(sobol_gpei._steps[1].max_parallelism, 10)
