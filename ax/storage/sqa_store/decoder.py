@@ -19,7 +19,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
@@ -435,6 +435,32 @@ class Decoder:
                 )
             # pyre-fixme[6]: Expected `bool` for 2nd param but got `Optional[bool]`.
             return Objective(metric=metric, minimize=metric_sqa.minimize)
+        elif (
+            metric_sqa.intent == MetricIntent.MULTI_OBJECTIVE
+        ):  # metric_sqa is a parent whose children are individual
+            # metrics in MultiObjective
+            if metric_sqa.minimize is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to MultiObjective \
+                    because minimize is None."
+                )
+            metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
+            if metrics_sqa_children is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to MultiObjective \
+                    because the parent metric has no children metrics."
+                )
+
+            # Extracting metric and weight for each child
+            metrics = [
+                self.metric_from_sqa_util(child) for child in metrics_sqa_children
+            ]
+
+            return MultiObjective(
+                metrics=list(metrics),
+                # pyre-fixme[6]: Expected `bool` for 2nd param but got `Optional[bool]`.
+                minimize=metric_sqa.minimize,
+            )
         elif (
             metric_sqa.intent == MetricIntent.SCALARIZED_OBJECTIVE
         ):  # metric_sqa is a parent whose children are individual

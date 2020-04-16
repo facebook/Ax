@@ -18,6 +18,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_batch_trial,
     get_experiment_with_data,
+    get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective,
     get_factorial_metric,
     get_fixed_parameter,
@@ -87,6 +88,12 @@ TEST_CASES = [
     ),
     (
         "Experiment",
+        get_experiment_with_multi_objective,
+        Encoder.experiment_to_sqa,
+        Decoder.experiment_from_sqa,
+    ),
+    (
+        "Experiment",
         get_experiment_with_scalarized_objective,
         Encoder.experiment_to_sqa,
         Decoder.experiment_from_sqa,
@@ -135,6 +142,12 @@ TEST_CASES = [
     ),
     ("Metric", get_metric, Encoder.metric_to_sqa, Decoder.metric_from_sqa),
     ("Objective", get_objective, Encoder.objective_to_sqa, Decoder.metric_from_sqa),
+    (
+        "ScalarizedObjective",
+        get_scalarized_objective,
+        Encoder.objective_to_sqa,
+        Decoder.metric_from_sqa,
+    ),
     (
         "ScalarizedObjective",
         get_scalarized_objective,
@@ -320,6 +333,23 @@ ENCODE_DECODE_FIELD_MAPS = {
             "scalarized_objective_children_metrics",
             "scalarized_objective_weight",
         ],
+    ),
+    "MultiObjective": EncodeDecodeFieldsMap(
+        encoded_only=[
+            "metric_type",
+            "intent",
+            "name",
+            "lower_is_better",
+            "properties",
+            "op",
+            "relative",
+            "bound",
+            "trial_type",
+            "canonical_name",
+            "scalarized_objective_weight",
+        ],
+        python_only=["weights"],
+        python_to_encoded={"metrics": "scalarized_objective_children_metrics"},
     ),
     "ScalarizedObjective": EncodeDecodeFieldsMap(
         encoded_only=[

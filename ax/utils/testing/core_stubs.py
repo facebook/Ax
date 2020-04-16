@@ -211,6 +211,23 @@ def get_experiment_with_data() -> Experiment:
     return batch_trial.experiment
 
 
+def get_experiment_with_multi_objective() -> Experiment:
+    objective = get_multi_objective()
+    outcome_constraints = [get_outcome_constraint()]
+    optimization_config = OptimizationConfig(
+        objective=objective, outcome_constraints=outcome_constraints
+    )
+    return Experiment(
+        name="test_experiment_multi_objective",
+        search_space=get_search_space(),
+        optimization_config=optimization_config,
+        status_quo=get_status_quo(),
+        description="test experiment with scalarized objective",
+        tracking_metrics=[Metric(name="tracking")],
+        is_test=True,
+    )
+
+
 def get_experiment_with_scalarized_objective() -> Experiment:
     objective = get_scalarized_objective()
     outcome_constraints = [get_outcome_constraint()]
@@ -503,7 +520,8 @@ def get_objective() -> Objective:
 
 def get_multi_objective() -> Objective:
     return MultiObjective(
-        metrics=[Metric(name="m1"), Metric(name="m2")], minimize=False
+        metrics=[Metric(name="m1"), Metric(name="m3", lower_is_better=True)],
+        minimize=False,
     )
 
 

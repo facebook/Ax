@@ -126,7 +126,7 @@ class SQAMetric(Base):
     scalarized_objective_id = Column(Integer, ForeignKey("metric_v2.id"))
 
     # Relationship containing SQAMetric(s) only defined for the parent metric
-    # of Scalarized Objective contains all children of the parent metric
+    # of Multi/Scalarized Objective contains all children of the parent metric
     # join_depth argument: used for loading self-referential relationships
     # https://docs.sqlalchemy.org/en/13/orm/self_referential.html#configuring-self-referential-eager-loading
     scalarized_objective_children_metrics = relationship(

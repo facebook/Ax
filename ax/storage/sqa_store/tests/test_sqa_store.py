@@ -74,6 +74,7 @@ from ax.utils.testing.core_stubs import (
     get_choice_parameter,
     get_data,
     get_experiment_with_batch_trial,
+    get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective,
     get_fixed_parameter,
     get_generator_run,
@@ -184,7 +185,11 @@ class SQAStoreTest(TestCase):
         self.decoder.generator_run_from_sqa(generator_run_sqa)
 
     def testExperimentSaveAndLoad(self):
-        for exp in [self.experiment, get_experiment_with_scalarized_objective()]:
+        for exp in [
+            self.experiment,
+            get_experiment_with_multi_objective(),
+            get_experiment_with_scalarized_objective(),
+        ]:
             exp = self.experiment
             save_experiment(exp)
             loaded_experiment = load_experiment(exp.name)
