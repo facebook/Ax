@@ -216,7 +216,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "num_arms_created": "num_arms_created",
         },
         python_only=["experiment", "status_quo", "status_quo_weight_override"],
-        encoded_only=["is_batch", "status_quo_name", "deployed_name"],
+        encoded_only=["is_batch", "status_quo_name", "deployed_name", "properties"],
     ),
     "BraninObjective": EncodeDecodeFieldsMap(
         python_only=["metric"],
@@ -434,6 +434,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "status_quo_name",
             "deployed_name",
             "optimize_for_power",
+            "properties",
         ],
     ),
 }

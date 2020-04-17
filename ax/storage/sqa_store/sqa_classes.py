@@ -292,6 +292,7 @@ class SQATrial(Base):
     time_run_started: Optional[datetime] = Column(IntTimestamp)
     trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     generation_step_index: Optional[int] = Column(Integer)
+    properties: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict, default={})
 
     # relationships
     # Trials and experiments are mutable, so the children relationships need
