@@ -111,8 +111,12 @@ class BaseTrial(ABC, Base):
     """Base class for representing trials.
 
     Trials are containers for arms that are deployed together. There are
-    two types of trials: regular Trial, which only contains a single arm,
+    two kinds of trials: regular Trial, which only contains a single arm,
     and BatchTrial, which contains an arbitrary number of arms.
+
+    Args:
+        experiment: Experiment, of which this trial is a part
+        trial_type: Type of this trial, if used in MultiTypeExperiment.
     """
 
     def __init__(

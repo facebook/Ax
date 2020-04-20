@@ -543,7 +543,16 @@ class Experiment(Base):
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
     ) -> Trial:
-        """Create a new trial associated with this experiment."""
+        """Create a new trial associated with this experiment.
+
+        Args:
+            generator_run: GeneratorRun, associated with this trial.
+                Trial has only one generator run (and thus arm)
+                attached to it. This can also be set later through `add_arm`
+                or `add_generator_run`, but a trial's associated generator run is
+                immutable once set.
+            trial_type: Type of this trial, if used in MultiTypeExperiment.
+        """
         return Trial(
             experiment=self, trial_type=trial_type, generator_run=generator_run
         )
@@ -554,7 +563,18 @@ class Experiment(Base):
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
     ) -> BatchTrial:
-        """Create a new batch trial associated with this experiment."""
+        """Create a new batch trial associated with this experiment.
+
+        Args:
+            generator_run: GeneratorRun, associated with this trial. This can a
+                also be set later through `add_arm` or `add_generator_run`, but a
+                trial's associated generator run is immutable once set.
+            trial_type: Type of this trial, if used in MultiTypeExperiment.
+            optimize_for_power: Whether to optimize the weights of arms in this
+                trial such that the experiment's power to detect effects of
+                certain size is as high as possible. Refer to documentation of
+                `BatchTrial.set_status_quo_and_optimize_power` for more detail.
+        """
         return BatchTrial(
             experiment=self,
             trial_type=trial_type,

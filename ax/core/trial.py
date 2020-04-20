@@ -21,12 +21,13 @@ class Trial(BaseTrial):
     """Trial that only has one attached arm and no arm weights.
 
     Args:
-        experiment: experiment, to which this trial is attached
-        generator_run: generator_run associated with
-            this trial. Trial has only one generator run (and thus arm)
+        experiment: Experiment, to which this trial is attached.
+        generator_run: GeneratorRun, associated with this trial.
+            Trial has only one generator run (of just one arm)
             attached to it. This can also be set later through `add_arm`
             or `add_generator_run`, but a trial's associated genetor run is
             immutable once set.
+        trial_type: Type of this trial, if used in MultiTypeExperiment.
     """
 
     def __init__(

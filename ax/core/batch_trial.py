@@ -57,6 +57,32 @@ class GeneratorRunStruct(NamedTuple):
 
 
 class BatchTrial(BaseTrial):
+    """Batched trial that has multiple attached arms, meant to be
+    *deployed and evaluated together*, and possibly arm weights, which are
+    a measure of how much of the total resources allocated to evaluating
+    a batch should go towards evaluating the specific arm. For instance,
+    for field experiments the weights could describe the fraction of the
+    total experiment population assigned to the different treatment arms.
+    Interpretation of the weights is defined in Runner.
+
+    NOTE: A `BatchTrial` is not just a trial with many arms; it is a trial,
+    for which it is important that the arms are evaluated simultaneously, e.g.
+    in an A/B test where the evaluation results are subject to nonstationarity.
+    For cases where multiple arms are evaluated separately and independently of
+    each other, use multiple `Trial`s with a single arm each.
+
+    Args:
+        experiment: Experiment, to which this trial is attached
+        generator_run: GeneratorRun, associated with this trial. This can a
+            also be set later through `add_arm` or `add_generator_run`, but a
+            trial's associated generator run is immutable once set.
+        trial_type: Type of this trial, if used in MultiTypeExperiment.
+        optimize_for_power: Whether to optimize the weights of arms in this
+            trial such that the experiment's power to detect effects of
+            certain size is as high as possible. Refer to documentation of
+            `BatchTrial.set_status_quo_and_optimize_power` for more detail.
+    """
+
     def __init__(
         self,
         experiment: "core.experiment.Experiment",
@@ -260,7 +286,7 @@ class BatchTrial(BaseTrial):
     def set_status_quo_and_optimize_power(self, status_quo: Arm) -> "BatchTrial":
         """Adds a status quo arm to the batch and optimizes for power.
 
-        Note: this optimization based on the arms that are currently attached
+        NOTE: this optimization based on the arms that are currently attached
         to the batch. If you add more arms later, you should re-run this function.
         If you want the optimization to happen automatically,
         set batch.optimize_for_power = True.
