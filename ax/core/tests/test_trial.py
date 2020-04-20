@@ -122,3 +122,8 @@ class TrialTest(TestCase):
             "parameters={'w': 0.85, 'x': 1, 'y': 'baz', 'z': False}))"
         )
         self.assertEqual(str(self.trial), repr_)
+
+    def test_update_run_metadata(self):
+        self.assertEqual(len(self.trial.run_metadata), 0)
+        self.trial.update_run_metadata({"something": "new"})
+        self.assertEqual(self.trial.run_metadata, {"something": "new"})

@@ -16,6 +16,7 @@ from ax.core.base import Base
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import TGenMetadata, TModelPredict, TModelPredictArm
+from ax.utils.common.typeutils import not_none
 
 
 class GeneratorRunType(Enum):
@@ -239,12 +240,7 @@ class GeneratorRun(Base):
         predictions: Dict[str, TModelPredictArm] = {}
         for idx, cond in enumerate(self.arms):
             predictions[cond.signature] = extract_arm_predictions(
-                # pyre-fixme[6]: Expected `Tuple[Dict[str, List[float]], Dict[str,
-                #  Dict[str, List[float]]]]` for 1st param but got
-                #  `Optional[Tuple[Dict[str, List[float]], Dict[str, Dict[str,
-                #  List[float]]]]]`.
-                model_predictions=self._model_predictions,
-                arm_idx=idx,
+                model_predictions=not_none(self._model_predictions), arm_idx=idx
             )
         return predictions
 
@@ -273,9 +269,58 @@ class GeneratorRun(Base):
 
     def clone(self) -> "GeneratorRun":
         """Return a deep copy of a GeneratorRun."""
+        return self._clone_with_arms(arms=self.arms, weights=self.weights)
+
+    def split_by_arm(self, populate_all_fields: bool = False) -> List["GeneratorRun"]:
+        """Return a list of generator runs, each with all the metadata of
+        generator run, but only with one of its arms. Useful when splitting
+        a single generator run into multiple 1-arm trials.
+
+        Args:
+            populate_all_fields: By default, `split_by_arm` only sets some
+                fields on the new, 'split' generator runs, in order to avoid
+                creating multiple large objects and increasing the size of
+                an experiment object. To force-populate all fields of the
+                'split' generator runs, set 'populate_all_fields' to True.
+        """
+        return [
+            self._clone_with_arms(
+                arms=[a],
+                weights=[w],
+                cherrypick_fields_to_clone=not populate_all_fields,
+            )
+            for a, w in self.arm_weights.items()
+        ]
+
+    def _clone_with_arms(
+        self,
+        arms: List[Arm],
+        weights: Optional[List[float]],
+        cherrypick_fields_to_clone: bool = False,
+    ) -> "GeneratorRun":
+        """Return a deep copy of a GeneratorRun with specified arms and
+        weights.
+
+        Args:
+            arms: Arms to put into the clone generator run.
+            weights: Weights to put into the clone generator run.
+            cherrypick_fields_to_clone: If specified, only some properties
+                of the generator run by the given names will be cloned.
+                The 'cherrypicked' properties are: type, model key, and
+                the generation step index.
+        """
+        if cherrypick_fields_to_clone:
+            return GeneratorRun(
+                arms=[a.clone() for a in arms],
+                weights=weights[:] if weights is not None else None,
+                type=self.generator_run_type,
+                model_key=self._model_key,
+                generation_step_index=self._generation_step_index,
+            )
+        # Cloning all fields of the generator run.
         generator_run = GeneratorRun(
-            arms=[a.clone() for a in self.arms],
-            weights=self.weights[:] if self.weights is not None else None,
+            arms=[a.clone() for a in arms],
+            weights=weights[:] if weights is not None else None,
             # pyre-fixme[16]: `Optional` has no attribute `clone`.
             optimization_config=self.optimization_config.clone()
             if self.optimization_config is not None

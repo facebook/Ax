@@ -245,6 +245,12 @@ class BaseTrial(ABC, Base):
         self._runner = self._runner or self.experiment.runner_for_trial(self)
         return self
 
+    def update_run_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Updates the run metadata dict stored on this trial and returns the
+        updated dict."""
+        self._run_metadata.update(metadata)
+        return self._run_metadata
+
     def run(self) -> "BaseTrial":
         """Deploys the trial according to the behavior on the runner.
 
