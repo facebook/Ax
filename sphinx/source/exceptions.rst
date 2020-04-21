@@ -8,6 +8,15 @@ ax.exceptions
 .. currentmodule:: ax.exceptions
 
 
+Constants
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.exceptions.constants
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Core
 ~~~~~~~~~~~~~~~~~~
 
