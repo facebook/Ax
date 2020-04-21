@@ -69,7 +69,7 @@ class BatchTrial(BaseTrial):
     for which it is important that the arms are evaluated simultaneously, e.g.
     in an A/B test where the evaluation results are subject to nonstationarity.
     For cases where multiple arms are evaluated separately and independently of
-    each other, use multiple `Trial`s with a single arm each.
+    each other, use multiple `Trial` objects with a single arm each.
 
     Args:
         experiment: Experiment, to which this trial is attached
