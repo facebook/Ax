@@ -36,7 +36,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
 from ax.storage.json_store.registry import DECODER_REGISTRY
 from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
-from ax.utils.common.typeutils import torch_type_from_str
+from ax.utils.common.typeutils import not_none, torch_type_from_str
 from ax.utils.measurement import synthetic_functions
 
 
@@ -260,11 +260,10 @@ def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment
     experiment._trials = trials_from_json(experiment, trials_json)
     for trial in experiment._trials.values():
         for arm in trial.arms:
-            experiment._arms_by_signature[arm.signature] = arm
+            experiment._register_arm(arm)
     if experiment.status_quo is not None:
-        # pyre-fixme[16]: Optional type has no attribute `signature`.
-        sq_sig = experiment.status_quo.signature
-        experiment._arms_by_signature[sq_sig] = experiment.status_quo
+        sq = not_none(experiment.status_quo)
+        experiment._register_arm(sq)
     experiment._experiment_type = object_from_json(experiment_type_json)
     experiment._data_by_trial = data_from_json(data_by_trial_json)
     return experiment
@@ -279,13 +278,13 @@ def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
     experiment = Experiment(**{k: object_from_json(v) for k, v in object_json.items()})
     experiment._time_created = object_from_json(time_created_json)
     experiment._trials = trials_from_json(experiment, trials_json)
+    experiment._arms_by_name = {}
     for trial in experiment._trials.values():
         for arm in trial.arms:
-            experiment._arms_by_signature[arm.signature] = arm
+            experiment._register_arm(arm)
     if experiment.status_quo is not None:
-        # pyre-fixme[16]: Optional type has no attribute `signature`.
-        sq_sig = experiment.status_quo.signature
-        experiment._arms_by_signature[sq_sig] = experiment.status_quo
+        sq = not_none(experiment.status_quo)
+        experiment._register_arm(sq)
     experiment._experiment_type = object_from_json(experiment_type_json)
     experiment._data_by_trial = data_from_json(data_by_trial_json)
     return experiment

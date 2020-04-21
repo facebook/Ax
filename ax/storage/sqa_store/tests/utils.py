@@ -272,6 +272,7 @@ ENCODE_DECODE_FIELD_MAPS = {
         ],
         python_only=[
             "arms_by_signature",
+            "arms_by_name",
             "search_space",
             "runner",
             "optimization_config",
@@ -410,6 +411,7 @@ ENCODE_DECODE_FIELD_MAPS = {
         ],
         python_only=[
             "arms_by_signature",
+            "arms_by_name",
             "search_space",
             "runner",
             "optimization_config",

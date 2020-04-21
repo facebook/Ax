@@ -191,6 +191,7 @@ class ExperimentTest(TestCase):
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
         self.assertEqual(self.experiment.status_quo.name, "status_quo")
+        self.assertTrue("status_quo" in self.experiment.arms_by_name)
 
         # Verify all None values
         self.experiment.status_quo = Arm({n: None for n in sq_parameters.keys()})
@@ -207,13 +208,15 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.status_quo = Arm(sq_parameters)
 
-        # Verify arms_by_signature only contains status_quo
+        # Verify arms_by_signature, arms_by_name only contains status_quo
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
+        self.assertEqual(len(self.experiment.arms_by_name), 1)
 
         # Change status quo, verify still just 1 arm
         sq_parameters["w"] = 3.6
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
+        self.assertEqual(len(self.experiment.arms_by_name), 1)
 
         # Make a batch, add status quo to it, then change exp status quo, verify 2 arms
         batch = self.experiment.new_batch_trial()
@@ -221,7 +224,9 @@ class ExperimentTest(TestCase):
         sq_parameters["w"] = 3.7
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(len(self.experiment.arms_by_signature), 2)
+        self.assertEqual(len(self.experiment.arms_by_name), 2)
         self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
+        self.assertTrue("status_quo_e0" in self.experiment.arms_by_name)
 
         # Try missing param
         sq_parameters.pop("w")
@@ -245,6 +250,15 @@ class ExperimentTest(TestCase):
         # Try setting sq to existing arm with different name
         with self.assertRaises(ValueError):
             exp.status_quo = Arm(arms[0].parameters, name="new_name")
+
+    def testRegisterArm(self):
+        # Create a new arm, register on experiment
+        parameters = self.experiment.status_quo.parameters
+        parameters["w"] = 3.5
+        arm = Arm(name="my_arm_name", parameters=parameters)
+        self.experiment._register_arm(arm)
+        self.assertEqual(self.experiment.arms_by_name[arm.name], arm)
+        self.assertEqual(self.experiment.arms_by_signature[arm.signature], arm)
 
     def _setupBraninExperiment(self, n: int) -> Experiment:
         exp = Experiment(

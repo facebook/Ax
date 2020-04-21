@@ -76,6 +76,7 @@ class Experiment(Base):
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
         self._arms_by_signature: Dict[str, Arm] = {}
+        self._arms_by_name: Dict[str, Arm] = {}
 
         self.add_tracking_metrics(tracking_metrics or [])
 
@@ -194,6 +195,7 @@ class Experiment(Base):
             if not persist_old_sq:
                 # pyre-fixme[16]: `Optional` has no attribute `signature`.
                 self._arms_by_signature.pop(self._status_quo.signature)
+                self._arms_by_name.pop(self._status_quo.name)
 
         self._status_quo = status_quo
 
@@ -205,7 +207,7 @@ class Experiment(Base):
     @property
     def arms_by_name(self) -> Dict[str, Arm]:
         """The arms belonging to this experiment, by their name."""
-        return {arm.name: arm for arm in self._arms_by_signature.values()}
+        return self._arms_by_name
 
     @property
     def arms_by_signature(self) -> Dict[str, Arm]:
@@ -632,7 +634,17 @@ class Experiment(Base):
         else:
             if not arm.has_name:
                 arm.name = proposed_name
-            self._arms_by_signature[arm.signature] = arm
+            self._register_arm(arm)
+
+    def _register_arm(self, arm: Arm) -> None:
+        """Add a new arm to the experiment, updating the relevant
+        lookup dictionaries.
+
+        Args:
+            arm: Arm to add
+"       """
+        self._arms_by_signature[arm.signature] = arm
+        self._arms_by_name[arm.name] = arm
 
     def reset_runners(self, runner: Runner) -> None:
         """Replace all candidate trials runners.

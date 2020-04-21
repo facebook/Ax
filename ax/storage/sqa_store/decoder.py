@@ -222,13 +222,13 @@ class Decoder:
         }
 
         experiment._trials = {trial.index: trial for trial in trials}
+        experiment._arms_by_name = {}
         for trial in trials:
             for arm in trial.arms:
-                experiment._arms_by_signature[arm.signature] = arm
+                experiment._register_arm(arm)
         if experiment.status_quo is not None:
-            # pyre-fixme[16]: `Optional` has no attribute `signature`.
-            sq_sig = experiment.status_quo.signature
-            experiment._arms_by_signature[sq_sig] = experiment.status_quo
+            sq = not_none(experiment.status_quo)
+            experiment._register_arm(sq)
         experiment._time_created = experiment_sqa.time_created
         experiment._experiment_type = self.get_enum_name(
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
