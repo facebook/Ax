@@ -498,7 +498,7 @@ class ModelBridge(ABC):
         """
         raise NotImplementedError  # pragma: no cover
 
-    def update(self, data: Data, experiment: Experiment) -> None:
+    def update(self, new_data: Data, experiment: Experiment) -> None:
         """Update the model bridge and the underlying model with new data. This
         method should be used instead of `fit`, in cases where the underlying
         model does not need to be re-fit from scratch, but rather updated.
@@ -507,13 +507,14 @@ class ModelBridge(ABC):
         or last update) to be passed in, not all data in the experiment.
 
         Args:
-            data: data from the experiment obtained since the last update
-            experiment: experiment, in which this data was obtained
+            new_data: Data from the experiment obtained since the last call to
+                `update`.
+            experiment: Experiment, in which this data was obtained.
         """
         t_update_start = time.time()
         observations = (
-            observations_from_data(experiment, data)
-            if experiment is not None and data is not None
+            observations_from_data(experiment=experiment, data=new_data)
+            if experiment is not None and new_data is not None
             else []
         )
         obs_feats_raw, obs_data_raw = self._extend_training_data(

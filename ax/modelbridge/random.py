@@ -56,7 +56,7 @@ class RandomModelBridge(ModelBridge):
         self.parameters = list(search_space.parameters.keys())
 
     @copy_doc(ModelBridge.update)
-    def update(self, data: Data, experiment: Experiment) -> None:
+    def update(self, new_data: Data, experiment: Experiment) -> None:
         pass  # pragma: no cover
 
     def _gen(

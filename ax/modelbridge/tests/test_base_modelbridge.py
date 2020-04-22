@@ -435,7 +435,7 @@ class BaseModelBridgeTest(TestCase):
         )
         exp.new_trial(generator_run=modelbridge.gen(1))
         modelbridge.update(
-            data=Data(
+            new_data=Data(
                 pd.DataFrame(
                     [{"arm_name": "1_0", "metric_name": "m1", "mean": 5.0, "sem": 0.0}]
                 )
@@ -446,7 +446,7 @@ class BaseModelBridgeTest(TestCase):
         # Trying to update with unrecognised metric should error.
         with self.assertRaisesRegex(ValueError, "Unrecognised metric"):
             modelbridge.update(
-                data=Data(
+                new_data=Data(
                     pd.DataFrame(
                         [
                             {
