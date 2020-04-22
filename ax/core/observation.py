@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import json
 from copy import deepcopy
 from typing import List, Optional, Tuple
@@ -15,6 +17,18 @@ from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.types import TParameterization
+
+
+OBS_COLS = {
+    "arm_name",
+    "trial_index",
+    "start_time",
+    "end_time",
+    "random_split",
+    "fidelities",
+}
+
+OBS_KWARGS = {"trial_index", "start_time", "end_time", "random_split"}
 
 
 class ObservationFeatures(Base):
@@ -63,7 +77,7 @@ class ObservationFeatures(Base):
         # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
-    ) -> "ObservationFeatures":
+    ) -> ObservationFeatures:
         """Convert a Arm to an ObservationFeatures, including additional
         data as specified.
         """
@@ -75,9 +89,7 @@ class ObservationFeatures(Base):
             random_split=random_split,
         )
 
-    def update_features(
-        self, new_features: "ObservationFeatures"
-    ) -> "ObservationFeatures":
+    def update_features(self, new_features: ObservationFeatures) -> ObservationFeatures:
         """Updates the existing ObservationFeatures with the fields of the the input.
 
         Adds all of the new parameters to the existing parameters and overwrites
@@ -162,8 +174,7 @@ class Observation(Base):
     """Represents an observation.
 
     A set of features (ObservationFeatures) and corresponding measurements
-    (ObservationData). Optionally, a arm name associated with the
-    features.
+    (ObservationData). Optionally, an arm name associated with the features.
 
     Attributes:
         features (ObservationFeatures)
@@ -185,57 +196,50 @@ class Observation(Base):
 def observations_from_data(experiment: Experiment, data: Data) -> List[Observation]:
     """Convert Data to observations.
 
-    Converts a Data object to a list of Observation objects. Pulls
-    arm parameters from experiment.  Overrides fidelity parameters in the arm
-    with those found in the Data object.
+    Converts a Data object to a list of Observation objects. Pulls arm parameters from
+    from experiment. Overrides fidelity parameters in the arm with those found in the
+    Data object.
 
     Uses a diagonal covariance matrix across metric_names.
 
     Args:
         experiment: Experiment with arm parameters.
-        data: Data of observations
+        data: Data of observations.
 
-    Returns: List of Observation objects.
+    Returns:
+        List of Observation objects.
     """
-    feature_cols = list(
-        {
-            "arm_name",
-            "trial_index",
-            "start_time",
-            "end_time",
-            "random_split",
-            "fidelities",
-        }.intersection(data.df.columns)
-    )
+    feature_cols = list(OBS_COLS.intersection(data.df.columns))
     observations = []
+    arm_name_only = len(feature_cols) == 1  # there will always be an arm name
     for g, d in data.df.groupby(by=feature_cols):
-        # If g were a single value, zip would transform it into an index,
-        # and we want the value.
-        if not isinstance(g, (list, tuple)):
-            g = [g]  # pragma: no cover
-        features = dict(zip(feature_cols, g))
+        if arm_name_only:
+            features = {"arm_name": g}
+            arm_name = g
+        else:
+            features = dict(zip(feature_cols, g))
+            arm_name = features["arm_name"]
         obs_kwargs = {}
-        obs_parameters = experiment.arms_by_name[features["arm_name"]].parameters.copy()
+        obs_parameters = experiment.arms_by_name[arm_name].parameters.copy()
         if obs_parameters:
             obs_kwargs["parameters"] = obs_parameters
-        for f in ["trial_index", "start_time", "end_time", "random_split"]:
-            obs_kwargs[f] = features.get(f, None)
-        if "fidelities" in features:
-            fidelity_dict = json.loads(features["fidelities"])
-            for param_name, val in fidelity_dict.items():
-                obs_parameters[param_name] = val
+        for f, val in features.items():
+            if f in OBS_KWARGS:
+                obs_kwargs[f] = val
+        fidelities = features.get("fidelities")
+        if fidelities is not None:
+            obs_parameters.update(json.loads(fidelities))
         observations.append(
             Observation(
                 features=ObservationFeatures(**obs_kwargs),
                 data=ObservationData(
-                    metric_names=list(d["metric_name"].values),
+                    metric_names=d["metric_name"].tolist(),
                     means=d["mean"].values,
                     covariance=np.diag(d["sem"].values ** 2),
                 ),
-                arm_name=features["arm_name"],
+                arm_name=arm_name,
             )
         )
-
     return observations
 
 
