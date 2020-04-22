@@ -60,19 +60,15 @@ class Data(Base):
         if df is None:
             self._df = pd.DataFrame(columns=self.required_columns())
         else:
-            missing_columns = self.required_columns() - (
-                self.required_columns() & set(df.columns.tolist())
-            )
-            if len(missing_columns) > 0:
+            columns = set(df.columns)
+            missing_columns = self.required_columns() - columns
+            if missing_columns:
                 raise ValueError(
                     f"Dataframe must contain required columns {list(missing_columns)}."
                 )
-            extra_columns = set(df.columns.tolist()) - (
-                set(self.column_data_types().keys()) & set(df.columns.tolist())
-            )
-            if len(extra_columns) > 0:
+            extra_columns = columns - set(self.column_data_types())
+            if extra_columns:
                 raise ValueError(f"Columns {list(extra_columns)} are not supported.")
-
             df = df.dropna(axis=0, how="all").reset_index(drop=True)
             df = self._safecast_df(df=df)
 
