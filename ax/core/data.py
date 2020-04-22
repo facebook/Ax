@@ -118,9 +118,10 @@ class Data(Base):
 
     @staticmethod
     def from_multiple_data(data: Iterable["Data"]) -> "Data":
-        if sum(1 for _ in data) == 0:  # Return empty data if empty iterable.
+        dfs = [datum.df for datum in data]
+        if len(dfs) == 0:
             return Data()
-        return Data(df=pd.concat([datum.df for datum in data], axis=0, sort=True))
+        return Data(df=pd.concat(dfs, axis=0, sort=True))
 
     @staticmethod
     def from_evaluations(
