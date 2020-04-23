@@ -534,10 +534,20 @@ class Experiment(Base):
 
     @property
     def trials_by_status(self) -> Dict[TrialStatus, List[BaseTrial]]:
-        """The trials associated with the experiment grouped by trial status."""
+        """Trials associated with the experiment, grouped by trial status."""
         output = defaultdict(list)
         for trial in self.trials.values():
             output[trial.status].append(trial)
+        return dict(output)
+
+    @property
+    def trial_indices_by_status(self) -> Dict[TrialStatus, List[int]]:
+        """Indices of trials associated with the experiment, grouped by trial
+        status.
+        """
+        output = defaultdict(list)
+        for trial in self.trials.values():
+            output[trial.status].append(trial.index)
         return dict(output)
 
     def new_trial(
@@ -642,7 +652,7 @@ class Experiment(Base):
 
         Args:
             arm: Arm to add
-"       """
+        """
         self._arms_by_signature[arm.signature] = arm
         self._arms_by_name[arm.name] = arm
 
