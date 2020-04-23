@@ -102,6 +102,27 @@ class TrialTest(TestCase):
         self.assertFalse(self.trial.status.is_failed)
         self.assertTrue(self.trial.did_not_complete)
 
+    def test_mark_as(self):
+        for terminal_status in (
+            TrialStatus.ABANDONED,
+            TrialStatus.FAILED,
+            TrialStatus.COMPLETED,
+        ):
+            self.setUp()
+            # Note: This only tests the no-runner case (and thus not staging)
+            for status in (TrialStatus.RUNNING, terminal_status):
+                kwargs = {}
+                if status == TrialStatus.RUNNING:
+                    kwargs["no_runner_required"] = True
+                if status == TrialStatus.ABANDONED:
+                    kwargs["reason"] = "test_reason"
+                self.trial.mark_as(status=status, **kwargs)
+                self.assertTrue(self.trial.status == status)
+                if status == TrialStatus.ABANDONED:
+                    self.assertEqual(self.trial.abandoned_reason, "test_reason")
+                else:
+                    self.assertIsNone(self.trial.abandoned_reason)
+
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data",
         return_value=TEST_DATA,

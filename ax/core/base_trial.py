@@ -479,3 +479,27 @@ class BaseTrial(ABC, Base):
         self._status = TrialStatus.FAILED
         self._time_completed = datetime.now()
         return self
+
+    def mark_as(self, status: TrialStatus, **kwargs: Any) -> BaseTrial:
+        """Mark trial with a new TrialStatus.
+
+        Args:
+            status: The new status of the trial.
+            kwargs: Additional keyword args, as can be ued in the respective `mark_`
+                methods associated with the trial status.
+
+        Returns:
+            The trial instance.
+        """
+        if status == TrialStatus.STAGED:
+            self.mark_staged()
+        if status == TrialStatus.RUNNING:
+            no_runner_required = kwargs.get("no_runner_required", False)
+            self.mark_running(no_runner_required=no_runner_required)
+        if status == TrialStatus.ABANDONED:
+            self.mark_abandoned(reason=kwargs.get("reason"))
+        if status == TrialStatus.FAILED:
+            self.mark_failed()
+        if status == TrialStatus.COMPLETED:
+            self.mark_completed()
+        return self
