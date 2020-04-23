@@ -124,10 +124,19 @@ class BaseTrial(ABC, Base):
     Args:
         experiment: Experiment, of which this trial is a part
         trial_type: Type of this trial, if used in MultiTypeExperiment.
+        ttl_seconds: If specified, trials will be considered failed after
+            this many seconds since the time the trial was ran, unless the
+            trial is completed before then. Meant to be used to detect
+            'dead' trials, for which the evaluation process might have
+            crashed etc., and which should be considered failed after
+            their 'time to live' has passed.
     """
 
     def __init__(
-        self, experiment: core.experiment.Experiment, trial_type: Optional[str] = None
+        self,
+        experiment: core.experiment.Experiment,
+        trial_type: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
     ) -> None:
         """Initialize trial.
 
@@ -148,6 +157,9 @@ class BaseTrial(ABC, Base):
 
         self._status: TrialStatus = TrialStatus.CANDIDATE
         self._time_created: datetime = datetime.now()
+        if ttl_seconds is not None and ttl_seconds <= 0:
+            raise ValueError("TTL must be a positive integer (or None).")
+        self._ttl_seconds: Optional[int] = ttl_seconds
 
         # Initialize fields to be used later in lifecycle
         self._time_completed: Optional[datetime] = None
@@ -181,6 +193,26 @@ class BaseTrial(ABC, Base):
     def status(self) -> TrialStatus:
         """The status of the trial in the experimentation lifecycle."""
         return self._status
+
+    @property
+    def ttl_seconds(self) -> Optional[int]:
+        """This trial's time-to-live once ran, in seconds. If not set, trial
+        will never be automatically considered failed (i.e. infinite TTL).
+        Reflects after how many seconds since the time the trial was run it
+        will be considered failed unless completed.
+        """
+        return self._ttl_seconds
+
+    @ttl_seconds.setter
+    def ttl_seconds(self, ttl_seconds: Optional[int]) -> None:
+        """Sets this trial's time-to-live once ran, in seconds. If None, trial
+        will never be automatically considered failed (i.e. infinite TTL).
+        Reflects after how many seconds since the time the trial was run it
+        will be considered failed unless completed.
+        """
+        if ttl_seconds is not None and ttl_seconds <= 0:
+            raise ValueError("TTL must be a positive integer (or None).")
+        self._ttl_seconds = ttl_seconds
 
     @property
     def completed_successfully(self) -> bool:

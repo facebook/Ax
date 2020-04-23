@@ -38,6 +38,9 @@ def batch_trial_from_json(
     status_quo: Optional[Arm],
     status_quo_weight_override: float,
     optimize_for_power: Optional[bool],
+    # Allowing default values for backwards compatibility with
+    # objects stored before these fields were added.
+    ttl_seconds: Optional[int] = None,
     generation_step_index: Optional[int] = None,
 ) -> BatchTrial:
     """Load Ax BatchTrial from JSON.
@@ -47,7 +50,7 @@ def batch_trial_from_json(
     does not allow us to exactly recreate an existing object.
     """
 
-    batch = BatchTrial(experiment=experiment)
+    batch = BatchTrial(experiment=experiment, ttl_seconds=ttl_seconds)
     batch._index = index
     batch._trial_type = trial_type
     batch._status = status
@@ -82,6 +85,9 @@ def trial_from_json(
     generator_run: GeneratorRun,
     runner: Optional[Runner],
     num_arms_created: int,
+    # Allowing default values for backwards compatibility with
+    # objects stored before these fields were added.
+    ttl_seconds: Optional[int] = None,
     generation_step_index: Optional[int] = None,
 ) -> Trial:
     """Load Ax trial from JSON.
@@ -91,7 +97,9 @@ def trial_from_json(
     does not allow us to exactly recreate an existing object.
     """
 
-    trial = Trial(experiment=experiment, generator_run=generator_run)
+    trial = Trial(
+        experiment=experiment, generator_run=generator_run, ttl_seconds=ttl_seconds
+    )
     trial._index = index
     trial._trial_type = trial_type
     # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly

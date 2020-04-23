@@ -554,6 +554,7 @@ class Experiment(Base):
         self,
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
     ) -> Trial:
         """Create a new trial associated with this experiment.
 
@@ -564,9 +565,18 @@ class Experiment(Base):
                 or `add_generator_run`, but a trial's associated generator run is
                 immutable once set.
             trial_type: Type of this trial, if used in MultiTypeExperiment.
+            ttl_seconds: If specified, trials will be considered failed after
+                this many seconds since the time the trial was ran, unless the
+                trial is completed before then. Meant to be used to detect
+                'dead' trials, for which the evaluation process might have
+                crashed etc., and which should be considered failed after
+                their 'time to live' has passed.
         """
         return Trial(
-            experiment=self, trial_type=trial_type, generator_run=generator_run
+            experiment=self,
+            trial_type=trial_type,
+            generator_run=generator_run,
+            ttl_seconds=ttl_seconds,
         )
 
     def new_batch_trial(
@@ -574,6 +584,7 @@ class Experiment(Base):
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
+        ttl_seconds: Optional[int] = None,
     ) -> BatchTrial:
         """Create a new batch trial associated with this experiment.
 
@@ -586,6 +597,12 @@ class Experiment(Base):
                 trial such that the experiment's power to detect effects of
                 certain size is as high as possible. Refer to documentation of
                 `BatchTrial.set_status_quo_and_optimize_power` for more detail.
+            ttl_seconds: If specified, trials will be considered failed after
+                this many seconds since the time the trial was ran, unless the
+                trial is completed before then. Meant to be used to detect
+                'dead' trials, for which the evaluation process might have
+                crashed etc., and which should be considered failed after
+                their 'time to live' has passed.
         """
         return BatchTrial(
             experiment=self,

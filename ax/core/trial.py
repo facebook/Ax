@@ -28,6 +28,12 @@ class Trial(BaseTrial):
             or `add_generator_run`, but a trial's associated genetor run is
             immutable once set.
         trial_type: Type of this trial, if used in MultiTypeExperiment.
+        ttl_seconds: If specified, trials will be considered failed after
+            this many seconds since the time the trial was ran, unless the
+            trial is completed before then. Meant to be used to detect
+            'dead' trials, for which the evaluation process might have
+            crashed etc., and which should be considered failed after
+            their 'time to live' has passed.
     """
 
     def __init__(
@@ -35,8 +41,11 @@ class Trial(BaseTrial):
         experiment: "core.experiment.Experiment",
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
     ) -> None:
-        super().__init__(experiment=experiment, trial_type=trial_type)
+        super().__init__(
+            experiment=experiment, trial_type=trial_type, ttl_seconds=ttl_seconds
+        )
         self._generator_run = None
         if generator_run is not None:
             self.add_generator_run(generator_run=generator_run)

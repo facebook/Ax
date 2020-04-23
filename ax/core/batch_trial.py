@@ -81,6 +81,12 @@ class BatchTrial(BaseTrial):
             trial such that the experiment's power to detect effects of
             certain size is as high as possible. Refer to documentation of
             `BatchTrial.set_status_quo_and_optimize_power` for more detail.
+        ttl_seconds: If specified, trials will be considered failed after
+            this many seconds since the time the trial was ran, unless the
+            trial is completed before then. Meant to be used to detect
+            'dead' trials, for which the evaluation process might have
+            crashed etc., and which should be considered failed after
+            their 'time to live' has passed.
     """
 
     def __init__(
@@ -89,8 +95,11 @@ class BatchTrial(BaseTrial):
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
+        ttl_seconds: Optional[int] = None,
     ) -> None:
-        super().__init__(experiment=experiment, trial_type=trial_type)
+        super().__init__(
+            experiment=experiment, trial_type=trial_type, ttl_seconds=ttl_seconds
+        )
         self._generator_run_structs: List[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
         self._status_quo: Optional[Arm] = None

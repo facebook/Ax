@@ -675,6 +675,7 @@ class Encoder:
             is_batch=isinstance(trial, BatchTrial),
             num_arms_created=trial._num_arms_created,
             optimize_for_power=optimize_for_power,
+            ttl_seconds=trial.ttl_seconds,
             run_metadata=trial.run_metadata,
             status=trial.status,
             status_quo_name=status_quo_name,

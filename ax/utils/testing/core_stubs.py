@@ -412,7 +412,7 @@ def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
 
 def get_trial() -> Trial:
     experiment = get_experiment()
-    trial = experiment.new_trial()
+    trial = experiment.new_trial(ttl_seconds=72)
     arm = get_arms_from_dict(get_arm_weights1())[0]
     trial.add_arm(arm)
     trial.runner = SyntheticRunner()

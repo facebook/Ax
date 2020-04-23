@@ -681,7 +681,9 @@ class Decoder:
         """Convert SQLAlchemy Trial to Ax Trial."""
         if trial_sqa.is_batch:
             trial = BatchTrial(
-                experiment=experiment, optimize_for_power=trial_sqa.optimize_for_power
+                experiment=experiment,
+                optimize_for_power=trial_sqa.optimize_for_power,
+                ttl_seconds=trial_sqa.ttl_seconds,
             )
             generator_run_structs = [
                 GeneratorRunStruct(
@@ -713,7 +715,7 @@ class Decoder:
                 for abandoned_arm_sqa in trial_sqa.abandoned_arms
             }
         else:
-            trial = Trial(experiment=experiment)
+            trial = Trial(experiment=experiment, ttl_seconds=trial_sqa.ttl_seconds)
             if trial_sqa.generator_runs:
                 if len(trial_sqa.generator_runs) != 1:
                     raise SQADecodeError(  # pragma: no cover
