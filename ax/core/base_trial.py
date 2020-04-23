@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod, abstractproperty
 from datetime import datetime
 from enum import Enum
@@ -79,6 +81,11 @@ class TrialStatus(Enum):
         return self == TrialStatus.ABANDONED
 
     @property
+    def is_candidate(self) -> bool:
+        """True if this trial is a candidate."""
+        return self == TrialStatus.CANDIDATE
+
+    @property
     def is_completed(self) -> bool:
         """True if this trial is a successfully completed one."""
         return self == TrialStatus.COMPLETED
@@ -120,7 +127,7 @@ class BaseTrial(ABC, Base):
     """
 
     def __init__(
-        self, experiment: "core.experiment.Experiment", trial_type: Optional[str] = None
+        self, experiment: core.experiment.Experiment, trial_type: Optional[str] = None
     ) -> None:
         """Initialize trial.
 
@@ -161,7 +168,7 @@ class BaseTrial(ABC, Base):
         self._generation_step_index = None
 
     @property
-    def experiment(self) -> "core.experiment.Experiment":
+    def experiment(self) -> core.experiment.Experiment:
         """The experiment this trial belongs to."""
         return self._experiment
 
@@ -240,7 +247,7 @@ class BaseTrial(ABC, Base):
 
         self._trial_type = trial_type
 
-    def assign_runner(self) -> "BaseTrial":
+    def assign_runner(self) -> BaseTrial:
         """Assigns default experiment runner if trial doesn't already have one."""
         self._runner = self._runner or self.experiment.runner_for_trial(self)
         return self
@@ -251,7 +258,7 @@ class BaseTrial(ABC, Base):
         self._run_metadata.update(metadata)
         return self._run_metadata
 
-    def run(self) -> "BaseTrial":
+    def run(self) -> BaseTrial:
         """Deploys the trial according to the behavior on the runner.
 
         The runner returns a `run_metadata` dict containining metadata
@@ -279,7 +286,7 @@ class BaseTrial(ABC, Base):
             self.mark_running()
         return self
 
-    def complete(self) -> "BaseTrial":
+    def complete(self) -> BaseTrial:
         """Stops the trial if functionality is defined on runner
             and marks trial completed.
 
@@ -385,12 +392,11 @@ class BaseTrial(ABC, Base):
     def abandoned_reason(self) -> Optional[str]:
         return self._abandoned_reason
 
-    def mark_staged(self) -> "BaseTrial":
+    def mark_staged(self) -> BaseTrial:
         """Mark the trial as being staged for running.
 
         Returns:
             The trial instance.
-
         """
         if self._status != TrialStatus.CANDIDATE:
             raise ValueError("Can only stage a candidate trial.")
@@ -398,12 +404,11 @@ class BaseTrial(ABC, Base):
         self._time_staged = datetime.now()
         return self
 
-    def mark_running(self, no_runner_required: bool = False) -> "BaseTrial":
+    def mark_running(self, no_runner_required: bool = False) -> BaseTrial:
         """Mark trial has started running.
 
         Returns:
             The trial instance.
-
         """
         if self.experiment.is_simple_experiment:
             self._status = TrialStatus.RUNNING
@@ -428,7 +433,7 @@ class BaseTrial(ABC, Base):
         self._time_run_started = datetime.now()
         return self
 
-    def mark_completed(self) -> "BaseTrial":
+    def mark_completed(self) -> BaseTrial:
         """Mark trial as completed.
 
         Args:
@@ -445,7 +450,7 @@ class BaseTrial(ABC, Base):
         self._time_completed = datetime.now()
         return self
 
-    def mark_abandoned(self, reason: Optional[str] = None) -> "BaseTrial":
+    def mark_abandoned(self, reason: Optional[str] = None) -> BaseTrial:
         """Mark trial as abandoned.
 
         Args:
@@ -453,7 +458,6 @@ class BaseTrial(ABC, Base):
 
         Returns:
             The trial instance.
-
         """
         if self._status.is_terminal:
             raise ValueError("Cannot abandon a trial in a terminal state.")
@@ -463,7 +467,7 @@ class BaseTrial(ABC, Base):
         self._time_completed = datetime.now()
         return self
 
-    def mark_failed(self) -> "BaseTrial":
+    def mark_failed(self) -> BaseTrial:
         """Mark trial as failed.
 
         Returns:

@@ -44,6 +44,7 @@ class TrialTest(TestCase):
         self.assertEqual(self.experiment, self.trial.experiment)
         self.assertEqual(self.trial.index, 0)
         self.assertEqual(self.trial.status, TrialStatus.CANDIDATE)
+        self.assertTrue(self.trial.status.is_candidate)
         self.assertIsNotNone(self.trial.time_created)
         self.assertEqual(self.trial.arms_by_name["0_0"], self.trial.arm)
         self.assertEqual(self.trial.arms, [self.arm])
