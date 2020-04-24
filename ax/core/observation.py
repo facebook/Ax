@@ -227,6 +227,7 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
             if f in OBS_KWARGS:
                 obs_kwargs[f] = val
         fidelities = features.get("fidelities")
+        # pyre-fixme[25]: Assertion will always fail.
         if fidelities is not None:
             obs_parameters.update(json.loads(fidelities))
         observations.append(

@@ -164,7 +164,10 @@ def _error_scatter_trace(
             "{name}: {estimate}{perc} {ci}<br>".format(
                 name=x_axis_var.metric if x_axis_label is None else x_axis_label,
                 estimate=(
-                    round(x[i], DECIMALS) if isinstance(x[i], numbers.Number) else x[i]
+                    round(x[i], DECIMALS)
+                    # pyre-fixme[25]: Assertion will always fail.
+                    if isinstance(x[i], numbers.Number)
+                    else x[i]
                 ),
                 ci="" if x_se is None else _format_CI(x[i], x_se[i], rel_x),
                 perc="%" if rel_x else "",
@@ -175,7 +178,10 @@ def _error_scatter_trace(
         y_lab = "{name}: {estimate}{perc} {ci}<br>".format(
             name=y_axis_var.metric if y_axis_label is None else y_axis_label,
             estimate=(
-                round(y[i], DECIMALS) if isinstance(y[i], numbers.Number) else y[i]
+                round(y[i], DECIMALS)
+                # pyre-fixme[25]: Assertion will always fail.
+                if isinstance(y[i], numbers.Number)
+                else y[i]
             ),
             ci="" if y_se is None else _format_CI(y[i], y_se[i], rel_y),
             perc="%" if rel_y else "",
@@ -313,6 +319,9 @@ def _multiple_metric_traces(
     ):
         traces.append(
             _error_scatter_trace(
+                # pyre-fixme[6]: Expected `List[Union[PlotInSampleArm,
+                #  PlotOutOfSampleArm]]` for 1st param but got
+                #  `List[PlotOutOfSampleArm]`.
                 list(cand_arms.values()),
                 x_axis_var=PlotMetric(metric_x, pred=True, rel=rel_x),
                 y_axis_var=PlotMetric(metric_y, pred=True, rel=rel_y),
@@ -737,6 +746,9 @@ def lattice_multiple_metrics(
                 ):
                     fig.append_trace(
                         _error_scatter_trace(
+                            # pyre-fixme[6]: Expected `List[Union[PlotInSampleArm,
+                            #  PlotOutOfSampleArm]]` for 1st param but got
+                            #  `List[PlotOutOfSampleArm]`.
                             list(cand_arms.values()),
                             x_axis_var=PlotMetric(o1, pred=True, rel=rel),
                             y_axis_var=PlotMetric(o2, pred=True, rel=rel),
@@ -998,6 +1010,9 @@ def _single_metric_traces(
     ):
         traces.append(
             _error_scatter_trace(
+                # pyre-fixme[6]: Expected `List[Union[PlotInSampleArm,
+                #  PlotOutOfSampleArm]]` for 1st param but got
+                #  `List[PlotOutOfSampleArm]`.
                 list(cand_arms.values()),
                 x_axis_var=None,
                 y_axis_var=PlotMetric(metric, pred=True, rel=rel),

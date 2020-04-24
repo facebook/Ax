@@ -123,7 +123,6 @@ class ModelBridge(ABC):
             self._arms_by_signature = experiment.arms_by_signature
 
         observations = (
-            # pyre-fixme[6]: Expected `Experiment` for 1st param but got `None`.
             observations_from_data(experiment, data)
             if experiment is not None and data is not None
             else []
@@ -415,7 +414,6 @@ class ModelBridge(ABC):
         observation_data = self._predict(observation_features)
 
         # Apply reverse transforms, in reverse order
-        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(self.transforms.values()):  # noqa T484
             observation_features = t.untransform_observation_features(
                 observation_features
@@ -618,7 +616,6 @@ class ModelBridge(ABC):
         )
 
         # Apply reverse transforms
-        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(self.transforms.values()):  # noqa T484
             observation_features = t.untransform_observation_features(
                 observation_features
@@ -715,7 +712,6 @@ class ModelBridge(ABC):
             obs_feats=obs_feats, obs_data=obs_data, cv_test_points=cv_test_points
         )
         # Apply reverse transforms, in reverse order
-        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(self.transforms.values()):
             cv_test_points = t.untransform_observation_features(cv_test_points)
             cv_predictions = t.untransform_observation_data(

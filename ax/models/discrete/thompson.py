@@ -62,11 +62,7 @@ class ThompsonSampler(DiscreteModel):
             Ys=Ys, Yvars=Yvars, outcome_names=outcome_names
         )
         self.X_to_Ys_and_Yvars = self._fit_X_to_Ys_and_Yvars(
-            # pyre-fixme[6]: Expected `List[List[Optional[Union[bool, float, int,
-            #  str]]]]` for 1st param but got `None`.
-            X=self.X,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            X=self.X, Ys=self.Ys, Yvars=self.Yvars
         )
 
     @copy_doc(DiscreteModel.gen)
@@ -84,8 +80,6 @@ class ThompsonSampler(DiscreteModel):
             raise ValueError("ThompsonSampler requires objective weights.")
 
         arms = self.X
-        # pyre: Expected `typing.Sized` for 1st anonymous parameter to call
-        # pyre-fixme[6]: `len` but got `typing.Type[None]`.
         k = len(arms)
 
         weights = self._generate_weights(
@@ -95,7 +89,6 @@ class ThompsonSampler(DiscreteModel):
 
         # Second entry is used for tie-breaking
         weighted_arms = [
-            # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
             (weights[i], np.random.random(), arms[i])
             for i in range(k)
             # pyre-fixme[6]: Expected `float` for 1st param but got `Optional[float]`.
@@ -122,13 +115,10 @@ class ThompsonSampler(DiscreteModel):
     @copy_doc(DiscreteModel.predict)
     def predict(self, X: List[TParamValueList]) -> Tuple[np.ndarray, np.ndarray]:
         n = len(X)  # number of parameterizations at which to make predictions
-        # pyre: Expected `typing.Sized` for 1st anonymous parameter to call
-        # pyre-fixme[6]: `len` but got `typing.Type[None]`.
         m = len(self.Ys)  # number of outcomes
         f = np.zeros((n, m))  # array of outcome predictions
         cov = np.zeros((n, m, m))  # array of predictive covariances
         predictX = [self._hash_TParamValueList(x) for x in X]
-        # pyre-fixme[6]: Expected `Iterable[_T]` for 1st param but got `None`.
         for i, (X_to_Y_and_Yvar) in enumerate(self.X_to_Ys_and_Yvars):
             # iterate through outcomes
             for j, x in enumerate(predictX):
@@ -171,8 +161,6 @@ class ThompsonSampler(DiscreteModel):
             num_valid_samples = samples.shape[1]
 
         winner_indices = np.argmax(samples, axis=0)  # (num_samples,)
-        # pyre: Expected `typing.Sized` for 1st anonymous parameter to call
-        # pyre-fixme[6]: `len` but got `typing.Type[None]`.
         winner_counts = np.zeros(len(self.X))  # (k,)
         for index in winner_indices:
             winner_counts[index] += 1
@@ -185,17 +173,11 @@ class ThompsonSampler(DiscreteModel):
         objective_weights: np.ndarray,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
     ) -> Tuple[np.ndarray, float]:
-        # pyre: Expected `typing.Sized` for 1st anonymous parameter to call
-        # pyre-fixme[6]: `len` but got `typing.Type[None]`.
         k = len(self.X)
         samples_per_metric = np.zeros(
-            # pyre: Expected `typing.Sized` for 1st anonymous parameter to
-            # pyre-fixme[6]: call `len` but got `typing.Type[None]`.
             (k, num_samples, len(self.Ys))
         )  # k x num_samples x m
-        # pyre-fixme[6]: Expected `Iterable[_T]` for 1st param but got `None`.
         for i, Y in enumerate(self.Ys):  # (k x 1)
-            # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
             Yvar = self.Yvars[i]  # (k x 1)
             cov = np.diag(Yvar)  # (k x k)
             samples = np.random.multivariate_normal(

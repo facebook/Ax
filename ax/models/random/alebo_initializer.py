@@ -81,5 +81,5 @@ class ALEBOInitializer(UniformGenerator):
                 finished = True
             else:
                 b = b / 2.0  # Constrict the space
-        X = X[:n, :]  # pyre-ignore
+        X = X[:n, :]
         return X, np.ones(n)

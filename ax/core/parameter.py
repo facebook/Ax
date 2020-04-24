@@ -51,6 +51,9 @@ class Parameter(Base, metaclass=ABCMeta):
     def cast(self, value: TParamValue) -> TParamValue:
         if value is None:
             return None
+        # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
+        #  typing.SupportsFloat]` for 1st param but got `Union[None, bool, float, int,
+        #  str]`.
         return self.python_type(value)
 
     @abstractmethod
@@ -153,8 +156,12 @@ class RangeParameter(Parameter):
             ParameterType.FLOAT,
         ):
             raise ValueError("RangeParameter type must be int or float.")
+        # pyre-fixme[16]: `None` has no attribute `__ge__`.
+        # pyre-fixme[16]: `None` has no attribute `__lt__`.
         if lower >= upper:
             raise ValueError("max must be strictly larger than min.")
+        # pyre-fixme[16]: `None` has no attribute `__gt__`.
+        # pyre-fixme[16]: `None` has no attribute `__le__`.
         if log_scale and lower <= 0:
             raise ValueError("Cannot take log when min <= 0.")
         if not (self.is_valid_type(lower)) or not (self.is_valid_type(upper)):
@@ -232,6 +239,8 @@ class RangeParameter(Parameter):
         # Re-scale min and max to new digits definition
         cast_lower = self.cast(self._lower)
         cast_upper = self.cast(self._upper)
+        # pyre-fixme[16]: `None` has no attribute `__ge__`.
+        # pyre-fixme[16]: `None` has no attribute `__lt__`.
         if cast_lower >= cast_upper:
             raise ValueError(
                 f"Lower bound {cast_lower} is >= upper bound {cast_upper}."
@@ -262,6 +271,8 @@ class RangeParameter(Parameter):
 
         if not self.is_valid_type(value):
             return False
+        # pyre-fixme[16]: `None` has no attribute `__ge__`.
+        # pyre-fixme[16]: `None` has no attribute `__le__`.
         return value >= self._lower and value <= self._upper
 
     def is_valid_type(self, value: TParamValue) -> bool:
@@ -294,6 +305,9 @@ class RangeParameter(Parameter):
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
             # pyre-fixme[6]: Expected `None` for 2nd param but got `Optional[int]`.
             return round(float(value), self._digits)
+        # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
+        #  typing.SupportsFloat]` for 1st param but got `Union[None, bool, float, int,
+        #  str]`.
         return self.python_type(value)
 
     def __repr__(self) -> str:

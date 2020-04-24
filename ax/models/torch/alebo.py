@@ -267,6 +267,10 @@ def get_map_model(
         mll.train()
         mll, info_dict = fit_gpytorch_scipy(mll, track_iterations=False, method="tnc")
         logger.debug(info_dict)
+        # pyre-fixme[6]: Expected `List[botorch.optim.fit.OptimizationIteration]`
+        #  for 1st param but got `float`.
+        # pyre-fixme[6]: Expected `List[botorch.optim.fit.OptimizationIteration]`
+        #  for 1st param but got `float`.
         if info_dict["fopt"] < f_best:
             f_best = float(info_dict["fopt"])  # pyre-ignore
             sd_best = m.state_dict()
@@ -618,9 +622,14 @@ class ALEBO(BotorchModel):
         A = torch.cat((self.Binv, -self.Binv))
         b = torch.ones(2 * self.Binv.shape[0], 1, dtype=self.dtype, device=self.device)
         linear_constraints = (A, b)
+        # pyre-fixme[6]: Expected `int` for 1st param but got `float`.
         noiseless = max(Yvar.min().item() for Yvar in self.Yvars) < 1e-5
         if model_gen_options is None:
             model_gen_options = {}
+        # pyre-fixme[9]: model_gen_options has type `Optional[Dict[str,
+        #  Union[AcquisitionFunction, float, int, str]]]`; used as `Dict[str,
+        #  Union[Dict[str, Union[AcquisitionFunction, Tensor, float, int, str]],
+        #  Dict[str, int]]]`.
         model_gen_options = {
             "acquisition_function_kwargs": {"q": n, "noiseless": noiseless},
             "optimizer_kwargs": {
@@ -721,6 +730,8 @@ class ALEBO(BotorchModel):
                 train_Yvar=Yvars[i],
                 restarts=fit_restarts,
                 nsamp=self.laplace_nsamp,
+                # pyre-fixme[6]: Expected `Optional[Dict[str, Tensor]]` for 7th
+                #  param but got `Optional[MutableMapping[str, Tensor]]`.
                 init_state_dict=state_dicts[i],
             )
             for i, X in enumerate(Xs)

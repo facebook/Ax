@@ -144,6 +144,8 @@ def cross_validate_by_trial(model: ModelBridge, trial: int = -1) -> List[CVResul
     for obs in training_data:
         if obs.features.trial_index is None:
             continue
+        # pyre-fixme[16]: `Optional` has no attribute `__ge__`.
+        # pyre-fixme[16]: `Optional` has no attribute `__lt__`.
         elif obs.features.trial_index < trial:
             cv_training_data.append(obs)
         elif obs.features.trial_index == trial:

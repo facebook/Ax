@@ -82,10 +82,6 @@ class SQABase:
                 if isinstance(x, SQABase):
                     equal = x.equals(y)
                 elif isinstance(x, (int, float, str, bool, dict, Enum)):
-                    # pyre-fixme[29]: `Union[Callable[[object], bool],
-                    #  Callable[[object], bool], Callable[[object], bool],
-                    #  Callable[[object], bool], Callable[[object], bool],
-                    #  Callable[[object], bool]]` is not a function.
                     equal = x == y
                 else:
                     raise ValueError(
@@ -405,6 +401,7 @@ def create_all_tables(engine: Engine) -> None:
         and engine.dialect.default_schema_name == "adaptive_experiment"
     ):
         raise Exception("Cannot mutate tables in XDB. Use AOSC.")  # pragma: no cover
+    # pyre-fixme[16]: `Base` has no attribute `metadata`.
     Base.metadata.create_all(engine)
 
 

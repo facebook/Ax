@@ -167,7 +167,6 @@ def transform_callback(
             )
         ]
         # reverse loop through the transforms and do untransform
-        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(transforms.values()):
             observation_features = t.untransform_observation_features(
                 observation_features
@@ -179,7 +178,11 @@ def transform_callback(
             )
         # parameters are guaranteed to be float compatible here, but pyre doesn't know
         new_x: List[float] = [
-            float(observation_features[0].parameters[p]) for p in param_names
+            # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
+            #  typing.SupportsFloat]` for 1st param but got `Union[None, bool, float,
+            #  int, str]`.
+            float(observation_features[0].parameters[p])
+            for p in param_names
         ]
         # turn it back into an array
         return np.array(new_x)

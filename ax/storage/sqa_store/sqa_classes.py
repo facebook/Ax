@@ -47,7 +47,6 @@ from sqlalchemy.orm import backref, relationship
 ONLY_ONE_FIELDS = ["experiment_id", "generator_run_id"]
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQAParameter(Base):
     __tablename__: str = "parameter_v2"
 
@@ -78,7 +77,6 @@ class SQAParameter(Base):
     unique_id = "name"
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQAParameterConstraint(Base):
     __tablename__: str = "parameter_constraint_v2"
 
@@ -95,7 +93,6 @@ class SQAParameterConstraint(Base):
     immutable_fields = ["type", "constraint_dict", "bound"]
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQAMetric(Base):
     __tablename__: str = "metric_v2"
 
@@ -137,7 +134,6 @@ class SQAMetric(Base):
     scalarized_objective_weight: Optional[float] = Column(Float)
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQAArm(Base):
     __tablename__: str = "arm_v2"
 
@@ -151,7 +147,6 @@ class SQAArm(Base):
     unique_id = "name"
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQAAbandonedArm(Base):
     __tablename__: str = "abandoned_arm_v2"
 
@@ -167,7 +162,6 @@ class SQAAbandonedArm(Base):
     unique_id = "name"
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQAGeneratorRun(Base):
     __tablename__: str = "generator_run_v2"
 
@@ -216,7 +210,6 @@ class SQAGeneratorRun(Base):
     unique_id = "index"
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQARunner(Base):
     __tablename__: str = "runner"
 
@@ -230,7 +223,6 @@ class SQARunner(Base):
     trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQAData(Base):
     __tablename__: str = "data_v2"
 
@@ -247,7 +239,6 @@ class SQAData(Base):
     unique_id = "time_created"
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQAGenerationStrategy(Base):
     __tablename__: str = "generation_strategy"
 
@@ -269,7 +260,6 @@ class SQAGenerationStrategy(Base):
     )
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQATrial(Base):
     __tablename__: str = "trial_v2"
 
@@ -316,7 +306,6 @@ class SQATrial(Base):
     immutable_fields = ["is_batch"]
 
 
-# pyre-fixme[11]: Type `Base` is not defined.
 class SQAExperiment(Base):
     __tablename__: str = "experiment_v2"
 

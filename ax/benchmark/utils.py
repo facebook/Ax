@@ -20,6 +20,7 @@ def get_problems_and_methods(
     if (
         problems is None
         or methods is None
+        # pyre-fixme[16]: `None` has no attribute `__iter__`.
         or not all(isinstance(p, BenchmarkProblem) for p in problems)
         or not all(isinstance(m, GenerationStrategy) for m in methods)
     ):

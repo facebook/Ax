@@ -19,6 +19,7 @@ def save_experiment(
     experiment: Experiment, config: Optional[SQAConfig] = None, overwrite: bool = False
 ) -> None:
     """Save experiment (using default SQAConfig)."""
+    # pyre-fixme[25]: Assertion will always fail.
     if not isinstance(experiment, Experiment):
         raise ValueError("Can only save instances of Experiment")
     if not experiment.has_name:

@@ -300,6 +300,9 @@ def best_observed_point(
     # Get points observed for all objective and constraint outcomes
     if objective_weights is None:
         return None  # pragma: no cover
+    # pyre-fixme[6]: Expected `Union[np.ndarray, torch.Tensor,
+    #  typing.Tuple[Union[np.ndarray, torch.Tensor], ...]]` for 1st param but got
+    #  `Union[None, np.ndarray, torch.Tensor]`.
     objective_weights_np = as_array(objective_weights)
     X_obs = get_observed(
         # pyre-fixme[16]: attribute must exist, otherwise error raised above
@@ -319,7 +322,6 @@ def best_observed_point(
         return None
     # Predict objective and P(feas) at these points
     if isinstance(model, TorchModel):
-        # pyre-fixme[29]: `Union[() -> Tensor, Any]` is not a function.
         X_obs = X_obs.clone().detach()
     f, cov = as_array(model.predict(X_obs))
     obj = objective_weights_np @ f.transpose()  # pyre-ignore
@@ -400,14 +402,26 @@ def get_observed(
             np.where(as_array(outcome_constraints)[0] != 0)[1]
         )
     outcome_list = list(used_outcomes)
+    # pyre-fixme[16]: `Tensor` has no attribute `__iter__`.
     X_obs_set = {tuple(float(x_i) for x_i in x) for x in Xs[outcome_list[0]]}
     for _, idx in enumerate(outcome_list, start=1):
         X_obs_set = X_obs_set.intersection(
             {tuple(float(x_i) for x_i in x) for x in Xs[idx]}
         )
     if isinstance(Xs[0], np.ndarray):
+        # pyre-fixme[6]: Expected `Union[None, Dict[str, Tuple[typing.Any, int]],
+        #  Dict[str, Union[typing.Sequence[typing.Any], typing.Sequence[Union[None,
+        #  bytes, str]], typing.Sequence[int], typing.Sequence[str], int]],
+        #  List[Union[Tuple[Union[Tuple[str, str], str], typing.Any],
+        #  Tuple[Union[Tuple[str, str], str], typing.Any, Union[typing.Sequence[int],
+        #  int]]]], Tuple[typing.Any, typing.Any], Tuple[typing.Any,
+        #  Union[typing.Sequence[int], int]], Tuple[typing.Any, int],
+        #  typing.Type[typing.Any], np.dtype, str]` for 2nd param but got
+        #  `Union[np.dtype, torch.dtype]`.
         return np.array(list(X_obs_set), dtype=Xs[0].dtype)  # (n x d)
     if isinstance(Xs[0], torch.Tensor):
+        # pyre-fixme[7]: Expected `Union[np.ndarray, torch.Tensor]` but got implicit
+        #  return value of `None`.
         return torch.tensor(list(X_obs_set), device=Xs[0].device, dtype=Xs[0].dtype)
 
 

@@ -258,6 +258,12 @@ def get_MTGP(
         data=data,
         model=BotorchModel(),
         transforms=transforms,
+        # pyre-fixme[6]: Expected `Optional[Dict[str, Dict[str,
+        #  typing.Union[botorch.acquisition.acquisition.AcquisitionFunction, float,
+        #  int, str]]]]` for 6th param but got `Optional[Dict[str,
+        #  typing.Union[Dict[str, Dict[str, Dict[int, Optional[str]]]], Dict[str,
+        #  typing.Union[botorch.acquisition.acquisition.AcquisitionFunction, float,
+        #  int, str]]]]]`.
         transform_configs=transform_configs,
         torch_dtype=torch.double,
         torch_device=DEFAULT_TORCH_DEVICE,

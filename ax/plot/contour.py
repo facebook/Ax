@@ -319,9 +319,13 @@ def interact_contour(
         is_log_dict[parameter.name] = parameter.log_scale
         grid_dict[parameter.name] = get_grid_for_parameter(parameter, density)
 
+    # pyre-fixme[9]: f_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
+    #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
     f_dict: Dict[str, Dict[str, np.ndarray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }
+    # pyre-fixme[9]: sd_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
+    #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
     sd_dict: Dict[str, Dict[str, np.ndarray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }
@@ -417,7 +421,15 @@ def interact_contour(
         "yaxis": "y2",
     }
 
+    # pyre-fixme[6]: Expected `Mapping[str, typing.Union[Dict[str,
+    #  typing.Union[Dict[str, int], float, str]], typing.List[Tuple[float, str]], bool,
+    #  str]]` for 1st param but got `Dict[str, typing.Union[Dict[str, str], int,
+    #  str]]`.
     f_contour_trace_base.update(CONTOUR_CONFIG)
+    # pyre-fixme[6]: Expected `Mapping[str, typing.Union[Dict[str,
+    #  typing.Union[Dict[str, int], float, str]], typing.List[Tuple[float, str]],
+    #  str]]` for 1st param but got `Dict[str, typing.Union[Dict[str, str], int,
+    #  str]]`.
     sd_contour_trace_base.update(CONTOUR_CONFIG)
 
     insample_param_values = {}
