@@ -220,7 +220,7 @@ def get_pending_observation_features(
                 if (
                     (trial.status.is_deployed or include_since_failed)
                     and metric_name not in trial.fetch_data().df.metric_name.values
-                    # and trial.arms is not None
+                    and trial.arms is not None
                 ):
                     for arm in trial.arms:
                         not_none(pending_features.get(metric_name)).append(
