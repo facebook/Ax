@@ -45,8 +45,7 @@ class TestModelbridgeUtils(TestCase):
                 {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
             )
         )
-        # Not m2 should have empty pending features, since the trial was updated
-        # for m2.
+        # m2 should have empty pending features, since the trial was updated for m2.
         self.assertEqual(
             get_pending_observation_features(self.experiment),
             {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
@@ -59,7 +58,7 @@ class TestModelbridgeUtils(TestCase):
             get_pending_observation_features(
                 self.experiment, include_failed_as_pending=True
             ),
-            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
+            {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
         )
 
     def test_get_pending_observation_features_batch_trial(self):

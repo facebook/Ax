@@ -8,7 +8,7 @@ import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from functools import reduce
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -23,6 +23,7 @@ from ax.core.parameter import Parameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.utils.common.constants import UNEXPECTED_METRIC_COMBINATION
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis
@@ -355,33 +356,72 @@ class Experiment(Base):
         Returns:
             Data for the experiment.
         """
+        return self._fetch_trials_data(
+            trials=list(self.trials.values()), metrics=metrics, **kwargs
+        )
+
+    def fetch_trials_data(
+        self,
+        trial_indices: Iterable[int],
+        metrics: Optional[List[Metric]] = None,
+        **kwargs: Any,
+    ) -> Data:
+        """Fetches data for specific trials on the experiment.
+
+        Args:
+            trial_indices: Indices of trials, for which to fetch data.
+            metrics: If provided, fetch data for these metrics instead of the ones
+                defined on the experiment.
+            kwargs: Keyword args to pass to underlying metrics' fetch data functions.
+
+        Returns:
+            Data for the specific trials on the experiment.
+        """
+        return self._fetch_trials_data(
+            trials=self._get_trials_by_indices(trial_indices=trial_indices),
+            metrics=metrics,
+            **kwargs,
+        )
+
+    def _fetch_trials_data(
+        self,
+        trials: List[BaseTrial],
+        metrics: Optional[Iterable[Metric]] = None,
+        **kwargs: Any,
+    ) -> Data:
         if not self.metrics and not metrics:
             raise ValueError(
                 "No metrics to fetch data for, as no metrics are defined for "
                 "this experiment, and none were passed in to `fetch_data`."
             )
-        try:
+        metrics = list(metrics or self.metrics.values())
+        if all(type(m) is Metric for m in metrics):
+            # All metrics are 'dummy' base `Metric` class metrics, which do not
+            # implement actual data-fetching logic, so should look up attached
+            # data instead of trying to fetch it via logic in metrics.
+            return Data.from_multiple_data(
+                [self.lookup_data_for_trial(trial_index=t.index)[0] for t in trials]
+            )
+        elif all(isinstance(m, Metric) and type(m) is not Metric for m in metrics):
+            # All metrics are subclasses of `Metric`, which should implement fetching.
             data_list = [
-                metric_cls.fetch_experiment_data_multi(self, metric_list, **kwargs)
+                metric_cls.fetch_experiment_data_multi(
+                    experiment=self, metrics=metric_list, trials=trials, **kwargs
+                )
                 for metric_cls, metric_list in self._metrics_by_class(
                     metrics=metrics
                 ).items()
             ]
-
             # For trials in candidate phase, append any attached data
-            for trial in self.trials.values():
+            for trial in trials:
                 if trial.status == TrialStatus.CANDIDATE:
                     trial_data, _ = self.lookup_data_for_trial(trial_index=trial.index)
                     if not trial_data.df.empty:
                         data_list.append(trial_data)
 
             return Data.from_multiple_data(data_list)
-        except NotImplementedError:
-            # If some of the metrics do not implement data fetching, we should
-            # fall back to data that has been attached.
-            return Data.from_multiple_data(
-                [self.lookup_data_for_trial(trial_index=idx)[0] for idx in self.trials]
-            )
+
+        raise ValueError(UNEXPECTED_METRIC_COMBINATION)
 
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
@@ -393,21 +433,26 @@ class Experiment(Base):
                 "this experiment, and none were passed in to `fetch_trial_data`."
             )
         trial = self.trials[trial_index]
+        metrics = list(metrics or self.metrics.values())
 
-        if trial.status == TrialStatus.CANDIDATE:
+        if trial.status == TrialStatus.CANDIDATE or all(
+            type(m) is Metric for m in metrics
+        ):
+            # Either trial is a `CANDIDATE` (so cannot use fetching logic) or
+            # all metrics are 'dummy' base `Metric` class metrics, which do not
+            # implement actual data-fetching logic. Should look up attached
+            # data instead of trying to fetch it via logic in metrics.
             return self.lookup_data_for_trial(trial_index=trial_index)[0]
 
-        elif not trial.status.expecting_data:
-            return Data()
-
-        try:
+        elif all(isinstance(m, Metric) and type(m) is not Metric for m in metrics):
+            # All metrics are subclasses of `Metric`, which should implement fetching.
+            if not trial.status.expecting_data:
+                return Data()
             return self._fetch_trial_data_no_lookup(
                 trial_index=trial_index, metrics=metrics, **kwargs
             )
-        except NotImplementedError:
-            # If some of the metrics do not implement data fetching, we should
-            # fall back to data that has been attached.
-            return self.lookup_data_for_trial(trial_index=trial_index)[0]
+
+        raise ValueError(UNEXPECTED_METRIC_COMBINATION)
 
     def _fetch_trial_data_no_lookup(
         self, trial_index: int, metrics: Optional[List[Metric]], **kwargs: Any
@@ -672,6 +717,17 @@ class Experiment(Base):
         """
         self._arms_by_signature[arm.signature] = arm
         self._arms_by_name[arm.name] = arm
+
+    def _get_trials_by_indices(self, trial_indices: Iterable[int]) -> List[BaseTrial]:
+        """Grabs trials on this experiment by their indices."""
+        trial_indices = list(trial_indices)
+        try:
+            return [self.trials[idx] for idx in trial_indices]
+        except KeyError:
+            missing = set(trial_indices) - set(self.trials)
+            raise ValueError(
+                f"Trial indices {missing} are not associated with the experiment."
+            )
 
     def reset_runners(self, runner: Runner) -> None:
         """Replace all candidate trials runners.

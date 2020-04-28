@@ -31,6 +31,24 @@ class ExperimentTest(TestCase):
     def setUp(self):
         self.experiment = get_experiment()
 
+    def _setupBraninExperiment(self, n: int) -> Experiment:
+        exp = Experiment(
+            name="test3",
+            search_space=get_branin_search_space(),
+            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
+            runner=SyntheticRunner(),
+        )
+        batch = exp.new_batch_trial()
+        batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
+        batch.run()
+
+        (
+            exp.new_batch_trial()
+            .add_arms_and_weights(arms=get_branin_arms(n=3 * n, seed=1))
+            .run()
+        )
+        return exp
+
     def testExperimentInit(self):
         self.assertEqual(self.experiment.name, "test")
         self.assertEqual(self.experiment.description, "test description")
@@ -260,24 +278,6 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.arms_by_name[arm.name], arm)
         self.assertEqual(self.experiment.arms_by_signature[arm.signature], arm)
 
-    def _setupBraninExperiment(self, n: int) -> Experiment:
-        exp = Experiment(
-            name="test3",
-            search_space=get_branin_search_space(),
-            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
-            runner=SyntheticRunner(),
-        )
-        batch = exp.new_batch_trial()
-        batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
-        batch.run()
-
-        (
-            exp.new_batch_trial()
-            .add_arms_and_weights(arms=get_branin_arms(n=3 * n, seed=1))
-            .run()
-        )
-        return exp
-
     def testFetchAndStoreData(self):
         n = 10
         exp = self._setupBraninExperiment(n)
@@ -298,7 +298,6 @@ class ExperimentTest(TestCase):
 
         # Test local storage
         t1 = exp.attach_data(batch_data)
-
         t2 = exp.attach_data(exp_data)
 
         full_dict = exp.data_by_trial
@@ -323,24 +322,40 @@ class ExperimentTest(TestCase):
         t3 = exp.attach_data(new_data, combine_with_last_data=True)
         self.assertEqual(len(full_dict[0]), 3)  # 3 data objs for batch 0 now
         self.assertIn("z", exp.lookup_data_for_ts(t3).df["metric_name"].tolist())
-        # Remove the newly added data.
-        del exp._data_by_trial[0][t3]
 
         # Verify we don't get the data if the trial is abandoned
         batch._status = TrialStatus.ABANDONED
         self.assertEqual(len(batch.fetch_data().df), 0)
         self.assertEqual(len(exp.fetch_data().df), 3 * n)
 
-        # Verify we do get the data if the trial is a candidate
+        # For `CANDIDATE` trials, we append attached data to fetched data,
+        # so the attached data row with metric name "z" should appear in fetched
+        # data.
         batch._status = TrialStatus.CANDIDATE
-        self.assertEqual(len(batch.fetch_data().df), n)
-        self.assertEqual(len(exp.fetch_data().df), 4 * n)
+        self.assertEqual(len(batch.fetch_data().df), n + 1)
+        # n arms in trial #0, 3 * n arms in trial #1
+        self.assertEqual(len(exp.fetch_data().df), 4 * n + 1)
+        metrics_in_data = set(batch.fetch_data().df["metric_name"].values)
+        self.assertEqual(metrics_in_data, {"b", "z"})
 
-        # Verify we do get the stored data if there is an unimplemented metric
+        # Verify we do get the stored data if there are an unimplemented metrics.
+        del exp._data_by_trial[0][t3]  # Remove attached data for nonexistent metric.
+        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
+        exp.add_tracking_metric(Metric(name="dummy"))  # Add unimplemented metric.
         batch._status = TrialStatus.RUNNING
-        exp.add_tracking_metric(Metric(name="m"))
-        self.assertEqual(len(batch.fetch_data().df), n)
-        self.assertEqual(len(exp.fetch_data().df), 4 * n)
+        # Data should be getting looked up now.
+        self.assertEqual(batch.fetch_data(), exp.lookup_data_for_ts(t1))
+        self.assertEqual(exp.fetch_data(), exp.lookup_data_for_ts(t2))
+        metrics_in_data = set(batch.fetch_data().df["metric_name"].values)
+        # Data for metric "z" should no longer be present since we removed it.
+        self.assertEqual(metrics_in_data, {"b"})
+
+        # Check that error will be raised if dummy and implemented metrics are
+        # fetched at once.
+        with self.assertRaisesRegex(ValueError, "Unexpected combination"):
+            exp.fetch_data(
+                [BraninMetric(name="b", param_names=["x1", "x2"]), Metric(name="m")]
+            )
 
     def testEmptyMetrics(self):
         empty_experiment = Experiment(
@@ -411,3 +426,37 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.runner, new_runner)
         # Update candidate trial runners.
         self.assertEqual(self.experiment.trials[1].runner, new_runner)
+
+    def testFetchTrialsData(self):
+        exp = self._setupBraninExperiment(n=5)
+        batch_0 = exp.trials[0]
+        batch_1 = exp.trials[1]
+        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
+        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
+        self.assertEqual(
+            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
+        )
+        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
+        self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
+        self.assertEqual(
+            set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
+        )
+        self.assertEqual(
+            exp.fetch_trials_data(trial_indices=[0, 1]),
+            Data.from_multiple_data([batch_0_data, batch_1_data]),
+        )
+        with self.assertRaisesRegex(ValueError, ".* not associated .*"):
+            exp.fetch_trials_data(trial_indices=[2])
+        # Try to fetch data when there are only metrics and no attached data.
+        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
+        exp.add_tracking_metric(Metric(name="dummy"))  # Add unimplemented metric.
+        self.assertTrue(exp.fetch_trials_data(trial_indices=[0]).df.empty)
+        # Try fetching attached data.
+        exp.attach_data(batch_0_data)
+        exp.attach_data(batch_1_data)
+        self.assertEqual(exp.fetch_trials_data(trial_indices=[0]), batch_0_data)
+        self.assertEqual(exp.fetch_trials_data(trial_indices=[1]), batch_1_data)
+        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
+        self.assertEqual(
+            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
+        )
