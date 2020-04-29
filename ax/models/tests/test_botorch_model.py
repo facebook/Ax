@@ -330,9 +330,6 @@ class BotorchModelTest(TestCase):
         true_state_dict["mean_module.constant"] += 0.1
         true_state_dict["covar_module.raw_outputscale"] += 0.1
         true_state_dict["covar_module.base_kernel.raw_lengthscale"] += 0.1
-        true_state_dict = {
-            key: torch.tensor(val, **tkwargs) for key, val in true_state_dict.items()
-        }
         model = get_and_fit_model(
             Xs=Xs1,
             Ys=Ys1,
