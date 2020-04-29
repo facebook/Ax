@@ -946,6 +946,10 @@ class SQAStoreTest(TestCase):
         new_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
+        # `_seen_trial_indices_by_status` attribute of a GS is not saved in DB,
+        # so it will be None in the restored version of the GS.
+        # Hackily removing it from the original GS to check equality.
+        generation_strategy._seen_trial_indices_by_status = None
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)
@@ -966,6 +970,10 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
+        # `_seen_trial_indices_by_status` attribute of a GS is not saved in DB,
+        # so it will be None in the restored version of the GS.
+        # Hackily removing it from the original GS to check equality.
+        generation_strategy._seen_trial_indices_by_status = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # add another generator run, save, reload
@@ -977,6 +985,10 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
+        # `_seen_trial_indices_by_status` attribute of a GS is not saved in DB,
+        # so it will be None in the restored version of the GS.
+        # Hackily removing it from the original GS to check equality.
+        generation_strategy._seen_trial_indices_by_status = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # make sure that we can update the experiment too

@@ -33,6 +33,14 @@ Data
     :undoc-members:
     :show-inheritance:
 
+Generation Strategy
+~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.exceptions.generation_strategy
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Model
 ~~~~~~~~~~~~~~~~~~
 

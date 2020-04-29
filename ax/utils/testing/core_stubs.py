@@ -4,9 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, MutableMapping, Optional
+from typing import Dict, Iterable, List, MutableMapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -677,11 +678,11 @@ def get_synthetic_runner() -> SyntheticRunner:
 # Data
 
 
-def get_data(trial_index: Optional[int] = 0) -> Data:
+def get_data(trial_index: int = 0) -> Data:
     df_dict = {
         "trial_index": trial_index,
         "metric_name": "ax_test_metric",
-        "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3"],
+        "arm_name": ["status_quo"] + [f"{trial_index}_i" for i in range(4)],
         "mean": [1, 3, 2, 2.25, 1.75],
         "sem": [0, 0.5, 0.25, 0.40, 0.15],
         "n": [100, 100, 100, 100, 100],
@@ -689,15 +690,18 @@ def get_data(trial_index: Optional[int] = 0) -> Data:
     return Data(df=pd.DataFrame.from_records(df_dict))
 
 
-def get_branin_data() -> Data:
-    df_dict = {
-        "trial_index": 0,
-        "metric_name": "branin",
-        "arm_name": ["0_0"],
-        "mean": [5.0],
-        "sem": [0.0],
-    }
-    return Data(df=pd.DataFrame.from_records(df_dict))
+def get_branin_data(trial_indices: Optional[Iterable[int]] = None) -> Data:
+    df_dicts = [
+        {
+            "trial_index": trial_index,
+            "metric_name": "branin",
+            "arm_name": f"{trial_index}_0",
+            "mean": 5.0,
+            "sem": 0.0,
+        }
+        for trial_index in (trial_indices or [0])
+    ]
+    return Data(df=pd.DataFrame.from_records(df_dicts))
 
 
 # Instances of types from core/types.py

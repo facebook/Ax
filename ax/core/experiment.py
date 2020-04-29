@@ -8,7 +8,7 @@ import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from functools import reduce
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -580,20 +580,22 @@ class Experiment(Base):
     @property
     def trials_by_status(self) -> Dict[TrialStatus, List[BaseTrial]]:
         """Trials associated with the experiment, grouped by trial status."""
-        output = defaultdict(list)
+        # Make sure all statuses appear in this dict, to avoid key errors.
+        output = {status: [] for status in TrialStatus}
         for trial in self.trials.values():
             output[trial.status].append(trial)
-        return dict(output)
+        return output
 
     @property
-    def trial_indices_by_status(self) -> Dict[TrialStatus, List[int]]:
+    def trial_indices_by_status(self) -> Dict[TrialStatus, Set[int]]:
         """Indices of trials associated with the experiment, grouped by trial
         status.
         """
-        output = defaultdict(list)
+        # Make sure all statuses appear in this dict, to avoid key errors.
+        output = {status: set() for status in TrialStatus}
         for trial in self.trials.values():
-            output[trial.status].append(trial.index)
-        return dict(output)
+            output[trial.status].add(trial.index)
+        return output
 
     def new_trial(
         self,

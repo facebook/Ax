@@ -656,6 +656,10 @@ class TestAxClient(TestCase):
         gs = ax_client.generation_strategy
         ax_client = AxClient(db_settings=db_settings)
         ax_client.load_experiment_from_database("test_experiment")
+        # `_seen_trial_indices_by_status` attribute of a GS is not saved in DB,
+        # so it will be None in the restored version of the GS.
+        # Hackily removing it from the original GS to check equality.
+        gs._seen_trial_indices_by_status = None
         self.assertEqual(gs, ax_client.generation_strategy)
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.

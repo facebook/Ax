@@ -387,6 +387,14 @@ class AxClient:
             trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
         trial._run_metadata.update(metadata or {})
+        # Registering trial data update is needed for generation strategies that
+        # leverage the `update` functionality of model and bridge setup and therefore
+        # need to be aware of new data added to experiment. Usually this happends
+        # seamlessly, by looking at newly completed trials, but in this case trial
+        # status does not change, so we manually register the new data.
+        # Currently this call will only result in a `NotImplementedError` if generation
+        # strategy uses `update` (`GenerationStep.use_update` is False by default).
+        self.generation_strategy._register_trial_data_update(trial=trial, data=data)
         self.experiment.attach_data(data, combine_with_last_data=True)
         data_for_logging = _round_floats_for_logging(
             item=evaluations[next(iter(evaluations.keys()))]

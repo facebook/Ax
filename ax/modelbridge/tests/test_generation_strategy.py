@@ -12,6 +12,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
+from ax.exceptions.generation_strategy import GenerationStrategyCompleted
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_strategy import (
@@ -25,6 +26,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_data,
     get_branin_experiment,
     get_choice_parameter,
     get_data,
@@ -224,7 +226,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(sobol_GPEI.model_transitions, [5])
         # exp.new_trial(generator_run=sobol_GPEI.gen(exp)).run()
         for i in range(7):
-            g = sobol_GPEI.gen(exp, exp.fetch_data())
+            g = sobol_GPEI.gen(exp)
             exp.new_trial(generator_run=g).run()
             if i > 4:
                 self.mock_torch_model_bridge.assert_called()
@@ -252,9 +254,9 @@ class TestGenerationStrategy(TestCase):
                     },
                 )
                 self.assertEqual(g._model_state_after_gen, {"init_position": i + 1})
-        # Check completeness error message.
-        with self.assertRaisesRegex(ValueError, "Generation strategy"):
-            g = sobol_GPEI.gen(exp, exp.fetch_data())
+        # Check completeness error message when GS should be done.
+        with self.assertRaises(GenerationStrategyCompleted):
+            g = sobol_GPEI.gen(exp)
 
     def test_sobol_GPEI_strategy_keep_generating(self):
         exp = get_branin_experiment()
@@ -268,14 +270,15 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(sobol_GPEI_generation_strategy.model_transitions, [5])
         exp.new_trial(generator_run=sobol_GPEI_generation_strategy.gen(exp)).run()
         for i in range(1, 15):
-            g = sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())
+            g = sobol_GPEI_generation_strategy.gen(exp)
             exp.new_trial(generator_run=g).run()
             if i > 4:
                 self.assertIsInstance(
                     sobol_GPEI_generation_strategy.model, TorchModelBridge
                 )
 
-    def test_factorial_thompson_strategy(self):
+    @patch(f"{Experiment.__module__}.Experiment.fetch_data", return_value=get_data())
+    def test_factorial_thompson_strategy(self, _):
         exp = get_branin_experiment()
         factorial_thompson_generation_strategy = GenerationStrategy(
             steps=[
@@ -295,9 +298,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(kwargs.get("model_key"), "Factorial")
 
         # Subsequent Thompson sampling batch.
-        exp.new_batch_trial(
-            factorial_thompson_generation_strategy.gen(experiment=exp, data=get_data())
-        )
+        exp.new_batch_trial(factorial_thompson_generation_strategy.gen(experiment=exp))
         args, kwargs = mock_model_bridge._set_kwargs_to_save.call_args
         self.assertEqual(kwargs.get("model_key"), "Thompson")
 
@@ -321,7 +322,7 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         exp = get_branin_experiment()
-        gs.gen(exp, exp.fetch_data())
+        gs.gen(exp)
         self.assertFalse(gs._model.model.scramble)
 
     def test_sobol_GPEI_strategy_batches(self):
@@ -347,15 +348,11 @@ class TestGenerationStrategy(TestCase):
         for i in range(1, 8):
             if i == 7:
                 # Check completeness error message.
-                with self.assertRaisesRegex(ValueError, "Generation strategy"):
-                    g = sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data(), n=2)
+                with self.assertRaises(GenerationStrategyCompleted):
+                    g = sobol_GPEI_generation_strategy.gen(exp, n=2)
             else:
-                g = sobol_GPEI_generation_strategy.gen(
-                    exp, exp._fetch_trial_data(trial_index=i - 1), n=2
-                )
+                g = sobol_GPEI_generation_strategy.gen(exp, n=2)
             exp.new_batch_trial(generator_run=g).run()
-        with self.assertRaises(ValueError):
-            sobol_GPEI_generation_strategy.gen(exp, exp.fetch_data())
         self.assertIsInstance(sobol_GPEI_generation_strategy.model, TorchModelBridge)
 
     def test_with_factory_function(self):
@@ -418,3 +415,32 @@ class TestGenerationStrategy(TestCase):
         ).mark_running(no_runner_required=True)
         with self.assertRaises(MaxParallelismReachedException):
             sobol_generation_strategy.gen(experiment=exp)
+
+    @patch(f"{RandomModelBridge.__module__}.RandomModelBridge.update")
+    @patch(f"{Experiment.__module__}.Experiment.fetch_trials_data")
+    def test_use_update(self, mock_fetch_trials_data, mock_update):
+        exp = get_branin_experiment()
+        sobol_gs_with_update = GenerationStrategy(
+            steps=[GenerationStep(model=Models.SOBOL, num_trials=-1, use_update=True)]
+        )
+        # Try without passing data (generation strategy fetches data from experiment).
+        trial = exp.new_trial(generator_run=sobol_gs_with_update.gen(experiment=exp))
+        mock_update.assert_not_called()
+        trial._status = TrialStatus.COMPLETED
+        for i in range(3):
+            trial = exp.new_trial(
+                generator_run=sobol_gs_with_update.gen(experiment=exp)
+            )
+            self.assertEqual(
+                mock_fetch_trials_data.call_args[1].get("trial_indices"), {i}
+            )
+            trial._status = TrialStatus.COMPLETED
+        # Try with passing data.
+        sobol_gs_with_update.gen(
+            experiment=exp, data=get_branin_data(trial_indices=range(4))
+        )
+        # Only the data for the last completed trial should be considered new and passed
+        # to `update`.
+        self.assertEqual(
+            set(mock_update.call_args[1].get("new_data").df["trial_index"].values), {3}
+        )
