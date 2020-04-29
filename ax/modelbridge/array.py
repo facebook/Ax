@@ -358,6 +358,15 @@ class ArrayModelBridge(ModelBridge):
         importances_arr = importances_dict[metric_name].flatten()
         return dict(zip(self.parameters, importances_arr))
 
+    def _transform_observation_features(
+        self, observation_features: List[ObservationFeatures]
+    ) -> Any:
+        """Apply terminal transform to given observation features and return result.
+        """
+        return np.array(
+            [[of.parameters[p] for p in self.parameters] for of in observation_features]
+        )
+
 
 def array_to_observation_data(
     f: np.ndarray, cov: np.ndarray, outcomes: List[str]

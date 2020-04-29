@@ -8,6 +8,7 @@ from unittest import mock
 
 import numpy as np
 import torch
+from ax.core.observation import ObservationFeatures
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch_base import TorchModel
 from ax.utils.common.testutils import TestCase
@@ -183,3 +184,13 @@ class TorchModelBridgeTest(TestCase):
         )
         self.assertTrue(np.array_equal(f, np.array([3.0])))
         self.assertTrue(np.array_equal(var, np.array([4.0])))
+
+        # Transform observation features
+        obsf = [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
+        ma.parameters = ["x", "y"]
+        X = ma._transform_observation_features(obsf)
+        self.assertTrue(
+            torch.equal(
+                X, torch.tensor([[1.0, 2.0]], dtype=torch_dtype, device=torch_device)
+            )
+        )

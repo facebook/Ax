@@ -288,3 +288,10 @@ class TorchModelBridge(ArrayModelBridge):
             self._array_to_tensor(array_func(x.detach().cpu().clone().numpy()))
         )
         return tensor_func
+
+    def _transform_observation_features(
+        self, observation_features: List[ObservationFeatures]
+    ) -> Tensor:
+        return self._array_to_tensor(
+            super()._transform_observation_features(observation_features)
+        )

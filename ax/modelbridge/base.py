@@ -754,6 +754,32 @@ class ModelBridge(ABC):
             "Feature importance not available for this model type"
         )
 
+    def transform_observation_features(
+        self, observation_features: List[ObservationFeatures]
+    ) -> Any:
+        """Applies transforms to given observation features and returns them in the
+        model space.
+
+        Args:
+            observation_features: ObservationFeatures to be transformed.
+
+        Returns:
+            Transformed values. This could be e.g. a torch Tensor, depending
+            on the ModelBridge subclass.
+        """
+        obsf = deepcopy(observation_features)
+        for t in self.transforms.values():
+            obsf = t.transform_observation_features(obsf)
+        # Apply terminal transform and return
+        return self._transform_observation_features(obsf)
+
+    def _transform_observation_features(
+        self, observation_features: List[ObservationFeatures]
+    ) -> Any:
+        """Apply terminal transform to given observation features and return result.
+        """
+        raise NotImplementedError  # pragma: no cover
+
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:
     """Converts observation data to the format for model prediction outputs.

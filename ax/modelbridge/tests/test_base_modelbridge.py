@@ -216,6 +216,14 @@ class BaseModelBridgeTest(TestCase):
         with self.assertRaises(NotImplementedError):
             modelbridge.feature_importances("a")
 
+        # Test transform observation features
+        with mock.patch(
+            "ax.modelbridge.base.ModelBridge._transform_observation_features",
+            autospec=True,
+        ) as mock_tr:
+            modelbridge.transform_observation_features([get_observation2().features])
+        mock_tr.assert_called_with(modelbridge, [get_observation2trans().features])
+
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
