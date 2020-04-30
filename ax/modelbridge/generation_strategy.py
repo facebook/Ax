@@ -487,10 +487,17 @@ class GenerationStrategy(Base):
             new_data = self.experiment.fetch_trials_data(
                 trial_indices=newly_completed_trials
             )
+            if new_data.df.empty:
+                logger.info("Skipping model update as there is no new data.")
+                return
+        elif data.df.empty:
+            logger.info("Skipping model update as data supplied to `gen` is empty.")
+            return
         else:
             new_data = Data(
                 df=data.df[data.df.trial_index.isin(newly_completed_trials)]
             )
+        # We definitely have non-empty new data by now.
         not_none(self._model).update(experiment=self.experiment, new_data=new_data)
 
     def _set_current_model_from_models_enum(self, data: Data, **kwargs: Any) -> None:

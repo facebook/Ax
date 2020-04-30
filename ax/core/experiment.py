@@ -378,7 +378,7 @@ class Experiment(Base):
             Data for the specific trials on the experiment.
         """
         return self._fetch_trials_data(
-            trials=self._get_trials_by_indices(trial_indices=trial_indices),
+            trials=self.get_trials_by_indices(trial_indices=trial_indices),
             metrics=metrics,
             **kwargs,
         )
@@ -493,6 +493,8 @@ class Experiment(Base):
         Returns:
             Timestamp of storage in millis.
         """
+        if data.df.empty:
+            raise ValueError("Data to attach is empty.")
         cur_time_millis = current_timestamp_in_millis()
         for trial_index, trial_df in data.df.groupby(data.df["trial_index"]):
             current_trial_data = (
@@ -720,7 +722,7 @@ class Experiment(Base):
         self._arms_by_signature[arm.signature] = arm
         self._arms_by_name[arm.name] = arm
 
-    def _get_trials_by_indices(self, trial_indices: Iterable[int]) -> List[BaseTrial]:
+    def get_trials_by_indices(self, trial_indices: Iterable[int]) -> List[BaseTrial]:
         """Grabs trials on this experiment by their indices."""
         trial_indices = list(trial_indices)
         try:
