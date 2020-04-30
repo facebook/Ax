@@ -64,7 +64,7 @@ def get_object_properties(
     properties = {}
     exclude_args = ["self", "args", "kwargs"] + (exclude_fields or [])
     signature = inspect.signature(object.__class__.__init__)
-    for arg, info in signature.parameters.items():
+    for arg in signature.parameters:
         if arg in exclude_args:
             continue
         try:
@@ -74,9 +74,5 @@ def get_object_properties(
                 f"{object.__class__} is missing a value for {arg}, "
                 f"which is needed by its constructor."
             )
-        if info.default == value:
-            # If the constructor has a default value for the arg, and the
-            # object's value is the default, we do not need to store it
-            continue
         properties[arg] = value
     return properties

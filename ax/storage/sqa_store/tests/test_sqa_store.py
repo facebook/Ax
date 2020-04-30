@@ -881,9 +881,11 @@ class SQAStoreTest(TestCase):
         save_experiment(self.experiment)
 
     def testGetProperties(self):
+        # Extract default value.
         properties = get_object_properties(Metric(name="foo"))
-        self.assertEqual(properties, {"name": "foo"})
+        self.assertEqual(properties, {"name": "foo", "lower_is_better": None})
 
+        # Extract passed value.
         properties = get_object_properties(Metric(name="foo", lower_is_better=True))
         self.assertEqual(properties, {"name": "foo", "lower_is_better": True})
 
