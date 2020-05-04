@@ -214,6 +214,10 @@ ENCODE_DECODE_FIELD_MAPS = {
             "generator_run_structs": "generator_runs",
             "abandoned_arms_metadata": "abandoned_arms",
             "num_arms_created": "num_arms_created",
+            # Dunder fields in Py get prepended with class name (BaseTrial in this
+            # case because that's the one that carries the `__status` attribute,
+            # which BatchTrial inherits)
+            "BaseTrial__status": "status",
         },
         python_only=["experiment", "status_quo", "status_quo_weight_override"],
         encoded_only=["is_batch", "status_quo_name", "deployed_name", "properties"],
@@ -277,6 +281,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "runner",
             "optimization_config",
             "status_quo",
+            "trial_indices_by_status",
         ],
         python_to_encoded={
             "data_by_trial": "data",
@@ -417,6 +422,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "optimization_config",
             "status_quo",
             "evaluation_function",
+            "trial_indices_by_status",
         ],
         python_to_encoded={"data_by_trial": "data", "tracking_metrics": "metrics"},
     ),
@@ -428,6 +434,10 @@ ENCODE_DECODE_FIELD_MAPS = {
         python_to_encoded={
             "generator_run": "generator_runs",
             "num_arms_created": "num_arms_created",
+            # Dunder fields in Py get prepended with class name (BaseTrial in this
+            # case because that's the one that carries the `__status` attribute,
+            # which Trial inherits)
+            "BaseTrial__status": "status",
         },
         python_only=["experiment"],
         encoded_only=[

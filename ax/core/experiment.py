@@ -76,6 +76,10 @@ class Experiment(Base):
         self._tracking_metrics: Dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
+        # Make sure all statuses appear in this dict, to avoid key errors.
+        self._trial_indices_by_status: Dict[TrialStatus, Set[int]] = {
+            status: set() for status in TrialStatus
+        }
         self._arms_by_signature: Dict[str, Arm] = {}
         self._arms_by_name: Dict[str, Arm] = {}
 
@@ -583,10 +587,10 @@ class Experiment(Base):
     def trials_by_status(self) -> Dict[TrialStatus, List[BaseTrial]]:
         """Trials associated with the experiment, grouped by trial status."""
         # Make sure all statuses appear in this dict, to avoid key errors.
-        output = {status: [] for status in TrialStatus}
-        for trial in self.trials.values():
-            output[trial.status].append(trial)
-        return output
+        return {
+            status: self.get_trials_by_indices(trial_indices=idcs)
+            for status, idcs in self.trial_indices_by_status.items()
+        }
 
     @property
     def trial_indices_by_status(self) -> Dict[TrialStatus, Set[int]]:
@@ -594,10 +598,7 @@ class Experiment(Base):
         status.
         """
         # Make sure all statuses appear in this dict, to avoid key errors.
-        output = {status: set() for status in TrialStatus}
-        for trial in self.trials.values():
-            output[trial.status].add(trial.index)
-        return output
+        return self._trial_indices_by_status
 
     def new_trial(
         self,

@@ -112,9 +112,11 @@ TEST_CASES = [
 #    might not be the same used by the attribute)
 ENCODE_DECODE_FIELD_MAPS = {
     "Experiment": EncodeDecodeFieldsMap(
-        python_only=["arms_by_signature", "arms_by_name"]
+        python_only=["arms_by_signature", "arms_by_name", "trial_indices_by_status"]
     ),
-    "BatchTrial": EncodeDecodeFieldsMap(python_only=["experiment"]),
+    "BatchTrial": EncodeDecodeFieldsMap(
+        python_only=["experiment"], python_to_encoded={"BaseTrial__status": "status"}
+    ),
     "SimpleBenchmarkProblem": EncodeDecodeFieldsMap(encoded_only=["function_name"]),
     "GenerationStrategy": EncodeDecodeFieldsMap(
         python_only=["model", "uses_registered_models", "seen_trial_indices_by_status"],
@@ -132,12 +134,19 @@ ENCODE_DECODE_FIELD_MAPS = {
         },
     ),
     "SimpleExperiment": EncodeDecodeFieldsMap(
-        python_only=["arms_by_signature", "arms_by_name", "evaluation_function"]
+        python_only=[
+            "arms_by_signature",
+            "arms_by_name",
+            "evaluation_function",
+            "trial_indices_by_status",
+        ]
     ),
     "SumConstraint": EncodeDecodeFieldsMap(
         python_only=["constraint_dict", "parameters"]
     ),
-    "Trial": EncodeDecodeFieldsMap(python_only=["experiment"]),
+    "Trial": EncodeDecodeFieldsMap(
+        python_only=["experiment"], python_to_encoded={"BaseTrial__status": "status"}
+    ),
     "Type[Transform]": EncodeDecodeFieldsMap(
         python_only=[
             "transform_observation_features",

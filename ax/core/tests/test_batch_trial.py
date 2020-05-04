@@ -203,6 +203,12 @@ class BatchTrialTest(TestCase):
         )
 
     def testBatchLifecycle(self):
+        # Check that state of trial statuses mapping on experiment: there should only be
+        # one index, 0, among the `CANDIDATE` trials.
+        trial_idcs_by_status = iter(self.experiment.trial_indices_by_status.values())
+        self.assertEqual(next(trial_idcs_by_status), {0})  # `CANDIDATE` trial indices
+        # ALl other trial statuses should not yet have trials carry them.
+        self.assertTrue(all(len(idcs) == 0 for idcs in trial_idcs_by_status))
         staging_mock = PropertyMock()
         with patch.object(SyntheticRunner, "staging_required", staging_mock):
             mock_runner = SyntheticRunner()
@@ -210,6 +216,15 @@ class BatchTrialTest(TestCase):
             self.batch.runner = mock_runner
             self.batch.run()
             self.assertEqual(self.batch.status, TrialStatus.STAGED)
+            # Check that the trial statuses mapping on experiment has been updated.
+            self.assertEqual(
+                self.experiment.trial_indices_by_status[TrialStatus.STAGED], {0}
+            )
+            self.assertTrue(
+                all(len(idcs) == 0)
+                for status, idcs in self.experiment.trial_indices_by_status.items()
+                if status != TrialStatus.STAGED
+            )
             self.assertIsNotNone(self.batch.time_staged)
             self.assertTrue(self.batch.status.is_deployed)
             self.assertFalse(self.batch.status.expecting_data)
@@ -227,6 +242,15 @@ class BatchTrialTest(TestCase):
 
             self.batch.mark_running()
             self.assertEqual(self.batch.status, TrialStatus.RUNNING)
+            # Check that the trial statuses mapping on experiment has been updated.
+            self.assertEqual(
+                self.experiment.trial_indices_by_status[TrialStatus.RUNNING], {0}
+            )
+            self.assertTrue(
+                all(len(idcs) == 0)
+                for status, idcs in self.experiment.trial_indices_by_status.items()
+                if status != TrialStatus.RUNNING
+            )
             self.assertIsNotNone(self.batch.time_run_started)
             self.assertTrue(self.batch.status.expecting_data)
 
@@ -237,6 +261,15 @@ class BatchTrialTest(TestCase):
 
             # Verify trial is completed
             self.assertEqual(self.batch.status, TrialStatus.COMPLETED)
+            # Check that the trial statuses mapping on experiment has been updated.
+            self.assertEqual(
+                self.experiment.trial_indices_by_status[TrialStatus.COMPLETED], {0}
+            )
+            self.assertTrue(
+                all(len(idcs) == 0)
+                for status, idcs in self.experiment.trial_indices_by_status.items()
+                if status != TrialStatus.COMPLETED
+            )
             self.assertIsNotNone(self.batch.time_completed)
             self.assertTrue(self.batch.status.is_terminal)
 
@@ -255,6 +288,18 @@ class BatchTrialTest(TestCase):
 
             with self.assertRaises(ValueError):
                 self.batch.mark_failed()
+
+            # Check that the trial statuses mapping on experiment is updated when
+            # trial status is set hackily / directly, without using `mark_X`.
+            self.batch._status = TrialStatus.CANDIDATE
+            self.assertEqual(
+                self.experiment.trial_indices_by_status[TrialStatus.CANDIDATE], {0}
+            )
+            self.assertTrue(
+                all(len(idcs) == 0)
+                for status, idcs in self.experiment.trial_indices_by_status.items()
+                if status != TrialStatus.CANDIDATE
+            )
 
     def testAbandonBatchTrial(self):
         reason = "BatchTrial behaved poorly"

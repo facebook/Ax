@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from ax import core  # noqa F401  # pragma: no cover
 
 
-class TrialStatus(Enum):
+class TrialStatus(int, Enum):
     """Enum of trial status.
 
     General lifecycle of a trial is:::
@@ -95,6 +95,18 @@ class TrialStatus(Enum):
         """True if this trial is a running one."""
         return self == TrialStatus.RUNNING
 
+    def __format__(self, fmt: str) -> str:
+        """Define `__format__` to avoid pulling the `__format__` from the `int`
+        mixin (since its better for statuses to show up as `RUNNING` than as
+        just an int that is difficult to interpret).
+
+        E.g. batch trial representation with the overridden method is:
+        "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)".
+
+        Docs on enum formatting: https://docs.python.org/3/library/enum.html#others.
+        """
+        return f"{self!s}"
+
 
 def immutable_once_run(func: Callable) -> Callable:
     """Decorator for methods that should throw Error when
@@ -155,7 +167,10 @@ class BaseTrial(ABC, Base):
             trial_type = self._experiment.default_trial_type
         self._trial_type: Optional[str] = trial_type
 
-        self._status: TrialStatus = TrialStatus.CANDIDATE
+        self.__status = None
+        # Uses `_status` setter, which updates trial statuses to trial indices
+        # mapping on the experiment, with which this trial is associated.
+        self._status = TrialStatus.CANDIDATE
         self._time_created: datetime = datetime.now()
         if ttl_seconds is not None and ttl_seconds <= 0:
             raise ValueError("TTL must be a positive integer (or None).")
@@ -393,7 +408,7 @@ class BaseTrial(ABC, Base):
         """All abandoned arms, associated with this trial."""
         pass  # pragma: no cover
 
-    # --- Batch lifecycle management functions ---
+    # --- Trial lifecycle management functions ---
 
     @property
     def time_created(self) -> datetime:
@@ -535,3 +550,23 @@ class BaseTrial(ABC, Base):
         if status == TrialStatus.COMPLETED:
             self.mark_completed()
         return self
+
+    @property
+    def _status(self) -> TrialStatus:
+        """The status of the trial in the experimentation lifecycle. This private
+        property exists to allow for a corresponding setter, since its important
+        that the trial statuses mapping on the experiment is updated always when
+        a trial status is updated.
+        """
+        return self.__status
+
+    @_status.setter
+    def _status(self, trial_status: TrialStatus) -> None:
+        """Setter for the `_status` attribute that also updates the experiment's
+        `_trial_indices_by_status mapping according to the newly set trial status.
+        """
+        if self._status is not None:
+            assert self.index in self._experiment._trial_indices_by_status[self._status]
+            self._experiment._trial_indices_by_status[self._status].remove(self.index)
+        self._experiment._trial_indices_by_status[trial_status].add(self.index)
+        self.__status = trial_status

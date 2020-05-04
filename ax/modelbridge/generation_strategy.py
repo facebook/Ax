@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from inspect import signature
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Set, Type, Union
 
@@ -355,7 +356,9 @@ class GenerationStrategy(Base):
         """
         self.experiment = experiment
         self._set_or_update_model(data=data)
-        self._seen_trial_indices_by_status = experiment.trial_indices_by_status
+        self._seen_trial_indices_by_status = deepcopy(
+            experiment.trial_indices_by_status
+        )
         max_parallelism = self._curr.max_parallelism
         num_running = self.num_running_trials_for_current_step
         if max_parallelism is not None and num_running >= max_parallelism:
@@ -556,7 +559,7 @@ class GenerationStrategy(Base):
         completed_before = not_none(self._seen_trial_indices_by_status)[
             TrialStatus.COMPLETED
         ]
-        return set(completed_now).difference(completed_before)
+        return completed_now.difference(completed_before)
 
     def _register_trial_data_update(self, trial: BaseTrial, data: Data) -> None:
         """Registers that a given trial has new data even though it's a trial that has

@@ -373,6 +373,8 @@ class SQAStoreTest(TestCase):
                     sqa_keys.remove(encoded)
                     sqa_keys.add(python)
 
+            print("OBJECT_KEYS: ", object_keys)
+            print("SQA_KEYS: ", sqa_keys)
             self.assertEqual(
                 object_keys,
                 sqa_keys,
