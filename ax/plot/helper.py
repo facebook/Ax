@@ -632,7 +632,7 @@ def axis_range(grid: List[float], is_log: bool) -> List[float]:
         return [min(grid), max(grid)]
 
 
-def _relativize(m_t: float, sem_t: float, m_c: float, sem_c: float) -> List[float]:
+def relativize(m_t: float, sem_t: float, m_c: float, sem_c: float) -> List[float]:
     r_hat = (m_t - m_c) / abs(m_c) - sem_c ** 2 * m_t / abs(m_c) ** 3
     variance = (sem_t ** 2 + (m_t / m_c * sem_c) ** 2) / m_c ** 2
     return [r_hat, math.sqrt(variance)]
@@ -650,7 +650,7 @@ def relativize_data(
         sd_sq = arm_data["in_sample"][arm_data["status_quo_name"]]["se"][metric]
 
         for i in range(len(f)):
-            res = _relativize(f[i], sd[i], f_sq, sd_sq)
+            res = relativize(f[i], sd[i], f_sq, sd_sq)
             f_final.append(100 * res[0])
             sd_final.append(100 * res[1])
 
