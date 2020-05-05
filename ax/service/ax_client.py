@@ -1049,7 +1049,7 @@ class AxClient:
                     f"Value for parameter {p_name} is of type {typ}, expected "
                     f"{parameter.python_type}. If the intention was to have the "
                     f"parameter on experiment be of type {typ}, set `value_type` "
-                    "on experiment creation for {p_name}."
+                    f"on experiment creation for {p_name}."
                 )
 
     # -------- Backward-compatibility with old save / load method names. -------
