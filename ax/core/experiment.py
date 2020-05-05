@@ -76,6 +76,11 @@ class Experiment(Base):
         self._tracking_metrics: Dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
+        # Used to keep track of whether any trials on the experiment
+        # specify a TTL. Since trials need to be checked for their TTL's
+        # expiration often, having this attribute helps avoid unnecessary
+        # TTL checks for experiments that do not use TTL.
+        self._trials_have_ttl = False
         # Make sure all statuses appear in this dict, to avoid key errors.
         self._trial_indices_by_status: Dict[TrialStatus, Set[int]] = {
             status: set() for status in TrialStatus
@@ -580,7 +585,13 @@ class Experiment(Base):
 
     @property
     def trials(self) -> Dict[int, BaseTrial]:
-        """The trials associated with the experiment."""
+        """The trials associated with the experiment.
+
+        NOTE: If some trials on this experiment specify their TTL, `RUNNING` trials
+        will be checked for whether their TTL elapsed during this call. Found past-
+        TTL trials will be marked as `FAILED`.
+        """
+        self._check_TTL_on_running_trials()
         return self._trials
 
     @property
@@ -597,7 +608,7 @@ class Experiment(Base):
         """Indices of trials associated with the experiment, grouped by trial
         status.
         """
-        # Make sure all statuses appear in this dict, to avoid key errors.
+        self._check_TTL_on_running_trials()  # Marks past-TTL trials as failed.
         return self._trial_indices_by_status
 
     def new_trial(
@@ -622,6 +633,8 @@ class Experiment(Base):
                 crashed etc., and which should be considered failed after
                 their 'time to live' has passed.
         """
+        if ttl_seconds is not None:
+            self._trials_have_ttl = True
         return Trial(
             experiment=self,
             trial_type=trial_type,
@@ -654,12 +667,37 @@ class Experiment(Base):
                 crashed etc., and which should be considered failed after
                 their 'time to live' has passed.
         """
+        if ttl_seconds is not None:
+            self._trials_have_ttl = True
         return BatchTrial(
             experiment=self,
             trial_type=trial_type,
             generator_run=generator_run,
             optimize_for_power=optimize_for_power,
+            ttl_seconds=ttl_seconds,
         )
+
+    def get_trials_by_indices(self, trial_indices: Iterable[int]) -> List[BaseTrial]:
+        """Grabs trials on this experiment by their indices."""
+        trial_indices = list(trial_indices)
+        try:
+            return [self.trials[idx] for idx in trial_indices]
+        except KeyError:
+            missing = set(trial_indices) - set(self.trials)
+            raise ValueError(
+                f"Trial indices {missing} are not associated with the experiment."
+            )
+
+    def reset_runners(self, runner: Runner) -> None:
+        """Replace all candidate trials runners.
+
+        Args:
+            runner: New runner to replace with.
+        """
+        for trial in self._trials.values():
+            if trial.status == TrialStatus.CANDIDATE:
+                trial.runner = runner
+        self.runner = runner
 
     def _attach_trial(self, trial: BaseTrial) -> int:
         """Attach a trial to this experiment.
@@ -723,27 +761,19 @@ class Experiment(Base):
         self._arms_by_signature[arm.signature] = arm
         self._arms_by_name[arm.name] = arm
 
-    def get_trials_by_indices(self, trial_indices: Iterable[int]) -> List[BaseTrial]:
-        """Grabs trials on this experiment by their indices."""
-        trial_indices = list(trial_indices)
-        try:
-            return [self.trials[idx] for idx in trial_indices]
-        except KeyError:
-            missing = set(trial_indices) - set(self.trials)
-            raise ValueError(
-                f"Trial indices {missing} are not associated with the experiment."
-            )
+    def _check_TTL_on_running_trials(self) -> None:
+        """Checks whether any past-TTL trials are still marked as `RUNNING`
+        and marks them as failed if so.
 
-    def reset_runners(self, runner: Runner) -> None:
-        """Replace all candidate trials runners.
-
-        Args:
-            runner: New runner to replace with.
+        NOTE: this function just calls `trial.status` for each trial, as the
+        computation of that property checks the TTL for trials.
         """
-        for trial in self._trials.values():
-            if trial.status == TrialStatus.CANDIDATE:
-                trial.runner = runner
-        self.runner = runner
+        if not self._trials_have_ttl:
+            return
+
+        running = list(self._trial_indices_by_status[TrialStatus.RUNNING])
+        for idx in running:
+            self._trials[idx].status  # `status` property checks TTL if applicable.
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + f"({self._name})"

@@ -282,6 +282,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "optimization_config",
             "status_quo",
             "trial_indices_by_status",
+            "trials_have_ttl",
         ],
         python_to_encoded={
             "data_by_trial": "data",
@@ -423,6 +424,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "status_quo",
             "evaluation_function",
             "trial_indices_by_status",
+            "trials_have_ttl",
         ],
         python_to_encoded={"data_by_trial": "data", "tracking_metrics": "metrics"},
     ),

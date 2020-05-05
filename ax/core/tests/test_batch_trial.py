@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
+from time import sleep
 from unittest.mock import PropertyMock, patch
 
 import numpy as np
@@ -497,3 +498,32 @@ class BatchTrialTest(TestCase):
             str(self.batch),
             "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)",
         )
+
+    def test_TTL(self):
+        # Verify that TLL is checked on execution of the `status` property.
+        self.batch.ttl_seconds = 1
+        self.batch.mark_running(no_runner_required=True)
+        self.assertTrue(self.batch.status.is_running)
+        sleep(1)  # Wait 1 second for trial TTL to elapse.
+        self.assertTrue(self.batch.status.is_failed)
+        self.assertIn(0, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
+
+        # Verify that TTL is checked on `experiment.trial_indices_by_status`.
+        batch_trial = self.experiment.new_batch_trial(ttl_seconds=1)
+        batch_trial.mark_running(no_runner_required=True)
+        self.assertTrue(batch_trial.status.is_running)
+        sleep(1)  # Wait 1 second for trial TTL to elapse.
+        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
+        self.assertTrue(self.experiment.trials[1].status.is_failed)
+
+        # Verify that TTL is checked on `experiment.trials`.
+        batch_trial = self.experiment.new_batch_trial(ttl_seconds=1)
+        batch_trial.mark_running(no_runner_required=True)
+        self.assertTrue(batch_trial.status.is_running)
+        self.assertIn(2, self.experiment.trial_indices_by_status[TrialStatus.RUNNING])
+        sleep(1)  # Wait 1 second for trial TTL to elapse.
+        self.experiment.trials
+        # Check `_status`, not `status`, to ensure it's within `trials` that the status
+        # was actually changed, not in `status`.
+        self.assertEqual(batch_trial._status, TrialStatus.FAILED)
+        self.assertIn(2, self.experiment.trial_indices_by_status[TrialStatus.FAILED])

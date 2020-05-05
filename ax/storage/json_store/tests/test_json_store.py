@@ -112,7 +112,12 @@ TEST_CASES = [
 #    might not be the same used by the attribute)
 ENCODE_DECODE_FIELD_MAPS = {
     "Experiment": EncodeDecodeFieldsMap(
-        python_only=["arms_by_signature", "arms_by_name", "trial_indices_by_status"]
+        python_only=[
+            "arms_by_signature",
+            "arms_by_name",
+            "trial_indices_by_status",
+            "trials_have_ttl",
+        ]
     ),
     "BatchTrial": EncodeDecodeFieldsMap(
         python_only=["experiment"], python_to_encoded={"BaseTrial__status": "status"}
@@ -139,6 +144,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "arms_by_name",
             "evaluation_function",
             "trial_indices_by_status",
+            "trials_have_ttl",
         ]
     ),
     "SumConstraint": EncodeDecodeFieldsMap(

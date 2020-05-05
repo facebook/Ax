@@ -224,6 +224,8 @@ class Decoder:
         experiment._trials = {trial.index: trial for trial in trials}
         experiment._arms_by_name = {}
         for trial in trials:
+            if trial.ttl_seconds is not None:
+                experiment._trials_have_ttl = True
             for arm in trial.arms:
                 experiment._register_arm(arm)
         if experiment.status_quo is not None:

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
@@ -156,6 +156,9 @@ class BaseTrial(ABC, Base):
             experiment: The experiment this trial belongs to.
         """
         self._experiment = experiment
+        if ttl_seconds is not None and ttl_seconds <= 0:
+            raise ValueError("TTL must be a positive integer (or None).")
+        self._ttl_seconds: Optional[int] = ttl_seconds
         self._index = self._experiment._attach_trial(self)
 
         if trial_type is not None:
@@ -172,9 +175,6 @@ class BaseTrial(ABC, Base):
         # mapping on the experiment, with which this trial is associated.
         self._status = TrialStatus.CANDIDATE
         self._time_created: datetime = datetime.now()
-        if ttl_seconds is not None and ttl_seconds <= 0:
-            raise ValueError("TTL must be a positive integer (or None).")
-        self._ttl_seconds: Optional[int] = ttl_seconds
 
         # Initialize fields to be used later in lifecycle
         self._time_completed: Optional[datetime] = None
@@ -207,6 +207,7 @@ class BaseTrial(ABC, Base):
     @property
     def status(self) -> TrialStatus:
         """The status of the trial in the experimentation lifecycle."""
+        self._mark_failed_if_past_TTL()
         return self._status
 
     @property
@@ -550,6 +551,18 @@ class BaseTrial(ABC, Base):
         if status == TrialStatus.COMPLETED:
             self.mark_completed()
         return self
+
+    def _mark_failed_if_past_TTL(self) -> None:
+        """If trial has TTL set and is running, check if the TTL has elapsed
+        and mark the trial failed if so.
+        """
+        if self.ttl_seconds is None or not self._status.is_running:
+            return
+        time_run_started = self._time_run_started
+        assert time_run_started is not None
+        dt = datetime.now() - time_run_started
+        if dt > timedelta(seconds=not_none(self.ttl_seconds)):
+            self.mark_failed()
 
     @property
     def _status(self) -> TrialStatus:

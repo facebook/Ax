@@ -282,6 +282,8 @@ def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
     for trial in experiment._trials.values():
         for arm in trial.arms:
             experiment._register_arm(arm)
+        if trial.ttl_seconds is not None:
+            experiment._trials_have_ttl = True
     if experiment.status_quo is not None:
         sq = not_none(experiment.status_quo)
         experiment._register_arm(sq)
