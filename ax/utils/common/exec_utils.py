@@ -18,7 +18,7 @@ def retry_on_exception(
     default_return_on_suppression: Optional[Any] = None,
 ) -> Optional[Any]:
     """
-    A decorator for functions to be retried on failure.
+    A decorator **for instance methods** to be retried on failure.
 
     Warnings:
     If the variable `check_message_contains` is supplied and the error message
