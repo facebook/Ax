@@ -45,7 +45,7 @@ from ax.storage.json_store.decoder import (
 )
 from ax.storage.json_store.encoder import object_to_json
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.exec_utils import retry_on_exception
+from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
@@ -841,7 +841,7 @@ class AxClient:
     @retry_on_exception(
         retries=3,
         default_return_on_suppression=False,
-        exception_type=retry_exception_type_tuple,
+        exception_types=retry_exception_type_tuple,
     )
     def _save_experiment_to_db_if_possible(
         self, suppress_all_errors: bool = False
@@ -860,7 +860,7 @@ class AxClient:
     @retry_on_exception(
         retries=3,
         default_return_on_suppression=False,
-        exception_type=retry_exception_type_tuple,
+        exception_types=retry_exception_type_tuple,
     )
     def _save_new_trial_to_db_if_possible(
         self, trial: BaseTrial, suppress_all_errors: bool = False
@@ -881,7 +881,7 @@ class AxClient:
     @retry_on_exception(
         retries=3,
         default_return_on_suppression=False,
-        exception_type=retry_exception_type_tuple,
+        exception_types=retry_exception_type_tuple,
     )
     def _save_updated_trial_to_db_if_possible(
         self, trial: BaseTrial, suppress_all_errors: bool = False
@@ -902,7 +902,7 @@ class AxClient:
     @retry_on_exception(
         retries=3,
         default_return_on_suppression=False,
-        exception_type=retry_exception_type_tuple,
+        exception_types=retry_exception_type_tuple,
     )
     def _save_generation_strategy_to_db_if_possible(
         self, suppress_all_errors: bool = False

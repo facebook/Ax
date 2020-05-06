@@ -10,7 +10,8 @@ from typing import Any, List, Optional, Tuple, Type
 
 
 def retry_on_exception(
-    exception_type: Optional[Tuple[Type[Exception]]] = None,
+    exception_types: Optional[Tuple[Type[Exception]]] = None,
+    no_retry_on_exception_types: Optional[Tuple[Type[Exception], ...]] = None,
     check_message_contains: Optional[List[str]] = None,
     retries: int = 3,
     suppress_all_errors: bool = False,
@@ -29,12 +30,16 @@ def retry_on_exception(
     the error will be suppressed  and default value returned.
 
     Args:
-        exception_type: A tuple of exception(s) type you want to catch. If none is
-            provided, baseclass Exception will be used
+        exception_types: A tuple of exception(s) types to catch in the decorated
+            function. If none is provided, baseclass Exception will be used.
+
+        no_retry_on_exception_types: Exception types to consider non-retryable even
+            if their supertype appears in `exception_types` or the only exceptions to
+            not retry on if no `exception_types` are specified.
 
         check_message_contains: A list of strings to be provided. If the error
             message contains any one of these messages, the exception will
-            be suppressed
+            be suppressed.
 
         retries: Number of retries.
 
@@ -44,16 +49,36 @@ def retry_on_exception(
         logger: A handle for the logger to be used.
 
         default_return_on_suppression: If the error is suppressed, then the default
-        value to be returned once all retries are exhausted.
+            value to be returned once all retries are exhausted.
     """
 
     def func_wrapper(func):
         @functools.wraps(func)
         def actual_wrapper(self, *args, **kwargs):
-            exception_to_catch = exception_type
-            if exception_type is None:
+            retriable_exceptions = exception_types
+            if exception_types is None:
                 # If no exception type provided, we catch all errors
-                exception_to_catch = Exception
+                retriable_exceptions = (Exception,)
+            if not isinstance(retriable_exceptions, tuple):
+                raise ValueError("Expected a tuple of exception types.")
+
+            if no_retry_on_exception_types is not None:
+                if not isinstance(no_retry_on_exception_types, tuple):
+                    raise ValueError(
+                        "Expected a tuple of non-retriable exception types."
+                    )
+                if (
+                    len(
+                        set(no_retry_on_exception_types).intersection(
+                            set(retriable_exceptions)
+                        )
+                    )
+                    > 0
+                ):
+                    raise ValueError(
+                        "Same exception type cannot appear in both "
+                        "`exception_types` and `no_retry_on_exception_types`."
+                    )
 
             suppress_errors = False
             if suppress_all_errors or (
@@ -66,7 +91,9 @@ def retry_on_exception(
             for i in range(retries):
                 try:
                     return func(self, *args, **kwargs)
-                except exception_to_catch as err:
+                except no_retry_on_exception_types or ():
+                    raise
+                except retriable_exceptions as err:  # Exceptions is a tuple.
                     if suppress_errors or i < retries - 1:
                         # We are either explicitly asked to suppress the error
                         # or we have retries left

@@ -6,7 +6,7 @@
 
 import logging
 
-from ax.utils.common.exec_utils import retry_on_exception
+from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.testutils import TestCase
 
 
@@ -62,7 +62,7 @@ class TestRetryDecorator(TestCase):
             @retry_on_exception(
                 default_return_on_suppression="SUCCESS",
                 check_message_contains=["Hello", "World"],
-                exception_type=(RuntimeError,),
+                exception_types=(RuntimeError,),
                 logger=logger,
                 suppress_all_errors=False,
             )
@@ -86,7 +86,7 @@ class TestRetryDecorator(TestCase):
         class DecoratorTester:
             @retry_on_exception(
                 default_return_on_suppression="SUCCESS",
-                exception_type=(),
+                exception_types=(),
                 logger=logger,
                 suppress_all_errors=False,
             )
@@ -109,7 +109,7 @@ class TestRetryDecorator(TestCase):
             @retry_on_exception(
                 default_return_on_suppression="SUCCESS",
                 check_message_contains=["Hello", "World"],
-                exception_type=(RuntimeError,),
+                exception_types=(RuntimeError,),
             )
             def error_throwing_function(self):
                 # The execption thrown below should NOT be caught as it does not
@@ -173,3 +173,54 @@ class TestRetryDecorator(TestCase):
         decorator_tester = DecoratorTester()
         with self.assertRaises(KeyError):
             decorator_tester.error_throwing_function()
+
+    def test_no_retry_on_exception_types(self):
+        class MyRuntimeError(RuntimeError):
+            pass
+
+        class DecoratorTester:
+            error_throwing_function_call_count = 0
+
+            @retry_on_exception(no_retry_on_exception_types=(MyRuntimeError,))
+            def error_throwing_function(self):
+                self.error_throwing_function_call_count += 1
+                # The exception thrown below should NOT be caught as it does mathes
+                # an exception type in `no_retry_on_exception_type`
+                raise MyRuntimeError
+
+        decorator_tester = DecoratorTester()
+        with self.assertRaises(MyRuntimeError):
+            decorator_tester.error_throwing_function()
+
+        self.assertEqual(decorator_tester.error_throwing_function_call_count, 1)
+
+        # Check that `MyRuntimeError` isn't retriable even if `RuntimeError` is.
+        class DecoratorTester:
+            error_throwing_function_call_count = 0
+
+            @retry_on_exception(
+                exception_types=(RuntimeError,),
+                no_retry_on_exception_types=(MyRuntimeError,),
+            )
+            def error_throwing_function(self):
+                self.error_throwing_function_call_count += 1
+                # The exception thrown below should NOT be caught as it does mathes
+                # an exception type in `no_retry_on_exception_type`
+                raise MyRuntimeError
+
+        decorator_tester = DecoratorTester()
+        with self.assertRaises(MyRuntimeError):
+            decorator_tester.error_throwing_function()
+
+        self.assertEqual(decorator_tester.error_throwing_function_call_count, 1)
+
+        with self.assertRaisesRegex(ValueError, "Same exception"):
+
+            @retry_on_exception(
+                exception_types=(MyRuntimeError,),
+                no_retry_on_exception_types=(MyRuntimeError,),
+            )
+            def incorrectly_decorated_function(self, arg):
+                pass
+
+            incorrectly_decorated_function(None, None)
