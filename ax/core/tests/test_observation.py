@@ -286,6 +286,87 @@ class ObservationsTest(TestCase):
             self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
             self.assertEqual(obs.arm_name, t["arm_name"])
 
+    def testObservationsFromDataWithSomeMissingTimes(self):
+        truth = [
+            {
+                "arm_name": "0_0",
+                "parameters": {"x": 0, "y": "a"},
+                "mean": 2.0,
+                "sem": 2.0,
+                "trial_index": 1,
+                "metric_name": "a",
+                "start_time": 0,
+            },
+            {
+                "arm_name": "0_1",
+                "parameters": {"x": 1, "y": "b"},
+                "mean": 3.0,
+                "sem": 3.0,
+                "trial_index": 2,
+                "metric_name": "a",
+                "start_time": 0,
+            },
+            {
+                "arm_name": "0_0",
+                "parameters": {"x": 0, "y": "a"},
+                "mean": 4.0,
+                "sem": 4.0,
+                "trial_index": 1,
+                "metric_name": "b",
+                "start_time": None,
+            },
+            {
+                "arm_name": "0_1",
+                "parameters": {"x": 1, "y": "b"},
+                "mean": 5.0,
+                "sem": 5.0,
+                "trial_index": 2,
+                "metric_name": "b",
+                "start_time": None,
+            },
+        ]
+        arms = {obs["arm_name"]: Arm(parameters=obs["parameters"]) for obs in truth}
+        experiment = Mock()
+        type(experiment).arms_by_name = PropertyMock(return_value=arms)
+
+        df = pd.DataFrame(truth)[
+            ["arm_name", "trial_index", "mean", "sem", "metric_name", "start_time"]
+        ]
+        data = Data(df=df)
+        observations = observations_from_data(experiment, data)
+
+        self.assertEqual(len(observations), 4)
+        # Get them in the order we want for tests below
+        if observations[0].features.parameters["x"] == 1:
+            observations.reverse()
+
+        obsd_truth = {
+            "metric_names": [["a"], ["a"], ["b"], ["b"]],
+            "means": [
+                np.array([2.0]),
+                np.array([3.0]),
+                np.array([4.0]),
+                np.array([5.0]),
+            ],
+            "covariance": [
+                np.diag([4.0]),
+                np.diag([9.0]),
+                np.diag([16.0]),
+                np.diag([25.0]),
+            ],
+        }
+        cname_truth = ["0_0", "0_1", "0_0", "0_1"]
+
+        for i, obs in enumerate(observations):
+            self.assertEqual(obs.features.parameters, truth[i]["parameters"])
+            self.assertEqual(obs.features.trial_index, truth[i]["trial_index"])
+            self.assertEqual(obs.data.metric_names, obsd_truth["metric_names"][i])
+            self.assertTrue(np.array_equal(obs.data.means, obsd_truth["means"][i]))
+            self.assertTrue(
+                np.array_equal(obs.data.covariance, obsd_truth["covariance"][i])
+            )
+            self.assertEqual(obs.arm_name, cname_truth[i])
+
     def testSeparateObservations(self):
         obs = Observation(
             features=ObservationFeatures(parameters={"x": 20}),

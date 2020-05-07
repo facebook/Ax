@@ -193,31 +193,17 @@ class Observation(Base):
         self.arm_name = arm_name
 
 
-def observations_from_data(experiment: Experiment, data: Data) -> List[Observation]:
-    """Convert Data to observations.
-
-    Converts a Data object to a list of Observation objects. Pulls arm parameters from
-    from experiment. Overrides fidelity parameters in the arm with those found in the
-    Data object.
-
-    Uses a diagonal covariance matrix across metric_names.
-
-    Args:
-        experiment: Experiment with arm parameters.
-        data: Data of observations.
-
-    Returns:
-        List of Observation objects.
-    """
-    feature_cols = list(OBS_COLS.intersection(data.df.columns))
+def _observations_from_dataframe(
+    experiment: Experiment, df: pd.DataFrame, cols: List[str], arm_name_only: bool
+) -> List[Observation]:
+    """Helper method for extracting observations grouped by `cols` from `df`."""
     observations = []
-    arm_name_only = len(feature_cols) == 1  # there will always be an arm name
-    for g, d in data.df.groupby(by=feature_cols):
+    for g, d in df.groupby(by=cols):
         if arm_name_only:
             features = {"arm_name": g}
             arm_name = g
         else:
-            features = dict(zip(feature_cols, g))
+            features = dict(zip(cols, g))
             arm_name = features["arm_name"]
         obs_kwargs = {}
         obs_parameters = experiment.arms_by_name[arm_name].parameters.copy()
@@ -241,6 +227,58 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
                 arm_name=arm_name,
             )
         )
+    return observations
+
+
+def observations_from_data(experiment: Experiment, data: Data) -> List[Observation]:
+    """Convert Data to observations.
+
+    Converts a Data object to a list of Observation objects. Pulls arm parameters from
+    from experiment. Overrides fidelity parameters in the arm with those found in the
+    Data object.
+
+    Uses a diagonal covariance matrix across metric_names.
+
+    Args:
+        experiment: Experiment with arm parameters.
+        data: Data of observations.
+
+    Returns:
+        List of Observation objects.
+    """
+    feature_cols = list(OBS_COLS.intersection(data.df.columns))
+    observations = []
+    arm_name_only = len(feature_cols) == 1  # there will always be an arm name
+    # Group observations separately from 2 DataFrames for speedy groupby behavior.
+    # One DataFrame where all rows are complete.
+    isnull = data.df.isnull()
+    isnull_any = isnull.any(axis=1)
+    complete_df = data.df[~isnull_any]
+    incomplete_df = data.df[isnull_any]
+    incomplete_df_cols = isnull[isnull_any].any()
+    # Get the incomplete_df columns that are complete, and usable as groupby keys.
+    complete_feature_cols = list(
+        OBS_COLS.intersection(incomplete_df_cols.index[~incomplete_df_cols])
+    )
+
+    # Get Observations from complete_df
+    observations.extend(
+        _observations_from_dataframe(
+            experiment=experiment,
+            df=complete_df,
+            cols=feature_cols,
+            arm_name_only=arm_name_only,
+        )
+    )
+    # Get Observations from incomplete_df
+    observations.extend(
+        _observations_from_dataframe(
+            experiment=experiment,
+            df=incomplete_df,
+            cols=complete_feature_cols,
+            arm_name_only=arm_name_only,
+        )
+    )
     return observations
 
 
