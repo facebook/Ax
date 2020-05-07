@@ -236,7 +236,7 @@ class REMBOStrategy(GenerationStrategy):
         Also return the box bounds for the low-d space.
         """
         A = torch.randn((D, d), dtype=dtype, device=device)
-        bounds_d = [(-math.sqrt(d), math.sqrt(d))] * d
+        bounds_d = [(-(math.sqrt(d)), math.sqrt(d))] * d
         return A, bounds_d
 
 

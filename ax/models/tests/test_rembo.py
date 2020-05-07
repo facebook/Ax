@@ -13,7 +13,7 @@ from ax.utils.common.testutils import TestCase
 
 class REMBOTest(TestCase):
     def testREMBOModel(self):
-        A = torch.cat((torch.eye(2), -torch.eye(2)))
+        A = torch.cat((torch.eye(2), -(torch.eye(2))))
         initial_X_d = torch.tensor([[0.25, 0.5], [1, 0], [0, -1]])
         bounds_d = [(-2, 2), (-2, 2)]
 
