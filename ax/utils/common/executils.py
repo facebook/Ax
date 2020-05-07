@@ -67,13 +67,8 @@ def retry_on_exception(
                     raise ValueError(
                         "Expected a tuple of non-retriable exception types."
                     )
-                if (
-                    len(
-                        set(no_retry_on_exception_types).intersection(
-                            set(retriable_exceptions)
-                        )
-                    )
-                    > 0
+                if set(no_retry_on_exception_types).intersection(
+                    set(retriable_exceptions)
                 ):
                     raise ValueError(
                         "Same exception type cannot appear in both "
@@ -96,7 +91,7 @@ def retry_on_exception(
                 except retriable_exceptions as err:  # Exceptions is a tuple.
                     if suppress_errors or i < retries - 1:
                         # We are either explicitly asked to suppress the error
-                        # or we have retries left
+                        # or we have retries left.
                         if logger is not None:
                             logger.exception(err)
                         continue
