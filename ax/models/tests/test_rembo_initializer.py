@@ -11,7 +11,7 @@ from ax.utils.common.testutils import TestCase
 
 class REMBOInitializerTest(TestCase):
     def testREMBOInitializerModel(self):
-        A = np.vstack((np.eye(2, 2), -np.eye(2, 2)))
+        A = np.vstack((np.eye(2, 2), -(np.eye(2, 2))))
         # Test setting attributes
         m = REMBOInitializer(A=A, bounds_d=[(-2, 2)] * 2)
         self.assertTrue(np.allclose(A, m.A))

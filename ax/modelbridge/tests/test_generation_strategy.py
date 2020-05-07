@@ -137,7 +137,7 @@ class TestGenerationStrategy(TestCase):
             steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
         )
         self.assertEqual(
-            str(gs2), ("GenerationStrategy(name='Sobol', steps=[Sobol for all trials])")
+            str(gs2), "GenerationStrategy(name='Sobol', steps=[Sobol for all trials])"
         )
 
     def test_equality(self):

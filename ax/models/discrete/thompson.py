@@ -119,7 +119,7 @@ class ThompsonSampler(DiscreteModel):
         f = np.zeros((n, m))  # array of outcome predictions
         cov = np.zeros((n, m, m))  # array of predictive covariances
         predictX = [self._hash_TParamValueList(x) for x in X]
-        for i, (X_to_Y_and_Yvar) in enumerate(self.X_to_Ys_and_Yvars):
+        for i, X_to_Y_and_Yvar in enumerate(self.X_to_Ys_and_Yvars):
             # iterate through outcomes
             for j, x in enumerate(predictX):
                 # iterate through parameterizations at which to make predictions
