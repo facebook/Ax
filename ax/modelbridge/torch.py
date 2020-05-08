@@ -58,6 +58,7 @@ class TorchModelBridge(ArrayModelBridge):
         status_quo_name: Optional[str] = None,
         status_quo_features: Optional[ObservationFeatures] = None,
         optimization_config: Optional[OptimizationConfig] = None,
+        fit_out_of_design: bool = False,
     ) -> None:
         if torch_dtype is None:  # pragma: no cover
             torch_dtype = torch.float  # noqa T484
@@ -73,6 +74,7 @@ class TorchModelBridge(ArrayModelBridge):
             status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
+            fit_out_of_design=fit_out_of_design,
         )
 
     def _fit(

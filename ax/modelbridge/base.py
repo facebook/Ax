@@ -265,14 +265,18 @@ class ModelBridge(ABC):
         observation_data: List[ObservationData],
     ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
         """Set training_in_design, and decide whether to filter out of design points."""
+        # Don't filter points.
+        if self._fit_out_of_design:
+            # Use all data for training
+            # Set training_in_design to True for all observations so that
+            # all observations are used in CV and plotting
+            self.training_in_design = [True] * len(observation_features)
+            return observation_features, observation_data
         in_design = [
             search_space.check_membership(obsf.parameters)
             for obsf in observation_features
         ]
         self.training_in_design = in_design
-        # Don't filter points.
-        if self._fit_out_of_design:
-            return observation_features, observation_data
         in_design_indices = [i for i, in_design in enumerate(in_design) if in_design]
         in_design_features = [observation_features[i] for i in in_design_indices]
         in_design_data = [observation_data[i] for i in in_design_indices]

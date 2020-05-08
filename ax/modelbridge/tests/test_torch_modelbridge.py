@@ -34,6 +34,7 @@ class TorchModelBridgeTest(TestCase):
         )
         self.assertEqual(ma.dtype, torch.float64)
         self.assertEqual(ma.device, torch.device("cpu"))
+        self.assertFalse(mock_init.call_args[-1]["fit_out_of_design"])
         # Fit
         model = mock.MagicMock(TorchModel, autospec=True, instance=True)
         X = np.array([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
@@ -194,3 +195,15 @@ class TorchModelBridgeTest(TestCase):
                 X, torch.tensor([[1.0, 2.0]], dtype=torch_dtype, device=torch_device)
             )
         )
+        # test fit out of design
+        ma = TorchModelBridge(
+            experiment=None,
+            search_space=None,
+            data=None,
+            model=None,
+            transforms=[],
+            torch_dtype=torch.float64,
+            torch_device=torch.device("cpu"),
+            fit_out_of_design=True,
+        )
+        self.assertTrue(mock_init.call_args[-1]["fit_out_of_design"])
