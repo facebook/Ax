@@ -6,8 +6,10 @@
 
 from typing import Dict, Optional, Tuple
 
+import pandas as pd
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
@@ -33,28 +35,24 @@ def get_best_raw_objective_point(
         Tuple of parameterization and a mapping from metric name to a tuple of
             the corresponding objective mean and SEM.
     """
-    dat = experiment.fetch_data()
-    if dat.df.empty:
-        raise ValueError("Cannot identify best point if experiment contains no data.")
     opt_config = optimization_config or experiment.optimization_config
-    objective_name = opt_config.objective.metric.name
-    objective_rows = dat.df.loc[dat.df["metric_name"] == objective_name]
-    if objective_rows.empty:
-        raise ValueError('No data has been logged for objective "{objective_name}".')
-    optimization_config = optimization_config or opt_config
-    assert optimization_config is not None, (
+    assert opt_config is not None, (
         "Cannot identify the best point without an optimization config, but no "
         "optimization config was provided on the experiment or as an argument."
     )
-    best_row = (
-        objective_rows.loc[objective_rows["mean"].idxmin()]
-        if opt_config.objective.minimize
-        else objective_rows.loc[objective_rows["mean"].idxmax()]
-    )
-    best_arm = experiment.arms_by_name.get(best_row["arm_name"])
+    dat = experiment.fetch_data()
+    if dat.df.empty:
+        raise ValueError("Cannot identify best point if experiment contains no data.")
+    objective = opt_config.objective
+    if isinstance(objective, ScalarizedObjective):
+        best_row = _get_best_row_for_scalarized_objective(dat.df, objective)
+    else:
+        best_row = _get_best_row_for_single_objective(dat.df, objective)
+    best_arm = experiment.arms_by_name[best_row["arm_name"]]
+    best_trial_index = best_row["trial_index"]
     objective_rows = dat.df.loc[
-        (dat.df["arm_name"] == best_row["arm_name"])
-        & (dat.df["trial_index"] == best_row["trial_index"])
+        (dat.df["arm_name"] == best_arm.name)
+        & (dat.df["trial_index"] == best_trial_index)
     ]
     vals = {
         row["metric_name"]: (row["mean"], row["sem"])
@@ -131,4 +129,46 @@ def get_best_parameters(
             {k: v[0] for k, v in values.items()},  # v[0] is mean
             {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
         ),
+    )
+
+
+def _get_best_row_for_scalarized_objective(
+    df: pd.DataFrame, objective: ScalarizedObjective
+) -> pd.DataFrame:
+    df = df.copy()
+    # First, add a weight column, setting 0.0 if the metric is not part
+    # of the objective
+    metric_to_weight = {
+        m.name: objective.weights[i] for i, m in enumerate(objective.metrics)
+    }
+    df["weight"] = df["metric_name"].apply(lambda x: metric_to_weight.get(x) or 0.0)
+    # Now, calculate the weighted linear combination via groupby,
+    # filtering out NaN for missing data
+    df["weighted_mean"] = df["mean"] * df["weight"]
+    groupby_df = (
+        df[["arm_name", "trial_index", "weighted_mean"]]
+        .groupby(["arm_name", "trial_index"], as_index=False)
+        .sum(min_count=1)
+        .dropna()
+    )
+    if groupby_df.empty:
+        raise ValueError(f"No data has been logged for scalarized objective.")
+    return (
+        groupby_df.loc[groupby_df["weighted_mean"].idxmin()]
+        if objective.minimize
+        else groupby_df.loc[groupby_df["weighted_mean"].idxmax()]
+    )
+
+
+def _get_best_row_for_single_objective(
+    df: pd.DataFrame, objective: Objective
+) -> pd.DataFrame:
+    objective_name = objective.metric.name
+    objective_rows = df.loc[df["metric_name"] == objective_name]
+    if objective_rows.empty:
+        raise ValueError(f'No data has been logged for objective "{objective_name}".')
+    return (
+        objective_rows.loc[objective_rows["mean"].idxmin()]
+        if objective.minimize
+        else objective_rows.loc[objective_rows["mean"].idxmax()]
     )
