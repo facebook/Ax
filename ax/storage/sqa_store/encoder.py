@@ -54,6 +54,7 @@ from ax.storage.utils import (
     ParameterConstraintType,
     get_object_properties,
 )
+from ax.utils.common.equality import datetime_equals
 from ax.utils.common.typeutils import not_none
 
 
@@ -69,6 +70,26 @@ class Encoder:
 
     def __init__(self, config: SQAConfig) -> None:
         self.config = config
+
+    @classmethod
+    def validate_experiment_metadata(
+        cls,
+        experiment: Experiment,
+        existing_sqa_experiment: Optional[SQAExperiment],
+        owners: Optional[List[str]] = None,
+    ) -> None:
+        """Validates required experiment metadata.
+
+        Does *not* expect owners kwarg, present for use in subclasses.
+        """
+        if owners:
+            raise ValueError("Owners for experiment unexpectedly provided.")
+        if existing_sqa_experiment is not None and not datetime_equals(
+            existing_sqa_experiment.time_created, experiment.time_created
+        ):
+            raise Exception(
+                f"An experiment already exists with the name {experiment.name}."
+            )
 
     def get_enum_value(
         self, value: Optional[str], enum: Optional[Enum]

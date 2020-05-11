@@ -12,12 +12,9 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.utils.common.equality import datetime_equals
 
 
-def save_experiment(
-    experiment: Experiment, config: Optional[SQAConfig] = None, overwrite: bool = False
-) -> None:
+def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) -> None:
     """Save experiment (using default SQAConfig)."""
     # pyre-fixme[25]: Assertion will always fail.
     if not isinstance(experiment, Experiment):
@@ -27,12 +24,10 @@ def save_experiment(
 
     config = config or SQAConfig()
     encoder = Encoder(config=config)
-    _save_experiment(experiment=experiment, encoder=encoder, overwrite=overwrite)
+    _save_experiment(experiment=experiment, encoder=encoder)
 
 
-def _save_experiment(
-    experiment: Experiment, encoder: Encoder, overwrite: bool = False
-) -> None:
+def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
     """Save experiment, using given Encoder instance.
 
     1) Convert Ax object to SQLAlchemy object.
@@ -44,26 +39,17 @@ def _save_experiment(
         actual DB updates.
     """
     # Convert user-facing class to SQA outside of session scope to avoid timeouts
-    new_sqa_experiment = encoder.experiment_to_sqa(experiment)
     exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
     with session_scope() as session:
         existing_sqa_experiment = (
             session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
         )
+    encoder.validate_experiment_metadata(
+        experiment, existing_sqa_experiment=existing_sqa_experiment
+    )
+    new_sqa_experiment = encoder.experiment_to_sqa(experiment)
 
     if existing_sqa_experiment is not None:
-        if (
-            not datetime_equals(
-                existing_sqa_experiment.time_created, new_sqa_experiment.time_created
-            )
-            and overwrite is False
-        ):
-            raise Exception(
-                "An experiment already exists with the name "
-                f"{new_sqa_experiment.name}. To overwrite, specify "
-                "`overwrite = True` when calling `save_experiment`."
-            )
-
         # Update the SQA object outside of session scope to avoid timeouts.
         # This object is detached from the session, but contains a database
         # identity marker, so when we do `session.add` below, SQA knows to

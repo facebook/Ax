@@ -269,11 +269,22 @@ class AxClient:
             status_quo=status_quo,
             experiment_type=experiment_type,
         )
+
+        try:
+            self._save_experiment_to_db_if_possible(
+                suppress_all_errors=self._suppress_storage_errors
+            )
+        except Exception:
+            # Unset the experiment on this `AxClient` instance if encountered and
+            # raising an error from saving the experiment, to avoid a case where
+            # overall `create_experiment` call fails with a storage error, but
+            # `self._experiment` is still set and user has to specify the
+            # `ooverwrite_existing_experiment` kwarg to re-attempt exp. creation.
+            self._experiment = None
+            raise
+
         self._set_generation_strategy(
             choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
-        )
-        self._save_experiment_to_db_if_possible(
-            suppress_all_errors=self._suppress_storage_errors
         )
         self._save_generation_strategy_to_db_if_possible(
             suppress_all_errors=self._suppress_storage_errors

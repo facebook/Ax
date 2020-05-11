@@ -64,7 +64,7 @@ def save_experiment(experiment: Experiment, db_settings: DBSettings) -> None:
     """
     init_engine_and_session_factory(creator=db_settings.creator, url=db_settings.url)
     start_time = time.time()
-    _save_experiment(experiment, encoder=db_settings.encoder, overwrite=False)
+    _save_experiment(experiment, encoder=db_settings.encoder)
     logger.info(
         f"Saved experiment {experiment.name} in "
         f"{_round_floats_for_logging(time.time() - start_time)} seconds"

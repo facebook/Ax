@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import MagicMock, Mock
 
 from ax.core.arm import Arm
@@ -194,15 +194,6 @@ class SQAStoreTest(TestCase):
             save_experiment(exp)
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
-
-    def testExperimentOverwriting(self):
-        save_experiment(self.experiment)
-        exp = get_experiment_with_batch_trial()
-        # hack because otherwise time_createds will be too close
-        exp._time_created = exp.time_created + timedelta(seconds=1)
-        with self.assertRaises(Exception):
-            save_experiment(exp)
-        save_experiment(exp, overwrite=True)
 
     def testMTExperimentSaveAndLoad(self):
         experiment = get_multi_type_experiment(add_trials=True)
