@@ -8,6 +8,7 @@ from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from ax.core.data import Data
 from ax.utils.common.logger import get_logger
 
 
@@ -292,3 +293,63 @@ def marginal_effects(df: pd.DataFrame) -> pd.DataFrame:
                 {"Name": cov, "Level": name, "Beta": effect, "SE": effect_sem}
             )
     return pd.DataFrame(formatted_vals)[["Name", "Level", "Beta", "SE"]]
+
+
+def relativize_data(
+    data: Data,
+    status_quo_name: str = "status_quo",
+    as_percent: bool = False,
+    include_sq: bool = False,
+) -> Data:
+    """Relativize a data object w.r.t. a status_quo arm.
+
+    Args:
+        data: The data object to be relativized.
+        status_quo_name: The name of the status_quo arm.
+        as_percent: If True, return results as percentage change.
+        include_sq: Include status quo in final df.
+
+    Returns:
+        Data: The new data object with the relativized metrics (excluding the
+            status_quo arm)
+
+    """
+    df = data.df.copy()
+    grp_cols = list(
+        {"trial_index", "metric_name", "random_split"}.intersection(df.columns.values)
+    )
+
+    grouped_df = df.groupby(grp_cols)
+    dfs = []
+    for grp in grouped_df.groups.keys():
+        subgroup_df = grouped_df.get_group(grp)
+        is_sq = subgroup_df["arm_name"] == status_quo_name
+        sq_mean, sq_sem = subgroup_df[is_sq][["mean", "sem"]].values.flatten()
+
+        # rm status quo from final df to relativize
+        if not include_sq:
+            subgroup_df = subgroup_df[~is_sq]
+        means_rel, sems_rel = relativize(
+            means_t=subgroup_df["mean"].values,
+            sems_t=subgroup_df["sem"].values,
+            mean_c=sq_mean,
+            sem_c=sq_sem,
+            as_percent=as_percent,
+        )
+        dfs.append(
+            pd.concat(
+                [
+                    subgroup_df.drop(["mean", "sem"], axis=1),
+                    pd.DataFrame(
+                        np.array([means_rel, sems_rel]).T,
+                        columns=["mean", "sem"],
+                        index=subgroup_df.index,
+                    ),
+                ],
+                axis=1,
+            )
+        )
+    df_rel = pd.concat(dfs, axis=0)
+    if include_sq:
+        df_rel.loc[df_rel["arm_name"] == status_quo_name, "sem"] = 0.0
+    return Data(df_rel)
