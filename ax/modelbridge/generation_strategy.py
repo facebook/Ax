@@ -285,7 +285,7 @@ class GenerationStrategy(Base):
             "suggested by Ax in trials."
         )
         if self._experiment is None or all(
-            len(l) == 0 for l in self.trial_indices_by_step.values()
+            len(trials) == 0 for trials in self.trial_indices_by_step.values()
         ):
             return None
         records = [
@@ -395,7 +395,7 @@ class GenerationStrategy(Base):
                 # pyre-ignore[16]: `Union` has no attribute `value`.
                 repr += f"{step.model.value} for {num_trials} trials, "
         repr = repr[:-2]
-        repr += f"])"
+        repr += "])"
         return repr
 
     # ------------------------- Model selection logic helpers. -------------------------

@@ -152,7 +152,7 @@ def _get_best_row_for_scalarized_objective(
         .dropna()
     )
     if groupby_df.empty:
-        raise ValueError(f"No data has been logged for scalarized objective.")
+        raise ValueError("No data has been logged for scalarized objective.")
     return (
         groupby_df.loc[groupby_df["weighted_mean"].idxmin()]
         if objective.minimize

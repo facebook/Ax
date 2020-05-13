@@ -134,7 +134,7 @@ class OptimizationLoop:
     def run_trial(self) -> None:
         """Run a single step of the optimization plan."""
         if self.current_trial >= self.total_trials:
-            raise ValueError(f"Optimization is complete, cannot run another trial.")
+            raise ValueError("Optimization is complete, cannot run another trial.")
         logger.info(f"Running optimization trial {self.current_trial + 1}...")
         arms_per_trial = self.arms_per_trial
         if arms_per_trial == 1:
