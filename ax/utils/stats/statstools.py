@@ -310,7 +310,7 @@ def relativize_data(
         include_sq: Include status quo in final df.
 
     Returns:
-        Data: The new data object with the relativized metrics (excluding the
+        The new data object with the relativized metrics (excluding the
             status_quo arm)
 
     """
