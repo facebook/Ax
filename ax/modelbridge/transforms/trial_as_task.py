@@ -100,7 +100,7 @@ class TrialAsTask(Transform):
             level_values = list(set(level_dict.values()))
             if len(level_values) == 1:
                 raise ValueError(
-                    f"TrialAsTask transform expects 2+ task params, "
+                    "TrialAsTask transform expects 2+ task params, "
                     + f"only 1 found: {level_values}"
                 )
             trial_param = ChoiceParameter(

@@ -275,5 +275,5 @@ def validate_constraint_parameters(parameters: List[Parameter]) -> None:
         # models only support linear constraints.
         if isinstance(parameter, RangeParameter) and parameter.log_scale is True:
             raise ValueError(
-                f"Parameter constraints not allowed on log scale parameters."
+                "Parameter constraints not allowed on log scale parameters."
             )

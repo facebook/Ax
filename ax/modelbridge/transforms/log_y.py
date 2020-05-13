@@ -44,13 +44,13 @@ class LogY(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         if config is None:
-            raise ValueError(f"LogY requires a config.")
+            raise ValueError("LogY requires a config.")
         # pyre-fixme[6]: Expected `Iterable[Variable[_T]]` for 1st param but got
         #  `Union[List[Variable[_T]],
         #  botorch.acquisition.acquisition.AcquisitionFunction, float, int, str]`.
         metric_names = list(config.get("metrics", []))
         if len(metric_names) == 0:
-            raise ValueError(f"Must specify at least one metric in the config.")
+            raise ValueError("Must specify at least one metric in the config.")
         super().__init__(
             search_space=search_space,
             observation_features=observation_features,

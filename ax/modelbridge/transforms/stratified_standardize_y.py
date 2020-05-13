@@ -121,7 +121,7 @@ class StratifiedStandardizeY(Transform):
         for c in optimization_config.outcome_constraints:
             if c.relative:
                 raise ValueError(
-                    f"StratifiedStandardizeY transform does not support relative "
+                    "StratifiedStandardizeY transform does not support relative "
                     "constraint {c}"
                 )
             c.bound = (c.bound - self.Ymean[(c.metric.name, v)]) / self.Ystd[

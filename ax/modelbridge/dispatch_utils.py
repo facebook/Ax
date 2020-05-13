@@ -237,5 +237,5 @@ def choose_generation_strategy(
         )
         return gs
 
-    logger.info(f"Using Sobol generation strategy.")
+    logger.info("Using Sobol generation strategy.")
     return GenerationStrategy(steps=[_make_sobol_step(seed=random_seed)])

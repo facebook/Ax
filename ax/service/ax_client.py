@@ -254,7 +254,7 @@ class AxClient:
                 self._generation_strategy = None
             else:
                 raise ValueError(
-                    f"Experiment already created for this client instance. "
+                    "Experiment already created for this client instance. "
                     "Set the `overwrite_existing_experiment` to `True` to overwrite "
                     "with new experiment."
                 )
@@ -1001,7 +1001,7 @@ class AxClient:
         if isinstance(trial, BatchTrial):
             assert isinstance(  # pragma: no cover
                 raw_data, dict
-            ), f"Raw data must be a dict for batched trials."
+            ), "Raw data must be a dict for batched trials."
         elif isinstance(trial, Trial):
             arm_name = not_none(trial.arm).name
             raw_data = {arm_name: raw_data}  # pyre-ignore[9]

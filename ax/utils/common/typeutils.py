@@ -64,10 +64,10 @@ def checked_cast_optional(typ: Type[T], val: Optional[V]) -> Optional[T]:
     return checked_cast(typ, val)
 
 
-def checked_cast_list(typ: Type[T], l: List[V]) -> List[T]:
+def checked_cast_list(typ: Type[T], old_l: List[V]) -> List[T]:
     """Calls checked_cast on all items in a list."""
     new_l = []
-    for val in l:
+    for val in old_l:
         val = checked_cast(typ, val)
         new_l.append(val)
     return new_l
