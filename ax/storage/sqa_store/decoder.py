@@ -435,7 +435,6 @@ class Decoder:
                     "The metric corresponding to regular objective does not \
                     have weight attribute"
                 )
-            # pyre-fixme[6]: Expected `bool` for 2nd param but got `Optional[bool]`.
             return Objective(metric=metric, minimize=metric_sqa.minimize)
         elif (
             metric_sqa.intent == MetricIntent.MULTI_OBJECTIVE

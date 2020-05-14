@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
+
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.utils.common.testutils import TestCase
@@ -24,11 +26,25 @@ class ObjectiveTest(TestCase):
             metrics=[self.metrics["m1"], self.metrics["m2"]]
         )
 
-    def testBadInit(self):
+    def testInit(self):
         with self.assertRaises(ValueError):
-            self.scalarized_objective_weighted = ScalarizedObjective(
+            ScalarizedObjective(
                 metrics=[self.metrics["m1"], self.metrics["m2"]], weights=[1.0]
             )
+        warnings.resetwarnings()
+        warnings.simplefilter("always", append=True)
+        with warnings.catch_warnings(record=True) as ws:
+            Objective(metric=self.metrics["m1"])
+            self.assertTrue(any(issubclass(w.category, DeprecationWarning) for w in ws))
+            self.assertTrue(
+                any("Defaulting to `minimize=False`" in str(w.message) for w in ws)
+            )
+        with warnings.catch_warnings(record=True) as ws:
+            Objective(Metric(name="m4", lower_is_better=True), minimize=False)
+            self.assertTrue(any("Attempting to maximize" in str(w.message) for w in ws))
+        with warnings.catch_warnings(record=True) as ws:
+            Objective(Metric(name="m4", lower_is_better=False), minimize=True)
+            self.assertTrue(any("Attempting to minimize" in str(w.message) for w in ws))
 
     def testMultiObjective(self):
         with self.assertRaises(NotImplementedError):

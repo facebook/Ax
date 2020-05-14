@@ -4,11 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
 from typing import Any, Iterable, List, Optional, Tuple
 
 from ax.core.base import Base
 from ax.core.metric import Metric
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 
 
 logger = get_logger(__name__)
@@ -21,16 +23,42 @@ class Objective(Base):
         minimize: If True, minimize metric.
     """
 
-    def __init__(self, metric: Metric, minimize: bool = False) -> None:
+    def __init__(self, metric: Metric, minimize: Optional[bool] = None) -> None:
         """Create a new objective.
 
         Args:
             metric: The metric to be optimized.
-            minimize: If True, minimize metric.
+            minimize: If True, minimize metric. If None, will be set based on the
+                `lower_is_better` property of the metric (if that is not specified,
+                will raise a DeprecationWarning).
 
         """
+        lower_is_better = metric.lower_is_better
+        if minimize is None:
+            if lower_is_better is None:
+                warnings.warn(
+                    f"Defaulting to `minimize=False` for metric {metric.name} not "
+                    + "specifying `lower_is_better` property. This is a wild guess. "
+                    + "Specify either `lower_is_better` on the metric, or specify "
+                    + "`minimize` explicitly. This will become an error in the future.",
+                    DeprecationWarning,
+                )
+                minimize = False
+            else:
+                minimize = lower_is_better
+        if lower_is_better is not None:
+            if lower_is_better and not minimize:
+                warnings.warn(
+                    f"Attempting to maximize metric {metric.name} with property "
+                    "`lower_is_better=True`."
+                )
+            elif not lower_is_better and minimize:
+                warnings.warn(
+                    f"Attempting to minimize metric {metric.name} with property "
+                    "`lower_is_better=False`."
+                )
         self._metric = metric
-        self.minimize = minimize
+        self.minimize = not_none(minimize)
 
     @property
     def metric(self) -> Metric:
