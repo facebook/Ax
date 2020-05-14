@@ -517,6 +517,8 @@ def interact_contour(
                 "xaxis2.title": short_name(xvar),
                 "xaxis.range": axis_range(grid_dict[xvar], is_log_dict[xvar]),
                 "xaxis2.range": axis_range(grid_dict[xvar], is_log_dict[xvar]),
+                "xaxis.type": "log" if is_log_dict[xvar] else "linear",
+                "xaxis2.type": "log" if is_log_dict[xvar] else "linear",
             },
         ]
         xbuttons.append({"args": xbutton_args, "label": xvar, "method": "update"})
@@ -539,6 +541,8 @@ def interact_contour(
                         "yaxis2.range": axis_range(
                             grid_dict[y_param], is_log_dict[y_param]
                         ),
+                        "yaxis.type": "log" if is_log_dict[y_param] else "linear",
+                        "yaxis2.type": "log" if is_log_dict[y_param] else "linear",
                     },
                 ],
                 "label": param_names[y_idx],
