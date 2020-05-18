@@ -486,6 +486,8 @@ class GenerationStrategy(Base):
         # Should only pass data that is new since last call to `gen`, to the
         # underlying model's `update`.
         newly_completed_trials = self._find_trials_completed_since_last_gen()
+        if len(newly_completed_trials) == 0:
+            return
         if data is None:
             new_data = self.experiment.fetch_trials_data(
                 trial_indices=newly_completed_trials
