@@ -117,8 +117,8 @@ class RangeParameter(Parameter):
             name: Name of the parameter.
             parameter_type: Enum indicating the type of parameter
                 value (e.g. string, int).
-            lower: Lower bound of the parameter range.
-            upper: Upper bound of the parameter range.
+            lower: Lower bound of the parameter range (inclusive).
+            upper: Upper bound of the parameter range (inclusive).
             log_scale: Whether to sample in the log space when drawing
                 random values of the parameter.
             digits: Number of digits to round values to for float type.
