@@ -9,6 +9,7 @@ from typing import Any, List
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     ONLY_ONE_FIELDS,
+    ONLY_ONE_METRIC_FIELDS,
     SQAMetric,
     SQAParameter,
     SQAParameterConstraint,
@@ -46,7 +47,7 @@ def validate_parameter_constraint(
 @event.listens_for(SQAMetric, "before_insert")
 @event.listens_for(SQAMetric, "before_update")
 def validate_metric(mapper: Mapper, connection: Connection, target: SQABase) -> None:
-    consistency_exactly_one(target, ONLY_ONE_FIELDS)
+    consistency_exactly_one(target, ONLY_ONE_FIELDS + ONLY_ONE_METRIC_FIELDS)
 
 
 @event.listens_for(SQARunner, "before_insert")

@@ -47,6 +47,9 @@ from sqlalchemy.orm import backref, relationship
 ONLY_ONE_FIELDS = ["experiment_id", "generator_run_id"]
 
 
+ONLY_ONE_METRIC_FIELDS = ["scalarized_objective_id"]
+
+
 class SQAParameter(Base):
     __tablename__: str = "parameter_v2"
 
