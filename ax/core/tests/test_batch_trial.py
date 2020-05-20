@@ -23,6 +23,8 @@ from ax.utils.testing.core_stubs import (
     get_arm_weights1,
     get_arms,
     get_experiment,
+    get_generator_run,
+    get_generator_run2,
     get_weights,
 )
 
@@ -527,3 +529,41 @@ class BatchTrialTest(TestCase):
         # was actually changed, not in `status`.
         self.assertEqual(batch_trial._status, TrialStatus.FAILED)
         self.assertIn(2, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
+
+    def test_get_candidate_metadata_from_all_generator_runs(self):
+        gr_1 = get_generator_run()
+        gr_2 = get_generator_run2()
+        self.batch.add_generator_run(gr_1)
+        # Arms are named when adding GR to trial, so reassign to have a GR that has
+        # names arms.
+        gr_1 = self.batch._generator_run_structs[-1].generator_run
+        self.batch.add_generator_run(gr_2)
+        gr_2 = self.batch._generator_run_structs[-1].generator_run
+        # gr_2 has no candidate metadata; all candidate metadata should come from gr_1
+        cand_metadata_expected = {
+            a.name: gr_1.candidate_metadata_by_arm_signature[a.signature]
+            for a in gr_1.arms
+        }
+        self.assertEqual(
+            self.batch._get_candidate_metadata_from_all_generator_runs(),
+            cand_metadata_expected,
+        )
+        # Check that if we add cand. metadata to gr_2, it will appear in cand.
+        # metadata for the batch.
+        gr_3 = get_generator_run2()
+        new_cand_metadata = {
+            a.signature: {"md_key": f"md_val_{a.signature}"} for a in gr_3.arms
+        }
+        gr_3._candidate_metadata_by_arm_signature = new_cand_metadata
+        self.batch.add_generator_run(gr_3)
+        gr_3 = self.batch._generator_run_structs[-1].generator_run
+        cand_metadata_expected.update(
+            {
+                a.name: gr_1.candidate_metadata_by_arm_signature[a.signature]
+                for a in gr_1.arms
+            }
+        )
+        self.assertEqual(
+            self.batch._get_candidate_metadata_from_all_generator_runs(),
+            cand_metadata_expected,
+        )

@@ -22,8 +22,13 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
+from ax.core.types import TCandidateMetadata
 from ax.utils.common.equality import datetime_equals, equality_typechecker
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
+
+
+logger = get_logger(__name__)
 
 
 if TYPE_CHECKING:
@@ -467,3 +472,33 @@ class BatchTrial(BaseTrial):
             f"index={self._index}, "
             f"status={self._status})"
         )
+
+    def _get_candidate_metadata_from_all_generator_runs(
+        self,
+    ) -> Dict[str, TCandidateMetadata]:
+        """Retrieves combined candidate metadata from all generator runs on this
+        batch trial in the form of { arm name -> candidate metadata} mapping.
+
+        NOTE: this does not handle the case of the same arm appearing in multiple
+        generator runs in the same trial: metadata from only one of the generator
+        runs containing the arm will be retrieved.
+        """
+        cand_metadata = {}
+        for gr_struct in self._generator_run_structs:
+            gr = gr_struct.generator_run
+            if gr.candidate_metadata_by_arm_signature:
+                gr_cand_metadata = gr.candidate_metadata_by_arm_signature
+                if any(a.name in cand_metadata for a in gr.arms):
+                    logger.warning(
+                        "The same arm appears in multiple generator runs in batch "
+                        f"{self.index}. Candidate metadata will only contain metadata "
+                        "for one of those generator runs, and the candidate metadata "
+                        "for the arm from another generator run will not be propagated."
+                    )
+                if gr_cand_metadata:
+                    # Reformat the mapping to be by arm name, since arm signature is not
+                    # stored in Ax data.
+                    cand_metadata.update(
+                        {a.name: gr_cand_metadata.get(a.signature) for a in gr.arms}
+                    )
+        return cand_metadata

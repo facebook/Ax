@@ -66,14 +66,21 @@ class TrialTest(TestCase):
 
     def test_adding_new_trials(self):
         new_arm = get_arms()[1]
+        cand_metadata = {new_arm.signature: {"a": "b"}}
         new_trial = self.experiment.new_trial(
-            generator_run=GeneratorRun(arms=[new_arm])
+            generator_run=GeneratorRun(
+                arms=[new_arm], candidate_metadata_by_arm_signature=cand_metadata
+            )
         )
         with self.assertRaises(ValueError):
             self.experiment.new_trial(generator_run=GeneratorRun(arms=get_arms()))
         self.assertEqual(new_trial.arms_by_name["1_0"], new_arm)
         with self.assertRaises(KeyError):
             self.trial.arms_by_name["1_0"]
+        self.assertEqual(
+            new_trial._get_candidate_metadata_from_all_generator_runs(),
+            {"1_0": cand_metadata[new_arm.signature]},
+        )
 
     def test_add_trial_same_arm(self):
         # Check that adding new arm w/out name works correctly.

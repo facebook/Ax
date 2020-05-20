@@ -16,6 +16,7 @@ from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.metric import Metric
 from ax.core.runner import Runner
+from ax.core.types import TCandidateMetadata
 from ax.utils.common.typeutils import not_none
 
 
@@ -408,6 +409,15 @@ class BaseTrial(ABC, Base):
     def abandoned_arms(self) -> List[Arm]:
         """All abandoned arms, associated with this trial."""
         pass  # pragma: no cover
+
+    @abstractmethod
+    def _get_candidate_metadata_from_all_generator_runs(
+        self,
+    ) -> Dict[str, TCandidateMetadata]:
+        """Retrieves combined candidate metadata from all generator runs associated
+        with this trial.
+        """
+        ...
 
     # --- Trial lifecycle management functions ---
 

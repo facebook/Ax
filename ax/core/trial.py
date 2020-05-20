@@ -4,11 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, immutable_once_run
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
+from ax.core.types import TCandidateMetadata
 from ax.utils.common.typeutils import not_none
 
 
@@ -38,7 +41,7 @@ class Trial(BaseTrial):
 
     def __init__(
         self,
-        experiment: "core.experiment.Experiment",
+        experiment: core.experiment.Experiment,
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
         ttl_seconds: Optional[int] = None,
@@ -185,3 +188,17 @@ class Trial(BaseTrial):
             f"status={self._status}, "
             f"arm={self.arm})"
         )
+
+    def _get_candidate_metadata_from_all_generator_runs(
+        self,
+    ) -> Dict[str, TCandidateMetadata]:
+        """Retrieves candidate metadata from the generator run on this
+        batch trial in the form of { arm name -> candidate metadata} mapping.
+        """
+
+        gr = self.generator_run
+        if gr is None or gr.candidate_metadata_by_arm_signature is None:
+            return {}
+
+        cand_metadata = not_none(gr.candidate_metadata_by_arm_signature)
+        return {a.name: cand_metadata.get(a.signature) for a in gr.arms}
