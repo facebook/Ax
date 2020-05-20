@@ -488,17 +488,19 @@ class BatchTrial(BaseTrial):
             gr = gr_struct.generator_run
             if gr.candidate_metadata_by_arm_signature:
                 gr_cand_metadata = gr.candidate_metadata_by_arm_signature
-                if any(a.name in cand_metadata for a in gr.arms):
+                warn = False
+                for arm in gr.arms:
+                    if arm.name in cand_metadata:
+                        warn = True
+                    if gr_cand_metadata:
+                        # Reformat the mapping to be by arm name, since arm signature
+                        # is not stored in Ax data.
+                        cand_metadata[arm.name] = gr_cand_metadata.get(arm.signature)
+                if warn:
                     logger.warning(
                         "The same arm appears in multiple generator runs in batch "
                         f"{self.index}. Candidate metadata will only contain metadata "
                         "for one of those generator runs, and the candidate metadata "
                         "for the arm from another generator run will not be propagated."
-                    )
-                if gr_cand_metadata:
-                    # Reformat the mapping to be by arm name, since arm signature is not
-                    # stored in Ax data.
-                    cand_metadata.update(
-                        {a.name: gr_cand_metadata.get(a.signature) for a in gr.arms}
                     )
         return cand_metadata

@@ -16,7 +16,7 @@ from ax.core.arm import Arm
 from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.types import TParameterization
+from ax.core.types import TCandidateMetadata, TParameterization
 
 
 OBS_COLS = {
@@ -61,12 +61,14 @@ class ObservationFeatures(Base):
         # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
+        metadata: TCandidateMetadata = None,
     ) -> None:
         self.parameters = parameters
         self.trial_index = trial_index
         self.start_time = start_time
         self.end_time = end_time
         self.random_split = random_split
+        self.metadata = metadata
 
     @staticmethod
     def from_arm(
@@ -77,6 +79,7 @@ class ObservationFeatures(Base):
         # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
+        metadata: TCandidateMetadata = None,
     ) -> ObservationFeatures:
         """Convert a Arm to an ObservationFeatures, including additional
         data as specified.
@@ -87,6 +90,7 @@ class ObservationFeatures(Base):
             start_time=start_time,
             end_time=end_time,
             random_split=random_split,
+            metadata=metadata,
         )
 
     def update_features(self, new_features: ObservationFeatures) -> ObservationFeatures:
@@ -202,9 +206,11 @@ def _observations_from_dataframe(
         if arm_name_only:
             features = {"arm_name": g}
             arm_name = g
+            trial_index = None
         else:
             features = dict(zip(cols, g))
             arm_name = features["arm_name"]
+            trial_index = features.get("trial_index", None)
         obs_kwargs = {}
         obs_parameters = experiment.arms_by_name[arm_name].parameters.copy()
         if obs_parameters:
@@ -216,6 +222,12 @@ def _observations_from_dataframe(
         # pyre-fixme[25]: Assertion will always fail.
         if fidelities is not None:
             obs_parameters.update(json.loads(fidelities))
+        if trial_index is not None:
+            trial = experiment.trials[trial_index]
+            metadata = trial._get_candidate_metadata_from_all_generator_runs().get(
+                arm_name
+            )
+            obs_kwargs["metadata"] = metadata
         observations.append(
             Observation(
                 features=ObservationFeatures(**obs_kwargs),
