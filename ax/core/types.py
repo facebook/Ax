@@ -46,6 +46,9 @@ TBucket = List[Dict[str, List[str]]]
 
 TGenMetadata = Dict[str, Any]
 
+# Model's metadata about a given candidate (or X).
+TCandidateMetadata = Optional[Dict[str, Any]]
+
 
 class ComparisonOp(enum.Enum):
     """Class for enumerating comparison operations."""

@@ -659,6 +659,9 @@ def get_generator_run() -> GeneratorRun:
         model_kwargs={"scramble": False, "torch_device": torch.device("cpu")},
         bridge_kwargs={"transforms": Cont_X_trans, "torch_dtype": torch.double},
         generation_step_index=0,
+        candidate_metadata_by_arm_signature={
+            a.signature: {"md_key": f"md_val_{a.signature}"} for a in arms
+        },
     )
 
 

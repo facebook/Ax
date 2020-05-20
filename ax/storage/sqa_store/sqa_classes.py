@@ -186,6 +186,9 @@ class SQAGeneratorRun(Base):
         Integer, ForeignKey("generation_strategy.id")
     )
     generation_step_index: Optional[int] = Column(Integer)
+    candidate_metadata_by_arm_signature: Optional[Dict[str, Any]] = Column(
+        JSONEncodedTextDict
+    )
 
     # relationships
     # Use selectin loading for collections to prevent idle timeout errors

@@ -635,6 +635,9 @@ class Decoder:
                 generator_run_sqa.model_state_after_gen
             ),
             generation_step_index=generator_run_sqa.generation_step_index,
+            candidate_metadata_by_arm_signature=object_from_json(
+                generator_run_sqa.candidate_metadata_by_arm_signature
+            ),
         )
         generator_run._time_created = generator_run_sqa.time_created
         generator_run._generator_run_type = self.get_enum_name(

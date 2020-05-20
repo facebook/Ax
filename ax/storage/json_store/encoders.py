@@ -259,25 +259,28 @@ def optimization_config_to_dict(
 
 def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
     """Convert Ax generator run to a dictionary."""
+    gr = generator_run
+    cand_metadata = gr.candidate_metadata_by_arm_signature
     return {
-        "__type": generator_run.__class__.__name__,
-        "arms": generator_run.arms,
-        "weights": generator_run.weights,
-        "optimization_config": generator_run.optimization_config,
-        "search_space": generator_run.search_space,
-        "time_created": generator_run.time_created,
-        "model_predictions": generator_run.model_predictions,
-        "best_arm_predictions": generator_run.best_arm_predictions,
-        "generator_run_type": generator_run.generator_run_type,
-        "index": generator_run.index,
-        "fit_time": generator_run.fit_time,
-        "gen_time": generator_run.gen_time,
-        "model_key": generator_run._model_key,
-        "model_kwargs": generator_run._model_kwargs,
-        "bridge_kwargs": generator_run._bridge_kwargs,
-        "gen_metadata": generator_run._gen_metadata,
-        "model_state_after_gen": generator_run._model_state_after_gen,
-        "generation_step_index": generator_run._generation_step_index,
+        "__type": gr.__class__.__name__,
+        "arms": gr.arms,
+        "weights": gr.weights,
+        "optimization_config": gr.optimization_config,
+        "search_space": gr.search_space,
+        "time_created": gr.time_created,
+        "model_predictions": gr.model_predictions,
+        "best_arm_predictions": gr.best_arm_predictions,
+        "generator_run_type": gr.generator_run_type,
+        "index": gr.index,
+        "fit_time": gr.fit_time,
+        "gen_time": gr.gen_time,
+        "model_key": gr._model_key,
+        "model_kwargs": gr._model_kwargs,
+        "bridge_kwargs": gr._bridge_kwargs,
+        "gen_metadata": gr._gen_metadata,
+        "model_state_after_gen": gr._model_state_after_gen,
+        "generation_step_index": gr._generation_step_index,
+        "candidate_metadata_by_arm_signature": cand_metadata,
     }
 
 

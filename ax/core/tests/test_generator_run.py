@@ -72,6 +72,16 @@ class GeneratorRunTest(TestCase):
         with self.assertRaises(ValueError):
             GeneratorRun(arms=self.arms, model_key="b", bridge_kwargs={"a": 1})
 
+        # Check that an error will be raised if cand. metadata contains an arm
+        # signature that doesn't match any arms in generator run.
+        with self.assertRaisesRegex(ValueError, ".* in candidate metadata, but not"):
+            GeneratorRun(
+                arms=self.arms,
+                candidate_metadata_by_arm_signature={
+                    "not_a_signature": {"md_key": f"md_val"}
+                },
+            )
+
     def testClone(self):
         weighted_run2 = self.weighted_run.clone()
         self.assertEqual(

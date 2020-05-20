@@ -591,6 +591,9 @@ class Encoder:
             gen_metadata=object_to_json(generator_run._gen_metadata),
             model_state_after_gen=object_to_json(generator_run._model_state_after_gen),
             generation_step_index=generator_run._generation_step_index,
+            candidate_metadata_by_arm_signature=object_to_json(
+                generator_run._candidate_metadata_by_arm_signature
+            ),
         )
 
     def generation_strategy_to_sqa(
