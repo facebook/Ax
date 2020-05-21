@@ -267,6 +267,7 @@ def scipy_optimizer(
         inequality_constraints=inequality_constraints,
         fixed_features=fixed_features,
         sequential=sequential,
+        post_processing_func=rounding_func,
     )
     return X, expected_acquisition_value
 
