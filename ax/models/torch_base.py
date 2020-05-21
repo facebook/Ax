@@ -7,7 +7,7 @@
 from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.base import Model
 from torch import Tensor
 
@@ -34,6 +34,7 @@ class TorchModel(Model):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         """Fit model to m outcomes.
 
@@ -50,6 +51,8 @@ class TorchModel(Model):
             metric_names: Names of each outcome Y in Ys.
             fidelity_features: Columns of X that should be treated as fidelity
                 parameters.
+            candidate_metadata: Model-produced metadata for candidates, in
+                the order corresponding to the Xs.
         """
         pass
 
@@ -80,7 +83,7 @@ class TorchModel(Model):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata]:
+    ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
         """
         Generate new candidates.
 
@@ -108,10 +111,11 @@ class TorchModel(Model):
                 multi-fidelity optimization.
 
         Returns:
-            3-element tuple containing
+            4-element tuple containing
 
             - (n x d) tensor of generated points.
             - n-tensor of weights for each point.
+            - Generation metadata
             - Dictionary of model-specific metadata for the given
                 generation candidates
         """
@@ -185,7 +189,13 @@ class TorchModel(Model):
         """
         raise NotImplementedError
 
-    def update(self, Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]) -> None:
+    def update(
+        self,
+        Xs: List[Tensor],
+        Ys: List[Tensor],
+        Yvars: List[Tensor],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+    ) -> None:
         """Update the model.
 
         Updating the model requires both existing and additional data.
@@ -198,5 +208,7 @@ class TorchModel(Model):
                 in the same format as for `fit`.
             Yvars: Existing + additional data for the model,
                 in the same format as for `fit`.
+            candidate_metadata: Model-produced metadata for candidates, in
+                the order corresponding to the Xs.
         """
         raise NotImplementedError

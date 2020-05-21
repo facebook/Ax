@@ -13,7 +13,7 @@ from ax.core.experiment import Experiment
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.array import FIT_MODEL_ERROR, ArrayModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchModel
@@ -102,6 +102,7 @@ class TorchModelBridge(ArrayModelBridge):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]],
     ) -> None:
         self.model = model
         # Convert numpy arrays to torch tensors
@@ -118,10 +119,15 @@ class TorchModelBridge(ArrayModelBridge):
             feature_names=feature_names,
             metric_names=metric_names,
             fidelity_features=fidelity_features,
+            candidate_metadata=candidate_metadata,
         )
 
     def _model_update(
-        self, Xs: List[np.ndarray], Ys: List[np.ndarray], Yvars: List[np.ndarray]
+        self,
+        Xs: List[np.ndarray],
+        Ys: List[np.ndarray],
+        Yvars: List[np.ndarray],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_update"))
@@ -129,7 +135,9 @@ class TorchModelBridge(ArrayModelBridge):
         Ys: List[Tensor] = self._array_list_to_tensors(Ys)
         Yvars: List[Tensor] = self._array_list_to_tensors(Yvars)
         # pyre-fixme[16]: `Optional` has no attribute `update`.
-        self.model.update(Xs=Xs, Ys=Ys, Yvars=Yvars)
+        self.model.update(
+            Xs=Xs, Ys=Ys, Yvars=Yvars, candidate_metadata=candidate_metadata
+        )
 
     def _model_predict(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         if not self.model:  # pragma: no cover
@@ -192,7 +200,7 @@ class TorchModelBridge(ArrayModelBridge):
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
         target_fidelities: Optional[Dict[int, float]],
-    ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata]:
+    ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata, List[TCandidateMetadata]]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
         obj_w, oc_c, l_c, pend_obs = self._validate_and_convert_to_tensors(
@@ -203,7 +211,7 @@ class TorchModelBridge(ArrayModelBridge):
         )
         tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
         # pyre-fixme[16]: `Optional` has no attribute `gen`.
-        X, w, gen_metadata = self.model.gen(
+        X, w, gen_metadata, candidate_metadata = self.model.gen(
             n=n,
             bounds=bounds,
             objective_weights=obj_w,
@@ -219,6 +227,7 @@ class TorchModelBridge(ArrayModelBridge):
             X.detach().cpu().clone().numpy(),
             w.detach().cpu().clone().numpy(),
             gen_metadata,
+            candidate_metadata,
         )
 
     def _model_best_point(

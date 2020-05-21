@@ -495,12 +495,13 @@ def benchmark_minimize_callable(
             previous_ts = experiment.trials[num_trials - 1].time_created.timestamp()
             gen_time = time.time() - previous_ts
         # Create a GR
+        arms, candidate_metadata_by_arm_signature = gen_arms(
+            observation_features=[obsf], arms_by_signature=experiment.arms_by_signature
+        )
         gr = GeneratorRun(
-            arms=gen_arms(
-                observation_features=[obsf],
-                arms_by_signature=experiment.arms_by_signature,
-            ),
+            arms=arms,
             gen_time=gen_time,
+            candidate_metadata_by_arm_signature=candidate_metadata_by_arm_signature,
         )
         # Add it as a trial
         trial = experiment.new_trial().add_generator_run(gr).run()

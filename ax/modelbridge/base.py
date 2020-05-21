@@ -23,7 +23,14 @@ from ax.core.observation import (
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TGenMetadata, TModelCov, TModelMean, TModelPredict
+from ax.core.types import (
+    TCandidateMetadata,
+    TConfig,
+    TGenMetadata,
+    TModelCov,
+    TModelMean,
+    TModelPredict,
+)
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.utils.common.logger import get_logger
@@ -637,19 +644,20 @@ class ModelBridge(ABC):
         except NotImplementedError:  # pragma: no cover
             model_predictions = None
 
-        best_arm = (
-            None
-            if best_obsf is None
-            else gen_arms(
+        if best_obsf is None:
+            best_arm = None
+        else:
+            best_arms, _ = gen_arms(
                 observation_features=[best_obsf],
                 arms_by_signature=self._arms_by_signature,
-            )[0]
+            )
+            best_arm = best_arms[0]
+        arms, candidate_metadata = gen_arms(
+            observation_features=observation_features,
+            arms_by_signature=self._arms_by_signature,
         )
         gr = GeneratorRun(
-            arms=gen_arms(
-                observation_features=observation_features,
-                arms_by_signature=self._arms_by_signature,
-            ),
+            arms=arms,
             weights=weights,
             optimization_config=optimization_config,
             search_space=search_space,
@@ -664,6 +672,7 @@ class ModelBridge(ABC):
             bridge_kwargs=self._bridge_kwargs,
             gen_metadata=gen_metadata,
             model_state_after_gen=self._get_model_state(),
+            candidate_metadata_by_arm_signature=candidate_metadata,
         )
         self.fit_time_since_gen = 0.0
         return gr
@@ -810,14 +819,19 @@ def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPr
 def gen_arms(
     observation_features: List[ObservationFeatures],
     arms_by_signature: Optional[Dict[str, Arm]] = None,
-) -> List[Arm]:
-    """Converts observation features to arms."""
+) -> Tuple[List[Arm], Optional[Dict[str, TCandidateMetadata]]]:
+    """Converts observation features to a tuple of arms list and candidate metadata
+    dict, where arm signatures are mapped to their respective candidate metadata.
+    """
     # TODO(T34225939): handle static context (which is stored on observation_features)
     arms = []
+    candidate_metadata = {}
     for of in observation_features:
         arm = Arm(parameters=of.parameters)
         if arms_by_signature is not None and arm.signature in arms_by_signature:
             existing_arm = arms_by_signature[arm.signature]
             arm = Arm(name=existing_arm.name, parameters=existing_arm.parameters)
         arms.append(arm)
-    return arms
+        if of.metadata:
+            candidate_metadata[arm.signature] = of.metadata
+    return arms, candidate_metadata or None  # None if empty cand. metadata.

@@ -12,7 +12,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.core.types import TBounds, TConfig, TGenMetadata
+from ax.core.types import TBounds, TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,
@@ -59,7 +59,7 @@ class ArrayModelBridge(ModelBridge):
             all_metric_names.update(od.metric_names)
         self.outcomes = sorted(all_metric_names)  # Deterministic order
         # Convert observations to arrays
-        Xs_array, Ys_array, Yvars_array = _convert_observations(
+        Xs_array, Ys_array, Yvars_array, candidate_metadata = _convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
@@ -81,6 +81,7 @@ class ArrayModelBridge(ModelBridge):
             feature_names=self.parameters,
             metric_names=self.outcomes,
             fidelity_features=list(target_fidelities.keys()),
+            candidate_metadata=candidate_metadata,
         )
 
     def _model_fit(
@@ -94,6 +95,7 @@ class ArrayModelBridge(ModelBridge):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]],
     ) -> None:
         """Fit the model, given numpy types.
         """
@@ -107,6 +109,7 @@ class ArrayModelBridge(ModelBridge):
             feature_names=feature_names,
             metric_names=metric_names,
             fidelity_features=fidelity_features,
+            candidate_metadata=candidate_metadata,
         )
 
     def _update(
@@ -115,20 +118,30 @@ class ArrayModelBridge(ModelBridge):
         observation_data: List[ObservationData],
     ) -> None:
         """Apply terminal transform for update data, and pass along to model."""
-
-        Xs_array, Ys_array, Yvars_array = _convert_observations(
+        Xs_array, Ys_array, Yvars_array, candidate_metadata = _convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
         # Update in-design status for these new points.
-        self._model_update(Xs=Xs_array, Ys=Ys_array, Yvars=Yvars_array)
+        self._model_update(
+            Xs=Xs_array,
+            Ys=Ys_array,
+            Yvars=Yvars_array,
+            candidate_metadata=candidate_metadata,
+        )
 
     def _model_update(
-        self, Xs: List[np.ndarray], Ys: List[np.ndarray], Yvars: List[np.ndarray]
+        self,
+        Xs: List[np.ndarray],
+        Ys: List[np.ndarray],
+        Yvars: List[np.ndarray],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
-        self.model.update(Xs=Xs, Ys=Ys, Yvars=Yvars)
+        self.model.update(
+            Xs=Xs, Ys=Ys, Yvars=Yvars, candidate_metadata=candidate_metadata
+        )
 
     def _predict(
         self, observation_features: List[ObservationFeatures]
@@ -199,7 +212,7 @@ class ArrayModelBridge(ModelBridge):
             pending_observations, self.outcomes, self.parameters
         )
         # Generate the candidates
-        X, w, gen_metadata = self._model_gen(
+        X, w, gen_metadata, candidate_metadata = self._model_gen(
             n=n,
             bounds=bounds,
             objective_weights=objective_weights,
@@ -212,7 +225,9 @@ class ArrayModelBridge(ModelBridge):
             target_fidelities=target_fidelities,
         )
         # Transform array to observations
-        observation_features = parse_observation_features(X, self.parameters)
+        observation_features = parse_observation_features(
+            X=X, param_names=self.parameters, candidate_metadata=candidate_metadata
+        )
         xbest = self._model_best_point(
             bounds=bounds,
             objective_weights=objective_weights,
@@ -243,7 +258,9 @@ class ArrayModelBridge(ModelBridge):
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata]:  # pragma: no cover
+    ) -> Tuple[
+        np.ndarray, np.ndarray, TGenMetadata, List[TCandidateMetadata]
+    ]:  # pragma: no cover
         if target_fidelities:
             raise NotImplementedError(
                 "target_fidelities not supported by ArrayModelBridge"
@@ -295,7 +312,7 @@ class ArrayModelBridge(ModelBridge):
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
         """
-        Xs_train, Ys_train, Yvars_train = _convert_observations(
+        Xs_train, Ys_train, Yvars_train, candidate_metadata = _convert_observations(
             observation_data=obs_data,
             observation_features=obs_feats,
             outcomes=self.outcomes,
@@ -397,10 +414,28 @@ def _convert_observations(
     observation_features: List[ObservationFeatures],
     outcomes: List[str],
     parameters: List[str],
-) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
+) -> Tuple[
+    List[np.ndarray],
+    List[np.ndarray],
+    List[np.ndarray],
+    Optional[List[List[TCandidateMetadata]]],
+]:
+    """Converts observations to model's `fit` or `update` inputs: Xs, Ys, Yvars, and
+    candidate metadata.
+
+    NOTE: All four outputs are organized as lists over outcomes. E.g. if there are two
+    outcomes, 'x' and 'y', the Xs are formatted like so: `[Xs_x_ndarray, Xs_y_ndarray]`.
+    We specifically do not assume that every point is observed for every outcome.
+    This means that the array for each of those outcomes may be different, and in
+    particular could have a different length (e.g. if a particular arm was observed
+    only for half of the outcomes, it would be present in half of the arrays in the
+    list but not the other half.)
+    """
     Xs: List[List[List[float]]] = [[] for _ in outcomes]
     Ys: List[List[float]] = [[] for _ in outcomes]
     Yvars: List[List[float]] = [[] for _ in outcomes]
+    candidate_metadata: List[List[TCandidateMetadata]] = [[] for _ in outcomes]
+    any_candidate_metadata_is_not_none = False
     for i, of in enumerate(observation_features):
         try:
             x: List[float] = [
@@ -413,10 +448,16 @@ def _convert_observations(
             Xs[k].append(x)
             Ys[k].append(observation_data[i].means[j])
             Yvars[k].append(observation_data[i].covariance[j, j])
+            if of.metadata is not None:
+                any_candidate_metadata_is_not_none = True
+            candidate_metadata[k].append(of.metadata)
+
     Xs_array = [np.array(x_) for x_ in Xs]
     Ys_array = [np.array(y_)[:, None] for y_ in Ys]
     Yvars_array = [np.array(var)[:, None] for var in Yvars]
-    return Xs_array, Ys_array, Yvars_array
+    if not any_candidate_metadata_is_not_none:
+        candidate_metadata = None  # pyre-ignore[9]: Change of variable type.
+    return Xs_array, Ys_array, Yvars_array, candidate_metadata
 
 
 def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.ndarray:

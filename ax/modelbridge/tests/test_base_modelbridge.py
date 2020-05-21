@@ -51,7 +51,9 @@ class BaseModelBridgeTest(TestCase):
         return_value=([get_observation1(), get_observation2()]),
     )
     @mock.patch(
-        "ax.modelbridge.base.gen_arms", autospec=True, return_value=[Arm(parameters={})]
+        "ax.modelbridge.base.gen_arms",
+        autospec=True,
+        return_value=([Arm(parameters={})], None),
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
     def testModelBridge(self, mock_fit, mock_gen_arms, mock_observations_from_data):
@@ -364,16 +366,26 @@ class BaseModelBridgeTest(TestCase):
             ObservationFeatures(parameters=p1),
             ObservationFeatures(parameters=p2),
         ]
-        arms = gen_arms(observation_features=observation_features)
+        arms, candidate_metadata = gen_arms(observation_features=observation_features)
         self.assertEqual(arms[0].parameters, p1)
+        self.assertIsNone(candidate_metadata)
 
         arm = Arm(name="1_1", parameters=p1)
         arms_by_signature = {arm.signature: arm}
-        arms = gen_arms(
+        observation_features[0].metadata = {"some_key": "some_val_0"}
+        observation_features[1].metadata = {"some_key": "some_val_1"}
+        arms, candidate_metadata = gen_arms(
             observation_features=observation_features,
             arms_by_signature=arms_by_signature,
         )
         self.assertEqual(arms[0].name, "1_1")
+        self.assertEqual(
+            candidate_metadata,
+            {
+                arms[0].signature: {"some_key": "some_val_0"},
+                arms[1].signature: {"some_key": "some_val_1"},
+            },
+        )
 
     @mock.patch(
         "ax.modelbridge.base.ModelBridge._gen",

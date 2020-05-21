@@ -50,6 +50,7 @@ class TorchModelBridgeTest(TestCase):
             metric_names=[],
             task_features=[],
             fidelity_features=[],
+            candidate_metadata=[],
         )
         model_fit_args = model.fit.mock_calls[0][2]
         self.assertTrue(
@@ -71,7 +72,7 @@ class TorchModelBridgeTest(TestCase):
             )
         )
         # Update
-        ma._model_update(Xs=[X], Ys=[Y], Yvars=[var])
+        ma._model_update(Xs=[X], Ys=[Y], Yvars=[var], candidate_metadata=[])
         model_update_args = model.update.mock_calls[0][2]
         self.assertTrue(
             torch.equal(
@@ -107,8 +108,9 @@ class TorchModelBridgeTest(TestCase):
             torch.tensor([1.0, 2.0, 3.0]),
             torch.tensor([1.0]),
             {},
+            [],
         )
-        X, w, _ = ma._model_gen(
+        X, w, _gen_metadata, _candidate_metadata = ma._model_gen(
             n=3,
             bounds=[(0, 1)],
             objective_weights=np.array([1.0, 0.0]),

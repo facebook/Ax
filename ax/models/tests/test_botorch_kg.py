@@ -80,7 +80,7 @@ class KnowledgeGradientTest(TestCase):
 
         with mock.patch(self.optimize_acqf) as mock_optimize_acqf:
             mock_optimize_acqf.side_effect = [(X_dummy, acq_dummy)]
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -109,7 +109,7 @@ class KnowledgeGradientTest(TestCase):
             "ax.models.torch.botorch_kg.gen_one_shot_kg_initial_conditions",
             return_value=ini_dummy,
         ) as mock_warmstart_initialization:
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -127,7 +127,7 @@ class KnowledgeGradientTest(TestCase):
         with mock.patch(
             "ax.models.torch.botorch_kg.PosteriorMean", return_value=dummy_acq
         ) as mock_posterior_mean:
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -199,7 +199,7 @@ class KnowledgeGradientTest(TestCase):
         acq_dummy = torch.tensor(0.0, dtype=self.dtype, device=self.device)
         dummy = (X_dummy, acq_dummy)
         with mock.patch(self.optimize_acqf, side_effect=[dummy]) as mock_optimize_acqf:
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,

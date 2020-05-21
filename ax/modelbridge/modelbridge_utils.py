@@ -14,7 +14,7 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.core.types import TBounds, TParamValue
+from ax.core.types import TBounds, TCandidateMetadata, TParamValue
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.typeutils import not_none
 
@@ -112,21 +112,32 @@ def pending_observations_as_array(
 
 
 def parse_observation_features(
-    X: np.ndarray, param_names: List[str]
+    X: np.ndarray,
+    param_names: List[str],
+    candidate_metadata: Optional[List[TCandidateMetadata]] = None,
 ) -> List[ObservationFeatures]:
     """Re-format raw model-generated candidates into ObservationFeatures.
 
     Args:
         param_names: List of param names.
         X: Raw np.ndarray of candidate values.
+        candidate_metadata: Model's metadata for candidates it produced.
 
     Returns:
         List of candidates, represented as ObservationFeatures.
     """
+    if candidate_metadata and len(candidate_metadata) != len(X):
+        raise ValueError(
+            "Observations metadata list provided is not of "
+            "the same size as the number of candidates."
+        )
     observation_features = []
-    for x in X:
+    for i, x in enumerate(X):
         observation_features.append(
-            ObservationFeatures(parameters={p: x[i] for i, p in enumerate(param_names)})
+            ObservationFeatures(
+                parameters=dict(zip(param_names, x)),
+                metadata=candidate_metadata[i] if candidate_metadata else None,
+            )
         )
     return observation_features
 

@@ -277,7 +277,7 @@ class ALEBOTest(TestCase):
             autospec=True,
             return_value=(m.Xs[0], torch.tensor([])),
         ):
-            Xopt, _, _ = m.gen(
+            Xopt, _, _, _ = m.gen(
                 n=1,
                 bounds=[(-1, 1)] * 5,
                 objective_weights=torch.tensor([1.0, 0.0], dtype=torch.double),
@@ -292,7 +292,7 @@ class ALEBOTest(TestCase):
             autospec=True,
             return_value=(torch.ones(1, 2, dtype=torch.double), torch.tensor([])),
         ):
-            Xopt, _, _ = m.gen(
+            Xopt, _, _, _ = m.gen(
                 n=1,
                 bounds=[(-1, 1)] * 5,
                 objective_weights=torch.tensor([1.0, 0.0], dtype=torch.double),

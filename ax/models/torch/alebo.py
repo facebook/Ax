@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, List, MutableMapping, Optional, Tuple, U
 import gpytorch
 import numpy as np
 import torch
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_defaults import get_NEI
@@ -558,6 +558,7 @@ class ALEBO(BotorchModel):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         assert len(task_features) == 0
         assert len(fidelity_features) == 0
@@ -602,7 +603,7 @@ class ALEBO(BotorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata]:
+    ) -> Tuple[Tensor, Tensor, TGenMetadata, List[TCandidateMetadata]]:
         """Generate candidates.
 
         Candidates are generated in the linear embedding with the polytope
@@ -638,7 +639,7 @@ class ALEBO(BotorchModel):
                 "B": self.B,
             },
         }
-        Xd_opt, w, _ = super().gen(
+        Xd_opt, w, _gen_metadata, _candidate_metadata = super().gen(
             n=n,
             bounds=[(-1e8, 1e8)] * self.B.shape[0],
             objective_weights=objective_weights,
@@ -653,10 +654,16 @@ class ALEBO(BotorchModel):
         if Xopt.min() < -1 or Xopt.max() > 1:
             logger.debug(f"Clipping from [{Xopt.min()}, {Xopt.max()}]")
             Xopt = torch.clamp(Xopt, min=-1.0, max=1.0)
-        return Xopt, w, {}
+        return Xopt, w, {}, None
 
     @copy_doc(TorchModel.update)
-    def update(self, Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]) -> None:
+    def update(
+        self,
+        Xs: List[Tensor],
+        Ys: List[Tensor],
+        Yvars: List[Tensor],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+    ) -> None:
         if self.model is None:
             raise RuntimeError(
                 "Cannot update model that has not been fit"

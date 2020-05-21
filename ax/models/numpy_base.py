@@ -7,7 +7,7 @@
 from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types import TConfig
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.base import Model
 
 
@@ -28,6 +28,7 @@ class NumpyModel(Model):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         """Fit model to m outcomes.
 
@@ -44,6 +45,8 @@ class NumpyModel(Model):
             metric_names: Names of each outcome Y in Ys.
             fidelity_features: Columns of X that should be treated as fidelity
                 parameters.
+            candidate_metadata: Model-produced metadata for candidates, in
+                the order corresponding to the Xs.
         """
         pass
 
@@ -73,7 +76,9 @@ class NumpyModel(Model):
         pending_observations: Optional[List[np.ndarray]] = None,
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[
+        np.ndarray, np.ndarray, TGenMetadata, Optional[List[TCandidateMetadata]]
+    ]:
         """
         Generate new candidates.
 
@@ -98,10 +103,13 @@ class NumpyModel(Model):
                 appropriately (i.e., according to `round-trip` transformations)
 
         Returns:
-            2-element tuple containing
+            4-element tuple containing
 
-            - (n x d) array of generated points.
-            - n-array of weights for each point.
+            - (n x d) tensor of generated points.
+            - n-tensor of weights for each point.
+            - Generation metadata
+            - Dictionary of model-specific metadata for the given
+                generation candidates
         """
         raise NotImplementedError
 
@@ -170,7 +178,11 @@ class NumpyModel(Model):
         raise NotImplementedError
 
     def update(
-        self, Xs: List[np.ndarray], Ys: List[np.ndarray], Yvars: List[np.ndarray]
+        self,
+        Xs: List[np.ndarray],
+        Ys: List[np.ndarray],
+        Yvars: List[np.ndarray],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         """Update the model.
 
@@ -184,5 +196,7 @@ class NumpyModel(Model):
                 in the same format as for `fit`.
             Yvars: Existing + additional data for the model,
                 in the same format as for `fit`.
+            candidate_metadata: Model-produced metadata for candidates, in
+                the order corresponding to the Xs.
         """
         raise NotImplementedError

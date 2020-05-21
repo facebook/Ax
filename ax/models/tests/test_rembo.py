@@ -102,7 +102,7 @@ class REMBOTest(TestCase):
             autospec=True,
             return_value=(Xgen_d, acqfv_dummy),
         ):
-            Xgen, w, _ = m.gen(
+            Xgen, w, _, __ = m.gen(
                 n=2, bounds=[(-1, 1)] * 4, objective_weights=torch.tensor([1.0, 0.0])
             )
         self.assertEqual(Xgen.shape[1], 4)

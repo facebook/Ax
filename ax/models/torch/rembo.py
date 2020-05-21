@@ -7,7 +7,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
@@ -63,6 +63,7 @@ class REMBO(BotorchModel):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         assert len(task_features) == 0
         assert len(fidelity_features) == 0
@@ -83,6 +84,7 @@ class REMBO(BotorchModel):
             feature_names=[f"x{i}" for i in range(self.A.shape[1])],
             metric_names=metric_names,
             fidelity_features=fidelity_features,
+            candidate_metadata=candidate_metadata,
         )
 
     def to_01(self, X_d: Tensor) -> Tensor:
@@ -181,7 +183,7 @@ class REMBO(BotorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata]:
+    ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
         for b in bounds:
             assert b == (-1, 1)
         # The following can be easily handled in the future when needed
@@ -189,7 +191,7 @@ class REMBO(BotorchModel):
         assert fixed_features is None
         assert pending_observations is None
         # Do gen in the low-dimensional space and project up
-        Xopt_01, w, _ = super().gen(
+        Xopt_01, w, _gen_metadata, _candidate_metadata = super().gen(
             n=n,
             bounds=[(0.0, 1.0)] * len(self.bounds_d),
             objective_weights=objective_weights,
@@ -199,7 +201,7 @@ class REMBO(BotorchModel):
         Xopt = self.from_01(Xopt_01)
         self.X_d.extend([x.clone() for x in Xopt])  # pyre-ignore
         self.X_d_gen.extend([x.clone() for x in Xopt])
-        return self.project_up(Xopt), w, {}
+        return self.project_up(Xopt), w, {}, None
 
     @copy_doc(TorchModel.best_point)
     def best_point(
@@ -245,10 +247,21 @@ class REMBO(BotorchModel):
         )
 
     @copy_doc(TorchModel.update)
-    def update(self, Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]) -> None:
+    def update(
+        self,
+        Xs: List[Tensor],
+        Ys: List[Tensor],
+        Yvars: List[Tensor],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+    ) -> None:
         X_D = _get_single_X(Xs)
         X_d = self.project_down(X_D)
-        super().update(Xs=[self.to_01(X_d)] * self.num_outputs, Ys=Ys, Yvars=Yvars)
+        super().update(
+            Xs=[self.to_01(X_d)] * self.num_outputs,
+            Ys=Ys,
+            Yvars=Yvars,
+            candidate_metadata=candidate_metadata,
+        )
 
 
 def _get_single_X(Xs: List[Tensor]) -> Tensor:

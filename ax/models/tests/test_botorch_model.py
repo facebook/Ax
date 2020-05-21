@@ -170,7 +170,7 @@ class BotorchModelTest(TestCase):
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
         ) as mock_optimize_acqf:
-            Xgen, wgen, gen_metadata = model.gen(
+            Xgen, wgen, gen_metadata, cand_metadata = model.gen(
                 n=n,
                 bounds=bounds,
                 objective_weights=objective_weights,
@@ -190,7 +190,7 @@ class BotorchModelTest(TestCase):
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
         ) as mock_optimize_acqf:
-            Xgen, wgen, gen_metadata = model.gen(
+            Xgen, wgen, gen_metadata, cand_metadata = model.gen(
                 n=n,
                 bounds=bounds,
                 objective_weights=objective_weights,

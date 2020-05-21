@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import torch
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     get_NEI,
@@ -273,6 +273,7 @@ class BotorchModel(TorchModel):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         self.dtype = Xs[0].dtype
         self.device = Xs[0].device
@@ -310,7 +311,7 @@ class BotorchModel(TorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata]:
+    ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
         options = model_gen_options or {}
         acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
@@ -378,6 +379,7 @@ class BotorchModel(TorchModel):
             candidates.detach().cpu(),
             torch.ones(n, dtype=self.dtype),
             {"expected_acquisition_value": expected_acquisition_value.tolist()},
+            None,
         )
 
     @copy_doc(TorchModel.best_point)
@@ -430,7 +432,13 @@ class BotorchModel(TorchModel):
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
     @copy_doc(TorchModel.update)
-    def update(self, Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]) -> None:
+    def update(
+        self,
+        Xs: List[Tensor],
+        Ys: List[Tensor],
+        Yvars: List[Tensor],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+    ) -> None:
         if self.model is None:
             raise RuntimeError("Cannot update model that has not been fitted")
         self.Xs = Xs

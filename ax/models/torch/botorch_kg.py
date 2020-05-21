@@ -7,7 +7,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
 from ax.models.torch.utils import (
@@ -82,7 +82,7 @@ class KnowledgeGradient(BotorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata]:
+    ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
         """
         Generate new candidates.
 
@@ -242,7 +242,7 @@ class KnowledgeGradient(BotorchModel):
             batch_initial_conditions=batch_initial_conditions,
         )
         new_x = candidates.detach().cpu()
-        return new_x, torch.ones(n, dtype=self.dtype), {}
+        return new_x, torch.ones(n, dtype=self.dtype), {}, None
 
     def _get_best_point_acqf(
         self,

@@ -7,6 +7,7 @@
 from typing import List, Optional, Tuple
 
 import numpy as np
+from ax.core.types import TCandidateMetadata
 from ax.models.numpy_base import NumpyModel
 from ax.utils.common.docutils import copy_doc
 from sklearn.ensemble import RandomForestRegressor
@@ -46,6 +47,7 @@ class RandomForest(NumpyModel):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         for i, X in enumerate(Xs):
             self.models.append(
