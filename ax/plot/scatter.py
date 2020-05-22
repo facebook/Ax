@@ -164,10 +164,7 @@ def _error_scatter_trace(
             "{name}: {estimate}{perc} {ci}<br>".format(
                 name=x_axis_var.metric if x_axis_label is None else x_axis_label,
                 estimate=(
-                    round(x[i], DECIMALS)
-                    # pyre-fixme[25]: Assertion will always fail.
-                    if isinstance(x[i], numbers.Number)
-                    else x[i]
+                    round(x[i], DECIMALS) if isinstance(x[i], numbers.Number) else x[i]
                 ),
                 ci="" if x_se is None else _format_CI(x[i], x_se[i], rel_x),
                 perc="%" if rel_x else "",
@@ -178,10 +175,7 @@ def _error_scatter_trace(
         y_lab = "{name}: {estimate}{perc} {ci}<br>".format(
             name=y_axis_var.metric if y_axis_label is None else y_axis_label,
             estimate=(
-                round(y[i], DECIMALS)
-                # pyre-fixme[25]: Assertion will always fail.
-                if isinstance(y[i], numbers.Number)
-                else y[i]
+                round(y[i], DECIMALS) if isinstance(y[i], numbers.Number) else y[i]
             ),
             ci="" if y_se is None else _format_CI(y[i], y_se[i], rel_y),
             perc="%" if rel_y else "",
@@ -283,7 +277,6 @@ def _multiple_metric_traces(
     status_quo_arm = (
         None
         if plot_data.status_quo_name is None
-        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         else plot_data.in_sample.get(plot_data.status_quo_name)
     )
 
@@ -698,7 +691,6 @@ def lattice_multiple_metrics(
     status_quo_arm = (
         None
         if plot_data.status_quo_name is None
-        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         else plot_data.in_sample.get(plot_data.status_quo_name)
     )
 
@@ -981,7 +973,6 @@ def _single_metric_traces(
     status_quo_arm = (
         None
         if plot_data.status_quo_name is None
-        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         else plot_data.in_sample.get(plot_data.status_quo_name)
     )
 

@@ -300,9 +300,6 @@ def best_observed_point(
     # Get points observed for all objective and constraint outcomes
     if objective_weights is None:
         return None  # pragma: no cover
-    # pyre-fixme[6]: Expected `Union[np.ndarray, torch.Tensor,
-    #  typing.Tuple[Union[np.ndarray, torch.Tensor], ...]]` for 1st param but got
-    #  `Union[None, np.ndarray, torch.Tensor]`.
     objective_weights_np = as_array(objective_weights)
     X_obs = get_observed(
         # pyre-fixme[16]: attribute must exist, otherwise error raised above

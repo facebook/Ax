@@ -316,6 +316,7 @@ def generation_strategy_from_json(
         # If model in the current step was not directly from the `Models` enum,
         # pass its type to `restore_model_from_generator_run`, which will then
         # attempt to use this type to recreate the model.
+        # pyre-fixme[16]: Anonymous callable has no attribute `__ne__`.
         if type(gs._curr.model) != Models:
             models_enum = type(gs._curr.model)
             assert issubclass(models_enum, Models)

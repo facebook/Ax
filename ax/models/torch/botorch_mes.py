@@ -156,6 +156,9 @@ class MaxValueEntropySearch(BotorchModel):
             sequential=True,
         )
         new_x = candidates.detach().cpu()
+        # pyre-fixme[7]: Expected `Tuple[Tensor, Tensor, Dict[str, typing.Any],
+        #  List[Optional[Dict[str, typing.Any]]]]` but got `Tuple[Tensor, typing.Any,
+        #  Dict[str, typing.Any], None]`.
         return new_x, torch.ones(n, dtype=self.dtype), {}, None
 
     def _get_best_point_acqf(

@@ -58,7 +58,6 @@ class ObservationFeatures(Base):
         trial_index: Optional[np.int64] = None,
         # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         start_time: Optional[pd.Timestamp] = None,
-        # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
         metadata: TCandidateMetadata = None,
@@ -74,9 +73,7 @@ class ObservationFeatures(Base):
     def from_arm(
         arm: Arm,
         trial_index: Optional[np.int64] = None,
-        # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         start_time: Optional[pd.Timestamp] = None,
-        # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
         metadata: TCandidateMetadata = None,
@@ -219,7 +216,6 @@ def _observations_from_dataframe(
             if f in OBS_KWARGS:
                 obs_kwargs[f] = val
         fidelities = features.get("fidelities")
-        # pyre-fixme[25]: Assertion will always fail.
         if fidelities is not None:
             obs_parameters.update(json.loads(fidelities))
         if trial_index is not None:

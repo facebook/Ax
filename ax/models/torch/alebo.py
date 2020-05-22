@@ -654,6 +654,9 @@ class ALEBO(BotorchModel):
         if Xopt.min() < -1 or Xopt.max() > 1:
             logger.debug(f"Clipping from [{Xopt.min()}, {Xopt.max()}]")
             Xopt = torch.clamp(Xopt, min=-1.0, max=1.0)
+        # pyre-fixme[7]: Expected `Tuple[Tensor, Tensor, Dict[str, typing.Any],
+        #  List[Optional[Dict[str, typing.Any]]]]` but got `Tuple[typing.Any, Tensor,
+        #  Dict[str, typing.Any], None]`.
         return Xopt, w, {}, None
 
     @copy_doc(TorchModel.update)

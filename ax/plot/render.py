@@ -81,7 +81,6 @@ def _get_plot_js(
     plotdivid: str,
 ) -> str:
     """Convert plot config to corresponding JS code."""
-    # pyre-fixme[25]: Assertion will always fail.
     if not isinstance(config, AxPlotConfig):
         raise ValueError("Config must be instance of AxPlotConfig.")
     js_template = pkgutil.get_data(

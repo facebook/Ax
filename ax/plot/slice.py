@@ -97,6 +97,12 @@ def _get_slice_predictions(
     f, cov = model.predict(prediction_features)
     f_plt = f[metric_name]
     sd_plt = np.sqrt(cov[metric_name][metric_name])
+    # pyre-fixme[7]: Expected `Tuple[PlotData, List[Dict[str, Union[float, str]]],
+    #  List[float], np.ndarray, np.ndarray, str, str, bool, Dict[str, Union[None, bool,
+    #  float, int, str]], np.ndarray, bool]` but got `Tuple[PlotData, Dict[str,
+    #  Dict[str, Union[None, bool, float, int, str]]], List[float], List[Dict[str,
+    #  Union[float, str]]], np.ndarray, str, str, bool, Dict[str, Union[None, bool,
+    #  float, int, str]], typing.Any, bool]`.
     return (
         plot_data,
         cond_name_to_parameters,

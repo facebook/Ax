@@ -16,7 +16,6 @@ def save_experiment(experiment: Experiment, filepath: str) -> None:
     1) Convert Ax experiment to JSON-serializable dictionary.
     2) Write to file.
     """
-    # pyre-fixme[25]: Assertion will always fail.
     if not isinstance(experiment, Experiment):
         raise ValueError("Can only save instances of Experiment")
 

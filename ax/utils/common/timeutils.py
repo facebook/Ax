@@ -28,7 +28,7 @@ def _ts_to_pandas(ts: int) -> pd.Timestamp:  # pyre-ignore[11]
     return pd.Timestamp(datetime.fromtimestamp(ts))
 
 
-def _pandas_ts_to_int(ts: pd.Timestamp) -> int:  # pyre-ignore[11]
+def _pandas_ts_to_int(ts: pd.Timestamp) -> int:
     """Convert int timestamp into pandas timestamp."""
     return ts.to_pydatetime().timestamp()
 

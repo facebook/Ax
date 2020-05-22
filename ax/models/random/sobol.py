@@ -138,6 +138,7 @@ class SobolGenerator(RandomModel):
         if len(tunable_feature_indices) == 0:
             # Search space is entirely fixed, should return the only avail. point.
             fixed_features = fixed_features or {}
+            # pyre-fixme[7]: Expected `ndarray` but got `Tuple[typing.Any, typing.Any]`.
             return (
                 np.tile(np.array([list(not_none(fixed_features).values())]), (n, 1)),
                 np.ones(n),

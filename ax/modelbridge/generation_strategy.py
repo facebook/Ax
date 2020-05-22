@@ -300,6 +300,7 @@ class GenerationStrategy(Base):
                 },
             }
             for step_idx, trials in self.trial_indices_by_step.items()
+            # pyre-fixme[10]: Name `trials` is used but not defined.
             for trial_idx in trials
         ]
         return pd.DataFrame.from_records(records).reindex(
@@ -392,7 +393,6 @@ class GenerationStrategy(Base):
                 f"{step.num_trials}" if step.num_trials != -1 else remaining_trials
             )
             if isinstance(step.model, Models):
-                # pyre-ignore[16]: `Union` has no attribute `value`.
                 repr += f"{step.model.value} for {num_trials} trials, "
         repr = repr[:-2]
         repr += "])"

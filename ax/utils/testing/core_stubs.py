@@ -406,7 +406,6 @@ def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
     # pyre-fixme[6]: Expected `List[int]` for 1st param but got `List[float]`.
     weights = prev_weights + next_weights
     batch = experiment.new_batch_trial()
-    # pyre-fixme[6]: Expected `Optional[List[float]]` for 2nd param but got `List[int]`.
     batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=1)
     batch.runner = SyntheticRunner()
     batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)

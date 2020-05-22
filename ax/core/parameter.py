@@ -51,9 +51,6 @@ class Parameter(Base, metaclass=ABCMeta):
     def cast(self, value: TParamValue) -> TParamValue:
         if value is None:
             return None
-        # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
-        #  typing.SupportsFloat]` for 1st param but got `Union[None, bool, float, int,
-        #  str]`.
         return self.python_type(value)
 
     @abstractmethod
@@ -271,8 +268,6 @@ class RangeParameter(Parameter):
 
         if not self.is_valid_type(value):
             return False
-        # pyre-fixme[16]: `None` has no attribute `__ge__`.
-        # pyre-fixme[16]: `None` has no attribute `__le__`.
         return value >= self._lower and value <= self._upper
 
     def is_valid_type(self, value: TParamValue) -> bool:
@@ -305,9 +300,6 @@ class RangeParameter(Parameter):
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
             # pyre-fixme[6]: Expected `None` for 2nd param but got `Optional[int]`.
             return round(float(value), self._digits)
-        # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
-        #  typing.SupportsFloat]` for 1st param but got `Union[None, bool, float, int,
-        #  str]`.
         return self.python_type(value)
 
     def __repr__(self) -> str:

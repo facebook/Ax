@@ -208,6 +208,8 @@ def get_NEI(
         prune_baseline=kwargs.get("prune_baseline", True),
         mc_samples=kwargs.get("mc_samples", 512),
         qmc=kwargs.get("qmc", True),
+        # pyre-fixme[6]: Expected `Optional[int]` for 9th param but got
+        #  `Union[float, int]`.
         seed=torch.randint(1, 10000, (1,)).item(),
     )
 

@@ -336,7 +336,6 @@ class AxClient:
                 optional.
         """
         # Validate that trial can be completed.
-        # pyre-fixme[25]: Assertion will always fail.
         if not isinstance(trial_index, int):  # pragma: no cover
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         trial = self._get_trial(trial_index=trial_index)

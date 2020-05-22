@@ -98,6 +98,9 @@ def _get_contour_predictions(
 
     f_plt = mu[metric]
     sd_plt = np.sqrt(cov[metric][metric])
+    # pyre-fixme[7]: Expected `Tuple[PlotData, np.ndarray, np.ndarray, np.ndarray,
+    #  np.ndarray, Dict[str, bool]]` but got `Tuple[PlotData, typing.List[float],
+    #  typing.Any, np.ndarray, np.ndarray, Dict[str, bool]]`.
     return plot_data, f_plt, sd_plt, grid_x, grid_y, scales
 
 

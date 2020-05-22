@@ -86,6 +86,8 @@ def benchmark_trial(
         )
     if use_Service_API:
         sem = 0.0 if isinstance(evaluation_function, SyntheticFunction) else None
+        # pyre-fixme[7]: Expected `Union[Tuple[float, float], Data]` but got
+        #  `Tuple[typing.Any, Optional[float]]`.
         return evaluation_function(parameterization), sem  # pyre-ignore[29]: call err.
     else:
         trial_index = not_none(trial_index)

@@ -77,6 +77,7 @@ class SQABase:
             return False
         for x in l1:
             for y in l2:
+                # pyre-fixme[16]: `Dict` has no attribute `__ne__`.
                 if type(x) != type(y):
                     equal = False
                 if isinstance(x, SQABase):
