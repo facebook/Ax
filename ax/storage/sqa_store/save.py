@@ -189,18 +189,15 @@ def _update_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) ->
     if existing_sqa_experiment is None:
         raise ValueError("Must save experiment before updating a trial.")
 
-    existing_trial_indices = {trial.index for trial in existing_sqa_experiment.trials}
-    if trial.index not in existing_trial_indices:
-        raise ValueError(f"Trial {trial.index} is not attached to the experiment.")
+    existing_sqa_trial = None
+    for sqa_trial in existing_sqa_experiment.trials:
+        if sqa_trial.index == trial.index:
+            # There should only be one existing trial with the same index
+            assert existing_sqa_trial is None
+            existing_sqa_trial = sqa_trial
 
-    # There should only be one existing trial with the same index
-    existing_sqa_trials = [
-        sqa_trial
-        for sqa_trial in existing_sqa_experiment.trials
-        if sqa_trial.index == trial.index
-    ]
-    assert len(existing_sqa_trials) == 1
-    existing_sqa_trial = existing_sqa_trials[0]
+    if existing_sqa_trial is None:
+        raise ValueError(f"Trial {trial.index} is not attached to the experiment.")
 
     new_sqa_trial = encoder.trial_to_sqa(trial)
     existing_sqa_trial.update(new_sqa_trial)

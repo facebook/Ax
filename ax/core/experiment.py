@@ -567,16 +567,17 @@ class Experiment(Base):
         Returns:
             The requested data object, and its storage timestamp in milliseconds.
         """
-        if trial_index not in self._data_by_trial:
+        try:
+            trial_data_dict = self._data_by_trial[trial_index]
+        except KeyError:
             return (Data(), -1)
 
-        trial_data_list = list(self._data_by_trial[trial_index].values())
-        storage_time_list = list(self._data_by_trial[trial_index].keys())
-        return (
-            (trial_data_list[-1], storage_time_list[-1])
-            if len(trial_data_list) > 0
-            else (Data(), -1)
-        )
+        if len(trial_data_dict) == 0:
+            return (Data(), -1)
+
+        storage_time = max(trial_data_dict.keys())
+        trial_data = trial_data_dict[storage_time]
+        return trial_data, storage_time
 
     @property
     def num_trials(self) -> int:
