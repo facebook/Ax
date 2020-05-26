@@ -33,6 +33,7 @@ from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandar
 from ax.modelbridge.transforms.task_encode import TaskEncode
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.modelbridge.transforms.unit_x import UnitX
+from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
@@ -118,7 +119,7 @@ class ModelSetup(NamedTuple):
     """
 
     bridge_class: Type[ModelBridge]
-    model_class: Any
+    model_class: Type[Model]
     transforms: List[Type[Transform]]
     standard_bridge_kwargs: Optional[Dict[str, Any]] = None
 
@@ -207,7 +208,17 @@ class Models(Enum):
     EMPIRICAL_BAYES_THOMPSON = "EB"
     UNIFORM = "Uniform"
 
-    # TODO[Lena]: test that none of the preset model+bridge combos share a kwarg
+    @property
+    def model_class(self) -> Type[Model]:
+        """Type of `Model` used for the given model+bridge setup."""
+        return MODEL_KEY_TO_MODEL_SETUP[self.value].model_class
+
+    @property
+    def model_bridge_class(self) -> Type[ModelBridge]:
+        """Type of `ModelBridge` used for the given model+bridge setup."""
+        return MODEL_KEY_TO_MODEL_SETUP[self.value].bridge_class
+
+    # TODO[T67370152]: Test that none of the `ModelSetup`-s share a kwarg.
     def __call__(
         self,
         search_space: Optional[SearchSpace] = None,
@@ -289,8 +300,8 @@ class Models(Enum):
         Returns:
             A tuple of annotated keyword arguments for the model and the model bridge.
         """
-        model_class = MODEL_KEY_TO_MODEL_SETUP[self.value].model_class
-        bridge_class = MODEL_KEY_TO_MODEL_SETUP[self.value].bridge_class
+        model_class = self.model_class
+        bridge_class = self.model_bridge_class
         return (
             {kw: p.annotation for kw, p in signature(model_class).parameters.items()},
             {kw: p.annotation for kw, p in signature(bridge_class).parameters.items()},
@@ -359,7 +370,8 @@ def get_model_from_generator_run(
     model = (models_enum or Models)(generator_run._model_key)
     model_kwargs = generator_run._model_kwargs or {}
     if after_gen and generator_run._model_state_after_gen is not None:
-        model_kwargs.update(not_none(generator_run._model_state_after_gen))
+        serialized_model_state = not_none(generator_run._model_state_after_gen)
+        model_kwargs.update(model.model_class.deserialize_state(serialized_model_state))
     bridge_kwargs = generator_run._bridge_kwargs or {}
     model_kwargs = _decode_callables_from_references(model_kwargs)
     bridge_kwargs = _decode_callables_from_references(bridge_kwargs)

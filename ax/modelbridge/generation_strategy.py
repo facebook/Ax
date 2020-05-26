@@ -401,13 +401,8 @@ class GenerationStrategy(Base):
     # ------------------------- Model selection logic helpers. -------------------------
 
     def _set_or_update_model(self, data: Optional[Data]) -> None:
-        model_state = {}
-        lgr = self.last_generator_run
-        if lgr is not None and lgr._model_state_after_gen is not None:
-            model_state = not_none(lgr._model_state_after_gen)
-
         if self._curr.num_trials == -1:  # Unlimited trials, just use curr. model.
-            self._set_or_update_current_model(data=data, model_state=model_state)
+            self._set_or_update_current_model(data=data)
             return
 
         # Not unlimited trials => determine whether to transition to next model.
@@ -448,27 +443,38 @@ class GenerationStrategy(Base):
             # This is the first time this step's model is initialized, so we don't
             # try to `update` it but rather initialize with all the data even if
             # `use_update` is true for the now-current generation step.
-            self._set_current_model(data=data, model_state=model_state)
+            self._set_current_model(data=data)
         else:
             # Continue generating from the current model.
-            self._set_or_update_current_model(data=data, model_state=model_state)
+            self._set_or_update_current_model(data=data)
 
-    def _set_or_update_current_model(
-        self, data: Optional[Data], model_state: Dict[str, Any]
-    ) -> None:
+    def _set_or_update_current_model(self, data: Optional[Data]) -> None:
         if self._model is not None and self._curr.use_update:
             self._update_current_model(data=data)
         else:
-            self._set_current_model(data=data, model_state=model_state)
+            self._set_current_model(data=data)
 
-    def _set_current_model(
-        self, data: Optional[Data], model_state: Dict[str, Any]
-    ) -> None:
+    def _set_current_model(self, data: Optional[Data]) -> None:
         """Instantiate the current model with all available data.
         """
         model_kwargs = self._curr.model_kwargs or {}
-        model_kwargs.update(model_state)
-        # TODO[T65857344]: move from fetching all data to using cached data
+
+        # If last generator run's index matches the current step, extract
+        # model state from last generator run and pass it to the model
+        # being instantiated in this function.
+        lgr = self.last_generator_run
+        if (
+            lgr is not None
+            and lgr._generation_step_index == self._curr.index
+            and lgr._model_state_after_gen
+        ):
+            serialized_model_state = not_none(lgr._model_state_after_gen)
+            model_state = not_none(self.model)._deserialize_model_state(
+                serialized_model_state
+            )
+            model_kwargs.update(model_state)
+
+        # TODO[T65857344]: Move from fetching all data to using cached data.
         data = data or self.experiment.fetch_data()
         if isinstance(self._curr.model, Models):
             self._set_current_model_from_models_enum(data=data, **model_kwargs)

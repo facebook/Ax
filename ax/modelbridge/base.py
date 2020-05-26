@@ -671,7 +671,7 @@ class ModelBridge(ABC):
             model_kwargs=self._model_kwargs,
             bridge_kwargs=self._bridge_kwargs,
             gen_metadata=gen_metadata,
-            model_state_after_gen=self._get_model_state(),
+            model_state_after_gen=self._get_serialized_model_state(),
             candidate_metadata_by_arm_signature=candidate_metadata,
         )
         self.fit_time_since_gen = 0.0
@@ -758,9 +758,18 @@ class ModelBridge(ABC):
         self._model_kwargs = model_kwargs
         self._bridge_kwargs = bridge_kwargs
 
-    def _get_model_state(self) -> Dict[str, Any]:
-        """Obtains the state of the underlying model if using a stateful one."""
-        return not_none(self.model)._get_state()
+    def _get_serialized_model_state(self) -> Dict[str, Any]:
+        """Obtains the state of the underlying model (if using a stateful one)
+        in a readily JSON-serializable form.
+        """
+        model = not_none(self.model)
+        return model.serialize_state(raw_state=model._get_state())
+
+    def _deserialize_model_state(
+        self, serialized_state: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        model = not_none(self.model)
+        return model.deserialize_state(serialized_state=serialized_state)
 
     def feature_importances(self, metric_name: str) -> Dict[str, float]:
         raise NotImplementedError(

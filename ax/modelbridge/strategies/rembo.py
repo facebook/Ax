@@ -158,6 +158,8 @@ class REMBOStrategy(GenerationStrategy):
             experiment=experiment, data=data, arm_sigs=self.arms_by_proj[i]
         )
         lgr = self.last_generator_run
+        # NOTE: May need to `model_class.deserialize_model_state` in the
+        # future if using non-readily serializable state.
         model_state = (
             not_none(lgr._model_state_after_gen)
             if lgr is not None and lgr._model_state_after_gen is not None
