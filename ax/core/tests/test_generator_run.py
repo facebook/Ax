@@ -78,7 +78,7 @@ class GeneratorRunTest(TestCase):
             GeneratorRun(
                 arms=self.arms,
                 candidate_metadata_by_arm_signature={
-                    "not_a_signature": {"md_key": f"md_val"}
+                    "not_a_signature": {"md_key": "md_val"}
                 },
             )
 
