@@ -10,7 +10,7 @@ from typing import Any, List, Optional, Tuple, Type
 
 
 def retry_on_exception(
-    exception_types: Optional[Tuple[Type[Exception]]] = None,
+    exception_types: Optional[Tuple[Type[Exception], ...]] = None,
     no_retry_on_exception_types: Optional[Tuple[Type[Exception], ...]] = None,
     check_message_contains: Optional[List[str]] = None,
     retries: int = 3,

@@ -28,7 +28,7 @@ from ax.utils.common.logger import _round_floats_for_logging, get_logger
 logger = get_logger(__name__)
 
 
-"""Utilities for storing experiment to the database for AxClient."""
+"""Utilities for storing experiment to the database via `DBSettings`."""
 
 
 def load_experiment(name: str, db_settings: DBSettings) -> Experiment:
@@ -113,6 +113,9 @@ def save_new_trial(
     """
     Save experiment to db.
 
+    NOTE: This function also saves data attached to experiment
+    for this trial.
+
     Args:
         experiment: `Experiment` object.
         trial: `BaseTrial` object.
@@ -132,6 +135,9 @@ def save_updated_trial(
 ) -> None:
     """
     Save experiment to db.
+
+    NOTE: This function also saves data attached to experiment
+    for this trial.
 
     Args:
         experiment: `Experiment` object.

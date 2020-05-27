@@ -39,13 +39,13 @@ from ax.service.utils.instantiation import (
     make_experiment,
     raw_data_to_evaluation,
 )
+from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
 )
 from ax.storage.json_store.encoder import object_to_json
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
@@ -59,26 +59,7 @@ from botorch.utils.sampling import manual_seed
 logger = get_logger(__name__)
 
 
-try:  # We don't require SQLAlchemy by default.
-    from sqlalchemy.exc import OperationalError
-    from ax.storage.sqa_store.structs import DBSettings
-    from ax.service.utils.storage import (
-        load_experiment_and_generation_strategy,
-        save_experiment,
-        save_generation_strategy,
-        save_new_trial,
-        save_updated_trial,
-    )
-
-    retry_exception_type_tuple = (OperationalError,)
-except ModuleNotFoundError:  # pragma: no cover
-    DBSettings = None
-    # Return a list of suppressable exceptions not including unimportable ones.
-    # pyre-fixme[9]: declared as `Tuple[...[OperationalError]]` but used as `Tuple[]`.
-    retry_exception_type_tuple = ()
-
-
-class AxClient:
+class AxClient(WithDBSettingsBase):
     """
     Convenience handler for management of experimentation cycle through a
     service-like API. External system manages scheduling of the cycle and makes
@@ -137,12 +118,13 @@ class AxClient:
     def __init__(
         self,
         generation_strategy: Optional[GenerationStrategy] = None,
-        db_settings: Any = None,
+        db_settings: Optional[DBSettings] = None,
         enforce_sequential_optimization: bool = True,
         random_seed: Optional[int] = None,
         verbose_logging: bool = True,
         suppress_storage_errors: bool = False,
     ) -> None:
+        super().__init__(db_settings=db_settings)
         if not verbose_logging:
             logger.setLevel(logging.WARNING)  # pragma: no cover
         else:
@@ -152,13 +134,6 @@ class AxClient:
                 "values in the logs are rounded to 2 decimal points."
             )
         self._generation_strategy = generation_strategy
-        if db_settings and (not DBSettings or not isinstance(db_settings, DBSettings)):
-            raise ValueError(
-                "`db_settings` argument should be of type ax.storage.sqa_store."
-                "structs.DBSettings. To use `DBSettings`, you will need SQLAlchemy "
-                "installed in your environment (can be installed through pip)."
-            )
-        self.db_settings = db_settings
         self._experiment: Optional[Experiment] = None
         self._enforce_sequential_optimization = enforce_sequential_optimization
         self._random_seed = random_seed
@@ -222,19 +197,15 @@ class AxClient:
                 `choose_generation_strategy` function which determines what
                 generation strategy should be used when none was specified on init.
         """
-        if self.db_settings and not name:
+        if self.db_settings_set and not name:
             raise ValueError(  # pragma: no cover
                 "Must give the experiment a name if `db_settings` is not None."
             )
-        if self.db_settings:
-            existing = None
-            try:
-                existing, _ = load_experiment_and_generation_strategy(
-                    experiment_name=not_none(name), db_settings=self.db_settings
-                )
-            except ValueError:  # Experiment does not exist, nothing to do.
-                pass
-            if existing:
+        if self.db_settings_set:
+            experiment, _ = self._load_experiment_and_generation_strategy(
+                experiment_name=not_none(name)
+            )
+            if experiment:
                 raise ValueError(
                     f"Experiment {name} already exists in the database. "
                     "To protect experiments that are running in production, "
@@ -272,7 +243,8 @@ class AxClient:
 
         try:
             self._save_experiment_to_db_if_possible(
-                suppress_all_errors=self._suppress_storage_errors
+                experiment=self.experiment,
+                suppress_all_errors=self._suppress_storage_errors,
             )
         except Exception:
             # Unset the experiment on this `AxClient` instance if encountered and
@@ -287,7 +259,8 @@ class AxClient:
             choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
         )
         self._save_generation_strategy_to_db_if_possible(
-            suppress_all_errors=self._suppress_storage_errors
+            generation_strategy=self.generation_strategy,
+            suppress_all_errors=self._suppress_storage_errors,
         )
 
     def get_next_trial(self) -> Tuple[TParameterization, int]:
@@ -306,10 +279,13 @@ class AxClient:
         )
         trial.mark_running(no_runner_required=True)
         self._save_new_trial_to_db_if_possible(
-            trial=trial, suppress_all_errors=self._suppress_storage_errors
+            experiment=self.experiment,
+            trial=trial,
+            suppress_all_errors=self._suppress_storage_errors,
         )
         self._save_generation_strategy_to_db_if_possible(
-            suppress_all_errors=self._suppress_storage_errors
+            generation_strategy=self.generation_strategy,
+            suppress_all_errors=self._suppress_storage_errors,
         )
         return not_none(trial.arm).parameters, trial.index
 
@@ -357,7 +333,9 @@ class AxClient:
             f"{_round_floats_for_logging(item=data_for_logging)}."
         )
         self._save_updated_trial_to_db_if_possible(
-            trial=trial, suppress_all_errors=self._suppress_storage_errors
+            experiment=self.experiment,
+            trial=trial,
+            suppress_all_errors=self._suppress_storage_errors,
         )
 
     def update_trial_data(
@@ -414,7 +392,8 @@ class AxClient:
             f"to trial {trial.index}."
         )
         self._save_experiment_to_db_if_possible(
-            suppress_all_errors=self._suppress_storage_errors
+            experiment=self.experiment,
+            suppress_all_errors=self._suppress_storage_errors,
         )
 
     def log_trial_failure(
@@ -432,7 +411,8 @@ class AxClient:
         if metadata is not None:
             trial._run_metadata = metadata
         self._save_experiment_to_db_if_possible(
-            suppress_all_errors=self._suppress_storage_errors
+            experiment=self.experiment,
+            suppress_all_errors=self._suppress_storage_errors,
         )
 
     def attach_trial(
@@ -454,7 +434,9 @@ class AxClient:
             f"{_round_floats_for_logging(item=parameters)} as trial {trial.index}."
         )
         self._save_new_trial_to_db_if_possible(
-            trial=trial, suppress_all_errors=self._suppress_storage_errors
+            experiment=self.experiment,
+            trial=trial,
+            suppress_all_errors=self._suppress_storage_errors,
         )
         return not_none(trial.arm).parameters, trial.index
 
@@ -669,14 +651,11 @@ class AxClient:
         Returns:
             Experiment object.
         """
-        if not self.db_settings:
-            raise ValueError(  # pragma: no cover
-                "Cannot load an experiment in the absence of the DB settings."
-                "Please initialize `AxClient` with DBSettings."
-            )
-        experiment, generation_strategy = load_experiment_and_generation_strategy(
-            experiment_name=experiment_name, db_settings=self.db_settings
+        experiment, generation_strategy = self._load_experiment_and_generation_strategy(
+            experiment_name=experiment_name
         )
+        if experiment is None:
+            raise ValueError(f"Experiment by name '{experiment_name}' not found.")
         self._experiment = experiment
         logger.info(f"Loaded {experiment}.")
         if generation_strategy is None:  # pragma: no cover
@@ -842,94 +821,11 @@ class AxClient:
         )
         if self._generation_strategy is None:
             self._generation_strategy = choose_generation_strategy(
-                search_space=not_none(self._experiment).search_space,
+                search_space=self.experiment.search_space,
                 enforce_sequential_optimization=enforce_sequential_optimization,
                 random_seed=random_seed,
                 **choose_generation_strategy_kwargs,
             )
-
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=retry_exception_type_tuple,
-    )
-    def _save_experiment_to_db_if_possible(
-        self, suppress_all_errors: bool = False
-    ) -> bool:
-        """Saves attached experiment and generation strategy if DB settings are
-        set on this AxClient instance.
-
-        Returns:
-            bool: Whether the experiment was saved.
-        """
-        if self.db_settings is not None:
-            save_experiment(experiment=self.experiment, db_settings=self.db_settings)
-            return True
-        return False
-
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=retry_exception_type_tuple,
-    )
-    def _save_new_trial_to_db_if_possible(
-        self, trial: BaseTrial, suppress_all_errors: bool = False
-    ) -> bool:
-        """Saves given trial and generation strategy if DB settings are
-        set on this AxClient instance.
-
-        Returns:
-            bool: Whether the experiment was saved.
-        """
-        if self.db_settings is not None:
-            save_new_trial(
-                experiment=self.experiment, trial=trial, db_settings=self.db_settings
-            )
-            return True
-        return False
-
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=retry_exception_type_tuple,
-    )
-    def _save_updated_trial_to_db_if_possible(
-        self, trial: BaseTrial, suppress_all_errors: bool = False
-    ) -> bool:
-        """Saves attached experiment and generation strategy if DB settings are
-        set on this AxClient instance.
-
-        Returns:
-            bool: Whether the experiment was saved.
-        """
-        if self.db_settings is not None:
-            save_updated_trial(
-                experiment=self.experiment, trial=trial, db_settings=self.db_settings
-            )
-            return True
-        return False
-
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=retry_exception_type_tuple,
-    )
-    def _save_generation_strategy_to_db_if_possible(
-        self, suppress_all_errors: bool = False
-    ) -> bool:
-        """Saves attached experiment and generation strategy if DB settings are
-        set on this AxClient instance.
-
-        Returns:
-            bool: Whether the experiment was saved.
-        """
-        if self.db_settings is not None:
-            save_generation_strategy(
-                generation_strategy=self.generation_strategy,
-                db_settings=self.db_settings,
-            )
-            return True
-        return False
 
     def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
         """Generate new generator run for this experiment.

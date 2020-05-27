@@ -48,7 +48,6 @@ def run_trials_using_recommended_parallelism(
         if num_trials == -1:
             num_trials = remaining_trials
         for _ in range(ceil(num_trials / parallelism_setting)):
-            print(ax_client.generation_strategy.model)
             in_flight_trials = []
             if parallelism_setting > remaining_trials:
                 parallelism_setting = remaining_trials
@@ -570,23 +569,15 @@ class TestAxClient(TestCase):
 
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
     @patch.dict(sys.modules, {"sqalchemy": None})
+    @patch("ax.service.ax_client.DBSettings", None)
     def test_no_sqa(self):
-        # Pretend we couldn't import sqa_store.structs (this could happen when
+        # Make sure we couldn't import sqa_store.structs (this could happen when
         # SQLAlchemy is not installed).
-        patcher = patch("ax.service.ax_client.DBSettings", None)
-        patcher.start()
         with self.assertRaises(ModuleNotFoundError):
             import ax_client.storage.sqa_store.structs  # noqa F401
         # Make sure we can still import ax_client.
         __import__("ax.service.ax_client")
         AxClient()  # Make sure we still can instantiate client w/o db settings.
-        # Even with correctly typed DBSettings, `AxClient` instantiation should
-        # fail here, because `DBSettings` are mocked to None in `ax_client`.
-        db_settings = DBSettings()
-        self.assertIsInstance(db_settings, DBSettings)
-        with self.assertRaisesRegex(ValueError, "`db_settings` argument should "):
-            AxClient(db_settings=db_settings)
-        patcher.stop()
         # DBSettings should be defined in `ax_client` now, but incorrectly typed
         # `db_settings` argument should still make instantiation fail.
         with self.assertRaisesRegex(ValueError, "`db_settings` argument should "):
