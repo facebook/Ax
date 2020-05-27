@@ -474,8 +474,22 @@ class GenerationStrategy(Base):
             )
             model_kwargs.update(model_state)
 
-        # TODO[T65857344]: Move from fetching all data to using cached data.
-        data = data or self.experiment.fetch_data()
+        # TODO[T65857344]: move from fetching all data to using cached data
+        if data is None:
+            if self._curr.use_update:
+                # If the new step is using `update`, it's important to instantiate
+                # the model with data for completed trials only, so later we can
+                # update it with data for new trials as they become completed.
+                # `experiment.fetch_data` can fetch all available data, including
+                # for non-completed trials (depending on how the experiment's metrics
+                # implement `fetch_experiment_data`). We avoid fetching data for
+                # trials with statuses other than `COMPLETED`, by fetching specifically
+                # for `COMPLETED` trials.
+                data = self.experiment.fetch_trials_data(
+                    self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
+                )
+            else:
+                data = self.experiment.fetch_data()
         if isinstance(self._curr.model, Models):
             self._set_current_model_from_models_enum(data=data, **model_kwargs)
         else:
@@ -510,6 +524,8 @@ class GenerationStrategy(Base):
                 df=data.df[data.df.trial_index.isin(newly_completed_trials)]
             )
         # We definitely have non-empty new data by now.
+        trial_indices_in_new_data = sorted(new_data.df["trial_index"].unique())
+        logger.info(f"Updating model with data for trials: {trial_indices_in_new_data}")
         not_none(self._model).update(experiment=self.experiment, new_data=new_data)
 
     def _set_current_model_from_models_enum(self, data: Data, **kwargs: Any) -> None:
