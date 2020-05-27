@@ -93,7 +93,7 @@ class Metric(Base):
                 cls.fetch_trial_data_multi(trial, metrics, **kwargs)
                 if trial.status.expecting_data
                 else Data()
-                for trial in (trials or experiment.trials.values())
+                for trial in (experiment.trials.values() if trials is None else trials)
             ]
         )
 
