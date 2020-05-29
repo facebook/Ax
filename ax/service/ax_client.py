@@ -289,6 +289,15 @@ class AxClient(WithDBSettingsBase):
         )
         return not_none(trial.arm).parameters, trial.index
 
+    def abandon_trial(self, trial_index: int, reason: Optional[str] = None) -> None:
+        """Abandons a trial and adds optional metadata to it.
+
+        Args:
+            trial_index: Index of trial within the experiment.
+        """
+        trial = self._get_trial(trial_index=trial_index)
+        trial.mark_abandoned(reason=reason)
+
     def complete_trial(
         self,
         trial_index: int,

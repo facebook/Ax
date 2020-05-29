@@ -426,6 +426,28 @@ class TestAxClient(TestCase):
         self.assertEqual(best_trial_values[0], {"objective": -2.0})
         self.assertTrue(math.isnan(best_trial_values[1]["objective"]["objective"]))
 
+    def test_abandon_trial(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+
+        # An abandoned trial adds no data.
+        params, idx = ax_client.get_next_trial()
+        ax_client.abandon_trial(trial_index=idx)
+        data = ax_client.experiment.fetch_data()
+        self.assertEqual(len(data.df.index), 0)
+
+        # Can't update a completed trial.
+        params2, idx2 = ax_client.get_next_trial()
+        ax_client.complete_trial(trial_index=idx2, raw_data={"objective": (0, 0.0)})
+        with self.assertRaisesRegex(ValueError, ".* in a terminal state."):
+            ax_client.abandon_trial(trial_index=idx2)
+
     def test_start_and_end_time_in_trial_completion(self):
         start_time = current_timestamp_in_millis()
         ax_client = AxClient()
