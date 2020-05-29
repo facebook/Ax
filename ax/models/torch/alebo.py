@@ -627,10 +627,6 @@ class ALEBO(BotorchModel):
         noiseless = max(Yvar.min().item() for Yvar in self.Yvars) < 1e-5
         if model_gen_options is None:
             model_gen_options = {}
-        # pyre-fixme[9]: model_gen_options has type `Optional[Dict[str,
-        #  Union[AcquisitionFunction, float, int, str]]]`; used as `Dict[str,
-        #  Union[Dict[str, Union[AcquisitionFunction, Tensor, float, int, str]],
-        #  Dict[str, int]]]`.
         model_gen_options = {
             "acquisition_function_kwargs": {"q": n, "noiseless": noiseless},
             "optimizer_kwargs": {

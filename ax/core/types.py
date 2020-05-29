@@ -41,7 +41,7 @@ TEvaluationOutcome = Union[
     TTrialEvaluation, Tuple[float, Optional[float]], float, TFidelityTrialEvaluation
 ]
 
-TConfig = Dict[str, Union[int, float, str, AcquisitionFunction]]
+TConfig = Dict[str, Union[int, float, str, AcquisitionFunction, Dict[str, Any]]]
 TBucket = List[Dict[str, List[str]]]
 
 TGenMetadata = Dict[str, Any]
