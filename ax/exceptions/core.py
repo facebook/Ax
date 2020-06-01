@@ -43,7 +43,11 @@ class ExperimentNotReadyError(AxError):
     Useful to distinguish data failure reasons in automated analyses.
     """
 
-    pass
+    def __init__(
+        self, message: str, hint: str = "", exposures_unavailable: bool = False
+    ) -> None:
+        super().__init__(message=message, hint=hint)
+        self.exposures_unavailable = exposures_unavailable
 
 
 class NoDataError(AxError):
