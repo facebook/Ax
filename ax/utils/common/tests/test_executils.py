@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+from unittest.mock import Mock
 
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.testutils import TestCase
@@ -212,15 +213,21 @@ class TestRetryDecorator(TestCase):
         with self.assertRaises(MyRuntimeError):
             decorator_tester.error_throwing_function()
 
-        self.assertEqual(decorator_tester.error_throwing_function_call_count, 1)
+    def test_on_function_with_wrapper_message(self):
+        """Tests that the decorator works on standalone functions as well as on
+        instance methods.
+        """
 
-        with self.assertRaisesRegex(ValueError, "Same exception"):
+        mock = Mock()
 
-            @retry_on_exception(
-                exception_types=(MyRuntimeError,),
-                no_retry_on_exception_types=(MyRuntimeError,),
-            )
-            def incorrectly_decorated_function(self, arg):
-                pass
+        @retry_on_exception(wrap_error_message_in="Wrapper error message")
+        def error_throwing_function():
+            mock()
+            raise RuntimeError("I failed")
 
-            incorrectly_decorated_function(None, None)
+        with self.assertRaisesRegex(
+            RuntimeError, "Wrapper error message: RuntimeError: I failed"
+        ):
+            error_throwing_function()
+
+        self.assertEqual(mock.call_count, 3)

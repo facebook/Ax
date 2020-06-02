@@ -17,16 +17,14 @@ def retry_on_exception(
     suppress_all_errors: bool = False,
     logger: Optional[Logger] = None,
     default_return_on_suppression: Optional[Any] = None,
+    wrap_error_message_in: Optional[str] = None,
 ) -> Optional[Any]:
     """
-    A decorator **for instance methods** to be retried on failure.
+    A decorator for instance methods or standalone functions that makes them
+    retry on failure and allows to specify on which types of exceptions the
+    function should and should not retry.
 
-    Warnings:
-    If the variable `check_message_contains` is supplied and the error message
-    contains any of the strings provided, the error will be suppressed
-    and default value returned.
-
-    If the variable `suppress_all_errors` is supplied and set to True,
+    NOTE: If the argument `suppress_all_errors` is supplied and set to True,
     the error will be suppressed  and default value returned.
 
     Args:
@@ -37,27 +35,41 @@ def retry_on_exception(
             if their supertype appears in `exception_types` or the only exceptions to
             not retry on if no `exception_types` are specified.
 
-        check_message_contains: A list of strings to be provided. If the error
-            message contains any one of these messages, the exception will
-            be suppressed.
+        check_message_contains: A list of strings, against which to match error
+            messages. If the error message contains any one of these strings,
+            the exception will cause a retry. NOTE: This argument works in
+            addition to `exception_types`; if those are specified, only the
+            specified types of exceptions will be caught and retried on if they
+            contain the strings provided as `check_message_contains`.
 
-        retries: Number of retries.
+        retries: Number of retries to perform.
 
-        suppress_all_errors: A flag which will allow you to suppress all exceptions
-            of the type provided after all retries have been exhausted.
+        suppress_all_errors: If true, after all the retries are exhausted, the
+            error will still be suppressed and `default_return_on_suppresion`
+            will be returned from the function. NOTE: If using this argument,
+            the decorated function may not actually get fully executed, if
+            it consistently raises an exception.
 
         logger: A handle for the logger to be used.
 
-        default_return_on_suppression: If the error is suppressed, then the default
-            value to be returned once all retries are exhausted.
+        default_return_on_suppression: If the error is suppressed after all the
+            retries, then this default value will be returned from the function.
+            Defaults to None.
+
+        wrap_error_message_in: If raising the error message after all the retries,
+            a string wrapper for the error message (useful for making error
+            messages more user-friendly). NOTE: Format of resulting error will be:
+            "<wrap_error_message_in>: <original_error_type>: <original_error_msg>",
+            with the stack trace of the original message.
+
     """
 
     def func_wrapper(func):
         @functools.wraps(func)
-        def actual_wrapper(self, *args, **kwargs):
+        def actual_wrapper(*args, **kwargs):
             retriable_exceptions = exception_types
             if exception_types is None:
-                # If no exception type provided, we catch all errors
+                # If no exception type provided, we catch all errors.
                 retriable_exceptions = (Exception,)
             if not isinstance(retriable_exceptions, tuple):
                 raise ValueError("Expected a tuple of exception types.")
@@ -75,17 +87,15 @@ def retry_on_exception(
                         "`exception_types` and `no_retry_on_exception_types`."
                     )
 
-            suppress_errors = False
-            if suppress_all_errors or (
+            # `suppress_all_errors` could be a flag to the underlying function
+            # when used on instance methods.
+            suppress_errors = suppress_all_errors or (
                 "suppress_all_errors" in kwargs and kwargs["suppress_all_errors"]
-            ):
-                # If we are provided with a flag to suppress all errors
-                # inside either the function kwargs or the decorator parameters
-                suppress_errors = True
+            )
 
             for i in range(retries):
                 try:
-                    return func(self, *args, **kwargs)
+                    return func(*args, **kwargs)
                 except no_retry_on_exception_types or ():
                     raise
                 except retriable_exceptions as err:  # Exceptions is a tuple.
@@ -102,9 +112,17 @@ def retry_on_exception(
                         # In this case, the error is just logged, suppressed and default
                         # value returned
                         if logger is not None:
-                            logger.exception(err)
+                            logger.exception(
+                                wrap_error_message_in
+                            )  # Automatically logs `err` and its stack trace.
                         continue
-                    raise
+                    if not wrap_error_message_in:
+                        raise
+                    else:
+                        msg = (
+                            f"{wrap_error_message_in}: {type(err).__name__}: {str(err)}"
+                        )
+                    raise type(err)(msg).with_traceback(err.__traceback__)
             # If we are here, it means the retries were finished but
             # The error was somehow suppressed. Hence return the default value provided
             return default_return_on_suppression
