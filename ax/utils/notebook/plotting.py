@@ -28,6 +28,9 @@ def render(plot_config: AxPlotConfig, inject_helpers=False) -> None:
     """Render plot config."""
     if plot_config.plot_type == AxPlotTypes.GENERIC:
         iplot(plot_config.data)
+    elif plot_config.plot_type == AxPlotTypes.HTML:
+        assert "text/html" in plot_config.data
+        display(plot_config.data, raw=True)
     else:
         display_bundle = {
             "text/html": plot_config_to_html(plot_config, inject_helpers=inject_helpers)

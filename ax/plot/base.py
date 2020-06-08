@@ -19,6 +19,7 @@ DECIMALS = 3
 Z = 1.96
 
 
+@enum.unique
 class AxPlotTypes(enum.Enum):
     """Enum of Ax plot types."""
 
@@ -28,6 +29,7 @@ class AxPlotTypes(enum.Enum):
     INTERACT_CONTOUR = 3
     BANDIT_ROLLOUT = 4
     INTERACT_SLICE = 5
+    HTML = 6
 
 
 # Configuration for all plots
