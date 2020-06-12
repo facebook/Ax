@@ -130,7 +130,7 @@ class SQAMetric(Base):
     # join_depth argument: used for loading self-referential relationships
     # https://docs.sqlalchemy.org/en/13/orm/self_referential.html#configuring-self-referential-eager-loading
     scalarized_objective_children_metrics = relationship(
-        "SQAMetric", cascade="all, delete-orphan", lazy="selectin", join_depth=4
+        "SQAMetric", cascade="all, delete-orphan", lazy="selectin", join_depth=5
     )
 
     # Attribute only defined for the children of Scalarized Objective
