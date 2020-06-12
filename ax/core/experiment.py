@@ -482,18 +482,18 @@ class Experiment(Base):
 
     def attach_data(self, data: Data, combine_with_last_data: bool = False) -> int:
         """Attach data to experiment. Stores data in `experiment._data_by_trial`,
-        to be looked up via `experiment.lookup_data_by_trial`.
+        to be looked up via `experiment.lookup_data_for_trial`.
 
         Args:
             data: Data object to store.
             combine_with_last_data: By default, when attaching data, it's identified
-                by its timestamp, and `experiment.lookup_data_by_trial` returns
+                by its timestamp, and `experiment.lookup_data_for_trial` returns
                 data by most recent timestamp. In some cases, however, the goal
                 is to combine all data attached for a trial into a single `Data`
                 object. To achieve that goal, every call to `attach_data` after
                 the initial data is attached to trials, should be set to `True`.
                 Then, the newly attached data will be appended to existing data,
-                rather than stored as a separate object, and `lookup_data_by_trial`
+                rather than stored as a separate object, and `lookup_data_for_trial`
                 will return the combined data object, rather than just the most
                 recently added data. This will validate that the newly added data
                 does not contain observations for the metrics that already have
