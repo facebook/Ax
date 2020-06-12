@@ -21,7 +21,7 @@ DEV_REQUIRES = [
     "beautifulsoup4",
     "black",
     "flake8",
-    "pytest>=3.6",
+    "pytest>=4.6",
     "pytest-cov",
     "sphinx<3.0.0",
     "sphinx-autodoc-typehints",
