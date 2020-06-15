@@ -46,6 +46,8 @@ class BaseNullableEnum(types.TypeDecorator):
 
 
 class IntEnum(BaseNullableEnum):
+    # pyre-fixme[8]: Attribute has type `SmallInteger`; used as
+    #  `Type[sqlalchemy.sql.sqltypes.SmallInteger]`.
     impl: types.SmallInteger = types.SmallInteger
 
 

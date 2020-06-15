@@ -44,7 +44,11 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
             session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
         )
     encoder.validate_experiment_metadata(
-        experiment, existing_sqa_experiment=existing_sqa_experiment
+        experiment,
+        # pyre-fixme[6]: Expected
+        #  `Optional[ax.storage.sqa_store.sqa_classes.SQAExperiment]` for 2nd param but
+        #  got `Optional[ax.storage.sqa_store.db.SQABase]`.
+        existing_sqa_experiment=existing_sqa_experiment,
     )
     new_sqa_experiment = encoder.experiment_to_sqa(experiment)
 
@@ -53,6 +57,7 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
         # This object is detached from the session, but contains a database
         # identity marker, so when we do `session.add` below, SQA knows to
         # perform an update rather than an insert.
+        # pyre-fixme[6]: Expected `SQABase` for 1st param but got `SQAExperiment`.
         existing_sqa_experiment.update(new_sqa_experiment)
         new_sqa_experiment = existing_sqa_experiment
 
@@ -107,11 +112,13 @@ def _save_generation_strategy(
                 generation_strategy._db_id
             )
 
+        # pyre-fixme[16]: `Optional` has no attribute `update`.
         existing_gs_sqa.update(gs_sqa)
         # our update logic ignores foreign keys, i.e. fields ending in _id,
         # because we want SQLAlchemy to handle those relationships for us
         # however, generation_strategy.experiment_id is an exception, so we
         # need to update that manually
+        # pyre-fixme[16]: `Optional` has no attribute `experiment_id`.
         existing_gs_sqa.experiment_id = gs_sqa.experiment_id
         gs_sqa = existing_gs_sqa
 
@@ -119,6 +126,7 @@ def _save_generation_strategy(
         session.add(gs_sqa)
         session.flush()  # Ensures generation strategy id is set.
 
+    # pyre-fixme[16]: `None` has no attribute `id`.
     generation_strategy._db_id = gs_sqa.id
     # pyre-fixme[7]: Expected `int` but got `Optional[int]`.
     return generation_strategy._db_id
@@ -134,6 +142,7 @@ def _get_experiment_id(experiment: Experiment, encoder: Encoder) -> int:
         raise ValueError(
             "The undelying experiment must be saved before the generation strategy."
         )
+    # pyre-fixme[16]: `SQABase` has no attribute `id`.
     return sqa_experiment.id
 
 
@@ -157,6 +166,7 @@ def _save_new_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) 
     if existing_sqa_experiment is None:
         raise ValueError("Must save experiment before adding a new trial.")
 
+    # pyre-fixme[16]: `SQABase` has no attribute `trials`.
     existing_trial_indices = {trial.index for trial in existing_sqa_experiment.trials}
     if trial.index in existing_trial_indices:
         raise ValueError(f"Trial {trial.index} already attached to experiment.")
@@ -189,6 +199,7 @@ def _update_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) ->
         raise ValueError("Must save experiment before updating a trial.")
 
     existing_sqa_trial = None
+    # pyre-fixme[16]: `SQABase` has no attribute `trials`.
     for sqa_trial in existing_sqa_experiment.trials:
         if sqa_trial.index == trial.index:
             # There should only be one existing trial with the same index
@@ -208,5 +219,6 @@ def _update_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) ->
     if ts != -1:
         sqa_data = encoder.data_to_sqa(data=data, trial_index=trial.index, timestamp=ts)
         with session_scope() as session:
+            # pyre-fixme[16]: `SQABase` has no attribute `data`.
             existing_sqa_experiment.data.append(sqa_data)
             session.add(existing_sqa_experiment)

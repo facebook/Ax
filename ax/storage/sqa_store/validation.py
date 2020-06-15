@@ -32,6 +32,7 @@ def consistency_exactly_one(instance: SQABase, exactly_one_fields: List[str]) ->
 
 @event.listens_for(SQAParameter, "before_insert")
 @event.listens_for(SQAParameter, "before_update")
+# pyre-fixme[11]: Annotation `Mapper` is not defined as a type.
 def validate_parameter(mapper: Mapper, connection: Connection, target: SQABase) -> None:
     consistency_exactly_one(target, ONLY_ONE_FIELDS)
 
