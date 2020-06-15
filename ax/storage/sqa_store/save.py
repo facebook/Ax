@@ -135,15 +135,14 @@ def _save_generation_strategy(
 def _get_experiment_id(experiment: Experiment, encoder: Encoder) -> int:
     exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
     with session_scope() as session:
-        sqa_experiment = (
-            session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
+        sqa_experiment_id = (
+            session.query(exp_sqa_class.id)  # pyre-ignore
+            .filter_by(name=experiment.name)
+            .one_or_none()
         )
-    if sqa_experiment is None:  # pragma: no cover (this is technically unreachable)
-        raise ValueError(
-            "The undelying experiment must be saved before the generation strategy."
-        )
-    # pyre-fixme[16]: `SQABase` has no attribute `id`.
-    return sqa_experiment.id
+    if sqa_experiment_id is None:  # pragma: no cover (this is technically unreachable)
+        raise ValueError("No corresponding experiment found.")
+    return sqa_experiment_id[0]
 
 
 def save_new_trial(
