@@ -4,10 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Generator, List, Optional, TypeVar
+from typing import Any, Callable, ContextManager, Generator, List, Optional, TypeVar
 
 import numpy as np
 from ax.exceptions.storage import ImmutabilityError
@@ -454,3 +454,11 @@ def session_scope() -> Generator[Session, None, None]:
         raise  # pragma: no cover
     finally:
         session.close()
+
+
+def optional_session_scope(
+    session: Optional[Session] = None,
+) -> ContextManager[Session]:
+    if session is not None:
+        return nullcontext(session)
+    return session_scope()

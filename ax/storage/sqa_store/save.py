@@ -4,14 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional
+from typing import List, Optional
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
+from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.storage.sqa_store.db import session_scope
+from ax.storage.sqa_store.db import optional_session_scope, session_scope
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
+from sqlalchemy.orm import Session
 
 
 def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) -> None:
@@ -132,14 +134,17 @@ def _save_generation_strategy(
     return generation_strategy._db_id
 
 
-def _get_experiment_id(experiment: Experiment, encoder: Encoder) -> int:
+def _get_experiment_id(
+    experiment: Experiment, encoder: Encoder, session: Optional[Session] = None
+) -> int:
     exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
-    with session_scope() as session:
+    with optional_session_scope(session=session) as _session:
         sqa_experiment_id = (
-            session.query(exp_sqa_class.id)  # pyre-ignore
+            _session.query(exp_sqa_class.id)  # pyre-ignore
             .filter_by(name=experiment.name)
             .one_or_none()
         )
+
     if sqa_experiment_id is None:  # pragma: no cover (this is technically unreachable)
         raise ValueError("No corresponding experiment found.")
     return sqa_experiment_id[0]
@@ -155,26 +160,34 @@ def save_new_trial(
 
 
 def _save_new_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) -> None:
-    """Add new trial to the experiment, using given Encoder instance."""
-    exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
+    """Add new trial to the experiment."""
+    save_new_trials(experiment=experiment, trials=[trial], encoder=encoder)
+
+
+def save_new_trials(
+    experiment: Experiment, trials: List[BaseTrial], encoder: Encoder
+) -> None:
+    """Add new trials to the experiment."""
+    trial_sqa_class = encoder.config.class_to_sqa_class[Trial]
     with session_scope() as session:
-        existing_sqa_experiment = (
-            session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
+        experiment_id = _get_experiment_id(
+            experiment=experiment, encoder=encoder, session=session
         )
+        existing_trial_indices = (
+            session.query(trial_sqa_class.index)  # pyre-ignore
+            .filter_by(experiment_id=experiment_id)
+            .all()
+        )
+        existing_trial_indices = {x[0] for x in existing_trial_indices}
 
-    if existing_sqa_experiment is None:
-        raise ValueError("Must save experiment before adding a new trial.")
+        for trial in trials:
+            if trial.index in existing_trial_indices:
+                raise ValueError(f"Trial {trial.index} already attached to experiment.")
 
-    # pyre-fixme[16]: `SQABase` has no attribute `trials`.
-    existing_trial_indices = {trial.index for trial in existing_sqa_experiment.trials}
-    if trial.index in existing_trial_indices:
-        raise ValueError(f"Trial {trial.index} already attached to experiment.")
-
-    new_sqa_trial = encoder.trial_to_sqa(trial)
-
-    with session_scope() as session:
-        existing_sqa_experiment.trials.append(new_sqa_trial)
-        session.add(existing_sqa_experiment)
+            new_sqa_trial = encoder.trial_to_sqa(trial)
+            new_sqa_trial.experiment_id = experiment_id
+            session.add(new_sqa_trial)
+            existing_trial_indices.add(trial.index)
 
 
 def update_trial(
