@@ -10,18 +10,19 @@ import torch
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
-from ax.models.torch.utils import _get_X_pending_and_observed
+from ax.models.torch.utils import (
+    _get_X_pending_and_observed,
+    get_out_of_sample_best_point_acqf,
+)
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility
-from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.max_value_entropy_search import (
     qMaxValueEntropy,
     qMultiFidelityMaxValueEntropy,
 )
-from botorch.acquisition.objective import ScalarizedObjective
 from botorch.acquisition.utils import (
     expand_trace_observations,
     project_to_target_fidelity,
@@ -173,53 +174,26 @@ class MaxValueEntropySearch(BotorchModel):
         qmc: bool = True,
         **kwargs: Any,
     ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
+        # `outcome_constraints` is validated to be None in `gen`
+        if outcome_constraints is not None:
+            raise UnsupportedError("Outcome constraints not yet supported.")
 
-        model = self.model
-
-        # subset model only to the outcomes we need for the optimization
-        if kwargs.get("subset_model", True):
-            model, objective_weights, outcome_constraints = subset_model(
-                model=model,  # pyre-ignore: [6]
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-            )
-
-        fixed_features = fixed_features or {}
-        target_fidelities = target_fidelities or {}
-        objective = ScalarizedObjective(weights=objective_weights)
-        acq_function = PosteriorMean(
-            model=model, objective=objective  # pyre-ignore: [6]
+        return get_out_of_sample_best_point_acqf(
+            model=not_none(self.model),
+            Xs=self.Xs,
+            objective_weights=objective_weights,
+            # With None `outcome_constraints`, `get_objective` utility
+            # always returns a `ScalarizedObjective`, which results in
+            # `get_out_of_sample_best_point_acqf` always selecting
+            # `PosteriorMean`.
+            outcome_constraints=outcome_constraints,
+            X_observed=not_none(X_observed),
+            seed_inner=seed_inner,
+            fixed_features=fixed_features,
+            fidelity_features=self.fidelity_features,
+            target_fidelities=target_fidelities,
+            qmc=qmc,
         )
-
-        if self.fidelity_features:
-            # we need to optimize at the target fidelities
-            if any(f in self.fidelity_features for f in fixed_features):
-                raise RuntimeError("Fixed features cannot also be fidelity features")
-            elif not set(self.fidelity_features) == set(target_fidelities):
-                raise RuntimeError(
-                    "Must provide a target fidelity for every fidelity feature"
-                )
-            # make sure to not modify fixed_features in-place
-            fixed_features = {**fixed_features, **target_fidelities}
-        elif target_fidelities:
-            raise RuntimeError(
-                "Must specify fidelity_features in fit() when using target fidelities"
-            )
-
-        if fixed_features:
-            acq_function = FixedFeatureAcquisitionFunction(
-                acq_function=acq_function,
-                d=X_observed.size(-1),
-                columns=list(fixed_features.keys()),
-                values=list(fixed_features.values()),
-            )
-            non_fixed_idcs = [
-                i for i in range(self.Xs[0].size(-1)) if i not in fixed_features
-            ]
-        else:
-            non_fixed_idcs = None
-
-        return acq_function, non_fixed_idcs
 
 
 def _instantiate_MES(

@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import botorch.utils.sampling as botorch_sampling
 import numpy as np
@@ -12,8 +12,23 @@ import torch
 from ax.exceptions.model import ModelError
 from ax.models.model_utils import filter_constraints_and_fixed_features, get_observed
 from ax.models.random.sobol import SobolGenerator
+from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.analytic import PosteriorMean
+from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
+from botorch.acquisition.monte_carlo import qSimpleRegret
+from botorch.acquisition.objective import (
+    AcquisitionObjective,
+    ConstrainedMCObjective,
+    MCAcquisitionObjective,
+    ScalarizedObjective,
+)
+from botorch.acquisition.utils import get_infeasible_cost
+from botorch.exceptions.errors import UnsupportedError
 from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.model import Model
+from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
+from botorch.utils.constraints import get_outcome_constraint_transforms
+from botorch.utils.objective import get_objective_weights_transform
 from torch import Tensor
 
 
@@ -274,3 +289,106 @@ def tensor_callable_to_array_callable(
         return tensor_func(torch.from_numpy(x).to(device)).detach().numpy()
 
     return array_func
+
+
+def get_botorch_objective(
+    model: Model,
+    objective_weights: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    X_observed: Optional[Tensor] = None,
+) -> AcquisitionObjective:
+    """Constructs a BoTorch `Objective`."""
+    if X_observed is None:
+        raise UnsupportedError(
+            "X_observed is required to construct a BoTorch Objective."
+        )
+    if outcome_constraints is None:
+        objective = ScalarizedObjective(weights=objective_weights)
+    else:
+        obj_tf = get_objective_weights_transform(objective_weights)
+        con_tfs = get_outcome_constraint_transforms(outcome_constraints)
+        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
+        objective = ConstrainedMCObjective(
+            objective=obj_tf, constraints=con_tfs or [], infeasible_cost=inf_cost
+        )
+    return objective
+
+
+def get_out_of_sample_best_point_acqf(
+    model: Model,
+    Xs: List[Tensor],
+    X_observed: Tensor,
+    objective_weights: Tensor,
+    mc_samples: int = 512,
+    fixed_features: Optional[Dict[int, float]] = None,
+    fidelity_features: Optional[List[int]] = None,
+    target_fidelities: Optional[Dict[int, float]] = None,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    seed_inner: Optional[int] = None,
+    qmc: bool = True,
+    **kwargs: Any,
+) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
+    """Picks an appropriate acquisition function to find the best
+    out-of-sample (not observed) point using the given surrogate model.
+
+    NOTE: Typically the appropriate function is the posterior mean,
+    but can differ to account for fidelities etc.
+    """
+    model = model
+
+    # subset model only to the outcomes we need for the optimization
+    if kwargs.get("subset_model", True):
+        model, objective_weights, outcome_constraints = subset_model(
+            model=model,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+        )
+
+    fixed_features = fixed_features or {}
+    target_fidelities = target_fidelities or {}
+    objective = get_botorch_objective(
+        model=model,
+        objective_weights=objective_weights,
+        outcome_constraints=outcome_constraints,
+        X_observed=X_observed,
+    )
+    if isinstance(objective, ScalarizedObjective):
+        acq_function = PosteriorMean(model=model, objective=objective)
+    elif isinstance(objective, MCAcquisitionObjective):
+        if qmc:
+            sampler = SobolQMCNormalSampler(num_samples=mc_samples, seed=seed_inner)
+        else:
+            sampler = IIDNormalSampler(num_samples=mc_samples, seed=seed_inner)
+        acq_function = qSimpleRegret(model=model, sampler=sampler, objective=objective)
+    else:
+        raise UnsupportedError(
+            f"Unknown objective type: {objective.__class__}"  # pragma: nocover
+        )
+
+    if fidelity_features:
+        # we need to optimize at the target fidelities
+        if any(f in fidelity_features for f in fixed_features):
+            raise RuntimeError("Fixed features cannot also be fidelity features")
+        elif set(fidelity_features) != set(target_fidelities):
+            raise RuntimeError(
+                "Must provide a target fidelity for every fidelity feature"
+            )
+        # make sure to not modify fixed_features in-place
+        fixed_features = {**fixed_features, **target_fidelities}
+    elif target_fidelities:
+        raise RuntimeError(
+            "Must specify fidelity_features in fit() when using target fidelities"
+        )
+
+    if fixed_features:
+        acq_function = FixedFeatureAcquisitionFunction(
+            acq_function=acq_function,
+            d=X_observed.size(-1),
+            columns=list(fixed_features.keys()),
+            values=list(fixed_features.values()),
+        )
+        non_fixed_idcs = [i for i in range(Xs[0].size(-1)) if i not in fixed_features]
+    else:
+        non_fixed_idcs = None
+
+    return acq_function, non_fixed_idcs

@@ -13,26 +13,20 @@ from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     _to_inequality_constraints,
+    get_botorch_objective,
+    get_out_of_sample_best_point_acqf,
     subset_model,
 )
+from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility
-from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.knowledge_gradient import (
     qKnowledgeGradient,
     qMultiFidelityKnowledgeGradient,
 )
-from botorch.acquisition.monte_carlo import qSimpleRegret
-from botorch.acquisition.objective import (
-    AcquisitionObjective,
-    ConstrainedMCObjective,
-    MCAcquisitionObjective,
-    ScalarizedObjective,
-)
+from botorch.acquisition.objective import AcquisitionObjective, MCAcquisitionObjective
 from botorch.acquisition.utils import (
     expand_trace_observations,
-    get_infeasible_cost,
     project_to_target_fidelity,
 )
 from botorch.exceptions.errors import UnsupportedError
@@ -41,8 +35,6 @@ from botorch.models.model import Model
 from botorch.optim.initializers import gen_one_shot_kg_initial_conditions
 from botorch.optim.optimize import optimize_acqf
 from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
-from botorch.utils.constraints import get_outcome_constraint_transforms
-from botorch.utils.objective import get_objective_weights_transform
 from torch import Tensor
 
 
@@ -131,18 +123,18 @@ class KnowledgeGradient(BotorchModel):
             fixed_features=fixed_features,
         )
 
-        model = self.model
+        model = not_none(self.model)
 
         # subset model only to the outcomes we need for the optimization
         if options.get("subset_model", True):
             model, objective_weights, outcome_constraints = subset_model(
-                model=model,  # pyre-ignore [6]
+                model=model,
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
             )
 
-        objective = _get_objective(
-            model=model,  # pyre-ignore [6]
+        objective = get_botorch_objective(
+            model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
@@ -163,12 +155,15 @@ class KnowledgeGradient(BotorchModel):
             )
 
         # get current value
-        best_point_acqf, non_fixed_idcs = self._get_best_point_acqf(
+        best_point_acqf, non_fixed_idcs = get_out_of_sample_best_point_acqf(
+            model=model,
+            Xs=self.Xs,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            X_observed=X_observed,  # pyre-ignore: [6]
+            X_observed=not_none(X_observed),
             seed_inner=seed_inner,
             fixed_features=fixed_features,
+            fidelity_features=self.fidelity_features,
             target_fidelities=target_fidelities,
             qmc=qmc,
         )
@@ -190,7 +185,7 @@ class KnowledgeGradient(BotorchModel):
         current_value = best_point_acqf(recommended_point).max()
 
         acq_function = _instantiate_KG(
-            model=model,  # pyre-ignore [6]
+            model=model,
             objective=objective,
             qmc=qmc,
             n_fantasies=n_fantasies,
@@ -256,89 +251,18 @@ class KnowledgeGradient(BotorchModel):
         qmc: bool = True,
         **kwargs: Any,
     ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
-        model = self.model
-
-        # subset model only to the outcomes we need for the optimization
-        if kwargs.get("subset_model", True):
-            model, objective_weights, outcome_constraints = subset_model(
-                model=model,  # pyre-ignore [6]
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-            )
-
-        fixed_features = fixed_features or {}
-        target_fidelities = target_fidelities or {}
-        objective = _get_objective(
-            model=model,  # pyre-ignore [6]
+        return get_out_of_sample_best_point_acqf(
+            model=not_none(self.model),
+            Xs=self.Xs,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
+            X_observed=not_none(X_observed),
+            seed_inner=seed_inner,
+            fixed_features=fixed_features,
+            fidelity_features=self.fidelity_features,
+            target_fidelities=target_fidelities,
+            qmc=qmc,
         )
-        if isinstance(objective, ScalarizedObjective):
-            acq_function = PosteriorMean(
-                model=model, objective=objective  # pyre-ignore: [6]
-            )
-        elif isinstance(objective, MCAcquisitionObjective):
-            if qmc:
-                sampler = SobolQMCNormalSampler(num_samples=mc_samples, seed=seed_inner)
-            else:
-                sampler = IIDNormalSampler(num_samples=mc_samples, seed=seed_inner)
-            acq_function = qSimpleRegret(
-                model=model, sampler=sampler, objective=objective  # pyre-ignore [6]
-            )
-        else:
-            raise UnsupportedError(
-                f"Unknown objective type: {objective.__class__}"  # pragma: nocover
-            )
-
-        if self.fidelity_features:
-            # we need to optimize at the target fidelities
-            if any(f in self.fidelity_features for f in fixed_features):
-                raise RuntimeError("Fixed features cannot also be fidelity features")
-            elif not set(self.fidelity_features) == set(target_fidelities):
-                raise RuntimeError(
-                    "Must provide a target fidelity for every fidelity feature"
-                )
-            # make sure to not modify fixed_features in-place
-            fixed_features = {**fixed_features, **target_fidelities}
-        elif target_fidelities:
-            raise RuntimeError(
-                "Must specify fidelity_features in fit() when using target fidelities"
-            )
-
-        if fixed_features:
-            acq_function = FixedFeatureAcquisitionFunction(
-                acq_function=acq_function,
-                d=X_observed.size(-1),
-                columns=list(fixed_features.keys()),
-                values=list(fixed_features.values()),
-            )
-            non_fixed_idcs = [
-                i for i in range(self.Xs[0].size(-1)) if i not in fixed_features
-            ]
-        else:
-            non_fixed_idcs = None
-
-        return acq_function, non_fixed_idcs
-
-
-def _get_objective(
-    model: Model,
-    objective_weights: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    X_observed: Optional[Tensor] = None,
-) -> AcquisitionObjective:
-    if outcome_constraints is None:
-        objective = ScalarizedObjective(weights=objective_weights)
-    else:
-        X_observed = torch.as_tensor(X_observed)
-        obj_tf = get_objective_weights_transform(objective_weights)
-        con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
-        objective = ConstrainedMCObjective(
-            objective=obj_tf, constraints=con_tfs or [], infeasible_cost=inf_cost
-        )
-    return objective
 
 
 def _instantiate_KG(

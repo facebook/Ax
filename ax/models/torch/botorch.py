@@ -19,6 +19,7 @@ from ax.models.torch.botorch_defaults import (
 )
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
+    _to_inequality_constraints,
     normalize_indices,
     subset_model,
 )
@@ -343,18 +344,6 @@ class BotorchModel(TorchModel):
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
-        if linear_constraints is not None:
-            A, b = linear_constraints
-            inequality_constraints = []
-            k, d = A.shape
-            for i in range(k):
-                indicies = A[i, :].nonzero().view(-1)
-                coefficients = -A[i, indicies]
-                rhs = -b[i, 0]
-                inequality_constraints.append((indicies, coefficients, rhs))
-        else:
-            inequality_constraints = None
-
         acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
             model=model,
             objective_weights=objective_weights,
@@ -370,7 +359,9 @@ class BotorchModel(TorchModel):
             acq_function=checked_cast(AcquisitionFunction, acquisition_function),
             bounds=bounds_,
             n=n,
-            inequality_constraints=inequality_constraints,
+            inequality_constraints=_to_inequality_constraints(
+                linear_constraints=linear_constraints
+            ),
             fixed_features=fixed_features,
             rounding_func=botorch_rounding_func,
             **optimizer_options,

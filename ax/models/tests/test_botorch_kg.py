@@ -7,11 +7,8 @@
 from unittest import mock
 
 import torch
-from ax.models.torch.botorch_kg import (
-    KnowledgeGradient,
-    _get_objective,
-    _instantiate_KG,
-)
+from ax.models.torch.botorch_kg import KnowledgeGradient, _instantiate_KG
+from ax.models.torch.utils import get_botorch_objective
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
@@ -125,7 +122,7 @@ class KnowledgeGradientTest(TestCase):
         obj = ScalarizedObjective(weights=self.objective_weights)
         dummy_acq = PosteriorMean(model=model.model, objective=obj)
         with mock.patch(
-            "ax.models.torch.botorch_kg.PosteriorMean", return_value=dummy_acq
+            "ax.models.torch.utils.PosteriorMean", return_value=dummy_acq
         ) as mock_posterior_mean:
             Xgen, wgen, _, __ = model.gen(
                 n=n,
@@ -274,7 +271,7 @@ class KnowledgeGradientTest(TestCase):
         outcome_constraints = (torch.tensor([[1.0]]), torch.tensor([[0.5]]))
         objective_weights = torch.ones(1, dtype=self.dtype, device=self.device)
         self.assertIsInstance(
-            _get_objective(
+            get_botorch_objective(
                 model=model.model,
                 outcome_constraints=outcome_constraints,
                 objective_weights=objective_weights,
