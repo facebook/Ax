@@ -92,13 +92,16 @@ def _load_generation_strategy_by_experiment_name(
     1) Get SQLAlchemy object from DB.
     2) Convert to corresponding Ax object.
     """
-    experiment_sqa = _get_experiment_sqa(experiment_name=experiment_name)
-    if experiment_sqa.generation_strategy is None:
+    with session_scope() as session:
+        gs_sqa = (
+            session.query(SQAGenerationStrategy)
+            .join(SQAExperiment.generation_strategy)
+            .filter(SQAExperiment.name == experiment_name)
+            .one_or_none()
+        )
+    if gs_sqa is None:
         raise ValueError(
             f"Experiment {experiment_name} does not have a generation strategy "
             "attached to it."
         )
-    gs_sqa = experiment_sqa.generation_strategy
-    # pyre-fixme[6]: Expected `SQAGenerationStrategy` for 1st param but got
-    #  `Optional[SQAGenerationStrategy]`.
     return decoder.generation_strategy_from_sqa(gs_sqa=gs_sqa)
