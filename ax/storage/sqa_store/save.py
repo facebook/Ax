@@ -200,37 +200,45 @@ def update_trial(
 
 
 def _update_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) -> None:
-    """Update trial and attach data, using given Encoder instance."""
-    exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
+    """Update trial and attach data."""
+    update_trials(experiment=experiment, trials=[trial], encoder=encoder)
+
+
+def update_trials(
+    experiment: Experiment, trials: List[BaseTrial], encoder: Encoder
+) -> None:
+    """Update trials and attach data."""
+    trial_sqa_class = encoder.config.class_to_sqa_class[Trial]
     with session_scope() as session:
-        existing_sqa_experiment = (
-            session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
+        experiment_id = _get_experiment_id(
+            experiment=experiment, encoder=encoder, session=session
         )
+        trial_indices = [trial.index for trial in trials]
+        existing_trials = (
+            session.query(trial_sqa_class)
+            .filter_by(experiment_id=experiment_id)
+            .filter(trial_sqa_class.index.in_(trial_indices))  # pyre-ignore
+            .all()
+        )
+        trial_index_to_existing_trial = {
+            trial.index: trial for trial in existing_trials
+        }
 
-    if existing_sqa_experiment is None:
-        raise ValueError("Must save experiment before updating a trial.")
+        for trial in trials:
+            existing_trial = trial_index_to_existing_trial.get(trial.index)
+            if existing_trial is None:
+                raise ValueError(
+                    f"Trial {trial.index} is not attached to the experiment."
+                )
 
-    existing_sqa_trial = None
-    # pyre-fixme[16]: `SQABase` has no attribute `trials`.
-    for sqa_trial in existing_sqa_experiment.trials:
-        if sqa_trial.index == trial.index:
-            # There should only be one existing trial with the same index
-            assert existing_sqa_trial is None
-            existing_sqa_trial = sqa_trial
+            new_sqa_trial = encoder.trial_to_sqa(trial)
+            existing_trial.update(new_sqa_trial)
+            session.add(existing_trial)
 
-    if existing_sqa_trial is None:
-        raise ValueError(f"Trial {trial.index} is not attached to the experiment.")
-
-    new_sqa_trial = encoder.trial_to_sqa(trial)
-    existing_sqa_trial.update(new_sqa_trial)
-
-    with session_scope() as session:
-        session.add(existing_sqa_trial)
-
-    data, ts = experiment.lookup_data_for_trial(trial_index=trial.index)
-    if ts != -1:
-        sqa_data = encoder.data_to_sqa(data=data, trial_index=trial.index, timestamp=ts)
-        with session_scope() as session:
-            # pyre-fixme[16]: `SQABase` has no attribute `data`.
-            existing_sqa_experiment.data.append(sqa_data)
-            session.add(existing_sqa_experiment)
+            data, ts = experiment.lookup_data_for_trial(trial_index=trial.index)
+            if ts != -1:
+                sqa_data = encoder.data_to_sqa(
+                    data=data, trial_index=trial.index, timestamp=ts
+                )
+                sqa_data.experiment_id = experiment_id
+                session.add(sqa_data)
