@@ -499,12 +499,6 @@ def _extract_random_scalarization_settings(
     use_random_scalarization = kwargs.get("random_scalarization", False)
     random_weights = None
     if use_random_scalarization:
-        # Pareto Optimization incompatible with outcome constraints.
-        if outcome_constraints is not None:
-            raise ValueError(
-                "Random scalarization for pareto frontier exploration "
-                "is incompatible with outcome constraints. Remove one."
-            )
         # Set distribution and sample weights.
         distribution = kwargs.get("random_scalarization_distribution", SIMPLEX)
         if distribution == SIMPLEX:

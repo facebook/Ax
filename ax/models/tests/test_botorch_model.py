@@ -509,16 +509,27 @@ class BotorchModelTest(TestCase):
             )
             self.assertTrue(torch.allclose(expected, actual))
 
-        with self.assertRaisesRegex(
-            ValueError,
-            "pareto frontier exploration is incompatible with outcome constraints.",
-        ):
+        with mock.patch(
+            SAMPLE_SIMPLEX_UTIL_PATH,
+            autospec=True,
+            return_value=torch.tensor(
+                [0.7, 0.3], dtype=torch.float, device=torch.device("cpu")
+            ),
+        ) as _mock_sample_simplex:
             model.gen(
                 n,
                 bounds,
                 objective_weights,
-                outcome_constraints=(torch.Tensor([[1.0, 1.0]]), torch.Tensor([[1.0]])),
+                outcome_constraints=(
+                    torch.tensor(
+                        [[1.0, 1.0]], dtype=torch.float, device=torch.device("cpu")
+                    ),
+                    torch.tensor(
+                        [[1.0]], dtype=torch.float, device=torch.device("cpu")
+                    ),
+                ),
                 model_gen_options={
                     "acquisition_function_kwargs": {"random_scalarization": True}
                 },
             )
+            _mock_sample_simplex.assert_called_once()

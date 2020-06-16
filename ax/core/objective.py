@@ -79,6 +79,10 @@ class Objective(Base):
             self.metric.name, self.minimize
         )
 
+    def get_unconstrainable_metrics(self) -> List[Metric]:
+        """Return a list of metrics that are incompatible with OutcomeConstraints."""
+        return self.metrics
+
 
 # TODO (jej): Support sqa_store encoding. Currenlty only single metric obj supported.
 class MultiObjective(Objective):
@@ -144,6 +148,10 @@ class MultiObjective(Objective):
         return "MultiObjective(metric_names={}, minimize={})".format(
             [metric.name for metric in self.metrics], self.minimize
         )
+
+    def get_unconstrainable_metrics(self) -> List[Metric]:
+        """Return a list of metrics that are incompatible with OutcomeConstraints."""
+        return []
 
 
 class ScalarizedObjective(MultiObjective):

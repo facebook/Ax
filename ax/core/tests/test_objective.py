@@ -45,6 +45,9 @@ class ObjectiveTest(TestCase):
         with warnings.catch_warnings(record=True) as ws:
             Objective(Metric(name="m4", lower_is_better=False), minimize=True)
             self.assertTrue(any("Attempting to minimize" in str(w.message) for w in ws))
+        self.assertEqual(
+            self.objective.get_unconstrainable_metrics(), [self.metrics["m1"]]
+        )
 
     def testMultiObjective(self):
         with self.assertRaises(NotImplementedError):
@@ -58,6 +61,7 @@ class ObjectiveTest(TestCase):
             str(self.multi_objective),
             "MultiObjective(metric_names=['m1', 'm2', 'm3'], minimize=False)",
         )
+        self.assertEqual(self.multi_objective.get_unconstrainable_metrics(), [])
 
     def testScalarizedObjective(self):
         with self.assertRaises(NotImplementedError):
@@ -76,3 +80,4 @@ class ObjectiveTest(TestCase):
                 "minimize=False)"
             ),
         )
+        self.assertEqual(self.scalarized_objective.get_unconstrainable_metrics(), [])
