@@ -19,6 +19,7 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.storage import ImmutabilityError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.metric_registry import METRIC_REGISTRY, register_metric
@@ -42,6 +43,7 @@ from ax.storage.sqa_store.save import (
     save_experiment,
     save_generation_strategy,
     save_new_trial,
+    update_generation_strategy,
     update_trial,
 )
 from ax.storage.sqa_store.sqa_classes import (
@@ -1005,3 +1007,33 @@ class SQAStoreTest(TestCase):
         generator_run_sqa = self.encoder.generator_run_to_sqa(gr)
         decoded_gr = self.decoder.generator_run_from_sqa(generator_run_sqa)
         self.assertEqual(decoded_gr.gen_metadata, gen_metadata)
+
+    def testUpdateGenerationStrategyIncrementally(self):
+        experiment = get_branin_experiment()
+        generation_strategy = choose_generation_strategy(experiment.search_space)
+        save_experiment(experiment=experiment)
+        save_generation_strategy(generation_strategy=generation_strategy)
+
+        # add generator runs, save, reload
+        generator_runs = []
+        for i in range(7):
+            data = get_branin_data() if i > 0 else None
+            gr = generation_strategy.gen(experiment, data=data)
+            generator_runs.append(gr)
+            trial = experiment.new_trial(generator_run=gr).mark_running(
+                no_runner_required=True
+            )
+            trial.mark_completed()
+
+        save_experiment(experiment=experiment)
+        update_generation_strategy(
+            generation_strategy=generation_strategy, generator_runs=generator_runs
+        )
+        loaded_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name
+        )
+
+        self.assertEqual(
+            generation_strategy._curr.index, loaded_generation_strategy._curr.index, 1
+        )
+        self.assertEqual(len(loaded_generation_strategy._generator_runs), 7)

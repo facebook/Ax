@@ -8,6 +8,7 @@ from typing import List, Optional
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import optional_session_scope, session_scope
@@ -242,3 +243,46 @@ def update_trials(
                 )
                 sqa_data.experiment_id = experiment_id
                 session.add(sqa_data)
+
+
+def update_generation_strategy(
+    generation_strategy: GenerationStrategy,
+    generator_runs: List[GeneratorRun],
+    config: Optional[SQAConfig] = None,
+) -> None:
+    """Update generation strategy's current step and attach generator runs
+    (using default SQAConfig)."""
+    config = config or SQAConfig()
+    encoder = Encoder(config=config)
+    _update_generation_strategy(
+        generation_strategy=generation_strategy,
+        generator_runs=generator_runs,
+        encoder=encoder,
+    )
+
+
+def _update_generation_strategy(
+    generation_strategy: GenerationStrategy,
+    generator_runs: List[GeneratorRun],
+    encoder: Encoder,
+) -> None:
+    """Update generation strategy's current step and attach generator runs."""
+    gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
+
+    gs_id = generation_strategy._db_id
+    if gs_id is None:
+        raise ValueError("GenerationStrategy must be saved before being updated.")
+
+    with session_scope() as session:
+        experiment_id = _get_experiment_id(
+            experiment=generation_strategy.experiment, encoder=encoder, session=session
+        )
+        gs_sqa = session.query(gs_sqa_class).get(gs_id)
+        gs_sqa.curr_index = generation_strategy._curr.index  # pyre-fixme
+        gs_sqa.experiment_id = experiment_id  # pyre-ignore
+
+        session.add(gs_sqa)
+        for generator_run in generator_runs:
+            gr_sqa = encoder.generator_run_to_sqa(generator_run=generator_run)
+            gr_sqa.generation_strategy_id = gs_id
+            session.add(gr_sqa)
