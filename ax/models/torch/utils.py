@@ -392,3 +392,23 @@ def get_out_of_sample_best_point_acqf(
         non_fixed_idcs = None
 
     return acq_function, non_fixed_idcs
+
+
+def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
+    r"""Predicts outcomes given a model and input tensor.
+
+    Args:
+        model: A botorch Model.
+        X: A `n x d` tensor of input parameters.
+
+    Returns:
+        Tensor: The predicted posterior mean as an `n x o`-dim tensor.
+        Tensor: The predicted posterior covariance as a `n x o x o`-dim tensor.
+    """
+    with torch.no_grad():
+        posterior = model.posterior(X)
+    mean = posterior.mean.cpu().detach()
+    # TODO: Allow Posterior to (optionally) return the full covariance matrix
+    variance = posterior.variance.cpu().detach().clamp_min(0)  # pyre-ignore
+    cov = torch.diag_embed(variance)
+    return mean, cov

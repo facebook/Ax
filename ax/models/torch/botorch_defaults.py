@@ -9,10 +9,11 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import torch
 from ax.core.types import TConfig
 from ax.models.model_utils import best_observed_point, get_observed
-from ax.models.torch.utils import (
+from ax.models.torch.utils import (  # noqa F401
     HYPERSPHERE,
     SIMPLEX,
     _to_inequality_constraints,
+    predict_from_model,
     sample_hypersphere_positive_quadrant,
     sample_simplex,
 )
@@ -130,26 +131,6 @@ def get_and_fit_model(
             mll = ExactMarginalLogLikelihood(model.likelihood, model)
         mll = fit_gpytorch_model(mll, bounds=bounds)
     return model
-
-
-def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
-    r"""Predicts outcomes given a model and input tensor.
-
-    Args:
-        model: A botorch Model.
-        X: A `n x d` tensor of input parameters.
-
-    Returns:
-        Tensor: The predicted posterior mean as an `n x o`-dim tensor.
-        Tensor: The predicted posterior covariance as a `n x o x o`-dim tensor.
-    """
-    with torch.no_grad():
-        posterior = model.posterior(X)
-    mean = posterior.mean.cpu().detach()
-    # TODO: Allow Posterior to (optionally) return the full covariance matrix
-    variance = posterior.variance.cpu().detach().clamp_min(0)  # pyre-ignore
-    cov = torch.diag_embed(variance)
-    return mean, cov
 
 
 def get_NEI(

@@ -63,7 +63,7 @@ class ModelRegistryTest(TestCase):
                 },
                 "model_predictor": {
                     "is_callable_as_path": True,
-                    "value": f"{botorch_defaults}.predict_from_model",
+                    "value": "ax.models.torch.utils.predict_from_model",
                 },
                 "best_point_recommender": {
                     "is_callable_as_path": True,
