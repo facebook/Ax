@@ -24,6 +24,7 @@ from ax.models.torch.utils import (
     subset_model,
 )
 from ax.models.torch_base import TorchModel
+from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
@@ -314,8 +315,8 @@ class BotorchModel(TorchModel):
         target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
         options = model_gen_options or {}
-        acf_options = options.get("acquisition_function_kwargs", {})
-        optimizer_options = options.get("optimizer_kwargs", {})
+        acf_options = options.get(Keys.ACQF_KWARGS, {})
+        optimizer_options = options.get(Keys.OPTIMIZER_KWARGS, {})
 
         if target_fidelities:
             raise NotImplementedError(
@@ -335,7 +336,7 @@ class BotorchModel(TorchModel):
         model = self.model
 
         # subset model only to the outcomes we need for the optimization
-        if options.get("subset_model", True):
+        if options.get(Keys.SUBSET_MODEL, True):
             model, objective_weights, outcome_constraints = subset_model(
                 model=model,  # pyre-ignore [6]
                 objective_weights=objective_weights,
