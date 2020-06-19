@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import numpy as np
 from ax.core.arm import Arm
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -144,9 +145,13 @@ class ArrayModelBridgeTest(TestCase):
         _mock_unwrap,
         _mock_obs_from_data,
     ):
-        exp = Experiment(get_search_space_for_range_value(), "test")
+        exp = Experiment(search_space=get_search_space_for_range_value(), name="test")
         modelbridge = ArrayModelBridge(
-            get_search_space_for_range_value(), NumpyModel(), [t1, t2], exp, 0
+            search_space=get_search_space_for_range_value(),
+            model=NumpyModel(),
+            transforms=[t1, t2],
+            experiment=exp,
+            data=Data(),
         )
         self.assertEqual(list(modelbridge.transforms.keys()), ["Cast", "t1", "t2"])
         # _fit is mocked, which typically sets this.
@@ -201,9 +206,13 @@ class ArrayModelBridgeTest(TestCase):
         _mock_unwrap,
         _mock_obs_from_data,
     ):
-        exp = Experiment(get_search_space_for_range_value(), "test")
+        exp = Experiment(search_space=get_search_space_for_range_value(), name="test")
         modelbridge = ArrayModelBridge(
-            get_search_space_for_range_value(), NumpyModel(), [t1, t2], exp, 0
+            search_space=get_search_space_for_range_value(),
+            model=NumpyModel(),
+            transforms=[t1, t2],
+            experiment=exp,
+            data=Data(),
         )
         modelbridge.outcomes = ["a", "b"]
         self.assertEqual(modelbridge.feature_importances("a"), {"x": [1.0]})
@@ -261,7 +270,7 @@ class ArrayModelBridgeTest(TestCase):
         )
         # Check that the metadata is correctly re-added to observation
         # features during `update`.
-        batch = exp.new_batch_trial(gr)
+        batch = exp.new_batch_trial(generator_run=gr)
         modelbridge.update(
             experiment=exp, new_data=get_branin_data(trial_indices=[batch.index])
         )
@@ -295,7 +304,7 @@ class ArrayModelBridgeTest(TestCase):
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
         # Check that the metadata is correctly re-added to observation
         # features during `update`.
-        batch = exp.new_batch_trial(gr)
+        batch = exp.new_batch_trial(generator_run=gr)
         modelbridge.update(
             experiment=exp, new_data=get_branin_data(trial_indices=[batch.index])
         )
@@ -329,7 +338,7 @@ class ArrayModelBridgeTest(TestCase):
         gr = modelbridge.gen(n=1)
         self.assertIsNone(mock_model_fit.call_args[1].get("candidate_metadata"))
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
-        batch = exp.new_batch_trial(gr)
+        batch = exp.new_batch_trial(generator_run=gr)
         modelbridge.update(
             experiment=exp, new_data=get_branin_data(trial_indices=[batch.index])
         )
