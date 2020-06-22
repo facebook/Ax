@@ -35,7 +35,6 @@ MEDIUMTEXT_BYTES: int = 2 ** 24 - 1
 LONGTEXT_BYTES: int = 2 ** 32 - 1
 
 # global database variables
-Ax_PROD_TIER: str = "xdb.adaptive_experiment"
 SESSION_FACTORY: Optional[Session] = None
 
 # set this to false to prevent SQLAlchemy for automatically expiring objects
