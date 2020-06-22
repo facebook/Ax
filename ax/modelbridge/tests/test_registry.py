@@ -9,6 +9,7 @@ from collections import OrderedDict
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
+    MODEL_KEY_TO_MODEL_SETUP,
     Cont_X_trans,
     Models,
     Y_trans,
@@ -18,6 +19,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
+from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data,
@@ -245,3 +247,15 @@ class ModelRegistryTest(TestCase):
             if key in ["model", "warm_start_refitting", "Xs", "Ys"]:
                 continue
             self.assertEqual(original, restored)
+
+    def test_ModelSetups_do_not_share_kwargs(self):
+        """Tests that none of the preset model and bridge combinations share a
+        kwarg.
+        """
+        for model_setup_info in MODEL_KEY_TO_MODEL_SETUP.values():
+            model_class = model_setup_info.model_class
+            bridge_class = model_setup_info.bridge_class
+            model_args = set(get_function_argument_names(model_class))
+            bridge_args = set(get_function_argument_names(bridge_class))
+            # Intersection of two sets should be empty
+            self.assertEqual(model_args & bridge_args, set())
