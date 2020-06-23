@@ -34,7 +34,8 @@ def exp_to_df(
     metrics: Optional[List[Metric]] = None,
     key_components: Optional[List[str]] = None,
 ) -> DataFrame:
-    """Transforms an experiment to a DataFrame. Only supports SimpleExperiments.
+    """Transforms an experiment to a DataFrame. Only supports Experiment and
+    SimpleExperiment.
 
     Transforms an Experiment into a dataframe with rows keyed by trial_index
     and arm_name, metrics pivoted into one row.
