@@ -63,9 +63,9 @@ from ax.storage.utils import (
     DomainType,
     MetricIntent,
     ParameterConstraintType,
-    get_object_properties,
     remove_prefix,
 )
+from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_arm,
@@ -875,11 +875,11 @@ class SQAStoreTest(TestCase):
 
     def testGetProperties(self):
         # Extract default value.
-        properties = get_object_properties(Metric(name="foo"))
+        properties = serialize_init_args(Metric(name="foo"))
         self.assertEqual(properties, {"name": "foo", "lower_is_better": None})
 
         # Extract passed value.
-        properties = get_object_properties(Metric(name="foo", lower_is_better=True))
+        properties = serialize_init_args(Metric(name="foo", lower_is_better=True))
         self.assertEqual(properties, {"name": "foo", "lower_is_better": True})
 
     def testRegistryAdditions(self):

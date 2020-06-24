@@ -4,9 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import inspect
 import pydoc
 from types import FunctionType
-from typing import Any, Callable
+from typing import Any, Callable, Dict, List, Optional
 
 
 # https://stackoverflow.com/a/39235373
@@ -57,3 +58,26 @@ def callable_to_reference(callable: Callable) -> str:
 def callable_from_reference(path: str) -> Callable:
     """Retrieves a callable by its path."""
     return pydoc.locate(path)  # pyre-ignore[7]
+
+
+def serialize_init_args(
+    object: Any, exclude_fields: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """Given an object, return a dictionary of the arguments that are
+    needed by its constructor.
+    """
+    properties = {}
+    exclude_args = ["self", "args", "kwargs"] + (exclude_fields or [])
+    signature = inspect.signature(object.__class__.__init__)
+    for arg in signature.parameters:
+        if arg in exclude_args:
+            continue
+        try:
+            value = getattr(object, arg)
+        except AttributeError:
+            raise AttributeError(
+                f"{object.__class__} is missing a value for {arg}, "
+                f"which is needed by its constructor."
+            )
+        properties[arg] = value
+    return properties

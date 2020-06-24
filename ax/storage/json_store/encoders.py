@@ -31,7 +31,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
-from ax.storage.utils import get_object_properties
+from ax.utils.common.serialization import serialize_init_args
 
 
 def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
@@ -201,7 +201,7 @@ def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:
 
 def metric_to_dict(metric: Metric) -> Dict[str, Any]:
     """Convert Ax metric to a dictionary."""
-    properties = get_object_properties(object=metric)
+    properties = serialize_init_args(object=metric)
     properties["__type"] = metric.__class__.__name__
     return properties
 
@@ -286,7 +286,7 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
 
 def runner_to_dict(runner: SyntheticRunner) -> Dict[str, Any]:
     """Convert Ax synthetic runner to a dictionary."""
-    properties = get_object_properties(object=runner)
+    properties = serialize_init_args(object=runner)
     properties["__type"] = runner.__class__.__name__
     return properties
 
@@ -365,7 +365,7 @@ def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, 
             "optimal_value": benchmark_problem.optimal_value,
         }
     elif isinstance(benchmark_problem, BenchmarkProblem):
-        properties = get_object_properties(object=benchmark_problem)
+        properties = serialize_init_args(object=benchmark_problem)
         properties["__type"] = benchmark_problem.__class__.__name__
         return properties
     else:  # pragma: no cover

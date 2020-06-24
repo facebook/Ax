@@ -48,13 +48,9 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.utils import (
-    DomainType,
-    MetricIntent,
-    ParameterConstraintType,
-    get_object_properties,
-)
+from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.equality import datetime_equals
+from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import not_none
 
 
@@ -308,7 +304,7 @@ class Encoder:
 
         # name and lower_is_better are stored directly on the metric,
         # so we don't need to include these in the properties blob
-        properties = get_object_properties(
+        properties = serialize_init_args(
             object=metric, exclude_fields=["name", "lower_is_better", "precomp_config"]
         )
 
@@ -629,7 +625,7 @@ class Encoder:
                 "Cannot encode runner to SQLAlchemy because runner's "
                 "subclass is invalid."
             )  # pragma: no cover
-        properties = get_object_properties(object=runner)
+        properties = serialize_init_args(object=runner)
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Runner]`.
         runner_class: SQARunner = self.config.class_to_sqa_class[Runner]
