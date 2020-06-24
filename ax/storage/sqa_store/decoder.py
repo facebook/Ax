@@ -180,6 +180,7 @@ class Decoder:
         default_trial_type = not_none(experiment_sqa.default_trial_type)
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,
+            description=experiment_sqa.description,
             search_space=search_space,
             default_trial_type=default_trial_type,
             default_runner=trial_type_to_runner[default_trial_type],
