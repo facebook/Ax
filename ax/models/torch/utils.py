@@ -6,7 +6,6 @@
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, cast
 
-import botorch.utils.sampling as botorch_sampling
 import numpy as np
 import torch
 from ax.exceptions.model import ModelError
@@ -30,6 +29,7 @@ from botorch.models.model import Model
 from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.objective import get_objective_weights_transform
+from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor
 
 
@@ -268,18 +268,6 @@ def _to_inequality_constraints(
     return inequality_constraints
 
 
-def sample_simplex(dim: int) -> Tensor:
-    """Sample uniformly from a dim-simplex."""
-    return botorch_sampling.sample_simplex(dim, dtype=torch.double).squeeze()
-
-
-def sample_hypersphere_positive_quadrant(dim: int) -> Tensor:
-    """Sample uniformly from the positive quadrant of a dim-sphere."""
-    return torch.abs(
-        botorch_sampling.sample_hypersphere(dim, dtype=torch.double).squeeze()
-    )
-
-
 def tensor_callable_to_array_callable(
     tensor_func: Callable[[Tensor], Tensor], device: torch.device
 ) -> Callable[[np.ndarray], np.ndarray]:
@@ -438,3 +426,37 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     variance = posterior.variance.cpu().detach().clamp_min(0)  # pyre-ignore
     cov = torch.diag_embed(variance)
     return mean, cov
+
+
+# TODO(jej): Possibly refactor to use "objective_directions".
+def randomize_objective_weights(
+    objective_weights: Tensor, **acquisition_function_kwargs: Any
+) -> Tensor:
+    """Generate a random weighting based on acquisition function settings.
+
+    Args:
+        objective_weights: Base weights to multiply by random values..
+        **acquisition_function_kwargs: Kwargs containing weight generation algorithm
+            options.
+
+    Returns:
+        A normalized list of indices such that each index is between `0` and `d-1`.
+    """
+    # Set distribution and sample weights.
+    distribution = acquisition_function_kwargs.get(
+        "random_scalarization_distribution", SIMPLEX
+    )
+    dtype = objective_weights.dtype
+    device = objective_weights.device
+    if distribution == SIMPLEX:
+        random_weights = sample_simplex(
+            len(objective_weights), dtype=dtype, device=device
+        ).squeeze()
+    elif distribution == HYPERSPHERE:
+        random_weights = torch.abs(
+            sample_hypersphere(
+                len(objective_weights), dtype=dtype, device=device
+            ).squeeze()
+        )
+    objective_weights = torch.mul(objective_weights, random_weights)
+    return objective_weights

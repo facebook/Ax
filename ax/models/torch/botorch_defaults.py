@@ -10,12 +10,8 @@ import torch
 from ax.core.types import TConfig
 from ax.models.model_utils import best_observed_point, get_observed
 from ax.models.torch.utils import (  # noqa F401
-    HYPERSPHERE,
-    SIMPLEX,
     _to_inequality_constraints,
     predict_from_model,
-    sample_hypersphere_positive_quadrant,
-    sample_simplex,
 )
 from ax.models.torch_base import TorchModel
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -30,7 +26,7 @@ from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
-from botorch.optim.optimize import optimize_acqf
+from botorch.optim.optimize import optimize_acqf, optimize_acqf_list
 from botorch.utils import (
     get_objective_weights_transform,
     get_outcome_constraint_transforms,
@@ -165,10 +161,6 @@ def get_NEI(
     """
     if X_observed is None:
         raise ValueError("There are no feasible observed points.")
-    # Parse random_scalarization params
-    objective_weights = _extract_random_scalarization_settings(
-        objective_weights, outcome_constraints, **kwargs
-    )
     # construct Objective module
     if outcome_constraints is None:
         objective = LinearMCObjective(weights=objective_weights)
@@ -250,6 +242,60 @@ def scipy_optimizer(
         inequality_constraints=inequality_constraints,
         fixed_features=fixed_features,
         sequential=sequential,
+        post_processing_func=rounding_func,
+    )
+    return X, expected_acquisition_value
+
+
+# TODO (jej): rewrite optimize_acqf wrappers to avoid duplicate code.
+def scipy_optimizer_list(
+    acq_function_list: List[AcquisitionFunction],
+    bounds: Tensor,
+    inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
+    fixed_features: Optional[Dict[int, float]] = None,
+    rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
+    **kwargs: Any,
+) -> Tuple[Tensor, Tensor]:
+    r"""Sequential optimizer using scipy's minimize module on a numpy-adaptor.
+
+    The `i`th acquisition in the sequence uses the `i`th given acquisition_function.
+
+    Args:
+        acq_function_list: A list of botorch AcquisitionFunctions,
+            optimized sequentially.
+        bounds: A `2 x d`-dim tensor, where `bounds[0]` (`bounds[1]`) are the
+            lower (upper) bounds of the feasible hyperrectangle.
+        n: The number of candidates to generate.
+        inequality constraints: A list of tuples (indices, coefficients, rhs),
+            with each tuple encoding an inequality constraint of the form
+            `\sum_i (X[indices[i]] * coefficients[i]) >= rhs`
+        fixed_features: A map {feature_index: value} for features that should
+            be fixed to a particular value during generation.
+        rounding_func: A function that rounds an optimization result
+            appropriately (i.e., according to `round-trip` transformations).
+
+    Returns:
+        2-element tuple containing
+
+        - A `n x d`-dim tensor of generated candidates.
+        - A `n`-dim tensor of conditional acquisition
+          values, where `i`-th element is the expected acquisition value
+          conditional on having observed candidates `0,1,...,i-1`.
+    """
+    num_restarts: int = kwargs.get("num_restarts", 20)
+    raw_samples: int = kwargs.get("num_raw_samples", 50 * num_restarts)
+
+    # use SLSQP by default for small problems since it yields faster wall times
+    if "method" not in kwargs:
+        kwargs["method"] = "SLSQP"
+    X, expected_acquisition_value = optimize_acqf_list(
+        acq_function_list=acq_function_list,
+        bounds=bounds,
+        num_restarts=num_restarts,
+        raw_samples=raw_samples,
+        options=kwargs,
+        inequality_constraints=inequality_constraints,
+        fixed_features=fixed_features,
         post_processing_func=rounding_func,
     )
     return X, expected_acquisition_value
@@ -469,26 +515,3 @@ def _get_model(
             train_X=X, train_Y=Y, train_Yvar=Yvar, task_feature=task_feature, **kwargs
         )
     return gp
-
-
-def _extract_random_scalarization_settings(
-    objective_weights: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    **kwargs: Any,
-) -> Tensor:
-    """Generate a random weighting based on scalarization settings."""
-    use_random_scalarization = kwargs.get("random_scalarization", False)
-    random_weights = None
-    if use_random_scalarization:
-        # Set distribution and sample weights.
-        distribution = kwargs.get("random_scalarization_distribution", SIMPLEX)
-        if distribution == SIMPLEX:
-            random_weights = sample_simplex(len(objective_weights))
-        elif distribution == HYPERSPHERE:
-            random_weights = sample_hypersphere_positive_quadrant(
-                len(objective_weights)
-            )
-
-    if random_weights is not None:
-        objective_weights = torch.mul(objective_weights, random_weights)
-    return objective_weights

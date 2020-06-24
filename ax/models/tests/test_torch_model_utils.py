@@ -11,8 +11,6 @@ from ax.models.torch.utils import (
     _generate_sobol_points,
     is_noiseless,
     normalize_indices,
-    sample_hypersphere_positive_quadrant,
-    sample_simplex,
     subset_model,
     tensor_callable_to_array_callable,
 )
@@ -110,24 +108,6 @@ class TorchUtilsTest(TestCase):
         )
         self.assertEqual(len(gen_sobol), 100)
         self.assertIsInstance(gen_sobol, Tensor)
-
-    def testSampleSimplex(self):
-        for d in range(1, 10):
-            self.assertTrue(
-                sample_simplex(d)
-                .sum()
-                .isclose(torch.tensor([1.0], dtype=torch.double)),
-                "sampled simplex point's components do not sum to 1.0",
-            )
-
-    def testSampleHyperspherePositiveQuadrant(self):
-        for d in range(1, 10):
-            self.assertTrue(
-                sample_hypersphere_positive_quadrant(d)
-                .norm()
-                .isclose(torch.tensor([1.0], dtype=torch.double)),
-                "sampled hypersphere point's norm is not 1.0",
-            )
 
     def testTensorCallableToArrayCallable(self):
         def tensor_func(x: Tensor) -> Tensor:

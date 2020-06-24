@@ -10,7 +10,6 @@ from unittest import mock
 import torch
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import (
-    _extract_random_scalarization_settings,
     get_and_fit_model,
     recommend_best_out_of_sample_point,
 )
@@ -23,10 +22,8 @@ from gpytorch.likelihoods import _GaussianLikelihoodBase
 
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
-SAMPLE_SIMPLEX_UTIL_PATH = "ax.models.torch.botorch_defaults.sample_simplex"
-SAMPLE_HYPERSPHERE_UTIL_PATH = (
-    "ax.models.torch.botorch_defaults.sample_hypersphere_positive_quadrant"
-)
+SAMPLE_SIMPLEX_UTIL_PATH = "ax.models.torch.utils.sample_simplex"
+SAMPLE_HYPERSPHERE_UTIL_PATH = "ax.models.torch.utils.sample_hypersphere"
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -474,7 +471,8 @@ class BotorchModelTest(TestCase):
                     "acquisition_function_kwargs": {"random_scalarization": True}
                 },
             )
-            _mock_sample_simplex.assert_called_once()
+            # Sample_simplex should be called once for generated candidate.
+            self.assertEqual(n, _mock_sample_simplex.call_count)
 
         with mock.patch(
             SAMPLE_HYPERSPHERE_UTIL_PATH,
@@ -492,23 +490,42 @@ class BotorchModelTest(TestCase):
                     }
                 },
             )
-            _mock_sample_hypersphere.assert_called_once()
+            # Sample_simplex should be called once per generated candidate.
+            self.assertEqual(n, _mock_sample_hypersphere.call_count)
 
-        with mock.patch(
-            SAMPLE_HYPERSPHERE_UTIL_PATH,
-            autospec=True,
-            return_value=torch.tensor([0.6, 0.8]),
-        ) as _mock_sample_hypersphere:
-            expected = torch.tensor([0.6, -0.8])
-            actual = _extract_random_scalarization_settings(
-                objective_weights=torch.tensor([1.0, -1.0]),
-                **{
-                    "random_scalarization": True,
-                    "random_scalarization_distribution": HYPERSPHERE,
-                }
+    @mock.patch(
+        "ax.models.torch.botorch_defaults.optimize_acqf",
+        return_value=(
+            torch.tensor([[[1.0, 2.0, 3.0]]]),
+            torch.tensor([[[1.0, 2.0, 3.0]]]),
+        ),
+    )
+    def test_BotorchModel_with_random_scalarization_and_outcome_constraints(
+        self, dtype=torch.float, cuda=False
+    ):
+        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
+            dtype=torch.float, cuda=False, constant_noise=True
+        )
+        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
+            dtype=torch.float, cuda=False, constant_noise=True
+        )
+        n = 2
+        objective_weights = torch.tensor(
+            [1.0, 1.0], dtype=torch.float, device=torch.device("cpu")
+        )
+        model = BotorchModel()
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1 + Xs2,
+                Ys=Ys1 + Ys2,
+                Yvars=Yvars1 + Yvars2,
+                bounds=bounds,
+                task_features=tfs,
+                feature_names=fns,
+                metric_names=mns,
+                fidelity_features=[],
             )
-            self.assertTrue(torch.allclose(expected, actual))
-
+            _mock_fit_model.assert_called_once()
         with mock.patch(
             SAMPLE_SIMPLEX_UTIL_PATH,
             autospec=True,
@@ -529,7 +546,10 @@ class BotorchModelTest(TestCase):
                     ),
                 ),
                 model_gen_options={
-                    "acquisition_function_kwargs": {"random_scalarization": True}
+                    "acquisition_function_kwargs": {
+                        "random_scalarization": True,
+                        "num_restarts": 2,
+                    }
                 },
             )
-            _mock_sample_simplex.assert_called_once()
+            self.assertEqual(n, _mock_sample_simplex.call_count)
