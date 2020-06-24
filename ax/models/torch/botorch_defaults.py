@@ -258,7 +258,7 @@ def scipy_optimizer_list(
 ) -> Tuple[Tensor, Tensor]:
     r"""Sequential optimizer using scipy's minimize module on a numpy-adaptor.
 
-    The `i`th acquisition in the sequence uses the `i`th given acquisition_function.
+    The ith acquisition in the sequence uses the ith given acquisition_function.
 
     Args:
         acq_function_list: A list of botorch AcquisitionFunctions,
