@@ -50,7 +50,6 @@ from ax.storage.sqa_store.sqa_classes import (
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.equality import datetime_equals
-from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import not_none
 
 
@@ -295,19 +294,15 @@ class Encoder:
         and construct a dictionary to be stored in the database `properties`
         json blob.
         """
-        metric_type = METRIC_REGISTRY.get(type(metric))
+        metric_class = type(metric)
+        metric_type = METRIC_REGISTRY.get(metric_class)
         if metric_type is None:
             raise SQAEncodeError(
                 "Cannot encode metric to SQLAlchemy because metric's "
                 "subclass is invalid."
             )  # pragma: no cover
 
-        # name and lower_is_better are stored directly on the metric,
-        # so we don't need to include these in the properties blob
-        properties = serialize_init_args(
-            object=metric, exclude_fields=["name", "lower_is_better", "precomp_config"]
-        )
-
+        properties = metric_class.serialize_init_args(metric=metric)
         return metric_type, properties
 
     def metric_to_sqa(self, metric: Metric) -> SQAMetric:
@@ -619,13 +614,14 @@ class Encoder:
         self, runner: Runner, trial_type: Optional[str] = None
     ) -> SQARunner:
         """Convert Ax Runner to SQLAlchemy."""
-        runner_type = RUNNER_REGISTRY.get(type(runner))
+        runner_class = type(runner)
+        runner_type = RUNNER_REGISTRY.get(runner_class)
         if runner_type is None:
             raise SQAEncodeError(
                 "Cannot encode runner to SQLAlchemy because runner's "
                 "subclass is invalid."
             )  # pragma: no cover
-        properties = serialize_init_args(object=runner)
+        properties = runner_class.serialize_init_args(runner=runner)
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Runner]`.
         runner_class: SQARunner = self.config.class_to_sqa_class[Runner]

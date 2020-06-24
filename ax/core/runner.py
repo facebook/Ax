@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict
 
 from ax.core.base import Base
+from ax.utils.common.serialization import extract_init_args, serialize_init_args
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -17,6 +18,20 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class Runner(Base, ABC):
     """Abstract base class for custom runner classes"""
+
+    @classmethod
+    def serialize_init_args(cls, runner: "Runner") -> Dict[str, Any]:
+        """Serialize the properties needed to initialize the runner.
+        Used for storage.
+        """
+        return serialize_init_args(object=runner)
+
+    @classmethod
+    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Given a dictionary, deserialize the properties needed to initialize the runner.
+        Used for storage.
+        """
+        return extract_init_args(args=args, class_=cls)
 
     @abstractmethod
     def run(self, trial: "core.base_trial.BaseTrial") -> Dict[str, Any]:

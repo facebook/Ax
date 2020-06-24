@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterable, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional
 
 from ax.core.base import Base
 from ax.core.data import Data
+from ax.utils.common.serialization import extract_init_args, serialize_init_args
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -38,6 +39,22 @@ class Metric(Base):
     def name(self) -> str:
         """Get name of metric."""
         return self._name
+
+    @classmethod
+    def serialize_init_args(cls, metric: "Metric") -> Dict[str, Any]:
+        """Serialize the properties needed to initialize the metric.
+        Used for storage.
+        """
+        return serialize_init_args(
+            object=metric, exclude_fields=["name", "lower_is_better", "precomp_config"]
+        )
+
+    @classmethod
+    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Given a dictionary, extract the properties needed to initialize the metric.
+        Used for storage.
+        """
+        return extract_init_args(args=args, class_=cls)
 
     def fetch_trial_data(self, trial: core.base_trial.BaseTrial, **kwargs: Any) -> Data:
         """Fetch data for one trial."""

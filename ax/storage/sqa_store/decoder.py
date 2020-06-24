@@ -50,7 +50,6 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
-from ax.utils.common.serialization import extract_init_args
 from ax.utils.common.typeutils import not_none
 
 
@@ -381,11 +380,10 @@ class Decoder:
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type."
             )
-
         args = metric_sqa.properties or {}
         args["name"] = metric_sqa.name
         args["lower_is_better"] = metric_sqa.lower_is_better
-        args = extract_init_args(args=args, class_=metric_class)
+        args = metric_class.deserialize_init_args(args=args)
         metric = metric_class(**args)
         return metric
 
@@ -646,7 +644,7 @@ class Decoder:
                 f"Cannot decode SQARunner because {runner_sqa.runner_type} "
                 f"is an invalid type."
             )
-        args = extract_init_args(args=runner_sqa.properties or {}, class_=runner_class)
+        args = runner_class.deserialize_init_args(args=runner_sqa.properties or {})
         # pyre-fixme[45]: Cannot instantiate abstract class `Runner`.
         return runner_class(**args)
 
