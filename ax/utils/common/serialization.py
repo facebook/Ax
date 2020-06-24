@@ -7,7 +7,7 @@
 import inspect
 import pydoc
 from types import FunctionType
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Type
 
 
 # https://stackoverflow.com/a/39235373
@@ -81,3 +81,27 @@ def serialize_init_args(
             )
         properties[arg] = value
     return properties
+
+
+def extract_init_args(args: Dict[str, Any], class_: Type) -> Dict[str, Any]:
+    """Given a dictionary, extract the arguments required for the
+    given class's constructor.
+    """
+    init_args = {}
+    signature = inspect.signature(class_.__init__)
+    for arg, info in signature.parameters.items():
+        if arg in ["self", "args", "kwargs"]:
+            continue
+        value = args.get(arg)
+        if value is None:
+            # Only necessary to raise an exception if there is no default
+            # value for this argument
+            if info.default is inspect.Parameter.empty:
+                raise ValueError(
+                    f"Cannot decode because required argument {arg} is missing."
+                )
+            else:
+                # Constructor will use default value
+                continue  # pragma: no cover
+        init_args[arg] = value
+    return init_args

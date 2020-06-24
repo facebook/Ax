@@ -4,14 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import inspect
 from collections import OrderedDict, defaultdict
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.data import Data
@@ -37,7 +35,6 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
 from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
-from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
@@ -53,6 +50,7 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.utils.common.serialization import extract_init_args
 from ax.utils.common.typeutils import not_none
 
 
@@ -375,32 +373,6 @@ class Decoder:
             parameters=parameters, parameter_constraints=parameter_constraints
         )
 
-    def get_init_args_from_properties(
-        self, object_sqa: SQABase, class_: Base
-    ) -> Dict[str, Any]:
-        """Given a SQAAlchemy instance with a properties blob, extract the
-        arguments required for its class's initializer.
-        """
-        args = dict(getattr(object_sqa, "properties", None) or {})
-        signature = inspect.signature(class_.__init__)
-        exclude_args = ["self", "args", "kwargs"]
-        for arg, info in signature.parameters.items():
-            if arg in exclude_args or arg in args:
-                continue
-            value = getattr(object_sqa, arg, None)
-            if value is None:
-                # Only necessary to raise an exception if there is no default
-                # value for this argument
-                if info.default is inspect.Parameter.empty:
-                    raise SQADecodeError(
-                        f"Cannot decode because required argument {arg} is missing."
-                    )
-                else:
-                    # Constructor will use default value
-                    continue  # pragma: no cover
-            args[arg] = value
-        return args
-
     def metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
         """Convert SQLAlchemy Metric to Ax Metric"""
         metric_class = REVERSE_METRIC_REGISTRY.get(metric_sqa.metric_type)
@@ -409,11 +381,11 @@ class Decoder:
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type."
             )
-        args = self.get_init_args_from_properties(
-            # pyre-fixme[6]: Expected `SQABase` for ...es` but got `SQAMetric`.
-            object_sqa=metric_sqa,
-            class_=metric_class,
-        )
+
+        args = metric_sqa.properties or {}
+        args["name"] = metric_sqa.name
+        args["lower_is_better"] = metric_sqa.lower_is_better
+        args = extract_init_args(args=args, class_=metric_class)
         metric = metric_class(**args)
         return metric
 
@@ -674,11 +646,7 @@ class Decoder:
                 f"Cannot decode SQARunner because {runner_sqa.runner_type} "
                 f"is an invalid type."
             )
-        args = self.get_init_args_from_properties(
-            # pyre-fixme[6]: Expected `SQABase` for ...es` but got `SQARunner`.
-            object_sqa=runner_sqa,
-            class_=runner_class,
-        )
+        args = extract_init_args(args=runner_sqa.properties or {}, class_=runner_class)
         # pyre-fixme[45]: Cannot instantiate abstract class `Runner`.
         return runner_class(**args)
 
