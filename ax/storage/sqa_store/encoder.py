@@ -235,7 +235,7 @@ class Encoder:
         else:
             raise SQAEncodeError(
                 "Cannot encode parameter to SQLAlchemy because parameter's "
-                "subclass is invalid."
+                f"subclass ({type(parameter)}) is invalid."
             )  # pragma: no cover
 
     def parameter_constraint_to_sqa(
@@ -299,7 +299,9 @@ class Encoder:
         if metric_type is None:
             raise SQAEncodeError(
                 "Cannot encode metric to SQLAlchemy because metric's "
-                "subclass is invalid."
+                f"subclass ({metric_class}) is missing from the registry. "
+                "The metric registry currently contains the following: "
+                f"{','.join(map(str, METRIC_REGISTRY.keys()))}"
             )  # pragma: no cover
 
         properties = metric_class.serialize_init_args(metric=metric)
@@ -619,7 +621,9 @@ class Encoder:
         if runner_type is None:
             raise SQAEncodeError(
                 "Cannot encode runner to SQLAlchemy because runner's "
-                "subclass is invalid."
+                f"subclass ({runner_class}) is missing from the registry. "
+                "The runner registry currently contains the following: "
+                f"{','.join(map(str, RUNNER_REGISTRY.keys()))}"
             )  # pragma: no cover
         properties = runner_class.serialize_init_args(runner=runner)
 
