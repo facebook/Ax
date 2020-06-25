@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from itertools import chain
+from typing import Dict
 from unittest import mock
 
 import torch
@@ -28,6 +29,10 @@ SAMPLE_HYPERSPHERE_UTIL_PATH = "ax.models.torch.utils.sample_hypersphere"
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
     return X
+
+
+def _get_optimizer_kwargs() -> Dict[str, int]:
+    return {"num_restarts": 2, "raw_samples": 2, "maxiter": 2, "batch_limit": 1}
 
 
 def _get_torch_test_data(dtype=torch.float, cuda=False, constant_noise=True):
@@ -424,16 +429,10 @@ class BotorchModelTest(TestCase):
         with self.assertRaises(ValueError):
             model.gen(n, bounds, objective_weights)
 
-    @mock.patch(
-        "ax.models.torch.botorch_defaults.optimize_acqf",
-        return_value=(
-            torch.tensor([[[1.0, 2.0, 3.0]]]),
-            torch.tensor([[[1.0, 2.0, 3.0]]]),
-        ),
-    )
     def test_BotorchModel_with_random_scalarization(
         self, dtype=torch.float, cuda=False
     ):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
@@ -458,17 +457,24 @@ class BotorchModelTest(TestCase):
             )
             _mock_fit_model.assert_called_once()
 
+        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
+        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
+
         with mock.patch(
             SAMPLE_SIMPLEX_UTIL_PATH,
             autospec=True,
             return_value=torch.tensor([0.7, 0.3]),
-        ) as _mock_sample_simplex:
+        ) as _mock_sample_simplex, mock.patch(
+            "ax.models.torch.botorch_defaults.optimize_acqf",
+            return_value=(X_dummy, acqfv_dummy),
+        ) as _:
             model.gen(
                 n,
                 bounds,
                 objective_weights,
                 model_gen_options={
-                    "acquisition_function_kwargs": {"random_scalarization": True}
+                    "acquisition_function_kwargs": {"random_scalarization": True},
+                    "optimizer_kwargs": _get_optimizer_kwargs(),
                 },
             )
             # Sample_simplex should be called once for generated candidate.
@@ -478,7 +484,10 @@ class BotorchModelTest(TestCase):
             SAMPLE_HYPERSPHERE_UTIL_PATH,
             autospec=True,
             return_value=torch.tensor([0.6, 0.8]),
-        ) as _mock_sample_hypersphere:
+        ) as _mock_sample_hypersphere, mock.patch(
+            "ax.models.torch.botorch_defaults.optimize_acqf",
+            return_value=(X_dummy, acqfv_dummy),
+        ) as _:
             model.gen(
                 n,
                 bounds,
@@ -487,22 +496,17 @@ class BotorchModelTest(TestCase):
                     "acquisition_function_kwargs": {
                         "random_scalarization": True,
                         "random_scalarization_distribution": HYPERSPHERE,
-                    }
+                    },
+                    "optimizer_kwargs": _get_optimizer_kwargs(),
                 },
             )
             # Sample_simplex should be called once per generated candidate.
             self.assertEqual(n, _mock_sample_hypersphere.call_count)
 
-    @mock.patch(
-        "ax.models.torch.botorch_defaults.optimize_acqf",
-        return_value=(
-            torch.tensor([[[1.0, 2.0, 3.0]]]),
-            torch.tensor([[[1.0, 2.0, 3.0]]]),
-        ),
-    )
     def test_BotorchModel_with_random_scalarization_and_outcome_constraints(
         self, dtype=torch.float, cuda=False
     ):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
@@ -526,13 +530,18 @@ class BotorchModelTest(TestCase):
                 fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
+
+        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
+        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
+
         with mock.patch(
             SAMPLE_SIMPLEX_UTIL_PATH,
             autospec=True,
-            return_value=torch.tensor(
-                [0.7, 0.3], dtype=torch.float, device=torch.device("cpu")
-            ),
-        ) as _mock_sample_simplex:
+            return_value=torch.tensor([0.7, 0.3]),
+        ) as _mock_sample_simplex, mock.patch(
+            "ax.models.torch.botorch_defaults.optimize_acqf",
+            return_value=(X_dummy, acqfv_dummy),
+        ) as _:
             model.gen(
                 n,
                 bounds,
@@ -542,14 +551,12 @@ class BotorchModelTest(TestCase):
                         [[1.0, 1.0]], dtype=torch.float, device=torch.device("cpu")
                     ),
                     torch.tensor(
-                        [[1.0]], dtype=torch.float, device=torch.device("cpu")
+                        [[10.0]], dtype=torch.float, device=torch.device("cpu")
                     ),
                 ),
                 model_gen_options={
-                    "acquisition_function_kwargs": {
-                        "random_scalarization": True,
-                        "num_restarts": 2,
-                    }
+                    "acquisition_function_kwargs": {"random_scalarization": True},
+                    "optimizer_kwargs": _get_optimizer_kwargs(),
                 },
             )
             self.assertEqual(n, _mock_sample_simplex.call_count)
