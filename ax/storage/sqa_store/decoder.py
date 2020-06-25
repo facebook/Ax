@@ -655,6 +655,7 @@ class Decoder:
                 experiment=experiment,
                 optimize_for_power=trial_sqa.optimize_for_power,
                 ttl_seconds=trial_sqa.ttl_seconds,
+                index=trial_sqa.index,
             )
             generator_run_structs = [
                 GeneratorRunStruct(
@@ -686,7 +687,11 @@ class Decoder:
                 for abandoned_arm_sqa in trial_sqa.abandoned_arms
             }
         else:
-            trial = Trial(experiment=experiment, ttl_seconds=trial_sqa.ttl_seconds)
+            trial = Trial(
+                experiment=experiment,
+                ttl_seconds=trial_sqa.ttl_seconds,
+                index=trial_sqa.index,
+            )
             if trial_sqa.generator_runs:
                 if len(trial_sqa.generator_runs) != 1:
                     raise SQADecodeError(  # pragma: no cover
@@ -696,7 +701,6 @@ class Decoder:
                 trial._generator_run = self.generator_run_from_sqa(
                     generator_run_sqa=trial_sqa.generator_runs[0]
                 )
-        trial._index = trial_sqa.index
         trial._trial_type = trial_sqa.trial_type
         # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
         # equivalent to `RUNNING`.

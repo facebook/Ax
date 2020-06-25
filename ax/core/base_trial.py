@@ -143,6 +143,10 @@ class BaseTrial(ABC, Base):
             'dead' trials, for which the evaluation process might have
             crashed etc., and which should be considered failed after
             their 'time to live' has passed.
+        index: If specified, the trial's index will be set accordingly.
+            This should generally not be specified, as in the index will be
+            automatically determined based on the number of existing trials.
+            This is only used for the purpose of loading from storage.
     """
 
     def __init__(
@@ -150,6 +154,7 @@ class BaseTrial(ABC, Base):
         experiment: core.experiment.Experiment,
         trial_type: Optional[str] = None,
         ttl_seconds: Optional[int] = None,
+        index: Optional[int] = None,
     ) -> None:
         """Initialize trial.
 
@@ -160,7 +165,7 @@ class BaseTrial(ABC, Base):
         if ttl_seconds is not None and ttl_seconds <= 0:
             raise ValueError("TTL must be a positive integer (or None).")
         self._ttl_seconds: Optional[int] = ttl_seconds
-        self._index = self._experiment._attach_trial(self)
+        self._index = self._experiment._attach_trial(self, index=index)
 
         if trial_type is not None:
             if not self._experiment.supports_trial_type(trial_type):

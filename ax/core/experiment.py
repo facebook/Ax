@@ -700,13 +700,18 @@ class Experiment(Base):
                 trial.runner = runner
         self.runner = runner
 
-    def _attach_trial(self, trial: BaseTrial) -> int:
+    def _attach_trial(self, trial: BaseTrial, index: Optional[int] = None) -> int:
         """Attach a trial to this experiment.
 
         Should only be called within the trial constructor.
 
         Args:
             trial: The trial to be attached.
+            index: If specified, the trial's index will be set accordingly.
+                This should generally not be specified, as the index
+                will be automatically determined based on the number
+                of existing trials. This is only used for the purpose
+                of loading from storage.
 
         Returns:
             The index of the trial within the experiment's trial list.
@@ -719,7 +724,15 @@ class Experiment(Base):
             if existing_trial is trial:
                 raise ValueError("BatchTrial already attached to experiment.")
 
-        index = 0 if len(self._trials) == 0 else max(self._trials.keys()) + 1
+        if index is not None and index in self._trials:
+            logger.warning(  # pragma: no cover
+                f"Trial index {index} already exists on the experiment. Overwriting."
+            )
+        index = (
+            index
+            if index is not None
+            else (0 if len(self._trials) == 0 else max(self._trials.keys()) + 1)
+        )
         self._trials[index] = trial
         return index
 

@@ -92,6 +92,10 @@ class BatchTrial(BaseTrial):
             'dead' trials, for which the evaluation process might have
             crashed etc., and which should be considered failed after
             their 'time to live' has passed.
+        index: If specified, the trial's index will be set accordingly.
+            This should generally not be specified, as in the index will be
+            automatically determined based on the number of existing trials.
+            This is only used for the purpose of loading from storage.
     """
 
     def __init__(
@@ -101,9 +105,13 @@ class BatchTrial(BaseTrial):
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
         ttl_seconds: Optional[int] = None,
+        index: Optional[int] = None,
     ) -> None:
         super().__init__(
-            experiment=experiment, trial_type=trial_type, ttl_seconds=ttl_seconds
+            experiment=experiment,
+            trial_type=trial_type,
+            ttl_seconds=ttl_seconds,
+            index=index,
         )
         self._generator_run_structs: List[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
