@@ -507,7 +507,9 @@ class GenerationStrategy(Base):
         # underlying model's `update`.
         newly_completed_trials = self._find_trials_completed_since_last_gen()
         if len(newly_completed_trials) == 0:
-            logger.info("There were no newly completed trials since last model update.")
+            logger.debug(
+                "There were no newly completed trials since last model update."
+            )
             return
         if data is None:
             new_data = self.experiment.fetch_trials_data(
