@@ -3,7 +3,8 @@ id: trial-evaluation
 title: Trial Evaluation
 ---
 
-There are 3 paradigms for evaluating [trials](glossary.md#trial):
+There are 3 paradigms for evaluating [trials](glossary.md#trial) in Ax.
+Note: ensure that you are using the [appropriate type of trials](core.md#trial-vs-batched-trial) for your experiment, before proceeding to trial evaluation.
 
 ### Synchronous
 

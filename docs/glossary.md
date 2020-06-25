@@ -7,6 +7,8 @@ sidebar_label: Glossary
 Mapping from [parameters](glossary.md#parameter) (i.e. a parameterization or parameter configuration) to parameter values. An arm provides the configuration to be tested in an Ax [trial](glossary.md#trial). Also known as "treatment group" or "parameterization", the name 'arm' comes from the [Multi-Armed Bandit](https://en.wikipedia.org/wiki/Multi-armed_bandit) optimization problem, in which a player facing a row of “one-armed bandit” slot machines has to choose which machines to play when and in what order. [```[Arm]```](/api/core.html#module-ax.core.arm)
 ### Bandit optimization
 Machine learning-driven version of A/B testing that dynamically allocates traffic to [arms](glossary.md#arm) which are performing well, to determine the best [arm](glossary.md#arm) among a given set.
+### Batch trial
+Single step in the [experiment](glossary.md#experiment), contains multiple [arms](glossary.md#arm) that are **deployed and evaluated together**. A batch trial is not just a trial with many arms; it is a trial for which it is important that the arms are evaluated simultaneously, e.g. in an A/B test where the evaluation results are subject to nonstationarity. For cases where multiple arms are evaluated separately and independently of each other, use multiple regular [trials](glossary.md#trial) with a single arm each. [```[BatchTrial]```](/api/core.html#module-ax.core.batch_trial)
 ### Bayesian optimization
 Sequential optimization strategy for finding an optimal [arm](glossary.md#arm) in a continuous [search space](glossary.md#search-space).
 ### Evaluation function
@@ -44,4 +46,4 @@ Subclass of [experiment](glossary.md#experiment) that assumes synchronous evalua
 ### Status quo
 An [arm](glossary.md#arm), usually the currently deployed configuration, which provides a baseline for comparing all other [arms](glossary.md#arm). Also known as a control [arm](glossary.md#arm). [```[StatusQuo]```](/api/core.html#ax.core.experiment.Experiment.status_quo)
 ### Trial
-Single step in the [experiment](glossary.md#experiment), contains a single [arm](glossary.md#arm). In cases where the trial contains multiple [arms](glossary.md#arm) that are deployed simultaneously, we refer to it as a **batch trial**. [```[Trial]```](/api/core.html#module-ax.core.trial), [```[BatchTrial]```](/api/core.html#module-ax.core.batch_trial)
+Single step in the [experiment](glossary.md#experiment), contains a single [arm](glossary.md#arm). In cases where the trial contains multiple [arms](glossary.md#arm) that are deployed simultaneously, we refer to it as a [batch trial](glossary.md#batch-trial). [```[Trial]```](/api/core.html#module-ax.core.trial), [```[BatchTrial]```](/api/core.html#module-ax.core.batch_trial)
