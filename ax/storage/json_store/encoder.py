@@ -37,6 +37,15 @@ def object_to_json(obj: Any) -> Any:
     obj = numpy_type_to_python_type(obj)
     _type = type(obj)
 
+    # Ax types
+    if isclass(obj) and issubclass(obj, Transform):
+        # There is no other way to check is obj is of type Type[Transform].
+        _type = Type[Transform]
+
+    if _type in ENCODER_REGISTRY:
+        obj_dict = ENCODER_REGISTRY[_type](obj)
+        return {k: object_to_json(v) for k, v in obj_dict.items()}
+
     # Python built-in types + `typing` module types
     if _type in (str, int, float, bool, type(None)):
         return obj
@@ -73,16 +82,8 @@ def object_to_json(obj: Any) -> Any:
         # Torch does not support saving to string, so save to buffer first
         return {"__type": f"torch_{_type.__name__}", "value": torch_type_to_str(obj)}
 
-    # Ax types
-    elif isclass(obj) and issubclass(obj, Transform):
-        # There is no other way to check is obj is of type Type[Transform].
-        _type = Type[Transform]
-
-    if _type not in ENCODER_REGISTRY:
-        err = (
-            f"Object {obj} passed to `object_to_json` (of type {_type}) is "
-            f"not registered with a corresponding encoder in ENCODER_REGISTRY."
-        )
-        raise JSONEncodeError(err)
-    obj_dict = ENCODER_REGISTRY[_type](obj)
-    return {k: object_to_json(v) for k, v in obj_dict.items()}
+    err = (
+        f"Object {obj} passed to `object_to_json` (of type {_type}) is "
+        f"not registered with a corresponding encoder in ENCODER_REGISTRY."
+    )
+    raise JSONEncodeError(err)

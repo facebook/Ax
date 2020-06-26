@@ -27,7 +27,8 @@ from ax.core.parameter_constraint import (
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
@@ -309,9 +310,31 @@ def transform_type_to_dict(transform_type: Type[Transform]) -> Dict[str, Any]:
     }
 
 
+def generation_step_to_dict(generation_step: GenerationStep) -> Dict[str, Any]:
+    """Converts Ax generation step to a dictionary."""
+    return {
+        # pyre-fixme[16]: `GenerationStep` has no attribute `__name__`.
+        "__type": generation_step.__class__.__name__,
+        "model": generation_step.model,
+        "num_trials": generation_step.num_trials,
+        "min_trials_observed": generation_step.min_trials_observed,
+        "max_parallelism": generation_step.max_parallelism,
+        "use_update": generation_step.use_update,
+        "enforce_num_trials": generation_step.enforce_num_trials,
+        "model_kwargs": _encode_callables_as_references(
+            generation_step.model_kwargs or {}
+        ),
+        "model_gen_kwargs": _encode_callables_as_references(
+            generation_step.model_gen_kwargs or {}
+        ),
+        "index": generation_step.index,
+    }
+
+
 def generation_strategy_to_dict(
     generation_strategy: GenerationStrategy,
 ) -> Dict[str, Any]:
+    """Converts Ax generation strategy to a dictionary."""
     if generation_strategy.uses_non_registered_models:
         raise ValueError(  # pragma: no cover
             "Generation strategies that use custom models provided through "

@@ -144,6 +144,10 @@ def get_generation_strategy(with_experiment: bool = False) -> GenerationStrategy
     gs = choose_generation_strategy(search_space=get_search_space())
     if with_experiment:
         gs._experiment = get_experiment()
+    fake_func = get_experiment
+    # pyre-ignore[16]: testing hack to test serialization of callable kwargs
+    # in generation steps.
+    gs._steps[0].model_kwargs["model_constructor"] = fake_func
     return gs
 
 

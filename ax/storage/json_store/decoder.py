@@ -31,7 +31,7 @@ from ax.core.simple_experiment import (
 )
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Models, _decode_callables_from_references
 from ax.modelbridge.transforms.base import Transform
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
 from ax.storage.json_store.registry import DECODER_REGISTRY
@@ -93,6 +93,8 @@ def object_from_json(object_json: Any) -> Any:
             return _class[object_json["name"]]
         elif _class == GeneratorRun:
             return generator_run_from_json(object_json=object_json)
+        elif _class == GenerationStep:
+            return generation_step_from_json(generation_step_json=object_json)
         elif _class == GenerationStrategy:
             return generation_strategy_from_json(generation_strategy_json=object_json)
         elif _class == SimpleExperiment:
@@ -298,6 +300,27 @@ def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
     if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:  # pragma: no cover
         raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
     return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
+
+
+def generation_step_from_json(generation_step_json: Dict[str, Any]) -> GenerationStep:
+    """Load generation step from JSON."""
+    return GenerationStep(
+        model=object_from_json(generation_step_json.pop("model")),
+        num_trials=generation_step_json.pop("num_trials"),
+        min_trials_observed=generation_step_json.pop("min_trials_observed"),
+        max_parallelism=generation_step_json.pop("max_parallelism"),
+        use_update=generation_step_json.pop("use_update"),
+        enforce_num_trials=generation_step_json.pop("enforce_num_trials"),
+        model_kwargs=_decode_callables_from_references(
+            object_from_json(generation_step_json.pop("model_kwargs"))
+        )
+        or None,
+        model_gen_kwargs=_decode_callables_from_references(
+            object_from_json(generation_step_json.pop("model_gen_kwargs"))
+        )
+        or None,
+        index=generation_step_json.pop("index"),
+    )
 
 
 def generation_strategy_from_json(
