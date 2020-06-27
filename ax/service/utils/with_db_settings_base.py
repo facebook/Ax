@@ -16,6 +16,7 @@ from ax.utils.common.typeutils import not_none
 RETRY_EXCEPTION_TYPES: Tuple[Type[Exception], ...] = ()
 try:  # We don't require SQLAlchemy by default.
     from sqlalchemy.exc import OperationalError
+    from sqlalchemy.orm.exc import StaleDataError
     from ax.storage.sqa_store.structs import DBSettings
     from ax.service.utils.storage import (  # noqa F401
         load_experiment_and_generation_strategy,
@@ -26,7 +27,7 @@ try:  # We don't require SQLAlchemy by default.
     )
 
     # We retry on `OperationalError` if saving to DB.
-    RETRY_EXCEPTION_TYPES = (OperationalError,)
+    RETRY_EXCEPTION_TYPES = (OperationalError, StaleDataError)
 except ModuleNotFoundError:  # pragma: no cover
     DBSettings = None
 
