@@ -9,6 +9,7 @@ import tempfile
 from functools import partial
 
 import numpy as np
+import torch
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
@@ -259,6 +260,21 @@ class JSONStoreTest(TestCase):
                 json_keys,
                 msg=f"Mismatch between Python and JSON representation in {class_}.",
             )
+
+    def testEncodeDecodeTorchTensor(self):
+        x = torch.tensor(
+            [[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64, device=torch.device("cpu")
+        )
+        expected_json = {
+            "__type": "Tensor",
+            "value": [[1.0, 2.0], [3.0, 4.0]],
+            "dtype": {"__type": "torch_dtype", "value": "torch.float64"},
+            "device": {"__type": "torch_device", "value": "cpu"},
+        }
+        x_json = object_to_json(x)
+        self.assertEqual(expected_json, x_json)
+        x2 = object_from_json(x_json)
+        self.assertTrue(torch.equal(x, x2))
 
     def testDecodeGenerationStrategy(self):
         generation_strategy = get_generation_strategy()

@@ -12,6 +12,7 @@ from typing import Any, Type
 
 import numpy as np
 import pandas as pd
+import torch
 from ax.exceptions.storage import JSONEncodeError
 from ax.modelbridge.transforms.base import Transform
 from ax.storage.json_store.registry import ENCODER_REGISTRY
@@ -78,6 +79,14 @@ def object_to_json(obj: Any) -> Any:
         return {"__type": _type.__name__, "name": obj.name}
     elif _type is np.ndarray or issubclass(_type, np.ndarray):
         return {"__type": _type.__name__, "value": obj.tolist()}
+    elif _type is torch.Tensor:
+        return {
+            "__type": _type.__name__,
+            # TODO: check size and add warning for large tensors: T69137799
+            "value": obj.tolist(),
+            "dtype": object_to_json(obj.dtype),
+            "device": object_to_json(obj.device),
+        }
     elif _type.__module__ == "torch":
         # Torch does not support saving to string, so save to buffer first
         return {"__type": f"torch_{_type.__name__}", "value": torch_type_to_str(obj)}

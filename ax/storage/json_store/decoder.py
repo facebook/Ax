@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Tuple, Type, cast
 
 import numpy as np
 import pandas as pd
+import torch
 from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data  # noqa F401
@@ -72,6 +73,17 @@ def object_from_json(object_json: Any) -> Any:
             return pd.read_json(object_json["value"], dtype=False)
         elif _type == "ndarray":
             return np.array(object_json["value"])
+        elif _type == "Tensor":
+            device = (
+                object_from_json(object_json["device"])
+                if torch.cuda.is_available()
+                else torch.device("cpu")
+            )
+            return torch.tensor(
+                object_json["value"],
+                dtype=object_from_json(object_json["dtype"]),
+                device=device,
+            )
         elif _type.startswith("torch"):
             # Torch types will be encoded as "torch_<type_name>", so we drop prefix
             return torch_type_from_str(
