@@ -12,23 +12,38 @@ from typing import Any, Optional
 
 
 def get_logger(
-    name: str, filepath: Optional[str] = None, level: int = logging.INFO
+    name: str,
+    filepath: Optional[str] = None,
+    level: int = logging.INFO,
+    output_name: Optional[str] = None,
 ) -> logging.Logger:
     """Get an Axlogger.
 
-    Sets default level to INFO, instead of WARNING.
-    Adds timestamps to logger messages.
+    Sets default level to INFO, instead of WARNING. Adds timestamps to logger messages.
+
+    Args:
+        name: The name of the logger.
+        filepath: Location of the file to log output to. If the file exists, output
+            will be appended. If it does not exist, a new file will be created.
+        level: The log level.
+        output_name: The name of the logger to appear in the logged output. Useful to
+            abbreviate long logger names.
+
+    Returns:
+        The logging.Logger object.
     """
+    if output_name is None:
+        output_name = name
+    formatter = logging.Formatter(
+        fmt=f"[%(levelname)s %(asctime)s] {output_name}: %(message)s",
+        datefmt="%m-%d %H:%M:%S",
+    )
     logger = logging.getLogger(name)
     logger.setLevel(level=level)
     # Add timestamps to log messages.
     if not logger.handlers:
         console = logging.StreamHandler()
         console.setLevel(level=level)
-        formatter = logging.Formatter(
-            fmt="[%(levelname)s %(asctime)s] %(name)s: %(message)s",
-            datefmt="%m-%d %H:%M:%S",
-        )
         console.setFormatter(formatter)
         logger.addHandler(console)
         logger.propagate = False
@@ -38,6 +53,7 @@ def get_logger(
         logger.warning(f"Log file ({filepath}) already exists, appending logs.")
     logfile = logging.FileHandler(filepath)
     logfile.setLevel(level=level)
+    logfile.setFormatter(formatter)
     logger.addHandler(logfile)
     return logger
 
