@@ -315,7 +315,7 @@ def laplace_sample_U(
             x_all[i] = x[0]
             return -_scipy_objective_and_grad(x_all, mll, property_dict)[1][i]
 
-        H[i, i] = approx_fprime(np.array([x0[i]]), f, epsilon=epsilon)
+        H[i, i] = approx_fprime(np.array([x0[i]]), f, epsilon=epsilon[i])  # pyre-ignore
 
     # Sample only Uvec; leave mean and output scale fixed.
     assert list(property_dict.keys()) == [
@@ -487,32 +487,45 @@ def alebo_acqf_optimizer(
     random restart of the acquisition function optimization with points that
     lie within that polytope.
     """
-    assert n == 1  # Handle batch later
-    # Generate initial points for optimization inside embedding
-    m_init = ALEBOInitializer(B.cpu().numpy(), nsamp=10 * raw_samples)
-    Xrnd_npy, _ = m_init.gen(n=raw_samples, bounds=[(-1.0, 1.0)] * B.shape[1])
+    candidate_list, acq_value_list = [], []
+    candidates = torch.tensor([], device=B.device, dtype=B.dtype)
+    base_X_pending = acq_function.X_pending  # pyre-ignore
+    for i in range(n):
+        # Generate initial points for optimization inside embedding
+        m_init = ALEBOInitializer(B.cpu().numpy(), nsamp=10 * raw_samples)
+        Xrnd_npy, _ = m_init.gen(n=raw_samples, bounds=[(-1.0, 1.0)] * B.shape[1])
 
-    Xrnd = torch.tensor(Xrnd_npy, dtype=B.dtype, device=B.device).unsqueeze(1)
-    Yrnd = torch.matmul(Xrnd, B.t())  # Project down to the embedding
-    with gpytorch.settings.max_cholesky_size(2000):
-        with torch.no_grad():
-            alpha = acq_function(Yrnd)
+        Xrnd = torch.tensor(Xrnd_npy, dtype=B.dtype, device=B.device).unsqueeze(1)
+        Yrnd = torch.matmul(Xrnd, B.t())  # Project down to the embedding
+        with gpytorch.settings.max_cholesky_size(2000):
+            with torch.no_grad():
+                alpha = acq_function(Yrnd)
 
-        Yinit = initialize_q_batch_nonneg(X=Yrnd, Y=alpha, n=num_restarts)
+            Yinit = initialize_q_batch_nonneg(X=Yrnd, Y=alpha, n=num_restarts)
 
-        # Optimize the acquisition function, separately for each random restart.
-        Xopt = optimize_acqf(
-            acq_function=acq_function,
-            bounds=[None, None],  # pyre-ignore
-            q=n,
-            num_restarts=num_restarts,
-            raw_samples=0,
-            options={"method": "SLSQP", "batch_limit": 1},
-            inequality_constraints=inequality_constraints,
-            batch_initial_conditions=Yinit,
-            sequential=False,
-        )
-    return Xopt
+            # Optimize the acquisition function, separately for each random restart.
+            candidate, acq_value = optimize_acqf(
+                acq_function=acq_function,
+                bounds=[None, None],  # pyre-ignore
+                q=1,
+                num_restarts=num_restarts,
+                raw_samples=0,
+                options={"method": "SLSQP", "batch_limit": 1},
+                inequality_constraints=inequality_constraints,
+                batch_initial_conditions=Yinit,
+                sequential=False,
+            )
+            candidate_list.append(candidate)
+            acq_value_list.append(acq_value)
+            candidates = torch.cat(candidate_list, dim=-2)
+            acq_function.set_X_pending(
+                torch.cat([base_X_pending, candidates], dim=-2)
+                if base_X_pending is not None
+                else candidates
+            )
+        logger.info(f"Generated sequential candidate {i+1} of {n}")
+    acq_function.set_X_pending(base_X_pending)
+    return candidates, torch.stack(acq_value_list)
 
 
 class ALEBO(BotorchModel):

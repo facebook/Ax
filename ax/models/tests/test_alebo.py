@@ -198,12 +198,14 @@ class ALEBOTest(TestCase):
         self.assertIsInstance(acq, qNoisyExpectedImprovement)
 
         with mock.patch(
-            "ax.models.torch.alebo.optimize_acqf", autospec=True
+            "ax.models.torch.alebo.optimize_acqf",
+            autospec=True,
+            return_value=(train_X, train_Y),
         ) as optim_mock:
             alebo_acqf_optimizer(
                 acq_function=acq,
                 bounds=None,
-                n=1,
+                n=2,
                 inequality_constraints=5.0,
                 fixed_features=None,
                 rounding_func=None,
@@ -212,6 +214,7 @@ class ALEBOTest(TestCase):
                 B=B,
             )
 
+        self.assertEqual(optim_mock.call_count, 2)
         self.assertIsInstance(
             optim_mock.mock_calls[0][2]["acq_function"], qNoisyExpectedImprovement
         )
