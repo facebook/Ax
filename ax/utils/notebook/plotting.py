@@ -19,7 +19,7 @@ def init_notebook_plotting(offline=False):
     display_bundle = {"text/html": _wrap_js(_js_requires(offline=offline))}
     display(display_bundle, raw=True)
     logger.info(
-        "Injecting Plotly library into cell. " "Do not overwrite or delete cell."
+        "Injecting Plotly library into cell. Do not overwrite or delete cell."
     )
     init_notebook_mode()
 
