@@ -18,9 +18,7 @@ def init_notebook_plotting(offline=False):
     """Initialize plotting in notebooks, either in online or offline mode."""
     display_bundle = {"text/html": _wrap_js(_js_requires(offline=offline))}
     display(display_bundle, raw=True)
-    logger.info(
-        "Injecting Plotly library into cell. Do not overwrite or delete cell."
-    )
+    logger.info("Injecting Plotly library into cell. Do not overwrite or delete cell.")
     init_notebook_mode()
 
 
