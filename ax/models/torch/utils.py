@@ -12,6 +12,7 @@ from ax.exceptions.model import ModelError
 from ax.models.model_utils import filter_constraints_and_fixed_features, get_observed
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
@@ -19,6 +20,7 @@ from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.acquisition.objective import (
     AcquisitionObjective,
     ConstrainedMCObjective,
+    LinearMCObjective,
     MCAcquisitionObjective,
     ScalarizedObjective,
 )
@@ -31,6 +33,9 @@ from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor
+
+
+logger = get_logger(__name__)
 
 
 NOISELESS_MODELS = {SingleTaskGP}
@@ -283,24 +288,50 @@ def tensor_callable_to_array_callable(
 def get_botorch_objective(
     model: Model,
     objective_weights: Tensor,
+    use_scalarized_objective: bool = True,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
 ) -> AcquisitionObjective:
-    """Constructs a BoTorch `Objective`."""
+    """Constructs a BoTorch `AcquisitionObjective` object.
+
+    Args:
+        model: A BoTorch Model
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        use_scalarized_objective: A boolean parameter that defaults to True,
+            specifying whether ScalarizedObjective should be used.
+            NOTE: when using outcome_constraints, use_scalarized_objective
+            will be ignored.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b. (Not used by single task models)
+        X_observed: Observed points that are feasible and appear in the
+            objective or the constraints. None if there are no such points.
+
+    Returns:
+        A BoTorch `AcquisitionObjective` object. It will be one of:
+        `ScalarizedObjective`, `LinearMCOObjective`, `ConstrainedMCObjective`.
+    """
     if X_observed is None:
         raise UnsupportedError(
             "X_observed is required to construct a BoTorch Objective."
         )
-    if outcome_constraints is None:
-        objective = ScalarizedObjective(weights=objective_weights)
-    else:
+    if outcome_constraints:
+        if use_scalarized_objective:
+            logger.warning(
+                "Currently cannot use ScalarizedObjective when there are outcome "
+                "constraints. Ignoring (default) kwarg `use_scalarized_objective`"
+                "= True. Creating ConstrainedMCObjective."
+            )
         obj_tf = get_objective_weights_transform(objective_weights)
         con_tfs = get_outcome_constraint_transforms(outcome_constraints)
         inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
-        objective = ConstrainedMCObjective(
+        return ConstrainedMCObjective(
             objective=obj_tf, constraints=con_tfs or [], infeasible_cost=inf_cost
         )
-    return objective
+    if use_scalarized_objective:
+        return ScalarizedObjective(weights=objective_weights)
+    return LinearMCObjective(weights=objective_weights)
 
 
 def get_out_of_sample_best_point_acqf(

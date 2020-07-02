@@ -270,6 +270,17 @@ class KnowledgeGradientTest(TestCase):
         # test _get_obj()
         outcome_constraints = (torch.tensor([[1.0]]), torch.tensor([[0.5]]))
         objective_weights = torch.ones(1, dtype=self.dtype, device=self.device)
+        # test use_scalarized_objective kwarg
+        self.assertIsInstance(
+            get_botorch_objective(
+                model=model.model,
+                outcome_constraints=outcome_constraints,
+                objective_weights=objective_weights,
+                X_observed=X_dummy,
+                use_scalarized_objective=False,
+            ),
+            ConstrainedMCObjective,
+        )
         self.assertIsInstance(
             get_botorch_objective(
                 model=model.model,
@@ -278,6 +289,23 @@ class KnowledgeGradientTest(TestCase):
                 X_observed=X_dummy,
             ),
             ConstrainedMCObjective,
+        )
+        self.assertIsInstance(
+            get_botorch_objective(
+                model=model.model,
+                objective_weights=objective_weights,
+                X_observed=X_dummy,
+                use_scalarized_objective=False,
+            ),
+            LinearMCObjective,
+        )
+        self.assertIsInstance(
+            get_botorch_objective(
+                model=model.model,
+                objective_weights=objective_weights,
+                X_observed=X_dummy,
+            ),
+            ScalarizedObjective,
         )
 
         # test _get_best_point_acqf
