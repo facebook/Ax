@@ -23,6 +23,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
 from ax.core.types import TCandidateMetadata
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -369,6 +370,11 @@ class BatchTrial(BaseTrial):
             self.arms_by_name[arm.name]
             for arm in self._abandoned_arms_metadata.values()
         ]
+
+    @copy_doc(BaseTrial.generator_runs)
+    @property
+    def generator_runs(self) -> List[GeneratorRun]:
+        return [grs.generator_run for grs in self.generator_run_structs]
 
     @property
     def abandoned_arms_metadata(self) -> List[AbandonedArm]:

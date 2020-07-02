@@ -12,6 +12,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, immutable_once_run
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.types import TCandidateMetadata
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 
 
@@ -65,6 +66,12 @@ class Trial(BaseTrial):
     def generator_run(self) -> Optional[GeneratorRun]:
         """Generator run attached to this trial."""
         return self._generator_run
+
+    @copy_doc(BaseTrial.generator_runs)
+    @property
+    def generator_runs(self) -> List[GeneratorRun]:
+        gr = self._generator_run
+        return [gr] if gr is not None else []
 
     @property
     def arm(self) -> Optional[Arm]:
