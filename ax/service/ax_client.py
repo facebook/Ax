@@ -513,12 +513,14 @@ class AxClient(WithDBSettingsBase):
                 [
                     checked_cast(Trial, trial).objective_mean
                     for trial in self.experiment.trials.values()
+                    if trial.status.is_completed
                 ]
             ]
         )
         hover_labels = [
             _format_dict(not_none(checked_cast(Trial, trial).arm).parameters)
             for trial in self.experiment.trials.values()
+            if trial.status.is_completed
         ]
         return optimization_trace_single_method(
             y=(
