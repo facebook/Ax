@@ -472,7 +472,9 @@ class GenerationStrategy(Base):
             model_state = not_none(self.model)._deserialize_model_state(
                 serialized_model_state
             )
-            model_kwargs.update(model_state)
+            # We don't want to update `model_kwargs` on the `GenerationStep`,
+            # just to add to them for the purpose of this function.
+            model_kwargs = {**model_kwargs, **model_state}
 
         # TODO[T65857344]: move from fetching all data to using cached data
         if data is None:

@@ -283,8 +283,9 @@ class AxClient(WithDBSettingsBase):
             trial=trial,
             suppress_all_errors=self._suppress_storage_errors,
         )
-        self._save_generation_strategy_to_db_if_possible(
+        self._update_generation_strategy_in_db_if_possible(
             generation_strategy=self.generation_strategy,
+            new_generator_runs=trial.generator_runs,
             suppress_all_errors=self._suppress_storage_errors,
         )
         return not_none(trial.arm).parameters, trial.index
@@ -672,6 +673,10 @@ class AxClient(WithDBSettingsBase):
         if generation_strategy is None:  # pragma: no cover
             self._set_generation_strategy(
                 choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
+            )
+            self._save_generation_strategy_to_db_if_possible(
+                generation_strategy=self.generation_strategy,
+                suppress_all_errors=self._suppress_storage_errors,
             )
         else:
             self._generation_strategy = generation_strategy

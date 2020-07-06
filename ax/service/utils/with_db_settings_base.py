@@ -4,10 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Tuple, Type
+from typing import List, Optional, Tuple, Type
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.typeutils import not_none
@@ -23,7 +24,10 @@ try:  # We don't require SQLAlchemy by default.
         save_experiment,
         save_generation_strategy,
         save_new_trial,
+        save_new_trials,
         save_updated_trial,
+        save_updated_trials,
+        update_generation_strategy,
     )
 
     # We retry on `OperationalError` if saving to DB.
@@ -40,7 +44,6 @@ class WithDBSettingsBase:
     _db_settings: Optional[DBSettings] = None
 
     def __init__(self, db_settings: Optional[DBSettings] = None) -> None:
-        print(f"In WithDBSettings, db settings: {db_settings}")
         if db_settings and (not DBSettings or not isinstance(db_settings, DBSettings)):
             raise ValueError(
                 "`db_settings` argument should be of type ax.storage.sqa_store."
@@ -66,6 +69,10 @@ class WithDBSettingsBase:
     ) -> Tuple[Optional[Experiment], Optional[GenerationStrategy]]:
         """Loads experiment and its corresponding generation strategy from database
         if DB settings are set on this `WithDBSettingsBase` instance.
+
+        Args:
+            experiment_name: Name of the experiment to load, used as unique
+                identifier by which to find the experiment.
 
         Returns:
             - Tuple of `None` and `None` if `DBSettings` are set and no experiment
@@ -95,6 +102,12 @@ class WithDBSettingsBase:
         """Saves attached experiment and generation strategy if DB settings are
         set on this `WithDBSettingsBase` instance.
 
+        Args:
+            experiment: Experiment to save new trials in DB.
+            suppress_all_errors: Flag for `retry_on_exception` that makes
+                the decorator suppress the thrown exception even if it
+                occurred in all the retries (exception is still logged).
+
         Returns:
             bool: Whether the experiment was saved.
         """
@@ -114,15 +127,53 @@ class WithDBSettingsBase:
         trial: BaseTrial,
         suppress_all_errors: bool = False,
     ) -> bool:
-        """Saves given trial and generation strategy if DB settings are
-        set on this `WithDBSettingsBase` instance.
+        """Saves new trial on given experiment if DB settings are set on this
+        `WithDBSettingsBase` instance.
+
+        Args:
+            experiment: Experiment, on which to save new trial in DB.
+            trials: Newly added trial to save.
+            suppress_all_errors: Flag for `retry_on_exception` that makes
+                the decorator suppress the thrown exception even if it
+                occurred in all the retries (exception is still logged).
 
         Returns:
-            bool: Whether the experiment was saved.
+            bool: Whether the trial was saved.
         """
         if self.db_settings_set:
             save_new_trial(
                 experiment=experiment, trial=trial, db_settings=self.db_settings
+            )
+            return True
+        return False
+
+    @retry_on_exception(
+        retries=3,
+        default_return_on_suppression=False,
+        exception_types=RETRY_EXCEPTION_TYPES,
+    )
+    def _save_new_trials_to_db_if_possible(
+        self,
+        experiment: Experiment,
+        trials: List[BaseTrial],
+        suppress_all_errors: bool = False,
+    ) -> bool:
+        """Saves new trials on given experiment if DB settings are set on this
+        `WithDBSettingsBase` instance.
+
+        Args:
+            experiment: Experiment, on which to save new trials in DB.
+            trials: Newly added trials to save.
+            suppress_all_errors: Flag for `retry_on_exception` that makes
+                the decorator suppress the thrown exception even if it
+                occurred in all the retries (exception is still logged).
+
+        Returns:
+            bool: Whether the trials were saved.
+        """
+        if self.db_settings_set:
+            save_new_trials(
+                experiment=experiment, trials=trials, db_settings=self.db_settings
             )
             return True
         return False
@@ -138,11 +189,18 @@ class WithDBSettingsBase:
         trial: BaseTrial,
         suppress_all_errors: bool = False,
     ) -> bool:
-        """Saves attached experiment and generation strategy if DB settings are
-        set on this `WithDBSettingsBase` instance.
+        """Saves updated trials on given experiment if DB settings are set on this
+        `WithDBSettingsBase` instance.
+
+        Args:
+            experiment: Experiment, on which to save updated trials in DB.
+            trial: Newly updated trial to save.
+            suppress_all_errors: Flag for `retry_on_exception` that makes
+                the decorator suppress the thrown exception even if it
+                occurred in all the retries (exception is still logged).
 
         Returns:
-            bool: Whether the experiment was saved.
+            bool: Whether the trial was saved.
         """
         if self.db_settings_set:
             save_updated_trial(
@@ -156,11 +214,48 @@ class WithDBSettingsBase:
         default_return_on_suppression=False,
         exception_types=RETRY_EXCEPTION_TYPES,
     )
+    def _save_updated_trials_to_db_if_possible(
+        self,
+        experiment: Experiment,
+        trials: List[BaseTrial],
+        suppress_all_errors: bool = False,
+    ) -> bool:
+        """Saves updated trials on given experiment if DB settings are set on this
+        `WithDBSettingsBase` instance.
+
+        Args:
+            experiment: Experiment, on which to save updated trials in DB.
+            trials: Newly updated trials to save.
+            suppress_all_errors: Flag for `retry_on_exception` that makes
+                the decorator suppress the thrown exception even if it
+                occurred in all the retries (exception is still logged).
+
+        Returns:
+            bool: Whether the trials were saved.
+        """
+        if self.db_settings_set:
+            save_updated_trials(
+                experiment=experiment, trials=trials, db_settings=self.db_settings
+            )
+            return True
+        return False
+
+    @retry_on_exception(
+        retries=3,
+        default_return_on_suppression=False,
+        exception_types=RETRY_EXCEPTION_TYPES,
+    )
     def _save_generation_strategy_to_db_if_possible(
         self, generation_strategy: GenerationStrategy, suppress_all_errors: bool = False
     ) -> bool:
-        """Saves attached experiment and generation strategy if DB settings are
-        set on this `WithDBSettingsBase` instance.
+        """Saves given generation strategy if DB settings are set on this
+        `WithDBSettingsBase` instance.
+
+        Args:
+            generation_strategy: Generation strategy to save in DB.
+            suppress_all_errors: Flag for `retry_on_exception` that makes
+                the decorator suppress the thrown exception even if it
+                occurred in all the retries (exception is still logged).
 
         Returns:
             bool: Whether the experiment was saved.
@@ -168,6 +263,40 @@ class WithDBSettingsBase:
         if self.db_settings_set:
             save_generation_strategy(
                 generation_strategy=generation_strategy, db_settings=self.db_settings
+            )
+            return True
+        return False
+
+    @retry_on_exception(
+        retries=3,
+        default_return_on_suppression=False,
+        exception_types=RETRY_EXCEPTION_TYPES,
+    )
+    def _update_generation_strategy_in_db_if_possible(
+        self,
+        generation_strategy: GenerationStrategy,
+        new_generator_runs: List[GeneratorRun],
+        suppress_all_errors: bool = False,
+    ) -> bool:
+        """Updates the given generation strategy with new generator runs (and with
+        new current generation step if applicable) if DB settings are set
+        on this `WithDBSettingsBase` instance.
+
+        Args:
+            generation_strategy: Generation strategy to update in DB.
+            new_generator_runs: New generator runs of this generation strategy
+                since its last save.
+            suppress_all_errors: Flag for `retry_on_exception` that makes
+                the decorator suppress the thrown exception even if it
+                occurred in all the retries (exception is still logged).
+        Returns:
+            bool: Whether the experiment was saved.
+        """
+        if self.db_settings_set:
+            update_generation_strategy(
+                generation_strategy=generation_strategy,
+                generator_runs=new_generator_runs,
+                db_settings=self.db_settings,
             )
             return True
         return False

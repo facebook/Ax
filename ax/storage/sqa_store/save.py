@@ -162,10 +162,10 @@ def save_new_trial(
 
 def _save_new_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) -> None:
     """Add new trial to the experiment."""
-    save_new_trials(experiment=experiment, trials=[trial], encoder=encoder)
+    _save_new_trials(experiment=experiment, trials=[trial], encoder=encoder)
 
 
-def save_new_trials(
+def _save_new_trials(
     experiment: Experiment, trials: List[BaseTrial], encoder: Encoder
 ) -> None:
     """Add new trials to the experiment."""
@@ -202,10 +202,10 @@ def update_trial(
 
 def _update_trial(experiment: Experiment, trial: BaseTrial, encoder: Encoder) -> None:
     """Update trial and attach data."""
-    update_trials(experiment=experiment, trials=[trial], encoder=encoder)
+    _update_trials(experiment=experiment, trials=[trial], encoder=encoder)
 
 
-def update_trials(
+def _update_trials(
     experiment: Experiment, trials: List[BaseTrial], encoder: Encoder
 ) -> None:
     """Update trials and attach data."""
