@@ -11,6 +11,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
 
@@ -34,6 +35,9 @@ try:  # We don't require SQLAlchemy by default.
     RETRY_EXCEPTION_TYPES = (OperationalError, StaleDataError)
 except ModuleNotFoundError:  # pragma: no cover
     DBSettings = None
+
+
+logger = get_logger(__name__)
 
 
 class WithDBSettingsBase:
@@ -63,6 +67,45 @@ class WithDBSettingsBase:
         if self._db_settings is None:
             raise ValueError("No DB settings are set on this instance.")
         return not_none(self._db_settings)
+
+    def maybe_save_experiment_and_generation_strategy(
+        self, experiment: Experiment, generation_strategy: GenerationStrategy
+    ) -> Tuple[bool, bool]:
+        """If DB settings are set on this `WithDBSettingsBase` instance, checks
+        whether given experiment and generation strategy are already saved and
+        saves them, if not.
+
+        Returns:
+            Tuple of two booleans: whether experiment was saved in the course of
+                this function's execution and whether generation strategy was
+                saved.
+        """
+        saved_exp, saved_gs = False, False
+        if self.db_settings_set:
+            if experiment._name is None:
+                raise ValueError(
+                    "Experiment must specify a name to use storage functionality."
+                )
+            exp_name = not_none(experiment.name)
+            # TODO: Check existance without full load.
+            existing_exp, existing_gs = self._load_experiment_and_generation_strategy(
+                experiment_name=exp_name
+            )
+            if not existing_exp:
+                logger.info(f"Experiment {exp_name} is not yet in DB, storing it.")
+                self._save_experiment_to_db_if_possible(experiment=experiment)
+                saved_exp = True
+            if not existing_gs:
+                logger.info(
+                    f"Generation strategy {generation_strategy.name} is not yet in DB, "
+                    "storing it."
+                )
+                self._save_generation_strategy_to_db_if_possible(
+                    generation_strategy=generation_strategy
+                )
+                saved_gs = True
+        # TODO: Update experiment and GS if they already exist.
+        return saved_exp, saved_gs
 
     def _load_experiment_and_generation_strategy(
         self, experiment_name: str
