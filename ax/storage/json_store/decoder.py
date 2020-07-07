@@ -133,16 +133,6 @@ def ax_class_from_json_dict(_class: Type, object_json: Dict[str, Any]) -> Any:
     """Reinstantiates an Ax class registered in `DECODER_REGISTRY` from a JSON
     dict.
     """
-    # NOTE: this is a hack to make generation steps able to load after the
-    # renaming of generation step fields to be in terms of 'trials' rather than
-    # 'arms'.
-    if _class is GenerationStep:
-        keys = list(object_json.keys())
-        for k in keys:
-            if "arms" in k:  # pragma: no cover
-                object_json[k.replace("arms", "trials")] = object_json.pop(k)
-            if k == "recommended_max_parallelism":  # pragma: no cover
-                object_json["max_parallelism"] = object_json.pop(k)
     return _class(**{k: object_from_json(v) for k, v in object_json.items()})
 
 
@@ -314,24 +304,45 @@ def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
     return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
 
 
+def _convert_generation_step_keys_for_backwards_compatibility(
+    object_json: Dict[str, Any]
+) -> Dict[str, Any]:
+    """If necessary, converts keys in a JSON dict representing a `GenerationStep`
+    for backwards compatibility.
+    """
+    # NOTE: this is a hack to make generation steps able to load after the
+    # renaming of generation step fields to be in terms of 'trials' rather than
+    # 'arms'.
+    keys = list(object_json.keys())
+    for k in keys:
+        if "arms" in k:  # pragma: no cover
+            object_json[k.replace("arms", "trials")] = object_json.pop(k)
+        if k == "recommended_max_parallelism":  # pragma: no cover
+            object_json["max_parallelism"] = object_json.pop(k)
+    return object_json
+
+
 def generation_step_from_json(generation_step_json: Dict[str, Any]) -> GenerationStep:
     """Load generation step from JSON."""
+    generation_step_json = _convert_generation_step_keys_for_backwards_compatibility(
+        generation_step_json
+    )
+    kwargs = generation_step_json.pop("model_kwargs", None)
+    gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
     return GenerationStep(
         model=object_from_json(generation_step_json.pop("model")),
         num_trials=generation_step_json.pop("num_trials"),
-        min_trials_observed=generation_step_json.pop("min_trials_observed"),
-        max_parallelism=generation_step_json.pop("max_parallelism"),
-        use_update=generation_step_json.pop("use_update"),
-        enforce_num_trials=generation_step_json.pop("enforce_num_trials"),
-        model_kwargs=_decode_callables_from_references(
-            object_from_json(generation_step_json.pop("model_kwargs"))
-        )
-        or None,
-        model_gen_kwargs=_decode_callables_from_references(
-            object_from_json(generation_step_json.pop("model_gen_kwargs"))
-        )
-        or None,
-        index=generation_step_json.pop("index"),
+        min_trials_observed=generation_step_json.pop("min_trials_observed", 0),
+        max_parallelism=(generation_step_json.pop("max_parallelism", None)),
+        use_update=generation_step_json.pop("use_update", False),
+        enforce_num_trials=generation_step_json.pop("enforce_num_trials", True),
+        model_kwargs=_decode_callables_from_references(object_from_json(kwargs))
+        if kwargs
+        else None,
+        model_gen_kwargs=_decode_callables_from_references(object_from_json(gen_kwargs))
+        if gen_kwargs
+        else None,
+        index=generation_step_json.pop("index", -1),
     )
 
 
