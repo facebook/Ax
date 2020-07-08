@@ -95,7 +95,10 @@ class WithDBSettingsBase:
                 logger.info(f"Experiment {exp_name} is not yet in DB, storing it.")
                 self._save_experiment_to_db_if_possible(experiment=experiment)
                 saved_exp = True
-            if not existing_gs:
+            if not existing_gs or generation_strategy._db_id is None:
+                # There is no GS associated with experiment or the generation
+                # strategy passed in is different from the one associated with
+                # experiment currently.
                 logger.info(
                     f"Generation strategy {generation_strategy.name} is not yet in DB, "
                     "storing it."

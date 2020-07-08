@@ -210,11 +210,11 @@ def _update_trials(
 ) -> None:
     """Update trials and attach data."""
     trial_sqa_class = encoder.config.class_to_sqa_class[Trial]
+    trial_indices = [trial.index for trial in trials]
     with session_scope() as session:
         experiment_id = _get_experiment_id(
             experiment=experiment, encoder=encoder, session=session
         )
-        trial_indices = [trial.index for trial in trials]
         existing_trials = (
             session.query(trial_sqa_class)
             .filter_by(experiment_id=experiment_id)
