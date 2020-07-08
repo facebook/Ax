@@ -254,7 +254,6 @@ class JSONStoreTest(TestCase):
                 for python, encoded in map.python_to_encoded.items():
                     json_keys.remove(encoded)
                     json_keys.add(python)
-
             self.assertEqual(
                 object_keys,
                 json_keys,

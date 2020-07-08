@@ -200,6 +200,7 @@ class BaseTrial(ABC, Base):
         # strategy, this property will be set to the generation step that produced
         # the generator run(s).
         self._generation_step_index = None
+        self._properties = {}
 
     @property
     def experiment(self) -> core.experiment.Experiment:

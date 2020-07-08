@@ -708,6 +708,7 @@ class Encoder:
             generator_runs=generator_runs,
             runner=runner,
             generation_step_index=trial._generation_step_index,
+            properties=trial._properties,
         )
 
     def data_to_sqa(

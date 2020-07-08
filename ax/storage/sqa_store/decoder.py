@@ -728,6 +728,7 @@ class Decoder:
             self.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None
         )
         trial._generation_step_index = trial_sqa.generation_step_index
+        trial._properties = trial_sqa.properties or {}
         return trial
 
     def data_from_sqa(self, data_sqa: SQAData) -> Data:

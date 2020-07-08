@@ -42,6 +42,7 @@ def batch_trial_from_json(
     # objects stored before these fields were added.
     ttl_seconds: Optional[int] = None,
     generation_step_index: Optional[int] = None,
+    properties: Optional[Dict[str, Any]] = None,
 ) -> BatchTrial:
     """Load Ax BatchTrial from JSON.
 
@@ -68,6 +69,7 @@ def batch_trial_from_json(
     batch._status_quo_weight_override = status_quo_weight_override
     batch.optimize_for_power = optimize_for_power
     batch._generation_step_index = generation_step_index
+    batch._properties = properties
     return batch
 
 
@@ -89,6 +91,7 @@ def trial_from_json(
     # objects stored before these fields were added.
     ttl_seconds: Optional[int] = None,
     generation_step_index: Optional[int] = None,
+    properties: Optional[Dict[str, Any]] = None,
 ) -> Trial:
     """Load Ax trial from JSON.
 
@@ -114,4 +117,5 @@ def trial_from_json(
     trial._runner = runner
     trial._num_arms_created = num_arms_created
     trial._generation_step_index = generation_step_index
+    trial._properties = properties or {}
     return trial
