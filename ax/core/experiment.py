@@ -47,6 +47,7 @@ class Experiment(Base):
         description: Optional[str] = None,
         is_test: bool = False,
         experiment_type: Optional[str] = None,
+        properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Inits Experiment.
 
@@ -60,6 +61,7 @@ class Experiment(Base):
             description: Description of the experiment.
             is_test: Convenience metadata tracker for the user to mark test experiments.
             experiment_type: The class of experiments this one belongs to.
+            properties: Dictionary of this experiment's properties.
         """
         # appease pyre
         self._search_space: SearchSpace
@@ -76,6 +78,7 @@ class Experiment(Base):
         self._tracking_metrics: Dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
+        self._properties: Dict[str, Any] = {}
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary

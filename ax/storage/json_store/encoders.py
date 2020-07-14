@@ -51,6 +51,7 @@ def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
         "trials": experiment.trials,
         "is_test": experiment.is_test,
         "data_by_trial": experiment.data_by_trial,
+        "properties": experiment._properties,
     }
 
 

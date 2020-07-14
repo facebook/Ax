@@ -49,6 +49,7 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.utils.common.constants import Keys
 from ax.utils.common.equality import datetime_equals
 from ax.utils.common.typeutils import not_none
 
@@ -146,9 +147,9 @@ class Encoder:
             value=experiment.experiment_type, enum=self.config.experiment_type_enum
         )
 
-        properties = {}
+        properties = experiment._properties
         if isinstance(experiment, MultiTypeExperiment):
-            properties["subclass"] = "MultiTypeExperiment"
+            properties[Keys.SUBCLASS] = "MultiTypeExperiment"
             runners = [
                 self.runner_to_sqa(runner, trial_type)
                 for trial_type, runner in experiment._trial_type_to_runner.items()
@@ -169,7 +170,7 @@ class Encoder:
             )
 
         if isinstance(experiment, SimpleExperiment):
-            properties["subclass"] = "SimpleExperiment"
+            properties[Keys.SUBCLASS] = "SimpleExperiment"
 
         # pyre-fixme: Expected `Base` for 1st...yping.Type[Experiment]`.
         experiment_class: Type[SQAExperiment] = self.config.class_to_sqa_class[

@@ -50,6 +50,7 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
 
 
@@ -115,7 +116,10 @@ class Decoder:
                 "only supported for MultiTypeExperiment."
             )
 
-        subclass = (experiment_sqa.properties or {}).get("subclass")
+        properties = experiment_sqa.properties or {}
+        # Remove 'subclass' from experiment's properties, since its only
+        # used for decoding to the correct experiment subclass in storage.
+        subclass = properties.pop(Keys.SUBCLASS, None)
         if subclass == "SimpleExperiment":
             if opt_config is None:
                 raise SQADecodeError(  # pragma: no cover
@@ -128,6 +132,7 @@ class Decoder:
                 minimize=opt_config.objective.minimize,
                 outcome_constraints=opt_config.outcome_constraints,
                 status_quo=status_quo,
+                properties=properties,
             )
             experiment.description = experiment_sqa.description
             experiment.is_test = experiment_sqa.is_test
@@ -141,6 +146,7 @@ class Decoder:
                 runner=runner,
                 status_quo=status_quo,
                 is_test=experiment_sqa.is_test,
+                properties=properties,
             )
         return experiment
 
@@ -175,6 +181,11 @@ class Decoder:
             for sqa_runner in experiment_sqa.runners
         }
         default_trial_type = not_none(experiment_sqa.default_trial_type)
+        properties = experiment_sqa.properties
+        if properties:
+            # Remove 'subclass' from experiment's properties, since its only
+            # used for decoding to the correct experiment subclass in storage.
+            properties.pop(Keys.SUBCLASS, None)
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,
             description=experiment_sqa.description,
@@ -183,6 +194,7 @@ class Decoder:
             default_runner=trial_type_to_runner[default_trial_type],
             optimization_config=opt_config,
             status_quo=status_quo,
+            properties=properties,
         )
         experiment._trial_type_to_runner = trial_type_to_runner
         sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
@@ -197,7 +209,7 @@ class Decoder:
 
     def experiment_from_sqa(self, experiment_sqa: SQAExperiment) -> Experiment:
         """Convert SQLAlchemy Experiment to Ax Experiment."""
-        subclass = (experiment_sqa.properties or {}).get("subclass")
+        subclass = (experiment_sqa.properties or {}).get(Keys.SUBCLASS)
         if subclass == "MultiTypeExperiment":
             experiment = self._init_mt_experiment_from_sqa(experiment_sqa)
         else:

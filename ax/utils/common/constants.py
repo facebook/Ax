@@ -41,4 +41,5 @@ class Keys(str, Enum):
     RAW_SAMPLES = "raw_samples"
     SAMPLER = "sampler"
     SEED_INNER = "seed_inner"
+    SUBCLASS = "subclass"
     SUBSET_MODEL = "subset_model"

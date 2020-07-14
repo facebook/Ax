@@ -65,6 +65,7 @@ from ax.storage.utils import (
     ParameterConstraintType,
     remove_prefix,
 )
+from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -301,11 +302,7 @@ class SQAStoreTest(TestCase):
             decode_func = unbound_decode_func.__get__(self.decoder)
             sqa_object = encode_func(original_object)
 
-            if (
-                class_ == "OrderConstraint"
-                or class_ == "ParameterConstraint"
-                or class_ == "SumConstraint"
-            ):
+            if class_ in ["OrderConstraint", "ParameterConstraint", "SumConstraint"]:
                 converted_object = decode_func(sqa_object, self.dummy_parameters)
             else:
                 converted_object = decode_func(sqa_object)
@@ -318,6 +315,11 @@ class SQAStoreTest(TestCase):
 
                 original_object.evaluation_function = None
                 converted_object.evaluation_function = None
+                # Experiment to SQA encoder stores the experiment subclass
+                # among its properties; we then remove the subclass when
+                # decoding. Removing subclass from original object here
+                # for parity with the expected decoded (converted) object.
+                original_object._properties.pop(Keys.SUBCLASS)
 
             self.assertEqual(
                 original_object,

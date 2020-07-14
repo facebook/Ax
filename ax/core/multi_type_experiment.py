@@ -49,6 +49,7 @@ class MultiTypeExperiment(Experiment):
         description: Optional[str] = None,
         is_test: bool = False,
         experiment_type: Optional[str] = None,
+        properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Inits Experiment.
 
@@ -64,6 +65,7 @@ class MultiTypeExperiment(Experiment):
             description: Description of the experiment.
             is_test: Convenience metadata tracker for the user to mark test experiments.
             experiment_type: The class of experiments this one belongs to.
+            properties: Dictionary of this experiment's properties.
         """
 
         self._default_trial_type = default_trial_type
@@ -91,6 +93,7 @@ class MultiTypeExperiment(Experiment):
             description=description,
             is_test=is_test,
             experiment_type=experiment_type,
+            properties=properties,
         )
 
     def add_trial_type(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":
