@@ -234,7 +234,7 @@ def best_observed_point(
     linear_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
     options: Optional[TConfig] = None,
-) -> Optional[np.ndarray]:
+) -> Optional[Tensoray]:
     """Select the best point that has been observed.
 
     Implements two approaches to selecting the best point.
@@ -307,7 +307,7 @@ def best_in_sample_point(
     linear_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
     options: Optional[TConfig] = None,
-) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+) -> Optional[Tuple[Tensoray, float]]:
     """Select the best point that has been observed.
 
     Implements two approaches to selecting the best point.
