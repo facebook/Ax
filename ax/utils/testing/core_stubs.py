@@ -7,7 +7,7 @@
 
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, Iterable, List, MutableMapping, Optional
+from typing import Dict, Iterable, List, MutableMapping, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
+    Parameter,
     ParameterType,
     RangeParameter,
 )
@@ -74,10 +75,13 @@ def get_branin_experiment(
     has_optimization_config: bool = True,
     with_batch: bool = False,
     with_status_quo: bool = False,
+    with_fidelity_parameter: bool = False,
 ) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
-        search_space=get_branin_search_space(),
+        search_space=get_branin_search_space(
+            with_fidelity_parameter=with_fidelity_parameter
+        ),
         optimization_config=get_branin_optimization_config()
         if has_optimization_config
         else None,
@@ -270,7 +274,7 @@ def get_search_space() -> SearchSpace:
     )
 
 
-def get_branin_search_space() -> SearchSpace:
+def get_branin_search_space(with_fidelity_parameter: bool = False) -> SearchSpace:
     parameters = [
         RangeParameter(
             name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
@@ -279,11 +283,19 @@ def get_branin_search_space() -> SearchSpace:
             name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=15
         ),
     ]
-    # Expected `List[ax.core.parameter.Parameter]` for 2nd parameter
-    # `parameters` to call `ax.core.search_space.SearchSpace.__init__` but got
-    # `List[RangeParameter]`.
-    # pyre-fixme[6]:
-    return SearchSpace(parameters=parameters)
+    if with_fidelity_parameter:
+        parameters.append(
+            RangeParameter(
+                name="fidelity",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+                is_fidelity=True,
+                target_value=1.0,
+            )
+        )
+
+    return SearchSpace(parameters=cast(List[Parameter], parameters))
 
 
 def get_factorial_search_space() -> SearchSpace:
