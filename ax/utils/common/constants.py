@@ -30,6 +30,8 @@ class Keys(str, Enum):
 
     ACQF_KWARGS = "acquisition_function_kwargs"
     BATCH_INIT_CONDITIONS = "batch_initial_conditions"
+    CANDIDATE_SET = "candidate_set"
+    CANDIDATE_SIZE = "candidate_size"
     COST_AWARE_UTILITY = "cost_aware_utility"
     COST_INTERCEPT = "cost_intercept"
     CURRENT_VALUE = "current_value"
@@ -37,6 +39,7 @@ class Keys(str, Enum):
     EXPECTED_ACQF_VAL = "expected_acquisition_value"
     FIDELITY_WEIGHTS = "fidelity_weights"
     FRAC_RANDOM = "frac_random"
+    MAXIMIZE = "maximize"
     NUM_INNER_RESTARTS = "num_inner_restarts"
     NUM_RESTARTS = "num_restarts"
     NUM_TRACE_OBSERVATIONS = "num_trace_observations"
@@ -47,5 +50,6 @@ class Keys(str, Enum):
     RAW_SAMPLES = "raw_samples"
     SAMPLER = "sampler"
     SEED_INNER = "seed_inner"
+    SEQUENTIAL = "sequential"
     SUBCLASS = "subclass"
     SUBSET_MODEL = "subset_model"
