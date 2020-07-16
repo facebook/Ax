@@ -122,7 +122,6 @@ def choose_generation_strategy(
     no_bayesian_optimization: bool = False,
     num_trials: Optional[int] = None,
     num_initialization_trials: Optional[int] = None,
-    no_max_parallelism: bool = False,
     max_parallelism_cap: Optional[int] = None,
     max_parallelism_override: Optional[int] = None,
 ) -> GenerationStrategy:
