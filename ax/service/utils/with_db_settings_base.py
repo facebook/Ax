@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import INFO, getLogger
 from typing import List, Optional, Tuple, Type
 
 from ax.core.base_trial import BaseTrial
@@ -47,7 +48,9 @@ class WithDBSettingsBase:
 
     _db_settings: Optional[DBSettings] = None
 
-    def __init__(self, db_settings: Optional[DBSettings] = None) -> None:
+    def __init__(
+        self, db_settings: Optional[DBSettings] = None, logging_level: int = INFO
+    ) -> None:
         if db_settings and (not DBSettings or not isinstance(db_settings, DBSettings)):
             raise ValueError(
                 "`db_settings` argument should be of type ax.storage.sqa_store."
@@ -55,6 +58,8 @@ class WithDBSettingsBase:
                 "installed in your environment (can be installed through pip)."
             )
         self._db_settings = db_settings
+        logger.setLevel(logging_level)
+        getLogger(f"{save_experiment.__module__}").setLevel(logging_level)
 
     @property
     def db_settings_set(self) -> bool:
