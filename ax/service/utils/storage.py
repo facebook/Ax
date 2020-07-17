@@ -13,6 +13,8 @@ from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import init_engine_and_session_factory
 from ax.storage.sqa_store.load import (
+    _get_experiment_id,
+    _get_generation_strategy_id,
     _load_experiment,
     _load_generation_strategy_by_experiment_name,
 )
@@ -31,6 +33,40 @@ logger = get_logger(__name__)
 
 
 """Utilities for storing experiment to the database via `DBSettings`."""
+
+
+def get_experiment_id(name: str, db_settings: DBSettings) -> Optional[int]:
+    """
+    Load experiment from the db. Service API only supports `Experiment`.
+
+    Args:
+        name: Experiment name.
+        db_settings: Defines behavior for loading/saving experiment to/from db.
+
+    Returns:
+        ax.core.Experiment: Loaded experiment.
+    """
+    init_engine_and_session_factory(creator=db_settings.creator, url=db_settings.url)
+    return _get_experiment_id(experiment_name=name, decoder=db_settings.decoder)
+
+
+def get_generation_strategy_id(
+    experiment_name: str, db_settings: DBSettings
+) -> Optional[int]:
+    """
+    Load generation strategy associated with experiment by the given name
+
+    Args:
+        name: Experiment name.
+        db_settings: Defines behavior for loading/saving experiment to/from db.
+
+    Returns:
+        ax.core.Experiment: Loaded experiment.
+    """
+    init_engine_and_session_factory(creator=db_settings.creator, url=db_settings.url)
+    return _get_generation_strategy_id(
+        experiment_name=experiment_name, decoder=db_settings.decoder
+    )
 
 
 def load_experiment(name: str, db_settings: DBSettings) -> Experiment:

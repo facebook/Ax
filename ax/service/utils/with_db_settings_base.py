@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple, Type
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import get_logger
@@ -30,6 +31,8 @@ try:  # We don't require SQLAlchemy by default.
         save_updated_trial,
         save_updated_trials,
         update_generation_strategy,
+        get_experiment_id,
+        get_generation_strategy_id,
     )
 
     # We retry on `OperationalError` if saving to DB.
@@ -73,7 +76,24 @@ class WithDBSettingsBase:
             raise ValueError("No DB settings are set on this instance.")
         return not_none(self._db_settings)
 
-    def maybe_save_experiment_and_generation_strategy(
+    def _get_experiment_and_generation_strategy_db_id(
+        self, experiment_name: str
+    ) -> Tuple[Optional[int], Optional[int]]:
+        """Retrieve DB ids of experiment by the given name and the associated
+        generation strategy. Each ID is None if corresponding object is not
+        found.
+        """
+        if not self.db_settings_set:
+            return None, None
+        exp_id = get_experiment_id(name=experiment_name, db_settings=self.db_settings)
+        if not exp_id:
+            return None, None
+        gs_id = get_generation_strategy_id(
+            experiment_name=experiment_name, db_settings=self.db_settings
+        )
+        return exp_id, gs_id
+
+    def _maybe_save_experiment_and_generation_strategy(
         self, experiment: Experiment, generation_strategy: GenerationStrategy
     ) -> Tuple[bool, bool]:
         """If DB settings are set on this `WithDBSettingsBase` instance, checks
@@ -92,15 +112,21 @@ class WithDBSettingsBase:
                     "Experiment must specify a name to use storage functionality."
                 )
             exp_name = not_none(experiment.name)
-            # TODO: Check existance without full load.
-            existing_exp, existing_gs = self._load_experiment_and_generation_strategy(
+            exp_id, gs_id = self._get_experiment_and_generation_strategy_db_id(
                 experiment_name=exp_name
             )
-            if not existing_exp:
+            if not exp_id:
                 logger.info(f"Experiment {exp_name} is not yet in DB, storing it.")
                 self._save_experiment_to_db_if_possible(experiment=experiment)
                 saved_exp = True
-            if not existing_gs or generation_strategy._db_id is None:
+            if gs_id and generation_strategy._db_id != gs_id:
+                raise UnsupportedError(
+                    "Experiment was associated with generation strategy in DB, "
+                    f"but a new generation strategy {generation_strategy.name} "
+                    "was provided. To use the generation strategy currently in DB,"
+                    " instantiate scheduler via: `Scheduler.with_stored_experiment`."
+                )
+            if not gs_id or generation_strategy._db_id is None:
                 # There is no GS associated with experiment or the generation
                 # strategy passed in is different from the one associated with
                 # experiment currently.
@@ -112,7 +138,6 @@ class WithDBSettingsBase:
                     generation_strategy=generation_strategy
                 )
                 saved_gs = True
-        # TODO: Update experiment and GS if they already exist.
         return saved_exp, saved_gs
 
     def _load_experiment_and_generation_strategy(

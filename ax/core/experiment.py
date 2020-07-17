@@ -262,7 +262,7 @@ class Experiment(Base):
             and self.immutable_search_space_and_opt_config
         ):
             raise UnsupportedError(
-                "Modifications of optimizationn config are disabled by the "
+                "Modifications of optimization config are disabled by the "
                 f"`{Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value}` "
                 "property that is set to `True` on this experiment."
             )
