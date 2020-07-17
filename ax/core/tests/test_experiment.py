@@ -12,12 +12,15 @@ from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_arm,
     get_branin_arms,
+    get_branin_optimization_config,
     get_branin_search_space,
     get_data,
     get_experiment,
@@ -460,3 +463,32 @@ class ExperimentTest(TestCase):
         self.assertEqual(
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
         )
+
+    def test_immutable_search_space_and_opt_config(self):
+        mutable_exp = self._setupBraninExperiment(n=5)
+        self.assertFalse(mutable_exp.immutable_search_space_and_opt_config)
+        immutable_exp = Experiment(
+            name="test4",
+            search_space=get_branin_search_space(),
+            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
+            optimization_config=get_branin_optimization_config(),
+            runner=SyntheticRunner(),
+            properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
+        )
+        self.assertTrue(immutable_exp.immutable_search_space_and_opt_config)
+        with self.assertRaises(UnsupportedError):
+            immutable_exp.optimization_config = get_branin_optimization_config()
+        immutable_exp.new_batch_trial()
+        with self.assertRaises(UnsupportedError):
+            immutable_exp.search_space = get_branin_search_space()
+
+        # Check that passing the property as just a string is processed
+        # correctly.
+        immutable_exp_2 = Experiment(
+            name="test4",
+            search_space=get_branin_search_space(),
+            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
+            runner=SyntheticRunner(),
+            properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value: True},
+        )
+        self.assertTrue(immutable_exp_2.immutable_search_space_and_opt_config)

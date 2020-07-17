@@ -123,7 +123,8 @@ class ModelBridge(ABC):
         self._raw_transforms = transforms
         self._transform_configs: Optional[Dict[str, TConfig]] = transform_configs
         self._fit_out_of_design = fit_out_of_design
-
+        imm = experiment and experiment.immutable_search_space_and_opt_config
+        self._experiment_has_immutable_search_space_and_opt_config = imm
         if experiment is not None:
             if self._optimization_config is None:
                 self._optimization_config = experiment.optimization_config
@@ -656,11 +657,16 @@ class ModelBridge(ABC):
             observation_features=observation_features,
             arms_by_signature=self._arms_by_signature,
         )
+        # If experiment has immutable search space and metrics, no need to
+        # save them on generator runs.
+        immutable = getattr(
+            self, "_experiment_has_immutable_search_space_and_opt_config", False
+        )
         gr = GeneratorRun(
             arms=arms,
             weights=weights,
-            optimization_config=optimization_config,
-            search_space=search_space,
+            optimization_config=None if immutable else optimization_config,
+            search_space=None if immutable else search_space,
             model_predictions=model_predictions,
             best_arm_predictions=None
             if best_arm is None

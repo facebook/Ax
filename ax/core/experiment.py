@@ -23,7 +23,8 @@ from ax.core.parameter import Parameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.utils.common.constants import UNEXPECTED_METRIC_COMBINATION
+from ax.exceptions.core import UnsupportedError
+from ax.utils.common.constants import UNEXPECTED_METRIC_COMBINATION, Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis
@@ -78,7 +79,7 @@ class Experiment(Base):
         self._tracking_metrics: Dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
-        self._properties: Dict[str, Any] = {}
+        self._properties: Dict[str, Any] = properties or {}
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
@@ -146,34 +147,42 @@ class Experiment(Base):
         must be preserved. However, if no trials have been created, all
         modifications are allowed.
         """
-
-        # TODO maybe return a copy here to guard against implicit changes
+        # TODO: maybe return a copy here to guard against implicit changes
         return self._search_space
 
     @search_space.setter
     def search_space(self, search_space: SearchSpace) -> None:
         # Allow all modifications when no trials present.
-        if len(self.trials) > 0:
-            if len(search_space.parameters) < len(self._search_space.parameters):
-                raise ValueError(
-                    "New search_space must contain all parameters in the existing."
-                )
-            for param_name, parameter in search_space.parameters.items():
-                if param_name not in self._search_space.parameters:
-                    raise ValueError(
-                        f"Cannot add new parameter `{param_name}` because "
-                        "it is not defined in the existing search space."
-                    )
-                elif (
-                    parameter.parameter_type
-                    != self._search_space.parameters[param_name].parameter_type
-                ):
-                    raise ValueError(
-                        f"Expected parameter `{param_name}` to be of type "
-                        f"{self._search_space.parameters[param_name].parameter_type}, "
-                        f"got {parameter.parameter_type}."
-                    )
+        if not hasattr(self, "_search_space") or len(self.trials) < 1:
+            self._search_space = search_space
+            return
 
+        # At least 1 trial is present.
+        if self.immutable_search_space_and_opt_config:
+            raise UnsupportedError(
+                "Modifications of search space are disabled by the "
+                f"`{Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value}` "
+                "property that is set to `True` on this experiment."
+            )
+        if len(search_space.parameters) < len(self._search_space.parameters):
+            raise ValueError(
+                "New search_space must contain all parameters in the existing."
+            )
+        for param_name, parameter in search_space.parameters.items():
+            if param_name not in self._search_space.parameters:
+                raise ValueError(
+                    f"Cannot add new parameter `{param_name}` because "
+                    "it is not defined in the existing search space."
+                )
+            elif (
+                parameter.parameter_type
+                != self._search_space.parameters[param_name].parameter_type
+            ):
+                raise ValueError(
+                    f"Expected parameter `{param_name}` to be of type "
+                    f"{self._search_space.parameters[param_name].parameter_type}, "
+                    f"got {parameter.parameter_type}."
+                )
         self._search_space = search_space
 
     @property
@@ -248,6 +257,15 @@ class Experiment(Base):
 
     @optimization_config.setter
     def optimization_config(self, optimization_config: OptimizationConfig) -> None:
+        if (
+            getattr(self, "_optimization_config", None) is not None
+            and self.immutable_search_space_and_opt_config
+        ):
+            raise UnsupportedError(
+                "Modifications of optimizationn config are disabled by the "
+                f"`{Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value}` "
+                "property that is set to `True` on this experiment."
+            )
         for metric_name in optimization_config.metrics.keys():
             if metric_name in self._tracking_metrics:
                 self.remove_tracking_metric(metric_name)
@@ -262,6 +280,19 @@ class Experiment(Base):
         will appear first in the list.
         """
         return self._data_by_trial
+
+    @property
+    def immutable_search_space_and_opt_config(self) -> bool:
+        """Boolean representing whether search space and metrics on this experiment
+        are mutable (by default they are).
+
+        NOTE: For experiments with immutable search spaces and metrics, generator
+        runs will not store copies of search space and metrics, which improves
+        storage layer performance. Not keeping copies of those on generator runs
+        also disables keeping track of changes to search space and metrics,
+        thereby necessitating that those attributes be immutable on experiment.
+        """
+        return self._properties.get(Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF, False)
 
     def add_tracking_metric(self, metric: Metric) -> "Experiment":
         """Add a new metric to the experiment.

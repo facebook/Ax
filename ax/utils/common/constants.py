@@ -39,6 +39,7 @@ class Keys(str, Enum):
     EXPECTED_ACQF_VAL = "expected_acquisition_value"
     FIDELITY_WEIGHTS = "fidelity_weights"
     FRAC_RANDOM = "frac_random"
+    IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF = "immutable_search_space_and_opt_config"
     MAXIMIZE = "maximize"
     NUM_INNER_RESTARTS = "num_inner_restarts"
     NUM_RESTARTS = "num_restarts"
