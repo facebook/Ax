@@ -116,7 +116,9 @@ class Decoder:
                 "only supported for MultiTypeExperiment."
             )
 
-        properties = experiment_sqa.properties or {}
+        # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
+        # so need to convert it to regular dict.
+        properties = dict(experiment_sqa.properties or {})
         # Remove 'subclass' from experiment's properties, since its only
         # used for decoding to the correct experiment subclass in storage.
         subclass = properties.pop(Keys.SUBCLASS, None)
