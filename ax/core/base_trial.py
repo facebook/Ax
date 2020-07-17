@@ -563,15 +563,17 @@ class BaseTrial(ABC, Base):
         """
         if status == TrialStatus.STAGED:
             self.mark_staged()
-        if status == TrialStatus.RUNNING:
+        elif status == TrialStatus.RUNNING:
             no_runner_required = kwargs.get("no_runner_required", False)
             self.mark_running(no_runner_required=no_runner_required)
-        if status == TrialStatus.ABANDONED:
+        elif status == TrialStatus.ABANDONED:
             self.mark_abandoned(reason=kwargs.get("reason"))
-        if status == TrialStatus.FAILED:
+        elif status == TrialStatus.FAILED:
             self.mark_failed()
-        if status == TrialStatus.COMPLETED:
+        elif status == TrialStatus.COMPLETED:
             self.mark_completed()
+        else:
+            raise ValueError(f"Cannot mark trial as {status}.")
         return self
 
     def _mark_failed_if_past_TTL(self) -> None:
