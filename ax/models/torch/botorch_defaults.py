@@ -16,7 +16,7 @@ from ax.models.torch.utils import (  # noqa F401
 from ax.models.torch_base import TorchModel
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
-from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObjective
+from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
 from botorch.fit import fit_gpytorch_model
@@ -31,6 +31,7 @@ from botorch.utils import (
     get_objective_weights_transform,
     get_outcome_constraint_transforms,
 )
+from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from torch import Tensor
@@ -50,7 +51,7 @@ def get_and_fit_model(
     refit_model: bool = True,
     **kwargs: Any,
 ) -> GPyTorchModel:
-    r"""Instantiates and fits a botorch ModelListGP using the given data.
+    r"""Instantiates and fits a botorch GPyTorchModel using the given data.
 
     Args:
         Xs: List of X data, one tensor per outcome.
@@ -140,6 +141,8 @@ def get_NEI(
     r"""Instantiates a qNoisyExpectedImprovement acquisition function.
 
     Args:
+        model: The underlying model which the acqusition function uses
+            to estimate acquisition values of candidates.
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
@@ -155,6 +158,7 @@ def get_NEI(
         mc_samples: The number of MC samples to use (default: 512).
         qmc: If True, use qMC instead of MC (default: True).
         prune_baseline: If True, prune the baseline points for NEI (default: True).
+        chebyshev_scalarization: Use augmented Chebyshev scalarization.
 
     Returns:
         qNoisyExpectedImprovement: The instantiated acquisition function.
@@ -162,12 +166,17 @@ def get_NEI(
     if X_observed is None:
         raise ValueError("There are no feasible observed points.")
     # construct Objective module
-    if outcome_constraints is None:
-        objective = LinearMCObjective(weights=objective_weights)
+    if kwargs.get("chebyshev_scalarization", False):
+        if "Ys" not in kwargs:
+            raise ValueError("Chebyshev Scalarization requires Ys argument")
+        Y_tensor = torch.stack(kwargs.get("Ys")).transpose(0, 1).squeeze()
+        obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y_tensor)
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
+    if outcome_constraints is None:
+        objective = GenericMCObjective(objective=obj_tf)
+    else:
         con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        X_observed = torch.as_tensor(X_observed)
         inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
         objective = ConstrainedMCObjective(
             objective=obj_tf, constraints=con_tfs or [], infeasible_cost=inf_cost

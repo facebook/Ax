@@ -358,17 +358,11 @@ class BotorchModel(TorchModel):
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
-        acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
-            model=model,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
-            X_pending=X_pending,
-            **acf_options,
-        )
 
         botorch_rounding_func = get_rounding_func(rounding_func)
-        if acf_options.get("random_scalarization", False):
+        if acf_options.get("random_scalarization", False) or acf_options.get(
+            "chebyshev_scalarization", False
+        ):
             # TODO (jej): Move into MultiObjectiveBotorch
             # If using a list of acquisition functions, the algorithm to generate
             # that list is configured by acquisition_function_kwargs.
@@ -383,6 +377,7 @@ class BotorchModel(TorchModel):
                     outcome_constraints=outcome_constraints,
                     X_observed=X_observed,
                     X_pending=X_pending,
+                    Ys=self.Ys,  # Required for chebyshev scalarization calculations.
                     **acf_options,
                 )
                 for objective_weights in objective_weights_list

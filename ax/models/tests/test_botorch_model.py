@@ -19,12 +19,16 @@ from ax.utils.common.testutils import TestCase
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import FixedNoiseGP, ModelListGP
 from botorch.utils import get_objective_weights_transform
+from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
 SAMPLE_SIMPLEX_UTIL_PATH = "ax.models.torch.utils.sample_simplex"
 SAMPLE_HYPERSPHERE_UTIL_PATH = "ax.models.torch.utils.sample_hypersphere"
+CHEBYSHEV_SCALARIZATION_PATH = (
+    "ax.models.torch.botorch_defaults.get_chebyshev_scalarization"
+)
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -429,20 +433,19 @@ class BotorchModelTest(TestCase):
         with self.assertRaises(ValueError):
             model.gen(n, bounds, objective_weights)
 
-    def test_BotorchModel_with_random_scalarization(
-        self, dtype=torch.float, cuda=False
-    ):
-        device = torch.device("cuda") if cuda else torch.device("cpu")
+    def test_BotorchModel_with_scalarization(self, dtype=torch.float, cuda=False):
+        tkwargs = {
+            "device": torch.device("cuda") if cuda else torch.device("cpu"),
+            "dtype": torch.float,
+        }
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
-            dtype=torch.float, cuda=False, constant_noise=True
+            dtype=dtype, cuda=cuda, constant_noise=True
         )
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
-            dtype=torch.float, cuda=False, constant_noise=True
+            dtype=dtype, cuda=cuda, constant_noise=True
         )
         n = 3
-        objective_weights = torch.tensor(
-            [1.0, 1.0], dtype=torch.float, device=torch.device("cpu")
-        )
+        objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         model = BotorchModel()
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
@@ -457,13 +460,13 @@ class BotorchModelTest(TestCase):
             )
             _mock_fit_model.assert_called_once()
 
-        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
-        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
+        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
+        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
 
         with mock.patch(
             SAMPLE_SIMPLEX_UTIL_PATH,
             autospec=True,
-            return_value=torch.tensor([0.7, 0.3]),
+            return_value=torch.tensor([0.7, 0.3], **tkwargs),
         ) as _mock_sample_simplex, mock.patch(
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
@@ -483,7 +486,7 @@ class BotorchModelTest(TestCase):
         with mock.patch(
             SAMPLE_HYPERSPHERE_UTIL_PATH,
             autospec=True,
-            return_value=torch.tensor([0.6, 0.8]),
+            return_value=torch.tensor([0.6, 0.8], **tkwargs),
         ) as _mock_sample_hypersphere, mock.patch(
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
@@ -503,20 +506,39 @@ class BotorchModelTest(TestCase):
             # Sample_simplex should be called once per generated candidate.
             self.assertEqual(n, _mock_sample_hypersphere.call_count)
 
-    def test_BotorchModel_with_random_scalarization_and_outcome_constraints(
+        with mock.patch(
+            CHEBYSHEV_SCALARIZATION_PATH, wraps=get_chebyshev_scalarization
+        ) as _mock_chebyshev_scalarization, mock.patch(
+            "ax.models.torch.botorch_defaults.optimize_acqf",
+            return_value=(X_dummy, acqfv_dummy),
+        ) as _:
+            model.gen(
+                n,
+                bounds,
+                objective_weights,
+                model_gen_options={
+                    "acquisition_function_kwargs": {"chebyshev_scalarization": True},
+                    "optimizer_kwargs": _get_optimizer_kwargs(),
+                },
+            )
+            # get_chebyshev_scalarization should be called once for generated candidate.
+            self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
+
+    def test_BotorchModel_with_scalarization_and_outcome_constraints(
         self, dtype=torch.float, cuda=False
     ):
-        device = torch.device("cuda") if cuda else torch.device("cpu")
+        tkwargs = {
+            "device": torch.device("cuda") if cuda else torch.device("cpu"),
+            "dtype": torch.float,
+        }
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
-            dtype=torch.float, cuda=False, constant_noise=True
+            dtype=dtype, cuda=cuda, constant_noise=True
         )
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
-            dtype=torch.float, cuda=False, constant_noise=True
+            dtype=dtype, cuda=cuda, constant_noise=True
         )
         n = 2
-        objective_weights = torch.tensor(
-            [1.0, 1.0], dtype=torch.float, device=torch.device("cpu")
-        )
+        objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         model = BotorchModel()
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
@@ -531,13 +553,13 @@ class BotorchModelTest(TestCase):
             )
             _mock_fit_model.assert_called_once()
 
-        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
-        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
+        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
+        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
 
         with mock.patch(
             SAMPLE_SIMPLEX_UTIL_PATH,
             autospec=True,
-            return_value=torch.tensor([0.7, 0.3]),
+            return_value=torch.tensor([0.7, 0.3], **tkwargs),
         ) as _mock_sample_simplex, mock.patch(
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
@@ -547,12 +569,8 @@ class BotorchModelTest(TestCase):
                 bounds,
                 objective_weights,
                 outcome_constraints=(
-                    torch.tensor(
-                        [[1.0, 1.0]], dtype=torch.float, device=torch.device("cpu")
-                    ),
-                    torch.tensor(
-                        [[10.0]], dtype=torch.float, device=torch.device("cpu")
-                    ),
+                    torch.tensor([[1.0, 1.0]], **tkwargs),
+                    torch.tensor([[10.0]], **tkwargs),
                 ),
                 model_gen_options={
                     "acquisition_function_kwargs": {"random_scalarization": True},
@@ -560,3 +578,25 @@ class BotorchModelTest(TestCase):
                 },
             )
             self.assertEqual(n, _mock_sample_simplex.call_count)
+
+        with mock.patch(
+            CHEBYSHEV_SCALARIZATION_PATH, wraps=get_chebyshev_scalarization
+        ) as _mock_chebyshev_scalarization, mock.patch(
+            "ax.models.torch.botorch_defaults.optimize_acqf",
+            return_value=(X_dummy, acqfv_dummy),
+        ) as _:
+            model.gen(
+                n,
+                bounds,
+                objective_weights,
+                outcome_constraints=(
+                    torch.tensor([[1.0, 1.0]], **tkwargs),
+                    torch.tensor([[10.0]], **tkwargs),
+                ),
+                model_gen_options={
+                    "acquisition_function_kwargs": {"chebyshev_scalarization": True},
+                    "optimizer_kwargs": _get_optimizer_kwargs(),
+                },
+            )
+            # get_chebyshev_scalarization should be called once for generated candidate.
+            self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
