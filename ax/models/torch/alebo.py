@@ -560,6 +560,8 @@ class ALEBO(BotorchModel):
             acqf_optimizer=alebo_acqf_optimizer,
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.fit)
     def fit(
         self,
@@ -585,12 +587,16 @@ class ALEBO(BotorchModel):
         self.dtype = self.B.dtype
         self.model = self.get_and_fit_model(Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars)
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X` expected.
     @copy_doc(TorchModel.predict)
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         Xd = (self.B @ X.t()).t()  # Project down
         with gpytorch.settings.max_cholesky_size(2000):
             return super().predict(X=Xd)
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
@@ -636,7 +642,6 @@ class ALEBO(BotorchModel):
         A = torch.cat((self.Binv, -self.Binv))
         b = torch.ones(2 * self.Binv.shape[0], 1, dtype=self.dtype, device=self.device)
         linear_constraints = (A, b)
-        # pyre-fixme[6]: Expected `int` for 1st param but got `float`.
         noiseless = max(Yvar.min().item() for Yvar in self.Yvars) < 1e-5
         if model_gen_options is None:
             model_gen_options = {}
@@ -668,6 +673,8 @@ class ALEBO(BotorchModel):
         #  Dict[str, typing.Any], None]`.
         return Xopt, w, {}, None
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.update)
     def update(
         self,
@@ -693,6 +700,8 @@ class ALEBO(BotorchModel):
             Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars, state_dicts=state_dicts
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X_test` expected.
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,

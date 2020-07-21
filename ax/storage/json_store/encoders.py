@@ -316,7 +316,6 @@ def transform_type_to_dict(transform_type: Type[Transform]) -> Dict[str, Any]:
 def generation_step_to_dict(generation_step: GenerationStep) -> Dict[str, Any]:
     """Converts Ax generation step to a dictionary."""
     return {
-        # pyre-fixme[16]: `GenerationStep` has no attribute `__name__`.
         "__type": generation_step.__class__.__name__,
         "model": generation_step.model,
         "num_trials": generation_step.num_trials,

@@ -306,6 +306,7 @@ class Experiment(Base):
                 "Use `update_tracking_metric` to update an existing metric definition."
             )
 
+        # pyre-fixme[16]: `Optional` has no attribute `metrics`.
         if self.optimization_config and metric.name in self.optimization_config.metrics:
             raise ValueError(
                 f"Metric `{metric.name}` already present in experiment's "
@@ -337,6 +338,7 @@ class Experiment(Base):
 
             if (
                 self.optimization_config
+                # pyre-fixme[16]: `Optional` has no attribute `metrics`.
                 and metric.name in self.optimization_config.metrics
             ):
                 raise ValueError(
@@ -377,6 +379,7 @@ class Experiment(Base):
         """The metrics attached to the experiment."""
         optimization_config_metrics: Dict[str, Metric] = {}
         if self.optimization_config is not None:
+            # pyre-fixme[16]: `Optional` has no attribute `metrics`.
             optimization_config_metrics = self.optimization_config.metrics
         return {**self._tracking_metrics, **optimization_config_metrics}
 
@@ -466,6 +469,10 @@ class Experiment(Base):
 
         raise ValueError(UNEXPECTED_METRIC_COMBINATION)
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `BaseTrial` for 1st param but
+    #  got `(self: Experiment, trial_index: int, metrics:
+    #  Optional[List[ax.core.metric.Metric]] = ..., **(Any)) -> Data`.
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any

@@ -178,7 +178,7 @@ class KnowledgeGradient(BotorchModel):
             model_gen_options=model_gen_options,
             target_fidelities=target_fidelities,
         )
-        recommended_point = recommended_point.detach().unsqueeze(0)  # pyre-ignore: [16]
+        recommended_point = recommended_point.detach().unsqueeze(0)
         # Extract acquisition value (TODO: Make this less painful and repetitive)
         if non_fixed_idcs is not None:
             recommended_point = recommended_point[..., non_fixed_idcs]

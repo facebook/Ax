@@ -58,6 +58,7 @@ def object_to_json(obj: Any) -> Any:
         return {k: object_to_json(v) for k, v in obj.items()}
     elif _is_named_tuple(obj):
         return {
+            # pyre-fixme[16]: `object` has no attribute `__name__`.
             "__type": _type.__name__,
             **{k: object_to_json(v) for k, v in obj._asdict().items()},
         }
@@ -75,8 +76,10 @@ def object_to_json(obj: Any) -> Any:
         }
     elif _type is pd.DataFrame:
         return {"__type": _type.__name__, "value": obj.to_json()}
+    # pyre-fixme[6]: Expected `Type[typing.Any]` for 1st param but got `object`.
     elif issubclass(_type, enum.Enum):
         return {"__type": _type.__name__, "name": obj.name}
+    # pyre-fixme[6]: Expected `Type[typing.Any]` for 1st param but got `object`.
     elif _type is np.ndarray or issubclass(_type, np.ndarray):
         return {"__type": _type.__name__, "value": obj.tolist()}
     elif _type is torch.Tensor:

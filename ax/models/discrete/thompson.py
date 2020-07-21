@@ -48,6 +48,8 @@ class ThompsonSampler(DiscreteModel):
         self.Yvars = None
         self.X_to_Ys_and_Yvars = None
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(DiscreteModel.fit)
     def fit(
         self,
@@ -65,6 +67,8 @@ class ThompsonSampler(DiscreteModel):
             X=self.X, Ys=self.Ys, Yvars=self.Yvars
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `n` expected.
     @copy_doc(DiscreteModel.gen)
     def gen(
         self,
@@ -112,6 +116,8 @@ class ThompsonSampler(DiscreteModel):
 
         return top_arms, [x / sum(top_weights) for x in top_weights], {}
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X` expected.
     @copy_doc(DiscreteModel.predict)
     def predict(self, X: List[TParamValueList]) -> Tuple[np.ndarray, np.ndarray]:
         n = len(X)  # number of parameterizations at which to make predictions

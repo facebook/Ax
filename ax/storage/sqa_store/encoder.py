@@ -176,7 +176,7 @@ class Encoder:
         experiment_class: Type[SQAExperiment] = self.config.class_to_sqa_class[
             Experiment
         ]
-        return experiment_class(  # pyre-ignore[28]
+        return experiment_class(
             description=experiment.description,
             is_test=experiment.is_test,
             name=experiment.name,

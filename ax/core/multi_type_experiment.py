@@ -167,6 +167,8 @@ class MultiTypeExperiment(Experiment):
             self._metric_to_canonical_name[metric.name] = canonical_name
         return self
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `metric_name` expected.
     @copy_doc(Experiment.remove_tracking_metric)
     def remove_tracking_metric(self, metric_name: str) -> "MultiTypeExperiment":
         if metric_name not in self._tracking_metrics:
@@ -181,6 +183,10 @@ class MultiTypeExperiment(Experiment):
             del self._metric_to_canonical_name[metric_name]
         return self
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `Experiment` for 1st param
+    #  but got `(self: MultiTypeExperiment, metrics:
+    #  Optional[List[ax.core.metric.Metric]] = ..., **(Any)) -> Data`.
     @copy_doc(Experiment.fetch_data)
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
         return Data.from_multiple_data(
@@ -222,6 +228,7 @@ class MultiTypeExperiment(Experiment):
         """
         opt_config_types = {
             metric_name: self.default_trial_type
+            # pyre-fixme[16]: `Optional` has no attribute `metrics`.
             for metric_name in self.optimization_config.metrics.keys()
         }
         return {**opt_config_types, **self._metric_to_trial_type}

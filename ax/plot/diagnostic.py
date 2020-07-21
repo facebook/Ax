@@ -382,6 +382,7 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
                 # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
                 arm_data["y"][metric_name] = row["mean"]
                 arm_data["se"][metric_name] = row["sem"]
+                # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
                 arm_data["y_hat"][metric_name] = predictions[0][metric_name][i]
                 arm_data["se_hat"][metric_name] = predictions[1][metric_name][
                     metric_name

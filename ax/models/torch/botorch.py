@@ -277,6 +277,8 @@ class BotorchModel(TorchModel):
         self.fidelity_features: List[int] = []
         self.metric_names: List[str] = []
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.fit)
     def fit(
         self,
@@ -309,10 +311,14 @@ class BotorchModel(TorchModel):
             **self._kwargs,
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X` expected.
     @copy_doc(TorchModel.predict)
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         return self.model_predictor(model=self.model, X=X)  # pyre-ignore [28]
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.gen)
     def gen(
         self,
@@ -430,6 +436,8 @@ class BotorchModel(TorchModel):
             None,
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
@@ -453,6 +461,8 @@ class BotorchModel(TorchModel):
             target_fidelities=target_fidelities,
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X_test` expected.
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,
@@ -479,6 +489,8 @@ class BotorchModel(TorchModel):
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.update)
     def update(
         self,

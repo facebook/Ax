@@ -76,7 +76,6 @@ class SQABase:
             return False
         for x in l1:
             for y in l2:
-                # pyre-fixme[16]: `Dict` has no attribute `__ne__`.
                 if type(x) != type(y):
                     equal = False
                 if isinstance(x, SQABase):
@@ -401,7 +400,6 @@ def create_all_tables(engine: Engine) -> None:
         and engine.dialect.default_schema_name == "adaptive_experiment"
     ):
         raise Exception("Cannot mutate tables in XDB. Use AOSC.")  # pragma: no cover
-    # pyre-fixme[16]: `Base` has no attribute `metadata`.
     Base.metadata.create_all(engine)
 
 

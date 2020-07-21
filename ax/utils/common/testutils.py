@@ -74,6 +74,12 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
             expected=expected, test_case=test_case, expected_regex=expected_regex
         )
 
+    # pyre-fixme[14]: `__exit__` overrides method defined in `_AssertRaisesContext`
+    #  inconsistently.
+    # pyre-fixme[14]: `__exit__` overrides method defined in `_AssertRaisesContext`
+    #  inconsistently.
+    # pyre-fixme[14]: `__exit__` overrides method defined in `_AssertRaisesContext`
+    #  inconsistently.
     def __exit__(
         self,
         exc_type: Optional[Type[Exception]],

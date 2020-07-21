@@ -119,6 +119,7 @@ def _load_generation_strategy_by_experiment_name(
         gs_sqa = (
             session.query(gs_sqa_class)
             .join(exp_sqa_class.generation_strategy)  # pyre-ignore[16]
+            # pyre-fixme[16]: `SQABase` has no attribute `name`.
             .filter(exp_sqa_class.name == experiment_name)
             .one_or_none()
         )
@@ -142,6 +143,7 @@ def _get_generation_strategy_id(
         sqa_gs_id = (
             session.query(gs_sqa_class.id)  # pyre-ignore[16]
             .join(exp_sqa_class.generation_strategy)  # pyre-ignore[16]
+            # pyre-fixme[16]: `SQABase` has no attribute `name`.
             .filter(exp_sqa_class.name == experiment_name)
             .one_or_none()
         )

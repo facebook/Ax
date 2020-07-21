@@ -55,6 +55,8 @@ class RandomModelBridge(ModelBridge):
         # Extract and fix parameters from initial search space.
         self.parameters = list(search_space.parameters.keys())
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `experiment` expected.
     @copy_doc(ModelBridge.update)
     def update(self, new_data: Data, experiment: Experiment) -> None:
         pass  # pragma: no cover

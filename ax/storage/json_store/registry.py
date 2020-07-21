@@ -74,6 +74,49 @@ from ax.storage.json_store.encoders import (
 from ax.storage.utils import DomainType, ParameterConstraintType
 
 
+# pyre-fixme[9]: ENCODER_REGISTRY has type `Dict[Type[typing.Any],
+#  typing.Callable[[typing.Any], Dict[str, typing.Any]]]`; used as `Dict[object,
+#  typing.Union[typing.Callable(arm_to_dict)[[Named(arm, Arm)], Dict[str, typing.Any]],
+#  typing.Callable(batch_to_dict)[[Named(batch, BatchTrial)], Dict[str, typing.Any]],
+#  typing.Callable(benchmark_problem_to_dict)[[Named(benchmark_problem,
+#  BenchmarkProblem)], Dict[str, typing.Any]],
+#  typing.Callable(choice_parameter_to_dict)[[Named(parameter, ChoiceParameter)],
+#  Dict[str, typing.Any]], typing.Callable(data_to_dict)[[Named(data, Data)], Dict[str,
+#  typing.Any]], typing.Callable(experiment_to_dict)[[Named(experiment, Experiment)],
+#  Dict[str, typing.Any]], typing.Callable(fixed_parameter_to_dict)[[Named(parameter,
+#  FixedParameter)], Dict[str, typing.Any]],
+#  typing.Callable(generation_step_to_dict)[[Named(generation_step, GenerationStep)],
+#  Dict[str, typing.Any]],
+#  typing.Callable(generation_strategy_to_dict)[[Named(generation_strategy,
+#  GenerationStrategy)], Dict[str, typing.Any]],
+#  typing.Callable(generator_run_to_dict)[[Named(generator_run, GeneratorRun)],
+#  Dict[str, typing.Any]], typing.Callable(metric_to_dict)[[Named(metric, Metric)],
+#  Dict[str, typing.Any]], typing.Callable(multi_objective_to_dict)[[Named(objective,
+#  MultiObjective)], Dict[str, typing.Any]],
+#  typing.Callable(objective_to_dict)[[Named(objective, Objective)], Dict[str,
+#  typing.Any]], typing.Callable(observation_features_to_dict)[[Named(obs_features,
+#  ax.core.observation.ObservationFeatures)], Dict[str, typing.Any]],
+#  typing.Callable(optimization_config_to_dict)[[Named(optimization_config,
+#  OptimizationConfig)], Dict[str, typing.Any]],
+#  typing.Callable(order_parameter_constraint_to_dict)[[Named(parameter_constraint,
+#  OrderConstraint)], Dict[str, typing.Any]],
+#  typing.Callable(outcome_constraint_to_dict)[[Named(outcome_constraint,
+#  OutcomeConstraint)], Dict[str, typing.Any]],
+#  typing.Callable(parameter_constraint_to_dict)[[Named(parameter_constraint,
+#  ParameterConstraint)], Dict[str, typing.Any]],
+#  typing.Callable(range_parameter_to_dict)[[Named(parameter, RangeParameter)],
+#  Dict[str, typing.Any]], typing.Callable(runner_to_dict)[[Named(runner,
+#  SyntheticRunner)], Dict[str, typing.Any]],
+#  typing.Callable(scalarized_objective_to_dict)[[Named(objective,
+#  ScalarizedObjective)], Dict[str, typing.Any]],
+#  typing.Callable(search_space_to_dict)[[Named(search_space, SearchSpace)], Dict[str,
+#  typing.Any]], typing.Callable(simple_experiment_to_dict)[[Named(experiment,
+#  SimpleExperiment)], Dict[str, typing.Any]],
+#  typing.Callable(sum_parameter_constraint_to_dict)[[Named(parameter_constraint,
+#  SumConstraint)], Dict[str, typing.Any]],
+#  typing.Callable(transform_type_to_dict)[[Named(transform_type, Type[Transform])],
+#  Dict[str, typing.Any]], typing.Callable(trial_to_dict)[[Named(trial, Trial)],
+#  Dict[str, typing.Any]]]]`.
 ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Arm: arm_to_dict,
     BatchTrial: batch_to_dict,
@@ -110,6 +153,8 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     ObservationFeatures: observation_features_to_dict,
 }
 
+# pyre-fixme[9]: DECODER_REGISTRY has type `Dict[str, Type[typing.Any]]`; used as
+#  `Dict[str, object]`.
 DECODER_REGISTRY: Dict[str, Type] = {
     "AbandonedArm": AbandonedArm,
     "Arm": Arm,

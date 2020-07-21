@@ -152,7 +152,6 @@ class Data(Base):
                 "trial_index": trial_index,
             }
             for name, evaluation in evaluations.items()
-            # pyre-fixme[10]: Name `evaluation` is used but not defined.
             for metric_name in evaluation.keys()
         ]
         if start_time is not None or end_time is not None:
@@ -198,7 +197,6 @@ class Data(Base):
                 "fidelities": json.dumps(fidelity),
             }
             for name, fidelity_and_metrics_list in evaluations.items()
-            # pyre-fixme[10]: Name `fidelity_and_metrics_list` is used but not defined.
             for fidelity, evaluation in fidelity_and_metrics_list
             for metric_name in evaluation.keys()
         ]

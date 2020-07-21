@@ -454,6 +454,11 @@ class AxClient(WithDBSettingsBase):
         """Retrieve the parameterization of the trial by the given index."""
         return not_none(self._get_trial(trial_index).arm).parameters
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `Experiment` for 1st param
+    #  but got `(self: AxClient) -> Optional[Tuple[Dict[str, typing.Union[None, bool,
+    #  float, int, str]], Optional[Tuple[Dict[str, float], Optional[Dict[str,
+    #  typing.Dict[str, float]]]]]]]`.
     @copy_doc(best_point_utils.get_best_parameters)
     def get_best_parameters(
         self,
@@ -508,6 +513,7 @@ class AxClient(WithDBSettingsBase):
         """
         if not self.experiment.trials:
             raise ValueError("Cannot generate plot as there are no trials.")
+        # pyre-fixme[16]: `Optional` has no attribute `objective`.
         objective_name = self.experiment.optimization_config.objective.metric.name
         best_objectives = np.array(
             [

@@ -300,7 +300,6 @@ class GenerationStrategy(Base):
                 },
             }
             for step_idx, trials in self.trial_indices_by_step.items()
-            # pyre-fixme[10]: Name `trials` is used but not defined.
             for trial_idx in trials
         ]
         return pd.DataFrame.from_records(records).reindex(
