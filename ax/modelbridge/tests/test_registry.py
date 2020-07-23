@@ -32,7 +32,7 @@ from torch import device as torch_device, float64 as torch_float64
 
 class ModelRegistryTest(TestCase):
     def test_enum_sobol_GPEI(self):
-        """Tests Soboland GPEI instantiation through the Models enum."""
+        """Tests Sobol and GPEI instantiation through the Models enum."""
         exp = get_branin_experiment()
         # Check that factory generates a valid sobol modelbridge.
         sobol = Models.SOBOL(search_space=exp.search_space)
@@ -87,6 +87,7 @@ class ModelRegistryTest(TestCase):
                 "optimization_config": None,
                 "transforms": Cont_X_trans + Y_trans,
                 "fit_out_of_design": False,
+                "default_model_gen_options": None,
             },
         )
         gpei = Models.GPEI(

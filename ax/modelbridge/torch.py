@@ -44,6 +44,7 @@ class TorchModelBridge(ArrayModelBridge):
     # pyre-fixme[15]: `parameters` overrides attribute defined in `ArrayModelBridge`
     #  inconsistently.
     parameters: Optional[List[str]]
+    _default_model_gen_options: TConfig
 
     def __init__(
         self,
@@ -59,11 +60,13 @@ class TorchModelBridge(ArrayModelBridge):
         status_quo_features: Optional[ObservationFeatures] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
+        default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
         if torch_dtype is None:  # pragma: no cover
             torch_dtype = torch.float  # noqa T484
         self.dtype = torch_dtype
         self.device = torch_device
+        self._default_model_gen_options = default_model_gen_options or {}
         super().__init__(
             experiment=experiment,
             search_space=search_space,
@@ -210,6 +213,10 @@ class TorchModelBridge(ArrayModelBridge):
             pending_observations=pending_observations,
         )
         tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
+        augmented_model_gen_options = {
+            **self._default_model_gen_options,
+            **(model_gen_options or {}),
+        }
         # pyre-fixme[16]: `Optional` has no attribute `gen`.
         X, w, gen_metadata, candidate_metadata = self.model.gen(
             n=n,
@@ -219,7 +226,7 @@ class TorchModelBridge(ArrayModelBridge):
             linear_constraints=l_c,
             fixed_features=fixed_features,
             pending_observations=pend_obs,
-            model_gen_options=model_gen_options,
+            model_gen_options=augmented_model_gen_options,
             rounding_func=tensor_rounding_func,
             target_fidelities=target_fidelities,
         )

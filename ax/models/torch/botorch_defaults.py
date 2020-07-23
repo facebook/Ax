@@ -169,7 +169,7 @@ def get_NEI(
     if kwargs.get("chebyshev_scalarization", False):
         if "Ys" not in kwargs:
             raise ValueError("Chebyshev Scalarization requires Ys argument")
-        Y_tensor = torch.stack(kwargs.get("Ys")).transpose(0, 1).squeeze()
+        Y_tensor = torch.cat(kwargs.get("Ys"), dim=-1)
         obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y_tensor)
     else:
         obj_tf = get_objective_weights_transform(objective_weights)

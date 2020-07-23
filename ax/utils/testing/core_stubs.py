@@ -222,15 +222,49 @@ def get_experiment_with_multi_objective() -> Experiment:
     optimization_config = OptimizationConfig(
         objective=objective, outcome_constraints=outcome_constraints
     )
-    return Experiment(
+
+    exp = Experiment(
         name="test_experiment_multi_objective",
-        search_space=get_search_space(),
+        search_space=get_branin_search_space(),
         optimization_config=optimization_config,
-        status_quo=get_status_quo(),
-        description="test experiment with scalarized objective",
+        description="test experiment with multi objective",
+        runner=SyntheticRunner(),
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
     )
+
+    return exp
+
+
+def get_branin_experiment_with_multi_objective(
+    has_optimization_config: bool = True,
+    with_batch: bool = False,
+    with_status_quo: bool = False,
+    with_fidelity_parameter: bool = False,
+) -> Experiment:
+    exp = Experiment(
+        name="branin_test_experiment",
+        search_space=get_branin_search_space(
+            with_fidelity_parameter=with_fidelity_parameter
+        ),
+        optimization_config=get_branin_multi_objective_optimization_config()
+        if has_optimization_config
+        else None,
+        runner=SyntheticRunner(),
+        is_test=True,
+    )
+
+    if with_status_quo:
+        exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+
+    if with_batch:
+        sobol_generator = get_sobol(search_space=exp.search_space)
+        sobol_run = sobol_generator.gen(n=15)
+        exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
+            sobol_run
+        )
+
+    return exp
 
 
 def get_experiment_with_scalarized_objective() -> Experiment:
@@ -563,6 +597,12 @@ def get_branin_objective() -> Objective:
     return Objective(metric=get_branin_metric(), minimize=False)
 
 
+def get_branin_multi_objective() -> Objective:
+    return MultiObjective(
+        metrics=[get_branin_metric(), get_branin_metric()], minimize=False
+    )
+
+
 def get_branin_outcome_constraint() -> OutcomeConstraint:
     return OutcomeConstraint(metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0)
 
@@ -573,6 +613,10 @@ def get_optimization_config_no_constraints() -> OptimizationConfig:
 
 def get_branin_optimization_config() -> OptimizationConfig:
     return OptimizationConfig(objective=get_branin_objective())
+
+
+def get_branin_multi_objective_optimization_config() -> OptimizationConfig:
+    return OptimizationConfig(objective=get_branin_multi_objective())
 
 
 # Arms

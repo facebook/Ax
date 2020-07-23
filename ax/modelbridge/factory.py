@@ -11,6 +11,7 @@ import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.multi_type_experiment import MultiTypeExperiment
+from ax.core.objective import MultiObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
@@ -360,3 +361,77 @@ def get_GPMES(
     if any(p.is_fidelity for k, p in experiment.parameters.items()):
         inputs["linear_truncated"] = kwargs.get("linear_truncated", True)
     return checked_cast(TorchModelBridge, Models.GPMES(**inputs))  # pyre-ignore: [16]
+
+
+def get_MOO_PAREGO(
+    experiment: Experiment,
+    data: Data,
+    ref_point: Optional[List[float]] = None,
+    search_space: Optional[SearchSpace] = None,
+    dtype: torch.dtype = torch.double,
+    device: torch.device = DEFAULT_TORCH_DEVICE,
+) -> TorchModelBridge:
+    """Instantiates a multi-objective model that generates points with ParEGO.
+
+    qParEGO optimizes random augmented chebyshev scalarizations of the multiple
+    objectives. This allows it to explore non-convex pareto frontiers.
+    """
+    # pyre-ignore: [16] `Optional` has no attribute `objective`.
+    if not isinstance(experiment.optimization_config.objective, MultiObjective):
+        raise ValueError("Multi-Objective optimization requires multiple objectives")
+    if data.df.empty:
+        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    return checked_cast(
+        TorchModelBridge,
+        Models.BOTORCH(
+            experiment=experiment,
+            data=data,
+            search_space=search_space or experiment.search_space,
+            torch_dtype=dtype,
+            torch_device=device,
+            ref_point=None,
+            default_model_gen_options={
+                "acquisition_function_kwargs": {
+                    "chebyshev_scalarization": True,
+                    "sequential": True,
+                }
+            },
+        ),
+    )
+
+
+def get_MOO_RS(
+    experiment: Experiment,
+    data: Data,
+    ref_point: Optional[List[float]] = None,
+    search_space: Optional[SearchSpace] = None,
+    dtype: torch.dtype = torch.double,
+    device: torch.device = DEFAULT_TORCH_DEVICE,
+) -> TorchModelBridge:
+    """Instantiates a Linear Random Scalarization multi-objective model.
+
+    Chooses a different random linear scalarization of the objectives
+    for generating each new candidate arm. This will only explore the
+    convex hull of the pareto frontier.
+    """
+    # pyre-ignore: [16] `Optional` has no attribute `objective`.
+    if not isinstance(experiment.optimization_config.objective, MultiObjective):
+        raise ValueError("Multi-Objective optimization requires multiple objectives")
+    if data.df.empty:
+        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    return checked_cast(
+        TorchModelBridge,
+        Models.BOTORCH(
+            experiment=experiment,
+            data=data,
+            search_space=search_space or experiment.search_space,
+            torch_dtype=dtype,
+            torch_device=device,
+            default_model_gen_options={
+                "acquisition_function_kwargs": {
+                    "random_scalarization": True,
+                    "sequential": True,
+                }
+            },
+        ),
+    )
