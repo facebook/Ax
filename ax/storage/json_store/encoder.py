@@ -8,14 +8,13 @@ import datetime
 import enum
 from collections import OrderedDict
 from inspect import isclass
-from typing import Any, Type
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import torch
 from ax.exceptions.storage import JSONEncodeError
-from ax.modelbridge.transforms.base import Transform
-from ax.storage.json_store.registry import ENCODER_REGISTRY
+from ax.storage.json_store.registry import CLASS_ENCODER_REGISTRY, ENCODER_REGISTRY
 from ax.utils.common.serialization import _is_named_tuple
 from ax.utils.common.typeutils import numpy_type_to_python_type, torch_type_to_str
 
@@ -38,10 +37,17 @@ def object_to_json(obj: Any) -> Any:
     obj = numpy_type_to_python_type(obj)
     _type = type(obj)
 
-    # Ax types
-    if isclass(obj) and issubclass(obj, Transform):
-        # There is no other way to check is obj is of type Type[Transform].
-        _type = Type[Transform]
+    # Type[MyClass] encoding (encoding of classes, not instances)
+    if isclass(obj):
+        for class_type in CLASS_ENCODER_REGISTRY:
+            if issubclass(obj, class_type):
+                _type = class_type
+                obj_dict = CLASS_ENCODER_REGISTRY[_type](obj)
+                return {k: object_to_json(v) for k, v in obj_dict.items()}
+        raise ValueError(
+            f"{obj} is a class. Add it to the CLASS_ENCODER_REGISTRY "
+            "(and remove it from the ENCODER_REGISTRY if needed)."
+        )
 
     if _type in ENCODER_REGISTRY:
         obj_dict = ENCODER_REGISTRY[_type](obj)
@@ -58,7 +64,6 @@ def object_to_json(obj: Any) -> Any:
         return {k: object_to_json(v) for k, v in obj.items()}
     elif _is_named_tuple(obj):
         return {
-            # pyre-fixme[16]: `object` has no attribute `__name__`.
             "__type": _type.__name__,
             **{k: object_to_json(v) for k, v in obj._asdict().items()},
         }
@@ -76,10 +81,8 @@ def object_to_json(obj: Any) -> Any:
         }
     elif _type is pd.DataFrame:
         return {"__type": _type.__name__, "value": obj.to_json()}
-    # pyre-fixme[6]: Expected `Type[typing.Any]` for 1st param but got `object`.
     elif issubclass(_type, enum.Enum):
         return {"__type": _type.__name__, "name": obj.name}
-    # pyre-fixme[6]: Expected `Type[typing.Any]` for 1st param but got `object`.
     elif _type is np.ndarray or issubclass(_type, np.ndarray):
         return {"__type": _type.__name__, "value": obj.tolist()}
     elif _type is torch.Tensor:
