@@ -165,4 +165,4 @@ See recommendation for installing PyTorch for MacOS users above.
 
 ## License
 
-Ax is licensed under the [MIT license](LICENSE.md).
+Ax is licensed under the [MIT license](./LICENSE).
