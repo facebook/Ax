@@ -25,15 +25,22 @@ class Metric(Base):
         lower_is_better: Flag for metrics which should be minimized.
     """
 
-    def __init__(self, name: str, lower_is_better: Optional[bool] = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        lower_is_better: Optional[bool] = None,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Inits Metric.
 
         Args:
             name: Name of metric.
             lower_is_better: Flag for metrics which should be minimized.
+            properties: Dictionary of this metric's properties
         """
         self._name = name
         self.lower_is_better = lower_is_better
+        self.properties = properties or {}
 
     @property
     def name(self) -> str:

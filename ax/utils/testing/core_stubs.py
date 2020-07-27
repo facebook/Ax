@@ -530,7 +530,7 @@ def get_sum_constraint2() -> SumConstraint:
 
 
 def get_metric() -> Metric:
-    return Metric(name="m1")
+    return Metric(name="m1", properties={"prop": "val"})
 
 
 def get_branin_metric(name="branin") -> BraninMetric:

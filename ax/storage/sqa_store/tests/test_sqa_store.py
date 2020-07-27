@@ -878,11 +878,18 @@ class SQAStoreTest(TestCase):
     def testGetProperties(self):
         # Extract default value.
         properties = serialize_init_args(Metric(name="foo"))
-        self.assertEqual(properties, {"name": "foo", "lower_is_better": None})
+        self.assertEqual(
+            properties, {"name": "foo", "lower_is_better": None, "properties": {}}
+        )
 
         # Extract passed value.
-        properties = serialize_init_args(Metric(name="foo", lower_is_better=True))
-        self.assertEqual(properties, {"name": "foo", "lower_is_better": True})
+        properties = serialize_init_args(
+            Metric(name="foo", lower_is_better=True, properties={"foo": "bar"})
+        )
+        self.assertEqual(
+            properties,
+            {"name": "foo", "lower_is_better": True, "properties": {"foo": "bar"}},
+        )
 
     def testRegistryAdditions(self):
         class MyRunner(Runner):
