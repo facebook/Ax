@@ -388,7 +388,12 @@ class Experiment(Base):
     ) -> Dict[Type[Metric], List[Metric]]:
         metrics_by_class: Dict[Type[Metric], List[Metric]] = defaultdict(list)
         for metric in metrics or list(self.metrics.values()):
-            metrics_by_class[metric.__class__].append(metric)
+            # By default, all metrics are grouped by their class for fetch;
+            # however, for some metrics, `fetch_trial_data_multi` of a
+            # superclass is used for fetch the subclassing metrics' data. In
+            # those cases, "fetch_multi_group_by_metric" property on metric
+            # will be set to a class other than its own (likely a superclass).
+            metrics_by_class[metric.fetch_multi_group_by_metric].append(metric)
         return metrics_by_class
 
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:

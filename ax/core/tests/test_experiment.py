@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Type
+
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -492,3 +494,18 @@ class ExperimentTest(TestCase):
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value: True},
         )
         self.assertTrue(immutable_exp_2.immutable_search_space_and_opt_config)
+
+    def test_fetch_as_class(self):
+        class MyMetric(Metric):
+            @property
+            def fetch_multi_group_by_metric(self) -> Type[Metric]:
+                return Metric
+
+        m = MyMetric(name="test_metric")
+        exp = Experiment(
+            name="test",
+            search_space=get_branin_search_space(),
+            tracking_metrics=[m],
+            runner=SyntheticRunner(),
+        )
+        self.assertEqual(exp._metrics_by_class(), {Metric: [m]})

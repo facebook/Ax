@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type
 
 from ax.core.base import Base
 from ax.core.data import Data
@@ -46,6 +46,18 @@ class Metric(Base):
     def name(self) -> str:
         """Get name of metric."""
         return self._name
+
+    @property
+    def fetch_multi_group_by_metric(self) -> Type[Metric]:
+        """Metric class, with which to group this metric in `Experiment._metrics_by_class`,
+        which is used to combine metrics on experiment into groups and then fetch their
+        data via `Metric.fetch_trial_data_multi` for each group.
+
+        NOTE: By default, this property will just return the class on which it is
+        defined; however, in some cases it is useful to group metrics by their
+        superclass, in which case this property should return that superclass.
+        """
+        return self.__class__
 
     @classmethod
     def serialize_init_args(cls, metric: "Metric") -> Dict[str, Any]:
