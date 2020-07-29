@@ -43,6 +43,7 @@ from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.runners.synthetic import SyntheticRunner
+from ax.storage.json_store.decoders import transform_type_from_json
 from ax.storage.json_store.encoders import (
     arm_to_dict,
     batch_to_dict,
@@ -117,8 +118,6 @@ CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Transform: transform_type_to_dict
 }
 
-# pyre-fixme[9]: DECODER_REGISTRY has type `Dict[str, Type[typing.Any]]`; used as
-#  `Dict[str, object]`.
 DECODER_REGISTRY: Dict[str, Type] = {
     "AbandonedArm": AbandonedArm,
     "Arm": Arm,
@@ -160,6 +159,11 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "SyntheticRunner": SyntheticRunner,
     "Trial": Trial,
     "TrialStatus": TrialStatus,
-    "Type[Transform]": Type[Transform],
     "ObservationFeatures": ObservationFeatures,
+}
+
+
+# Registry for class types, not instances.
+CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
+    "Type[Transform]": transform_type_from_json
 }

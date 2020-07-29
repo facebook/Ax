@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -13,6 +13,8 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
 from ax.core.trial import Trial
+from ax.modelbridge.transforms.base import Transform
+from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
 
 
 if TYPE_CHECKING:
@@ -119,3 +121,11 @@ def trial_from_json(
     trial._generation_step_index = generation_step_index
     trial._properties = properties or {}
     return trial
+
+
+def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
+    """Load the transform type from JSON."""
+    index_in_registry = object_json.pop("index_in_registry")
+    if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:  # pragma: no cover
+        raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
+    return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
