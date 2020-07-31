@@ -378,7 +378,7 @@ def get_model_from_generator_run(
     model_keywords = list(model_kwargs.keys())
     for key in model_keywords:
         if key in bridge_kwargs:  # pragma: no cover
-            logger.info(
+            logger.debug(
                 f"Keyword argument `{key}` occurs in both model and model bridge "
                 f"kwargs stored in the generator run. Assuming the `{key}` kwarg "
                 "is passed into the model by the model bridge and removing its "

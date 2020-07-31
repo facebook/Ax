@@ -160,12 +160,9 @@ class WithDBSettingsBase:
         """
         if not self.db_settings_set:
             raise ValueError("Cannot load from DB in absence of DB settings.")
-        try:
-            return load_experiment_and_generation_strategy(
-                experiment_name=experiment_name, db_settings=self.db_settings
-            )
-        except ValueError:
-            return None, None
+        return load_experiment_and_generation_strategy(
+            experiment_name=experiment_name, db_settings=self.db_settings
+        )
 
     @retry_on_exception(
         retries=3,

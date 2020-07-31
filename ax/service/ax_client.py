@@ -202,10 +202,10 @@ class AxClient(WithDBSettingsBase):
                 "Must give the experiment a name if `db_settings` is not None."
             )
         if self.db_settings_set:
-            experiment, _ = self._load_experiment_and_generation_strategy(
+            experiment_id, _ = self._get_experiment_and_generation_strategy_db_id(
                 experiment_name=not_none(name)
             )
-            if experiment:
+            if experiment_id:
                 raise ValueError(
                     f"Experiment {name} already exists in the database. "
                     "To protect experiments that are running in production, "

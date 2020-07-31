@@ -32,6 +32,7 @@ from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.registry import Models
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
 from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
@@ -646,7 +647,16 @@ class Decoder:
             # Generation strategy had an initialized model.
             # pyre-ignore[16]: SQAGenerationStrategy does not have `experiment` attr.
             gs._experiment = self.experiment_from_sqa(gs_sqa.experiment)
-            gs._restore_model_from_generator_run()
+            # If model in the current step was not directly from the `Models` enum,
+            # pass its type to `restore_model_from_generator_run`, which will then
+            # attempt to use this type to recreate the model.
+            if type(gs._curr.model) != Models:
+                models_enum = type(gs._curr.model)
+                assert issubclass(models_enum, Models)
+                # pyre-ignore[6]: `models_enum` typing hackiness
+                gs._restore_model_from_generator_run(models_enum=models_enum)
+            else:
+                gs._restore_model_from_generator_run()
         gs._db_id = gs_sqa.id
         return gs
 

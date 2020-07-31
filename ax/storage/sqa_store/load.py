@@ -48,7 +48,7 @@ def _get_experiment_sqa(experiment_name: str, decoder: Decoder) -> SQAExperiment
             session.query(exp_sqa_class).filter_by(name=experiment_name).one_or_none()
         )
         if sqa_experiment is None:
-            raise ValueError(f"Experiment `{experiment_name}` not found.")
+            raise ValueError(f"Experiment '{experiment_name}' not found.")
     return sqa_experiment  # pyre-ignore[7]
 
 

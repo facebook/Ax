@@ -84,7 +84,7 @@ def load_experiment(name: str, db_settings: DBSettings) -> Experiment:
     start_time = time.time()
     experiment = _load_experiment(name, decoder=db_settings.decoder)
     if not isinstance(experiment, Experiment) or experiment.is_simple_experiment:
-        raise ValueError("Service API only supports Experiment")
+        raise ValueError("Service API only supports `Experiment`.")
     logger.debug(
         f"Loaded experiment {name} in "
         f"{_round_floats_for_logging(time.time() - start_time)} seconds."
@@ -126,8 +126,10 @@ def load_experiment_and_generation_strategy(
         generation_strategy = _load_generation_strategy_by_experiment_name(
             experiment_name=experiment_name, decoder=db_settings.decoder
         )
-    except ValueError:  # Generation strategy has not yet been attached to this
-        return experiment, None  # experiment.
+    except ValueError as err:
+        if "does not have a generation strategy" in str(err):
+            return experiment, None
+        raise  # `ValueError` here could signify more than just absence of GS.
     return experiment, generation_strategy
 
 
