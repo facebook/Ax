@@ -109,8 +109,9 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
 
 # Instead of showing a warning (like in the standard library) we throw an error when
 # deprecated functions are called.
-# pyre-fixme[3]: Return annotation cannot contain `Any`.
-# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def _deprecate(original_func: Callable) -> Callable:
     def _deprecated_func(*args: List[Any], **kwargs: Dict[str, Any]) -> None:
         raise RuntimeError(
