@@ -115,7 +115,13 @@ class WithDBSettingsBase:
             exp_id, gs_id = self._get_experiment_and_generation_strategy_db_id(
                 experiment_name=exp_name
             )
-            if not exp_id:
+            if exp_id:  # Experiment in DB.
+                # TODO: Switch to just updating experiment when selective-field
+                # update is available.
+                logger.info(f"Experiment {exp_name} is in DB, updating it.")
+                self._save_experiment_to_db_if_possible(experiment=experiment)
+                saved_exp = True
+            else:  # Experiment not yet in DB.
                 logger.info(f"Experiment {exp_name} is not yet in DB, storing it.")
                 self._save_experiment_to_db_if_possible(experiment=experiment)
                 saved_exp = True
