@@ -19,6 +19,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data  # noqa F401
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
@@ -111,6 +112,8 @@ def object_from_json(object_json: Any) -> Any:
             return generation_step_from_json(generation_step_json=object_json)
         elif _class == GenerationStrategy:
             return generation_strategy_from_json(generation_strategy_json=object_json)
+        elif _class == MultiTypeExperiment:
+            return multi_type_experiment_from_json(object_json=object_json)
         elif _class == SimpleExperiment:
             return simple_experiment_from_json(object_json=object_json)
         elif _class == Experiment:
@@ -237,16 +240,38 @@ def data_from_json(
     }
 
 
+def multi_type_experiment_from_json(object_json: Dict[str, Any]) -> MultiTypeExperiment:
+    """Load AE MultiTypeExperiment from JSON."""
+    experiment_info = _get_experiment_info(object_json)
+
+    _metric_to_canonical_name = object_json.pop("_metric_to_canonical_name")
+    _metric_to_trial_type = object_json.pop("_metric_to_trial_type")
+    _trial_type_to_runner = object_from_json(object_json.pop("_trial_type_to_runner"))
+    tracking_metrics = object_from_json(object_json.pop("tracking_metrics"))
+    # not relevant to multi type experiment
+    del object_json["runner"]
+
+    kwargs = {k: object_from_json(v) for k, v in object_json.items()}
+    kwargs["default_runner"] = _trial_type_to_runner[object_json["default_trial_type"]]
+
+    experiment = MultiTypeExperiment(**kwargs)
+    for metric in tracking_metrics:
+        experiment._tracking_metrics[metric.name] = metric
+    experiment._metric_to_canonical_name = _metric_to_canonical_name
+    experiment._metric_to_trial_type = _metric_to_trial_type
+    experiment._trial_type_to_runner = _trial_type_to_runner
+
+    _load_experiment_info(exp=experiment, exp_info=experiment_info)
+    return experiment
+
+
 def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment:
     """Load AE SimpleExperiment from JSON."""
-    time_created_json = object_json.pop("time_created")
-    trials_json = object_json.pop("trials")
-    experiment_type_json = object_json.pop("experiment_type")
-    data_by_trial_json = object_json.pop("data_by_trial")
+    experiment_info = _get_experiment_info(object_json)
+
     description_json = object_json.pop("description")
     is_test_json = object_json.pop("is_test")
     optimization_config = object_from_json(object_json.pop("optimization_config"))
-
     # not relevant to simple experiment
     del object_json["tracking_metrics"]
     del object_json["runner"]
@@ -256,44 +281,50 @@ def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment
     kwargs["objective_name"] = optimization_config.objective.metric.name
     kwargs["minimize"] = optimization_config.objective.minimize
     kwargs["outcome_constraints"] = optimization_config.outcome_constraints
-    experiment = SimpleExperiment(**kwargs)
 
+    experiment = SimpleExperiment(**kwargs)
     experiment.description = object_from_json(description_json)
     experiment.is_test = object_from_json(is_test_json)
-    experiment._time_created = object_from_json(time_created_json)
-    experiment._trials = trials_from_json(experiment, trials_json)
-    for trial in experiment._trials.values():
-        for arm in trial.arms:
-            experiment._register_arm(arm)
-    if experiment.status_quo is not None:
-        sq = not_none(experiment.status_quo)
-        experiment._register_arm(sq)
-    experiment._experiment_type = object_from_json(experiment_type_json)
-    experiment._data_by_trial = data_from_json(data_by_trial_json)
+
+    _load_experiment_info(exp=experiment, exp_info=experiment_info)
     return experiment
 
 
 def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
     """Load Ax Experiment from JSON."""
-    time_created_json = object_json.pop("time_created")
-    trials_json = object_json.pop("trials")
-    experiment_type_json = object_json.pop("experiment_type")
-    data_by_trial_json = object_json.pop("data_by_trial")
+    experiment_info = _get_experiment_info(object_json)
+
     experiment = Experiment(**{k: object_from_json(v) for k, v in object_json.items()})
-    experiment._time_created = object_from_json(time_created_json)
-    experiment._trials = trials_from_json(experiment, trials_json)
     experiment._arms_by_name = {}
-    for trial in experiment._trials.values():
-        for arm in trial.arms:
-            experiment._register_arm(arm)
-        if trial.ttl_seconds is not None:
-            experiment._trials_have_ttl = True
-    if experiment.status_quo is not None:
-        sq = not_none(experiment.status_quo)
-        experiment._register_arm(sq)
-    experiment._experiment_type = object_from_json(experiment_type_json)
-    experiment._data_by_trial = data_from_json(data_by_trial_json)
+
+    _load_experiment_info(exp=experiment, exp_info=experiment_info)
     return experiment
+
+
+def _get_experiment_info(object_json: Dict[str, Any]) -> Dict[str, Any]:
+    """Returns basic information from `Experiment` object_json."""
+    return {
+        "time_created_json": object_json.pop("time_created"),
+        "trials_json": object_json.pop("trials"),
+        "experiment_type_json": object_json.pop("experiment_type"),
+        "data_by_trial_json": object_json.pop("data_by_trial"),
+    }
+
+
+def _load_experiment_info(exp: Experiment, exp_info: Dict[str, Any]) -> None:
+    """Loads `Experiment` object with basic information."""
+    exp._time_created = object_from_json(exp_info.get("time_created_json"))
+    exp._trials = trials_from_json(exp, exp_info.get("trials_json"))
+    exp._experiment_type = object_from_json(exp_info.get("experiment_type_json"))
+    exp._data_by_trial = data_from_json(exp_info.get("data_by_trial_json"))
+    for trial in exp._trials.values():
+        for arm in trial.arms:
+            exp._register_arm(arm)
+        if trial.ttl_seconds is not None:
+            exp._trials_have_ttl = True
+    if exp.status_quo is not None:
+        sq = not_none(exp.status_quo)
+        exp._register_arm(sq)
 
 
 def _convert_generation_step_keys_for_backwards_compatibility(

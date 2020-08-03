@@ -48,6 +48,7 @@ from ax.utils.testing.core_stubs import (
     get_hartmann_metric,
     get_metric,
     get_multi_objective,
+    get_multi_type_experiment,
     get_objective,
     get_optimization_config,
     get_order_constraint,
@@ -84,6 +85,7 @@ TEST_CASES = [
     ("GeneratorRun", get_generator_run),
     ("Metric", get_metric),
     ("MultiObjective", get_multi_objective),
+    ("MultiTypeExperiment", get_multi_type_experiment),
     ("ObservationFeatures", get_observation_features),
     ("Objective", get_objective),
     ("OptimizationConfig", get_optimization_config),
@@ -131,6 +133,22 @@ ENCODE_DECODE_FIELD_MAPS = {
     ),
     "GeneratorRun": EncodeDecodeFieldsMap(
         encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
+    ),
+    "MultiTypeExperiment": EncodeDecodeFieldsMap(
+        python_only=[
+            "arms_by_signature",
+            "arms_by_name",
+            "metric_to_canonical_name",
+            "metric_to_trial_type",
+            "trial_indices_by_status",
+            "trials_have_ttl",
+            "trial_type_to_runner",
+        ],
+        encoded_only=[
+            "_metric_to_canonical_name",
+            "_metric_to_trial_type",
+            "_trial_type_to_runner",
+        ],
     ),
     "OrderConstraint": EncodeDecodeFieldsMap(
         python_only=["bound"],

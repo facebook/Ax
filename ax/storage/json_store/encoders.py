@@ -15,6 +15,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -58,6 +59,18 @@ def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
 def simple_experiment_to_dict(experiment: SimpleExperiment) -> Dict[str, Any]:
     """Convert AE simple experiment to a dictionary."""
     return experiment_to_dict(experiment)
+
+
+def multi_type_experiment_to_dict(experiment: MultiTypeExperiment) -> Dict[str, Any]:
+    """Convert AE multitype experiment to a dictionary."""
+    multi_type_dict = {
+        "default_trial_type": experiment._default_trial_type,
+        "_metric_to_canonical_name": experiment._metric_to_canonical_name,
+        "_metric_to_trial_type": experiment._metric_to_trial_type,
+        "_trial_type_to_runner": experiment._trial_type_to_runner,
+    }
+    multi_type_dict.update(experiment_to_dict(experiment))
+    return multi_type_dict
 
 
 def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
