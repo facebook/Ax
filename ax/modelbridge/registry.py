@@ -122,6 +122,7 @@ class ModelSetup(NamedTuple):
     model_class: Type[Model]
     transforms: List[Type[Transform]]
     standard_bridge_kwargs: Optional[Dict[str, Any]] = None
+    not_saved_model_kwargs: Optional[List[str]] = None
 
 
 """A mapping of string keys that indicate a model, to the corresponding
@@ -270,6 +271,10 @@ class Models(Enum):
             model=model,
             **bridge_kwargs,
         )
+
+        if model_setup_info.not_saved_model_kwargs:
+            for key in model_setup_info.not_saved_model_kwargs:
+                model_kwargs.pop(key, None)
 
         # Store all kwargs on model bridge, to be saved on generator run.
         model_bridge._set_kwargs_to_save(
