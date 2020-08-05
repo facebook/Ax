@@ -32,6 +32,8 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(model, FixedNoiseMultiTaskGP)
         model = _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1)
         self.assertIsInstance(model, FixedNoiseMultiTaskGP)
+        model = _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, rank=1)
+        self.assertEqual(model._rank, 1)
         with self.assertRaises(ValueError):
             model = _get_model(X=x, Y=y, Yvar=partial_var, task_feature=None)
         model = _get_model(X=x, Y=y, Yvar=var, fidelity_features=[-1])
@@ -50,7 +52,7 @@ class BotorchDefaultsTest(TestCase):
             Yvars=yvars,
             task_features=[1],
             fidelity_features=[],
-            metric_names=[],
+            metric_names=["L2NormMetric"],
             state_dict=None,
             refit_model=False,
         )
@@ -65,7 +67,7 @@ class BotorchDefaultsTest(TestCase):
                 Yvars=yvars,
                 task_features=[0, 1],
                 fidelity_features=[],
-                metric_names=[],
+                metric_names=["L2NormMetric"],
                 state_dict=None,
                 refit_model=False,
             )
@@ -78,7 +80,7 @@ class BotorchDefaultsTest(TestCase):
                 Yvars=yvars,
                 task_features=[],
                 fidelity_features=[-1, -2],
-                metric_names=[],
+                metric_names=["L2NormMetric"],
                 state_dict=None,
                 refit_model=False,
             )
@@ -91,7 +93,7 @@ class BotorchDefaultsTest(TestCase):
                 Yvars=yvars,
                 task_features=[1],
                 fidelity_features=[-1],
-                metric_names=[],
+                metric_names=["L2NormMetric"],
                 state_dict=None,
                 refit_model=False,
             )

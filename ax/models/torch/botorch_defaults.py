@@ -52,6 +52,9 @@ def get_and_fit_model(
     **kwargs: Any,
 ) -> GPyTorchModel:
     r"""Instantiates and fits a botorch GPyTorchModel using the given data.
+    N.B. Currently, the logic for choosing ModelListGP vs other models is handled
+    using if-else statements in lines 96-137. In the future, this logic should be
+    taken care of by modular botorch.
 
     Args:
         Xs: List of X data, one tensor per outcome.
@@ -67,6 +70,7 @@ def get_and_fit_model(
     Returns:
         A fitted GPyTorchModel.
     """
+
     if len(fidelity_features) > 0 and len(task_features) > 0:
         raise NotImplementedError(
             "Currently do not support MF-GP models with task_features!"
@@ -84,6 +88,12 @@ def get_and_fit_model(
     else:
         task_feature = None
     model = None
+
+    # TODO: Better logic for deciding when to use a ModelListGP. Currently the
+    # logic is unclear. The two cases in which ModelListGP is used are
+    # (i) the training inputs (Xs) are not the same for the different outcomes, and
+    # (ii) a multi-task model is used
+
     if task_feature is None:
         if len(Xs) == 1:
             # Use single output, single task GP
@@ -108,11 +118,22 @@ def get_and_fit_model(
                 **kwargs,
             )
     # TODO: Is this equivalent an "else:" here?
-    if model is None:
-        # Use a ModelListGP
+
+    if model is None:  # use multi-task GP
+        mtgp_rank_dict = kwargs.pop("multitask_gp_ranks", {})
+        # assembles list of ranks associated with each metric
+        if len({len(Xs), len(Ys), len(Yvars), len(metric_names)}) > 1:
+            raise ValueError(
+                "Lengths of Xs, Ys, Yvars, and metric_names must match. Your "
+                f"inputs have lengths {len(Xs)}, {len(Ys)}, {len(Yvars)}, and "
+                f"{len(metric_names)}, respectively."
+            )
+        mtgp_rank_list = [mtgp_rank_dict.get(metric, None) for metric in metric_names]
         models = [
-            _get_model(X=X, Y=Y, Yvar=Yvar, task_feature=task_feature, **kwargs)
-            for X, Y, Yvar in zip(Xs, Ys, Yvars)
+            _get_model(
+                X=X, Y=Y, Yvar=Yvar, task_feature=task_feature, rank=mtgp_rank, **kwargs
+            )
+            for X, Y, Yvar, mtgp_rank in zip(Xs, Ys, Yvars, mtgp_rank_list)
         ]
         model = ModelListGP(*models)
     model.to(Xs[0])
@@ -518,9 +539,15 @@ def _get_model(
     elif task_feature is None:
         gp = FixedNoiseGP(train_X=X, train_Y=Y, train_Yvar=Yvar, **kwargs)
     elif all_nan_Yvar:
-        gp = MultiTaskGP(train_X=X, train_Y=Y, task_feature=task_feature, **kwargs)
+        gp = MultiTaskGP(
+            train_X=X, train_Y=Y, task_feature=task_feature, rank=kwargs.get("rank")
+        )
     else:
         gp = FixedNoiseMultiTaskGP(
-            train_X=X, train_Y=Y, train_Yvar=Yvar, task_feature=task_feature, **kwargs
+            train_X=X,
+            train_Y=Y,
+            train_Yvar=Yvar,
+            task_feature=task_feature,
+            rank=kwargs.get("rank"),
         )
     return gp

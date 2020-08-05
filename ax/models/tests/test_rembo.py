@@ -16,6 +16,7 @@ class REMBOTest(TestCase):
         A = torch.cat((torch.eye(2), -(torch.eye(2))))
         initial_X_d = torch.tensor([[0.25, 0.5], [1, 0], [0, -1]])
         bounds_d = [(-2, 2), (-2, 2)]
+        my_metric_names = ["a", "b"]
 
         # Test setting attributes
         m = REMBO(A=A, initial_X_d=initial_X_d, bounds_d=bounds_d)
@@ -39,7 +40,7 @@ class REMBOTest(TestCase):
                 bounds=[(0, 1)] * 4,
                 task_features=[],
                 feature_names=[],
-                metric_names=[],
+                metric_names=my_metric_names,
                 fidelity_features=[],
             )
 
@@ -53,7 +54,7 @@ class REMBOTest(TestCase):
                 bounds=bounds,
                 task_features=[],
                 feature_names=[],
-                metric_names=[],
+                metric_names=my_metric_names,
                 fidelity_features=[],
             )
         # Check was fit with the low-d data.

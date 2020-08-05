@@ -39,7 +39,9 @@ def _get_optimizer_kwargs() -> Dict[str, int]:
     return {"num_restarts": 2, "raw_samples": 2, "maxiter": 2, "batch_limit": 1}
 
 
-def _get_torch_test_data(dtype=torch.float, cuda=False, constant_noise=True):
+def _get_torch_test_data(
+    dtype=torch.float, cuda=False, constant_noise=True, task_features=None
+):
     device = torch.device("cuda") if cuda else torch.device("cpu")
     Xs = [torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=dtype, device=device)]
     Ys = [torch.tensor([[3.0], [4.0]], dtype=dtype, device=device)]
@@ -47,13 +49,40 @@ def _get_torch_test_data(dtype=torch.float, cuda=False, constant_noise=True):
     if constant_noise:
         Yvars[0].fill_(1.0)
     bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
-    task_features = []
     feature_names = ["x1", "x2", "x3"]
-    metric_names = ["y"]
+    task_features = [] if task_features is None else task_features
+    metric_names = ["y", "r"]
     return Xs, Ys, Yvars, bounds, task_features, feature_names, metric_names
 
 
 class BotorchModelTest(TestCase):
+    def test_fixed_rank_BotorchModel(self, dtype=torch.float, cuda=False):
+        Xs1, Ys1, Yvars1, bounds, _, fns, __package__ = _get_torch_test_data(
+            dtype=dtype, cuda=cuda, constant_noise=True
+        )
+        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
+            dtype=dtype, cuda=cuda, constant_noise=True
+        )
+        model = BotorchModel(multitask_gp_ranks={"y": 2, "w": 1})
+
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1 + Xs2,
+                Ys=Ys1 + Ys2,
+                Yvars=Yvars1 + Yvars2,
+                bounds=bounds,
+                task_features=[0],
+                feature_names=fns,
+                metric_names=["y", "w"],
+                fidelity_features=[],
+            )
+            _mock_fit_model.assert_called_once()
+
+        # Check ranks
+        model_list = model.model.models
+        self.assertEqual(model_list[0]._rank, 2)
+        self.assertEqual(model_list[1]._rank, 1)
+
     def test_BotorchModel(self, dtype=torch.float, cuda=False):
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
@@ -325,7 +354,7 @@ class BotorchModelTest(TestCase):
             Yvars=Yvars1,
             task_features=[],
             fidelity_features=[],
-            metric_names=[],
+            metric_names=mns[0],
             state_dict=true_state_dict,
             refit_model=False,
         )
@@ -342,7 +371,7 @@ class BotorchModelTest(TestCase):
             Yvars=Yvars1,
             task_features=[],
             fidelity_features=[],
-            metric_names=[],
+            metric_names=mns[0],
             state_dict=true_state_dict,
             refit_model=True,
         )
@@ -393,7 +422,7 @@ class BotorchModelTest(TestCase):
                 bounds=bounds,
                 task_features=tfs,
                 feature_names=fns,
-                metric_names=mns,
+                metric_names=mns[0],
                 fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()

@@ -169,7 +169,7 @@ class KnowledgeGradientTest(TestCase):
             bounds=self.bounds,
             task_features=[],
             feature_names=self.feature_names,
-            metric_names=[],
+            metric_names=["L2NormMetric"],
             fidelity_features=[2],
         )
 
