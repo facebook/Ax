@@ -23,7 +23,11 @@ from ax.exceptions.generation_strategy import (
     MaxParallelismReachedException,
 )
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.registry import Models, get_model_from_generator_run
+from ax.modelbridge.registry import (
+    Models,
+    _combine_model_kwargs_and_state,
+    get_model_from_generator_run,
+)
 from ax.utils.common.equality import equality_typechecker, object_attribute_dicts_equal
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -148,7 +152,6 @@ class GenerationStrategy(Base):
 
     _name: Optional[str]
     _steps: List[GenerationStep]
-    _model: Optional[ModelBridge]  # Current model.
     _curr: GenerationStep  # Current step in the strategy.
     # Whether all models in this GS are in Models registry enum.
     _uses_registered_models: bool
@@ -157,20 +160,20 @@ class GenerationStrategy(Base):
     _generator_runs: List[GeneratorRun]
     # Experiment, for which this generation strategy has generated trials, if
     # it exists.
-    _experiment: Optional[Experiment]
-    _db_id: Optional[int]  # Used when storing to DB.
+    _experiment: Optional[Experiment] = None
+    _db_id: Optional[int] = None  # Used when storing to DB.
+    # Trial indices as last seen by the model; updated in `_model` property setter.
+    _seen_trial_indices_by_status = None
+    _model: Optional[ModelBridge] = None  # Current model.
 
     def __init__(self, steps: List[GenerationStep], name: Optional[str] = None) -> None:
         assert isinstance(steps, list) and all(
             isinstance(s, GenerationStep) for s in steps
         ), "Steps must be a GenerationStep list."
-        self._db_id = None
         self._name = name
         self._steps = steps
         self._uses_registered_models = True
         self._generator_runs = []
-        self._model = None
-        self._experiment = None
         for idx, step in enumerate(self._steps):
             if step.num_trials == -1:
                 if idx < len(self._steps) - 1:
@@ -356,9 +359,7 @@ class GenerationStrategy(Base):
         """
         self.experiment = experiment
         self._set_or_update_model(data=data)
-        self._seen_trial_indices_by_status = deepcopy(
-            experiment.trial_indices_by_status
-        )
+        self._save_seen_trial_indices()
         max_parallelism = self._curr.max_parallelism
         num_running = self.num_running_trials_for_current_step
         if max_parallelism is not None and num_running >= max_parallelism:
@@ -467,13 +468,11 @@ class GenerationStrategy(Base):
             and lgr._generation_step_index == self._curr.index
             and lgr._model_state_after_gen
         ):
-            serialized_model_state = not_none(lgr._model_state_after_gen)
-            model_state = not_none(self.model)._deserialize_model_state(
-                serialized_model_state
+            model_kwargs = _combine_model_kwargs_and_state(
+                model_kwargs=model_kwargs,
+                generator_run=lgr,
+                model_class=not_none(not_none(self.model).model.__class__),
             )
-            # We don't want to update `model_kwargs` on the `GenerationStep`,
-            # just to add to them for the purpose of this function.
-            model_kwargs = {**model_kwargs, **model_state}
 
         # TODO[T65857344]: move from fetching all data to using cached data
         if data is None:
@@ -574,6 +573,17 @@ class GenerationStrategy(Base):
             experiment=self.experiment,
             data=self.experiment.fetch_data(),
             models_enum=models_enum,
+        )
+        self._save_seen_trial_indices()
+
+    def _save_seen_trial_indices(self) -> None:
+        """Saves Experiment's `trial_indices_by_status` at the time of the model's
+        last `gen` (so these `trial_indices_by_status` reflect which trials model
+        has seen the data for). Useful when `use_update=True` for a given
+        generation step.
+        """
+        self._seen_trial_indices_by_status = deepcopy(
+            self.experiment.trial_indices_by_status
         )
 
     def _find_trials_completed_since_last_gen(self) -> Set[int]:

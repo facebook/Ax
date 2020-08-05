@@ -203,13 +203,13 @@ class ModelRegistryTest(TestCase):
         gr = initial_sobol.gen(n=1)
         # Restore the model as it was before generation.
         sobol = get_model_from_generator_run(
-            generator_run=gr, experiment=exp, data=exp.fetch_data()
+            generator_run=gr, experiment=exp, data=exp.fetch_data(), after_gen=False
         )
         self.assertEqual(sobol.model.init_position, 0)
         self.assertEqual(sobol.model.seed, 239)
         # Restore the model as it was after generation (to resume generation).
         sobol_after_gen = get_model_from_generator_run(
-            generator_run=gr, experiment=exp, data=exp.fetch_data(), after_gen=True
+            generator_run=gr, experiment=exp, data=exp.fetch_data()
         )
         self.assertEqual(sobol_after_gen.model.init_position, 1)
         self.assertEqual(sobol_after_gen.model.seed, 239)

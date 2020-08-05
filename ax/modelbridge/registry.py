@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from enum import Enum
 from inspect import isfunction, signature
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
@@ -342,8 +344,8 @@ def get_model_from_generator_run(
     generator_run: GeneratorRun,
     experiment: Experiment,
     data: Data,
-    models_enum: Optional[Type["Models"]] = None,
-    after_gen: bool = False,
+    models_enum: Optional[Type[Models]] = None,
+    after_gen: bool = True,
 ) -> ModelBridge:
     """Reinstantiate a model from model key and kwargs stored on a given generator
     run, with the given experiment and the data to initialize the model with.
@@ -363,9 +365,9 @@ def get_model_from_generator_run(
             registry that extends `Models`.
         after_gen: Whether to reinstantiate the model in the state, in which it
             was after it created this generator run, as opposed to before.
-            Defaults to False, useful when reinstantiating the model to resume
+            Defaults to True, useful when reinstantiating the model to resume
             optimization, rather than to recreate its state at the time of
-            generation.
+            generation. TO recreate state at the time of generation, set to `False`.
     """
     if not generator_run._model_key:  # pragma: no cover
         raise ValueError(
@@ -374,9 +376,10 @@ def get_model_from_generator_run(
         )
     model = (models_enum or Models)(generator_run._model_key)
     model_kwargs = generator_run._model_kwargs or {}
-    if after_gen and generator_run._model_state_after_gen is not None:
-        serialized_model_state = not_none(generator_run._model_state_after_gen)
-        model_kwargs.update(model.model_class.deserialize_state(serialized_model_state))
+    if after_gen:
+        model_kwargs = _combine_model_kwargs_and_state(
+            generator_run=generator_run, model_class=model.model_class
+        )
     bridge_kwargs = generator_run._bridge_kwargs or {}
     model_kwargs = _decode_callables_from_references(model_kwargs)
     bridge_kwargs = _decode_callables_from_references(bridge_kwargs)
@@ -391,6 +394,25 @@ def get_model_from_generator_run(
             )
             del model_kwargs[key]
     return model(experiment=experiment, data=data, **bridge_kwargs, **model_kwargs)
+
+
+def _combine_model_kwargs_and_state(
+    generator_run: GeneratorRun,
+    model_class: Type[Model],
+    model_kwargs: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Produces a combined dict of model kwargs and model state after gen,
+    extracted from generator run. If model kwargs are not specified,
+    model kwargs from the generator run will be used.
+    """
+    model_kwargs = model_kwargs or generator_run._model_kwargs or {}
+    if generator_run._model_state_after_gen is None:
+        return model_kwargs
+
+    serialized_model_state = not_none(generator_run._model_state_after_gen)
+    # We don't want to update `model_kwargs` on the `GenerationStep`,
+    # just to add to them for the purpose of this function.
+    return {**model_kwargs, **model_class.deserialize_state(serialized_model_state)}
 
 
 def _encode_callables_as_references(kwarg_dict: Dict[str, Any]) -> Dict[str, Any]:

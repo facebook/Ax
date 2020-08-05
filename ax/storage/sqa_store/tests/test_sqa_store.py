@@ -8,6 +8,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, Mock
 
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import AbandonedArm
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -940,9 +941,7 @@ class SQAStoreTest(TestCase):
         # it has generated some trials and been updated with some data.
         generation_strategy = new_generation_strategy
         experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        experiment.new_trial(
-            generation_strategy.gen(experiment, data=get_branin_data())
-        )
+        generation_strategy.gen(experiment, data=get_branin_data())
         save_generation_strategy(generation_strategy=generation_strategy)
         save_experiment(experiment)
         # Try restoring the generation strategy using the experiment its
@@ -950,10 +949,6 @@ class SQAStoreTest(TestCase):
         new_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # `_seen_trial_indices_by_status` attribute of a GS is not saved in DB,
-        # so it will be None in the restored version of the GS.
-        # Hackily removing it from the original GS to check equality.
-        generation_strategy._seen_trial_indices_by_status = None
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)
@@ -974,10 +969,6 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # `_seen_trial_indices_by_status` attribute of a GS is not saved in DB,
-        # so it will be None in the restored version of the GS.
-        # Hackily removing it from the original GS to check equality.
-        generation_strategy._seen_trial_indices_by_status = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # add another generator run, save, reload
@@ -989,10 +980,14 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # `_seen_trial_indices_by_status` attribute of a GS is not saved in DB,
-        # so it will be None in the restored version of the GS.
-        # Hackily removing it from the original GS to check equality.
-        generation_strategy._seen_trial_indices_by_status = None
+        # During restoration of generation strategy's model from its last generator
+        # run, we set `_seen_trial_indices_by_status` to that of the experiment,
+        # from which we are grabbing the data to restore the model with. When the
+        # experiment was updated more recently than the last `gen` from generation
+        # strategy, the generation strategy prior to save might not have 'seen'
+        # some recently added trials, so we update the mappings to match and check
+        # that the generation strategies are equal otherwise.
+        generation_strategy._seen_trial_indices_by_status[TrialStatus.CANDIDATE].add(1)
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # make sure that we can update the experiment too

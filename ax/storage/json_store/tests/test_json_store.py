@@ -127,8 +127,8 @@ ENCODE_DECODE_FIELD_MAPS = {
     ),
     "SimpleBenchmarkProblem": EncodeDecodeFieldsMap(encoded_only=["function_name"]),
     "GenerationStrategy": EncodeDecodeFieldsMap(
-        python_only=["model", "uses_registered_models", "seen_trial_indices_by_status"],
-        encoded_only=["had_initialized_model"],
+        python_only=["uses_registered_models", "seen_trial_indices_by_status"],
+        encoded_only=["had_initialized_model", "db_id"],
         python_to_encoded={"curr": "curr_index"},
     ),
     "GeneratorRun": EncodeDecodeFieldsMap(
@@ -306,15 +306,11 @@ class JSONStoreTest(TestCase):
         self.assertIsNone(new_generation_strategy.model)
 
         # Check that we can encode and decode the generation strategy after
-        # it has generated some trials.
+        # it has generated some generator runs.
         generation_strategy = new_generation_strategy
-        experiment.new_trial(generator_run=generation_strategy.gen(experiment))
+        gr = generation_strategy.gen(experiment)
         gs_json = object_to_json(generation_strategy)
         new_generation_strategy = generation_strategy_from_json(gs_json)
-        # `_seen_trial_indices_by_status` attribute of a GS is not saved in DB,
-        # so it will be None in the restored version of the GS.
-        # Hackily removing it from the original GS to check equality.
-        generation_strategy._seen_trial_indices_by_status = None
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         # Since this GS has now generated one generator run, model should have
@@ -324,15 +320,11 @@ class JSONStoreTest(TestCase):
         # Check that we can encode and decode the generation strategy after
         # it has generated some trials and been updated with some data.
         generation_strategy = new_generation_strategy
-        experiment.new_trial(
-            generation_strategy.gen(experiment, data=get_branin_data())
-        )
+        experiment.new_trial(gr)  # Add previously generated GR as trial.
+        # Make generation strategy aware of the trial's data via `gen`.
+        generation_strategy.gen(experiment, data=get_branin_data())
         gs_json = object_to_json(generation_strategy)
         new_generation_strategy = generation_strategy_from_json(gs_json)
-        # `_seen_trial_indices_by_status` attribute of a GS is not saved in DB,
-        # so it will be None in the restored version of the GS.
-        # Hackily removing it from the original GS to check equality.
-        generation_strategy._seen_trial_indices_by_status = None
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)

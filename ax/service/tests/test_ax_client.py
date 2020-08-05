@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import numpy as np
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -669,10 +670,13 @@ class TestAxClient(TestCase):
         gs = ax_client.generation_strategy
         ax_client = AxClient(db_settings=db_settings)
         ax_client.load_experiment_from_database("test_experiment")
-        # `_seen_trial_indices_by_status` attribute of a GS is not saved in DB,
-        # so it will be None in the restored version of the GS.
-        # Hackily removing it from the original GS to check equality.
-        gs._seen_trial_indices_by_status = None
+        # Trial #4 was completed after the last time the generation strategy
+        # generated candidates, so pre-save generation strategy was not
+        # "aware" of completion of trial #4. Post-restoration generation
+        # strategy is aware of it, however, since it gets restored with most
+        # up-to-date experiment data. Do adding trial #4 to the seen completed
+        # trials of pre-storage GS to check their equality otherwise.
+        gs._seen_trial_indices_by_status[TrialStatus.COMPLETED].add(4)
         self.assertEqual(gs, ax_client.generation_strategy)
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.

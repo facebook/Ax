@@ -163,18 +163,30 @@ class TestGenerationStrategy(TestCase):
 
     def test_restore_from_generator_run(self):
         gs = GenerationStrategy(
-            steps=[
-                GenerationStep(model=Models.SOBOL, num_trials=5),
-                GenerationStep(model=Models.GPEI, num_trials=-1),
-            ]
+            steps=[GenerationStep(model=Models.SOBOL, num_trials=5)]
         )
+        # No generator runs on GS, so can't restore from one.
         with self.assertRaises(ValueError):
             gs._restore_model_from_generator_run()
-        gs.gen(experiment=get_branin_experiment())
+        exp = get_branin_experiment(with_batch=True)
+        gs.gen(experiment=exp)
         model = gs.model
-        gs._restore_model_from_generator_run()
-        # Model should be reset.
-        self.assertIsNot(model, gs.model)
+        # Create a copy of the generation strategy and check that when
+        # we restore from last generator run, the model will be set
+        # correctly and that `_seen_trial_indices_by_status` is filled.
+        new_gs = GenerationStrategy(
+            steps=[GenerationStep(model=Models.SOBOL, num_trials=5)]
+        )
+        new_gs._experiment = exp
+        new_gs._generator_runs = gs._generator_runs
+        self.assertIsNone(new_gs._seen_trial_indices_by_status)
+        new_gs._restore_model_from_generator_run()
+        self.assertEqual(gs._seen_trial_indices_by_status, exp.trial_indices_by_status)
+        # Model should be reset, but it should be the same model with same data.
+        self.assertIsNot(model, new_gs.model)
+        self.assertEqual(model.__class__, new_gs.model.__class__)  # Model bridge.
+        self.assertEqual(model.model.__class__, new_gs.model.model.__class__)  # Model.
+        self.assertEqual(model._training_data, new_gs.model._training_data)
 
     def test_min_observed(self):
         # We should fail to transition the next model if there is not
@@ -435,9 +447,20 @@ class TestGenerationStrategy(TestCase):
                 mock_fetch_trials_data.call_args[1].get("trial_indices"), {i}
             )
             trial._status = TrialStatus.COMPLETED
+        # `_seen_trial_indices_by_status` is set during `gen`, to the experiment's
+        # `trial_indices_by_Status` at the time of candidate generation.
+        self.assertNotEqual(
+            sobol_gs_with_update._seen_trial_indices_by_status,
+            exp.trial_indices_by_status,
+        )
         # Try with passing data.
         sobol_gs_with_update.gen(
             experiment=exp, data=get_branin_data(trial_indices=range(4))
+        )
+        # Now `_seen_trial_indices_by_status` should be set to experiment's,
+        self.assertEqual(
+            sobol_gs_with_update._seen_trial_indices_by_status,
+            exp.trial_indices_by_status,
         )
         # Only the data for the last completed trial should be considered new and passed
         # to `update`.
