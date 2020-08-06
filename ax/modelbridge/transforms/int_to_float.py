@@ -78,8 +78,13 @@ class IntToFloat(Transform):
                 transformed_parameters[p_name] = RangeParameter(
                     name=p_name,
                     parameter_type=ParameterType.FLOAT,
-                    lower=p.lower,
-                    upper=p.upper,
+                    # +/- 0.5 ensures that sampling
+                    # 1) floating point numbers from (quasi-)Uniform(0,1)
+                    # 2) unnormalizing to the raw search space
+                    # 3) rounding
+                    # results in uniform (quasi-)random integers
+                    lower=p.lower - 0.5,
+                    upper=p.upper + 0.5,
                     log_scale=p.log_scale,
                     digits=p.digits,
                     is_fidelity=p.is_fidelity,

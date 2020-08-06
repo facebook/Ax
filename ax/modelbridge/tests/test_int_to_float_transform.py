@@ -49,13 +49,13 @@ class IntToFloatTransformTest(TestCase):
 
     def testTransformObservationFeatures(self):
         observation_features = [
-            ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 4})
+            ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 3})
         ]
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
         self.assertEqual(
             obs_ft2,
-            [ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 4})],
+            [ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 3})],
         )
         self.assertTrue(isinstance(obs_ft2[0].parameters["a"], float))
         self.assertTrue(isinstance(obs_ft2[0].parameters["d"], float))
@@ -64,18 +64,29 @@ class IntToFloatTransformTest(TestCase):
 
         # Let the transformed space be a float, verify it becomes an int.
         obs_ft3 = [
-            ObservationFeatures(parameters={"x": 2.2, "a": 2.2, "b": "b", "d": 3.8})
+            ObservationFeatures(parameters={"x": 2.2, "a": 2.2, "b": "b", "d": 2.9})
         ]
         obs_ft3 = self.t.untransform_observation_features(obs_ft3)
         self.assertEqual(obs_ft3, observation_features)
 
         # Test forward transform on partial observation
-        obs_ft4 = [ObservationFeatures(parameters={"x": 2.2, "d": 4})]
+        obs_ft4 = [ObservationFeatures(parameters={"x": 2.2, "d": 3})]
         obs_ft4 = self.t.transform_observation_features(obs_ft4)
-        self.assertEqual(obs_ft4, [ObservationFeatures(parameters={"x": 2.2, "d": 4})])
+        self.assertEqual(obs_ft4, [ObservationFeatures(parameters={"x": 2.2, "d": 3})])
         self.assertTrue(isinstance(obs_ft4[0].parameters["d"], float))
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
+
+        # test untransforming integer params that are outside of the range, but within
+        # 0.5 of the range limit
+        obs_ft6 = [
+            ObservationFeatures(parameters={"x": 2.2, "a": 0.6, "b": "b", "d": 3.3})
+        ]
+        obs_ft6 = self.t.untransform_observation_features(obs_ft6)
+        self.assertEqual(
+            obs_ft6,
+            [ObservationFeatures(parameters={"x": 2.2, "a": 1, "b": "b", "d": 3})],
+        )
 
     def testTransformObservationFeaturesRandomized(self):
         observation_features = [
