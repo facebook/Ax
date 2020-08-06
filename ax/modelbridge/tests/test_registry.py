@@ -5,7 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 from collections import OrderedDict
+from unittest.mock import patch
 
+from ax.core.observation import Observation
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
@@ -194,7 +196,10 @@ class ModelRegistryTest(TestCase):
             ),
         )
 
-    def test_get_model_from_generator_run(self):
+    @patch(
+        f"{Observation.__module__}.current_timestamp_in_millis", return_value=123456789
+    )
+    def test_get_model_from_generator_run(self, _):
         """Tests that it is possible to restore a model from a generator run it
         produced, if `Models` registry was used.
         """
@@ -228,14 +233,14 @@ class ModelRegistryTest(TestCase):
         for key in gpei.__dict__:
             self.assertIn(key, gpei_restored.__dict__)
             original, restored = gpei.__dict__[key], gpei_restored.__dict__[key]
-            # Fit times are set in instantiation so not same and model compared below
-            if key in ["fit_time", "fit_time_since_gen", "model"]:
-                continue  # Fit times are set in instantiation so won't be same
+            # Fit times are set in instantiation so not same and model compared below.
+            if key in ["fit_time", "fit_time_since_gen", "model", "training_data"]:
+                continue  # Fit times are set in instantiation so won't be same.
             if isinstance(original, OrderedDict) and isinstance(restored, OrderedDict):
                 original, restored = list(original.keys()), list(restored.keys())
             if isinstance(original, Model) and isinstance(restored, Model):
                 continue  # Model equality is tough to compare.
-            self.assertEqual(original, restored)
+                self.assertEqual(original, restored)
 
         for key in gpei.model.__dict__:
             self.assertIn(key, gpei_restored.model.__dict__)

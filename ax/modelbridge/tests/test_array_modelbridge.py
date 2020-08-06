@@ -12,11 +12,13 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
+from ax.core.observation import Observation
 from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.numpy_base import NumpyModel
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data,
@@ -230,8 +232,11 @@ class ArrayModelBridgeTest(TestCase):
     )
     @patch(f"{NumpyModel.__module__}.NumpyModel.update", autospec=True)
     @patch(f"{NumpyModel.__module__}.NumpyModel.fit", autospec=True)
+    @patch(
+        f"{Observation.__module__}.current_timestamp_in_millis", return_value=123456789
+    )
     def test_candidate_metadata_propagation(
-        self, mock_model_fit, mock_model_update, mock_model_gen
+        self, _, mock_model_fit, mock_model_update, mock_model_gen
     ):
         exp = get_branin_experiment(with_status_quo=True, with_batch=True)
         # Check that the metadata is correctly re-added to observation
@@ -256,7 +261,14 @@ class ArrayModelBridgeTest(TestCase):
         )
         self.assertEqual(
             mock_model_fit.call_args[1].get("candidate_metadata"),
-            [[{"preexisting_batch_cand_metadata": "some_value"}]],
+            [
+                [
+                    {
+                        Keys.OBS_FROM_DF_TIMESTAMP: 123456789,
+                        "preexisting_batch_cand_metadata": "some_value",
+                    }
+                ]
+            ],
         )
 
         # Check that `gen` correctly propagates the metadata to the GR.
@@ -284,11 +296,14 @@ class ArrayModelBridgeTest(TestCase):
             mock_model_update.call_args[1].get("candidate_metadata"),
             [
                 [
-                    {"preexisting_batch_cand_metadata": "some_value"},
+                    {
+                        Keys.OBS_FROM_DF_TIMESTAMP: 123456789,
+                        "preexisting_batch_cand_metadata": "some_value",
+                    },
                     # new data contained data just for arm '1_0', not for '1_1',
                     # so we don't expect to see '{"some_key": "some_value_1"}'
                     # in candidate metadata.
-                    {"some_key": "some_value_0"},
+                    {Keys.OBS_FROM_DF_TIMESTAMP: 123456789, "some_key": "some_value_0"},
                 ]
             ],
         )
@@ -320,9 +335,12 @@ class ArrayModelBridgeTest(TestCase):
             mock_model_update.call_args[1].get("candidate_metadata"),
             [
                 [
-                    {"preexisting_batch_cand_metadata": "some_value"},
-                    {"some_key": "some_value_0"},
-                    None,
+                    {
+                        Keys.OBS_FROM_DF_TIMESTAMP: 123456789,
+                        "preexisting_batch_cand_metadata": "some_value",
+                    },
+                    {Keys.OBS_FROM_DF_TIMESTAMP: 123456789, "some_key": "some_value_0"},
+                    {Keys.OBS_FROM_DF_TIMESTAMP: 123456789},
                 ]
             ],
         )
@@ -342,4 +360,3 @@ class ArrayModelBridgeTest(TestCase):
         modelbridge.update(
             experiment=exp, new_data=get_branin_data(trial_indices=[batch.index])
         )
-        self.assertIsNone(mock_model_update.call_args[1].get("candidate_metadata"))
