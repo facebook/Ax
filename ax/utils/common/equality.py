@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
@@ -17,13 +19,22 @@ def equality_typechecker(eq_func: Callable) -> Callable:
     are of the right type.
     """
 
-    # no type annotation for now; breaks sphinx-autodoc-typehints
-    def _type_safe_equals(self, other):
+    def _type_safe_equals(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
             return False
         return eq_func(self, other)
 
     return _type_safe_equals
+
+
+class Base(object):
+    """Metaclass for core Ax classes."""
+
+    @equality_typechecker
+    def __eq__(self, other: Base) -> bool:
+        return object_attribute_dicts_equal(
+            one_dict=self.__dict__, other_dict=other.__dict__
+        )
 
 
 def same_elements(list1: List[Any], list2: List[Any]) -> bool:

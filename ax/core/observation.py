@@ -13,11 +13,11 @@ from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.constants import Keys
+from ax.utils.common.equality import Base
 from ax.utils.common.timeutils import current_timestamp_in_millis
 
 

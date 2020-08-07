@@ -8,7 +8,6 @@ from enum import Enum
 from typing import Dict, NamedTuple, Optional, Type
 
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.batch_trial import AbandonedArm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -33,6 +32,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQARunner,
     SQATrial,
 )
+from ax.utils.common.equality import Base
 
 
 # pyre-fixme[9]: class_to_sqa_class has type `Dict[Type[Base], Type[SQABase]]`; used

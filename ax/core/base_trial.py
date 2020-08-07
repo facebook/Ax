@@ -12,12 +12,12 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.core.types import TCandidateMetadata
+from ax.utils.common.equality import Base
 from ax.utils.common.typeutils import not_none
 
 

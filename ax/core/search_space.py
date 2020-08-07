@@ -9,7 +9,6 @@
 from typing import Dict, List, Optional
 
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.parameter import FixedParameter, Parameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
@@ -17,6 +16,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.types import TParameterization
+from ax.utils.common.equality import Base
 from ax.utils.common.typeutils import not_none
 
 
