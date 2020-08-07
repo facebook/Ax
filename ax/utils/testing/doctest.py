@@ -4,8 +4,8 @@
 import doctest
 import unittest
 
-from ax.fb.utils.testing.manifest import ModuleInfo, populate_test_class
 from ax.utils.common import testutils
+from ax.utils.testing.manifest import ModuleInfo, populate_test_class
 
 
 def run_doctests(t: unittest.TestCase, m: ModuleInfo) -> None:

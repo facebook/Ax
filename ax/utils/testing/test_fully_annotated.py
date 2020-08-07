@@ -6,8 +6,8 @@ import unittest
 from types import FunctionType
 from typing import Set, Type
 
-from ax.fb.utils.testing.manifest import ModuleInfo, populate_test_class
 from ax.utils.common import testutils
+from ax.utils.testing.manifest import ModuleInfo, populate_test_class
 
 
 def fnid(m: ModuleInfo, fn: FunctionType) -> str:
