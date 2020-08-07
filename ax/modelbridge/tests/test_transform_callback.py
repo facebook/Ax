@@ -154,4 +154,4 @@ class TransformCallbackTest(TestCase):
             torch_dtype=torch.double,
         )
         transformed = gpei._transform_callback([0.75, 0.35])
-        self.assertTrue(np.allclose(transformed, [0.8, 0.35]))
+        self.assertTrue(np.allclose(transformed, [0.772727, 0.351485]))
