@@ -27,6 +27,8 @@ from typing import (
     Type,
 )
 
+from ax.utils.common.equality import Base, object_attribute_dicts_find_unequal_fields
+
 
 def _get_tb_lines(tb: types.TracebackType) -> List[Tuple[str, int, str]]:
     """Get the filename and line number and line contents of all the lines in the
@@ -125,6 +127,33 @@ def _deprecate(original_func: Callable) -> Callable:
 class TestCase(unittest.TestCase):
     """The base test case for Ax, contains various helper functions to write unittest.
     """
+
+    def _baseAssertEqual(
+        self,
+        first: Any,  # pyre-ignore[2]
+        second: Any,  # pyre-ignore[2]
+        msg: Optional[str] = None,
+    ) -> None:
+        try:
+            # pyre-fixme[16]: Superclass does actually have this attribute...
+            super()._baseAssertEqual(first, second, msg)
+        except self.failureException as err:
+            if isinstance(first, Base) and isinstance(second, Base):
+                # Report and elaborate
+                _, unequal_val = object_attribute_dicts_find_unequal_fields(
+                    one_dict=first.__dict__,
+                    other_dict=second.__dict__,
+                    fast_return=False,
+                )
+                val_str = ""
+                for field, (one_val, other_val) in unequal_val.items():
+                    val_str += f"\n* {field}: {one_val} (type {type(one_val)}) VS. "
+                    val_str += f"{other_val} (type {type(other_val)})"
+                msg = str(err)
+                if val_str:
+                    msg += f"\n\nFields with different values: {val_str}."
+                raise self.failureException(msg)
+            raise
 
     def assertRaisesOn(
         self,
