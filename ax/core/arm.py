@@ -10,9 +10,8 @@ import hashlib
 import json
 from typing import Optional
 
-from ax.core.base import Base
 from ax.core.types import TParameterization
-from ax.utils.common.equality import equality_typechecker
+from ax.utils.common.equality import Base, equality_typechecker
 from ax.utils.common.typeutils import numpy_type_to_python_type
 
 

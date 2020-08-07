@@ -8,9 +8,9 @@
 
 from typing import Dict, List, Union
 
-from ax.core.base import Base
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.types import ComparisonOp
+from ax.utils.common.equality import Base
 
 
 class ParameterConstraint(Base):

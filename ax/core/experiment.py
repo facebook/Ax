@@ -12,7 +12,6 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -26,6 +25,7 @@ from ax.core.trial import Trial
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.constants import UNEXPECTED_METRIC_COMBINATION, Keys
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.equality import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis
 

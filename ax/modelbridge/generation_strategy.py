@@ -12,7 +12,6 @@ from inspect import signature
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Set, Type, Union
 
 import pandas as pd
-from ax.core.base import Base
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -28,7 +27,11 @@ from ax.modelbridge.registry import (
     _combine_model_kwargs_and_state,
     get_model_from_generator_run,
 )
-from ax.utils.common.equality import equality_typechecker, object_attribute_dicts_equal
+from ax.utils.common.equality import (
+    Base,
+    equality_typechecker,
+    object_attribute_dicts_equal,
+)
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast, not_none

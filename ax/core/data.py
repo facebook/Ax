@@ -10,8 +10,8 @@ from typing import Dict, Iterable, Optional, Set, Type
 
 import numpy as np
 import pandas as pd
-from ax.core.base import Base
 from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
+from ax.utils.common.equality import Base
 
 
 TPdTimestamp = pd.Timestamp
