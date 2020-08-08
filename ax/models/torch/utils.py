@@ -213,8 +213,9 @@ def normalize_indices(indices: List[int], d: int) -> List[int]:
 def subset_model(
     model: Model,
     objective_weights: Tensor,
+    Ys: Optional[List[Tensor]] = None,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-) -> Tuple[Model, Tensor, Optional[Tuple[Tensor, Tensor]]]:
+) -> Tuple[Model, Tensor, Optional[List[Tensor]], Optional[Tuple[Tensor, Tensor]]]:
     """Subset a botorch model to the outputs used in the optimization.
 
     Args:
@@ -223,6 +224,8 @@ def subset_model(
             input arguments.
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
+        Ys: The corresponding list of m (k_i x 1) outcome tensors Y, for
+            each outcome.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. (Not used by single task models)
@@ -239,7 +242,7 @@ def subset_model(
     idcs = torch.arange(nonzero.size(0))[nonzero].tolist()
     if len(idcs) == model.num_outputs:
         # if we use all model outputs, just return the inputs
-        return model, objective_weights, outcome_constraints
+        return model, objective_weights, Ys, outcome_constraints
     elif len(idcs) > model.num_outputs:
         raise RuntimeError(
             "Model size inconsistency. Tryting to subset a model with "
@@ -251,9 +254,10 @@ def subset_model(
         if outcome_constraints is not None:
             A, b = outcome_constraints
             outcome_constraints = A[:, nonzero], b
+        Ys = [Ys[i] for i in idcs] if Ys is not None else None
     except NotImplementedError:
         pass
-    return model, objective_weights, outcome_constraints
+    return model, objective_weights, Ys, outcome_constraints
 
 
 def _to_inequality_constraints(
@@ -359,7 +363,7 @@ def get_out_of_sample_best_point_acqf(
 
     # subset model only to the outcomes we need for the optimization
     if kwargs.get(Keys.SUBSET_MODEL, True):
-        model, objective_weights, outcome_constraints = subset_model(
+        model, objective_weights, _, outcome_constraints = subset_model(
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
