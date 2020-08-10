@@ -30,17 +30,13 @@ try:  # We don't require SQLAlchemy by default.
     from ax.storage.sqa_store.save import (
         _save_experiment,
         _save_generation_strategy,
+        _save_new_trials,
         _update_generation_strategy,
+        _update_trials,
     )
     from sqlalchemy.exc import OperationalError
     from sqlalchemy.orm.exc import StaleDataError
     from ax.storage.sqa_store.structs import DBSettings
-    from ax.service.utils.storage import (  # noqa F401
-        save_new_trial,
-        save_new_trials,
-        save_updated_trial,
-        save_updated_trials,
-    )
 
     # We retry on `OperationalError` if saving to DB.
     RETRY_EXCEPTION_TYPES = (OperationalError, StaleDataError)
@@ -258,12 +254,9 @@ class WithDBSettingsBase:
         Returns:
             bool: Whether the trial was saved.
         """
-        if self.db_settings_set:
-            save_new_trial(
-                experiment=experiment, trial=trial, db_settings=self.db_settings
-            )
-            return True
-        return False
+        return self._save_new_trials_to_db_if_possible(
+            experiment, [trial], suppress_all_errors
+        )
 
     @retry_on_exception(
         retries=3,
@@ -290,8 +283,13 @@ class WithDBSettingsBase:
             bool: Whether the trials were saved.
         """
         if self.db_settings_set:
-            save_new_trials(
-                experiment=experiment, trials=trials, db_settings=self.db_settings
+            start_time = time.time()
+            _save_new_trials(
+                experiment=experiment, trials=trials, encoder=self.db_settings.encoder
+            )
+            logger.debug(
+                f"Saved trials {[trial.index for trial in trials]} in "
+                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
             )
             return True
         return False
@@ -320,12 +318,9 @@ class WithDBSettingsBase:
         Returns:
             bool: Whether the trial was saved.
         """
-        if self.db_settings_set:
-            save_updated_trial(
-                experiment=experiment, trial=trial, db_settings=self.db_settings
-            )
-            return True
-        return False
+        return self._save_updated_trials_to_db_if_possible(
+            experiment, [trial], suppress_all_errors
+        )
 
     @retry_on_exception(
         retries=3,
@@ -352,8 +347,13 @@ class WithDBSettingsBase:
             bool: Whether the trials were saved.
         """
         if self.db_settings_set:
-            save_updated_trials(
-                experiment=experiment, trials=trials, db_settings=self.db_settings
+            start_time = time.time()
+            _update_trials(
+                experiment=experiment, trials=trials, encoder=self.db_settings.encoder
+            )
+            logger.debug(
+                f"Updated trials {[trial.index for trial in trials]} in "
+                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
             )
             return True
         return False

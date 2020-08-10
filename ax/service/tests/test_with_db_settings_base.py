@@ -8,6 +8,7 @@ import random
 import string
 from typing import Tuple
 
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
@@ -16,7 +17,11 @@ from ax.storage.sqa_store.load import (
     _load_experiment,
     _load_generation_strategy_by_experiment_name,
 )
-from ax.storage.sqa_store.save import _save_experiment, _save_generation_strategy
+from ax.storage.sqa_store.save import (
+    _save_experiment,
+    _save_generation_strategy,
+    _save_new_trials,
+)
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -165,3 +170,45 @@ class TestWithDBSettingsBase(TestCase):
             generation_strategy, [generation_run]
         )
         self.assertTrue(updated)
+
+    def test_save_new_trial(self):
+        experiment, _ = self.init_experiment_and_generation_strategy(
+            save_generation_strategy=False
+        )
+
+        exp = _load_experiment(
+            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+        )
+        trial = exp.new_trial()
+        saved = self.with_db_settings._save_new_trial_to_db_if_possible(exp, trial)
+        self.assertTrue(saved)
+        exp = _load_experiment(
+            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+        )
+        self.assertEqual(len(exp.trials), 1)
+        self.assertEqual(exp.trials[0].status, TrialStatus.CANDIDATE)
+
+    def test_save_updated_trial(self):
+        experiment, _ = self.init_experiment_and_generation_strategy(
+            save_generation_strategy=False
+        )
+
+        exp = _load_experiment(
+            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+        )
+        trial = exp.new_trial()
+        _save_new_trials(
+            experiment=experiment,
+            trials=[trial],
+            encoder=self.with_db_settings.db_settings.encoder,
+        )
+        self.assertEqual(trial.status, TrialStatus.CANDIDATE)
+
+        trial.mark_running(True)
+        saved = self.with_db_settings._save_updated_trial_to_db_if_possible(exp, trial)
+        self.assertTrue(saved)
+        exp = _load_experiment(
+            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+        )
+        self.assertEqual(len(exp.trials), 1)
+        self.assertEqual(exp.trials[0].status, TrialStatus.RUNNING)
