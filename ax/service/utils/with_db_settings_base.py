@@ -19,6 +19,11 @@ from ax.utils.common.typeutils import not_none
 
 RETRY_EXCEPTION_TYPES: Tuple[Type[Exception], ...] = ()
 try:  # We don't require SQLAlchemy by default.
+    from ax.storage.sqa_store.db import init_engine_and_session_factory
+    from ax.storage.sqa_store.load import (
+        _get_experiment_id,
+        _get_generation_strategy_id,
+    )
     from sqlalchemy.exc import OperationalError
     from sqlalchemy.orm.exc import StaleDataError
     from ax.storage.sqa_store.structs import DBSettings
@@ -31,8 +36,6 @@ try:  # We don't require SQLAlchemy by default.
         save_updated_trial,
         save_updated_trials,
         update_generation_strategy,
-        get_experiment_id,
-        get_generation_strategy_id,
     )
 
     # We retry on `OperationalError` if saving to DB.
@@ -61,6 +64,10 @@ class WithDBSettingsBase:
                 "installed in your environment (can be installed through pip)."
             )
         self._db_settings = db_settings
+        if self.db_settings_set:
+            init_engine_and_session_factory(
+                creator=self.db_settings.creator, url=self.db_settings.url
+            )
         logger.setLevel(logging_level)
         getLogger(f"{save_experiment.__module__}").setLevel(logging_level)
 
@@ -85,11 +92,14 @@ class WithDBSettingsBase:
         """
         if not self.db_settings_set:
             return None, None
-        exp_id = get_experiment_id(name=experiment_name, db_settings=self.db_settings)
+
+        exp_id = _get_experiment_id(
+            experiment_name=experiment_name, decoder=self.db_settings.decoder
+        )
         if not exp_id:
             return None, None
-        gs_id = get_generation_strategy_id(
-            experiment_name=experiment_name, db_settings=self.db_settings
+        gs_id = _get_generation_strategy_id(
+            experiment_name=experiment_name, decoder=self.db_settings.decoder
         )
         return exp_id, gs_id
 
