@@ -7,8 +7,8 @@
 import warnings
 from typing import Any, Iterable, List, Optional, Tuple
 
-from ax.core.base import Base
 from ax.core.metric import Metric
+from ax.utils.common.equality import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 

@@ -8,7 +8,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
@@ -50,7 +49,7 @@ from ax.storage.sqa_store.sqa_classes import (
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
-from ax.utils.common.equality import datetime_equals
+from ax.utils.common.equality import Base, datetime_equals
 from ax.utils.common.typeutils import not_none
 
 

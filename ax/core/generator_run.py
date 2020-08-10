@@ -12,7 +12,6 @@ from typing import Any, Dict, List, MutableMapping, NamedTuple, Optional, Set, T
 
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import (
@@ -21,6 +20,7 @@ from ax.core.types import (
     TModelPredict,
     TModelPredictArm,
 )
+from ax.utils.common.equality import Base
 from ax.utils.common.typeutils import not_none
 
 

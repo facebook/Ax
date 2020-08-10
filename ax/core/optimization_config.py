@@ -9,11 +9,11 @@
 from itertools import groupby
 from typing import Dict, List, Optional
 
-from ax.core.base import Base
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
+from ax.utils.common.equality import Base
 
 
 MAX_OBJECTIVES: int = 4

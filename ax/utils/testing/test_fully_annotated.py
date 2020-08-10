@@ -18,6 +18,10 @@ def fnid(m: ModuleInfo, fn: FunctionType) -> str:
 def check_annotation(m: ModuleInfo, fn: FunctionType) -> None:
     """Check that a function is properly annotated
     """
+    # local func within `equality_typechecker decorator`; can't be
+    # annotated as it breaks sphinx-autodoc-typehints
+    if fn.__name__ == "_type_safe_equals":
+        return
     sig = inspect.signature(fn)
     untyped_args = []
     for x in sig.parameters.values():

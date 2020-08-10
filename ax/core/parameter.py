@@ -8,8 +8,8 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
-from ax.core.base import Base
 from ax.core.types import TParamValue
+from ax.utils.common.equality import Base
 
 
 FIXED_CHOICE_PARAM_ERROR = (
