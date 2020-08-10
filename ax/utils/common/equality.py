@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -107,6 +107,31 @@ def object_attribute_dicts_equal(
     NOTE: Special-cases some Ax object attributes, like "_experiment" or
     "_model", where full equality is hard to check.
     """
+    unequal_type, unequal_value = object_attribute_dicts_find_unequal_fields(
+        one_dict=one_dict, other_dict=other_dict
+    )
+    return not bool(unequal_type or unequal_value)
+
+
+def object_attribute_dicts_find_unequal_fields(
+    one_dict: Dict[str, Any], other_dict: Dict[str, Any], fast_return: bool = True
+) -> Tuple[Dict[str, Tuple[Any, Any]], Dict[str, Tuple[Any, Any]]]:
+    """Utility for finding out what attributes of two objects' attribute dicts
+    are unequal.
+
+    Args:
+        one_dict: First object's attribute dict (`obj.__dict__`).
+        other_dict: Second object's attribute dict (`obj.__dict__`).
+        fast_return: Boolean representing whether to return as soon as a
+            single unequal attribute was found or to iterate over all attributes
+            and collect all unequal ones.
+
+    Returns:
+        Two dictionaries:
+            - attribute name to attribute values of unequal type (as a tuple),
+            - attribute name to attribute values of unequal value (as a tuple).
+    """
+    unequal_type, unequal_value = {}, {}
     for field in one_dict:
         one_val = one_dict.get(field)
         other_val = other_dict.get(field)
@@ -114,7 +139,9 @@ def object_attribute_dicts_equal(
         other_val = numpy_type_to_python_type(other_val)
 
         if type(one_val) != type(other_val):
-            return False
+            unequal_type[field] = (one_val, other_val)
+            if fast_return:
+                return unequal_type, unequal_value
 
         if field == "_experiment":
             # prevent infinite loop when checking equality of Trials
@@ -147,5 +174,7 @@ def object_attribute_dicts_equal(
         else:
             equal = one_val == other_val
         if not equal:
-            return False
-    return True
+            unequal_value[field] = (one_val, other_val)
+            if fast_return:
+                return unequal_type, unequal_value
+    return unequal_type, unequal_value
