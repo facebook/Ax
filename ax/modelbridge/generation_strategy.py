@@ -208,6 +208,11 @@ class GenerationStrategy(Base):
         self._name = "+".join(factory_names)
         return not_none(self._name)
 
+    @name.setter
+    def name(self, name: str) -> None:
+        """Set generation strategy name."""
+        self._name = name
+
     @property
     def model_transitions(self) -> List[int]:
         """List of trial indices where a transition happened from one model to

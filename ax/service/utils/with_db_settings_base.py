@@ -4,7 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from logging import INFO, getLogger
+import time
+from logging import INFO
 from typing import List, Optional, Tuple, Type
 
 from ax.core.base_trial import BaseTrial
@@ -13,7 +14,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
-from ax.utils.common.logger import get_logger
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
 
 
@@ -23,19 +24,22 @@ try:  # We don't require SQLAlchemy by default.
     from ax.storage.sqa_store.load import (
         _get_experiment_id,
         _get_generation_strategy_id,
+        _load_experiment,
+        _load_generation_strategy_by_experiment_name,
+    )
+    from ax.storage.sqa_store.save import (
+        _save_experiment,
+        _save_generation_strategy,
+        _update_generation_strategy,
     )
     from sqlalchemy.exc import OperationalError
     from sqlalchemy.orm.exc import StaleDataError
     from ax.storage.sqa_store.structs import DBSettings
     from ax.service.utils.storage import (  # noqa F401
-        load_experiment_and_generation_strategy,
-        save_experiment,
-        save_generation_strategy,
         save_new_trial,
         save_new_trials,
         save_updated_trial,
         save_updated_trials,
-        update_generation_strategy,
     )
 
     # We retry on `OperationalError` if saving to DB.
@@ -69,7 +73,6 @@ class WithDBSettingsBase:
                 creator=self.db_settings.creator, url=self.db_settings.url
             )
         logger.setLevel(logging_level)
-        getLogger(f"{save_experiment.__module__}").setLevel(logging_level)
 
     @property
     def db_settings_set(self) -> bool:
@@ -176,9 +179,30 @@ class WithDBSettingsBase:
         """
         if not self.db_settings_set:
             raise ValueError("Cannot load from DB in absence of DB settings.")
-        return load_experiment_and_generation_strategy(
-            experiment_name=experiment_name, db_settings=self.db_settings
+
+        start_time = time.time()
+        experiment = _load_experiment(experiment_name, decoder=self.db_settings.decoder)
+        if not isinstance(experiment, Experiment) or experiment.is_simple_experiment:
+            raise ValueError("Service API only supports `Experiment`.")
+        logger.debug(
+            f"Loaded experiment {experiment_name} in "
+            f"{_round_floats_for_logging(time.time() - start_time)} seconds."
         )
+
+        try:
+            start_time = time.time()
+            generation_strategy = _load_generation_strategy_by_experiment_name(
+                experiment_name=experiment_name, decoder=self.db_settings.decoder
+            )
+            logger.debug(
+                f"Loaded generation strategy for experiment {experiment_name} in "
+                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
+            )
+        except ValueError as err:
+            if "does not have a generation strategy" in str(err):
+                return experiment, None
+            raise  # `ValueError` here could signify more than just absence of GS.
+        return experiment, generation_strategy
 
     @retry_on_exception(
         retries=3,
@@ -201,7 +225,12 @@ class WithDBSettingsBase:
             bool: Whether the experiment was saved.
         """
         if self.db_settings_set:
-            save_experiment(experiment=experiment, db_settings=self.db_settings)
+            start_time = time.time()
+            _save_experiment(experiment, encoder=self.db_settings.encoder)
+            logger.debug(
+                f"Saved experiment {experiment.name} in "
+                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
+            )
             return True
         return False
 
@@ -347,11 +376,17 @@ class WithDBSettingsBase:
                 occurred in all the retries (exception is still logged).
 
         Returns:
-            bool: Whether the experiment was saved.
+            bool: Whether the generation strategy was saved.
         """
         if self.db_settings_set:
-            save_generation_strategy(
-                generation_strategy=generation_strategy, db_settings=self.db_settings
+            start_time = time.time()
+            _save_generation_strategy(
+                generation_strategy=generation_strategy,
+                encoder=self.db_settings.encoder,
+            )
+            logger.debug(
+                f"Saved generation strategy {generation_strategy.name} in "
+                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
             )
             return True
         return False
@@ -382,10 +417,15 @@ class WithDBSettingsBase:
             bool: Whether the experiment was saved.
         """
         if self.db_settings_set:
-            update_generation_strategy(
+            start_time = time.time()
+            _update_generation_strategy(
                 generation_strategy=generation_strategy,
                 generator_runs=new_generator_runs,
-                db_settings=self.db_settings,
+                encoder=self.db_settings.encoder,
+            )
+            logger.debug(
+                f"Updated generation strategy {generation_strategy.name} in "
+                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
             )
             return True
         return False
