@@ -262,17 +262,19 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
     feature_cols = list(OBS_COLS.intersection(data.df.columns))
     observations = []
     arm_name_only = len(feature_cols) == 1  # there will always be an arm name
-    # Group observations separately from 2 DataFrames for speedy groupby behavior.
     # One DataFrame where all rows are complete.
     isnull = data.df.isnull()
     isnull_any = isnull.any(axis=1)
-    complete_df = data.df[~isnull_any]
-    incomplete_df = data.df[isnull_any]
     incomplete_df_cols = isnull[isnull_any].any()
+
     # Get the incomplete_df columns that are complete, and usable as groupby keys.
     complete_feature_cols = list(
         OBS_COLS.intersection(incomplete_df_cols.index[~incomplete_df_cols])
     )
+
+    grouped = data.df.groupby(by=complete_feature_cols)
+    complete_df = grouped.filter(lambda r: ~r.isnull().any().any())
+    incomplete_df = grouped.filter(lambda r: r.isnull().any().any())
 
     # Get Observations from complete_df
     observations.extend(

@@ -369,27 +369,17 @@ class ObservationsTest(TestCase):
         data = Data(df=df)
         observations = observations_from_data(experiment, data)
 
-        self.assertEqual(len(observations), 4)
+        self.assertEqual(len(observations), 2)
         # Get them in the order we want for tests below
         if observations[0].features.parameters["x"] == 1:
             observations.reverse()
 
         obsd_truth = {
-            "metric_names": [["a"], ["a"], ["b"], ["b"]],
-            "means": [
-                np.array([2.0]),
-                np.array([3.0]),
-                np.array([4.0]),
-                np.array([5.0]),
-            ],
-            "covariance": [
-                np.diag([4.0]),
-                np.diag([9.0]),
-                np.diag([16.0]),
-                np.diag([25.0]),
-            ],
+            "metric_names": [["a", "b"], ["a", "b"]],
+            "means": [np.array([2.0, 4.0]), np.array([3.0, 5.0])],
+            "covariance": [np.diag([4.0, 16.0]), np.diag([9.0, 25.0])],
         }
-        cname_truth = ["0_0", "0_1", "0_0", "0_1"]
+        cname_truth = ["0_0", "0_1"]
 
         for i, obs in enumerate(observations):
             self.assertEqual(obs.features.parameters, truth[i]["parameters"])
