@@ -6,6 +6,7 @@
 
 import math
 import sys
+import time
 from math import ceil
 from typing import List, Tuple
 from unittest.mock import patch
@@ -449,6 +450,31 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(ValueError, ".* in a terminal state."):
             ax_client.abandon_trial(trial_index=idx2)
 
+    def test_ttl_trial(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+
+        # A ttl trial that ends adds no data.
+        params, idx = ax_client.get_next_trial(ttl_seconds=1)
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_running)
+        time.sleep(1)  # Wait for TTL to elapse.
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
+        # Also make sure we can no longer complete the trial as it is failed.
+        with self.assertRaisesRegex(
+            ValueError, ".* has been marked FAILED, so it no longer expects data."
+        ):
+            ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
+
+        params2, idy = ax_client.get_next_trial(ttl_seconds=1)
+        ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
+        self.assertEqual(ax_client.get_best_parameters()[0], params2)
+
     def test_start_and_end_time_in_trial_completion(self):
         start_time = current_timestamp_in_millis()
         ax_client = AxClient()
@@ -530,6 +556,36 @@ class TestAxClient(TestCase):
             )  # No trial #10 in experiment.
         with self.assertRaisesRegex(ValueError, ".* is of type"):
             ax_client.attach_trial({"x": 1, "y": 2})
+
+    def test_attach_trial_ttl_seconds(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        params, idx = ax_client.attach_trial(
+            parameters={"x": 0.0, "y": 1.0}, ttl_seconds=1
+        )
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_running)
+        time.sleep(1)  # Wait for TTL to elapse.
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
+        # Also make sure we can no longer complete the trial as it is failed.
+        with self.assertRaisesRegex(
+            ValueError, ".* has been marked FAILED, so it no longer expects data."
+        ):
+            ax_client.complete_trial(trial_index=idx, raw_data=5)
+
+        params2, idx2 = ax_client.attach_trial(
+            parameters={"x": 0.0, "y": 1.0}, ttl_seconds=1
+        )
+        ax_client.complete_trial(trial_index=idx2, raw_data=5)
+        self.assertEqual(ax_client.get_best_parameters()[0], params2)
+        self.assertEqual(
+            ax_client.get_trial_parameters(trial_index=idx2), {"x": 0, "y": 1}
+        )
 
     def test_attach_trial_numpy(self):
         ax_client = AxClient()

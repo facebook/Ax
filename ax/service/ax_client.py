@@ -263,16 +263,25 @@ class AxClient(WithDBSettingsBase):
             suppress_all_errors=self._suppress_storage_errors,
         )
 
-    def get_next_trial(self) -> Tuple[TParameterization, int]:
+    def get_next_trial(
+        self, ttl_seconds: Optional[int] = None
+    ) -> Tuple[TParameterization, int]:
         """
         Generate trial with the next set of parameters to try in the iteration process.
 
         Note: Service API currently supports only 1-arm trials.
 
+        Args:
+            ttl_seconds: If specified, will consider the trial failed after this
+                many seconds. Used to detect dead trials that were not marked
+                failed properly.
+
         Returns:
             Tuple of trial parameterization, trial index
         """
-        trial = self.experiment.new_trial(generator_run=self._gen_new_generator_run())
+        trial = self.experiment.new_trial(
+            generator_run=self._gen_new_generator_run(), ttl_seconds=ttl_seconds
+        )
         logger.info(
             f"Generated new trial {trial.index} with parameters "
             f"{_round_floats_for_logging(item=not_none(trial.arm).parameters)}."
@@ -426,18 +435,23 @@ class AxClient(WithDBSettingsBase):
         )
 
     def attach_trial(
-        self, parameters: TParameterization
+        self, parameters: TParameterization, ttl_seconds: Optional[int] = None
     ) -> Tuple[TParameterization, int]:
         """Attach a new trial with the given parameterization to the experiment.
 
         Args:
             parameters: Parameterization of the new trial.
+            ttl_seconds: If specified, will consider the trial failed after this
+                many seconds. Used to detect dead trials that were not marked
+                failed properly.
 
         Returns:
             Tuple of parameterization and trial index from newly created trial.
         """
         self._validate_search_space_membership(parameters=parameters)
-        trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
+        trial = self.experiment.new_trial(ttl_seconds=ttl_seconds).add_arm(
+            Arm(parameters=parameters)
+        )
         trial.mark_running(no_runner_required=True)
         logger.info(
             "Attached custom parameterization "
