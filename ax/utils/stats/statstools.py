@@ -12,7 +12,7 @@ from ax.core.data import Data
 from ax.utils.common.logger import get_logger
 
 
-logger = get_logger("Statstools")
+logger = get_logger(__name__)
 num_mixed = Union[np.ndarray, List[float]]
 
 

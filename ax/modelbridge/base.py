@@ -37,7 +37,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
 
-logger = get_logger("ModelBridge")
+logger = get_logger(__name__)
 
 
 class ModelBridge(ABC):

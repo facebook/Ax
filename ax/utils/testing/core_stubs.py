@@ -53,7 +53,7 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.logger import get_logger
 
 
-logger = get_logger("ae_experiment")
+logger = get_logger(__name__)
 
 
 # Experiments

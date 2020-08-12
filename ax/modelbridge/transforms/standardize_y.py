@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from ax.modelbridge import base as base_modelbridge  # noqa F401  # pragma: no cover
 
 
-logger = get_logger("StandardizeY")
+logger = get_logger(__name__)
 
 
 class StandardizeY(Transform):

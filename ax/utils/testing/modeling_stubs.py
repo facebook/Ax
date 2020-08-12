@@ -25,7 +25,7 @@ from ax.utils.testing.core_stubs import (
 )
 
 
-logger = get_logger("ae_experiment")
+logger = get_logger(__name__)
 
 
 # Observations

@@ -15,7 +15,7 @@ from ax.utils.common.logger import get_logger
 from plotly import subplots
 
 
-logger = get_logger("FeatureImportance")
+logger = get_logger(__name__)
 
 
 def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:

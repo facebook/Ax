@@ -16,7 +16,7 @@ from ax.utils.common.typeutils import checked_cast
 from scipy import stats
 
 
-logger = get_logger("PercentileY")
+logger = get_logger(__name__)
 
 
 # TODO(jej): Add OptimizationConfig validation - can't transform outcome constraints.

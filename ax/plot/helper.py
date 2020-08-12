@@ -20,7 +20,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
 
-logger = get_logger(name="PlotHelper")
+logger = get_logger(__name__)
 
 # Typing alias
 RawData = List[Dict[str, Union[str, float]]]

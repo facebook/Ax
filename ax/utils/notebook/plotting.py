@@ -11,7 +11,7 @@ from IPython.display import display
 from plotly.offline import init_notebook_mode, iplot
 
 
-logger = get_logger("ipy_plotting")
+logger = get_logger(__name__)
 
 
 def init_notebook_plotting(offline=False):

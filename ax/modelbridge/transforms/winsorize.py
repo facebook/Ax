@@ -15,7 +15,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 
 
-logger = get_logger("Winsorize")
+logger = get_logger(__name__)
 
 
 class Winsorize(Transform):

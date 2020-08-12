@@ -38,7 +38,7 @@ from scipy.optimize import approx_fprime
 from torch import Tensor
 
 
-logger = get_logger(name="ALEBO")
+logger = get_logger(__name__)
 
 
 class ALEBOKernel(Kernel):
