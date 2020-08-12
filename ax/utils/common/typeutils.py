@@ -23,7 +23,7 @@ def not_none(val: Optional[T]) -> T:
 
     Args:
       val: the value to cast to a non ``None`` type
-    Retruns:
+    Returns:
       V:  ``val`` when ``val`` is not ``None``
     Throws:
       ValueError if ``val`` is ``None``

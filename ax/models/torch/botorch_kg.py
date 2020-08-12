@@ -39,7 +39,7 @@ from torch import Tensor
 
 
 class KnowledgeGradient(BotorchModel):
-    r""" The Knowledge Gradient with one shot optimization
+    r"""The Knowledge Gradient with one shot optimization.
 
     Args:
         cost_intercept: The cost intercept for the affine cost of the form
@@ -75,8 +75,7 @@ class KnowledgeGradient(BotorchModel):
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
-        """
-        Generate new candidates.
+        r"""Generate new candidates.
 
         Args:
             n: Number of candidates to generate.
@@ -123,9 +122,8 @@ class KnowledgeGradient(BotorchModel):
             fixed_features=fixed_features,
         )
 
-        model = not_none(self.model)
-
         # subset model only to the outcomes we need for the optimization
+        model = not_none(self.model)
         if options.get("subset_model", True):
             model, objective_weights, outcome_constraints = subset_model(
                 model=model,
@@ -140,13 +138,6 @@ class KnowledgeGradient(BotorchModel):
             X_observed=X_observed,
         )
 
-        # get the acquisition function
-        n_fantasies = acf_options.get("num_fantasies", 64)
-        qmc = acf_options.get("qmc", True)
-        seed_inner = acf_options.get("seed_inner", None)
-        num_restarts = optimizer_options.get("num_restarts", 40)
-        raw_samples = optimizer_options.get("raw_samples", 1024)
-
         inequality_constraints = _to_inequality_constraints(linear_constraints)
         # TODO: update optimizers to handle inequality_constraints
         if inequality_constraints is not None:
@@ -154,36 +145,32 @@ class KnowledgeGradient(BotorchModel):
                 "Inequality constraints are not yet supported for KnowledgeGradient!"
             )
 
+        # extract a few options
+        n_fantasies = acf_options.get("num_fantasies", 64)
+        qmc = acf_options.get("qmc", True)
+        seed_inner = acf_options.get("seed_inner", None)
+        num_restarts = optimizer_options.get("num_restarts", 40)
+        raw_samples = optimizer_options.get("raw_samples", 1024)
+
         # get current value
-        best_point_acqf, non_fixed_idcs = get_out_of_sample_best_point_acqf(
+        current_value = self._get_current_value(
             model=model,
-            Xs=self.Xs,
+            bounds=bounds,
+            X_observed=not_none(X_observed),
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            X_observed=not_none(X_observed),
+            linear_constraints=linear_constraints,
             seed_inner=seed_inner,
             fixed_features=fixed_features,
-            fidelity_features=self.fidelity_features,
+            model_gen_options=model_gen_options,
             target_fidelities=target_fidelities,
             qmc=qmc,
         )
 
-        # solution from previous iteration
-        recommended_point = self.best_point(
-            bounds=bounds,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
-            model_gen_options=model_gen_options,
-            target_fidelities=target_fidelities,
-        )
-        recommended_point = recommended_point.detach().unsqueeze(0)
-        # Extract acquisition value (TODO: Make this less painful and repetitive)
-        if non_fixed_idcs is not None:
-            recommended_point = recommended_point[..., non_fixed_idcs]
-        current_value = best_point_acqf(recommended_point).max()
+        bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
+        bounds_ = bounds_.transpose(0, 1)
 
+        # get acquisition function
         acq_function = _instantiate_KG(
             model=model,
             objective=objective,
@@ -201,42 +188,18 @@ class KnowledgeGradient(BotorchModel):
         )
 
         # optimize and get new points
-        bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
-        bounds_ = bounds_.transpose(0, 1)
-
-        batch_initial_conditions = gen_one_shot_kg_initial_conditions(
+        new_x = _optimize_and_get_candidates(
             acq_function=acq_function,
-            bounds=bounds_,
-            q=n,
+            bounds_=bounds_,
+            n=n,
             num_restarts=num_restarts,
             raw_samples=raw_samples,
-            options={
-                "frac_random": optimizer_options.get("frac_random", 0.1),
-                "num_inner_restarts": num_restarts,
-                "raw_inner_samples": raw_samples,
-            },
-        )
-
-        botorch_rounding_func = get_rounding_func(rounding_func)
-
-        candidates, _ = optimize_acqf(
-            acq_function=acq_function,
-            bounds=bounds_,
-            q=n,
+            optimizer_options=optimizer_options,
+            rounding_func=rounding_func,
             inequality_constraints=inequality_constraints,
             fixed_features=fixed_features,
-            post_processing_func=botorch_rounding_func,
-            num_restarts=num_restarts,
-            raw_samples=raw_samples,
-            options={
-                "batch_limit": optimizer_options.get("batch_limit", 8),
-                "maxiter": optimizer_options.get("maxiter", 200),
-                "method": "L-BFGS-B",
-                "nonnegative": optimizer_options.get("nonnegative", False),
-            },
-            batch_initial_conditions=batch_initial_conditions,
         )
-        new_x = candidates.detach().cpu()
+
         return new_x, torch.ones(n, dtype=self.dtype), {}, None
 
     def _get_best_point_acqf(
@@ -264,6 +227,57 @@ class KnowledgeGradient(BotorchModel):
             qmc=qmc,
         )
 
+    def _get_current_value(
+        self,
+        model: Model,
+        bounds: List,
+        X_observed: Tensor,
+        objective_weights: Tensor,
+        outcome_constraints: Optional[Tuple[Tensor, Tensor]],
+        linear_constraints: Optional[Tuple[Tensor, Tensor]],
+        seed_inner: Optional[int],
+        fixed_features: Optional[Dict[int, float]],
+        model_gen_options: Optional[TConfig],
+        target_fidelities: Optional[Dict[int, float]],
+        qmc: bool,
+    ) -> Tensor:
+        r"""Computes the value of the current best point. This is the current_value
+        passed to KG.
+
+        NOTE: The current value is computed as the current value of the 'best point
+        acquisition function' (typically `PosteriorMean` or `qSimpleRegret`), not of
+        the Knowledge Gradient acquisition function.
+        """
+        best_point_acqf, non_fixed_idcs = get_out_of_sample_best_point_acqf(
+            model=model,
+            Xs=self.Xs,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+            seed_inner=seed_inner,
+            fixed_features=fixed_features,
+            fidelity_features=self.fidelity_features,
+            target_fidelities=target_fidelities,
+            qmc=qmc,
+        )
+
+        # solution from previous iteration
+        recommended_point = self.best_point(
+            bounds=bounds,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
+            model_gen_options=model_gen_options,
+            target_fidelities=target_fidelities,
+        )
+        recommended_point = recommended_point.detach().unsqueeze(0)
+        # Extract acquisition value (TODO: Make this less painful and repetitive)
+        if non_fixed_idcs is not None:
+            recommended_point = recommended_point[..., non_fixed_idcs]
+        current_value = best_point_acqf(recommended_point).max()
+        return current_value
+
 
 def _instantiate_KG(
     model: Model,
@@ -280,6 +294,9 @@ def _instantiate_KG(
     fidelity_weights: Optional[Dict[int, float]] = None,
     cost_intercept: float = 1.0,
 ) -> qKnowledgeGradient:
+    r"""Instantiate either a `qKnowledgeGradient` or `qMultiFidelityKnowledgeGradient`
+    acquisition function depending on whether `target_fidelities` is defined.
+    """
     sampler_cls = SobolQMCNormalSampler if qmc else IIDNormalSampler
     fantasy_sampler = sampler_cls(num_samples=n_fantasies, seed=seed_outer)
     if isinstance(objective, MCAcquisitionObjective):
@@ -332,3 +349,53 @@ def _instantiate_KG(
         X_pending=X_pending,
         current_value=current_value,
     )
+
+
+def _optimize_and_get_candidates(
+    acq_function: qKnowledgeGradient,
+    bounds_: Tensor,
+    n: int,
+    num_restarts: int,
+    raw_samples: int,
+    optimizer_options: Dict,
+    rounding_func: Optional[Callable[[Tensor], Tensor]],
+    inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]],
+    fixed_features: Optional[Dict[int, float]],
+) -> Tensor:
+    r"""Generates initial conditions for optimization, optimize the acquisition
+    function, and return the candidates.
+    """
+    batch_initial_conditions = gen_one_shot_kg_initial_conditions(
+        acq_function=acq_function,
+        bounds=bounds_,
+        q=n,
+        num_restarts=num_restarts,
+        raw_samples=raw_samples,
+        options={
+            "frac_random": optimizer_options.get("frac_random", 0.1),
+            "num_inner_restarts": num_restarts,
+            "raw_inner_samples": raw_samples,
+        },
+    )
+
+    botorch_rounding_func = get_rounding_func(rounding_func)
+
+    candidates, _ = optimize_acqf(
+        acq_function=acq_function,
+        bounds=bounds_,
+        q=n,
+        inequality_constraints=inequality_constraints,
+        fixed_features=fixed_features,
+        post_processing_func=botorch_rounding_func,
+        num_restarts=num_restarts,
+        raw_samples=raw_samples,
+        options={
+            "batch_limit": optimizer_options.get("batch_limit", 8),
+            "maxiter": optimizer_options.get("maxiter", 200),
+            "method": "L-BFGS-B",
+            "nonnegative": optimizer_options.get("nonnegative", False),
+        },
+        batch_initial_conditions=batch_initial_conditions,
+    )
+    new_x = candidates.detach().cpu()
+    return new_x
