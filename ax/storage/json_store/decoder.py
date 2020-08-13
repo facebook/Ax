@@ -38,6 +38,8 @@ from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_jso
 from ax.storage.json_store.registry import CLASS_DECODER_REGISTRY, DECODER_REGISTRY
 from ax.utils.common.typeutils import not_none, torch_type_from_str
 from ax.utils.measurement import synthetic_functions
+from ax.utils.measurement.synthetic_functions import from_botorch
+from botorch.test_functions import synthetic as botorch_synthetic
 
 
 def object_from_json(object_json: Any) -> Any:
@@ -403,8 +405,11 @@ def simple_benchmark_problem_from_json(
     uses_synthetic_function = object_json.pop("uses_synthetic_function")
     if uses_synthetic_function:
         function_name = object_json.pop("function_name")
-        if function_name.startswith(synthetic_functions.FromBotorch.__name__):
-            raise NotImplementedError  # TODO[Lena], pragma: no cover
+        from_botorch_prefix = synthetic_functions.FromBotorch.__name__
+        if function_name.startswith(from_botorch_prefix):
+            botorch_function_name = function_name.replace(f"{from_botorch_prefix}_", "")
+            botorch_function = getattr(botorch_synthetic, botorch_function_name)()
+            f = from_botorch(botorch_function)
         else:
             f = getattr(synthetic_functions, function_name)()
     else:

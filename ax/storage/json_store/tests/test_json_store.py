@@ -10,6 +10,7 @@ from functools import partial
 
 import numpy as np
 import torch
+from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
@@ -26,7 +27,7 @@ from ax.storage.metric_registry import register_metric
 from ax.storage.runner_registry import register_runner
 from ax.storage.utils import EncodeDecodeFieldsMap, remove_prefix
 from ax.utils.common.testutils import TestCase
-from ax.utils.measurement.synthetic_functions import branin
+from ax.utils.measurement.synthetic_functions import ackley, branin, from_botorch
 from ax.utils.testing.benchmark_stubs import (
     get_branin_benchmark_problem,
     get_branin_simple_benchmark_problem,
@@ -68,6 +69,7 @@ from ax.utils.testing.modeling_stubs import (
     get_observation_features,
     get_transform_type,
 )
+from botorch.test_functions.synthetic import Ackley
 
 
 TEST_CASES = [
@@ -342,6 +344,14 @@ class JSONStoreTest(TestCase):
             branin_problem.f(1, 2), new_branin_problem.f(1, 2), branin(1, 2)
         )
         self.assertEqual(sum_problem.f([1, 2]), new_sum_problem.f([1, 2]), 3)
+        # Test using `from_botorch`.
+        ackley_problem = SimpleBenchmarkProblem(
+            f=from_botorch(Ackley()), noise_sd=0.0, minimize=True
+        )
+        new_ackley_problem = object_from_json(object_to_json(ackley_problem))
+        self.assertEqual(
+            ackley_problem.f(1, 2), new_ackley_problem.f(1, 2), ackley(1, 2)
+        )
 
     def testRegistryAdditions(self):
         class MyRunner(Runner):
