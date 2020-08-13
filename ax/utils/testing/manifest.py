@@ -124,7 +124,8 @@ def populate_test_class(f: TestFunc) -> Callable[[T], T]:
     Returns:
       A decorator that will populate a TestCase class with one test per module
 
-    .. _load_tests protocol: http://docs.python.org/library/unittest.html#load-tests-protocol
+    .. _load_tests protocol:
+    .. http://docs.python.org/library/unittest.html#load-tests-protocol
     """
 
     def populate(cls):

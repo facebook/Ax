@@ -19,14 +19,6 @@ Core Classes
     :undoc-members:
     :show-inheritance:
 
-`Base`
-~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.core.base
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 `BaseTrial`
 ~~~~~~~~~~~
 
