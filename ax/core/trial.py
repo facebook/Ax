@@ -217,3 +217,16 @@ class Trial(BaseTrial):
 
         cand_metadata = not_none(gr.candidate_metadata_by_arm_signature)
         return {a.name: cand_metadata.get(a.signature) for a in gr.arms}
+
+    def _get_candidate_metadata(self, arm_name: str) -> TCandidateMetadata:
+        """Retrieves candidate metadata for a specific arm."""
+
+        gr = self.generator_run
+        if gr is None or gr.arms[0].name != arm_name:
+            raise ValueError(f"Arm by name {arm_name} is not part of this trial.")
+
+        if gr.candidate_metadata_by_arm_signature is None:
+            return None
+
+        arm = gr.arms[0]
+        return not_none(gr.candidate_metadata_by_arm_signature).get(arm.signature)

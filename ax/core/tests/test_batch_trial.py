@@ -548,6 +548,15 @@ class BatchTrialTest(TestCase):
             self.batch._get_candidate_metadata_from_all_generator_runs(),
             cand_metadata_expected,
         )
+        for arm in self.batch.arms:
+            self.assertEqual(
+                cand_metadata_expected[arm.name],
+                self.batch._get_candidate_metadata(arm.name),
+            )
+        self.assertRaises(
+            ValueError, self.batch._get_candidate_metadata, "this_is_not_an_arm"
+        )
+
         # Check that if we add cand. metadata to gr_2, it will appear in cand.
         # metadata for the batch.
         gr_3 = get_generator_run2()
@@ -567,3 +576,8 @@ class BatchTrialTest(TestCase):
             self.batch._get_candidate_metadata_from_all_generator_runs(),
             cand_metadata_expected,
         )
+        for arm in self.batch.arms:
+            self.assertEqual(
+                cand_metadata_expected[arm.name],
+                self.batch._get_candidate_metadata(arm.name),
+            )

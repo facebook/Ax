@@ -81,6 +81,12 @@ class TrialTest(TestCase):
             new_trial._get_candidate_metadata_from_all_generator_runs(),
             {"1_0": cand_metadata[new_arm.signature]},
         )
+        self.assertEqual(
+            new_trial._get_candidate_metadata("1_0"), cand_metadata[new_arm.signature]
+        )
+        self.assertRaises(
+            ValueError, new_trial._get_candidate_metadata, "this_is_not_an_arm"
+        )
 
     def test_add_trial_same_arm(self):
         # Check that adding new arm w/out name works correctly.

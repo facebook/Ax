@@ -431,6 +431,11 @@ class BaseTrial(ABC, Base):
         """
         ...
 
+    @abstractmethod
+    def _get_candidate_metadata(self, arm_name: str) -> TCandidateMetadata:
+        """Retrieves candidate metadata for a specific arm."""
+        ...
+
     # --- Trial lifecycle management functions ---
 
     @property

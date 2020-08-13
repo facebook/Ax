@@ -518,3 +518,19 @@ class BatchTrial(BaseTrial):
                         "for the arm from another generator run will not be propagated."
                     )
         return cand_metadata
+
+    def _get_candidate_metadata(self, arm_name: str) -> TCandidateMetadata:
+        """Retrieves candidate metadata for a specific arm."""
+        try:
+            arm = self.arms_by_name[arm_name]
+        except KeyError:
+            raise ValueError(
+                f"Arm by name {arm_name} is not part of trial #{self.index}."
+            )
+        for gr_struct in self._generator_run_structs:
+            gr = gr_struct.generator_run
+            if gr and gr.candidate_metadata_by_arm_signature and arm in gr.arms:
+                return not_none(gr.candidate_metadata_by_arm_signature).get(
+                    arm.signature
+                )
+        return None
