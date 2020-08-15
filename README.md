@@ -67,11 +67,11 @@ You need Python 3.7 or later to run Ax.
 The required Python dependencies are:
 
 * [botorch](https://www.botorch.org)
-* jinja2
-* pandas
-* scipy
-* sklearn
-* plotly >=2.2.1
+* [jinja2](https://pypi.org/project/Jinja2/)
+* [pandas](https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html)
+* [scipy](https://pypi.org/project/scipy/)
+* [sklearn](https://scikit-learn.org/stable/install.html)
+* [plotly >=2.2.1](https://pypi.org/project/plotly/)
 
 ### Stable Version
 
