@@ -161,7 +161,9 @@ cd ax
 pip3 install -e .[notebook,mysql,dev]
 ```
 
-See recommendation for installing PyTorch for MacOS users above.
+See [Recommendation](https://pytorch.org/get-started/locally/#macos-version) for installing PyTorch for MacOS10.10 (Yosemite) users or above.
+
+.
 
 ## License
 
