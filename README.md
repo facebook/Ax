@@ -117,7 +117,7 @@ You can install the latest (bleeding edge) version from Git:
 pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=Ax
 ```
 
-See recommendation for installing PyTorch for MacOS users above.
+See [Recommendation](https://pytorch.org/get-started/locally/#macos-version) for installing PyTorch for MacOS10.10 (Yosemite) users or above.
 
 At times, the bleeding edge for Ax can depend on bleeding edge versions of BoTorch (or GPyTorch). We therefore recommend installing those from Git as well:
 ```
