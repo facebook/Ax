@@ -7,9 +7,14 @@
 import numpy as np
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.utils.common.typeutils import checked_cast
-from ax.utils.measurement.synthetic_functions import hartmann6
+from ax.utils.measurement.synthetic_functions import aug_hartmann6, hartmann6
 
 
 class Hartmann6Metric(NoisyFunctionMetric):
     def f(self, x: np.ndarray) -> float:
         return checked_cast(float, hartmann6(x))
+
+
+class AugmentedHartmann6Metric(NoisyFunctionMetric):
+    def f(self, x: np.ndarray) -> float:
+        return checked_cast(float, aug_hartmann6(x))

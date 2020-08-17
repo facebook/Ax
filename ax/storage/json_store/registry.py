@@ -35,9 +35,9 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
-from ax.metrics.branin import BraninMetric, NegativeBraninMetric
+from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
 from ax.metrics.factorial import FactorialMetric
-from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.modelbridge.factory import Models
@@ -79,6 +79,8 @@ from ax.storage.utils import DomainType, ParameterConstraintType
 
 ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Arm: arm_to_dict,
+    AugmentedBraninMetric: metric_to_dict,
+    AugmentedHartmann6Metric: metric_to_dict,
     BatchTrial: batch_to_dict,
     BenchmarkProblem: benchmark_problem_to_dict,
     BraninMetric: metric_to_dict,
@@ -123,6 +125,8 @@ CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
 
 DECODER_REGISTRY: Dict[str, Type] = {
     "AbandonedArm": AbandonedArm,
+    "AugmentedBraninMetric": AugmentedBraninMetric,
+    "AugmentedHartmann6Metric": AugmentedHartmann6Metric,
     "Arm": Arm,
     "BatchTrial": BatchTrial,
     "BenchmarkProblem": BenchmarkProblem,

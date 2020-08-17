@@ -36,6 +36,8 @@ from ax.utils.testing.benchmark_stubs import (
 )
 from ax.utils.testing.core_stubs import (
     get_arm,
+    get_augmented_branin_metric,
+    get_augmented_hartmann_metric,
     get_batch_trial,
     get_branin_data,
     get_branin_experiment,
@@ -73,11 +75,13 @@ from botorch.test_functions.synthetic import Ackley
 
 
 TEST_CASES = [
+    ("Arm", get_arm),
+    ("AugmentedBraninMetric", get_augmented_branin_metric),
+    ("AugmentedHartmannMetric", get_augmented_hartmann_metric),
     ("BatchTrial", get_batch_trial),
     ("BenchmarkProblem", get_branin_benchmark_problem),
     ("BraninMetric", get_branin_metric),
     ("ChoiceParameter", get_choice_parameter),
-    ("Arm", get_arm),
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("Experiment", get_experiment_with_data),
     ("FactorialMetric", get_factorial_metric),

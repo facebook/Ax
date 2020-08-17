@@ -45,9 +45,9 @@ from ax.core.types import (
     TModelPredictArm,
     TParameterization,
 )
-from ax.metrics.branin import BraninMetric
+from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.factorial import FactorialMetric
-from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.logger import get_logger
@@ -369,6 +369,28 @@ def get_factorial_search_space() -> SearchSpace:
     )
 
 
+def get_hartmann_search_space(with_fidelity_parameter: bool = False) -> SearchSpace:
+    parameters = [
+        RangeParameter(
+            name=f"x{idx+1}", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+        )
+        for idx in range(6)
+    ]
+    if with_fidelity_parameter:
+        parameters.append(
+            RangeParameter(
+                name="fidelity",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+                is_fidelity=True,
+                target_value=1.0,
+            )
+        )
+
+    return SearchSpace(parameters=cast(List[Parameter], parameters))
+
+
 def get_search_space_for_value(val: float = 3.0) -> SearchSpace:
     return SearchSpace([FixedParameter("x", ParameterType.FLOAT, val)])
 
@@ -534,11 +556,24 @@ def get_metric() -> Metric:
 
 
 def get_branin_metric(name="branin") -> BraninMetric:
-    return BraninMetric(name=name, param_names=["x1", "x2"], noise_sd=0.01)
+    param_names = ["x1", "x2"]
+    return BraninMetric(name=name, param_names=param_names, noise_sd=0.01)
 
 
-def get_hartmann_metric() -> Hartmann6Metric:
-    return Hartmann6Metric(name="hartmann", param_names=["x1", "x2"], noise_sd=0.01)
+def get_augmented_branin_metric(name="aug_branin") -> AugmentedBraninMetric:
+    param_names = ["x1", "x2", "fidelity"]
+    return AugmentedBraninMetric(name=name, param_names=param_names, noise_sd=0.01)
+
+
+def get_hartmann_metric(name="hartmann") -> Hartmann6Metric:
+    param_names = [f"x{idx + 1}" for idx in range(6)]
+    return Hartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
+
+
+def get_augmented_hartmann_metric(name="aug_hartmann") -> AugmentedHartmann6Metric:
+    param_names = [f"x{idx + 1}" for idx in range(6)]
+    param_names.append("fidelity")
+    return AugmentedHartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
 
 
 def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
@@ -617,6 +652,30 @@ def get_branin_optimization_config() -> OptimizationConfig:
 
 def get_branin_multi_objective_optimization_config() -> OptimizationConfig:
     return OptimizationConfig(objective=get_branin_multi_objective())
+
+
+def get_augmented_branin_objective() -> Objective:
+    return Objective(metric=get_augmented_branin_metric(), minimize=False)
+
+
+def get_augmented_branin_optimization_config() -> OptimizationConfig:
+    return OptimizationConfig(objective=get_augmented_branin_objective())
+
+
+def get_hartmann_objective() -> Objective:
+    return Objective(metric=get_hartmann_metric(), minimize=False)
+
+
+def get_augmented_hartmann_objective() -> Objective:
+    return Objective(metric=get_augmented_hartmann_metric(), minimize=False)
+
+
+def get_hartmann_optimization_config() -> OptimizationConfig:
+    return OptimizationConfig(objective=get_hartmann_objective())
+
+
+def get_augmented_hartmann_optimization_config() -> OptimizationConfig:
+    return OptimizationConfig(objective=get_augmented_hartmann_objective())
 
 
 # Arms

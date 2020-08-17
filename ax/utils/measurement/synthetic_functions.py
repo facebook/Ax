@@ -96,7 +96,7 @@ class SyntheticFunction(ABC):
                 )
             assert input_dim == self.required_dimensionality, (
                 f"Input violates required dimensionality of {self.name}: "
-                f"{self.required_dimensionality}."
+                f"{self.required_dimensionality}. Got {input_dim}."
             )
         X = X.astype(np.float64)
         if len(X.shape) == 1:
