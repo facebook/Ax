@@ -21,6 +21,8 @@ from botorch.models import FixedNoiseGP, ModelListGP
 from botorch.utils import get_objective_weights_transform
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 from gpytorch.likelihoods import _GaussianLikelihoodBase
+from gpytorch.priors import GammaPrior
+from gpytorch.priors.lkj_prior import LKJCovariancePrior
 
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
@@ -82,6 +84,53 @@ class BotorchModelTest(TestCase):
         model_list = model.model.models
         self.assertEqual(model_list[0]._rank, 2)
         self.assertEqual(model_list[1]._rank, 1)
+
+    def test_fixed_prior_BotorchModel(self, dtype=torch.float, cuda=False):
+        Xs1, Ys1, Yvars1, bounds, _, fns, __package__ = _get_torch_test_data(
+            dtype=dtype, cuda=cuda, constant_noise=True
+        )
+        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
+            dtype=dtype, cuda=cuda, constant_noise=True
+        )
+        kwargs = {
+            "prior": {
+                "type": LKJCovariancePrior,
+                "sd_prior": GammaPrior(2.0, 0.44),
+                "eta": 0.6,
+            }
+        }
+        model = BotorchModel(**kwargs)
+
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1 + Xs2,
+                Ys=Ys1 + Ys2,
+                Yvars=Yvars1 + Yvars2,
+                bounds=bounds,
+                task_features=[0],
+                feature_names=fns,
+                metric_names=["y", "w"],
+                fidelity_features=[],
+            )
+            _mock_fit_model.assert_called_once()
+
+        # Check ranks
+        model_list = model.model.models
+        for i in range(1):
+            self.assertIsInstance(
+                model_list[i].task_covar_module.IndexKernelPrior, LKJCovariancePrior
+            )
+            self.assertEqual(
+                model_list[i].task_covar_module.IndexKernelPrior.sd_prior.concentration,
+                2.0,
+            )
+            self.assertEqual(
+                model_list[i].task_covar_module.IndexKernelPrior.sd_prior.rate, 0.44
+            )
+            self.assertEqual(
+                model_list[i].task_covar_module.IndexKernelPrior.correlation_prior.eta,
+                0.6,
+            )
 
     def test_BotorchModel(self, dtype=torch.float, cuda=False):
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(

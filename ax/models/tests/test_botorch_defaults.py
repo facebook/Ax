@@ -12,6 +12,9 @@ from ax.utils.common.testutils import TestCase
 from botorch.models import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from gpytorch.priors import GammaPrior
+from gpytorch.priors.lkj_prior import LKJCovariancePrior
+from gpytorch.priors.prior import Prior
 
 
 class BotorchDefaultsTest(TestCase):
@@ -40,6 +43,55 @@ class BotorchDefaultsTest(TestCase):
         self.assertTrue(isinstance(model, SingleTaskMultiFidelityGP))
         with self.assertRaises(NotImplementedError):
             _get_model(X=x, Y=y, Yvar=var, task_feature=1, fidelity_features=[-1])
+        # test fixed prior
+        kwargs = {
+            "prior": {
+                "type": LKJCovariancePrior,
+                "sd_prior": GammaPrior(2.0, 0.44),
+                "eta": 0.6,
+            }
+        }
+        model = _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs)
+        self.assertIsInstance(
+            model.task_covar_module.IndexKernelPrior, LKJCovariancePrior
+        )
+        self.assertEqual(
+            model.task_covar_module.IndexKernelPrior.sd_prior.concentration, 2.0
+        )
+        self.assertEqual(model.task_covar_module.IndexKernelPrior.sd_prior.rate, 0.44)
+        self.assertEqual(
+            model.task_covar_module.IndexKernelPrior.correlation_prior.eta, 0.6
+        )
+
+        kwargs2 = {"prior": {"type": LKJCovariancePrior}}
+        model = _get_model(
+            X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs2
+        )
+        self.assertIsInstance(
+            model.task_covar_module.IndexKernelPrior, LKJCovariancePrior
+        )
+        self.assertEqual(
+            model.task_covar_module.IndexKernelPrior.sd_prior.concentration, 1.0
+        )
+        self.assertEqual(model.task_covar_module.IndexKernelPrior.sd_prior.rate, 0.15)
+        self.assertEqual(
+            model.task_covar_module.IndexKernelPrior.correlation_prior.eta, 0.5
+        )
+        kwargs3 = {
+            "prior": {
+                "type": LKJCovariancePrior,
+                "sd_prior": GammaPrior(2.0, 0.44),
+                "eta": "hi",
+            }
+        }
+        with self.assertRaises(ValueError):
+            _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs3)
+
+        kwargs5 = {
+            "prior": {"type": Prior, "sd_prior": GammaPrior(2.0, 0.44), "eta": 0.5}
+        }
+        with self.assertRaises(ValueError):
+            _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs5)
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
     def test_task_feature(self, get_model_mock):
