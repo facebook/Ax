@@ -7,6 +7,7 @@ notifications:
   email:
   - recipients:
     - scubasteve@fb.com
+    - ae_oncall@fb.com
     if: branch = master
     on_success: never
     on_failure: always
