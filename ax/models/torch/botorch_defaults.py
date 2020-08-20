@@ -121,22 +121,36 @@ def get_and_fit_model(
             )
     # TODO: Is this equivalent an "else:" here?
 
-    if model is None:  # use multi-task GP
-        mtgp_rank_dict = kwargs.pop("multitask_gp_ranks", {})
-        # assembles list of ranks associated with each metric
-        if len({len(Xs), len(Ys), len(Yvars), len(metric_names)}) > 1:
-            raise ValueError(
-                "Lengths of Xs, Ys, Yvars, and metric_names must match. Your "
-                f"inputs have lengths {len(Xs)}, {len(Ys)}, {len(Yvars)}, and "
-                f"{len(metric_names)}, respectively."
-            )
-        mtgp_rank_list = [mtgp_rank_dict.get(metric, None) for metric in metric_names]
-        models = [
-            _get_model(
-                X=X, Y=Y, Yvar=Yvar, task_feature=task_feature, rank=mtgp_rank, **kwargs
-            )
-            for X, Y, Yvar, mtgp_rank in zip(Xs, Ys, Yvars, mtgp_rank_list)
-        ]
+    if model is None:
+        if task_feature is None:
+            models = [
+                _get_model(X=X, Y=Y, Yvar=Yvar, **kwargs)
+                for X, Y, Yvar in zip(Xs, Ys, Yvars)
+            ]
+        else:
+            # use multi-task GP
+            mtgp_rank_dict = kwargs.pop("multitask_gp_ranks", {})
+            # assembles list of ranks associated with each metric
+            if len({len(Xs), len(Ys), len(Yvars), len(metric_names)}) > 1:
+                raise ValueError(
+                    "Lengths of Xs, Ys, Yvars, and metric_names must match. Your "
+                    f"inputs have lengths {len(Xs)}, {len(Ys)}, {len(Yvars)}, and "
+                    f"{len(metric_names)}, respectively."
+                )
+            mtgp_rank_list = [
+                mtgp_rank_dict.get(metric, None) for metric in metric_names
+            ]
+            models = [
+                _get_model(
+                    X=X,
+                    Y=Y,
+                    Yvar=Yvar,
+                    task_feature=task_feature,
+                    rank=mtgp_rank,
+                    **kwargs,
+                )
+                for X, Y, Yvar, mtgp_rank in zip(Xs, Ys, Yvars, mtgp_rank_list)
+            ]
         model = ModelListGP(*models)
     model.to(Xs[0])
     if state_dict is not None:
