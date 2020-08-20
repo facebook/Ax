@@ -356,11 +356,14 @@ class BotorchModel(TorchModel):
 
         # subset model only to the outcomes we need for the optimization
         if options.get(Keys.SUBSET_MODEL, True):
-            model, objective_weights, outcome_constraints = subset_model(
+            model, objective_weights, outcome_constraints, Ys = subset_model(
                 model=model,  # pyre-ignore [6]
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
+                Ys=self.Ys,
             )
+        else:
+            Ys = self.Ys
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
@@ -383,7 +386,7 @@ class BotorchModel(TorchModel):
                     outcome_constraints=outcome_constraints,
                     X_observed=X_observed,
                     X_pending=X_pending,
-                    Ys=self.Ys,  # Required for chebyshev scalarization calculations.
+                    Ys=Ys,  # Required for chebyshev scalarization calculations.
                     **acf_options,
                 )
                 for objective_weights in objective_weights_list
