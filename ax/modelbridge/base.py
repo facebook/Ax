@@ -653,6 +653,7 @@ class ModelBridge(ABC):
                 arms_by_signature=self._arms_by_signature,
             )
             best_arm = best_arms[0]
+
         arms, candidate_metadata = gen_arms(
             observation_features=observation_features,
             arms_by_signature=self._arms_by_signature,

@@ -9,7 +9,7 @@ from typing import Dict, Optional, Tuple
 import pandas as pd
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
@@ -35,6 +35,13 @@ def get_best_raw_objective_point(
         Tuple of parameterization and a mapping from metric name to a tuple of
             the corresponding objective mean and SEM.
     """
+    # pyre-ignore [16]
+    if isinstance(experiment.optimization_config.objective, MultiObjective):
+        logger.warn(
+            "get_best_raw_objective_point is deprecated for multi-objective "
+            "optimization. This method will return an arbitrary point on the "
+            "pareto frontier."
+        )
     opt_config = optimization_config or experiment.optimization_config
     assert opt_config is not None, (
         "Cannot identify the best point without an optimization config, but no "
@@ -79,6 +86,13 @@ def get_best_from_model_predictions(
     Returns:
         Tuple of parameterization and model predictions for it.
     """
+    # pyre-ignore [16]
+    if isinstance(experiment.optimization_config.objective, MultiObjective):
+        logger.warn(
+            "get_best_from_model_predictions is deprecated for multi-objective "
+            "optimization configs. This method will return an arbitrary point on "
+            "the pareto frontier."
+        )
     for _, trial in sorted(experiment.trials.items(), key=lambda x: x[0], reverse=True):
         gr = None
         if isinstance(trial, Trial):
@@ -112,7 +126,12 @@ def get_best_parameters(
     Returns:
         Tuple of parameterization and model predictions for it.
     """
-
+    # pyre-ignore [16]
+    if isinstance(experiment.optimization_config.objective, MultiObjective):
+        logger.warn(
+            "get_best_parameters is deprecated for multi-objective optimization. "
+            "This method will return an arbitrary point on the pareto frontier."
+        )
     # Find latest trial which has a generator_run attached and get its predictions
     model_predictions = get_best_from_model_predictions(experiment=experiment)
     if model_predictions is not None:  # pragma: no cover

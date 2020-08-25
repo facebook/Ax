@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -15,14 +15,12 @@ from ax.models.torch.botorch_defaults import (
     get_NEI,
     recommend_best_observed_point,
     scipy_optimizer,
-    scipy_optimizer_list,
 )
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     _to_inequality_constraints,
     normalize_indices,
     predict_from_model,
-    randomize_objective_weights,
     subset_model,
 )
 from ax.models.torch_base import TorchModel
@@ -68,17 +66,6 @@ TOptimizer = Callable[
         AcquisitionFunction,
         Tensor,
         int,
-        Optional[List[Tuple[Tensor, Tensor, float]]],
-        Optional[Dict[int, float]],
-        Optional[Callable[[Tensor], Tensor]],
-        Any,
-    ],
-    Tuple[Tensor, Tensor],
-]
-TOptimizerList = Callable[
-    [
-        List[AcquisitionFunction],
-        Tensor,
         Optional[List[Tuple[Tensor, Tensor, float]]],
         Optional[Dict[int, float]],
         Optional[Callable[[Tensor], Tensor]],
@@ -246,12 +233,8 @@ class BotorchModel(TorchModel):
         #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],
         #  **(Any)], AcquisitionFunction]`.
         acqf_constructor: TAcqfConstructor = get_NEI,
-        # pyre-fixme[9]: acqf_optimizer has type `Callable[[AcquisitionFunction,
-        #  Tensor, int, Optional[Dict[int, float]], Optional[Callable[[Tensor],
-        #  Tensor]], Any], Tensor]`; used as `Callable[[AcquisitionFunction, Tensor,
-        #  int, Optional[Dict[int, float]], Optional[Callable[[Tensor], Tensor]],
-        #  **(Any)], Tensor]`.
-        acqf_optimizer: Union[TOptimizer, TOptimizerList] = scipy_optimizer,
+        # pyre-fixme[9]: acqf_optimizer declared/used type mismatch
+        acqf_optimizer: TOptimizer = scipy_optimizer,
         best_point_recommender: TBestPointRecommender = recommend_best_observed_point,
         refit_on_cv: bool = False,
         refit_on_update: bool = True,
@@ -354,84 +337,39 @@ class BotorchModel(TorchModel):
 
         model = self.model
 
-        # subset model only to the outcomes we need for the optimization
+        # subset model only to the outcomes we need for the optimization	357
         if options.get(Keys.SUBSET_MODEL, True):
-            model, objective_weights, outcome_constraints, Ys = subset_model(
+            model, objective_weights, outcome_constraints, _ = subset_model(
                 model=model,  # pyre-ignore [6]
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
-                Ys=self.Ys,
             )
-        else:
-            Ys = self.Ys
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
 
         botorch_rounding_func = get_rounding_func(rounding_func)
-        if acf_options.get("random_scalarization", False) or acf_options.get(
-            "chebyshev_scalarization", False
-        ):
-            # TODO (jej): Move into MultiObjectiveBotorch
-            # If using a list of acquisition functions, the algorithm to generate
-            # that list is configured by acquisition_function_kwargs.
-            objective_weights_list = [
-                randomize_objective_weights(objective_weights, **acf_options)
-                for _ in range(n)
-            ]
-            acquisition_function_list = [
-                self.acqf_constructor(  # pyre-ignore: [28]
-                    model=model,
-                    objective_weights=objective_weights,
-                    outcome_constraints=outcome_constraints,
-                    X_observed=X_observed,
-                    X_pending=X_pending,
-                    Ys=Ys,  # Required for chebyshev scalarization calculations.
-                    **acf_options,
-                )
-                for objective_weights in objective_weights_list
-            ]
-            acquisition_function_list = [
-                checked_cast(AcquisitionFunction, acq_function)
-                for acq_function in acquisition_function_list
-            ]
-            # Multiple acquisition functions require a sequential optimizer
-            # always use scipy_optimizer_list.
-            # TODO(jej): Allow any optimizer.
-            candidates, expected_acquisition_value = scipy_optimizer_list(
-                acq_function_list=acquisition_function_list,
-                bounds=bounds_,
-                inequality_constraints=_to_inequality_constraints(
-                    linear_constraints=linear_constraints
-                ),
-                fixed_features=fixed_features,
-                rounding_func=botorch_rounding_func,
-                **optimizer_options,
-            )
-        else:
-            acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
-                model=model,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                X_observed=X_observed,
-                X_pending=X_pending,
-                **acf_options,
-            )
-            acquisition_function = checked_cast(
-                AcquisitionFunction, acquisition_function
-            )
-            # pyre-ignore: [28]
-            candidates, expected_acquisition_value = self.acqf_optimizer(
-                acq_function=checked_cast(AcquisitionFunction, acquisition_function),
-                bounds=bounds_,
-                n=n,
-                inequality_constraints=_to_inequality_constraints(
-                    linear_constraints=linear_constraints
-                ),
-                fixed_features=fixed_features,
-                rounding_func=botorch_rounding_func,
-                **optimizer_options,
-            )
+        acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
+            model=model,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+            X_pending=X_pending,
+            **acf_options,
+        )
+        acquisition_function = checked_cast(AcquisitionFunction, acquisition_function)
+        # pyre-ignore: [28]
+        candidates, expected_acquisition_value = self.acqf_optimizer(
+            acq_function=checked_cast(AcquisitionFunction, acquisition_function),
+            bounds=bounds_,
+            n=n,
+            inequality_constraints=_to_inequality_constraints(
+                linear_constraints=linear_constraints
+            ),
+            fixed_features=fixed_features,
+            rounding_func=botorch_rounding_func,
+            **optimizer_options,
+        )
         return (
             candidates.detach().cpu(),
             torch.ones(n, dtype=self.dtype),

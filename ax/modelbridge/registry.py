@@ -17,6 +17,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.discrete import DiscreteModelBridge
+from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
@@ -44,6 +45,7 @@ from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_kg import KnowledgeGradient
 from ax.models.torch.botorch_mes import MaxValueEntropySearch
+from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
@@ -181,6 +183,12 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         model_class=UniformGenerator,
         transforms=Cont_X_trans,
     ),
+    "MOO": ModelSetup(
+        bridge_class=MultiObjectiveTorchModelBridge,
+        model_class=MultiObjectiveBotorchModel,
+        transforms=Cont_X_trans + Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
 }
 
 
@@ -210,6 +218,7 @@ class Models(Enum):
     BOTORCH = "BO"
     EMPIRICAL_BAYES_THOMPSON = "EB"
     UNIFORM = "Uniform"
+    MOO = "MOO"
 
     @property
     def model_class(self) -> Type[Model]:

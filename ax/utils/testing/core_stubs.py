@@ -649,7 +649,11 @@ def get_branin_objective() -> Objective:
 
 def get_branin_multi_objective() -> Objective:
     return MultiObjective(
-        metrics=[get_branin_metric(), get_branin_metric()], minimize=False
+        metrics=[
+            get_branin_metric(name="branin_a"),
+            get_branin_metric(name="branin_b"),
+        ],
+        minimize=False,
     )
 
 
@@ -849,6 +853,23 @@ def get_branin_data(trial_indices: Optional[Iterable[int]] = None) -> Data:
             "sem": 0.0,
         }
         for trial_index in (trial_indices or [0])
+    ]
+    return Data(df=pd.DataFrame.from_records(df_dicts))
+
+
+def get_branin_data_multi_objective(
+    trial_indices: Optional[Iterable[int]] = None,
+) -> Data:
+    df_dicts = [
+        {
+            "trial_index": trial_index,
+            "metric_name": f"branin_{suffix}",
+            "arm_name": f"{trial_index}_0",
+            "mean": 5.0,
+            "sem": 0.0,
+        }
+        for trial_index in (trial_indices or [0])
+        for suffix in ["a", "b"]
     ]
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
