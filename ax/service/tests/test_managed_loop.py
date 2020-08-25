@@ -233,6 +233,29 @@ class TestManagedLoop(TestCase):
         )
         self.assertEqual(12345, model.model.seed)
 
+    def test_optimize_search_space_exhausted(self) -> None:
+        """Tests optimization as a single call."""
+        best, vals, exp, model = optimize(
+            parameters=[  # pyre-fixme[6]
+                {"name": "x1", "type": "choice", "values": [1, 2]},
+                {"name": "x2", "type": "choice", "values": [1, 2]},
+            ],
+            # Booth function.
+            evaluation_function=lambda p: (
+                (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
+                None,
+            ),
+            minimize=True,
+            total_trials=6,
+        )
+        self.assertEqual(len(exp.trials), 4)
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
+        self.assertIsNotNone(vals)
+        self.assertIn("objective", vals[0])
+        self.assertIn("objective", vals[1])
+        self.assertIn("objective", vals[1]["objective"])
+
     def test_custom_gs(self) -> None:
         """Managed loop with custom generation strategy"""
         strategy0 = GenerationStrategy(

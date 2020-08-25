@@ -11,6 +11,7 @@ from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationFunction
 from ax.core.types import TModelPredictArm, TParameterization
+from ax.exceptions.core import SearchSpaceExhausted
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -163,7 +164,14 @@ class OptimizationLoop:
         num_steps = self.total_trials
         logger.info(f"Started full optimization with {num_steps} steps.")
         for _ in range(num_steps):
-            self.run_trial()
+            try:
+                self.run_trial()
+            except SearchSpaceExhausted as err:
+                logger.info(
+                    f"Stopped optimization as the search space is exhaused. Message "
+                    f"from generation strategy: {err}."
+                )
+                return self
         return self
 
     def get_best_point(self) -> Tuple[TParameterization, Optional[TModelPredictArm]]:

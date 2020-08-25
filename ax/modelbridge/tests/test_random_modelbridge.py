@@ -12,6 +12,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import OrderConstraint, SumConstraint
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import SearchSpaceExhausted
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import Cont_X_trans
 from ax.models.random.base import RandomModel
@@ -128,5 +129,5 @@ class RandomModelBridgeTest(TestCase):
         )
         for _ in range(24):  # Search space is {[0, 3], [5, 7], {"red", "panda"}}
             self.assertEqual(len(sobol.gen(1).arms), 1)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(SearchSpaceExhausted):
             sobol.gen(1)

@@ -76,6 +76,17 @@ class MisconfiguredExperiment(AxError):
     pass
 
 
+class SearchSpaceExhausted(AxError):
+    """Raised when using an algorithm that deduplicates points and no more
+    new points can be sampled from the search space."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(
+            message=message
+            or "No more new points could be sampled in the search space."
+        )
+
+
 class AxWarning(Warning):
     """Base Ax warning.
 
