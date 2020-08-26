@@ -50,6 +50,7 @@ logger: Logger = get_logger(__name__)
 
 
 DEFAULT_TORCH_DEVICE = torch.device("cpu")
+DEFAULT_EHVI_BATCH_LIMIT = 5
 
 
 """
@@ -395,7 +396,12 @@ def get_MOO_EHVI(
             torch_dtype=dtype,
             torch_device=device,
             default_model_gen_options={
-                "acquisition_function_kwargs": {"sequential": True}
+                "acquisition_function_kwargs": {"sequential": True},
+                "optimizer_kwargs": {
+                    # having a batch limit is very important for avoiding
+                    # memory issues in the initialization
+                    "batch_limit": DEFAULT_EHVI_BATCH_LIMIT
+                },
             },
         ),
     )

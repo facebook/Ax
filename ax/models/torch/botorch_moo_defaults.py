@@ -21,6 +21,9 @@ from botorch.utils.transforms import squeeze_last_dim
 from torch import Tensor
 
 
+DEFAULT_EHVI_MC_SAMPLES = 128
+
+
 def get_EHVI(
     model: Model,
     objective_weights: Tensor,
@@ -52,11 +55,9 @@ def get_EHVI(
             there are any).
         mc_samples: The number of MC samples to use (default: 512).
         qmc: If True, use qMC instead of MC (default: True).
-        prune_baseline: If True, prune the baseline points for NEI (default: True).
-        chebyshev_scalarization: If True, use augmented Chebyshev scalarization.
 
     Returns:
-        qNoisyExpectedImprovement: The instantiated acquisition function.
+        qExpectedHypervolumeImprovement: The instantiated acquisition function.
     """
     if X_observed is None:
         raise ValueError("There are no feasible observed points.")
@@ -85,8 +86,7 @@ def get_EHVI(
         X_observed=X_observed,
         X_pending=X_pending,
         constraints=cons_tfs,
-        prune_baseline=kwargs.get("prune_baseline", True),
-        mc_samples=kwargs.get("mc_samples", 512),
+        mc_samples=kwargs.get("mc_samples", DEFAULT_EHVI_MC_SAMPLES),
         qmc=kwargs.get("qmc", True),
         seed=torch.randint(1, 10000, (1,)).item(),
         ref_point=ref_point,
