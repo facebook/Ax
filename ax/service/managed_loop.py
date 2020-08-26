@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import logging
 from typing import List, Optional, Tuple
 
@@ -158,7 +160,7 @@ class OptimizationLoop:
         trial.fetch_data()
         self.current_trial += 1
 
-    def full_run(self) -> "OptimizationLoop":
+    def full_run(self) -> OptimizationLoop:
         """Runs full optimization loop as defined in the provided optimization
         plan."""
         num_steps = self.total_trials
@@ -171,6 +173,9 @@ class OptimizationLoop:
                     f"Stopped optimization as the search space is exhaused. Message "
                     f"from generation strategy: {err}."
                 )
+                return self
+            except Exception:
+                logger.exception("Encountered exception during optimization: ")
                 return self
         return self
 
