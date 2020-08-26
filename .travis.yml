@@ -36,7 +36,7 @@ jobs:
     - name: "Lint: black: Python 3.7"
       python: "3.7"
       install:
-        - pip install black
+        - pip install black==19.3b0
       script:
         - black --check --diff .
     - name: "Lint: flake8: Python 3.7"
