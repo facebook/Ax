@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Un
 import numpy as np
 import torch
 from ax.core.types import TConfig, TParamCounter
+from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.numpy_base import NumpyModel
 from ax.models.torch_base import TorchModel
 
@@ -107,9 +108,10 @@ def rejection_sample(
 
     if successful_draws < n:
         # Only possible if attempted_draws >= max_draws.
-        raise ValueError(
-            f"Specified maximum draws ({max_draws}) exhausted, without "
-            f"finding sufficiently many ({n}) candidates."
+        raise SearchSpaceExhausted(
+            f"Rejection sampling error (specified maximum draws ({max_draws}) exhausted"
+            f", without finding sufficiently many ({n}) candidates). This likely means "
+            "that there are no new points left in the search space."
         )
     else:
         return (points, attempted_draws)
