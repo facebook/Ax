@@ -76,13 +76,18 @@ class Trial(BaseTrial):
     @property
     def arm(self) -> Optional[Arm]:
         """The arm associated with this batch."""
-        # pyre-fixme[16]: `Optional` has no attribute `arms`.
-        if self.generator_run is not None and len(self.generator_run.arms) > 1:
+        if self.generator_run is None:
+            return None
+
+        generator_run = not_none(self.generator_run)
+        if len(generator_run.arms) == 0:
+            return None
+        elif len(generator_run.arms) > 1:
             raise ValueError(  # pragma: no cover
                 "Generator run associated with this trial included multiple "
                 "arms, but trial expects only one."
             )
-        return self.generator_run.arms[0] if self.generator_run is not None else None
+        return generator_run.arms[0]
 
     @immutable_once_run
     def add_arm(self, arm: Arm) -> "Trial":
