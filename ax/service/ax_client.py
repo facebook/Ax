@@ -169,11 +169,22 @@ class AxClient(WithDBSettingsBase):
         Args:
             parameters: List of dictionaries representing parameters in the
                 experiment search space. Required elements in the dictionaries
-                are: "name" (name of this parameter, string), "type" (type of the
-                parameter: "range", "fixed", or "choice", string), and "bounds"
-                for range parameters (list of two values, lower bound first),
-                "values" for choice parameters (list of values), and "value" for
-                fixed parameters (single value).
+                are:
+                - "name" (name of this parameter, string),
+                - "type" (type of the
+                parameter: "range", "fixed", or "choice", string), and
+                  - "bounds" for range parameters (list of two values, lower bound
+                  first),
+                  - "values" for choice parameters (list of values), and
+                  - "value" for fixed parameters (single value).
+                Optional elements are:
+                - "log_scale" (for float-valued range parameters, bool),
+                - "value_type" (to specify type that values of this parameter should
+                take; expects "float", "int", "bool" or "str".)
+                - "is_fidelity" (bool) and "target_value" (float) for fidelity
+                parameters,
+                - "is_ordered" (bool) for choice parameters,
+                - "is_task" (bool) for task parameters.
             objective: Name of the metric used as objective in this experiment.
                 This metric must be present in `raw_data` argument to `complete_trial`.
             name: Name of the experiment to be created.

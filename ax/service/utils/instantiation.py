@@ -34,12 +34,16 @@ from ax.core.types import (
     TParamValue,
     TTrialEvaluation,
 )
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
     checked_cast_to_tuple,
     not_none,
     numpy_type_to_python_type,
 )
+
+
+logger = get_logger(__name__)
 
 
 """Utilities for RESTful-like instantiation of Ax classes needed in AxClient."""
@@ -49,6 +53,19 @@ TParameterRepresentation = Dict[str, Union[TParamValue, List[TParamValue]]]
 PARAM_CLASSES = ["range", "choice", "fixed"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
 COMPARISON_OPS = {"<=": ComparisonOp.LEQ, ">=": ComparisonOp.GEQ}
+EXPECTED_KEYS_IN_PARAM_REPR = {
+    "name",
+    "type",
+    "values",
+    "bounds",
+    "value",
+    "value_type",
+    "log_scale",
+    "target_value",
+    "is_fidelity",
+    "is_ordered",
+    "is_task",
+}
 
 
 def _get_parameter_type(python_type: TParameterType) -> ParameterType:
@@ -67,6 +84,11 @@ def _to_parameter_type(
         assert all(isinstance(x, typ) for x in vals), (
             f"Values in `{field_name}` not of the same type and no `value_type` was "
             f"explicitly specified; cannot infer value type for parameter {param_name}."
+        )
+        logger.info(
+            f"Inferred value type of {parameter_type} for parameter {param_name}. "
+            "If that is not the expected value type, you can explicity specify "
+            "'value_type' ('int', 'float', 'bool' or 'str') in parameter dict."
         )
         return parameter_type
     return _get_parameter_type(PARAM_TYPES[typ])  # pyre-ignore[6]
@@ -136,6 +158,19 @@ def parameter_from_json(
     representation: Dict[str, Union[TParamValue, List[TParamValue]]]
 ) -> Parameter:
     """Instantiate a parameter from JSON representation."""
+    if "parameter_type" in representation:
+        raise ValueError(
+            "'parameter_type' is not an expected key in parameter dictionary. "
+            "If you are looking to specify the type of values that this "
+            "parameter should take, use 'value_type' (expects 'int', 'float', "
+            "'str' or 'bool')."
+        )
+    unexpected_keys = set(representation.keys()) - EXPECTED_KEYS_IN_PARAM_REPR
+    if unexpected_keys:
+        raise ValueError(
+            f"Unexpected keys {unexpected_keys} in parameter representation."
+            f"Exhaustive set of expected keys: {EXPECTED_KEYS_IN_PARAM_REPR}."
+        )
     name = representation["name"]
     assert isinstance(name, str), "Parameter name must be a string."
     parameter_class = representation["type"]
