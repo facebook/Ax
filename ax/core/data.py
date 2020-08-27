@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import json
 from hashlib import md5
 from typing import Dict, Iterable, Optional, Set, Type
@@ -113,7 +115,7 @@ class Data(Base):
         return COLUMN_DATA_TYPES
 
     @staticmethod
-    def from_multiple_data(data: Iterable["Data"]) -> "Data":
+    def from_multiple_data(data: Iterable[Data]) -> Data:
         dfs = [datum.df for datum in data]
         if len(dfs) == 0:
             return Data()
@@ -126,7 +128,7 @@ class Data(Base):
         sample_sizes: Optional[Dict[str, int]] = None,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-    ) -> "Data":
+    ) -> Data:
         """
         Convert dict of evaluations to Ax data object.
 
@@ -169,7 +171,7 @@ class Data(Base):
         sample_sizes: Optional[Dict[str, int]] = None,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-    ) -> "Data":
+    ) -> Data:
         """
         Convert dict of fidelity evaluations to Ax data object.
 

@@ -18,6 +18,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
@@ -342,6 +343,13 @@ class AxClient(WithDBSettingsBase):
             trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
         trial._run_metadata = metadata or {}
+        for metric_name in data.df["metric_name"].values:
+            if metric_name not in self.experiment.metrics:
+                logger.info(
+                    f"Data was logged for metric {metric_name} that was not yet "
+                    "tracked on the experiment. Adding it as tracking metric."
+                )
+                self.experiment.add_tracking_metric(Metric(name=metric_name))
         self.experiment.attach_data(data=data)
         trial.mark_completed()
         data_for_logging = _round_floats_for_logging(
@@ -939,6 +947,11 @@ class AxClient(WithDBSettingsBase):
         else:  # pragma: no cover
             raise ValueError(f"Unexpected trial type: {type(trial)}.")
         assert isinstance(raw_data, dict)
+        not_trial_arm_names = set(raw_data.keys()) - set(trial.arms_by_name.keys())
+        if not_trial_arm_names:
+            raise ValueError(
+                f"Arms {not_trial_arm_names} are not part of trial #{trial.index}."
+            )
         evaluations = {
             arm_name: raw_data_to_evaluation(
                 raw_data=raw_data[arm_name], objective_name=self.objective_name

@@ -973,3 +973,19 @@ class TestAxClient(TestCase):
                 parameterization={k: v + 1.0 for k, v in params.items()},
             )
         )
+
+    def test_tracking_metric_addition(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+            objective_name="a",
+        )
+        params, trial_idx = ax_client.get_next_trial()
+        self.assertEqual(list(ax_client.experiment.metrics.keys()), ["a"])
+        ax_client.complete_trial(trial_index=trial_idx, raw_data={"a": 1.0, "b": 2.0})
+        self.assertEqual(list(ax_client.experiment.metrics.keys()), ["b", "a"])

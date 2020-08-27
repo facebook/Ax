@@ -336,6 +336,15 @@ def raw_data_to_evaluation(
     if isinstance(raw_data, dict):
         if any(isinstance(x, dict) for x in raw_data.values()):  # pragma: no cover
             raise ValueError("Raw data is expected to be just for one arm.")
+        for metric_name, dat in raw_data.items():
+            if not isinstance(dat, tuple):
+                if not isinstance(dat, (float, int)):
+                    raise ValueError(
+                        "Raw data for an arm is expected to either be a tuple of "
+                        "numerical mean and SEM or just a numerical mean."
+                        f"Got: {dat} for metric '{metric_name}'."
+                    )
+                raw_data[metric_name] = (float(dat), None)
         return raw_data
     elif isinstance(raw_data, list):
         return raw_data
