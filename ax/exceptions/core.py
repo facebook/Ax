@@ -22,6 +22,12 @@ class AxError(Exception):
         return " ".join([self.message, getattr(self, "hint", "")]).rstrip()
 
 
+class UserInputError(AxError):
+    """Raised when the user passes in an invalid input"""
+
+    pass
+
+
 class UnsupportedError(AxError):
     """Raised when an unsupported request is made.
 
