@@ -45,6 +45,7 @@ from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_kg import KnowledgeGradient
 from ax.models.torch.botorch_mes import MaxValueEntropySearch
+from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
@@ -140,6 +141,12 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
+    "BoTorch": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=BoTorchModel,
+        transforms=Cont_X_trans + Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
     "GPEI": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
@@ -216,6 +223,7 @@ class Models(Enum):
     FACTORIAL = "Factorial"
     THOMPSON = "Thompson"
     BOTORCH = "BO"
+    BOTORCH_MODULAR = "BoTorch"
     EMPIRICAL_BAYES_THOMPSON = "EB"
     UNIFORM = "Uniform"
     MOO = "MOO"

@@ -31,7 +31,10 @@ from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
+from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
+from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
 from ax.utils.common.serialization import serialize_init_args
 
@@ -408,3 +411,44 @@ def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, 
         return properties
     else:  # pragma: no cover
         raise ValueError(f"Expected benchmark problem, got: {benchmark_problem}.")
+
+
+def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
+    """Convert Ax model to a dictionary."""
+    return {
+        "__type": model.__class__.__name__,
+        "surrogate": model.surrogate,
+        "surrogate_fit_options": model.surrogate_fit_options,
+        "acquisition_class": model.acquisition_class,
+        "botorch_acqf_class": model.botorch_acqf_class,
+        "acquisition_options": model.acquisition_options or {},
+    }
+
+
+def surrogate_to_dict(surrogate: Surrogate) -> Dict[str, Any]:
+    """Convert Ax surrogate to a dictionary."""
+    return {
+        "__type": surrogate.__class__.__name__,
+        "botorch_model_class": surrogate.botorch_model_class,
+        "mll_class": surrogate.mll_class,
+        # TODO: Add these once they are implemented.
+        # "kernel_class": surrogate.kernel_class,
+        # "kernel_options": surrogate.kernel_options or {},
+        # "likelihood": surrogate.likelihood,
+    }
+
+
+def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
+    """Convert any class to a dictionary."""
+    for _class in CLASS_TO_REGISTRY:
+        if issubclass(class_type, _class):
+            registry = CLASS_TO_REGISTRY[_class]
+            return {
+                "__type": f"Type[{_class.__name__}]",
+                "index": registry[class_type],
+                "class": f"{_class}",
+            }
+    raise ValueError(
+        f"{class_type} does not have a corresponding parent class in "
+        "CLASS_TO_STR_AND_REGISTRY."
+    )

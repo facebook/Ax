@@ -7,7 +7,7 @@
 
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, Iterable, List, MutableMapping, Optional, cast
+from typing import Dict, Iterable, List, MutableMapping, Optional, Type, cast
 
 import numpy as np
 import pandas as pd
@@ -49,8 +49,18 @@ from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
+from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.kg import KnowledgeGradient
+from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.logger import get_logger
+from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.monte_carlo import qExpectedImprovement
+from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.model import Model
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 
 
 logger = get_logger(__name__)
@@ -913,3 +923,42 @@ def get_model_predictions_per_arm() -> Dict[str, TModelPredictArm]:
         )
         for i in range(len(arms))
     }
+
+
+##############################
+# Modular BoTorch Model Components
+##############################
+
+
+def get_botorch_model() -> BoTorchModel:
+    return BoTorchModel(
+        surrogate=get_surrogate(), acquisition_class=get_acquisition_type()
+    )
+
+
+def get_botorch_model_with_default_acquisition_class() -> BoTorchModel:
+    return BoTorchModel(
+        surrogate=get_surrogate(),
+        acquisition_class=Acquisition,
+        botorch_acqf_class=get_acquisition_function_type(),
+    )
+
+
+def get_surrogate() -> Surrogate:
+    return Surrogate(get_model_type())
+
+
+def get_acquisition_type() -> Type[Acquisition]:
+    return KnowledgeGradient
+
+
+def get_model_type() -> Type[Model]:
+    return SingleTaskGP
+
+
+def get_mll_type() -> Type[MarginalLogLikelihood]:
+    return ExactMarginalLogLikelihood
+
+
+def get_acquisition_function_type() -> Type[AcquisitionFunction]:
+    return qExpectedImprovement

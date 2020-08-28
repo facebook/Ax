@@ -35,10 +35,14 @@ from ax.utils.testing.benchmark_stubs import (
     get_sum_simple_benchmark_problem,
 )
 from ax.utils.testing.core_stubs import (
+    get_acquisition_function_type,
+    get_acquisition_type,
     get_arm,
     get_augmented_branin_metric,
     get_augmented_hartmann_metric,
     get_batch_trial,
+    get_botorch_model,
+    get_botorch_model_with_default_acquisition_class,
     get_branin_data,
     get_branin_experiment,
     get_branin_metric,
@@ -50,6 +54,8 @@ from ax.utils.testing.core_stubs import (
     get_generator_run,
     get_hartmann_metric,
     get_metric,
+    get_mll_type,
+    get_model_type,
     get_multi_objective,
     get_multi_type_experiment,
     get_objective,
@@ -63,6 +69,7 @@ from ax.utils.testing.core_stubs import (
     get_simple_experiment_with_batch_trial,
     get_sum_constraint1,
     get_sum_constraint2,
+    get_surrogate,
     get_synthetic_runner,
     get_trial,
 )
@@ -80,6 +87,11 @@ TEST_CASES = [
     ("AugmentedHartmannMetric", get_augmented_hartmann_metric),
     ("BatchTrial", get_batch_trial),
     ("BenchmarkProblem", get_branin_benchmark_problem),
+    ("BoTorchModel", get_botorch_model),
+    (
+        "BoTorchModelWithDefaultAcquisitionClass",
+        get_botorch_model_with_default_acquisition_class,
+    ),
     ("BraninMetric", get_branin_metric),
     ("ChoiceParameter", get_choice_parameter),
     ("Experiment", get_experiment_with_batch_and_single_trial),
@@ -107,7 +119,12 @@ TEST_CASES = [
     ("SimpleExperiment", get_simple_experiment_with_batch_trial),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
+    ("Surrogate", get_surrogate),
     ("SyntheticRunner", get_synthetic_runner),
+    ("Type[Acquisition]", get_acquisition_type),
+    ("Type[AcquisitionFunction]", get_acquisition_function_type),
+    ("Type[Model]", get_model_type),
+    ("Type[MarginalLogLikelihood]", get_mll_type),
     ("Type[Transform]", get_transform_type),
     ("Trial", get_trial),
 ]
@@ -177,6 +194,37 @@ ENCODE_DECODE_FIELD_MAPS = {
     ),
     "Trial": EncodeDecodeFieldsMap(
         python_only=["experiment"], python_to_encoded={"BaseTrial__status": "status"}
+    ),
+    "Type[Acquisition]": EncodeDecodeFieldsMap(
+        python_only=["_module__", "_doc__", "default_botorch_acqf_class"],
+        encoded_only=["index", "class"],
+    ),
+    "Type[AcquisitionFunction]": EncodeDecodeFieldsMap(
+        python_only=[
+            "_module__",
+            "_doc__",
+            "_init__",
+            "_abstractmethods__",
+            "forward",
+            "abc_impl",
+        ],
+        encoded_only=["index", "class"],
+    ),
+    "Type[Model]": EncodeDecodeFieldsMap(
+        python_only=[
+            "_module__",
+            "_doc__",
+            "_init__",
+            "_abstractmethods__",
+            "forward",
+            "construct_inputs",
+            "abc_impl",
+        ],
+        encoded_only=["index", "class"],
+    ),
+    "Type[MarginalLogLikelihood]": EncodeDecodeFieldsMap(
+        python_only=["_module__", "_doc__", "_init__", "forward", "pyro_factor"],
+        encoded_only=["index", "class"],
     ),
     "Type[Transform]": EncodeDecodeFieldsMap(
         python_only=[

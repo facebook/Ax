@@ -43,12 +43,17 @@ from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
+from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
-from ax.storage.json_store.decoders import transform_type_from_json
+from ax.storage.json_store.decoders import class_from_json, transform_type_from_json
 from ax.storage.json_store.encoders import (
     arm_to_dict,
     batch_to_dict,
     benchmark_problem_to_dict,
+    botorch_model_to_dict,
+    botorch_modular_to_dict,
     choice_parameter_to_dict,
     data_to_dict,
     experiment_to_dict,
@@ -71,10 +76,14 @@ from ax.storage.json_store.encoders import (
     search_space_to_dict,
     simple_experiment_to_dict,
     sum_parameter_constraint_to_dict,
+    surrogate_to_dict,
     transform_type_to_dict,
     trial_to_dict,
 )
 from ax.storage.utils import DomainType, ParameterConstraintType
+from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.models.model import Model
+from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 
 
 ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
@@ -83,6 +92,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     AugmentedHartmann6Metric: metric_to_dict,
     BatchTrial: batch_to_dict,
     BenchmarkProblem: benchmark_problem_to_dict,
+    BoTorchModel: botorch_model_to_dict,
     BraninMetric: metric_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
@@ -110,6 +120,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     SimpleBenchmarkProblem: benchmark_problem_to_dict,
     SimpleExperiment: simple_experiment_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
+    Surrogate: surrogate_to_dict,
     SyntheticRunner: runner_to_dict,
     Trial: trial_to_dict,
     ObservationFeatures: observation_features_to_dict,
@@ -120,7 +131,11 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
 # The encoder iterates through this dictionary and uses the first superclass that
 # it finds, which might not be the intended superclass.
 CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
-    Transform: transform_type_to_dict
+    Acquisition: botorch_modular_to_dict,
+    AcquisitionFunction: botorch_modular_to_dict,
+    MarginalLogLikelihood: botorch_modular_to_dict,
+    Model: botorch_modular_to_dict,
+    Transform: transform_type_to_dict,
 }
 
 DECODER_REGISTRY: Dict[str, Type] = {
@@ -131,6 +146,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "BatchTrial": BatchTrial,
     "BenchmarkProblem": BenchmarkProblem,
     "BenchmarkResult": BenchmarkResult,
+    "BoTorchModel": BoTorchModel,
     "BraninMetric": BraninMetric,
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
@@ -164,6 +180,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "SimpleBenchmarkProblem": SimpleBenchmarkProblem,
     "SimpleExperiment": SimpleExperiment,
     "SumConstraint": SumConstraint,
+    "Surrogate": Surrogate,
     "SyntheticRunner": SyntheticRunner,
     "Trial": Trial,
     "TrialStatus": TrialStatus,
@@ -173,5 +190,9 @@ DECODER_REGISTRY: Dict[str, Type] = {
 
 # Registry for class types, not instances.
 CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
-    "Type[Transform]": transform_type_from_json
+    "Type[Acquisition]": class_from_json,
+    "Type[AcquisitionFunction]": class_from_json,
+    "Type[MarginalLogLikelihood]": class_from_json,
+    "Type[Model]": class_from_json,
+    "Type[Transform]": transform_type_from_json,
 }
