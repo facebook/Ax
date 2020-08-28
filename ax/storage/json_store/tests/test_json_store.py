@@ -278,6 +278,10 @@ class JSONStoreTest(TestCase):
                 for python, encoded in map.python_to_encoded.items():
                     json_keys.remove(encoded)
                     json_keys.add(python)
+            # TODO: Remove this check if able. `_slotnames__` is not a class attribute
+            # when testing locally, but it is a class attribute on Travis.
+            if class_ == "Type[Model]":
+                object_keys.discard("_slotnames__")
             self.assertEqual(
                 object_keys,
                 json_keys,
