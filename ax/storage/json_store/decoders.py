@@ -14,6 +14,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.modelbridge.transforms.base import Transform
+from ax.storage.botorch_modular_registry import CLASS_TO_REVERSE_REGISTRY
 from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
 
 
@@ -129,3 +130,21 @@ def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
     if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:  # pragma: no cover
         raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
     return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
+
+
+def class_from_json(json: Dict[str, Any]) -> Type[Any]:
+    """Load any class registered in `CLASS_DECODER_REGISTRY` from JSON."""
+    index_in_registry = json.pop("index")
+    class_path = json.pop("class")
+    for _class in CLASS_TO_REVERSE_REGISTRY:
+        if class_path == f"{_class}":
+            reverse_registry = CLASS_TO_REVERSE_REGISTRY[_class]
+            if index_in_registry not in reverse_registry:  # pragma: no cover
+                raise ValueError(
+                    f"'{class_path}' is not registered in the reverse registry."
+                )
+            return reverse_registry[index_in_registry]
+    raise ValueError(
+        f"{class_path} does not have a corresponding entry in "
+        "CLASS_TO_REVERSE_REGISTRY."
+    )

@@ -252,13 +252,33 @@ def full_benchmark_run(  # Full run, multiple tests.
     by passing in a wrapped (in some scheduling logic) version of a corresponding
     function from this module.
 
+    Here, `problem_groups` and `method_groups` are dictionaries that have the same
+    keys such that we can run a specific subset of problems with a corresponding
+    subset of methods.
+
+    Example:
+
+    ::
+
+        problem_groups = {
+            "single_fidelity": [ackley, branin],
+            "multi_fidelity": [augmented_hartmann],
+        }
+        method_groups = {
+            "single_fidelity": [single_task_GP_and_NEI_strategy],
+            "multi_fidelity": [fixed_noise_MFGP_and_MFKG_strategy],
+        }
+
+    Here, `ackley` and `branin` will be run against `single_task_GP_and_NEI_strategy`
+    and `augmented_hartmann` against `fixed_noise_MFGP_and_MFKG_strategy`.
+
     Args:
         problem_groups: Problems to benchmark on, represented as a dictionary from
             category string to List of BenchmarkProblem-s or string keys (must be
-            in standard BOProblems). More on `problem_groups` below.
+            in standard BOProblems).
         method_groups: Methods to benchmark on, represented as a dictionary from
             category string to List of generation strategies or string keys (must
-            be in standard BOMethods). More on `method_groups` below.
+            be in standard BOMethods).
         num_replications: Number of times to run each test (each problem-method
             combination), for an aggregated result.
         num_trials: Number of trials in each test experiment.
@@ -280,21 +300,6 @@ def full_benchmark_run(  # Full run, multiple tests.
             considered failed and aborted. Defaults to 5.
         failed_replications_tolerated: How many replications can fail before a
             test is considered failed and aborted. Defaults to 3.
-
-    Here, `problem_groups` and `method_groups` are dictionaries that have the same
-    keys such that we can run a specific subset of problems with a corresponding
-    subset of methods.
-    Example:
-        problem_groups = {
-            "single_fidelity": [ackley, branin],
-            "multi_fidelity": [augmented_hartmann],
-        }
-        method_groups = {
-            "single_fidelity": [single_task_GP_and_NEI_strategy],
-            "multi_fidelity": [fixed_noise_MFGP_and_MFKG_strategy],
-        }
-    Here, `ackley` and `branin` will be run against `single_task_GP_and_NEI_strategy`
-    and `augmented_hartmann` against `fixed_noise_MFGP_and_MFKG_strategy`.
     """
     problem_groups = problem_groups or {}
     method_groups = method_groups or {}

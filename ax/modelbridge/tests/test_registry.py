@@ -21,6 +21,9 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
+from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -29,10 +32,33 @@ from ax.utils.testing.core_stubs import (
     get_branin_optimization_config,
     get_factorial_experiment,
 )
+from botorch.acquisition.monte_carlo import qExpectedImprovement
+from botorch.models.gp_regression import FixedNoiseGP
 from torch import device as torch_device, float64 as torch_float64
 
 
 class ModelRegistryTest(TestCase):
+    def test_botorch_modular(self):
+        exp = get_branin_experiment(with_batch=True)
+        exp.trials[0].run()
+        gpei = Models.BOTORCH_MODULAR(
+            # Model kwargs
+            acquisition_class=Acquisition,
+            botorch_acqf_class=qExpectedImprovement,
+            acquisition_options={"best_f": 0.0},
+            # Model bridge kwargs
+            experiment=exp,
+            data=exp.fetch_data(),
+        )
+        self.assertIsInstance(gpei, TorchModelBridge)
+        self.assertIsInstance(gpei.model, BoTorchModel)
+        self.assertEqual(gpei.model.botorch_acqf_class, qExpectedImprovement)
+        self.assertEqual(gpei.model.acquisition_class, Acquisition)
+        self.assertEqual(gpei.model.acquisition_options, {"best_f": 0.0})
+        self.assertIsInstance(gpei.model.surrogate, Surrogate)
+        # FixedNoiseGP should be picked since experiment data has fixed noise.
+        self.assertIsInstance(gpei.model.surrogate.model, FixedNoiseGP)
+
     def test_enum_sobol_GPEI(self):
         """Tests Sobol and GPEI instantiation through the Models enum."""
         exp = get_branin_experiment()
