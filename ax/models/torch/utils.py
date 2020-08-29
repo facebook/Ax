@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, cast
 
 import numpy as np
 import torch
+from ax.core.types import TConfig
 from ax.exceptions.model import ModelError
 from ax.models.model_utils import filter_constraints_and_fixed_features, get_observed
 from ax.models.random.sobol import SobolGenerator
@@ -163,6 +164,7 @@ def _generate_sobol_points(
     linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
+    model_gen_options: Optional[TConfig] = None,
 ) -> Tensor:
     linear_constraints_array = None
 
@@ -185,6 +187,7 @@ def _generate_sobol_points(
         linear_constraints=linear_constraints_array,
         fixed_features=fixed_features,
         rounding_func=array_rounding_func,
+        model_gen_options=model_gen_options,
     )
     return torch.from_numpy(array_X).to(device)
 
