@@ -265,18 +265,20 @@ class ModelBridgeFactoryTest(TestCase):
                 data=single_obj_exp.fetch_data(),
                 ref_point=[0, 0],
             )
-
         multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        metrics = multi_obj_exp.optimization_config.objective.metrics
         with self.assertRaises(ValueError):
             get_MOO_EHVI(
                 experiment=multi_obj_exp,
                 data=multi_obj_exp.fetch_data(),
-                ref_point=[0, 0],
+                ref_point={metrics[0].name: 0.0, metrics[1].name: 0.0},
             )
 
         multi_obj_exp.trials[0].run()
         moo_ehvi = get_MOO_EHVI(
-            experiment=multi_obj_exp, data=multi_obj_exp.fetch_data(), ref_point=[0, 0]
+            experiment=multi_obj_exp,
+            data=multi_obj_exp.fetch_data(),
+            ref_point={metrics[0].name: 0.0, metrics[1].name: 0.0},
         )
         self.assertIsInstance(moo_ehvi, MultiObjectiveTorchModelBridge)
         moo_ehvi_run = moo_ehvi.gen(n=1)

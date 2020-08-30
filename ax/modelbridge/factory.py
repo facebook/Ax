@@ -368,7 +368,7 @@ def get_GPMES(
 def get_MOO_EHVI(
     experiment: Experiment,
     data: Data,
-    ref_point: List[float],
+    ref_point: Dict[str, float],
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = (
@@ -377,9 +377,9 @@ def get_MOO_EHVI(
 ) -> MultiObjectiveTorchModelBridge:
     """Instantiates a multi-objective model that generates points with EHVI.
 
-    Requires a `ref_point`, a list of the baseline value for every objective being
-    optimized. An arm only improves hypervolume if it is strictly better than this
-    point in all metrics.
+    Requires a `ref_point`, a dictionary of the metric name to the reference point value
+    for every objective being optimized. An arm only improves hypervolume if it is
+    strictly better than this point in all metrics.
     """
     # pyre-ignore: [16] `Optional` has no attribute `objective`.
     if not isinstance(experiment.optimization_config.objective, MultiObjective):

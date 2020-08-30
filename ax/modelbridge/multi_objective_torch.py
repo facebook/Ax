@@ -21,6 +21,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 from torch import Tensor
 
 
@@ -41,7 +42,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
     them to the model.
     """
 
-    _transformed_ref_point: Optional[List[float]]
+    _transformed_ref_point: Optional[Dict[str, float]]
     _objective_metric_names: Optional[List[str]]
 
     def __init__(
@@ -58,7 +59,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         status_quo_features: Optional[ObservationFeatures] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
-        ref_point: Optional[List[float]] = None,
+        ref_point: Optional[Dict[str, float]] = None,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
         if isinstance(experiment, MultiTypeExperiment) and ref_point is not None:
@@ -113,13 +114,17 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         )
         ref_point = None
         if self._transformed_ref_point:
-            ref_point = self._transformed_ref_point
-        elif self.ref_point:
-            # Assign ref point if available.
+            ref_point = not_none(self._transformed_ref_point)
+        else:
             logger.warning(
                 "No attribute _transformed_ref_point. Using untransformed ref_point."
             )
-            ref_point = self.ref_point
+        if ref_point is not None:
+            ref_point_list = [
+                ref_point[name] for name in not_none(self.outcomes) if name in ref_point
+            ]
+        else:
+            ref_point_list = None
         tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
         augmented_model_gen_options = {
             **self._default_model_gen_options,
@@ -137,7 +142,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             model_gen_options=augmented_model_gen_options,
             rounding_func=tensor_rounding_func,
             target_fidelities=target_fidelities,
-            ref_point=ref_point,
+            ref_point=ref_point_list,
         )
         return (
             X.detach().cpu().clone().numpy(),
@@ -169,7 +174,6 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         objective_metric_names = list(self._objective_metric_names or [])
         if ref_point and metric_names and objective_metric_names:
             num_metrics = len(metric_names)
-            ref_dict = dict(zip(objective_metric_names, ref_point))
             if obs_data:
                 # Create synthetic ObservationData representing the reference point.
                 # Pad with non-objective outcomes from existing data.
@@ -178,7 +182,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
                 padded_ref_dict: Dict[str, float] = dict(
                     zip(sample_obs_data.metric_names, sample_obs_data.means)
                 )
-                padded_ref_dict.update(ref_dict)
+                padded_ref_dict.update(ref_point)
                 ref_obs_data = [
                     ObservationData(
                         metric_names=list(padded_ref_dict.keys()),
@@ -197,12 +201,10 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
                 transformed_ref_dict = dict(
                     zip(transformed_ref_obsd.metric_names, transformed_ref_obsd.means)
                 )
-                self._transformed_ref_point = []
-                for objective_metric_name in objective_metric_names:
-                    # pyre-fixme[16]
-                    self._transformed_ref_point.append(
-                        transformed_ref_dict[objective_metric_name]
-                    )
+                self._transformed_ref_point = {
+                    objective_metric_name: transformed_ref_dict[objective_metric_name]
+                    for objective_metric_name in objective_metric_names
+                }
             else:
                 # No previous data means transform can't have been fit.
                 pass

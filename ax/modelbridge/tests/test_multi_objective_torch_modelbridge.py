@@ -131,6 +131,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=False
         )
+        metrics = exp.optimization_config.objective.metrics
+        ref_point = {metrics[0].name: 0.0, metrics[1].name: 0.0}
         modelbridge = MultiObjectiveTorchModelBridge(
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
@@ -138,7 +140,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             transforms=[t1, t2],
             experiment=exp,
             data=exp.fetch_data(),
-            ref_point=[0.0, 0.0],
+            ref_point=ref_point,
         )
         self.assertIsNone(modelbridge._transformed_ref_point)
         exp = get_branin_experiment_with_multi_objective(
@@ -152,7 +154,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             transforms=[t1, t2],
             experiment=exp,
             data=exp.fetch_data(),
-            ref_point=[0.0, 0.0],
+            ref_point=ref_point,
         )
         self.assertIsNotNone(modelbridge._transformed_ref_point)
         self.assertEqual(2, len(modelbridge._transformed_ref_point))
@@ -174,7 +176,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             transforms=[t1, t2],
             experiment=exp,
             data=exp.fetch_data(),
-            ref_point=[0.0],
+            ref_point={"branin_b": 0.0},
         )
         self.assertEqual({"branin_a", "branin_b"}, modelbridge._metric_names)
         self.assertEqual(["branin_b"], modelbridge._objective_metric_names)
@@ -190,5 +192,5 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 model=MultiObjectiveBotorchModel(),
                 transforms=[],
                 data=exp.fetch_data(),
-                ref_point=[0.0],
+                ref_point={"branin_b": 0.0},
             )
