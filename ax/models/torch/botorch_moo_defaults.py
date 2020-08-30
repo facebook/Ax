@@ -24,6 +24,35 @@ from torch import Tensor
 DEFAULT_EHVI_MC_SAMPLES = 128
 
 
+def _get_weighted_mc_objective_and_ref_point(
+    objective_weights: Tensor, ref_point: Tensor
+) -> Tuple[WeightedMCMultiOutputObjective, Tensor]:
+    r"""Construct weighted objective and apply the weights to the reference point.
+
+    Args:
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        ref_point: A reference point from which to calculate pareto frontier
+            hypervolume. Points that do not dominate the ref_point contribute
+            nothing to hypervolume.
+
+    Returns:
+        A two-element tuple with the objective and reference point:
+
+            - The objective
+            - The reference point
+
+    """
+    # pyre-ignore [16]
+    nonzero_idcs = objective_weights.nonzero(as_tuple=False).view(-1)
+    objective_weights = objective_weights[nonzero_idcs]
+    objective = WeightedMCMultiOutputObjective(
+        weights=objective_weights, outcomes=nonzero_idcs.tolist()
+    )
+    ref_point = torch.mul(ref_point, objective_weights)
+    return objective, ref_point
+
+
 def get_EHVI(
     model: Model,
     objective_weights: Tensor,
@@ -62,13 +91,12 @@ def get_EHVI(
     if X_observed is None:
         raise ValueError("There are no feasible observed points.")
     # construct Objective module
-    objective = WeightedMCMultiOutputObjective(weights=objective_weights)
-    ref_point = torch.mul(ref_point, objective_weights[: len(ref_point)]).tolist()
+    objective, ref_point = _get_weighted_mc_objective_and_ref_point(
+        objective_weights=objective_weights, ref_point=ref_point
+    )
     if "Ys" not in kwargs:
         raise ValueError("Expected Hypervolume Improvement requires Ys argument")
     Y_tensor = squeeze_last_dim(torch.stack(kwargs.get("Ys")).transpose(0, 1))
-    Y_tensor = torch.mul(Y_tensor, torch.tensor(objective_weights))
-
     # For EHVI acquisition functions we pass the constraint transform directly.
     if outcome_constraints is None:
         cons_tfs = None
@@ -89,7 +117,7 @@ def get_EHVI(
         mc_samples=kwargs.get("mc_samples", DEFAULT_EHVI_MC_SAMPLES),
         qmc=kwargs.get("qmc", True),
         seed=torch.randint(1, 10000, (1,)).item(),
-        ref_point=ref_point,
+        ref_point=ref_point.tolist(),
         Y=Y_tensor,
     )
 
