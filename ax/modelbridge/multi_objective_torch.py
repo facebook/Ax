@@ -20,6 +20,7 @@ from ax.modelbridge.array import FIT_MODEL_ERROR
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchModel
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from torch import Tensor
@@ -210,6 +211,9 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
                 pass
         return obs_feats, obs_data, search_space
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Call expects argument `n`.
+    @copy_doc(TorchModelBridge.gen)
     def gen(
         self,
         n: int,
