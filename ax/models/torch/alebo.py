@@ -152,7 +152,7 @@ class ALEBOGP(FixedNoiseGP):
             return super().__call__(x)
         # Else, approximately integrate over batches with moment matching.
         # Take X as (b) x q x d, and expand to (b) x ns x q x d
-        if x.ndim > 3:  # pyre-ignore
+        if x.ndim > 3:
             raise ValueError("Don't know how to predict this shape")  # pragma: no cover
         x = x.unsqueeze(-3).expand(
             x.shape[:-2]
