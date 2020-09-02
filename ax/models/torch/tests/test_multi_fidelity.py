@@ -20,7 +20,6 @@ MULTI_FIDELITY_PATH = f"{MultiFidelityAcquisition.__module__}"
 
 class MultiFidelityAcquisitionTest(TestCase):
     def setUp(self):
-
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
 

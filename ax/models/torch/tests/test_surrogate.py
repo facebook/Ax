@@ -12,8 +12,9 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.models.gp_regression import SingleTaskGP
-from botorch.models.model import Model, TrainingData
+from botorch.models.model import Model
 from botorch.sampling.samplers import SobolQMCNormalSampler
+from botorch.utils.containers import TrainingData
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -30,16 +31,14 @@ class SurrogateTest(TestCase):
         self.mll_class = ExactMarginalLogLikelihood
         self.device = torch.device("cpu")
         self.dtype = torch.float
-        self.Xs = [
-            torch.tensor(
-                [[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=self.dtype, device=self.device
-            )
-        ]
-        self.Ys = [torch.tensor([[3.0], [4.0]], dtype=self.dtype, device=self.device)]
-        self.Yvars = [
-            torch.tensor([[0.0], [2.0]], dtype=self.dtype, device=self.device)
-        ]
-        self.training_data = TrainingData(Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars)
+        self.X = torch.tensor(
+            [[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=self.dtype, device=self.device
+        )
+
+        self.Y = torch.tensor([[3.0], [4.0]], dtype=self.dtype, device=self.device)
+        self.Yvar = torch.tensor([[0.0], [2.0]], dtype=self.dtype, device=self.device)
+
+        self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
         self.surrogate_kwargs = self.botorch_model_class.construct_inputs(
             self.training_data
         )
@@ -109,7 +108,7 @@ class SurrogateTest(TestCase):
         self.surrogate.construct(
             training_data=self.training_data, fidelity_features=self.fidelity_features
         )
-        mock_GP.assert_called_with(train_X=self.Xs[0], train_Y=self.Ys[0])
+        mock_GP.assert_called_with(train_X=self.X, train_Y=self.Y)
 
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
@@ -162,8 +161,8 @@ class SurrogateTest(TestCase):
         self.surrogate.construct(
             training_data=self.training_data, fidelity_features=self.fidelity_features
         )
-        self.surrogate.predict(X=self.Xs[0])
-        mock_predict.assert_called_with(model=self.surrogate.model, X=self.Xs[0])
+        self.surrogate.predict(X=self.X)
+        mock_predict.assert_called_with(model=self.surrogate.model, X=self.X)
 
     def test_best_in_sample_point(self):
         self.surrogate.construct(
@@ -178,7 +177,7 @@ class SurrogateTest(TestCase):
                     bounds=self.bounds, objective_weights=None
                 )
         with patch(
-            f"{SURROGATE_PATH}.best_in_sample_point", return_value=(self.Xs[0], 0.0)
+            f"{SURROGATE_PATH}.best_in_sample_point", return_value=(self.X, 0.0)
         ) as mock_best_in_sample:
             best_point, observed_value = self.surrogate.best_in_sample_point(
                 bounds=self.bounds,
@@ -189,7 +188,7 @@ class SurrogateTest(TestCase):
                 options=self.options,
             )
             mock_best_in_sample.assert_called_with(
-                Xs=self.training_data.Xs,
+                X=self.training_data.X,
                 model=self.surrogate,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,

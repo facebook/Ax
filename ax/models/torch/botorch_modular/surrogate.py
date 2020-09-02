@@ -21,7 +21,8 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.equality import Base
 from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
 from botorch.fit import fit_gpytorch_model
-from botorch.models.model import Model, TrainingData
+from botorch.models.model import Model
+from botorch.utils.containers import TrainingData
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -102,11 +103,11 @@ class Surrogate(Base):
 
     @property
     def dtype(self) -> torch.dtype:
-        return self.training_data.Xs[0].dtype
+        return self.training_data.X.dtype
 
     @property
     def device(self) -> torch.device:
-        return self.training_data.Xs[0].device
+        return self.training_data.X.device
 
     @classmethod
     def from_BoTorch(
@@ -124,22 +125,33 @@ class Surrogate(Base):
         surrogate._should_reconstruct = False
         return surrogate
 
-    def construct(
-        self, training_data: TrainingData, fidelity_features: List[int]
-    ) -> None:
-        # NOTE: `validate_training_data` to be implemented on BoTorch `Model`.
-        # self.botorch_model_class.validate_training_data(training_data)
-        self._training_data = training_data
+    def construct(self, training_data: TrainingData, **kwargs: Any) -> None:
+        """Constructs the underlying BoTorch `Model` using the training data.
 
+        Args:
+            training_data: Training data for the model (for one outcome for
+                the default `Surrogate`, with the exception of batched
+                multi-output case, where training data is formatted with just
+                one X and concatenated Ys).
+            **kwargs: Optional keyword arguments, expects any of:
+                - "fidelity_features": Indices of columns in X that represent
+                fidelity.
+        """
         if isabstract(self.botorch_model_class):
             raise TypeError("Cannot construct an abstract model.")
+        if not isinstance(training_data, TrainingData):
+            raise ValueError(
+                "Base `Surrogate` expects training data for single outcome."
+            )
+        kwargs = kwargs or {}
+        self._training_data = training_data[0]
 
         formatted_model_inputs = self.botorch_model_class.construct_inputs(
-            training_data=training_data, fidelity_features=fidelity_features
+            training_data=self.training_data,
+            fidelity_features=kwargs.get(Keys.FIDELITY_FEATURES),
         )
         # pyre-ignore[45]: Model isn't abstract per the check above.
         self._model = self.botorch_model_class(**formatted_model_inputs)
-        # TODO: Instantiate / pass kernel here somewhere.
 
     def fit(
         self,
@@ -192,7 +204,7 @@ class Surrogate(Base):
         values.
         """
         best_point_and_observed_value = best_in_sample_point(
-            Xs=self.training_data.Xs,
+            Xs=[self.training_data.X],
             # pyre-ignore[6]: `best_in_sample_point` currently expects a `TorchModel`
             # or a `NumpyModel` as `model` kwarg, but only uses them for `predict`
             # function, the signature for which is the same on this `Surrogate`.
@@ -230,11 +242,11 @@ class Surrogate(Base):
             # which has peculiar instantiation (wraps another acquisition fn.),
             # so need to figure out how to handle.
             # TODO (ref: https://fburl.com/diff/uneqb3n9)
-            raise NotImplementedError("Fixed features not yet implemented.")
+            raise NotImplementedError("Fixed features not yet supported.")
 
         options = options or {}
         acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
-            Xs=self.training_data.Xs,
+            Xs=[self.training_data.X],
             outcome_constraints=outcome_constraints,
             seed_inner=checked_cast_optional(int, options.get(Keys.SEED_INNER, None)),
             qmc=checked_cast(bool, options.get(Keys.QMC, True)),

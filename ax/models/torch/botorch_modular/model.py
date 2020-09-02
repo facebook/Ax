@@ -10,11 +10,13 @@ import torch
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch import get_rounding_func
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.surrogate import Surrogate, TrainingData
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
     choose_mll_class,
     choose_model_class,
+    supports_batched_multioutput,
+    validate_data_format,
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchModel
@@ -23,6 +25,7 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import Base
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.utils.containers import TrainingData
 from torch import Tensor
 
 
@@ -106,9 +109,15 @@ class BoTorchModel(TorchModel, Base):
         target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
+        # Ensure that parts of data all have equal lengths.
+        validate_data_format(Xs=Xs, Ys=Ys, Yvars=Yvars, metric_names=metric_names)
+
+        # Choose `Surrogate` and undelying `Model` based on properties of data.
         if not self._surrogate:
             model_class = choose_model_class(
-                training_data=TrainingData(Xs=Xs, Ys=Ys, Yvars=Yvars),
+                Xs=Xs,
+                Ys=Ys,
+                Yvars=Yvars,
                 task_features=task_features,
                 fidelity_features=fidelity_features,
             )
@@ -120,12 +129,29 @@ class BoTorchModel(TorchModel, Base):
             self._surrogate = Surrogate(
                 botorch_model_class=model_class, mll_class=mll_class
             )
+
+        # Construct `TrainingData` based on properties of data and type of `Model`.
+        if len(Xs) == len(Ys) == 1:
+            # Just one outcome, can use single model.
+            training_data = TrainingData(X=Xs[0], Y=Ys[0], Yvar=Yvars[0])
+        elif supports_batched_multioutput(
+            model_class=self.surrogate.botorch_model_class
+        ) and all(torch.equal(Xs[0], X) for X in Xs[1:]):
+            # All Xs are the same and model supports batched multioutput.
+            training_data = TrainingData(
+                X=Xs[0], Y=torch.cat(Ys, dim=-1), Yvar=torch.cat(Yvars, dim=-1)
+            )
+        else:
+            # TODO: This will be case for `ListSurrogate`.
+            raise NotImplementedError("`ModelListGP` not yet supported.")
+
+        # Fit the model.
         if self.surrogate_fit_options.get(
             Keys.REFIT_ON_UPDATE, True
         ) and not self.surrogate_fit_options.get(Keys.WARM_START_REFITTING, True):
             self.surrogate_fit_options[Keys.STATE_DICT] = None
         self.surrogate.fit(
-            training_data=TrainingData(Xs=Xs, Ys=Ys, Yvars=Yvars),
+            training_data=training_data,
             bounds=bounds,
             task_features=task_features,
             feature_names=feature_names,

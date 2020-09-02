@@ -39,10 +39,10 @@ class BoTorchModelTest(TestCase):
             acquisition_options=self.acquisition_options,
         )
 
-        self.Xs = [torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])]
-        self.Ys = [torch.tensor([[3.0], [4.0]])]
-        self.Yvars = [torch.tensor([[0.0], [2.0]])]
-        self.training_data = TrainingData(Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars)
+        self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
+        self.Y = torch.tensor([[3.0], [4.0]])
+        self.Yvar = torch.tensor([[0.0], [2.0]])
+        self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
         self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
         self.task_features = []
         self.feature_names = ["x1", "x2", "x3"]
@@ -80,8 +80,8 @@ class BoTorchModelTest(TestCase):
     @patch(f"{SURROGATE_PATH}.Surrogate.fit")
     def test_fit(self, mock_fit):
         self.model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
+            X=self.X,
+            Y=self.Y,
             Yvars=self.Yvars,
             bounds=self.bounds,
             task_features=self.task_features,
@@ -106,8 +106,8 @@ class BoTorchModelTest(TestCase):
 
     @patch(f"{SURROGATE_PATH}.Surrogate.predict")
     def test_predict(self, mock_predict):
-        self.model.predict(X=self.Xs[0])
-        mock_predict.assert_called_with(X=self.Xs[0])
+        self.model.predict(X=self.X)
+        mock_predict.assert_called_with(X=self.X)
 
     @patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",

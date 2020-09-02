@@ -101,7 +101,7 @@ class Acquisition(Base):
         self.surrogate = surrogate
         self.options = options or {}
         X_pending, X_observed = _get_X_pending_and_observed(
-            Xs=self.surrogate.training_data.Xs,
+            Xs=[self.surrogate.training_data.X],
             pending_observations=pending_observations,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,

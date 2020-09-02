@@ -4,17 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from inspect import isclass
 from typing import Dict, List, Optional, Type
 
 import torch
-from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
+from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
-from botorch.utils.containers import TrainingData
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
@@ -25,12 +25,21 @@ MIN_OBSERVED_NOISE_LEVEL = 1e-7
 
 
 def choose_model_class(
-    training_data: TrainingData, task_features: List[int], fidelity_features: List[int]
+    Xs: List[Tensor],
+    Ys: List[Tensor],
+    Yvars: List[Tensor],
+    task_features: List[int],
+    fidelity_features: List[int],
 ) -> Type[Model]:
-    r"""Chooses a BoTorch `Model` using the given data.
+    """Chooses a BoTorch `Model` using the given data.
 
     Args:
-        training_data: NamedTuple with Xs, Ys, and Yvars.
+        Xs: List of tensors, each representing observation features for a
+            given outcome.
+        Ys: List of tensors, each representing observation data for a given
+            outcome, where outcomes are in the same order as in Xs.
+        Yvars: List of tensors, each representing observation noise for a
+            given outcome, where outcomes are in the same order as in Xs.
         task_features: List of columns of X that are tasks.
         fidelity_features: List of columns of X that are fidelity parameters.
 
@@ -55,10 +64,8 @@ def choose_model_class(
 
     # NOTE: In the current setup, `task_feature = None` always.
     if task_feature is None:
-        Yvars = torch.cat(not_none(training_data.Yvars)).clamp_min_(
-            MIN_OBSERVED_NOISE_LEVEL
-        )
-        is_nan = torch.isnan(Yvars)
+        Yvars_cat = torch.cat(Yvars).clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
+        is_nan = torch.isnan(Yvars_cat)
         any_nan_Yvar = torch.any(is_nan)
         all_nan_Yvar = torch.all(is_nan)
         if any_nan_Yvar and not all_nan_Yvar:
@@ -104,3 +111,26 @@ def choose_botorch_acqf_class() -> Type[AcquisitionFunction]:
     # of the attributes of `BoTorchModel` or kwargs passed to
     # `BoTorchModel.gen` to intelligently select acquisition function.
     return qNoisyExpectedImprovement
+
+
+def supports_batched_multioutput(model_class: Type[Model]) -> bool:
+    """Whether a given BoTorch `Model` class supports batched
+    multioutput."""
+    if not isclass(model_class):
+        raise ValueError(
+            f"Expected `Type[Model]`, got: {model_class} "
+            f"(type: {type(model_class)})."
+        )
+    return issubclass(model_class, BatchedMultiOutputGPyTorchModel)
+
+
+def validate_data_format(
+    Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor], metric_names: List[str]
+) -> None:
+    """Validates that Xs, Ys, Yvars, and metric names all have equal lengths."""
+    if len({len(Xs), len(Ys), len(Yvars), len(metric_names)}) > 1:
+        raise ValueError(
+            "Lengths of Xs, Ys, Yvars, and metric_names must match. Your "
+            f"inputs have lengths {len(Xs)}, {len(Ys)}, {len(Yvars)}, and "
+            f"{len(metric_names)}, respectively."
+        )

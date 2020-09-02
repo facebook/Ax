@@ -18,7 +18,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
 from botorch.models.gp_regression import SingleTaskGP
-from botorch.models.model import TrainingData
+from botorch.utils.containers import TrainingData
 
 
 ACQUISITION_PATH = f"{Acquisition.__module__}"
@@ -30,10 +30,10 @@ class AcquisitionSetUp:
     def setUp(self):
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
-        self.Xs = [torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])]
-        self.Ys = [torch.tensor([[3.0], [4.0]])]
-        self.Yvars = [torch.tensor([[0.0], [2.0]])]
-        self.training_data = TrainingData(Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars)
+        self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
+        self.Y = torch.tensor([[3.0], [4.0]])
+        self.Yvar = torch.tensor([[0.0], [2.0]])
+        self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
         self.fidelity_features = [2]
         self.surrogate.construct(
             training_data=self.training_data, fidelity_features=self.fidelity_features

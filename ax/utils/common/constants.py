@@ -37,6 +37,7 @@ class Keys(str, Enum):
     CURRENT_VALUE = "current_value"
     EXPAND = "expand"
     EXPECTED_ACQF_VAL = "expected_acquisition_value"
+    FIDELITY_FEATURES = "fidelity_features"
     FIDELITY_WEIGHTS = "fidelity_weights"
     FRAC_RANDOM = "frac_random"
     IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF = "immutable_search_space_and_opt_config"
