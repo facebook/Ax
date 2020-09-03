@@ -16,6 +16,7 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.centered_unit_x import CenteredUnitX
+from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.standardize_y import StandardizeY
@@ -50,7 +51,7 @@ def get_ALEBO(
         search_space=search_space,
         data=data,
         model=ALEBO(B=B, **model_kwargs),
-        transforms=ALEBO_X_trans + [StandardizeY],  # pyre-ignore
+        transforms=ALEBO_X_trans + [Derelativize, StandardizeY],  # pyre-ignore
         torch_dtype=B.dtype,
         torch_device=B.device,
     )
