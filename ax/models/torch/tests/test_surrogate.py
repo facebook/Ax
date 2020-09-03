@@ -9,6 +9,7 @@ from unittest.mock import patch
 import torch
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.models.gp_regression import SingleTaskGP
@@ -89,6 +90,18 @@ class SurrogateTest(TestCase):
             "Underlying BoTorch `Model` has not yet received its training_data.",
         ):
             self.surrogate.training_data
+
+    def test_dtype_property(self):
+        self.surrogate.construct(
+            training_data=self.training_data, fidelity_features=self.fidelity_features
+        )
+        self.assertEqual(self.dtype, self.surrogate.dtype)
+
+    def test_device_property(self):
+        self.surrogate.construct(
+            training_data=self.training_data, fidelity_features=self.fidelity_features
+        )
+        self.assertEqual(self.device, self.surrogate.device)
 
     def test_from_BoTorch(self):
         surrogate = Surrogate.from_BoTorch(
@@ -188,7 +201,7 @@ class SurrogateTest(TestCase):
                 options=self.options,
             )
             mock_best_in_sample.assert_called_with(
-                X=self.training_data.X,
+                Xs=[self.training_data.X],
                 model=self.surrogate,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -205,7 +218,7 @@ class SurrogateTest(TestCase):
     )
     @patch(
         f"{SURROGATE_PATH}.pick_best_out_of_sample_point_acqf_class",
-        return_value=(qSimpleRegret, {"sampler": SobolQMCNormalSampler}),
+        return_value=(qSimpleRegret, {Keys.SAMPLER: SobolQMCNormalSampler}),
     )
     def test_best_out_of_sample_point(
         self, mock_best_point_util, mock_acqf_optimize, mock_acqf_init
@@ -238,7 +251,7 @@ class SurrogateTest(TestCase):
             linear_constraints=self.linear_constraints,
             fixed_features=None,
             target_fidelities=self.target_fidelities,
-            options={"sampler": SobolQMCNormalSampler},
+            options={Keys.SAMPLER: SobolQMCNormalSampler},
         )
         self.assertTrue(torch.equal(candidate, torch.tensor([0.0])))
         self.assertTrue(torch.equal(acqf_value, torch.tensor([1.0])))

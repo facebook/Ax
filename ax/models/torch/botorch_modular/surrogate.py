@@ -140,11 +140,11 @@ class Surrogate(Base):
         if isabstract(self.botorch_model_class):
             raise TypeError("Cannot construct an abstract model.")
         if not isinstance(training_data, TrainingData):
-            raise ValueError(
+            raise ValueError(  # pragma: no cover
                 "Base `Surrogate` expects training data for single outcome."
             )
         kwargs = kwargs or {}
-        self._training_data = training_data[0]
+        self._training_data = training_data
 
         formatted_model_inputs = self.botorch_model_class.construct_inputs(
             training_data=self.training_data,
@@ -286,12 +286,14 @@ class Surrogate(Base):
             - tensor of points in the feature space,
             - tensor of corresponding (multiple) outcomes.
         """
-        pass
+        raise NotImplementedError(
+            "Pareto frontier not yet implemented."
+        )  # pragma: no cover
 
     def compute_diagnostics(self) -> Dict[str, Any]:
         """Computes model diagnostics like cross-validation measure of fit, etc.
         """
-        return {}
+        return {}  # pragma: no cover
 
     def update(
         self,

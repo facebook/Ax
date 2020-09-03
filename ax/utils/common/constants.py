@@ -43,6 +43,7 @@ class Keys(str, Enum):
     IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF = "immutable_search_space_and_opt_config"
     MAXIMIZE = "maximize"
     METADATA = "metadata"
+    NUM_FANTASIES = "num_fantasies"
     NUM_INNER_RESTARTS = "num_inner_restarts"
     NUM_RESTARTS = "num_restarts"
     NUM_TRACE_OBSERVATIONS = "num_trace_observations"

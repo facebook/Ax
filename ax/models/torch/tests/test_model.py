@@ -9,22 +9,25 @@ from unittest.mock import ANY, patch
 import torch
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kg import KnowledgeGradient
-from ax.models.torch.botorch_modular.mes import MaxValueEntropySearch
 from ax.models.torch.botorch_modular.model import (
     BoTorchModel,
     construct_acquisition_and_optimizer_options,
 )
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.utils import choose_model_class
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
-from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
+from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.containers import TrainingData
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 
 
 CURRENT_PATH = f"{__name__}"
 MODEL_PATH = f"{BoTorchModel.__module__}"
 SURROGATE_PATH = f"{Surrogate.__module__}"
+UTILS_PATH = f"{choose_model_class.__module__}"
 
 
 class BoTorchModelTest(TestCase):
@@ -32,11 +35,18 @@ class BoTorchModelTest(TestCase):
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
         self.acquisition_class = KnowledgeGradient
-        self.acquisition_options = {"num_fantasies": 64}
+        self.botorch_acqf_class = qKnowledgeGradient
+        self.acquisition_options = {Keys.NUM_FANTASIES: 64}
+        self.surrogate_fit_options = {
+            Keys.REFIT_ON_UPDATE: True,
+            Keys.STATE_DICT: {"non-empty": "non-empty"},
+            Keys.WARM_START_REFITTING: False,
+        }
         self.model = BoTorchModel(
             surrogate=self.surrogate,
             acquisition_class=self.acquisition_class,
             acquisition_options=self.acquisition_options,
+            surrogate_fit_options=self.surrogate_fit_options,
         )
 
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
@@ -51,8 +61,8 @@ class BoTorchModelTest(TestCase):
         self.target_fidelities = {1: 1.0}
         self.candidate_metadata = []
 
-        self.optimizer_options = {"num_restarts": 40, "raw_samples": 1024}
-        self.model_gen_options = {"optimizer_kwargs": self.optimizer_options}
+        self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
+        self.model_gen_options = {Keys.OPTIMIZER_KWARGS: self.optimizer_options}
         self.objective_weights = torch.tensor([1.0])
         self.outcome_constraints = None
         self.linear_constraints = None
@@ -64,25 +74,39 @@ class BoTorchModelTest(TestCase):
         # Default model with no specifications.
         model = BoTorchModel()
         self.assertEqual(model.acquisition_class, Acquisition)
+        # Model that specifies `botorch_acqf_class`.
+        model = BoTorchModel(botorch_acqf_class=qExpectedImprovement)
+        self.assertEqual(model.acquisition_class, Acquisition)
+        self.assertEqual(model.botorch_acqf_class, qExpectedImprovement)
+        # Model with `Acquisition` that specifies a `default_botorch_acqf_class`.
+        model = BoTorchModel(acquisition_class=KnowledgeGradient)
+        self.assertEqual(model.acquisition_class, KnowledgeGradient)
+        self.assertEqual(model.botorch_acqf_class, qKnowledgeGradient)
+
+    def test_surrogate_property(self):
+        self.assertEqual(self.surrogate, self.model.surrogate)
+        self.model._surrogate = None
+        with self.assertRaisesRegex(ValueError, "Surrogate has not yet been set."):
+            self.model.surrogate
+
+    def test_botorch_acqf_class_property(self):
+        self.assertEqual(self.botorch_acqf_class, self.model.botorch_acqf_class)
+        self.model._botorch_acqf_class = None
         with self.assertRaisesRegex(
             ValueError, "`AcquisitionFunction` has not yet been set."
         ):
-            model.botorch_acqf_class
-        # Model that specifies `botorch_acqf_class`.
-        model = BoTorchModel(botorch_acqf_class=qKnowledgeGradient)
-        self.assertEqual(model.acquisition_class, Acquisition)
-        self.assertEqual(model.botorch_acqf_class, qKnowledgeGradient)
-        # Model with `Acquisition` that specifies a `default_botorch_acqf_class`.
-        model = BoTorchModel(acquisition_class=MaxValueEntropySearch)
-        self.assertEqual(model.acquisition_class, MaxValueEntropySearch)
-        self.assertEqual(model.botorch_acqf_class, qMaxValueEntropy)
+            self.model.botorch_acqf_class
 
     @patch(f"{SURROGATE_PATH}.Surrogate.fit")
-    def test_fit(self, mock_fit):
+    @patch(f"{MODEL_PATH}.choose_model_class", return_value=SingleTaskGP)
+    @patch(f"{MODEL_PATH}.choose_mll_class", return_value=ExactMarginalLogLikelihood)
+    def test_fit(self, mock_choose_mll_class, mock_choose_model_class, mock_fit):
+        # If surrogate is not yet set, initialize it with dispatcher functions.
+        self.model._surrogate = None
         self.model.fit(
-            X=self.X,
-            Y=self.Y,
-            Yvars=self.Yvars,
+            Xs=[self.X],
+            Ys=[self.Y],
+            Yvars=[self.Yvar],
             bounds=self.bounds,
             task_features=self.task_features,
             feature_names=self.feature_names,
@@ -91,6 +115,22 @@ class BoTorchModelTest(TestCase):
             target_fidelities=self.target_fidelities,
             candidate_metadata=self.candidate_metadata,
         )
+        # `choose_model_class` is called.
+        mock_choose_model_class.assert_called_with(
+            Xs=[self.X],
+            Ys=[self.Y],
+            Yvars=[self.Yvar],
+            task_features=self.task_features,
+            fidelity_features=self.fidelity_features,
+        )
+        # `choose_mll_class` is called.
+        mock_choose_mll_class.assert_called_with(
+            model_class=SingleTaskGP,
+            state_dict={"non-empty": "non-empty"},
+            refit=self.surrogate_fit_options[Keys.REFIT_ON_UPDATE],
+        )
+        # Since we want to refit on updates but not warm start refit, we clear the
+        # state dict.
         mock_fit.assert_called_with(
             training_data=self.training_data,
             bounds=self.bounds,
@@ -116,8 +156,10 @@ class BoTorchModelTest(TestCase):
     @patch(f"{CURRENT_PATH}.KnowledgeGradient")
     @patch(f"{MODEL_PATH}.get_rounding_func", return_value="func")
     @patch(f"{MODEL_PATH}._to_inequality_constraints", return_value=[])
+    @patch(f"{MODEL_PATH}.choose_botorch_acqf_class", return_value=qKnowledgeGradient)
     def test_gen(
         self,
+        mock_choose_botorch_acqf_class,
         mock_inequality_constraints,
         mock_rounding,
         mock_kg,
@@ -135,6 +177,7 @@ class BoTorchModelTest(TestCase):
         model.surrogate.construct(
             training_data=self.training_data, fidelity_features=self.fidelity_features
         )
+        model._botorch_acqf_class = None
         model.gen(
             n=1,
             bounds=self.bounds,
@@ -152,6 +195,9 @@ class BoTorchModelTest(TestCase):
             acqf_options=self.acquisition_options,
             model_gen_options=self.model_gen_options,
         )
+        # Assert `choose_botorch_acqf_class` is called
+        mock_choose_botorch_acqf_class.assert_called_once()
+        self.assertEqual(model._botorch_acqf_class, qKnowledgeGradient)
         # Assert `acquisition_class` called with kwargs
         mock_kg.assert_called_with(
             surrogate=self.surrogate,
@@ -174,15 +220,21 @@ class BoTorchModelTest(TestCase):
             optimizer_options=self.optimizer_options,
         )
 
-    def test_construct_acquisition_and_optimizer_options(self):
-        # two dicts for `Acquisition` should be concatenated
-        acqf_options = {"num_fantasies": 64}
+    def test_best_point(self):
+        with self.assertRaises(NotImplementedError):
+            self.model.best_point(
+                bounds=self.bounds, objective_weights=self.objective_weights
+            )
 
-        acquisition_function_kwargs = {"current_value": torch.tensor([1.0])}
-        optimizer_kwargs = {"num_restarts": 40, "raw_samples": 1024}
+    def test_construct_acquisition_and_optimizer_options(self):
+        # Two dicts for `Acquisition` should be concatenated
+        acqf_options = {Keys.NUM_FANTASIES: 64}
+
+        acquisition_function_kwargs = {Keys.CURRENT_VALUE: torch.tensor([1.0])}
+        optimizer_kwargs = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
         model_gen_options = {
-            "acquisition_function_kwargs": acquisition_function_kwargs,
-            "optimizer_kwargs": optimizer_kwargs,
+            Keys.ACQF_KWARGS: acquisition_function_kwargs,
+            Keys.OPTIMIZER_KWARGS: optimizer_kwargs,
         }
 
         (
@@ -193,6 +245,6 @@ class BoTorchModelTest(TestCase):
         )
         self.assertEqual(
             final_acq_options,
-            {"num_fantasies": 64, "current_value": torch.tensor([1.0])},
+            {Keys.NUM_FANTASIES: 64, Keys.CURRENT_VALUE: torch.tensor([1.0])},
         )
         self.assertEqual(final_opt_options, optimizer_kwargs)

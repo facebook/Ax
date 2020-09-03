@@ -10,6 +10,7 @@ from unittest.mock import patch
 import torch
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.objective import LinearMCObjective
 from botorch.models.gp_regression import SingleTaskGP
@@ -70,7 +71,7 @@ class AcquisitionTest(TestCase):
             (torch.tensor([0, 1]), torch.tensor([-1.0, 1.0]), 1)
         ]
         self.rounding_func = lambda x: x
-        self.optimizer_options = {"num_restarts": 40, "raw_samples": 1024}
+        self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
 
     @patch(
         f"{ACQUISITION_PATH}._get_X_pending_and_observed",
@@ -120,7 +121,7 @@ class AcquisitionTest(TestCase):
 
         # Check `_get_X_pending_and_observed` kwargs
         mock_get_X.assert_called_with(
-            X=self.training_data.X,
+            Xs=[self.training_data.X],
             pending_observations=self.pending_observations,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
@@ -135,7 +136,7 @@ class AcquisitionTest(TestCase):
             outcome_constraints=self.outcome_constraints,
         )
         mock_subset_model.reset_mock()
-        self.options["subset_model"] = False
+        self.options[Keys.SUBSET_MODEL] = False
         acquisition = Acquisition(
             surrogate=self.surrogate,
             bounds=self.bounds,
@@ -172,7 +173,7 @@ class AcquisitionTest(TestCase):
         # Check `compute_data_dependencies` kwargs
         mock_compute_data_deps.assert_called_with(training_data=self.training_data)
         # Check final `acqf` creation
-        model_deps = {"current_value": 1.2}
+        model_deps = {Keys.CURRENT_VALUE: 1.2}
         data_deps = {}
         mock_botorch_acqf_class.assert_called_with(
             model=self.acquisition.surrogate.model,

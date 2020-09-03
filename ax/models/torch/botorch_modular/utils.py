@@ -53,14 +53,15 @@ def choose_model_class(
 
     # NOTE: We currently do not support `task_features`. This code block will only
     # be relevant once we support `task_features`.
-    if len(task_features) > 1:
-        raise NotImplementedError(
-            f"This model only supports 1 task feature (got {task_features})"
-        )
-    elif len(task_features) == 1:
-        task_feature = task_features[0]
-    else:
-        task_feature = None
+    # if len(task_features) > 1:
+    #     raise NotImplementedError(
+    #         f"This model only supports 1 task feature (got {task_features})"
+    #     )
+    # elif len(task_features) == 1:
+    #     task_feature = task_features[0]
+    # else:
+    #     task_feature = None
+    task_feature = None
 
     # NOTE: In the current setup, `task_feature = None` always.
     if task_feature is None:
@@ -79,7 +80,7 @@ def choose_model_class(
             return SingleTaskGP
         return FixedNoiseGP
     # TODO: Replace ValueError with `ModelListGP`.
-    raise ValueError("Unexpected training data format. Cannot choose `Model`.")
+    # raise ValueError("Unexpected training data format. Cannot choose `Model`.")
 
 
 def choose_mll_class(
@@ -116,7 +117,7 @@ def choose_botorch_acqf_class() -> Type[AcquisitionFunction]:
 def supports_batched_multioutput(model_class: Type[Model]) -> bool:
     """Whether a given BoTorch `Model` class supports batched
     multioutput."""
-    if not isclass(model_class):
+    if not isclass(model_class):  # pragma: no cover
         raise ValueError(
             f"Expected `Type[Model]`, got: {model_class} "
             f"(type: {type(model_class)})."
