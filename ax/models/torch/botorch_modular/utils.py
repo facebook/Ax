@@ -5,9 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from inspect import isclass
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Optional, Tuple, Type
 
 import torch
+from ax.core.types import TConfig
+from ax.utils.common.constants import Keys
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
@@ -15,6 +18,7 @@ from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.utils.containers import TrainingData
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
@@ -114,15 +118,44 @@ def choose_botorch_acqf_class() -> Type[AcquisitionFunction]:
     return qNoisyExpectedImprovement
 
 
-def supports_batched_multioutput(model_class: Type[Model]) -> bool:
-    """Whether a given BoTorch `Model` class supports batched
-    multioutput."""
+def construct_training_data(
+    Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor], model_class: Type[Model]
+) -> TrainingData:
+    """Construct a `TrainingData` object based on sizes of Xs, Ys, and Yvars, and
+    the type of model, for which the training data is intended.
+
+    NOTE: All four outputs are organized as lists over outcomes. E.g. if there are two
+    outcomes, 'x' and 'y', the Xs are formatted like so: `[Xs_x_ndarray, Xs_y_ndarray]`.
+    We specifically do not assume that every point is observed for every outcome.
+    This means that the array for each of those outcomes may be different, and in
+    particular could have a different length (e.g. if a particular arm was observed
+    only for half of the outcomes, it would be present in half of the arrays in the
+    list but not the other half.)
+
+    Returns:
+        A `TrainingData` object with training data for single outcome or with
+        batched multi-output training data if appropriate for given model and if
+        all X inputs in Xs are equal.
+    """
     if not isclass(model_class):  # pragma: no cover
         raise ValueError(
             f"Expected `Type[Model]`, got: {model_class} "
             f"(type: {type(model_class)})."
         )
-    return issubclass(model_class, BatchedMultiOutputGPyTorchModel)
+    if len(Xs) == len(Ys) == 1:
+        # Just one outcome, can use single model.
+        return TrainingData(X=Xs[0], Y=Ys[0], Yvar=Yvars[0])
+    elif issubclass(model_class, BatchedMultiOutputGPyTorchModel) and all(
+        torch.equal(Xs[0], X) for X in Xs[1:]
+    ):
+        # All Xs are the same and model supports batched multioutput.
+        return TrainingData(
+            X=Xs[0], Y=torch.cat(Ys, dim=-1), Yvar=torch.cat(Yvars, dim=-1)
+        )
+    elif model_class is ModelListGP:  # pragma: no cover
+        # TODO: This will be case for `ListSurrogate`.
+        raise NotImplementedError("`ModelListGP` not yet supported.")
+    raise ValueError(f"Unexpected training data format for {model_class}.")
 
 
 def validate_data_format(
@@ -130,8 +163,28 @@ def validate_data_format(
 ) -> None:
     """Validates that Xs, Ys, Yvars, and metric names all have equal lengths."""
     if len({len(Xs), len(Ys), len(Yvars), len(metric_names)}) > 1:
-        raise ValueError(
+        raise ValueError(  # pragma: no cover
             "Lengths of Xs, Ys, Yvars, and metric_names must match. Your "
             f"inputs have lengths {len(Xs)}, {len(Ys)}, {len(Yvars)}, and "
             f"{len(metric_names)}, respectively."
         )
+
+
+def construct_acquisition_and_optimizer_options(
+    acqf_options: TConfig, model_gen_options: Optional[TConfig] = None
+) -> Tuple[TConfig, TConfig]:
+    """Extract acquisition and optimizer options from `model_gen_options`."""
+    acq_options = acqf_options.copy()
+    opt_options = {}
+
+    if model_gen_options:
+        acq_options.update(
+            checked_cast(dict, model_gen_options.get(Keys.ACQF_KWARGS, {}))
+        )
+        # TODO: Add this if all acq. functions accept the `subset_model`
+        # kwarg or opt for kwarg filtering.
+        # acq_options[SUBSET_MODEL] = model_gen_options.get(SUBSET_MODEL)
+        opt_options = checked_cast(
+            dict, model_gen_options.get(Keys.OPTIMIZER_KWARGS, {})
+        ).copy()
+    return acq_options, opt_options

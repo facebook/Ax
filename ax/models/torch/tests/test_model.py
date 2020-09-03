@@ -9,10 +9,7 @@ from unittest.mock import ANY, patch
 import torch
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kg import KnowledgeGradient
-from ax.models.torch.botorch_modular.model import (
-    BoTorchModel,
-    construct_acquisition_and_optimizer_options,
-)
+from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class
 from ax.utils.common.constants import Keys
@@ -225,26 +222,3 @@ class BoTorchModelTest(TestCase):
             self.model.best_point(
                 bounds=self.bounds, objective_weights=self.objective_weights
             )
-
-    def test_construct_acquisition_and_optimizer_options(self):
-        # Two dicts for `Acquisition` should be concatenated
-        acqf_options = {Keys.NUM_FANTASIES: 64}
-
-        acquisition_function_kwargs = {Keys.CURRENT_VALUE: torch.tensor([1.0])}
-        optimizer_kwargs = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
-        model_gen_options = {
-            Keys.ACQF_KWARGS: acquisition_function_kwargs,
-            Keys.OPTIMIZER_KWARGS: optimizer_kwargs,
-        }
-
-        (
-            final_acq_options,
-            final_opt_options,
-        ) = construct_acquisition_and_optimizer_options(
-            acqf_options=acqf_options, model_gen_options=model_gen_options
-        )
-        self.assertEqual(
-            final_acq_options,
-            {Keys.NUM_FANTASIES: 64, Keys.CURRENT_VALUE: torch.tensor([1.0])},
-        )
-        self.assertEqual(final_opt_options, optimizer_kwargs)

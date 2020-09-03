@@ -15,7 +15,8 @@ from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
     choose_mll_class,
     choose_model_class,
-    supports_batched_multioutput,
+    construct_acquisition_and_optimizer_options,
+    construct_training_data,
     validate_data_format,
 )
 from ax.models.torch.utils import _to_inequality_constraints
@@ -25,7 +26,6 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import Base
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.utils.containers import TrainingData
 from torch import Tensor
 
 
@@ -131,19 +131,9 @@ class BoTorchModel(TorchModel, Base):
             )
 
         # Construct `TrainingData` based on properties of data and type of `Model`.
-        if len(Xs) == len(Ys) == 1:
-            # Just one outcome, can use single model.
-            training_data = TrainingData(X=Xs[0], Y=Ys[0], Yvar=Yvars[0])
-        elif supports_batched_multioutput(
-            model_class=self.surrogate.botorch_model_class
-        ) and all(torch.equal(Xs[0], X) for X in Xs[1:]):
-            # All Xs are the same and model supports batched multioutput.
-            training_data = TrainingData(
-                X=Xs[0], Y=torch.cat(Ys, dim=-1), Yvar=torch.cat(Yvars, dim=-1)
-            )
-        else:
-            # TODO: This will be case for `ListSurrogate`.
-            raise NotImplementedError("`ModelListGP` not yet supported.")
+        training_data = construct_training_data(
+            Xs=Xs, Ys=Ys, Yvars=Yvars, model_class=self.surrogate.botorch_model_class
+        )
 
         # Fit the model.
         if self.surrogate_fit_options.get(
@@ -242,23 +232,3 @@ class BoTorchModel(TorchModel, Base):
         target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Optional[Tensor]:
         raise NotImplementedError("Coming soon.")
-
-
-def construct_acquisition_and_optimizer_options(
-    acqf_options: TConfig, model_gen_options: Optional[TConfig] = None
-) -> Tuple[TConfig, TConfig]:
-    """Extract acquisition and optimizer options from `model_gen_options`."""
-    acq_options = acqf_options.copy()
-    opt_options = {}
-
-    if model_gen_options:
-        acq_options.update(
-            checked_cast(dict, model_gen_options.get(Keys.ACQF_KWARGS, {}))
-        )
-        # TODO: Add this if all acq. functions accept the `subset_model`
-        # kwarg or opt for kwarg filtering.
-        # acq_options[SUBSET_MODEL] = model_gen_options.get(SUBSET_MODEL)
-        opt_options = checked_cast(
-            dict, model_gen_options.get(Keys.OPTIMIZER_KWARGS, {})
-        ).copy()
-    return acq_options, opt_options
