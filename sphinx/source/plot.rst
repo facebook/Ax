@@ -67,6 +67,18 @@ Model Diagnostics
     :undoc-members:
     :show-inheritance:
 
+Pareto Plots
+~~~~~~~~~~~~~~~~~~~
+.. automodule:: ax.plot.pareto_frontier
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: ax.plot.pareto_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Scatter Plots
 ~~~~~~~~~~~~~~~~~~~
 
