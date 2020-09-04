@@ -246,7 +246,6 @@ class Surrogate(Base):
 
         options = options or {}
         acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
-            Xs=[self.training_data.X],
             outcome_constraints=outcome_constraints,
             seed_inner=checked_cast_optional(int, options.get(Keys.SEED_INNER, None)),
             qmc=checked_cast(bool, options.get(Keys.QMC, True)),

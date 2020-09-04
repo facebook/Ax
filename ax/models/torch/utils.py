@@ -391,7 +391,6 @@ def get_out_of_sample_best_point_acqf(
         )
 
     acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
-        Xs=Xs,
         outcome_constraints=outcome_constraints,
         mc_samples=mc_samples,
         qmc=qmc,
@@ -427,7 +426,6 @@ def get_out_of_sample_best_point_acqf(
 
 
 def pick_best_out_of_sample_point_acqf_class(
-    Xs: List[Tensor],
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     mc_samples: int = 512,
     qmc: bool = True,
