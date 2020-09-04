@@ -176,7 +176,7 @@ def choose_generation_strategy(
     if not no_bayesian_optimization and _should_use_gp(
         search_space=search_space, num_trials=num_trials
     ):
-        if not enforce_sequential_optimization and (
+        if not enforce_sequential_optimization and (  # pragma: no cover
             max_parallelism_override or max_parallelism_cap
         ):
             logger.info(

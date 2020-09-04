@@ -222,6 +222,9 @@ class BoTorchModel(TorchModel, Base):
     ) -> Optional[Tensor]:
         raise NotImplementedError("Coming soon.")
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
+    @copy_doc(TorchModel.evaluate_acquisition_function)
     def evaluate_acquisition_function(
         self,
         X: Tensor,

@@ -750,6 +750,30 @@ class ModelBridge(ABC):
         """
         raise NotImplementedError  # pragma: no cover
 
+    def evaluate_acquisition_function(
+        self, observation_features: List[ObservationFeatures]
+    ) -> List[float]:
+        """Evaluate the acquisition function for given set of observation
+        features.
+
+        Args:
+            observation_features: A list of observation features, representing
+                parameterizations, for which to evaluate the acquisition function.
+
+        Returns:
+            A list of acquisition function values, in the same order as the
+            input observation features.
+        """
+        obs_feats = deepcopy(observation_features)
+        for t in self.transforms.values():
+            obs_feats = t.transform_observation_features(obs_feats)
+        return self._evaluate_acquisition_function(observation_features=obs_feats)
+
+    def _evaluate_acquisition_function(
+        self, observation_features: List[ObservationFeatures]
+    ) -> List[float]:
+        raise NotImplementedError  # pragma: no cover
+
     def _set_kwargs_to_save(
         self,
         model_key: str,

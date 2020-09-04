@@ -147,10 +147,11 @@ class ArrayModelBridge(ModelBridge):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationData]:
         # Convert observations to array
-        X = np.array(
-            [[of.parameters[p] for p in self.parameters] for of in observation_features]
+        f, cov = self._model_predict(
+            X=self._transform_observation_features(
+                observation_features=observation_features
+            )
         )
-        f, cov = self._model_predict(X=X)
         # Convert arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
 
@@ -339,6 +340,18 @@ class ArrayModelBridge(ModelBridge):
             Xs_train=Xs_train, Ys_train=Ys_train, Yvars_train=Yvars_train, X_test=X_test
         )
 
+    def _evaluate_acquisition_function(
+        self, observation_features: List[ObservationFeatures]
+    ) -> List[float]:
+        return self._model_evaluate_acquisition_function(
+            X=self._transform_observation_features(
+                observation_features=observation_features
+            )
+        ).tolist()
+
+    def _model_evaluate_acquisition_function(self, X: np.ndarray) -> np.ndarray:
+        raise NotImplementedError  # pragma: no cover
+
     def _transform_callback(self, x: np.ndarray) -> np.ndarray:  # pragma: no cover
         """A function that performs the `round trip` transformations.
         This function is passed to _model_gen.
@@ -380,9 +393,18 @@ class ArrayModelBridge(ModelBridge):
     ) -> Any:
         """Apply terminal transform to given observation features and return result.
         """
-        return np.array(
-            [[of.parameters[p] for p in self.parameters] for of in observation_features]
-        )
+        """Converts a set of observation features to a nxd array of points."""
+        try:
+            return np.array(
+                [
+                    # pyre-ignore[6]: Except statement below should catch wrongly
+                    # typed parameters.
+                    [float(of.parameters[p]) for p in self.parameters]
+                    for of in observation_features
+                ]
+            )
+        except (KeyError, TypeError):  # pragma: no cover
+            raise ValueError("Invalid formatting of observation features.")
 
 
 def array_to_observation_data(

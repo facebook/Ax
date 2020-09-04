@@ -52,7 +52,7 @@ class Winsorize(Transform):
             for i, metric_name in enumerate(obsd.metric_names):
                 metric_values[metric_name].append(obsd.means[i])
         if lower >= 1 - upper:
-            raise ValueError(
+            raise ValueError(  # pragma: no cover
                 f"Lower bound: {lower} was greater than the inverse of the upper "
                 f"bound: {1 - upper}. Decrease one or both of your "
                 f"winsorization_limits: {(lower, upper)}."

@@ -9,14 +9,16 @@ from unittest import mock
 import numpy as np
 import torch
 from ax.core.observation import ObservationFeatures
+from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchModel
 from ax.utils.common.testutils import TestCase
 
 
 class TorchModelBridgeTest(TestCase):
     @mock.patch(
-        "ax.modelbridge.array.ArrayModelBridge.__init__",
+        f"{ArrayModelBridge.__module__}.ArrayModelBridge.__init__",
         autospec=True,
         return_value=None,
     )
@@ -209,3 +211,41 @@ class TorchModelBridgeTest(TestCase):
             fit_out_of_design=True,
         )
         self.assertTrue(mock_init.call_args[-1]["fit_out_of_design"])
+
+    @mock.patch(f"{TorchModel.__module__}.TorchModel", autospec=True)
+    @mock.patch(f"{ArrayModelBridge.__module__}.ArrayModelBridge.__init__")
+    def test_evaluate_acquisition_function(self, _, mock_torch_model):
+        ma = TorchModelBridge(
+            experiment=None,
+            search_space=None,
+            data=None,
+            model=None,
+            transforms=[],
+            torch_dtype=torch.float64,
+            torch_device=torch.device("cpu"),
+        )
+        # These attributes would've been set by `ArrayModelBridge` __init__, but it's
+        # mocked.
+        ma.model = mock_torch_model()
+        t = mock.MagicMock(Transform, autospec=True)
+        t.transform_observation_features.return_value = [
+            ObservationFeatures(parameters={"x": 3.0, "y": 4.0})
+        ]
+        ma.transforms = {"ExampleTransform": t}
+        ma.parameters = ["x", "y"]
+        model_eval_acqf = mock_torch_model.return_value.evaluate_acquisition_function
+        model_eval_acqf.return_value = torch.tensor([5.0], dtype=torch.float64)
+        acqf_vals = ma.evaluate_acquisition_function(
+            observation_features=[ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
+        )
+        self.assertEqual(acqf_vals, [5.0])
+        t.transform_observation_features.assert_called_with(
+            [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
+        )
+        model_eval_acqf.assert_called_once()
+        self.assertTrue(
+            torch.equal(  # `call_args` is an (args, kwargs) tuple
+                model_eval_acqf.call_args[1]["X"],
+                torch.tensor([[3.0, 4.0]], dtype=torch.float64),
+            )
+        )

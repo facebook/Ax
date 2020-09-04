@@ -17,6 +17,7 @@ from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.array import FIT_MODEL_ERROR, ArrayModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchModel
+from ax.utils.common.typeutils import not_none
 from torch import Tensor
 
 
@@ -94,6 +95,16 @@ class TorchModelBridge(ArrayModelBridge):
             observation_data=observation_data,
         )
 
+    def _model_evaluate_acquisition_function(self, X: np.ndarray) -> np.ndarray:
+        if not self.model:  # pragma: no cover
+            raise ValueError(
+                FIT_MODEL_ERROR.format(action="_model_evaluate_acquisition_function")
+            )
+        evals = not_none(self.model).evaluate_acquisition_function(
+            X=self._array_to_tensor(X)
+        )
+        return evals.detach().cpu().clone().numpy()
+
     def _model_fit(
         self,
         model: TorchModel,
@@ -145,51 +156,8 @@ class TorchModelBridge(ArrayModelBridge):
     def _model_predict(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_predict"))
-        # pyre-fixme[16]: `Optional` has no attribute `predict`.
-        f, var = self.model.predict(X=self._array_to_tensor(X))
+        f, var = not_none(self.model).predict(X=self._array_to_tensor(X))
         return f.detach().cpu().clone().numpy(), var.detach().cpu().clone().numpy()
-
-    def _validate_and_convert_to_tensors(
-        self,
-        objective_weights: np.ndarray,
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
-        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
-        pending_observations: Optional[List[np.ndarray]],
-    ) -> Tuple[
-        Tensor,
-        Optional[Tuple[Tensor, Tensor]],
-        Optional[Tuple[Tensor, Tensor]],
-        Optional[List[Tensor]],
-    ]:
-        objective_weights: Tensor = self._array_to_tensor(objective_weights)
-        if outcome_constraints is not None:  # pragma: no cover
-            # pyre-fixme[9]: outcome_constraints has type `Optional[Tuple[ndarray,
-            #  ndarray]]`; used as `Tuple[Tensor, Tensor]`.
-            outcome_constraints = (
-                self._array_to_tensor(outcome_constraints[0]),
-                self._array_to_tensor(outcome_constraints[1]),
-            )
-        if linear_constraints is not None:  # pragma: no cover
-            # pyre-fixme[9]: linear_constraints has type `Optional[Tuple[ndarray,
-            #  ndarray]]`; used as `Tuple[Tensor, Tensor]`.
-            linear_constraints = (
-                self._array_to_tensor(linear_constraints[0]),
-                self._array_to_tensor(linear_constraints[1]),
-            )
-        if pending_observations is not None:  # pragma: no cover
-            # pyre-fixme[9]: pending_observations has type
-            #  `Optional[List[ndarray]]`; used as `List[Tensor]`.
-            pending_observations = self._array_list_to_tensors(pending_observations)
-        # pyre-fixme[7]: Expected `Tuple[Tensor, Optional[Tuple[Tensor, Tensor]],
-        #  Optional[Tuple[Tensor, Tensor]], Optional[List[Tensor]]]` but got
-        #  `Tuple[Tensor, Optional[Tuple[ndarray, ndarray]], Optional[Tuple[ndarray,
-        #  ndarray]], Optional[List[ndarray]]]`.
-        return (
-            objective_weights,
-            outcome_constraints,
-            linear_constraints,
-            pending_observations,
-        )
 
     def _model_gen(
         self,
@@ -291,6 +259,40 @@ class TorchModelBridge(ArrayModelBridge):
         return (
             f_test.detach().cpu().clone().numpy(),
             cov_test.detach().cpu().clone().numpy(),
+        )
+
+    def _validate_and_convert_to_tensors(
+        self,
+        objective_weights: np.ndarray,
+        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
+        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
+        pending_observations: Optional[List[np.ndarray]],
+    ) -> Tuple[
+        Tensor,
+        Optional[Tuple[Tensor, Tensor]],
+        Optional[Tuple[Tensor, Tensor]],
+        Optional[List[Tensor]],
+    ]:
+        objective_weights: Tensor = self._array_to_tensor(objective_weights)
+        if outcome_constraints is not None:  # pragma: no cover
+            outcome_constraints: Tuple[Tensor, Tensor] = (
+                self._array_to_tensor(outcome_constraints[0]),
+                self._array_to_tensor(outcome_constraints[1]),
+            )
+        if linear_constraints is not None:  # pragma: no cover
+            linear_constraints: Tuple[Tensor, Tensor] = (
+                self._array_to_tensor(linear_constraints[0]),
+                self._array_to_tensor(linear_constraints[1]),
+            )
+        if pending_observations is not None:  # pragma: no cover
+            pending_observations: List[Tensor] = self._array_list_to_tensors(
+                pending_observations
+            )
+        return (
+            objective_weights,
+            outcome_constraints,
+            linear_constraints,
+            pending_observations,
         )
 
     def _array_to_tensor(self, array: np.ndarray) -> Tensor:

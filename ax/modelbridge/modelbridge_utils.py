@@ -127,7 +127,7 @@ def parse_observation_features(
         List of candidates, represented as ObservationFeatures.
     """
     if candidate_metadata and len(candidate_metadata) != len(X):
-        raise ValueError(
+        raise ValueError(  # pragma: no cover
             "Observations metadata list provided is not of "
             "the same size as the number of candidates."
         )

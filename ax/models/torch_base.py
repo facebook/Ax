@@ -212,3 +212,15 @@ class TorchModel(Model):
                 the order corresponding to the Xs.
         """
         raise NotImplementedError
+
+    def evaluate_acquisition_function(self, X: Tensor) -> Tensor:
+        """Evaluate the acquisition function on the candidate set `X`.
+
+        Args:
+            X: (j x d) tensor of the j points at which to evaluate the acquisition
+                function.
+
+        Returns:
+            A single-element tensor with the acquisition value for these points.
+        """
+        raise NotImplementedError
