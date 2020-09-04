@@ -20,8 +20,11 @@ from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
 )
+from ax.storage.json_store.decoders import class_from_json
 from ax.storage.json_store.encoder import object_to_json
+from ax.storage.json_store.encoders import botorch_modular_to_dict
 from ax.storage.json_store.load import load_experiment
+from ax.storage.json_store.registry import CLASS_ENCODER_REGISTRY
 from ax.storage.json_store.save import save_experiment
 from ax.storage.metric_registry import register_metric
 from ax.storage.runner_registry import register_runner
@@ -49,6 +52,7 @@ from ax.utils.testing.core_stubs import (
     get_choice_parameter,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_data,
+    get_experiment_with_trial_with_ttl,
     get_factorial_metric,
     get_fixed_parameter,
     get_generator_run,
@@ -88,13 +92,11 @@ TEST_CASES = [
     ("BatchTrial", get_batch_trial),
     ("BenchmarkProblem", get_branin_benchmark_problem),
     ("BoTorchModel", get_botorch_model),
-    (
-        "BoTorchModelWithDefaultAcquisitionClass",
-        get_botorch_model_with_default_acquisition_class,
-    ),
+    ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
     ("BraninMetric", get_branin_metric),
     ("ChoiceParameter", get_choice_parameter),
     ("Experiment", get_experiment_with_batch_and_single_trial),
+    ("Experiment", get_experiment_with_trial_with_ttl),
     ("Experiment", get_experiment_with_data),
     ("FactorialMetric", get_factorial_metric),
     ("FixedParameter", get_fixed_parameter),
@@ -387,7 +389,7 @@ class JSONStoreTest(TestCase):
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)
 
-    def test_encode_decode_numpy(self):
+    def testEncodeDecodeNumpy(self):
         arr = np.array([[1, 2, 3], [4, 5, 6]])
         self.assertTrue(np.array_equal(arr, object_from_json(object_to_json(arr))))
 
@@ -431,3 +433,31 @@ class JSONStoreTest(TestCase):
             loaded_experiment = load_experiment(f.name)
             self.assertEqual(loaded_experiment, experiment)
             os.remove(f.name)
+
+    def testEncodeUnknownClassToDict(self):
+        # Cannot encode `UnknownClass` type because it is not registered in the
+        # CLASS_ENCODER_REGISTRY.
+        class UnknownClass:
+            def __init__(self):
+                pass
+
+        with self.assertRaisesRegex(
+            ValueError, "is a class. Add it to the CLASS_ENCODER_REGISTRY"
+        ):
+            object_to_json(UnknownClass)
+        # `UnknownClass` type is registered in the CLASS_ENCODER_REGISTRY and uses the
+        # `botorch_modular_to_dict` encoder, but `UnknownClass` is not registered in
+        # the `botorch_modular_registry.py` file.
+        CLASS_ENCODER_REGISTRY[UnknownClass] = botorch_modular_to_dict
+        with self.assertRaisesRegex(
+            ValueError,
+            "does not have a corresponding parent class in CLASS_TO_REGISTRY",
+        ):
+            object_to_json(UnknownClass)
+
+    def testDecodeUnknownClassFromJson(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "does not have a corresponding entry in CLASS_TO_REVERSE_REGISTRY",
+        ):
+            class_from_json({"index": 0, "class": "unknown_path"})

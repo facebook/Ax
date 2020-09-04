@@ -450,5 +450,5 @@ def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
             }
     raise ValueError(
         f"{class_type} does not have a corresponding parent class in "
-        "CLASS_TO_STR_AND_REGISTRY."
+        "CLASS_TO_REGISTRY."
     )

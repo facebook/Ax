@@ -220,6 +220,14 @@ def get_experiment_with_batch_and_single_trial() -> Experiment:
     return batch_trial.experiment
 
 
+def get_experiment_with_trial_with_ttl() -> Experiment:
+    batch_trial = get_batch_trial()
+    batch_trial.experiment.new_trial(
+        generator_run=GeneratorRun(arms=[get_arm()]), ttl_seconds=1
+    )
+    return batch_trial.experiment
+
+
 def get_experiment_with_data() -> Experiment:
     batch_trial = get_batch_trial()
     batch_trial.experiment.attach_data(data=get_data())
