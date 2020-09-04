@@ -182,6 +182,22 @@ class Acquisition(Base):
             **optimizer_options,
         )
 
+    def evaluate(self, X: Tensor) -> Tensor:
+        """Evaluate the acquisition function on the candidate set `X`.
+
+        Args:
+            X: A `batch_shape x q x d`-dim Tensor of t-batches with `q` `d`-dim design
+                points each.
+
+        Returns:
+            A `batch_shape'`-dim Tensor of acquisition values at the given
+            design points `X`, where `batch_shape'` is the broadcasted batch shape of
+            model and input `X`.
+        """
+        # NOTE: `AcquisitionFunction.__call__` calls `forward`,
+        # so below is equivalent to `self.acqf.forward(X=X)`.
+        return self.acqf(X=X)
+
     # pyre-fixme[56]: While applying decorator
     #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(Surrogate.best_in_sample_point)

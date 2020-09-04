@@ -204,6 +204,7 @@ class BoTorchModelTest(TestCase):
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
+            pending_observations=self.pending_observations,
             target_fidelities=self.target_fidelities,
             options=self.acquisition_options,
         )
@@ -222,3 +223,32 @@ class BoTorchModelTest(TestCase):
             self.model.best_point(
                 bounds=self.bounds, objective_weights=self.objective_weights
             )
+
+    @patch(
+        f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
+        return_value=({"num_fantasies": 64}, {"num_restarts": 40, "raw_samples": 1024}),
+    )
+    @patch(f"{CURRENT_PATH}.KnowledgeGradient", autospec=True)
+    def test_evaluate_acquisition_function(self, _mock_kg, _mock_construct_options):
+        model = BoTorchModel(
+            surrogate=self.surrogate,
+            acquisition_class=KnowledgeGradient,
+            acquisition_options=self.acquisition_options,
+        )
+        model.surrogate.construct(
+            training_data=self.training_data, fidelity_features=self.fidelity_features
+        )
+        model.evaluate_acquisition_function(
+            X=self.X,
+            bounds=self.bounds,
+            objective_weights=self.objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+            pending_observations=self.pending_observations,
+            acq_options=self.acquisition_options,
+            target_fidelities=self.target_fidelities,
+        )
+        # `_mock_kg` is a mock of class, so to check the mock `evaluate` on
+        # instance of that class, we use `_mock_kg.return_value.evaluate`
+        _mock_kg.return_value.evaluate.assert_called()

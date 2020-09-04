@@ -178,31 +178,20 @@ class BoTorchModel(TorchModel, Base):
         acq_options, opt_options = construct_acquisition_and_optimizer_options(
             acqf_options=self.acquisition_options, model_gen_options=model_gen_options
         )
-
-        if not self._botorch_acqf_class:
-            self._botorch_acqf_class = choose_botorch_acqf_class()
-
-        acqf = self.acquisition_class(
-            surrogate=self.surrogate,
-            botorch_acqf_class=self.botorch_acqf_class,
+        acqf = self._instantiate_acquisition(
             bounds=bounds,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
+            pending_observations=pending_observations,
             target_fidelities=target_fidelities,
-            options=acq_options,
+            acq_options=acq_options,
         )
 
         botorch_rounding_func = get_rounding_func(rounding_func)
-
-        # TODO: Would be good to abstract away bounds reformatting.
-        bounds_ = torch.tensor(
-            bounds, dtype=self.surrogate.dtype, device=self.surrogate.device
-        )
-        bounds_ = bounds_.transpose(0, 1)
         candidates, expected_acquisition_value = acqf.optimize(
-            bounds=bounds_,
+            bounds=self._bounds_as_tensor(bounds=bounds),
             n=n,
             inequality_constraints=_to_inequality_constraints(
                 linear_constraints=linear_constraints
@@ -232,3 +221,60 @@ class BoTorchModel(TorchModel, Base):
         target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Optional[Tensor]:
         raise NotImplementedError("Coming soon.")
+
+    def evaluate_acquisition_function(
+        self,
+        X: Tensor,
+        bounds: List[Tuple[float, float]],
+        objective_weights: Tensor,
+        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        fixed_features: Optional[Dict[int, float]] = None,
+        pending_observations: Optional[List[Tensor]] = None,
+        target_fidelities: Optional[Dict[int, float]] = None,
+        acq_options: Optional[Dict[str, Any]] = None,
+    ) -> Tensor:
+        acqf = self._instantiate_acquisition(
+            bounds=bounds,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
+            pending_observations=pending_observations,
+            target_fidelities=target_fidelities,
+            acq_options=acq_options,
+        )
+        return acqf.evaluate(X=X)
+
+    def _bounds_as_tensor(self, bounds: List[Tuple[float, float]]) -> Tensor:
+        bounds_ = torch.tensor(
+            bounds, dtype=self.surrogate.dtype, device=self.surrogate.device
+        )
+        return bounds_.transpose(0, 1)
+
+    def _instantiate_acquisition(
+        self,
+        bounds: List[Tuple[float, float]],
+        objective_weights: Tensor,
+        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        fixed_features: Optional[Dict[int, float]] = None,
+        pending_observations: Optional[List[Tensor]] = None,
+        target_fidelities: Optional[Dict[int, float]] = None,
+        acq_options: Optional[Dict[str, Any]] = None,
+    ) -> Acquisition:
+        if not self._botorch_acqf_class:
+            self._botorch_acqf_class = choose_botorch_acqf_class()
+
+        return self.acquisition_class(
+            surrogate=self.surrogate,
+            botorch_acqf_class=self.botorch_acqf_class,
+            bounds=bounds,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
+            pending_observations=pending_observations,
+            target_fidelities=target_fidelities,
+            options=acq_options,
+        )

@@ -28,6 +28,9 @@ class DummyACQFClass:
     def __init__(self, **kwargs: Any) -> None:
         pass
 
+    def __call__(self, **kwargs: Any) -> None:
+        pass
+
 
 class AcquisitionTest(TestCase):
     def setUp(self):
@@ -225,3 +228,8 @@ class AcquisitionTest(TestCase):
             fixed_features=self.fixed_features,
             options=self.options,
         )
+
+    @patch(f"{DummyACQFClass.__module__}.DummyACQFClass.__call__", return_value=None)
+    def test_evaluate(self, mock_call):
+        self.acquisition.evaluate(X=self.X)
+        mock_call.assert_called_with(X=self.X)
