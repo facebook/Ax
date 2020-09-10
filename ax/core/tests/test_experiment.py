@@ -321,7 +321,15 @@ class ExperimentTest(TestCase):
 
         new_data = Data(
             df=pd.DataFrame.from_records(
-                [{"arm_name": "0_0", "metric_name": "z", "mean": 3, "trial_index": 0}]
+                [
+                    {
+                        "arm_name": "0_0",
+                        "metric_name": "z",
+                        "mean": 3,
+                        "sem": 0,
+                        "trial_index": 0,
+                    }
+                ]
             )
         )
         t3 = exp.attach_data(new_data, combine_with_last_data=True)

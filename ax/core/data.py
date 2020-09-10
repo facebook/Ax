@@ -31,7 +31,10 @@ COLUMN_DATA_TYPES = {
     "random_split": np.int64,
     "fidelities": str,  # Dictionary stored as json
 }
-REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean"}
+# Note: Although the SEM (standard error of the mean) is a required column in data,
+# downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
+# either in your Metric class or in Data explicitly.
+REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
 
 
 class Data(Base):

@@ -21,8 +21,15 @@ if TYPE_CHECKING:  # pragma: no cover
 class Metric(Base):
     """Base class for representing metrics.
 
+    The `fetch_trial_data` method is the essential method to override when
+    subclassing, which specifies how to retrieve a Metric, for a given trial.
+
+    A Metric must return a Data object, which requires (at minimum) the following:
+        https://ax.dev/api/_modules/ax/core/data.html#Data.required_columns
+
     Attributes:
         lower_is_better: Flag for metrics which should be minimized.
+        properties: Properties specific to a particular metric.
     """
 
     def __init__(
