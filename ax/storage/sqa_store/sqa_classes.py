@@ -395,8 +395,8 @@ class SQATrial(Base):
     num_arms_created: int = Column(Integer, nullable=False, default=0)
     # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
     optimize_for_power: Optional[bool] = Column(Boolean)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[bool]`.
-    ttl_seconds: Optional[int] = Column(Boolean)
+    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
+    ttl_seconds: Optional[int] = Column(Integer)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
     run_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
