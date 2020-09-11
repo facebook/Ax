@@ -226,6 +226,7 @@ class ChoiceParameterTest(TestCase):
     def testClone(self):
         param_clone = self.param1.clone()
         self.assertEqual(len(self.param1.values), len(param_clone.values))
+        self.assertEqual(self.param1._is_ordered, param_clone._is_ordered)
 
         param_clone._values.append("boo")
         self.assertNotEqual(len(self.param1.values), len(param_clone.values))

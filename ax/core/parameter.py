@@ -429,6 +429,7 @@ class ChoiceParameter(Parameter):
             name=self._name,
             parameter_type=self._parameter_type,
             values=self._values,
+            is_ordered=self._is_ordered,
             is_task=self._is_task,
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
