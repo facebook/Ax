@@ -171,45 +171,57 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         )
 
         ref_point = self.ref_point
+        if ref_point and obs_data:
+            self._transformed_ref_point = self._transform_ref_point(
+                ref_point=ref_point, padding_obs_data=obs_data[0]
+            )
+        return obs_feats, obs_data, search_space
+
+    def _transform_ref_point(
+        self, ref_point: Dict[str, float], padding_obs_data: ObservationData
+    ) -> Dict[str, float]:
+        """Transform ref_point using same transforms as those applied to data.
+
+        Args:
+            ref_point: Reference point to transform.
+            padding_obs_data: Data used to add dummy outcomes that aren't part
+                of the reference point. This is necessary to apply transforms.
+
+        Return:
+            A transformed reference point.
+        """
         metric_names = list(self._metric_names or [])
         objective_metric_names = list(self._objective_metric_names or [])
-        if ref_point and metric_names and objective_metric_names:
-            num_metrics = len(metric_names)
-            if obs_data:
-                # Create synthetic ObservationData representing the reference point.
-                # Pad with non-objective outcomes from existing data.
-                # Should always have existing data with BO.
-                sample_obs_data = obs_data[0]
-                padded_ref_dict: Dict[str, float] = dict(
-                    zip(sample_obs_data.metric_names, sample_obs_data.means)
-                )
-                padded_ref_dict.update(ref_point)
-                ref_obs_data = [
-                    ObservationData(
-                        metric_names=list(padded_ref_dict.keys()),
-                        means=np.array(list(padded_ref_dict.values())),
-                        covariance=np.zeros((num_metrics, num_metrics)),
-                    )
-                ]
-                ref_obs_feats = []
+        num_metrics = len(metric_names)
+        # Create synthetic ObservationData representing the reference point.
+        # Pad with non-objective outcomes from existing data.
+        # Should always have existing data with BO.
+        padding_obs_data
+        padded_ref_dict: Dict[str, float] = dict(
+            zip(padding_obs_data.metric_names, padding_obs_data.means)
+        )
+        padded_ref_dict.update(ref_point)
+        ref_obs_data = [
+            ObservationData(
+                metric_names=list(padded_ref_dict.keys()),
+                means=np.array(list(padded_ref_dict.values())),
+                covariance=np.zeros((num_metrics, num_metrics)),
+            )
+        ]
+        ref_obs_feats = []
 
-                # Apply initialized transforms to reference point.
-                for t in self.transforms.values():
-                    ref_obs_data = t.transform_observation_data(
-                        ref_obs_data, ref_obs_feats
-                    )
-                transformed_ref_obsd = ref_obs_data.pop()
-                transformed_ref_dict = dict(
-                    zip(transformed_ref_obsd.metric_names, transformed_ref_obsd.means)
-                )
-                self._transformed_ref_point = {
-                    objective_metric_name: transformed_ref_dict[objective_metric_name]
-                    for objective_metric_name in objective_metric_names
-                }
-            else:
-                # No previous data means transform can't have been fit.
-                pass
-        return obs_feats, obs_data, search_space
+        # Apply initialized transforms to reference point.
+        for t in self.transforms.values():
+            ref_obs_data = t.transform_observation_data(ref_obs_data, ref_obs_feats)
+        transformed_ref_obsd = ref_obs_data.pop()
+        transformed_ref_dict = dict(
+            zip(transformed_ref_obsd.metric_names, transformed_ref_obsd.means)
+        )
+        transformed_ref_point = {
+            objective_metric_name: transformed_ref_dict[objective_metric_name]
+            for objective_metric_name in objective_metric_names
+        }
+        return transformed_ref_point
 
     # pyre-fixme[56]: While applying decorator
     #  `ax.utils.common.docutils.copy_doc(...)`: Call expects argument `n`.

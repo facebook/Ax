@@ -12,11 +12,13 @@ from ax.models.torch.utils import (  # noqa F40
     get_outcome_constraint_transforms,
     predict_from_model,
 )
+from ax.models.torch_base import TorchModel
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.utils import get_acquisition_function
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf_list
+from botorch.utils.multi_objective.pareto import is_non_dominated
 from botorch.utils.transforms import squeeze_last_dim
 from torch import Tensor
 
@@ -174,3 +176,80 @@ def scipy_optimizer_list(
         post_processing_func=rounding_func,
     )
     return X, expected_acquisition_value
+
+
+def pareto_frontier_evaluator(
+    model: TorchModel,
+    objective_weights: Tensor,
+    ref_point: Optional[Tensor] = None,
+    X: Optional[Tensor] = None,
+    Y: Optional[Tensor] = None,
+    Yvar: Optional[Tensor] = None,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+) -> Tuple[Tensor, Tensor]:
+    """Return outcomes predicted to lie on a pareto frontier.
+
+    Given a model and a points to evaluate use the model to predict which points
+    lie on the pareto frontier.
+
+    Args:
+        model: Model used to predict outcomes.
+        objective_weights: A `m` tensor of values indicating the weight to put
+            on different outcomes. For pareto frontiers only the sign matters.
+        ref_point: reference point for hypervolume computation.
+        X: A `n x d` tensor of features to evaluate.
+        Y: A `n x m` tensor of outcomes to use instead of predictions.
+        Yvar: A `n x m` tensor of input variances (NaN if unobserved).
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b.
+
+    Returns:
+        2-element tuple containing
+
+        - A `j x m` tensor of outcome on the pareto frontier. j is the number
+            of frontier points.
+        - A `j x m x m` tensor of predictive covariances.
+            cov[j, m1, m2] is Cov[m1@j, m2@j].
+    """
+    if X is not None:
+        Y, Yvar = model.predict(X)
+    elif Y is None or Yvar is None:
+        raise ValueError(
+            "Requires `X` to predict or both `Y` and `Yvar` to select a subset of "
+            "points on the pareto frontier."
+        )
+
+    # Apply objective_weights to outcomes and reference_point.
+    # If ref_point is not None use a dummy tensor of zeros.
+    obj, weighted_ref_point = _get_weighted_mc_objective_and_ref_point(
+        objective_weights=objective_weights,
+        ref_point=(
+            ref_point if ref_point is not None else torch.zeros(objective_weights.shape)
+        ),
+    )
+    Y_obj = obj(Y)
+
+    # Filter Y, Yvar, Y_obj to items that dominate the reference point
+    if ref_point is not None:
+        ref_point_mask = (Y_obj >= weighted_ref_point).all(dim=1)
+        Y = Y[ref_point_mask]
+        Yvar = Yvar[ref_point_mask]
+        Y_obj = Y_obj[ref_point_mask]
+
+    # Get feasible points that do not violate outcome_constraints
+    if outcome_constraints is not None:
+        cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
+        # pyre-ignore [16]
+        feas = torch.stack([c(Y) <= 0 for c in cons_tfs], dim=-1).all(dim=-1)
+        Y = Y[feas]
+        Yvar = Yvar[feas]
+        Y_obj = Y_obj[feas]
+
+    # calculate pareto front with only objective outcomes:
+    frontier_mask = is_non_dominated(Y_obj)
+
+    # Apply masks
+    Y_frontier = Y[frontier_mask]
+    Yvar_frontier = Yvar[frontier_mask]
+    return Y_frontier, Yvar_frontier

@@ -23,7 +23,11 @@ from ax.models.torch.botorch_defaults import (
     recommend_best_observed_point,
     scipy_optimizer,
 )
-from ax.models.torch.botorch_moo_defaults import get_EHVI, scipy_optimizer_list
+from ax.models.torch.botorch_moo_defaults import (
+    get_EHVI,
+    pareto_frontier_evaluator,
+    scipy_optimizer_list,
+)
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     _to_inequality_constraints,
@@ -55,15 +59,15 @@ TOptimizerList = Callable[
 ]
 TFrontierEvaluator = Callable[
     [
-        TorchModel,  # TODO: MultiObjective
-        List[Tuple[float, float]],
+        TorchModel,
         Tensor,
+        Optional[Tensor],
+        Optional[Tensor],
+        Optional[Tensor],
+        Optional[Tensor],
         Optional[Tuple[Tensor, Tensor]],
-        Optional[Tuple[Tensor, Tensor]],
-        Optional[Dict[int, float]],
-        Optional[TConfig],
     ],
-    Optional[List[Tensor]],
+    Optional[Tuple[Tensor, Tensor]],
 ]
 
 
@@ -162,6 +166,23 @@ class MultiObjectiveBotorchModel(BotorchModel):
     generation, and `rounding_func` is a callback that rounds an optimization
     result appropriately. `candidates` is a tensor of generated candidates.
     For additional details on the arguments, see `scipy_optimizer`.
+
+    ::
+
+        frontier_evaluator(
+            model,
+            objective_weights,
+            ref_point,
+            X,
+            Y,
+            Yvar,
+            outcome_constraints,
+        )
+
+    Here `model` is a botorch `Model`, `ref_point` is used in hypervolume evaluations,
+    `objective_weights` is a tensor of weights applied to the  objectives (sign
+    represents direction), `X`, `Y`, `Yvar` are tensors, `outcome_constraints` is a
+    tuple of tensors describing the (linear) outcome constraints.
     """
 
     dtype: Optional[torch.dtype]
@@ -188,6 +209,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         acqf_optimizer: TOptimizer = scipy_optimizer,
         # TODO: Remove best_point_recommender for botorch_moo. Used in modelbridge._gen.
         best_point_recommender: TBestPointRecommender = recommend_best_observed_point,
+        frontier_evaluator: TFrontierEvaluator = pareto_frontier_evaluator,
         refit_on_cv: bool = False,
         refit_on_update: bool = True,
         warm_start_refitting: bool = False,
@@ -198,6 +220,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         self.acqf_constructor = acqf_constructor
         self.acqf_optimizer = acqf_optimizer
         self.best_point_recommender = best_point_recommender
+        self.frontier_evaluator = frontier_evaluator
         self._kwargs = kwargs
         self.refit_on_cv = refit_on_cv
         self.refit_on_update = refit_on_update
