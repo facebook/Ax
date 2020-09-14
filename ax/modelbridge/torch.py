@@ -88,6 +88,13 @@ class TorchModelBridge(ArrayModelBridge):
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
     ) -> None:  # pragma: no cover
+        if len(observation_data) == 0:
+            raise ValueError(
+                "Torch models cannot be fit without observation data. Possible "
+                "reasons include empty data being passed to the model's constructor "
+                "or data being excluded because it is out-of-design. Try setting "
+                "`fit_out_of_design`=True during construction to fix the latter."
+            )
         super()._fit(
             model=model,
             search_space=search_space,

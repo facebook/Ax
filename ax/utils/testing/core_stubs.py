@@ -88,12 +88,14 @@ def get_branin_experiment(
     with_batch: bool = False,
     with_status_quo: bool = False,
     with_fidelity_parameter: bool = False,
+    search_space: Optional[SearchSpace] = None,
 ) -> Experiment:
+    search_space = search_space or get_branin_search_space(
+        with_fidelity_parameter=with_fidelity_parameter
+    )
     exp = Experiment(
         name="branin_test_experiment",
-        search_space=get_branin_search_space(
-            with_fidelity_parameter=with_fidelity_parameter
-        ),
+        search_space=search_space,
         optimization_config=get_branin_optimization_config()
         if has_optimization_config
         else None,
