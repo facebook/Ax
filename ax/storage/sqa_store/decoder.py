@@ -751,6 +751,8 @@ class Decoder:
         trial._runner = (
             self.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None
         )
+        # pyre-fixme[9]: _generation_step_index has type `None`; used as
+        #  `Optional[int]`.
         trial._generation_step_index = trial_sqa.generation_step_index
         trial._properties = trial_sqa.properties or {}
         return trial

@@ -269,6 +269,7 @@ class Experiment(Base):
         for metric_name in optimization_config.metrics.keys():
             if metric_name in self._tracking_metrics:
                 self.remove_tracking_metric(metric_name)
+        # pyre-fixme[8]: Attribute has type `None`; used as `OptimizationConfig`.
         self._optimization_config = optimization_config
 
     @property

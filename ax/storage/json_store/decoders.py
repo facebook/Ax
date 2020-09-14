@@ -71,6 +71,7 @@ def batch_trial_from_json(
     batch._status_quo = status_quo
     batch._status_quo_weight_override = status_quo_weight_override
     batch.optimize_for_power = optimize_for_power
+    # pyre-fixme[8]: Attribute has type `None`; used as `Optional[int]`.
     batch._generation_step_index = generation_step_index
     batch._properties = properties
     return batch
@@ -119,6 +120,7 @@ def trial_from_json(
     trial._run_metadata = run_metadata or {}
     trial._runner = runner
     trial._num_arms_created = num_arms_created
+    # pyre-fixme[8]: Attribute has type `None`; used as `Optional[int]`.
     trial._generation_step_index = generation_step_index
     trial._properties = properties or {}
     return trial

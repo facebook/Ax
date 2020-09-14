@@ -279,6 +279,8 @@ class RangeParameter(Parameter):
 
         # This might have issues with ints > 2^24
         if self.parameter_type is ParameterType.INT:
+            # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
+            #  typing.SupportsFloat]` for 1st param but got `Union[None, float, str]`.
             return isinstance(value, int) or float(value).is_integer()
         return True
 

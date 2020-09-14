@@ -398,6 +398,7 @@ class BaseTrial(ABC, Base):
                 "Cannot add generator runs from different generation steps to a "
                 "single trial."
             )
+        # pyre-fixme[8]: Attribute has type `None`; used as `Optional[int]`.
         self._generation_step_index = generation_step_index
 
     @abstractproperty
@@ -600,6 +601,7 @@ class BaseTrial(ABC, Base):
         that the trial statuses mapping on the experiment is updated always when
         a trial status is updated.
         """
+        # pyre-fixme[7]: Expected `TrialStatus` but got `None`.
         return self.__status
 
     @_status.setter
@@ -611,4 +613,5 @@ class BaseTrial(ABC, Base):
             assert self.index in self._experiment._trial_indices_by_status[self._status]
             self._experiment._trial_indices_by_status[self._status].remove(self.index)
         self._experiment._trial_indices_by_status[trial_status].add(self.index)
+        # pyre-fixme[8]: Attribute has type `None`; used as `TrialStatus`.
         self.__status = trial_status

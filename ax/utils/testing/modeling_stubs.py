@@ -172,6 +172,8 @@ class transform_1(Transform):
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         return (  # pyre-ignore[7]: pyre is right, this is a hack for testing.
+            # pyre-fixme[6]: `+` is not supported for operand types
+            #  `OptimizationConfig` and `int`.
             optimization_config + 1
             if isinstance(optimization_config, int)
             else optimization_config
@@ -226,6 +228,8 @@ class transform_2(Transform):
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         return (
+            # pyre-fixme[6]: `**` is not supported for operand types
+            #  `OptimizationConfig` and `int`.
             optimization_config ** 2
             if isinstance(optimization_config, int)
             else optimization_config

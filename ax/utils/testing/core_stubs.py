@@ -459,6 +459,7 @@ def get_batch_trial(abandon_arm: bool = True) -> BatchTrial:
         batch.mark_arm_abandoned(batch.arms[0].name, "abandoned reason")
     batch.runner = SyntheticRunner()
     batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
+    # pyre-fixme[8]: Attribute has type `None`; used as `int`.
     batch._generation_step_index = 0
     return batch
 
@@ -512,6 +513,7 @@ def get_trial() -> Trial:
     arm = get_arms_from_dict(get_arm_weights1())[0]
     trial.add_arm(arm)
     trial.runner = SyntheticRunner()
+    # pyre-fixme[8]: Attribute has type `None`; used as `int`.
     trial._generation_step_index = 0
     return trial
 
