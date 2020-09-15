@@ -116,7 +116,8 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         ref_point = None
         if self._transformed_ref_point:
             ref_point = not_none(self._transformed_ref_point)
-        else:
+        elif self.ref_point:
+            ref_point = self.ref_point
             logger.warning(
                 "No attribute _transformed_ref_point. Using untransformed ref_point."
             )
