@@ -50,7 +50,11 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.equality import Base, datetime_equals
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+
+
+logger = get_logger(__name__)
 
 
 class Encoder:
@@ -676,7 +680,14 @@ class Encoder:
                     self.generator_run_to_sqa(generator_run=status_quo_generator_run)
                 )
                 status_quo_name = trial_status_quo.name
-            optimize_for_power = trial.optimize_for_power
+            if hasattr(trial, "optimize_for_power"):
+                optimize_for_power = trial.optimize_for_power
+            else:
+                optimize_for_power = None
+                logger.warning(
+                    f"optimize_for_power not present in BatchTrial: {trial.__dict__}"
+                )
+
         elif isinstance(trial, Trial):
             if trial.generator_run:
                 generator_runs = [
