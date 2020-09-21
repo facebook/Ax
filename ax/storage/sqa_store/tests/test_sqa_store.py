@@ -194,7 +194,6 @@ class SQAStoreTest(TestCase):
             get_experiment_with_multi_objective(),
             get_experiment_with_scalarized_objective(),
         ]:
-            exp = self.experiment
             save_experiment(exp)
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
