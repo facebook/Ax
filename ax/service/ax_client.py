@@ -47,6 +47,7 @@ from ax.storage.json_store.decoder import (
 )
 from ax.storage.json_store.encoder import object_to_json
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
@@ -58,6 +59,15 @@ from botorch.utils.sampling import manual_seed
 
 
 logger = get_logger(__name__)
+
+
+CHOLESKY_ERROR_ANNOTATION = (
+    "Cholesky errors typically occur when the same or very similar "
+    "arms are suggested repeatedly. This can mean the model has "
+    "already converged and you should avoid running further trials. "
+    "It will also help to convert integer or categorical parameters "
+    "to float ranges where reasonable.\nOriginal error: "
+)
 
 
 class AxClient(WithDBSettingsBase):
@@ -275,6 +285,12 @@ class AxClient(WithDBSettingsBase):
             suppress_all_errors=self._suppress_storage_errors,
         )
 
+    @retry_on_exception(
+        logger=logger,
+        exception_types=(RuntimeError,),
+        suppress_all_errors=False,
+        wrap_error_message_in=CHOLESKY_ERROR_ANNOTATION,
+    )
     def get_next_trial(
         self, ttl_seconds: Optional[int] = None
     ) -> Tuple[TParameterization, int]:
@@ -294,6 +310,7 @@ class AxClient(WithDBSettingsBase):
         trial = self.experiment.new_trial(
             generator_run=self._gen_new_generator_run(), ttl_seconds=ttl_seconds
         )
+
         logger.info(
             f"Generated new trial {trial.index} with parameters "
             f"{_round_floats_for_logging(item=not_none(trial.arm).parameters)}."

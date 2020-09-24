@@ -989,3 +989,24 @@ class TestAxClient(TestCase):
         self.assertEqual(list(ax_client.experiment.metrics.keys()), ["a"])
         ax_client.complete_trial(trial_index=trial_idx, raw_data={"a": 1.0, "b": 2.0})
         self.assertEqual(list(ax_client.experiment.metrics.keys()), ["b", "a"])
+
+    @patch(
+        "ax.core.experiment.Experiment.new_trial",
+        side_effect=RuntimeError("cholesky_cpu error - bad matrix"),
+    )
+    def test_annotate_exception(self, _):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+            objective_name="a",
+        )
+        with self.assertRaisesRegex(
+            expected_exception=RuntimeError,
+            expected_regex="Cholesky errors typically occur",
+        ):
+            ax_client.get_next_trial()
