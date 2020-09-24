@@ -504,22 +504,22 @@ def _get_model(
         all_tasks, _, _ = MultiTaskGP.get_all_tasks(X, task_feature)
         num_tasks = len(all_tasks)
         prior_dict = kwargs.get("prior")
-        prior_type = prior_dict.get("type", None) if prior_dict else type(None)
-        if issubclass(prior_type, LKJCovariancePrior):
-            sd_prior = prior_dict.get("sd_prior", GammaPrior(1.0, 0.15))
-            sd_prior._event_shape = torch.Size([num_tasks])
-            eta = prior_dict.get("eta", 0.5)
-            if not isinstance(eta, float) and not isinstance(eta, int):
-                raise ValueError(f"eta must be a real number, your eta was {eta}")
-            prior = LKJCovariancePrior(num_tasks, eta, sd_prior)
+        prior = None
+        if prior_dict is not None:
+            prior_type = prior_dict.get("type", None)
+            if issubclass(prior_type, LKJCovariancePrior):
+                sd_prior = prior_dict.get("sd_prior", GammaPrior(1.0, 0.15))
+                sd_prior._event_shape = torch.Size([num_tasks])
+                eta = prior_dict.get("eta", 0.5)
+                if not isinstance(eta, float) and not isinstance(eta, int):
+                    raise ValueError(f"eta must be a real number, your eta was {eta}")
+                prior = LKJCovariancePrior(num_tasks, eta, sd_prior)
 
-        elif not issubclass(prior_type, type(None)):
-            raise ValueError(
-                "Currently only LKJ prior is supported,"
-                f"your prior type was {prior_type}"
-            )
-        else:  # prior_type is None
-            prior = None
+            else:
+                raise NotImplementedError(
+                    "Currently only LKJ prior is supported,"
+                    f"your prior type was {prior_type}."
+                )
 
         if all_nan_Yvar:
             gp = MultiTaskGP(

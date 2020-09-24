@@ -90,7 +90,7 @@ class BotorchDefaultsTest(TestCase):
         kwargs5 = {
             "prior": {"type": Prior, "sd_prior": GammaPrior(2.0, 0.44), "eta": 0.5}
         }
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NotImplementedError):
             _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs5)
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
