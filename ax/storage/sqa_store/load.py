@@ -128,6 +128,7 @@ def _load_generation_strategy_by_experiment_name(
             f"Experiment {experiment_name} does not have a generation strategy "
             "attached to it."
         )
+    # pyre-fixme[6]: Expected `SQAGenerationStrategy` for 1st param but got `SQABase`.
     return decoder.generation_strategy_from_sqa(gs_sqa=gs_sqa)
 
 
