@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import numpy as np
 import torch
 from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
@@ -16,9 +17,13 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
-from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
+from botorch.models.gp_regression_fidelity import (
+    FixedNoiseMultiFidelityGP,
+    SingleTaskMultiFidelityGP,
+)
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.utils.containers import TrainingData
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
@@ -29,75 +34,84 @@ class BoTorchModelUtilsTest(TestCase):
         self.Xs = [torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])]
         self.Ys = [torch.tensor([[3.0], [4.0]])]
         self.Yvars = [torch.tensor([[0.0], [2.0]])]
+        self.none_Yvars = [torch.full((2, 1), float("nan"))]
         self.task_features = []
 
-    def test_choose_model_class(self):
-        # Task features is not implemented yet.
-        with self.assertRaisesRegex(
-            NotImplementedError, "do not support `task_features`"
-        ):
-            choose_model_class(
-                Xs=self.Xs,
-                Ys=self.Ys,
-                Yvars=self.Yvars,
-                task_features=[1],
-                fidelity_features=[],
-            )
+    def test_choose_model_class_fidelity_features(self):
         # Only a single fidelity feature can be used.
         with self.assertRaisesRegex(
-            NotImplementedError, "only a single fidelity parameter"
+            NotImplementedError, "Only a single fidelity feature"
         ):
             choose_model_class(
-                Xs=self.Xs,
-                Ys=self.Ys,
-                Yvars=self.Yvars,
-                task_features=self.task_features,
-                fidelity_features=[1, 2],
+                Yvars=self.Yvars, task_features=[], fidelity_features=[1, 2]
             )
-        # With fidelity features, use SingleTaskMultiFidelityGP.
+        # No support for non-empty task & fidelity features yet.
+        with self.assertRaisesRegex(NotImplementedError, "Multi-task multi-fidelity"):
+            choose_model_class(
+                Yvars=self.Yvars, task_features=[1], fidelity_features=[1]
+            )
+        # With fidelity features and unknown variances, use SingleTaskMultiFidelityGP.
         self.assertEqual(
             SingleTaskMultiFidelityGP,
             choose_model_class(
-                Xs=self.Xs,
-                Ys=self.Ys,
-                Yvars=self.Yvars,
-                task_features=self.task_features,
-                fidelity_features=[2],
+                Yvars=self.none_Yvars, task_features=[], fidelity_features=[2]
             ),
         )
-        # Without fidelity features but with Yvar specifications, use FixedNoiseGP.
+        # With fidelity features and known variances, use FixedNoiseMultiFidelityGP.
         self.assertEqual(
-            FixedNoiseGP,
+            FixedNoiseMultiFidelityGP,
             choose_model_class(
-                Xs=self.Xs,
-                Ys=self.Ys,
-                Yvars=self.Yvars,
-                task_features=self.task_features,
-                fidelity_features=[],
+                Yvars=self.Yvars, task_features=[], fidelity_features=[2]
             ),
         )
-        # Without fidelity features and without Yvar specifications, use SingleTaskGP.
+
+    def test_choose_model_class_task_features(self):
+        # Only a single task feature can be used.
+        with self.assertRaisesRegex(NotImplementedError, "Only a single task feature"):
+            choose_model_class(
+                Yvars=self.Yvars, task_features=[1, 2], fidelity_features=[]
+            )
+        # With fidelity features and unknown variances, use SingleTaskMultiFidelityGP.
         self.assertEqual(
-            SingleTaskGP,
+            MultiTaskGP,
             choose_model_class(
-                Xs=self.Xs,
-                Ys=self.Ys,
-                Yvars=[torch.tensor([[float("nan")], [float("nan")]])],
-                task_features=self.task_features,
-                fidelity_features=[],
+                Yvars=self.none_Yvars, task_features=[1], fidelity_features=[]
             ),
         )
+        # With fidelity features and known variances, use FixedNoiseMultiFidelityGP.
+        self.assertEqual(
+            FixedNoiseMultiTaskGP,
+            choose_model_class(
+                Yvars=self.Yvars, task_features=[1], fidelity_features=[]
+            ),
+        )
+
+    def test_choose_model_class(self):
         # Mix of known and unknown variances.
         with self.assertRaisesRegex(
             ValueError, "Variances should all be specified, or none should be."
         ):
             choose_model_class(
-                Xs=self.Xs,
-                Ys=self.Ys,
-                Yvars=[torch.tensor([[0.0], [float("nan")]])],
-                task_features=self.task_features,
+                Yvars=[torch.tensor([[0.0], [np.nan]])],
+                task_features=[],
                 fidelity_features=[],
             )
+        # Without fidelity/task features but with Yvar specifications, use FixedNoiseGP.
+        self.assertEqual(
+            FixedNoiseGP,
+            choose_model_class(
+                Yvars=self.Yvars, task_features=[], fidelity_features=[]
+            ),
+        )
+        # W/out fidelity/task features and w/out Yvar specifications, use SingleTaskGP.
+        self.assertEqual(
+            SingleTaskGP,
+            choose_model_class(
+                Yvars=[torch.tensor([[float("nan")], [float("nan")]])],
+                task_features=[],
+                fidelity_features=[],
+            ),
+        )
 
     def test_choose_mll_class(self):
         # Use ExactMLL when `state_dict` is not None and `refit` is False.

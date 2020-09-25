@@ -14,10 +14,14 @@ from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
-from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
+from botorch.models.gp_regression_fidelity import (
+    FixedNoiseMultiFidelityGP,
+    SingleTaskMultiFidelityGP,
+)
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.utils.containers import TrainingData
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
@@ -29,19 +33,12 @@ MIN_OBSERVED_NOISE_LEVEL = 1e-7
 
 
 def choose_model_class(
-    Xs: List[Tensor],
-    Ys: List[Tensor],
-    Yvars: List[Tensor],
-    task_features: List[int],
-    fidelity_features: List[int],
+    Yvars: List[Tensor], task_features: List[int], fidelity_features: List[int]
 ) -> Type[Model]:
-    """Chooses a BoTorch `Model` using the given data.
+    """Chooses a BoTorch `Model` using the given data (currently just Yvars)
+    and its properties (information about task and fidelity features).
 
     Args:
-        Xs: List of tensors, each representing observation features for a
-            given outcome.
-        Ys: List of tensors, each representing observation data for a given
-            outcome, where outcomes are in the same order as in Xs.
         Yvars: List of tensors, each representing observation noise for a
             given outcome, where outcomes are in the same order as in Xs.
         task_features: List of columns of X that are tasks.
@@ -50,41 +47,44 @@ def choose_model_class(
     Returns:
         A BoTorch `Model` class.
     """
-    if len(task_features) > 0:
-        raise NotImplementedError("Currently do not support `task_features`!")
     if len(fidelity_features) > 1:
-        raise NotImplementedError("Currently support only a single fidelity parameter!")
+        raise NotImplementedError(
+            f"Only a single fidelity feature supported (got: {fidelity_features})."
+        )
+    if len(task_features) > 1:
+        raise NotImplementedError(
+            f"Only a single task feature supported (got: {task_features})."
+        )
+    if task_features and fidelity_features:
+        raise NotImplementedError(
+            "Multi-task multi-fidelity optimization not yet supported."
+        )
 
-    # NOTE: We currently do not support `task_features`. This code block will only
-    # be relevant once we support `task_features`.
-    # if len(task_features) > 1:
-    #     raise NotImplementedError(
-    #         f"This model only supports 1 task feature (got {task_features})"
-    #     )
-    # elif len(task_features) == 1:
-    #     task_feature = task_features[0]
-    # else:
-    #     task_feature = None
-    task_feature = None
+    Yvars_cat = torch.cat(Yvars).clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
+    is_nan = torch.isnan(Yvars_cat)
+    all_nan_Yvar = torch.all(is_nan)
+    if torch.any(is_nan) and not all_nan_Yvar:
+        raise ValueError(
+            "Mix of known and unknown variances indicates valuation function "
+            "errors. Variances should all be specified, or none should be."
+        )
 
-    # NOTE: In the current setup, `task_feature = None` always.
-    if task_feature is None:
-        Yvars_cat = torch.cat(Yvars).clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
-        is_nan = torch.isnan(Yvars_cat)
-        any_nan_Yvar = torch.any(is_nan)
-        all_nan_Yvar = torch.all(is_nan)
-        if any_nan_Yvar and not all_nan_Yvar:
-            raise ValueError(
-                "Mix of known and unknown variances indicates valuation function "
-                "errors. Variances should all be specified, or none should be."
-            )
-        if len(fidelity_features or []) > 0:
-            return SingleTaskMultiFidelityGP
-        elif all_nan_Yvar:
-            return SingleTaskGP
-        return FixedNoiseGP
-    # TODO: Replace ValueError with `ModelListGP`.
-    # raise ValueError("Unexpected training data format. Cannot choose `Model`.")
+    # Multi-task cases (when `task_features` specified).
+    if task_features and all_nan_Yvar:
+        return MultiTaskGP  # Unknown observation noise.
+    elif task_features:
+        return FixedNoiseMultiTaskGP  # Known observation noise.
+
+    # Single-task multi-fidelity cases.
+    if fidelity_features and all_nan_Yvar:
+        return SingleTaskMultiFidelityGP  # Unknown observation noise.
+    elif fidelity_features:
+        return FixedNoiseMultiFidelityGP  # Known observation noise.
+
+    # Single-task single-fidelity cases.
+    elif all_nan_Yvar:  # Unknown observation noise.
+        return SingleTaskGP
+    return FixedNoiseGP  # Known observation noise.
 
 
 def choose_mll_class(

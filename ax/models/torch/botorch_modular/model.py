@@ -115,8 +115,6 @@ class BoTorchModel(TorchModel, Base):
         # Choose `Surrogate` and undelying `Model` based on properties of data.
         if not self._surrogate:
             model_class = choose_model_class(
-                Xs=Xs,
-                Ys=Ys,
                 Yvars=Yvars,
                 task_features=task_features,
                 fidelity_features=fidelity_features,

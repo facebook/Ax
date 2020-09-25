@@ -114,8 +114,6 @@ class BoTorchModelTest(TestCase):
         )
         # `choose_model_class` is called.
         mock_choose_model_class.assert_called_with(
-            Xs=[self.X],
-            Ys=[self.Y],
             Yvars=[self.Yvar],
             task_features=self.task_features,
             fidelity_features=self.fidelity_features,
