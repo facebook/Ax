@@ -95,6 +95,8 @@ jobs:
         - pip install torchvision  # Required for building tutorial notebooks.
         - pip install ray  # Required for building RayTune tutorial notebook.
         - pip install tabulate  # Required for building RayTune tutorial notebook.
+      git:
+        depth: false
       script:
         - travis_wait 90 bash scripts/publish_site.sh -d -k python3 -v $TRAVIS_TAG
         # - python -c "print('Skipping website deployment...')"  # Use for testing deployment.
@@ -119,6 +121,8 @@ jobs:
         - pip install torchvision  # required for tutorials
         - pip install ray  # Required for building RayTune tutorial notebook.
         - pip install tabulate  # Required for building RayTune tutorial notebook.
+      git:
+        depth: false
       script:
         - travis_wait 90 bash scripts/publish_site.sh -d
       # Uploading to test.pypi to check that deployment works.
