@@ -277,8 +277,6 @@ class GenerationStrategy(Base):
         for trial_index, trial in self.experiment.trials.items():
             if (
                 trial._generation_step_index is not None
-                # pyre-fixme[6]: `<=` is not supported for operand types `None` and
-                #  `int`.
                 and trial._generation_step_index <= self._curr.index
             ):
                 trial_indices_by_step[trial._generation_step_index].add(trial_index)
@@ -592,8 +590,6 @@ class GenerationStrategy(Base):
         has seen the data for). Useful when `use_update=True` for a given
         generation step.
         """
-        # pyre-fixme[8]: Attribute has type `None`; used as `Dict[TrialStatus,
-        #  Set[int]]`.
         self._seen_trial_indices_by_status = deepcopy(
             self.experiment.trial_indices_by_status
         )

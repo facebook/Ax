@@ -120,7 +120,13 @@ winsorized_fixed_noise_NEI = GenerationStrategy(
             num_trials=-1,
             model_kwargs={
                 "model_constructor": fixed_noise_gp_model_constructor,
-                "transforms": [Winsorize] + Cont_X_trans + Y_trans,  # pyre-ignore[6]
+                # pyre-fixme[58]: `+` is not supported for operand types
+                #  `List[typing.Type[Winsorize]]` and
+                #  `List[typing.Type[ax.modelbridge.transforms.base.Transform]]`.
+                # pyre-fixme[58]: `+` is not supported for operand types
+                #  `List[typing.Type[Winsorize]]` and
+                #  `List[typing.Type[ax.modelbridge.transforms.base.Transform]]`.
+                "transforms": [Winsorize] + Cont_X_trans + Y_trans,
                 "transform_configs": {
                     "Winsorize": {
                         f"winsorization_{t}": v

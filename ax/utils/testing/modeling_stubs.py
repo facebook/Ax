@@ -172,7 +172,7 @@ class transform_1(Transform):
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         return (  # pyre-ignore[7]: pyre is right, this is a hack for testing.
-            # pyre-fixme[6]: `+` is not supported for operand types
+            # pyre-fixme[58]: `+` is not supported for operand types
             #  `OptimizationConfig` and `int`.
             optimization_config + 1
             if isinstance(optimization_config, int)
@@ -185,7 +185,10 @@ class transform_1(Transform):
         for obsf in observation_features:
             if "x" in obsf.parameters:
                 obsf.parameters["x"] = (
-                    not_none(obsf.parameters["x"]) + 1  # pyre-ignore[6]
+                    # pyre-fixme[58]: `+` is not supported for operand types
+                    #  `Union[float, str]` and `int`.
+                    not_none(obsf.parameters["x"])
+                    + 1
                 )
         return observation_features
 
@@ -228,7 +231,7 @@ class transform_2(Transform):
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         return (
-            # pyre-fixme[6]: `**` is not supported for operand types
+            # pyre-fixme[58]: `**` is not supported for operand types
             #  `OptimizationConfig` and `int`.
             optimization_config ** 2
             if isinstance(optimization_config, int)

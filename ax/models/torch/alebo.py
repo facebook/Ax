@@ -267,10 +267,8 @@ def get_map_model(
         mll.train()
         mll, info_dict = fit_gpytorch_scipy(mll, track_iterations=False, method="tnc")
         logger.debug(info_dict)
-        # pyre-fixme[6]: Expected `List[botorch.optim.fit.OptimizationIteration]`
-        #  for 1st param but got `float`.
-        # pyre-fixme[6]: Expected `List[botorch.optim.fit.OptimizationIteration]`
-        #  for 1st param but got `float`.
+        # pyre-fixme[58]: `<` is not supported for operand types
+        #  `Union[List[botorch.optim.fit.OptimizationIteration], float]` and `float`.
         if info_dict["fopt"] < f_best:
             f_best = float(info_dict["fopt"])  # pyre-ignore
             sd_best = m.state_dict()

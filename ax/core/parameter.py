@@ -153,11 +153,11 @@ class RangeParameter(Parameter):
             ParameterType.FLOAT,
         ):
             raise ValueError("RangeParameter type must be int or float.")
-        # pyre-fixme[6]: `>=` is not supported for operand types `Union[None, bool,
+        # pyre-fixme[58]: `>=` is not supported for operand types `Union[None, bool,
         #  float, int, str]` and `Union[None, bool, float, int, str]`.
         if lower >= upper:
             raise ValueError("max must be strictly larger than min.")
-        # pyre-fixme[6]: `<=` is not supported for operand types `Union[None, bool,
+        # pyre-fixme[58]: `<=` is not supported for operand types `Union[None, bool,
         #  float, int, str]` and `int`.
         if log_scale and lower <= 0:
             raise ValueError("Cannot take log when min <= 0.")
@@ -236,7 +236,7 @@ class RangeParameter(Parameter):
         # Re-scale min and max to new digits definition
         cast_lower = self.cast(self._lower)
         cast_upper = self.cast(self._upper)
-        # pyre-fixme[6]: `>=` is not supported for operand types `Union[None, bool,
+        # pyre-fixme[58]: `>=` is not supported for operand types `Union[None, bool,
         #  float, int, str]` and `Union[None, bool, float, int, str]`.
         if cast_lower >= cast_upper:
             raise ValueError(

@@ -119,7 +119,6 @@ class SyntheticFunction(ABC):
         where each element of the list is a tuple corresponding to the min
         and max of the domain for that dimension.
         """
-        # pyre-fixme[7]: Expected `List[typing.Tuple[float, ...]]` but got `None`.
         return self._domain
 
     @property
@@ -130,7 +129,6 @@ class SyntheticFunction(ABC):
         Each element of the list is a d-tuple, where d is the dimensionality
         of the inputs. There may be more than one global minimums.
         """
-        # pyre-fixme[7]: Expected `List[typing.Tuple[float, ...]]` but got `None`.
         return self._minimums
 
     @property
@@ -141,21 +139,18 @@ class SyntheticFunction(ABC):
         Each element of the list is a d-tuple, where d is the dimensionality
         of the inputs. There may be more than one global minimums.
         """
-        # pyre-fixme[7]: Expected `List[typing.Tuple[float, ...]]` but got `None`.
         return self._maximums
 
     @property
     @informative_failure_on_none
     def fmin(self) -> float:
         """Value at global minimum(s)."""
-        # pyre-fixme[7]: Expected `float` but got `None`.
         return self._fmin
 
     @property
     @informative_failure_on_none
     def fmax(self) -> float:
         """Value at global minimum(s)."""
-        # pyre-fixme[7]: Expected `float` but got `None`.
         return self._fmax
 
     @classmethod
@@ -202,16 +197,10 @@ def from_botorch(
 class Hartmann6(SyntheticFunction):
     """Hartmann6 function (6-dimensional with 1 global minimum)."""
 
-    # pyre-fixme[15]: `_required_dimensionality` overrides attribute defined in
-    #  `SyntheticFunction` inconsistently.
     _required_dimensionality = 6
     _domain = [(0, 1) for i in range(6)]
-    # pyre-fixme[15]: `_minimums` overrides attribute defined in `SyntheticFunction`
-    #  inconsistently.
     _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573)]
     _fmin = -3.32237
-    # pyre-fixme[15]: `_fmax` overrides attribute defined in `SyntheticFunction`
-    #  inconsistently.
     _fmax = 0.0
     _alpha = np.array([1.0, 1.2, 3.0, 3.2])
     _A = np.array(
@@ -277,18 +266,10 @@ class Aug_Hartmann6(Hartmann6):
 class Branin(SyntheticFunction):
     """Branin function (2-dimensional with 3 global minima)."""
 
-    # pyre-fixme[15]: `_required_dimensionality` overrides attribute defined in
-    #  `SyntheticFunction` inconsistently.
     _required_dimensionality = 2
-    # pyre-fixme[15]: `_domain` overrides attribute defined in `SyntheticFunction`
-    #  inconsistently.
     _domain = [(-5, 10), (0, 15)]
     _minimums = [(-np.pi, 12.275), (np.pi, 2.275), (9.42478, 2.475)]
-    # pyre-fixme[15]: `_fmin` overrides attribute defined in `SyntheticFunction`
-    #  inconsistently.
     _fmin = 0.397887
-    # pyre-fixme[15]: `_fmax` overrides attribute defined in `SyntheticFunction`
-    #  inconsistently.
     _fmax = 294.0
 
     # pyre-fixme[56]: While applying decorator
@@ -308,18 +289,10 @@ class Branin(SyntheticFunction):
 class Aug_Branin(SyntheticFunction):
     """Augmented Branin function (3-dimensional with infinitely many global minima)."""
 
-    # pyre-fixme[15]: `_required_dimensionality` overrides attribute defined in
-    #  `SyntheticFunction` inconsistently.
     _required_dimensionality = 3
-    # pyre-fixme[15]: `_domain` overrides attribute defined in `SyntheticFunction`
-    #  inconsistently.
     _domain = [(-5, 10), (0, 15), (0, 1)]
     _minimums = [(-np.pi, 12.275, 1), (np.pi, 2.275, 1), (9.42478, 2.475, 1)]
-    # pyre-fixme[15]: `_fmin` overrides attribute defined in `SyntheticFunction`
-    #  inconsistently.
     _fmin = 0.397887
-    # pyre-fixme[15]: `_fmax` overrides attribute defined in `SyntheticFunction`
-    #  inconsistently.
     _fmax = 294.0
 
     # pyre-fixme[56]: While applying decorator
