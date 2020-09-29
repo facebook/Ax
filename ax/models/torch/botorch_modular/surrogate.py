@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from inspect import isabstract
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
@@ -28,6 +27,12 @@ from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
+
+
+NOT_YET_FIT_MSG = (
+    "Underlying BoTorch `Model` has not yet received its training_data."
+    "Please fit the model first."
+)
 
 
 class Surrogate(Base):
@@ -73,13 +78,6 @@ class Surrogate(Base):
     ) -> None:
         self.botorch_model_class = botorch_model_class
         self.mll_class = mll_class
-        # NOTE: assuming here that plugging in kernels will be made easier on the
-        # BoTorch side (for v0 can just always raise `NotImplementedError` if
-        # `kernel` kwarg is not None).
-        if kernel_class:
-            self.kernel_class = kernel_class
-            # NOTE: `validate_kernel_class` to be implemented on BoTorch `Model`.
-            # self.botorch_model_class.validate_kernel_class(kernel_class)
 
         # Temporary validation while we develop these customizations.
         if likelihood is not None:
@@ -96,10 +94,14 @@ class Surrogate(Base):
     @property
     def training_data(self) -> TrainingData:
         if self._training_data is None:
-            raise ValueError(
-                "Underlying BoTorch `Model` has not yet received its training_data."
-            )
+            raise ValueError(NOT_YET_FIT_MSG)
         return not_none(self._training_data)
+
+    @property
+    def training_data_per_outcome(self) -> Dict[str, TrainingData]:
+        raise NotImplementedError(  # pragma: no cover
+            "`training_data_per_outcome` is only used in `ListSurrogate`."
+        )
 
     @property
     def dtype(self) -> torch.dtype:
@@ -137,8 +139,6 @@ class Surrogate(Base):
                 - "fidelity_features": Indices of columns in X that represent
                 fidelity.
         """
-        if isabstract(self.botorch_model_class):
-            raise TypeError("Cannot construct an abstract model.")
         if not isinstance(training_data, TrainingData):
             raise ValueError(  # pragma: no cover
                 "Base `Surrogate` expects training data for single outcome."
@@ -150,7 +150,7 @@ class Surrogate(Base):
             training_data=self.training_data,
             fidelity_features=kwargs.get(Keys.FIDELITY_FEATURES),
         )
-        # pyre-ignore[45]: Model isn't abstract per the check above.
+        # pyre-ignore[45]: Py raises informative msg if `model_cls` abstract.
         self._model = self.botorch_model_class(**formatted_model_inputs)
 
     def fit(
@@ -168,7 +168,11 @@ class Surrogate(Base):
     ) -> None:
         if self._model is None or self._should_reconstruct:
             self.construct(
-                training_data=training_data, fidelity_features=fidelity_features
+                training_data=training_data,
+                fidelity_features=fidelity_features,
+                # Kwargs below are unused in base `Surrogate`, but used in subclasses.
+                metric_names=metric_names,
+                task_features=task_features,
             )
         if state_dict is not None:
             self.model.load_state_dict(state_dict)

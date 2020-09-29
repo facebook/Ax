@@ -14,6 +14,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
@@ -21,10 +22,11 @@ from botorch.utils.containers import TrainingData
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 
 
-CURRENT_PATH = f"{__name__}"
-MODEL_PATH = f"{BoTorchModel.__module__}"
-SURROGATE_PATH = f"{Surrogate.__module__}"
-UTILS_PATH = f"{choose_model_class.__module__}"
+CURRENT_PATH = __name__
+MODEL_PATH = BoTorchModel.__module__
+SURROGATE_PATH = Surrogate.__module__
+UTILS_PATH = choose_model_class.__module__
+ACQUISITION_PATH = Acquisition.__module__
 
 
 class BoTorchModelTest(TestCase):
@@ -46,14 +48,21 @@ class BoTorchModelTest(TestCase):
             surrogate_fit_options=self.surrogate_fit_options,
         )
 
-        self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
-        self.Y = torch.tensor([[3.0], [4.0]])
-        self.Yvar = torch.tensor([[0.0], [2.0]])
+        self.dtype = torch.float
+        Xs1, Ys1, Yvars1, self.bounds, _, _, _ = get_torch_test_data(dtype=self.dtype)
+        Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype)
+        self.Xs = Xs1 + Xs2
+        self.Ys = Ys1 + Ys2
+        self.Yvars = Yvars1 + Yvars2
+        self.X = self.Xs[0]
+        self.Y = self.Ys[0]
+        self.Yvar = self.Yvars[0]
         self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
         self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
         self.task_features = []
         self.feature_names = ["x1", "x2", "x3"]
         self.metric_names = ["y"]
+        self.metric_names_for_list_surrogate = ["y1", "y2"]
         self.fidelity_features = [2]
         self.target_fidelities = {1: 1.0}
         self.candidate_metadata = []

@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from ax.core.types import TConfig
+from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
@@ -18,9 +19,11 @@ from ax.models.torch.utils import (
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import Base
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import AnalyticAcquisitionFunction
+from botorch.acquisition.objective import AcquisitionObjective
+from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf
 from botorch.utils.containers import TrainingData
 from torch import Tensor
@@ -75,6 +78,9 @@ class Acquisition(Base):
     # class by default. `None` for the base `Acquisition` class, but can be
     # specified in subclasses.
     default_botorch_acqf_class: Optional[Type[AcquisitionFunction]] = None
+    # BoTorch `AcquisitionFunction` class associated with this `Acquisition`
+    # instance. Determined during `__init__`, do not set manually.
+    _botorch_acqf_class: Type[AcquisitionFunction]
 
     def __init__(
         self,
@@ -95,13 +101,15 @@ class Acquisition(Base):
                 "BoTorch `AcquisitionFunction`, so `botorch_acqf_class` "
                 "argument must be specified."
             )
-        botorch_acqf_class = not_none(
+        self._botorch_acqf_class = not_none(
             botorch_acqf_class or self.default_botorch_acqf_class
         )
         self.surrogate = surrogate
         self.options = options or {}
+        trd = self._extract_training_data(surrogate=surrogate)
+        Xs = [trd.X] if isinstance(trd, TrainingData) else [i.X for i in trd.values()]
         X_pending, X_observed = _get_X_pending_and_observed(
-            Xs=[self.surrogate.training_data.X],
+            Xs=Xs,
             pending_observations=pending_observations,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
@@ -120,17 +128,12 @@ class Acquisition(Base):
         else:
             model = self.surrogate.model
 
-        objective = get_botorch_objective(
+        objective = self._get_botorch_objective(
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
-            use_scalarized_objective=issubclass(
-                botorch_acqf_class, AnalyticAcquisitionFunction
-            ),
         )
-        # NOTE: Computing model dependencies might be handled entirely on
-        # BoTorch side.
         model_deps = self.compute_model_dependencies(
             surrogate=surrogate,
             bounds=bounds,
@@ -142,19 +145,16 @@ class Acquisition(Base):
             target_fidelities=target_fidelities,
             options=self.options,
         )
-        data_deps = self.compute_data_dependencies(
-            training_data=self.surrogate.training_data
-        )
         # pyre-ignore[28]: Some kwargs are not expected in base `Model`
         # but are expected in its subclasses.
-        self.acqf = botorch_acqf_class(
+        self.acqf = self._botorch_acqf_class(
             model=model,
             objective=objective,
             X_pending=X_pending,
             X_baseline=X_observed,
             **self.options,
             **model_deps,
-            **data_deps,
+            **self.compute_data_dependencies(training_data=trd),
         )
 
     def optimize(
@@ -171,7 +171,7 @@ class Acquisition(Base):
         candidates and their associated acquisition function values.
         """
         optimizer_options = optimizer_options or {}
-        # TODO: make use of `optimizer_class` when its added to BoTorch.
+        # NOTE: Could make use of `optimizer_class` when it's added to BoTorch.
         return optimize_acqf(
             self.acqf,
             bounds=bounds,
@@ -236,17 +236,85 @@ class Acquisition(Base):
         """Computes inputs to acquisition function class based on the given
         surrogate model.
 
-        NOTE: May not be needed if model dependencies are handled entirely on
-        the BoTorch side.
+        NOTE: When subclassing `Acquisition` from a superclass where this
+        method returns a non-empty dictionary of kwargs to `AcquisitionFunction`,
+        call `super().compute_model_dependencies` and then update that
+        dictionary of options with the options for the subclass you are creating
+        (unless the superclass' model dependencies should not be propagated to
+        the subclass). See `MultiFidelityKnowledgeGradient.compute_model_dependencies`
+        for an example.
+
+        Args:
+            surrogate: The surrogate object containing the BoTorch `Model`,
+                with which this `Acquisition` is to be used.
+            bounds: A list of (lower, upper) tuples for each column of X in
+                the training data of the surrogate model.
+            objective_weights: The objective is to maximize a weighted sum of
+                the columns of f(x). These are the weights.
+            pending_observations: A list of tensors, each of which contains
+                points whose evaluation is pending (i.e. that have been
+                submitted for evaluation) for a given outcome. A list
+                of m (k_i x d) feature tensors X for m outcomes and k_i,
+                pending observations for outcome i.
+            outcome_constraints: A tuple of (A, b). For k outcome constraints
+                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+                A f(x) <= b. (Not used by single task models)
+            linear_constraints: A tuple of (A, b). For k linear constraints on
+                d-dimensional x, A is (k x d) and b is (k x 1) such that
+                A x <= b. (Not used by single task models)
+            fixed_features: A map {feature_index: value} for features that
+                should be fixed to a particular value during generation.
+            target_fidelities: Optional mapping from parameter name to its
+                target fidelity, applicable to fidelity parameters only.
+            options: The `options` kwarg dict, passed on initialization of
+                the `Acquisition` object.
+
+        Returns: A dictionary of surrogate model-dependent options, to be passed
+            as kwargs to BoTorch`AcquisitionFunction` constructor.
         """
         return {}
 
     @classmethod
-    def compute_data_dependencies(cls, training_data: TrainingData) -> Dict[str, Any]:
+    def compute_data_dependencies(
+        cls, training_data: Union[TrainingData, Dict[str, TrainingData]]
+    ) -> Dict[str, Any]:
         """Computes inputs to acquisition function class based on the given
         data in model's training data.
 
         NOTE: May not be needed if model dependencies are handled entirely on
         the BoTorch side.
+
+        Args:
+            training_data: Either a `TrainingData` for 1 outcome, or a mapping of
+                outcome name to respective `TrainingData` (if `ListSurrogate` is used).
+
+        Returns: A dictionary of training data-dependent options, to be passed
+            as kwargs to BoTorch`AcquisitionFunction` constructor.
         """
         return {}
+
+    def _get_botorch_objective(
+        self,
+        model: Model,
+        objective_weights: Tensor,
+        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        X_observed: Optional[Tensor] = None,
+    ) -> AcquisitionObjective:
+        return get_botorch_objective(
+            model=model,
+            objective_weights=objective_weights,
+            use_scalarized_objective=issubclass(
+                self._botorch_acqf_class, AnalyticAcquisitionFunction
+            ),
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+        )
+
+    @classmethod
+    def _extract_training_data(
+        cls, surrogate: Surrogate
+    ) -> Union[TrainingData, Dict[str, TrainingData]]:
+        if isinstance(surrogate, ListSurrogate):
+            return checked_cast(dict, surrogate.training_data_per_outcome)
+        else:
+            return checked_cast(TrainingData, surrogate.training_data)

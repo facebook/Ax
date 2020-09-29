@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import torch
 from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -17,9 +18,9 @@ from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.containers import TrainingData
 
 
-ACQUISITION_PATH = f"{Acquisition.__module__}"
-CURRENT_PATH = f"{__name__}"
-SURROGATE_PATH = f"{Surrogate.__module__}"
+ACQUISITION_PATH = Acquisition.__module__
+CURRENT_PATH = __name__
+SURROGATE_PATH = Surrogate.__module__
 
 
 # Used to avoid going through BoTorch `Acquisition.__init__` which
@@ -233,3 +234,16 @@ class AcquisitionTest(TestCase):
     def test_evaluate(self, mock_call):
         self.acquisition.evaluate(X=self.X)
         mock_call.assert_called_with(X=self.X)
+
+    def test_extract_training_data(self):
+        self.assertEqual(  # Base `Surrogate` case.
+            self.acquisition._extract_training_data(surrogate=self.surrogate),
+            self.training_data,
+        )
+        # `ListSurrogate` case.
+        list_surrogate = ListSurrogate(botorch_model_class_per_outcome={})
+        list_surrogate._training_data_per_outcome = {"a": self.training_data}
+        self.assertEqual(
+            self.acquisition._extract_training_data(surrogate=list_surrogate),
+            list_surrogate._training_data_per_outcome,
+        )

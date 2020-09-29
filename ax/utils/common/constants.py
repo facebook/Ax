@@ -43,6 +43,7 @@ class Keys(str, Enum):
     IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF = "immutable_search_space_and_opt_config"
     MAXIMIZE = "maximize"
     METADATA = "metadata"
+    METRIC_NAMES = "metric_names"
     NUM_FANTASIES = "num_fantasies"
     NUM_INNER_RESTARTS = "num_inner_restarts"
     NUM_RESTARTS = "num_restarts"
@@ -60,4 +61,5 @@ class Keys(str, Enum):
     STATE_DICT = "state_dict"
     SUBCLASS = "subclass"
     SUBSET_MODEL = "subset_model"
+    TASK_FEATURES = "task_features"
     WARM_START_REFITTING = "warm_start_refitting"
