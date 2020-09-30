@@ -156,9 +156,8 @@ def gen_tutorials(
 
         # pull out html div for notebook
         soup = BeautifulSoup(html, "html.parser")
-        nb_meat = soup.find("div", {"id": "notebook-container"})
-        del nb_meat.attrs["id"]
-        nb_meat.attrs["class"] = ["notebook"]
+        nb_meat = soup.find("div", {"class": "jp-Notebook"})
+        nb_meat.attrs["class"].append(["notebook"])
 
         # when output html, iframe it (useful for Ax reports)
         for html_div in nb_meat.findAll("div", {"class": "output_html"}):
