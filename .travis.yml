@@ -1,52 +1,57 @@
 language: python
 
 python:
-  - 3.6
+  - 3.7
+
+notifications:
+  email:
+  - recipients:
+    - scubasteve@fb.com
+    - ae_oncall@fb.com
+    if: branch = master
+    on_success: never
+    on_failure: always
 
 jobs:
   allow_failures:
     # create custom environment variable for flagging jobs that are allowed to fail
     - env: ALLOW_FAILURE=true
   include:
-    - name: "Tests + Coverage: Python 3.6"
-      stage: Test
-      python: "3.6"
+    - name: "Tests + Coverage: Python 3.7"
+      python: "3.7"
       install:
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
         - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
       script:
         - pytest -ra --cov=ax
-    - name: "Tests: Python 3.7"
-      # Enable Python 3.7 w/o without globally enabling sudo and xenial dist
-      # See https://github.com/travis-ci/travis-ci/issues/9815
-      python: "3.7"
-      dist: xenial
+    - name: "Tests: Python 3.8"
+      python: "3.8"
       install:
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
         - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
       script:
         - pytest -ra
-    - name: "Lint: black (Python 3.6)"
-      python: "3.6"
+    - name: "Lint: black: Python 3.7"
+      python: "3.7"
       install:
-        - pip install black
+        - pip install black==19.3b0
       script:
         - black --check --diff .
-    - name: "Lint: flake8 (Python 3.6)"
-      python: "3.6"
+    - name: "Lint: flake8: Python 3.7"
+      python: "3.7"
       install:
         - pip install flake8
       script:
         # don't use .flake8 config for now, since don't need custom plugin
         - flake8 --isolated --ignore=T484,T499,W503,E704,E231,E203 --max-line-length=88
-    - name: "Docs: Sphinx (Python 3.6)"
-      python: "3.6"
+    - name: "Docs: Sphinx: Python 3.7"
+      python: "3.7"
       install:
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
         - pip install git+https://github.com/pytorch/botorch.git
-        - pip install -q -e .[dev,mysql,notebook,gpy]
+        - pip install -q -e .[dev,mysql,notebook]
       script:
         # warnings treated as errors
         - sphinx-build -WT sphinx/source sphinx/build
@@ -56,17 +61,17 @@ jobs:
       # Checks whether the current version on Ax master is compatible with latest
       # stable BoTorch release; this test should be passing before cutting new
       # version of Ax.
-      python: "3.6"
+      python: "3.7"
       env: ALLOW_FAILURE=true
       install:
         - pip install botorch
         - pip install -q -e .[dev,mysql,notebook]
       script:
         - pytest -ra
-    - name: "Docs: Sphinx Coverage (Python 3.6)"
-      python: "3.6"
+    - name: "Docs: Sphinx Coverage: Python 3.7"
+      python: "3.7"
       script:
-        - python3 scripts/validate_sphinx.py -p "${pwd}"
+        - python scripts/validate_sphinx.py -p "${pwd}"
     # Pre-deployment stage enforces compatibility with stable BoTorch.
     - name: "Build with BoTorch Version in setup.py (only for tagged versions)"
       # Checks whether the current version on Ax master is compatible with latest
@@ -76,7 +81,7 @@ jobs:
       # TODO: add the same test for compatibility with the minimum BoTorch
       # version listed in Ax' `setup.py`.
       stage: Pre-deploy
-      python: "3.6"
+      python: "3.7"
       install:
         - pip install -q -e .[dev,mysql,notebook]
       script:
@@ -84,12 +89,16 @@ jobs:
     # Version website-building stage is triggered on a tag that starts with 'v'
     # if the pre-deploy stage (previous) passes.
     - stage: Deploy Version Website + deploy to PyPI (On Release)
-      python: "3.6"
+      python: "3.7"
       install:
         - pip install -q -e .[dev,mysql,notebook]
         - pip install torchvision  # Required for building tutorial notebooks.
+        - pip install ray  # Required for building RayTune tutorial notebook.
+        - pip install tabulate  # Required for building RayTune tutorial notebook.
+      git:
+        depth: false
       script:
-        - travis_wait 90 bash scripts/publish_site.sh -d -v $TRAVIS_TAG
+        - travis_wait 90 bash scripts/publish_site.sh -d -k python3 -v $TRAVIS_TAG
         # - python -c "print('Skipping website deployment...')"  # Use for testing deployment.
       deploy:
         provider: pypi
@@ -103,12 +112,17 @@ jobs:
           tags: true
     # Daily website deployment stage is triggered via cron job.
     - stage: Deploy Latest Website And Upload To Test PyPI (Daily)
-      python: "3.6"
+      python: "3.7"
       install:
+        - pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
         - pip install git+https://github.com/cornellius-gp/gpytorch.git
         - pip install git+https://github.com/pytorch/botorch.git
         - pip install -q -e .[dev,mysql,notebook]
         - pip install torchvision  # required for tutorials
+        - pip install ray  # Required for building RayTune tutorial notebook.
+        - pip install tabulate  # Required for building RayTune tutorial notebook.
+      git:
+        depth: false
       script:
         - travis_wait 90 bash scripts/publish_site.sh -d
       # Uploading to test.pypi to check that deployment works.
@@ -123,7 +137,7 @@ jobs:
         on:
           branch: master
           tags: false
-          python: 3.6
+          python: 3.7
 
 stages:
   - name: Test

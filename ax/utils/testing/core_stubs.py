@@ -4,9 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, MutableMapping
+from typing import Dict, Iterable, List, MutableMapping, Optional, Type, cast
 
 import numpy as np
 import pandas as pd
@@ -18,12 +19,13 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
+    Parameter,
     ParameterType,
     RangeParameter,
 )
@@ -43,18 +45,30 @@ from ax.core.types import (
     TModelPredictArm,
     TParameterization,
 )
-from ax.metrics.branin import BraninMetric
+from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.factorial import FactorialMetric
-from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
+from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.kg import KnowledgeGradient
+from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.logger import get_logger
+from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.monte_carlo import qExpectedImprovement
+from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.model import Model
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 
 
-logger = get_logger("ae_experiment")
+logger = get_logger(__name__)
 
 
+##############################
 # Experiments
+##############################
 
 
 def get_experiment() -> Experiment:
@@ -73,10 +87,15 @@ def get_branin_experiment(
     has_optimization_config: bool = True,
     with_batch: bool = False,
     with_status_quo: bool = False,
+    with_fidelity_parameter: bool = False,
+    search_space: Optional[SearchSpace] = None,
 ) -> Experiment:
+    search_space = search_space or get_branin_search_space(
+        with_fidelity_parameter=with_fidelity_parameter
+    )
     exp = Experiment(
         name="branin_test_experiment",
-        search_space=get_branin_search_space(),
+        search_space=search_space,
         optimization_config=get_branin_optimization_config()
         if has_optimization_config
         else None,
@@ -203,6 +222,14 @@ def get_experiment_with_batch_and_single_trial() -> Experiment:
     return batch_trial.experiment
 
 
+def get_experiment_with_trial_with_ttl() -> Experiment:
+    batch_trial = get_batch_trial()
+    batch_trial.experiment.new_trial(
+        generator_run=GeneratorRun(arms=[get_arm()]), ttl_seconds=1
+    )
+    return batch_trial.experiment
+
+
 def get_experiment_with_data() -> Experiment:
     batch_trial = get_batch_trial()
     batch_trial.experiment.attach_data(data=get_data())
@@ -211,7 +238,77 @@ def get_experiment_with_data() -> Experiment:
     return batch_trial.experiment
 
 
+def get_experiment_with_multi_objective() -> Experiment:
+    objective = get_multi_objective()
+    outcome_constraints = [get_outcome_constraint()]
+    optimization_config = OptimizationConfig(
+        objective=objective, outcome_constraints=outcome_constraints
+    )
+
+    exp = Experiment(
+        name="test_experiment_multi_objective",
+        search_space=get_branin_search_space(),
+        optimization_config=optimization_config,
+        description="test experiment with multi objective",
+        runner=SyntheticRunner(),
+        tracking_metrics=[Metric(name="tracking")],
+        is_test=True,
+    )
+
+    return exp
+
+
+def get_branin_experiment_with_multi_objective(
+    has_optimization_config: bool = True,
+    with_batch: bool = False,
+    with_status_quo: bool = False,
+    with_fidelity_parameter: bool = False,
+) -> Experiment:
+    exp = Experiment(
+        name="branin_test_experiment",
+        search_space=get_branin_search_space(
+            with_fidelity_parameter=with_fidelity_parameter
+        ),
+        optimization_config=get_branin_multi_objective_optimization_config()
+        if has_optimization_config
+        else None,
+        runner=SyntheticRunner(),
+        is_test=True,
+    )
+
+    if with_status_quo:
+        exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+
+    if with_batch:
+        sobol_generator = get_sobol(search_space=exp.search_space)
+        sobol_run = sobol_generator.gen(n=15)
+        exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
+            sobol_run
+        )
+
+    return exp
+
+
+def get_experiment_with_scalarized_objective() -> Experiment:
+    objective = get_scalarized_objective()
+    outcome_constraints = [get_outcome_constraint()]
+    optimization_config = OptimizationConfig(
+        objective=objective, outcome_constraints=outcome_constraints
+    )
+    return Experiment(
+        name="test_experiment_scalarized_objective",
+        search_space=get_search_space(),
+        optimization_config=optimization_config,
+        status_quo=get_status_quo(),
+        description="test experiment with scalarized objective",
+        tracking_metrics=[Metric(name="tracking")],
+        is_test=True,
+    )
+
+
+##############################
 # Search Spaces
+##############################
 
 
 def get_search_space() -> SearchSpace:
@@ -235,7 +332,7 @@ def get_search_space() -> SearchSpace:
     )
 
 
-def get_branin_search_space() -> SearchSpace:
+def get_branin_search_space(with_fidelity_parameter: bool = False) -> SearchSpace:
     parameters = [
         RangeParameter(
             name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
@@ -244,11 +341,19 @@ def get_branin_search_space() -> SearchSpace:
             name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=15
         ),
     ]
-    # Expected `List[ax.core.parameter.Parameter]` for 2nd parameter
-    # `parameters` to call `ax.core.search_space.SearchSpace.__init__` but got
-    # `List[RangeParameter]`.
-    # pyre-fixme[6]:
-    return SearchSpace(parameters=parameters)
+    if with_fidelity_parameter:
+        parameters.append(
+            RangeParameter(
+                name="fidelity",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+                is_fidelity=True,
+                target_value=1.0,
+            )
+        )
+
+    return SearchSpace(parameters=cast(List[Parameter], parameters))
 
 
 def get_factorial_search_space() -> SearchSpace:
@@ -288,6 +393,28 @@ def get_factorial_search_space() -> SearchSpace:
     )
 
 
+def get_hartmann_search_space(with_fidelity_parameter: bool = False) -> SearchSpace:
+    parameters = [
+        RangeParameter(
+            name=f"x{idx+1}", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+        )
+        for idx in range(6)
+    ]
+    if with_fidelity_parameter:
+        parameters.append(
+            RangeParameter(
+                name="fidelity",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+                is_fidelity=True,
+                target_value=1.0,
+            )
+        )
+
+    return SearchSpace(parameters=cast(List[Parameter], parameters))
+
+
 def get_search_space_for_value(val: float = 3.0) -> SearchSpace:
     return SearchSpace([FixedParameter("x", ParameterType.FLOAT, val)])
 
@@ -317,7 +444,9 @@ def get_discrete_search_space() -> SearchSpace:
     )
 
 
+##############################
 # Trials
+##############################
 
 
 def get_batch_trial(abandon_arm: bool = True) -> BatchTrial:
@@ -330,6 +459,7 @@ def get_batch_trial(abandon_arm: bool = True) -> BatchTrial:
         batch.mark_arm_abandoned(batch.arms[0].name, "abandoned reason")
     batch.runner = SyntheticRunner()
     batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
+    batch._generation_step_index = 0
     return batch
 
 
@@ -367,6 +497,7 @@ def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
 
     # Add num_repeated_arms to the new trial.
     arms = prev_arms + next_arms
+    # pyre-fixme[6]: Expected `List[int]` for 1st param but got `List[float]`.
     weights = prev_weights + next_weights
     batch = experiment.new_batch_trial()
     batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=1)
@@ -377,14 +508,17 @@ def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
 
 def get_trial() -> Trial:
     experiment = get_experiment()
-    trial = experiment.new_trial()
+    trial = experiment.new_trial(ttl_seconds=72)
     arm = get_arms_from_dict(get_arm_weights1())[0]
     trial.add_arm(arm)
     trial.runner = SyntheticRunner()
+    trial._generation_step_index = 0
     return trial
 
 
+##############################
 # Parameters
+##############################
 
 
 def get_range_parameter() -> RangeParameter:
@@ -417,7 +551,9 @@ def get_fixed_parameter() -> FixedParameter:
     return FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
 
 
+##############################
 # Parameter Constraints
+##############################
 
 
 def get_order_constraint() -> OrderConstraint:
@@ -442,19 +578,34 @@ def get_sum_constraint2() -> SumConstraint:
     return SumConstraint(parameters=[x, w], is_upper_bound=True, bound=10.0)
 
 
+##############################
 # Metrics
+##############################
 
 
 def get_metric() -> Metric:
-    return Metric(name="m1")
+    return Metric(name="m1", properties={"prop": "val"})
 
 
 def get_branin_metric(name="branin") -> BraninMetric:
-    return BraninMetric(name=name, param_names=["x1", "x2"], noise_sd=0.01)
+    param_names = ["x1", "x2"]
+    return BraninMetric(name=name, param_names=param_names, noise_sd=0.01)
 
 
-def get_hartmann_metric() -> Hartmann6Metric:
-    return Hartmann6Metric(name="hartmann", param_names=["x1", "x2"], noise_sd=0.01)
+def get_augmented_branin_metric(name="aug_branin") -> AugmentedBraninMetric:
+    param_names = ["x1", "x2", "fidelity"]
+    return AugmentedBraninMetric(name=name, param_names=param_names, noise_sd=0.01)
+
+
+def get_hartmann_metric(name="hartmann") -> Hartmann6Metric:
+    param_names = [f"x{idx + 1}" for idx in range(6)]
+    return Hartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
+
+
+def get_augmented_hartmann_metric(name="aug_hartmann") -> AugmentedHartmann6Metric:
+    param_names = [f"x{idx + 1}" for idx in range(6)]
+    param_names.append("fidelity")
+    return AugmentedHartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
 
 
 def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
@@ -475,23 +626,72 @@ def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
     )
 
 
-# Optimization Configs
+##############################
+# Outcome Constraints
+##############################
+
+
+def get_outcome_constraint() -> OutcomeConstraint:
+    return OutcomeConstraint(metric=Metric(name="m2"), op=ComparisonOp.GEQ, bound=-0.25)
+
+
+def get_branin_outcome_constraint() -> OutcomeConstraint:
+    return OutcomeConstraint(metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0)
+
+
+##############################
+# Objectives
+##############################
 
 
 def get_objective() -> Objective:
     return Objective(metric=Metric(name="m1"), minimize=False)
 
 
+def get_multi_objective() -> Objective:
+    return MultiObjective(
+        metrics=[Metric(name="m1"), Metric(name="m3", lower_is_better=True)],
+        minimize=False,
+    )
+
+
 def get_scalarized_objective() -> Objective:
     return ScalarizedObjective(
-        metrics=[Metric(name="m1"), Metric(name="m2")],
+        metrics=[Metric(name="m1"), Metric(name="m3")],
         weights=[1.0, 2.0],
         minimize=False,
     )
 
 
-def get_outcome_constraint() -> OutcomeConstraint:
-    return OutcomeConstraint(metric=Metric(name="m2"), op=ComparisonOp.GEQ, bound=-0.25)
+def get_branin_objective() -> Objective:
+    return Objective(metric=get_branin_metric(), minimize=False)
+
+
+def get_branin_multi_objective() -> Objective:
+    return MultiObjective(
+        metrics=[
+            get_branin_metric(name="branin_a"),
+            get_branin_metric(name="branin_b"),
+        ],
+        minimize=False,
+    )
+
+
+def get_augmented_branin_objective() -> Objective:
+    return Objective(metric=get_augmented_branin_metric(), minimize=False)
+
+
+def get_hartmann_objective() -> Objective:
+    return Objective(metric=get_hartmann_metric(), minimize=False)
+
+
+def get_augmented_hartmann_objective() -> Objective:
+    return Objective(metric=get_augmented_hartmann_metric(), minimize=False)
+
+
+##############################
+# Optimization Configs
+##############################
 
 
 def get_optimization_config() -> OptimizationConfig:
@@ -502,14 +702,6 @@ def get_optimization_config() -> OptimizationConfig:
     )
 
 
-def get_branin_objective() -> Objective:
-    return Objective(metric=get_branin_metric(), minimize=False)
-
-
-def get_branin_outcome_constraint() -> OutcomeConstraint:
-    return OutcomeConstraint(metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0)
-
-
 def get_optimization_config_no_constraints() -> OptimizationConfig:
     return OptimizationConfig(objective=Objective(metric=Metric("test_metric")))
 
@@ -518,7 +710,25 @@ def get_branin_optimization_config() -> OptimizationConfig:
     return OptimizationConfig(objective=get_branin_objective())
 
 
+def get_branin_multi_objective_optimization_config() -> OptimizationConfig:
+    return OptimizationConfig(objective=get_branin_multi_objective())
+
+
+def get_augmented_branin_optimization_config() -> OptimizationConfig:
+    return OptimizationConfig(objective=get_augmented_branin_objective())
+
+
+def get_hartmann_optimization_config() -> OptimizationConfig:
+    return OptimizationConfig(objective=get_hartmann_objective())
+
+
+def get_augmented_hartmann_optimization_config() -> OptimizationConfig:
+    return OptimizationConfig(objective=get_augmented_hartmann_objective())
+
+
+##############################
 # Arms
+##############################
 
 
 def get_arm() -> Arm:
@@ -591,7 +801,9 @@ def get_abandoned_arm() -> AbandonedArm:
     return AbandonedArm(name="0_0", reason="foobar", time=datetime.now())
 
 
+##############################
 # Generator Runs
+##############################
 
 
 def get_generator_run() -> GeneratorRun:
@@ -612,6 +824,10 @@ def get_generator_run() -> GeneratorRun:
         model_key="Sobol",
         model_kwargs={"scramble": False, "torch_device": torch.device("cpu")},
         bridge_kwargs={"transforms": Cont_X_trans, "torch_dtype": torch.double},
+        generation_step_index=0,
+        candidate_metadata_by_arm_signature={
+            a.signature: {"md_key": f"md_val_{a.signature}"} for a in arms
+        },
     )
 
 
@@ -621,21 +837,25 @@ def get_generator_run2() -> GeneratorRun:
     return GeneratorRun(arms=arms, weights=weights)
 
 
+##############################
 # Runners
+##############################
 
 
 def get_synthetic_runner() -> SyntheticRunner:
     return SyntheticRunner(dummy_metadata="foobar")
 
 
+##############################
 # Data
+##############################
 
 
-def get_data() -> Data:
+def get_data(trial_index: int = 0) -> Data:
     df_dict = {
-        "trial_index": 0,
+        "trial_index": trial_index,
         "metric_name": "ax_test_metric",
-        "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3"],
+        "arm_name": ["status_quo"] + [f"{trial_index}_i" for i in range(4)],
         "mean": [1, 3, 2, 2.25, 1.75],
         "sem": [0, 0.5, 0.25, 0.40, 0.15],
         "n": [100, 100, 100, 100, 100],
@@ -643,18 +863,40 @@ def get_data() -> Data:
     return Data(df=pd.DataFrame.from_records(df_dict))
 
 
-def get_branin_data() -> Data:
-    df_dict = {
-        "trial_index": 0,
-        "metric_name": "branin",
-        "arm_name": ["0_0"],
-        "mean": [5.0],
-        "sem": [0.0],
-    }
-    return Data(df=pd.DataFrame.from_records(df_dict))
+def get_branin_data(trial_indices: Optional[Iterable[int]] = None) -> Data:
+    df_dicts = [
+        {
+            "trial_index": trial_index,
+            "metric_name": "branin",
+            "arm_name": f"{trial_index}_0",
+            "mean": 5.0,
+            "sem": 0.0,
+        }
+        for trial_index in (trial_indices or [0])
+    ]
+    return Data(df=pd.DataFrame.from_records(df_dicts))
 
 
+def get_branin_data_multi_objective(
+    trial_indices: Optional[Iterable[int]] = None,
+) -> Data:
+    df_dicts = [
+        {
+            "trial_index": trial_index,
+            "metric_name": f"branin_{suffix}",
+            "arm_name": f"{trial_index}_0",
+            "mean": 5.0,
+            "sem": 0.0,
+        }
+        for trial_index in (trial_indices or [0])
+        for suffix in ["a", "b"]
+    ]
+    return Data(df=pd.DataFrame.from_records(df_dicts))
+
+
+##############################
 # Instances of types from core/types.py
+##############################
 
 
 def get_model_mean() -> TModelMean:
@@ -691,3 +933,42 @@ def get_model_predictions_per_arm() -> Dict[str, TModelPredictArm]:
         )
         for i in range(len(arms))
     }
+
+
+##############################
+# Modular BoTorch Model Components
+##############################
+
+
+def get_botorch_model() -> BoTorchModel:
+    return BoTorchModel(
+        surrogate=get_surrogate(), acquisition_class=get_acquisition_type()
+    )
+
+
+def get_botorch_model_with_default_acquisition_class() -> BoTorchModel:
+    return BoTorchModel(
+        surrogate=get_surrogate(),
+        acquisition_class=Acquisition,
+        botorch_acqf_class=get_acquisition_function_type(),
+    )
+
+
+def get_surrogate() -> Surrogate:
+    return Surrogate(get_model_type())
+
+
+def get_acquisition_type() -> Type[Acquisition]:
+    return KnowledgeGradient
+
+
+def get_model_type() -> Type[Model]:
+    return SingleTaskGP
+
+
+def get_mll_type() -> Type[MarginalLogLikelihood]:
+    return ExactMarginalLogLikelihood
+
+
+def get_acquisition_function_type() -> Type[AcquisitionFunction]:
+    return qExpectedImprovement

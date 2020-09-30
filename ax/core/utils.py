@@ -10,6 +10,7 @@ import numpy as np
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.objective import MultiObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
@@ -41,17 +42,25 @@ def get_missing_metrics(
     Returns:
         A NamedTuple(missing_objective, Dict[str, missing_outcome_constraint])
     """
-    objective_name = optimization_config.objective.metric.name
+    objective = optimization_config.objective
+    if isinstance(objective, MultiObjective):  # pragma: no cover
+        objective_metric_names = [m.name for m in objective.metrics]
+    else:
+        objective_metric_names = [optimization_config.objective.metric.name]
+
     outcome_constraints_metric_names = [
         outcome_constraint.metric.name
         for outcome_constraint in optimization_config.outcome_constraints
     ]
-    missing_objective = _get_missing_arm_trial_pairs(data, objective_name)
+    missing_objectives = {
+        objective_metric_name: _get_missing_arm_trial_pairs(data, objective_metric_name)
+        for objective_metric_name in objective_metric_names
+    }
     missing_outcome_constraints = get_missing_metrics_by_name(
         data, outcome_constraints_metric_names
     )
     all_metric_names = set(data.df["metric_name"])
-    optimization_config_metric_names = {objective_name}.union(
+    optimization_config_metric_names = set(missing_objectives.keys()).union(
         outcome_constraints_metric_names
     )
     missing_tracking_metric_names = all_metric_names.difference(
@@ -61,9 +70,7 @@ def get_missing_metrics(
         data=data, metric_names=missing_tracking_metric_names
     )
     return MissingMetrics(
-        objective={objective_name: missing_objective}
-        if len(missing_objective) > 0
-        else {},
+        objective={k: v for k, v in missing_objectives.items() if len(v) > 0},
         outcome_constraints={
             k: v for k, v in missing_outcome_constraints.items() if len(v) > 0
         },

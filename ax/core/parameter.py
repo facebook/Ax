@@ -8,8 +8,8 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
-from ax.core.base import Base
 from ax.core.types import TParamValue
+from ax.utils.common.equality import Base
 
 
 FIXED_CHOICE_PARAM_ERROR = (
@@ -48,7 +48,7 @@ class Parameter(Base, metaclass=ABCMeta):
     _name: str
     _target_value: Optional[TParamValue] = None
 
-    def _cast(self, value: TParamValue) -> TParamValue:
+    def cast(self, value: TParamValue) -> TParamValue:
         if value is None:
             return None
         return self.python_type(value)
@@ -114,8 +114,8 @@ class RangeParameter(Parameter):
             name: Name of the parameter.
             parameter_type: Enum indicating the type of parameter
                 value (e.g. string, int).
-            lower: Lower bound of the parameter range.
-            upper: Upper bound of the parameter range.
+            lower: Lower bound of the parameter range (inclusive).
+            upper: Upper bound of the parameter range (inclusive).
             log_scale: Whether to sample in the log space when drawing
                 random values of the parameter.
             digits: Number of digits to round values to for float type.
@@ -131,11 +131,11 @@ class RangeParameter(Parameter):
         self._name = name
         self._parameter_type = parameter_type
         self._digits = digits
-        self._lower = self._cast(lower)
-        self._upper = self._cast(upper)
+        self._lower = self.cast(lower)
+        self._upper = self.cast(upper)
         self._log_scale = log_scale
         self._is_fidelity = is_fidelity
-        self._target_value = self._cast(target_value)
+        self._target_value = self.cast(target_value)
 
         self._validate_range_param(
             parameter_type=parameter_type, lower=lower, upper=upper, log_scale=log_scale
@@ -153,8 +153,12 @@ class RangeParameter(Parameter):
             ParameterType.FLOAT,
         ):
             raise ValueError("RangeParameter type must be int or float.")
+        # pyre-fixme[58]: `>=` is not supported for operand types `Union[None, bool,
+        #  float, int, str]` and `Union[None, bool, float, int, str]`.
         if lower >= upper:
             raise ValueError("max must be strictly larger than min.")
+        # pyre-fixme[58]: `<=` is not supported for operand types `Union[None, bool,
+        #  float, int, str]` and `int`.
         if log_scale and lower <= 0:
             raise ValueError("Cannot take log when min <= 0.")
         if not (self.is_valid_type(lower)) or not (self.is_valid_type(upper)):
@@ -217,8 +221,8 @@ class RangeParameter(Parameter):
             lower = self._lower
         if upper is None:
             upper = self._upper
-        cast_lower = self._cast(lower)
-        cast_upper = self._cast(upper)
+        cast_lower = self.cast(lower)
+        cast_upper = self.cast(upper)
         self._validate_range_param(
             lower=cast_lower, upper=cast_upper, log_scale=self.log_scale
         )
@@ -230,8 +234,10 @@ class RangeParameter(Parameter):
         self._digits = digits
 
         # Re-scale min and max to new digits definition
-        cast_lower = self._cast(self._lower)
-        cast_upper = self._cast(self._upper)
+        cast_lower = self.cast(self._lower)
+        cast_upper = self.cast(self._upper)
+        # pyre-fixme[58]: `>=` is not supported for operand types `Union[None, bool,
+        #  float, int, str]` and `Union[None, bool, float, int, str]`.
         if cast_lower >= cast_upper:
             raise ValueError(
                 f"Lower bound {cast_lower} is >= upper bound {cast_upper}."
@@ -273,6 +279,8 @@ class RangeParameter(Parameter):
 
         # This might have issues with ints > 2^24
         if self.parameter_type is ParameterType.INT:
+            # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
+            #  typing.SupportsFloat]` for 1st param but got `Union[None, float, str]`.
             return isinstance(value, int) or float(value).is_integer()
         return True
 
@@ -288,7 +296,7 @@ class RangeParameter(Parameter):
             target_value=self._target_value,
         )
 
-    def _cast(self, value: TParamValue) -> TParamValue:
+    def cast(self, value: TParamValue) -> TParamValue:
         if value is None:
             return None
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
@@ -353,7 +361,7 @@ class ChoiceParameter(Parameter):
         self._is_ordered = is_ordered
         self._is_task = is_task
         self._is_fidelity = is_fidelity
-        self._target_value = self._cast(target_value)
+        self._target_value = self.cast(target_value)
         # A choice parameter with only one value is a FixedParameter.
         if not len(values) > 1:
             raise ValueError(FIXED_CHOICE_PARAM_ERROR)
@@ -416,13 +424,14 @@ class ChoiceParameter(Parameter):
         return value in self._values
 
     def _cast_values(self, values: List[TParamValue]) -> List[TParamValue]:
-        return [self._cast(value) for value in values]
+        return [self.cast(value) for value in values]
 
     def clone(self) -> "ChoiceParameter":
         return ChoiceParameter(
             name=self._name,
             parameter_type=self._parameter_type,
             values=self._values,
+            is_ordered=self._is_ordered,
             is_task=self._is_task,
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
@@ -472,9 +481,9 @@ class FixedParameter(Parameter):
 
         self._name = name
         self._parameter_type = parameter_type
-        self._value = self._cast(value)
+        self._value = self.cast(value)
         self._is_fidelity = is_fidelity
-        self._target_value = self._cast(target_value)
+        self._target_value = self.cast(target_value)
 
     @property
     def value(self) -> TParamValue:
@@ -489,7 +498,7 @@ class FixedParameter(Parameter):
         return self._name
 
     def set_value(self, value: TParamValue) -> "FixedParameter":
-        self._value = self._cast(value)
+        self._value = self.cast(value)
         return self
 
     def validate(self, value: TParamValue) -> bool:

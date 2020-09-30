@@ -6,6 +6,7 @@
 
 
 import numpy as np
+from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
 
@@ -176,7 +177,7 @@ class SobolGeneratorTest(TestCase):
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
         bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(SearchSpaceExhausted):
             generated_points, weights = generator.gen(
                 n=3,
                 bounds=bounds,

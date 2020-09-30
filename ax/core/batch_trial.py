@@ -22,8 +22,14 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
+from ax.core.types import TCandidateMetadata
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
+
+
+logger = get_logger(__name__)
 
 
 if TYPE_CHECKING:
@@ -57,14 +63,57 @@ class GeneratorRunStruct(NamedTuple):
 
 
 class BatchTrial(BaseTrial):
+    """Batched trial that has multiple attached arms, meant to be
+    *deployed and evaluated together*, and possibly arm weights, which are
+    a measure of how much of the total resources allocated to evaluating
+    a batch should go towards evaluating the specific arm. For instance,
+    for field experiments the weights could describe the fraction of the
+    total experiment population assigned to the different treatment arms.
+    Interpretation of the weights is defined in Runner.
+
+    NOTE: A `BatchTrial` is not just a trial with many arms; it is a trial,
+    for which it is important that the arms are evaluated simultaneously, e.g.
+    in an A/B test where the evaluation results are subject to nonstationarity.
+    For cases where multiple arms are evaluated separately and independently of
+    each other, use multiple `Trial` objects with a single arm each.
+
+    Args:
+        experiment: Experiment, to which this trial is attached
+        generator_run: GeneratorRun, associated with this trial. This can a
+            also be set later through `add_arm` or `add_generator_run`, but a
+            trial's associated generator run is immutable once set.
+        trial_type: Type of this trial, if used in MultiTypeExperiment.
+        optimize_for_power: Whether to optimize the weights of arms in this
+            trial such that the experiment's power to detect effects of
+            certain size is as high as possible. Refer to documentation of
+            `BatchTrial.set_status_quo_and_optimize_power` for more detail.
+        ttl_seconds: If specified, trials will be considered failed after
+            this many seconds since the time the trial was ran, unless the
+            trial is completed before then. Meant to be used to detect
+            'dead' trials, for which the evaluation process might have
+            crashed etc., and which should be considered failed after
+            their 'time to live' has passed.
+        index: If specified, the trial's index will be set accordingly.
+            This should generally not be specified, as in the index will be
+            automatically determined based on the number of existing trials.
+            This is only used for the purpose of loading from storage.
+    """
+
     def __init__(
         self,
         experiment: "core.experiment.Experiment",
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
+        ttl_seconds: Optional[int] = None,
+        index: Optional[int] = None,
     ) -> None:
-        super().__init__(experiment=experiment, trial_type=trial_type)
+        super().__init__(
+            experiment=experiment,
+            trial_type=trial_type,
+            ttl_seconds=ttl_seconds,
+            index=index,
+        )
         self._generator_run_structs: List[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
         self._status_quo: Optional[Arm] = None
@@ -210,6 +259,9 @@ class BatchTrial(BaseTrial):
         if self.status_quo is not None and self.optimize_for_power:
             self.set_status_quo_and_optimize_power(status_quo=not_none(self.status_quo))
 
+        self._set_generation_step_index(
+            generation_step_index=generator_run._generation_step_index
+        )
         return self
 
     @property
@@ -257,7 +309,7 @@ class BatchTrial(BaseTrial):
     def set_status_quo_and_optimize_power(self, status_quo: Arm) -> "BatchTrial":
         """Adds a status quo arm to the batch and optimizes for power.
 
-        Note: this optimization based on the arms that are currently attached
+        NOTE: this optimization based on the arms that are currently attached
         to the batch. If you add more arms later, you should re-run this function.
         If you want the optimization to happen automatically,
         set batch.optimize_for_power = True.
@@ -318,6 +370,11 @@ class BatchTrial(BaseTrial):
             self.arms_by_name[arm.name]
             for arm in self._abandoned_arms_metadata.values()
         ]
+
+    @copy_doc(BaseTrial.generator_runs)
+    @property
+    def generator_runs(self) -> List[GeneratorRun]:
+        return [grs.generator_run for grs in self.generator_run_structs]
 
     @property
     def abandoned_arms_metadata(self) -> List[AbandonedArm]:
@@ -429,3 +486,51 @@ class BatchTrial(BaseTrial):
             f"index={self._index}, "
             f"status={self._status})"
         )
+
+    def _get_candidate_metadata_from_all_generator_runs(
+        self,
+    ) -> Dict[str, TCandidateMetadata]:
+        """Retrieves combined candidate metadata from all generator runs on this
+        batch trial in the form of { arm name -> candidate metadata} mapping.
+
+        NOTE: this does not handle the case of the same arm appearing in multiple
+        generator runs in the same trial: metadata from only one of the generator
+        runs containing the arm will be retrieved.
+        """
+        cand_metadata = {}
+        for gr_struct in self._generator_run_structs:
+            gr = gr_struct.generator_run
+            if gr.candidate_metadata_by_arm_signature:
+                gr_cand_metadata = gr.candidate_metadata_by_arm_signature
+                warn = False
+                for arm in gr.arms:
+                    if arm.name in cand_metadata:
+                        warn = True
+                    if gr_cand_metadata:
+                        # Reformat the mapping to be by arm name, since arm signature
+                        # is not stored in Ax data.
+                        cand_metadata[arm.name] = gr_cand_metadata.get(arm.signature)
+                if warn:
+                    logger.warning(
+                        "The same arm appears in multiple generator runs in batch "
+                        f"{self.index}. Candidate metadata will only contain metadata "
+                        "for one of those generator runs, and the candidate metadata "
+                        "for the arm from another generator run will not be propagated."
+                    )
+        return cand_metadata
+
+    def _get_candidate_metadata(self, arm_name: str) -> TCandidateMetadata:
+        """Retrieves candidate metadata for a specific arm."""
+        try:
+            arm = self.arms_by_name[arm_name]
+        except KeyError:
+            raise ValueError(
+                f"Arm by name {arm_name} is not part of trial #{self.index}."
+            )
+        for gr_struct in self._generator_run_structs:
+            gr = gr_struct.generator_run
+            if gr and gr.candidate_metadata_by_arm_signature and arm in gr.arms:
+                return not_none(gr.candidate_metadata_by_arm_signature).get(
+                    arm.signature
+                )
+        return None

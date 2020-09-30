@@ -15,13 +15,16 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 
 
-logger = get_logger("Winsorize")
+logger = get_logger(__name__)
 
 
 class Winsorize(Transform):
     """Clip the mean values for each metric to lay within the limits provided in
     the config as a tuple of (lower bound percentile, upper bound percentile).
-    Config should include those bounds under key "winsorization_limits".
+    These values are the percentile to trim from the lower and upper bounds,
+    specified as a float in [0.0, 1). To clip to the 10th and 90th percentile,
+    for instance, you'll pass (0.1, 0.1). Config should include those bounds
+    under the key "winsorization_limits".
     """
 
     def __init__(
@@ -48,9 +51,12 @@ class Winsorize(Transform):
         for obsd in observation_data:
             for i, metric_name in enumerate(obsd.metric_names):
                 metric_values[metric_name].append(obsd.means[i])
-        assert (
-            lower <= 1 - upper
-        ), f"Upper bound: {upper} was less than the inverse of lower: {lower}"
+        if lower >= 1 - upper:
+            raise ValueError(  # pragma: no cover
+                f"Lower bound: {lower} was greater than the inverse of the upper "
+                f"bound: {1 - upper}. Decrease one or both of your "
+                f"winsorization_limits: {(lower, upper)}."
+            )
         self.percentiles = {
             metric_name: (
                 np.percentile(vals, lower * 100, interpolation="lower"),

@@ -13,11 +13,13 @@ from typing import Any, Dict, List, Tuple, Type, cast
 
 import numpy as np
 import pandas as pd
+import torch
 from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data  # noqa F401
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
@@ -30,14 +32,14 @@ from ax.core.simple_experiment import (
     unimplemented_evaluation_function,
 )
 from ax.exceptions.storage import JSONDecodeError
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
-from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.registry import Models, _decode_callables_from_references
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
-from ax.storage.json_store.registry import DECODER_REGISTRY
-from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
-from ax.utils.common.typeutils import torch_type_from_str
+from ax.storage.json_store.registry import CLASS_DECODER_REGISTRY, DECODER_REGISTRY
+from ax.utils.common.typeutils import not_none, torch_type_from_str
 from ax.utils.measurement import synthetic_functions
+from ax.utils.measurement.synthetic_functions import from_botorch
+from botorch.test_functions import synthetic as botorch_synthetic
 
 
 def object_from_json(object_json: Any) -> Any:
@@ -72,11 +74,26 @@ def object_from_json(object_json: Any) -> Any:
             return pd.read_json(object_json["value"], dtype=False)
         elif _type == "ndarray":
             return np.array(object_json["value"])
+        elif _type == "Tensor":
+            device = (
+                object_from_json(object_json["device"])
+                if torch.cuda.is_available()
+                else torch.device("cpu")
+            )
+            return torch.tensor(
+                object_json["value"],
+                dtype=object_from_json(object_json["dtype"]),
+                device=device,
+            )
         elif _type.startswith("torch"):
             # Torch types will be encoded as "torch_<type_name>", so we drop prefix
             return torch_type_from_str(
                 identifier=object_json["value"], type_name=_type[6:]
             )
+
+        # Used for decoding classes (not objects).
+        elif _type in CLASS_DECODER_REGISTRY:
+            return CLASS_DECODER_REGISTRY[_type](object_json)
 
         elif _type not in DECODER_REGISTRY:
             err = (
@@ -93,26 +110,35 @@ def object_from_json(object_json: Any) -> Any:
             return _class[object_json["name"]]
         elif _class == GeneratorRun:
             return generator_run_from_json(object_json=object_json)
+        elif _class == GenerationStep:
+            return generation_step_from_json(generation_step_json=object_json)
         elif _class == GenerationStrategy:
             return generation_strategy_from_json(generation_strategy_json=object_json)
+        elif _class == MultiTypeExperiment:
+            return multi_type_experiment_from_json(object_json=object_json)
         elif _class == SimpleExperiment:
             return simple_experiment_from_json(object_json=object_json)
         elif _class == Experiment:
             return experiment_from_json(object_json=object_json)
         elif _class == SearchSpace:
             return search_space_from_json(search_space_json=object_json)
-        elif _class == Type[Transform]:
-            return transform_type_from_json(object_json=object_json)
         elif _class == SimpleBenchmarkProblem:
             return simple_benchmark_problem_from_json(object_json=object_json)
 
-        return _class(**{k: object_from_json(v) for k, v in object_json.items()})
+        return ax_class_from_json_dict(_class=_class, object_json=object_json)
     else:
         err = (
             f"The object {object_json} passed to `object_from_json` has an "
             f"unsupported type: {type(object_json)}."
         )
         raise JSONDecodeError(err)
+
+
+def ax_class_from_json_dict(_class: Type, object_json: Dict[str, Any]) -> Any:
+    """Reinstantiates an Ax class registered in `DECODER_REGISTRY` from a JSON
+    dict.
+    """
+    return _class(**{k: object_from_json(v) for k, v in object_json.items()})
 
 
 def generator_run_from_json(object_json: Dict[str, Any]) -> GeneratorRun:
@@ -216,16 +242,38 @@ def data_from_json(
     }
 
 
+def multi_type_experiment_from_json(object_json: Dict[str, Any]) -> MultiTypeExperiment:
+    """Load AE MultiTypeExperiment from JSON."""
+    experiment_info = _get_experiment_info(object_json)
+
+    _metric_to_canonical_name = object_json.pop("_metric_to_canonical_name")
+    _metric_to_trial_type = object_json.pop("_metric_to_trial_type")
+    _trial_type_to_runner = object_from_json(object_json.pop("_trial_type_to_runner"))
+    tracking_metrics = object_from_json(object_json.pop("tracking_metrics"))
+    # not relevant to multi type experiment
+    del object_json["runner"]
+
+    kwargs = {k: object_from_json(v) for k, v in object_json.items()}
+    kwargs["default_runner"] = _trial_type_to_runner[object_json["default_trial_type"]]
+
+    experiment = MultiTypeExperiment(**kwargs)
+    for metric in tracking_metrics:
+        experiment._tracking_metrics[metric.name] = metric
+    experiment._metric_to_canonical_name = _metric_to_canonical_name
+    experiment._metric_to_trial_type = _metric_to_trial_type
+    experiment._trial_type_to_runner = _trial_type_to_runner
+
+    _load_experiment_info(exp=experiment, exp_info=experiment_info)
+    return experiment
+
+
 def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment:
     """Load AE SimpleExperiment from JSON."""
-    time_created_json = object_json.pop("time_created")
-    trials_json = object_json.pop("trials")
-    experiment_type_json = object_json.pop("experiment_type")
-    data_by_trial_json = object_json.pop("data_by_trial")
+    experiment_info = _get_experiment_info(object_json)
+
     description_json = object_json.pop("description")
     is_test_json = object_json.pop("is_test")
     optimization_config = object_from_json(object_json.pop("optimization_config"))
-
     # not relevant to simple experiment
     del object_json["tracking_metrics"]
     del object_json["runner"]
@@ -235,51 +283,92 @@ def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment
     kwargs["objective_name"] = optimization_config.objective.metric.name
     kwargs["minimize"] = optimization_config.objective.minimize
     kwargs["outcome_constraints"] = optimization_config.outcome_constraints
-    experiment = SimpleExperiment(**kwargs)
 
+    experiment = SimpleExperiment(**kwargs)
     experiment.description = object_from_json(description_json)
     experiment.is_test = object_from_json(is_test_json)
-    experiment._time_created = object_from_json(time_created_json)
-    experiment._trials = trials_from_json(experiment, trials_json)
-    for trial in experiment._trials.values():
-        for arm in trial.arms:
-            experiment._arms_by_signature[arm.signature] = arm
-    if experiment.status_quo is not None:
-        # pyre-fixme[16]: Optional type has no attribute `signature`.
-        sq_sig = experiment.status_quo.signature
-        experiment._arms_by_signature[sq_sig] = experiment.status_quo
-    experiment._experiment_type = object_from_json(experiment_type_json)
-    experiment._data_by_trial = data_from_json(data_by_trial_json)
+
+    _load_experiment_info(exp=experiment, exp_info=experiment_info)
     return experiment
 
 
 def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
     """Load Ax Experiment from JSON."""
-    time_created_json = object_json.pop("time_created")
-    trials_json = object_json.pop("trials")
-    experiment_type_json = object_json.pop("experiment_type")
-    data_by_trial_json = object_json.pop("data_by_trial")
+    experiment_info = _get_experiment_info(object_json)
+
     experiment = Experiment(**{k: object_from_json(v) for k, v in object_json.items()})
-    experiment._time_created = object_from_json(time_created_json)
-    experiment._trials = trials_from_json(experiment, trials_json)
-    for trial in experiment._trials.values():
-        for arm in trial.arms:
-            experiment._arms_by_signature[arm.signature] = arm
-    if experiment.status_quo is not None:
-        # pyre-fixme[16]: Optional type has no attribute `signature`.
-        sq_sig = experiment.status_quo.signature
-        experiment._arms_by_signature[sq_sig] = experiment.status_quo
-    experiment._experiment_type = object_from_json(experiment_type_json)
-    experiment._data_by_trial = data_from_json(data_by_trial_json)
+    experiment._arms_by_name = {}
+
+    _load_experiment_info(exp=experiment, exp_info=experiment_info)
     return experiment
 
 
-def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
-    """Load the transform type from JSON."""
-    index_in_registry = object_json.pop("index_in_registry")
-    if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:  # pragma: no cover
-        raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
-    return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
+def _get_experiment_info(object_json: Dict[str, Any]) -> Dict[str, Any]:
+    """Returns basic information from `Experiment` object_json."""
+    return {
+        "time_created_json": object_json.pop("time_created"),
+        "trials_json": object_json.pop("trials"),
+        "experiment_type_json": object_json.pop("experiment_type"),
+        "data_by_trial_json": object_json.pop("data_by_trial"),
+    }
+
+
+def _load_experiment_info(exp: Experiment, exp_info: Dict[str, Any]) -> None:
+    """Loads `Experiment` object with basic information."""
+    exp._time_created = object_from_json(exp_info.get("time_created_json"))
+    exp._trials = trials_from_json(exp, exp_info.get("trials_json"))
+    exp._experiment_type = object_from_json(exp_info.get("experiment_type_json"))
+    exp._data_by_trial = data_from_json(exp_info.get("data_by_trial_json"))
+    for trial in exp._trials.values():
+        for arm in trial.arms:
+            exp._register_arm(arm)
+        if trial.ttl_seconds is not None:
+            exp._trials_have_ttl = True
+    if exp.status_quo is not None:
+        sq = not_none(exp.status_quo)
+        exp._register_arm(sq)
+
+
+def _convert_generation_step_keys_for_backwards_compatibility(
+    object_json: Dict[str, Any]
+) -> Dict[str, Any]:
+    """If necessary, converts keys in a JSON dict representing a `GenerationStep`
+    for backwards compatibility.
+    """
+    # NOTE: this is a hack to make generation steps able to load after the
+    # renaming of generation step fields to be in terms of 'trials' rather than
+    # 'arms'.
+    keys = list(object_json.keys())
+    for k in keys:
+        if "arms" in k:  # pragma: no cover
+            object_json[k.replace("arms", "trials")] = object_json.pop(k)
+        if k == "recommended_max_parallelism":  # pragma: no cover
+            object_json["max_parallelism"] = object_json.pop(k)
+    return object_json
+
+
+def generation_step_from_json(generation_step_json: Dict[str, Any]) -> GenerationStep:
+    """Load generation step from JSON."""
+    generation_step_json = _convert_generation_step_keys_for_backwards_compatibility(
+        generation_step_json
+    )
+    kwargs = generation_step_json.pop("model_kwargs", None)
+    gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
+    return GenerationStep(
+        model=object_from_json(generation_step_json.pop("model")),
+        num_trials=generation_step_json.pop("num_trials"),
+        min_trials_observed=generation_step_json.pop("min_trials_observed", 0),
+        max_parallelism=(generation_step_json.pop("max_parallelism", None)),
+        use_update=generation_step_json.pop("use_update", False),
+        enforce_num_trials=generation_step_json.pop("enforce_num_trials", True),
+        model_kwargs=_decode_callables_from_references(object_from_json(kwargs))
+        if kwargs
+        else None,
+        model_gen_kwargs=_decode_callables_from_references(object_from_json(gen_kwargs))
+        if gen_kwargs
+        else None,
+        index=generation_step_json.pop("index", -1),
+    )
 
 
 def generation_strategy_from_json(
@@ -290,9 +379,6 @@ def generation_strategy_from_json(
     gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
     gs._db_id = object_from_json(generation_strategy_json.pop("db_id"))
     gs._experiment = object_from_json(generation_strategy_json.pop("experiment"))
-    gs._generated = generation_strategy_json.pop("generated")
-    gs._observed = generation_strategy_json.pop("observed")
-    gs._data = object_from_json(generation_strategy_json.pop("data"))
     gs._curr = gs._steps[generation_strategy_json.pop("curr_index")]
     gs._generator_runs = object_from_json(
         generation_strategy_json.pop("generator_runs")
@@ -319,8 +405,11 @@ def simple_benchmark_problem_from_json(
     uses_synthetic_function = object_json.pop("uses_synthetic_function")
     if uses_synthetic_function:
         function_name = object_json.pop("function_name")
-        if function_name.startswith(synthetic_functions.FromBotorch.__name__):
-            raise NotImplementedError  # TODO[Lena], pragma: no cover
+        from_botorch_prefix = synthetic_functions.FromBotorch.__name__
+        if function_name.startswith(from_botorch_prefix):
+            botorch_function_name = function_name.replace(f"{from_botorch_prefix}_", "")
+            botorch_function = getattr(botorch_synthetic, botorch_function_name)()
+            f = from_botorch(botorch_function)
         else:
             f = getattr(synthetic_functions, function_name)()
     else:

@@ -14,7 +14,7 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.core.types import TBounds, TParamValue
+from ax.core.types import TBounds, TCandidateMetadata, TParamValue
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.typeutils import not_none
 
@@ -112,21 +112,32 @@ def pending_observations_as_array(
 
 
 def parse_observation_features(
-    X: np.ndarray, param_names: List[str]
+    X: np.ndarray,
+    param_names: List[str],
+    candidate_metadata: Optional[List[TCandidateMetadata]] = None,
 ) -> List[ObservationFeatures]:
     """Re-format raw model-generated candidates into ObservationFeatures.
 
     Args:
         param_names: List of param names.
         X: Raw np.ndarray of candidate values.
+        candidate_metadata: Model's metadata for candidates it produced.
 
     Returns:
         List of candidates, represented as ObservationFeatures.
     """
+    if candidate_metadata and len(candidate_metadata) != len(X):
+        raise ValueError(  # pragma: no cover
+            "Observations metadata list provided is not of "
+            "the same size as the number of candidates."
+        )
     observation_features = []
-    for x in X:
+    for i, x in enumerate(X):
         observation_features.append(
-            ObservationFeatures(parameters={p: x[i] for i, p in enumerate(param_names)})
+            ObservationFeatures(
+                parameters=dict(zip(param_names, x)),
+                metadata=candidate_metadata[i] if candidate_metadata else None,
+            )
         )
     return observation_features
 
@@ -167,7 +178,6 @@ def transform_callback(
             )
         ]
         # reverse loop through the transforms and do untransform
-        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(transforms.values()):
             observation_features = t.untransform_observation_features(
                 observation_features
@@ -179,7 +189,11 @@ def transform_callback(
             )
         # parameters are guaranteed to be float compatible here, but pyre doesn't know
         new_x: List[float] = [
-            float(observation_features[0].parameters[p]) for p in param_names
+            # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
+            #  typing.SupportsFloat]` for 1st param but got `Union[None, bool, float,
+            #  int, str]`.
+            float(observation_features[0].parameters[p])
+            for p in param_names
         ]
         # turn it back into an array
         return np.array(new_x)
@@ -217,7 +231,7 @@ def get_pending_observation_features(
                 if (
                     (trial.status.is_deployed or include_since_failed)
                     and metric_name not in trial.fetch_data().df.metric_name.values
-                    # and trial.arms is not None
+                    and trial.arms is not None
                 ):
                     for arm in trial.arms:
                         not_none(pending_features.get(metric_name)).append(

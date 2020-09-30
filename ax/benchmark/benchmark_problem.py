@@ -7,11 +7,10 @@
 from types import FunctionType
 from typing import Dict, List, Optional, Tuple, Union
 
-from ax.core.base import Base
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
-from ax.utils.common.equality import equality_typechecker
+from ax.utils.common.equality import Base, equality_typechecker
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.measurement.synthetic_functions import SyntheticFunction
@@ -180,6 +179,8 @@ class SimpleBenchmarkProblem(BenchmarkProblem):
         if self.name == "<lambda>":
             raise ValueError(ANONYMOUS_FUNCTION_ERROR)
         # If domain is `None`, grab it from the `SyntheticFunction`
+        # pyre-fixme[8]: Attribute has type `List[Tuple[float, float]]`; used as
+        #  `Union[List[Tuple[float, float]], List[typing.Tuple[float, ...]]]`.
         self.domain = domain or checked_cast(SyntheticFunction, self.f).domain
         if optimal_value is None and self.uses_synthetic_function:
             # If no optimal_value is passed, try extracting it from synthetic function.

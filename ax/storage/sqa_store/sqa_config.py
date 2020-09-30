@@ -8,7 +8,6 @@ from enum import Enum
 from typing import Dict, NamedTuple, Optional, Type
 
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.batch_trial import AbandonedArm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -33,6 +32,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQARunner,
     SQATrial,
 )
+from ax.utils.common.equality import Base
 
 
 # pyre-fixme[9]: class_to_sqa_class has type `Dict[Type[Base], Type[SQABase]]`; used
@@ -52,12 +52,6 @@ class SQAConfig(NamedTuple):
         generator_run_type_enum: Enum containing valid Generator Run types.
     """
 
-    # pyre-fixme[8]: Attribute has type `Dict[Type[Base], Type[SQABase]]`; used as
-    #  `Dict[Type[Union[AbandonedArm, Arm, Data, Experiment, GenerationStrategy,
-    #  GeneratorRun, Metric, Parameter, ParameterConstraint, Runner, Trial]],
-    #  Type[Union[SQAAbandonedArm, SQAArm, SQAData, SQAExperiment,
-    #  SQAGenerationStrategy, SQAGeneratorRun, SQAMetric, SQAParameter,
-    #  SQAParameterConstraint, SQARunner, SQATrial]]]`.
     class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = {
         AbandonedArm: SQAAbandonedArm,
         Arm: SQAArm,
@@ -72,6 +66,4 @@ class SQAConfig(NamedTuple):
         Trial: SQATrial,
     }
     experiment_type_enum: Optional[Enum] = None
-    # pyre-fixme[8]: Attribute has type `Optional[Enum]`; used as
-    #  `Type[GeneratorRunType]`.
     generator_run_type_enum: Optional[Enum] = GeneratorRunType

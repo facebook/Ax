@@ -5,10 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 from collections import OrderedDict
+from unittest.mock import patch
 
+from ax.core.observation import Observation
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
+    MODEL_KEY_TO_MODEL_SETUP,
     Cont_X_trans,
     Models,
     Y_trans,
@@ -18,6 +21,10 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
+from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data,
@@ -25,12 +32,35 @@ from ax.utils.testing.core_stubs import (
     get_branin_optimization_config,
     get_factorial_experiment,
 )
+from botorch.acquisition.monte_carlo import qExpectedImprovement
+from botorch.models.gp_regression import FixedNoiseGP
 from torch import device as torch_device, float64 as torch_float64
 
 
 class ModelRegistryTest(TestCase):
+    def test_botorch_modular(self):
+        exp = get_branin_experiment(with_batch=True)
+        exp.trials[0].run()
+        gpei = Models.BOTORCH_MODULAR(
+            # Model kwargs
+            acquisition_class=Acquisition,
+            botorch_acqf_class=qExpectedImprovement,
+            acquisition_options={"best_f": 0.0},
+            # Model bridge kwargs
+            experiment=exp,
+            data=exp.fetch_data(),
+        )
+        self.assertIsInstance(gpei, TorchModelBridge)
+        self.assertIsInstance(gpei.model, BoTorchModel)
+        self.assertEqual(gpei.model.botorch_acqf_class, qExpectedImprovement)
+        self.assertEqual(gpei.model.acquisition_class, Acquisition)
+        self.assertEqual(gpei.model.acquisition_options, {"best_f": 0.0})
+        self.assertIsInstance(gpei.model.surrogate, Surrogate)
+        # FixedNoiseGP should be picked since experiment data has fixed noise.
+        self.assertIsInstance(gpei.model.surrogate.model, FixedNoiseGP)
+
     def test_enum_sobol_GPEI(self):
-        """Tests Soboland GPEI instantiation through the Models enum."""
+        """Tests Sobol and GPEI instantiation through the Models enum."""
         exp = get_branin_experiment()
         # Check that factory generates a valid sobol modelbridge.
         sobol = Models.SOBOL(search_space=exp.search_space)
@@ -63,7 +93,7 @@ class ModelRegistryTest(TestCase):
                 },
                 "model_predictor": {
                     "is_callable_as_path": True,
-                    "value": f"{botorch_defaults}.predict_from_model",
+                    "value": "ax.models.torch.utils.predict_from_model",
                 },
                 "best_point_recommender": {
                     "is_callable_as_path": True,
@@ -84,6 +114,8 @@ class ModelRegistryTest(TestCase):
                 "status_quo_features": None,
                 "optimization_config": None,
                 "transforms": Cont_X_trans + Y_trans,
+                "fit_out_of_design": False,
+                "default_model_gen_options": None,
             },
         )
         gpei = Models.GPEI(
@@ -190,7 +222,10 @@ class ModelRegistryTest(TestCase):
             ),
         )
 
-    def test_get_model_from_generator_run(self):
+    @patch(
+        f"{Observation.__module__}.current_timestamp_in_millis", return_value=123456789
+    )
+    def test_get_model_from_generator_run(self, _):
         """Tests that it is possible to restore a model from a generator run it
         produced, if `Models` registry was used.
         """
@@ -199,13 +234,13 @@ class ModelRegistryTest(TestCase):
         gr = initial_sobol.gen(n=1)
         # Restore the model as it was before generation.
         sobol = get_model_from_generator_run(
-            generator_run=gr, experiment=exp, data=exp.fetch_data()
+            generator_run=gr, experiment=exp, data=exp.fetch_data(), after_gen=False
         )
         self.assertEqual(sobol.model.init_position, 0)
         self.assertEqual(sobol.model.seed, 239)
         # Restore the model as it was after generation (to resume generation).
         sobol_after_gen = get_model_from_generator_run(
-            generator_run=gr, experiment=exp, data=exp.fetch_data(), after_gen=True
+            generator_run=gr, experiment=exp, data=exp.fetch_data()
         )
         self.assertEqual(sobol_after_gen.model.init_position, 1)
         self.assertEqual(sobol_after_gen.model.seed, 239)
@@ -224,14 +259,14 @@ class ModelRegistryTest(TestCase):
         for key in gpei.__dict__:
             self.assertIn(key, gpei_restored.__dict__)
             original, restored = gpei.__dict__[key], gpei_restored.__dict__[key]
-            # Fit times are set in instantiation so not same and model compared below
-            if key in ["fit_time", "fit_time_since_gen", "model"]:
-                continue  # Fit times are set in instantiation so won't be same
+            # Fit times are set in instantiation so not same and model compared below.
+            if key in ["fit_time", "fit_time_since_gen", "model", "training_data"]:
+                continue  # Fit times are set in instantiation so won't be same.
             if isinstance(original, OrderedDict) and isinstance(restored, OrderedDict):
                 original, restored = list(original.keys()), list(restored.keys())
             if isinstance(original, Model) and isinstance(restored, Model):
                 continue  # Model equality is tough to compare.
-            self.assertEqual(original, restored)
+                self.assertEqual(original, restored)
 
         for key in gpei.model.__dict__:
             self.assertIn(key, gpei_restored.model.__dict__)
@@ -244,3 +279,15 @@ class ModelRegistryTest(TestCase):
             if key in ["model", "warm_start_refitting", "Xs", "Ys"]:
                 continue
             self.assertEqual(original, restored)
+
+    def test_ModelSetups_do_not_share_kwargs(self):
+        """Tests that none of the preset model and bridge combinations share a
+        kwarg.
+        """
+        for model_setup_info in MODEL_KEY_TO_MODEL_SETUP.values():
+            model_class = model_setup_info.model_class
+            bridge_class = model_setup_info.bridge_class
+            model_args = set(get_function_argument_names(model_class))
+            bridge_args = set(get_function_argument_names(bridge_class))
+            # Intersection of two sets should be empty
+            self.assertEqual(model_args & bridge_args, set())

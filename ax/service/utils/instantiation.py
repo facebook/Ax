@@ -34,12 +34,16 @@ from ax.core.types import (
     TParamValue,
     TTrialEvaluation,
 )
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
     checked_cast_to_tuple,
     not_none,
     numpy_type_to_python_type,
 )
+
+
+logger = get_logger(__name__)
 
 
 """Utilities for RESTful-like instantiation of Ax classes needed in AxClient."""
@@ -49,6 +53,19 @@ TParameterRepresentation = Dict[str, Union[TParamValue, List[TParamValue]]]
 PARAM_CLASSES = ["range", "choice", "fixed"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
 COMPARISON_OPS = {"<=": ComparisonOp.LEQ, ">=": ComparisonOp.GEQ}
+EXPECTED_KEYS_IN_PARAM_REPR = {
+    "name",
+    "type",
+    "values",
+    "bounds",
+    "value",
+    "value_type",
+    "log_scale",
+    "target_value",
+    "is_fidelity",
+    "is_ordered",
+    "is_task",
+}
 
 
 def _get_parameter_type(python_type: TParameterType) -> ParameterType:
@@ -68,6 +85,11 @@ def _to_parameter_type(
             f"Values in `{field_name}` not of the same type and no `value_type` was "
             f"explicitly specified; cannot infer value type for parameter {param_name}."
         )
+        logger.info(
+            f"Inferred value type of {parameter_type} for parameter {param_name}. "
+            "If that is not the expected value type, you can explicity specify "
+            "'value_type' ('int', 'float', 'bool' or 'str') in parameter dict."
+        )
         return parameter_type
     return _get_parameter_type(PARAM_TYPES[typ])  # pyre-ignore[6]
 
@@ -79,7 +101,7 @@ def _make_range_param(
     bounds = representation["bounds"]
     assert isinstance(bounds, list) and len(bounds) == 2, (
         f"Cannot parse parameter {name}: for range parameters, json representation "
-        "should include a list of two values, lower and upper bounds of the bounds."
+        "should include a list of two values, lower and upper bounds of the range."
     )
     return RangeParameter(
         name=name,
@@ -99,7 +121,7 @@ def _make_choice_param(
     values = representation["values"]
     assert isinstance(values, list) and len(values) > 1, (
         f"Cannot parse parameter {name}: for choice parameters, json representation"
-        " should include a list values, lower and upper bounds of the range."
+        " should include a list of two or more values."
     )
     return ChoiceParameter(
         name=name,
@@ -107,6 +129,7 @@ def _make_choice_param(
         values=values,
         is_ordered=checked_cast(bool, representation.get("is_ordered", False)),
         is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
+        is_task=checked_cast(bool, representation.get("is_task", False)),
         target_value=representation.get("target_value", None),  # pyre-ignore[6]
     )
 
@@ -135,6 +158,19 @@ def parameter_from_json(
     representation: Dict[str, Union[TParamValue, List[TParamValue]]]
 ) -> Parameter:
     """Instantiate a parameter from JSON representation."""
+    if "parameter_type" in representation:
+        raise ValueError(
+            "'parameter_type' is not an expected key in parameter dictionary. "
+            "If you are looking to specify the type of values that this "
+            "parameter should take, use 'value_type' (expects 'int', 'float', "
+            "'str' or 'bool')."
+        )
+    unexpected_keys = set(representation.keys()) - EXPECTED_KEYS_IN_PARAM_REPR
+    if unexpected_keys:
+        raise ValueError(
+            f"Unexpected keys {unexpected_keys} in parameter representation."
+            f"Exhaustive set of expected keys: {EXPECTED_KEYS_IN_PARAM_REPR}."
+        )
     name = representation["name"]
     assert isinstance(name, str), "Parameter name must be a string."
     parameter_class = representation["type"]
@@ -306,7 +342,10 @@ def make_experiment(
         ),
         optimization_config=OptimizationConfig(
             objective=Objective(
-                metric=Metric(name=objective_name or DEFAULT_OBJECTIVE_NAME),
+                metric=Metric(
+                    name=objective_name or DEFAULT_OBJECTIVE_NAME,
+                    lower_is_better=minimize,
+                ),
                 minimize=minimize,
             ),
             outcome_constraints=ocs,
@@ -332,6 +371,15 @@ def raw_data_to_evaluation(
     if isinstance(raw_data, dict):
         if any(isinstance(x, dict) for x in raw_data.values()):  # pragma: no cover
             raise ValueError("Raw data is expected to be just for one arm.")
+        for metric_name, dat in raw_data.items():
+            if not isinstance(dat, tuple):
+                if not isinstance(dat, (float, int)):
+                    raise ValueError(
+                        "Raw data for an arm is expected to either be a tuple of "
+                        "numerical mean and SEM or just a numerical mean."
+                        f"Got: {dat} for metric '{metric_name}'."
+                    )
+                raw_data[metric_name] = (float(dat), None)
         return raw_data
     elif isinstance(raw_data, list):
         return raw_data

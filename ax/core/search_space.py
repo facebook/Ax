@@ -9,7 +9,6 @@
 from typing import Dict, List, Optional
 
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.parameter import FixedParameter, Parameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
@@ -17,6 +16,8 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.types import TParameterization
+from ax.utils.common.equality import Base
+from ax.utils.common.typeutils import not_none
 
 
 class SearchSpace(Base):
@@ -126,7 +127,10 @@ class SearchSpace(Base):
         for name, value in parameterization.items():
             if name not in self._parameters:
                 if raise_error:
-                    raise ValueError(f"Parameter {name} not defined in search space")
+                    raise ValueError(
+                        f"Parameter {name} not defined in search space"
+                        f"with parameters {self._parameters}"
+                    )
                 return False
 
             if not self._parameters[name].validate(value):
@@ -177,7 +181,9 @@ class SearchSpace(Base):
             if raise_error:
                 raise ValueError(
                     f"Parameterization has {len(parameterization)} parameters "
-                    f"but search space has {len(self._parameters)}."
+                    f"but search space has {len(self._parameters)}.\n"
+                    f"Parameterization: {parameterization}.\n"
+                    f"Search Space: {self._parameters}."
                 )
             return False
 
@@ -219,7 +225,7 @@ class SearchSpace(Base):
             if name not in self._parameters:
                 new_parameters[name] = value
             else:
-                new_parameters[name] = self._parameters[name]._cast(value)
+                new_parameters[name] = self._parameters[name].cast(value)
         return Arm(new_parameters, arm.name if arm.has_name else None)
 
     def out_of_design_arm(self) -> Arm:
@@ -233,10 +239,29 @@ class SearchSpace(Base):
         Returns:
             New arm w/ null parameter values.
         """
-        parameters = {}
-        for p_name in self.parameters.keys():
-            parameters[p_name] = None
-        return Arm(parameters)
+        return self.construct_arm()
+
+    def construct_arm(
+        self, parameters: Optional[TParameterization] = None, name: Optional[str] = None
+    ) -> Arm:
+        """Construct new arm using given parameters and name. Any
+        missing parameters fallback to the experiment defaults,
+        represented as None
+        """
+        final_parameters: TParameterization = {k: None for k in self.parameters.keys()}
+        if parameters is not None:
+            # Validate the param values
+            for p_name, p_value in parameters.items():
+                if p_name not in self.parameters:
+                    raise ValueError(f"`{p_name}` does not exist in search space.")
+                if p_value is not None and not self.parameters[p_name].validate(
+                    p_value
+                ):
+                    raise ValueError(
+                        f"`{p_value}` is not a valid value for parameter {p_name}."
+                    )
+            final_parameters.update(not_none(parameters))
+        return Arm(parameters=final_parameters, name=name)
 
     def clone(self) -> "SearchSpace":
         return SearchSpace(

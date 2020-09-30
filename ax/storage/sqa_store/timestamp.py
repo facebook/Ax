@@ -14,6 +14,8 @@ from sqlalchemy.types import Integer, TypeDecorator
 class IntTimestamp(TypeDecorator):
     impl = Integer
 
+    # pyre-fixme[15]: `process_bind_param` overrides method defined in
+    #  `TypeDecorator` inconsistently.
     def process_bind_param(
         self, value: Optional[datetime.datetime], dialect: Dialect
     ) -> Optional[int]:

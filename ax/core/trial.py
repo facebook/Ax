@@ -4,11 +4,15 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, immutable_once_run
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
+from ax.core.types import TCandidateMetadata
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 
 
@@ -21,21 +25,39 @@ class Trial(BaseTrial):
     """Trial that only has one attached arm and no arm weights.
 
     Args:
-        experiment: experiment, to which this trial is attached
-        generator_run: generator_run associated with
-            this trial. Trial has only one generator run (and thus arm)
+        experiment: Experiment, to which this trial is attached.
+        generator_run: GeneratorRun, associated with this trial.
+            Trial has only one generator run (of just one arm)
             attached to it. This can also be set later through `add_arm`
             or `add_generator_run`, but a trial's associated genetor run is
             immutable once set.
+        trial_type: Type of this trial, if used in MultiTypeExperiment.
+        ttl_seconds: If specified, trials will be considered failed after
+            this many seconds since the time the trial was ran, unless the
+            trial is completed before then. Meant to be used to detect
+            'dead' trials, for which the evaluation process might have
+            crashed etc., and which should be considered failed after
+            their 'time to live' has passed.
+        index: If specified, the trial's index will be set accordingly.
+            This should generally not be specified, as in the index will be
+            automatically determined based on the number of existing trials.
+            This is only used for the purpose of loading from storage.
     """
 
     def __init__(
         self,
-        experiment: "core.experiment.Experiment",
+        experiment: core.experiment.Experiment,
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
+        index: Optional[int] = None,
     ) -> None:
-        super().__init__(experiment=experiment, trial_type=trial_type)
+        super().__init__(
+            experiment=experiment,
+            trial_type=trial_type,
+            ttl_seconds=ttl_seconds,
+            index=index,
+        )
         self._generator_run = None
         if generator_run is not None:
             self.add_generator_run(generator_run=generator_run)
@@ -45,16 +67,27 @@ class Trial(BaseTrial):
         """Generator run attached to this trial."""
         return self._generator_run
 
+    @copy_doc(BaseTrial.generator_runs)
+    @property
+    def generator_runs(self) -> List[GeneratorRun]:
+        gr = self._generator_run
+        return [gr] if gr is not None else []
+
     @property
     def arm(self) -> Optional[Arm]:
         """The arm associated with this batch."""
-        # pyre-fixme[16]: `Optional` has no attribute `arms`.
-        if self.generator_run is not None and len(self.generator_run.arms) > 1:
+        if self.generator_run is None:
+            return None
+
+        generator_run = not_none(self.generator_run)
+        if len(generator_run.arms) == 0:
+            return None
+        elif len(generator_run.arms) > 1:
             raise ValueError(  # pragma: no cover
                 "Generator run associated with this trial included multiple "
                 "arms, but trial expects only one."
             )
-        return self.generator_run.arms[0] if self.generator_run is not None else None
+        return generator_run.arms[0]
 
     @immutable_once_run
     def add_arm(self, arm: Arm) -> "Trial":
@@ -95,6 +128,9 @@ class Trial(BaseTrial):
 
         self._generator_run = generator_run
         generator_run.index = 0
+        self._set_generation_step_index(
+            generation_step_index=generator_run._generation_step_index
+        )
         return self
 
     @property
@@ -172,3 +208,30 @@ class Trial(BaseTrial):
             f"status={self._status}, "
             f"arm={self.arm})"
         )
+
+    def _get_candidate_metadata_from_all_generator_runs(
+        self,
+    ) -> Dict[str, TCandidateMetadata]:
+        """Retrieves candidate metadata from the generator run on this
+        batch trial in the form of { arm name -> candidate metadata} mapping.
+        """
+
+        gr = self.generator_run
+        if gr is None or gr.candidate_metadata_by_arm_signature is None:
+            return {}
+
+        cand_metadata = not_none(gr.candidate_metadata_by_arm_signature)
+        return {a.name: cand_metadata.get(a.signature) for a in gr.arms}
+
+    def _get_candidate_metadata(self, arm_name: str) -> TCandidateMetadata:
+        """Retrieves candidate metadata for a specific arm."""
+
+        gr = self.generator_run
+        if gr is None or gr.arms[0].name != arm_name:
+            raise ValueError(f"Arm by name {arm_name} is not part of this trial.")
+
+        if gr.candidate_metadata_by_arm_signature is None:
+            return None
+
+        arm = gr.arms[0]
+        return not_none(gr.candidate_metadata_by_arm_signature).get(arm.signature)

@@ -233,10 +233,33 @@ class TestManagedLoop(TestCase):
         )
         self.assertEqual(12345, model.model.seed)
 
+    def test_optimize_search_space_exhausted(self) -> None:
+        """Tests optimization as a single call."""
+        best, vals, exp, model = optimize(
+            parameters=[  # pyre-fixme[6]
+                {"name": "x1", "type": "choice", "values": [1, 2]},
+                {"name": "x2", "type": "choice", "values": [1, 2]},
+            ],
+            # Booth function.
+            evaluation_function=lambda p: (
+                (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
+                None,
+            ),
+            minimize=True,
+            total_trials=6,
+        )
+        self.assertEqual(len(exp.trials), 4)
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
+        self.assertIsNotNone(vals)
+        self.assertIn("objective", vals[0])
+        self.assertIn("objective", vals[1])
+        self.assertIn("objective", vals[1]["objective"])
+
     def test_custom_gs(self) -> None:
         """Managed loop with custom generation strategy"""
         strategy0 = GenerationStrategy(
-            name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
+            name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
         )
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[
@@ -259,3 +282,32 @@ class TestManagedLoop(TestCase):
         bp, _ = loop.full_run().get_best_point()
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
+
+    def test_optimize_graceful_exit_on_exception(self) -> None:
+        """Tests optimization as a single call, with exception during
+        candidate generation.
+        """
+        best, vals, exp, model = optimize(
+            parameters=[  # pyre-fixme[6]
+                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
+            ],
+            # Booth function.
+            evaluation_function=lambda p: (
+                (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
+                None,
+            ),
+            minimize=True,
+            total_trials=6,
+            generation_strategy=GenerationStrategy(
+                name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=3)]
+            ),
+        )
+        self.assertEqual(len(exp.trials), 3)  # Check that we stopped at 3 trials.
+        # All the regular return values should still be present.
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
+        self.assertIsNotNone(vals)
+        self.assertIn("objective", vals[0])
+        self.assertIn("objective", vals[1])
+        self.assertIn("objective", vals[1]["objective"])

@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import logging
 from typing import List, Optional, Tuple
 
@@ -11,6 +13,7 @@ from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationFunction
 from ax.core.types import TModelPredictArm, TParameterization
+from ax.exceptions.core import SearchSpaceExhausted
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -58,7 +61,7 @@ class OptimizationLoop:
         if generation_strategy is None:
             self.generation_strategy = choose_generation_strategy(
                 search_space=experiment.search_space,
-                arms_per_trial=self.arms_per_trial,
+                use_batch_trials=self.arms_per_trial > 1,
                 random_seed=self.random_seed,
             )
         else:
@@ -134,7 +137,7 @@ class OptimizationLoop:
     def run_trial(self) -> None:
         """Run a single step of the optimization plan."""
         if self.current_trial >= self.total_trials:
-            raise ValueError(f"Optimization is complete, cannot run another trial.")
+            raise ValueError("Optimization is complete, cannot run another trial.")
         logger.info(f"Running optimization trial {self.current_trial + 1}...")
         arms_per_trial = self.arms_per_trial
         if arms_per_trial == 1:
@@ -157,13 +160,23 @@ class OptimizationLoop:
         trial.fetch_data()
         self.current_trial += 1
 
-    def full_run(self) -> "OptimizationLoop":
+    def full_run(self) -> OptimizationLoop:
         """Runs full optimization loop as defined in the provided optimization
         plan."""
         num_steps = self.total_trials
         logger.info(f"Started full optimization with {num_steps} steps.")
         for _ in range(num_steps):
-            self.run_trial()
+            try:
+                self.run_trial()
+            except SearchSpaceExhausted as err:
+                logger.info(
+                    f"Stopped optimization as the search space is exhaused. Message "
+                    f"from generation strategy: {err}."
+                )
+                return self
+            except Exception:
+                logger.exception("Encountered exception during optimization: ")
+                return self
         return self
 
     def get_best_point(self) -> Tuple[TParameterization, Optional[TModelPredictArm]]:

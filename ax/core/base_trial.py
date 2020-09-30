@@ -4,16 +4,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod, abstractproperty
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.data import Data
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.runner import Runner
+from ax.core.types import TCandidateMetadata
+from ax.utils.common.equality import Base
 from ax.utils.common.typeutils import not_none
 
 
@@ -22,7 +26,7 @@ if TYPE_CHECKING:
     from ax import core  # noqa F401  # pragma: no cover
 
 
-class TrialStatus(Enum):
+class TrialStatus(int, Enum):
     """Enum of trial status.
 
     General lifecycle of a trial is:::
@@ -79,9 +83,31 @@ class TrialStatus(Enum):
         return self == TrialStatus.ABANDONED
 
     @property
+    def is_candidate(self) -> bool:
+        """True if this trial is a candidate."""
+        return self == TrialStatus.CANDIDATE
+
+    @property
     def is_completed(self) -> bool:
         """True if this trial is a successfully completed one."""
         return self == TrialStatus.COMPLETED
+
+    @property
+    def is_running(self) -> bool:
+        """True if this trial is a running one."""
+        return self == TrialStatus.RUNNING
+
+    def __format__(self, fmt: str) -> str:
+        """Define `__format__` to avoid pulling the `__format__` from the `int`
+        mixin (since its better for statuses to show up as `RUNNING` than as
+        just an int that is difficult to interpret).
+
+        E.g. batch trial representation with the overridden method is:
+        "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)".
+
+        Docs on enum formatting: https://docs.python.org/3/library/enum.html#others.
+        """
+        return f"{self!s}"
 
 
 def immutable_once_run(func: Callable) -> Callable:
@@ -106,12 +132,30 @@ class BaseTrial(ABC, Base):
     """Base class for representing trials.
 
     Trials are containers for arms that are deployed together. There are
-    two types of trials: regular Trial, which only contains a single arm,
+    two kinds of trials: regular Trial, which only contains a single arm,
     and BatchTrial, which contains an arbitrary number of arms.
+
+    Args:
+        experiment: Experiment, of which this trial is a part
+        trial_type: Type of this trial, if used in MultiTypeExperiment.
+        ttl_seconds: If specified, trials will be considered failed after
+            this many seconds since the time the trial was ran, unless the
+            trial is completed before then. Meant to be used to detect
+            'dead' trials, for which the evaluation process might have
+            crashed etc., and which should be considered failed after
+            their 'time to live' has passed.
+        index: If specified, the trial's index will be set accordingly.
+            This should generally not be specified, as in the index will be
+            automatically determined based on the number of existing trials.
+            This is only used for the purpose of loading from storage.
     """
 
     def __init__(
-        self, experiment: "core.experiment.Experiment", trial_type: Optional[str] = None
+        self,
+        experiment: core.experiment.Experiment,
+        trial_type: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
+        index: Optional[int] = None,
     ) -> None:
         """Initialize trial.
 
@@ -119,7 +163,10 @@ class BaseTrial(ABC, Base):
             experiment: The experiment this trial belongs to.
         """
         self._experiment = experiment
-        self._index = self._experiment._attach_trial(self)
+        if ttl_seconds is not None and ttl_seconds <= 0:
+            raise ValueError("TTL must be a positive integer (or None).")
+        self._ttl_seconds: Optional[int] = ttl_seconds
+        self._index = self._experiment._attach_trial(self, index=index)
 
         if trial_type is not None:
             if not self._experiment.supports_trial_type(trial_type):
@@ -130,7 +177,10 @@ class BaseTrial(ABC, Base):
             trial_type = self._experiment.default_trial_type
         self._trial_type: Optional[str] = trial_type
 
-        self._status: TrialStatus = TrialStatus.CANDIDATE
+        self.__status = None
+        # Uses `_status` setter, which updates trial statuses to trial indices
+        # mapping on the experiment, with which this trial is associated.
+        self._status = TrialStatus.CANDIDATE
         self._time_created: datetime = datetime.now()
 
         # Initialize fields to be used later in lifecycle
@@ -146,8 +196,14 @@ class BaseTrial(ABC, Base):
         # Counter to maintain how many arms have been named by this BatchTrial
         self._num_arms_created = 0
 
+        # If generator run(s) in this trial were generated from a generation
+        # strategy, this property will be set to the generation step that produced
+        # the generator run(s).
+        self._generation_step_index = None
+        self._properties = {}
+
     @property
-    def experiment(self) -> "core.experiment.Experiment":
+    def experiment(self) -> core.experiment.Experiment:
         """The experiment this trial belongs to."""
         return self._experiment
 
@@ -159,12 +215,38 @@ class BaseTrial(ABC, Base):
     @property
     def status(self) -> TrialStatus:
         """The status of the trial in the experimentation lifecycle."""
+        self._mark_failed_if_past_TTL()
         return self._status
 
     @property
-    def is_complete(self) -> bool:
+    def ttl_seconds(self) -> Optional[int]:
+        """This trial's time-to-live once ran, in seconds. If not set, trial
+        will never be automatically considered failed (i.e. infinite TTL).
+        Reflects after how many seconds since the time the trial was run it
+        will be considered failed unless completed.
+        """
+        return self._ttl_seconds
+
+    @ttl_seconds.setter
+    def ttl_seconds(self, ttl_seconds: Optional[int]) -> None:
+        """Sets this trial's time-to-live once ran, in seconds. If None, trial
+        will never be automatically considered failed (i.e. infinite TTL).
+        Reflects after how many seconds since the time the trial was run it
+        will be considered failed unless completed.
+        """
+        if ttl_seconds is not None and ttl_seconds <= 0:
+            raise ValueError("TTL must be a positive integer (or None).")
+        self._ttl_seconds = ttl_seconds
+
+    @property
+    def completed_successfully(self) -> bool:
         """Checks if trial status is `COMPLETED`."""
         return self.status == TrialStatus.COMPLETED
+
+    @property
+    def did_not_complete(self) -> bool:
+        """Checks if trial status is terminal, but not `COMPLETED`."""
+        return self.status.is_terminal and not self.completed_successfully
 
     @status.setter
     def status(self, status: TrialStatus) -> None:
@@ -221,12 +303,18 @@ class BaseTrial(ABC, Base):
 
         self._trial_type = trial_type
 
-    def assign_runner(self) -> "BaseTrial":
+    def assign_runner(self) -> BaseTrial:
         """Assigns default experiment runner if trial doesn't already have one."""
         self._runner = self._runner or self.experiment.runner_for_trial(self)
         return self
 
-    def run(self) -> "BaseTrial":
+    def update_run_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Updates the run metadata dict stored on this trial and returns the
+        updated dict."""
+        self._run_metadata.update(metadata)
+        return self._run_metadata
+
+    def run(self) -> BaseTrial:
         """Deploys the trial according to the behavior on the runner.
 
         The runner returns a `run_metadata` dict containining metadata
@@ -254,7 +342,7 @@ class BaseTrial(ABC, Base):
             self.mark_running()
         return self
 
-    def complete(self) -> "BaseTrial":
+    def complete(self) -> BaseTrial:
         """Stops the trial if functionality is defined on runner
             and marks trial completed.
 
@@ -296,6 +384,22 @@ class BaseTrial(ABC, Base):
         if arm.name == proposed_name:
             self._num_arms_created += 1
 
+    def _set_generation_step_index(self, generation_step_index: Optional[int]) -> None:
+        """Sets the `generation_step_index` property of the trial, to reflect which
+        generation step of a given generation strategy (if any) produced the generator
+        run(s) attached to this trial.
+        """
+        if (
+            self._generation_step_index is not None
+            and generation_step_index is not None
+            and self._generation_step_index != generation_step_index
+        ):
+            raise ValueError(  # pragma: no cover
+                "Cannot add generator runs from different generation steps to a "
+                "single trial."
+            )
+        self._generation_step_index = generation_step_index
+
     @abstractproperty
     def arms(self) -> List[Arm]:
         pass  # pragma: no cover
@@ -313,7 +417,26 @@ class BaseTrial(ABC, Base):
         """All abandoned arms, associated with this trial."""
         pass  # pragma: no cover
 
-    # --- Batch lifecycle management functions ---
+    @abstractproperty
+    def generator_runs(self) -> List[GeneratorRun]:
+        """All generator runs associated with this trial."""
+        pass  # pragma: no cover
+
+    @abstractmethod
+    def _get_candidate_metadata_from_all_generator_runs(
+        self,
+    ) -> Dict[str, TCandidateMetadata]:
+        """Retrieves combined candidate metadata from all generator runs associated
+        with this trial.
+        """
+        ...
+
+    @abstractmethod
+    def _get_candidate_metadata(self, arm_name: str) -> TCandidateMetadata:
+        """Retrieves candidate metadata for a specific arm."""
+        ...
+
+    # --- Trial lifecycle management functions ---
 
     @property
     def time_created(self) -> datetime:
@@ -344,12 +467,11 @@ class BaseTrial(ABC, Base):
     def abandoned_reason(self) -> Optional[str]:
         return self._abandoned_reason
 
-    def mark_staged(self) -> "BaseTrial":
+    def mark_staged(self) -> BaseTrial:
         """Mark the trial as being staged for running.
 
         Returns:
             The trial instance.
-
         """
         if self._status != TrialStatus.CANDIDATE:
             raise ValueError("Can only stage a candidate trial.")
@@ -357,12 +479,11 @@ class BaseTrial(ABC, Base):
         self._time_staged = datetime.now()
         return self
 
-    def mark_running(self, no_runner_required: bool = False) -> "BaseTrial":
+    def mark_running(self, no_runner_required: bool = False) -> BaseTrial:
         """Mark trial has started running.
 
         Returns:
             The trial instance.
-
         """
         if self.experiment.is_simple_experiment:
             self._status = TrialStatus.RUNNING
@@ -387,7 +508,7 @@ class BaseTrial(ABC, Base):
         self._time_run_started = datetime.now()
         return self
 
-    def mark_completed(self) -> "BaseTrial":
+    def mark_completed(self) -> BaseTrial:
         """Mark trial as completed.
 
         Args:
@@ -404,7 +525,7 @@ class BaseTrial(ABC, Base):
         self._time_completed = datetime.now()
         return self
 
-    def mark_abandoned(self, reason: Optional[str] = None) -> "BaseTrial":
+    def mark_abandoned(self, reason: Optional[str] = None) -> BaseTrial:
         """Mark trial as abandoned.
 
         Args:
@@ -412,7 +533,6 @@ class BaseTrial(ABC, Base):
 
         Returns:
             The trial instance.
-
         """
         if self._status.is_terminal:
             raise ValueError("Cannot abandon a trial in a terminal state.")
@@ -422,7 +542,7 @@ class BaseTrial(ABC, Base):
         self._time_completed = datetime.now()
         return self
 
-    def mark_failed(self) -> "BaseTrial":
+    def mark_failed(self) -> BaseTrial:
         """Mark trial as failed.
 
         Returns:
@@ -434,3 +554,61 @@ class BaseTrial(ABC, Base):
         self._status = TrialStatus.FAILED
         self._time_completed = datetime.now()
         return self
+
+    def mark_as(self, status: TrialStatus, **kwargs: Any) -> BaseTrial:
+        """Mark trial with a new TrialStatus.
+
+        Args:
+            status: The new status of the trial.
+            kwargs: Additional keyword args, as can be ued in the respective `mark_`
+                methods associated with the trial status.
+
+        Returns:
+            The trial instance.
+        """
+        if status == TrialStatus.STAGED:
+            self.mark_staged()
+        elif status == TrialStatus.RUNNING:
+            no_runner_required = kwargs.get("no_runner_required", False)
+            self.mark_running(no_runner_required=no_runner_required)
+        elif status == TrialStatus.ABANDONED:
+            self.mark_abandoned(reason=kwargs.get("reason"))
+        elif status == TrialStatus.FAILED:
+            self.mark_failed()
+        elif status == TrialStatus.COMPLETED:
+            self.mark_completed()
+        else:
+            raise ValueError(f"Cannot mark trial as {status}.")
+        return self
+
+    def _mark_failed_if_past_TTL(self) -> None:
+        """If trial has TTL set and is running, check if the TTL has elapsed
+        and mark the trial failed if so.
+        """
+        if self.ttl_seconds is None or not self._status.is_running:
+            return
+        time_run_started = self._time_run_started
+        assert time_run_started is not None
+        dt = datetime.now() - time_run_started
+        if dt > timedelta(seconds=not_none(self.ttl_seconds)):
+            self.mark_failed()
+
+    @property
+    def _status(self) -> TrialStatus:
+        """The status of the trial in the experimentation lifecycle. This private
+        property exists to allow for a corresponding setter, since its important
+        that the trial statuses mapping on the experiment is updated always when
+        a trial status is updated.
+        """
+        return self.__status
+
+    @_status.setter
+    def _status(self, trial_status: TrialStatus) -> None:
+        """Setter for the `_status` attribute that also updates the experiment's
+        `_trial_indices_by_status mapping according to the newly set trial status.
+        """
+        if self._status is not None:
+            assert self.index in self._experiment._trial_indices_by_status[self._status]
+            self._experiment._trial_indices_by_status[self._status].remove(self.index)
+        self._experiment._trial_indices_by_status[trial_status].add(self.index)
+        self.__status = trial_status

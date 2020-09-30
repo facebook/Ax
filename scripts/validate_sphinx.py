@@ -88,7 +88,7 @@ def validate_complete_sphinx(path_to_ax: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description=("Validate that Sphinx documentation is complete.")
+        description="Validate that Sphinx documentation is complete."
     )
     parser.add_argument(
         "-p",

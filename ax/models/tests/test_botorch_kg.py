@@ -7,11 +7,8 @@
 from unittest import mock
 
 import torch
-from ax.models.torch.botorch_kg import (
-    KnowledgeGradient,
-    _get_objective,
-    _instantiate_KG,
-)
+from ax.models.torch.botorch_kg import KnowledgeGradient, _instantiate_KG
+from ax.models.torch.utils import get_botorch_objective
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
@@ -80,7 +77,7 @@ class KnowledgeGradientTest(TestCase):
 
         with mock.patch(self.optimize_acqf) as mock_optimize_acqf:
             mock_optimize_acqf.side_effect = [(X_dummy, acq_dummy)]
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -109,7 +106,7 @@ class KnowledgeGradientTest(TestCase):
             "ax.models.torch.botorch_kg.gen_one_shot_kg_initial_conditions",
             return_value=ini_dummy,
         ) as mock_warmstart_initialization:
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -125,9 +122,9 @@ class KnowledgeGradientTest(TestCase):
         obj = ScalarizedObjective(weights=self.objective_weights)
         dummy_acq = PosteriorMean(model=model.model, objective=obj)
         with mock.patch(
-            "ax.models.torch.botorch_kg.PosteriorMean", return_value=dummy_acq
+            "ax.models.torch.utils.PosteriorMean", return_value=dummy_acq
         ) as mock_posterior_mean:
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -172,7 +169,7 @@ class KnowledgeGradientTest(TestCase):
             bounds=self.bounds,
             task_features=[],
             feature_names=self.feature_names,
-            metric_names=[],
+            metric_names=["L2NormMetric"],
             fidelity_features=[2],
         )
 
@@ -199,7 +196,7 @@ class KnowledgeGradientTest(TestCase):
         acq_dummy = torch.tensor(0.0, dtype=self.dtype, device=self.device)
         dummy = (X_dummy, acq_dummy)
         with mock.patch(self.optimize_acqf, side_effect=[dummy]) as mock_optimize_acqf:
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -271,19 +268,44 @@ class KnowledgeGradientTest(TestCase):
         self.assertTrue(torch.equal(acq_function.X_pending, X_dummy))
 
         # test _get_obj()
-        outcome_constraints = (
-            torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
-            torch.tensor([[0.5], [1.0]]),
-        )
-        objective_weights = None
+        outcome_constraints = (torch.tensor([[1.0]]), torch.tensor([[0.5]]))
+        objective_weights = torch.ones(1, dtype=self.dtype, device=self.device)
+        # test use_scalarized_objective kwarg
         self.assertIsInstance(
-            _get_objective(
+            get_botorch_objective(
+                model=model.model,
+                outcome_constraints=outcome_constraints,
+                objective_weights=objective_weights,
+                X_observed=X_dummy,
+                use_scalarized_objective=False,
+            ),
+            ConstrainedMCObjective,
+        )
+        self.assertIsInstance(
+            get_botorch_objective(
                 model=model.model,
                 outcome_constraints=outcome_constraints,
                 objective_weights=objective_weights,
                 X_observed=X_dummy,
             ),
             ConstrainedMCObjective,
+        )
+        self.assertIsInstance(
+            get_botorch_objective(
+                model=model.model,
+                objective_weights=objective_weights,
+                X_observed=X_dummy,
+                use_scalarized_objective=False,
+            ),
+            LinearMCObjective,
+        )
+        self.assertIsInstance(
+            get_botorch_objective(
+                model=model.model,
+                objective_weights=objective_weights,
+                X_observed=X_dummy,
+            ),
+            ScalarizedObjective,
         )
 
         # test _get_best_point_acqf
@@ -392,3 +414,5 @@ class KnowledgeGradientTest(TestCase):
                 target_fidelities={2: 1.0},
                 qmc=False,
             )
+
+        # TODO: Test subsetting multi-output model

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -13,6 +13,9 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
 from ax.core.trial import Trial
+from ax.modelbridge.transforms.base import Transform
+from ax.storage.botorch_modular_registry import CLASS_TO_REVERSE_REGISTRY
+from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
 
 
 if TYPE_CHECKING:
@@ -38,6 +41,11 @@ def batch_trial_from_json(
     status_quo: Optional[Arm],
     status_quo_weight_override: float,
     optimize_for_power: Optional[bool],
+    # Allowing default values for backwards compatibility with
+    # objects stored before these fields were added.
+    ttl_seconds: Optional[int] = None,
+    generation_step_index: Optional[int] = None,
+    properties: Optional[Dict[str, Any]] = None,
 ) -> BatchTrial:
     """Load Ax BatchTrial from JSON.
 
@@ -46,7 +54,7 @@ def batch_trial_from_json(
     does not allow us to exactly recreate an existing object.
     """
 
-    batch = BatchTrial(experiment=experiment)
+    batch = BatchTrial(experiment=experiment, ttl_seconds=ttl_seconds)
     batch._index = index
     batch._trial_type = trial_type
     batch._status = status
@@ -63,6 +71,8 @@ def batch_trial_from_json(
     batch._status_quo = status_quo
     batch._status_quo_weight_override = status_quo_weight_override
     batch.optimize_for_power = optimize_for_power
+    batch._generation_step_index = generation_step_index
+    batch._properties = properties
     return batch
 
 
@@ -80,6 +90,11 @@ def trial_from_json(
     generator_run: GeneratorRun,
     runner: Optional[Runner],
     num_arms_created: int,
+    # Allowing default values for backwards compatibility with
+    # objects stored before these fields were added.
+    ttl_seconds: Optional[int] = None,
+    generation_step_index: Optional[int] = None,
+    properties: Optional[Dict[str, Any]] = None,
 ) -> Trial:
     """Load Ax trial from JSON.
 
@@ -88,7 +103,9 @@ def trial_from_json(
     does not allow us to exactly recreate an existing object.
     """
 
-    trial = Trial(experiment=experiment, generator_run=generator_run)
+    trial = Trial(
+        experiment=experiment, generator_run=generator_run, ttl_seconds=ttl_seconds
+    )
     trial._index = index
     trial._trial_type = trial_type
     # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
@@ -102,4 +119,32 @@ def trial_from_json(
     trial._run_metadata = run_metadata or {}
     trial._runner = runner
     trial._num_arms_created = num_arms_created
+    trial._generation_step_index = generation_step_index
+    trial._properties = properties or {}
     return trial
+
+
+def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
+    """Load the transform type from JSON."""
+    index_in_registry = object_json.pop("index_in_registry")
+    if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:  # pragma: no cover
+        raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
+    return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
+
+
+def class_from_json(json: Dict[str, Any]) -> Type[Any]:
+    """Load any class registered in `CLASS_DECODER_REGISTRY` from JSON."""
+    index_in_registry = json.pop("index")
+    class_path = json.pop("class")
+    for _class in CLASS_TO_REVERSE_REGISTRY:
+        if class_path == f"{_class}":
+            reverse_registry = CLASS_TO_REVERSE_REGISTRY[_class]
+            if index_in_registry not in reverse_registry:  # pragma: no cover
+                raise ValueError(
+                    f"'{class_path}' is not registered in the reverse registry."
+                )
+            return reverse_registry[index_in_registry]
+    raise ValueError(
+        f"{class_path} does not have a corresponding entry in "
+        "CLASS_TO_REVERSE_REGISTRY."
+    )

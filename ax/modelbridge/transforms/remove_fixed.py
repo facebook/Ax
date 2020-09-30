@@ -44,8 +44,8 @@ class RemoveFixed(Transform):
                 if p_name in obsf.parameters:
                     if obsf.parameters[p_name] != fixed_p.value:
                         raise ValueError(
-                            "Fixed parameter with out of design value passed "
-                            "to RemoveFixed."
+                            f"Fixed parameter {p_name} with out of design value: "
+                            f"{obsf.parameters[p_name]} passed to `RemoveFixed`."
                         )
                     obsf.parameters.pop(p_name)
         return observation_features

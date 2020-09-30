@@ -198,12 +198,14 @@ class ALEBOTest(TestCase):
         self.assertIsInstance(acq, qNoisyExpectedImprovement)
 
         with mock.patch(
-            "ax.models.torch.alebo.optimize_acqf", autospec=True
+            "ax.models.torch.alebo.optimize_acqf",
+            autospec=True,
+            return_value=(train_X, train_Y),
         ) as optim_mock:
             alebo_acqf_optimizer(
                 acq_function=acq,
                 bounds=None,
-                n=1,
+                n=2,
                 inequality_constraints=5.0,
                 fixed_features=None,
                 rounding_func=None,
@@ -212,6 +214,7 @@ class ALEBOTest(TestCase):
                 B=B,
             )
 
+        self.assertEqual(optim_mock.call_count, 2)
         self.assertIsInstance(
             optim_mock.mock_calls[0][2]["acq_function"], qNoisyExpectedImprovement
         )
@@ -277,7 +280,7 @@ class ALEBOTest(TestCase):
             autospec=True,
             return_value=(m.Xs[0], torch.tensor([])),
         ):
-            Xopt, _, _ = m.gen(
+            Xopt, _, _, _ = m.gen(
                 n=1,
                 bounds=[(-1, 1)] * 5,
                 objective_weights=torch.tensor([1.0, 0.0], dtype=torch.double),
@@ -292,7 +295,7 @@ class ALEBOTest(TestCase):
             autospec=True,
             return_value=(torch.ones(1, 2, dtype=torch.double), torch.tensor([])),
         ):
-            Xopt, _, _ = m.gen(
+            Xopt, _, _, _ = m.gen(
                 n=1,
                 bounds=[(-1, 1)] * 5,
                 objective_weights=torch.tensor([1.0, 0.0], dtype=torch.double),

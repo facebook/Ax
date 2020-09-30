@@ -4,14 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import json
 from hashlib import md5
 from typing import Dict, Iterable, Optional, Set, Type
 
 import numpy as np
 import pandas as pd
-from ax.core.base import Base
 from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
+from ax.utils.common.equality import Base
 
 
 TPdTimestamp = pd.Timestamp
@@ -29,15 +31,18 @@ COLUMN_DATA_TYPES = {
     "random_split": np.int64,
     "fidelities": str,  # Dictionary stored as json
 }
-REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean"}
+# Note: Although the SEM (standard error of the mean) is a required column in data,
+# downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
+# either in your Metric class or in Data explicitly.
+REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
 
 
 class Data(Base):
     """Class storing data for an experiment.
 
     The dataframe is retrieved via the `df` property. The data can be stored
-    to gluster for future use by attaching it to an experiment using
-    `experiment.add_data()` (this requires a description to be set.)
+    to an external store for future use by attaching it to an experiment using
+    `experiment.attach_data()` (this requires a description to be set.)
 
 
     Attributes:
@@ -60,19 +65,15 @@ class Data(Base):
         if df is None:
             self._df = pd.DataFrame(columns=self.required_columns())
         else:
-            missing_columns = self.required_columns() - (
-                self.required_columns() & set(df.columns.tolist())
-            )
-            if len(missing_columns) > 0:
+            columns = set(df.columns)
+            missing_columns = self.required_columns() - columns
+            if missing_columns:
                 raise ValueError(
                     f"Dataframe must contain required columns {list(missing_columns)}."
                 )
-            extra_columns = set(df.columns.tolist()) - (
-                set(self.column_data_types().keys()) & set(df.columns.tolist())
-            )
-            if len(extra_columns) > 0:
+            extra_columns = columns - set(self.column_data_types())
+            if extra_columns:
                 raise ValueError(f"Columns {list(extra_columns)} are not supported.")
-
             df = df.dropna(axis=0, how="all").reset_index(drop=True)
             df = self._safecast_df(df=df)
 
@@ -117,10 +118,11 @@ class Data(Base):
         return COLUMN_DATA_TYPES
 
     @staticmethod
-    def from_multiple_data(data: Iterable["Data"]) -> "Data":
-        if sum(1 for _ in data) == 0:  # Return empty data if empty iterable.
+    def from_multiple_data(data: Iterable[Data]) -> Data:
+        dfs = [datum.df for datum in data]
+        if len(dfs) == 0:
             return Data()
-        return Data(df=pd.concat([datum.df for datum in data], axis=0, sort=True))
+        return Data(df=pd.concat(dfs, axis=0, sort=True))
 
     @staticmethod
     def from_evaluations(
@@ -129,7 +131,7 @@ class Data(Base):
         sample_sizes: Optional[Dict[str, int]] = None,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-    ) -> "Data":
+    ) -> Data:
         """
         Convert dict of evaluations to Ax data object.
 
@@ -172,7 +174,7 @@ class Data(Base):
         sample_sizes: Optional[Dict[str, int]] = None,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-    ) -> "Data":
+    ) -> Data:
         """
         Convert dict of fidelity evaluations to Ax data object.
 
@@ -230,7 +232,7 @@ class Data(Base):
             str: The hash of the DataFrame.
 
         """
-        return md5(self.df.to_json().encode("utf-8")).hexdigest()
+        return md5(self.df.to_json().encode("utf-8")).hexdigest()  # pyre-ignore
 
 
 def set_single_trial(data: Data) -> Data:

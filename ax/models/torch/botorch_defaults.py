@@ -9,11 +9,14 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import torch
 from ax.core.types import TConfig
 from ax.models.model_utils import best_observed_point, get_observed
-from ax.models.torch.utils import _to_inequality_constraints
+from ax.models.torch.utils import (  # noqa F401
+    _to_inequality_constraints,
+    predict_from_model,
+)
 from ax.models.torch_base import TorchModel
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
-from botorch.acquisition.objective import ConstrainedMCObjective, LinearMCObjective
+from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
 from botorch.fit import fit_gpytorch_model
@@ -28,8 +31,11 @@ from botorch.utils import (
     get_objective_weights_transform,
     get_outcome_constraint_transforms,
 )
+from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
+from gpytorch.priors.lkj_prior import LKJCovariancePrior
+from gpytorch.priors.torch_priors import GammaPrior
 from torch import Tensor
 
 
@@ -47,7 +53,10 @@ def get_and_fit_model(
     refit_model: bool = True,
     **kwargs: Any,
 ) -> GPyTorchModel:
-    r"""Instantiates and fits a botorch ModelListGP using the given data.
+    r"""Instantiates and fits a botorch GPyTorchModel using the given data.
+    N.B. Currently, the logic for choosing ModelListGP vs other models is handled
+    using if-else statements in lines 96-137. In the future, this logic should be
+    taken care of by modular botorch.
 
     Args:
         Xs: List of X data, one tensor per outcome.
@@ -63,6 +72,7 @@ def get_and_fit_model(
     Returns:
         A fitted GPyTorchModel.
     """
+
     if len(fidelity_features) > 0 and len(task_features) > 0:
         raise NotImplementedError(
             "Currently do not support MF-GP models with task_features!"
@@ -80,6 +90,12 @@ def get_and_fit_model(
     else:
         task_feature = None
     model = None
+
+    # TODO: Better logic for deciding when to use a ModelListGP. Currently the
+    # logic is unclear. The two cases in which ModelListGP is used are
+    # (i) the training inputs (Xs) are not the same for the different outcomes, and
+    # (ii) a multi-task model is used
+
     if task_feature is None:
         if len(Xs) == 1:
             # Use single output, single task GP
@@ -103,12 +119,38 @@ def get_and_fit_model(
                 fidelity_features=fidelity_features,
                 **kwargs,
             )
+    # TODO: Is this equivalent an "else:" here?
+
     if model is None:
-        # Use a ModelListGP
-        models = [
-            _get_model(X=X, Y=Y, Yvar=Yvar, task_feature=task_feature, **kwargs)
-            for X, Y, Yvar in zip(Xs, Ys, Yvars)
-        ]
+        if task_feature is None:
+            models = [
+                _get_model(X=X, Y=Y, Yvar=Yvar, **kwargs)
+                for X, Y, Yvar in zip(Xs, Ys, Yvars)
+            ]
+        else:
+            # use multi-task GP
+            mtgp_rank_dict = kwargs.pop("multitask_gp_ranks", {})
+            # assembles list of ranks associated with each metric
+            if len({len(Xs), len(Ys), len(Yvars), len(metric_names)}) > 1:
+                raise ValueError(
+                    "Lengths of Xs, Ys, Yvars, and metric_names must match. Your "
+                    f"inputs have lengths {len(Xs)}, {len(Ys)}, {len(Yvars)}, and "
+                    f"{len(metric_names)}, respectively."
+                )
+            mtgp_rank_list = [
+                mtgp_rank_dict.get(metric, None) for metric in metric_names
+            ]
+            models = [
+                _get_model(
+                    X=X,
+                    Y=Y,
+                    Yvar=Yvar,
+                    task_feature=task_feature,
+                    rank=mtgp_rank,
+                    **kwargs,
+                )
+                for X, Y, Yvar, mtgp_rank in zip(Xs, Ys, Yvars, mtgp_rank_list)
+            ]
         model = ModelListGP(*models)
     model.to(Xs[0])
     if state_dict is not None:
@@ -125,26 +167,6 @@ def get_and_fit_model(
     return model
 
 
-def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
-    r"""Predicts outcomes given a model and input tensor.
-
-    Args:
-        model: A botorch Model.
-        X: A `n x d` tensor of input parameters.
-
-    Returns:
-        Tensor: The predicted posterior mean as an `n x o`-dim tensor.
-        Tensor: The predicted posterior covariance as a `n x o x o`-dim tensor.
-    """
-    with torch.no_grad():
-        posterior = model.posterior(X)
-    mean = posterior.mean.cpu().detach()
-    # TODO: Allow Posterior to (optionally) return the full covariance matrix
-    variance = posterior.variance.cpu().detach().clamp_min(0)  # pyre-ignore
-    cov = torch.diag_embed(variance)
-    return mean, cov
-
-
 def get_NEI(
     model: Model,
     objective_weights: Tensor,
@@ -156,6 +178,8 @@ def get_NEI(
     r"""Instantiates a qNoisyExpectedImprovement acquisition function.
 
     Args:
+        model: The underlying model which the acqusition function uses
+            to estimate acquisition values of candidates.
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
@@ -171,6 +195,7 @@ def get_NEI(
         mc_samples: The number of MC samples to use (default: 512).
         qmc: If True, use qMC instead of MC (default: True).
         prune_baseline: If True, prune the baseline points for NEI (default: True).
+        chebyshev_scalarization: Use augmented Chebyshev scalarization.
 
     Returns:
         qNoisyExpectedImprovement: The instantiated acquisition function.
@@ -178,12 +203,17 @@ def get_NEI(
     if X_observed is None:
         raise ValueError("There are no feasible observed points.")
     # construct Objective module
-    if outcome_constraints is None:
-        objective = LinearMCObjective(weights=objective_weights)
+    if kwargs.get("chebyshev_scalarization", False):
+        if "Ys" not in kwargs:
+            raise ValueError("Chebyshev Scalarization requires Ys argument")
+        Y_tensor = torch.cat(kwargs.get("Ys"), dim=-1)
+        obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y_tensor)
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
+    if outcome_constraints is None:
+        objective = GenericMCObjective(objective=obj_tf)
+    else:
         con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        X_observed = torch.as_tensor(X_observed)
         inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
         objective = ConstrainedMCObjective(
             objective=obj_tf, constraints=con_tfs or [], infeasible_cost=inf_cost
@@ -197,6 +227,8 @@ def get_NEI(
         prune_baseline=kwargs.get("prune_baseline", True),
         mc_samples=kwargs.get("mc_samples", 512),
         qmc=kwargs.get("qmc", True),
+        # pyre-fixme[6]: Expected `Optional[int]` for 9th param but got
+        #  `Union[float, int]`.
         seed=torch.randint(1, 10000, (1,)).item(),
     )
 
@@ -235,7 +267,6 @@ def scipy_optimizer(
           values, where `i`-th element is the expected acquisition value
           conditional on having observed candidates `0,1,...,i-1`.
     """
-
     num_restarts: int = kwargs.get("num_restarts", 20)
     raw_samples: int = kwargs.get("num_raw_samples", 50 * num_restarts)
 
@@ -256,6 +287,7 @@ def scipy_optimizer(
         inequality_constraints=inequality_constraints,
         fixed_features=fixed_features,
         sequential=sequential,
+        post_processing_func=rounding_func,
     )
     return X, expected_acquisition_value
 
@@ -441,10 +473,14 @@ def _get_model(
     any_nan_Yvar = torch.any(is_nan)
     all_nan_Yvar = torch.all(is_nan)
     if any_nan_Yvar and not all_nan_Yvar:
-        raise ValueError(
-            "Mix of known and unknown variances indicates valuation function "
-            "errors. Variances should all be specified, or none should be."
-        )
+        if task_feature:
+            # TODO (jej): Replace with inferred noise before making perf judgements.
+            Yvar[Yvar != Yvar] = MIN_OBSERVED_NOISE_LEVEL
+        else:
+            raise ValueError(
+                "Mix of known and unknown variances indicates valuation function "
+                "errors. Variances should all be specified, or none should be."
+            )
     if fidelity_features is None:
         fidelity_features = []
     if len(fidelity_features) == 0:
@@ -452,7 +488,7 @@ def _get_model(
         kwargs = {k: v for k, v in kwargs.items() if k != "linear_truncated"}
     if len(fidelity_features) > 0:
         if task_feature:
-            raise NotImplementedError(
+            raise NotImplementedError(  # pragma: no cover
                 "multi-task multi-fidelity models not yet available"
             )
         # at this point we can assume that there is only a single fidelity parameter
@@ -463,14 +499,43 @@ def _get_model(
         gp = SingleTaskGP(train_X=X, train_Y=Y, **kwargs)
     elif task_feature is None:
         gp = FixedNoiseGP(train_X=X, train_Y=Y, train_Yvar=Yvar, **kwargs)
-    elif all_nan_Yvar:
-        gp = MultiTaskGP(train_X=X, train_Y=Y, task_feature=task_feature, **kwargs)
     else:
-        gp = FixedNoiseMultiTaskGP(
-            train_X=X,
-            train_Y=Y.view(-1),
-            train_Yvar=Yvar.view(-1),
-            task_feature=task_feature,
-            **kwargs,
-        )
+        # instantiate multitask GP
+        all_tasks, _, _ = MultiTaskGP.get_all_tasks(X, task_feature)
+        num_tasks = len(all_tasks)
+        prior_dict = kwargs.get("prior")
+        prior = None
+        if prior_dict is not None:
+            prior_type = prior_dict.get("type", None)
+            if issubclass(prior_type, LKJCovariancePrior):
+                sd_prior = prior_dict.get("sd_prior", GammaPrior(1.0, 0.15))
+                sd_prior._event_shape = torch.Size([num_tasks])
+                eta = prior_dict.get("eta", 0.5)
+                if not isinstance(eta, float) and not isinstance(eta, int):
+                    raise ValueError(f"eta must be a real number, your eta was {eta}")
+                prior = LKJCovariancePrior(num_tasks, eta, sd_prior)
+
+            else:
+                raise NotImplementedError(
+                    "Currently only LKJ prior is supported,"
+                    f"your prior type was {prior_type}."
+                )
+
+        if all_nan_Yvar:
+            gp = MultiTaskGP(
+                train_X=X,
+                train_Y=Y,
+                task_feature=task_feature,
+                rank=kwargs.get("rank"),
+                prior=prior,
+            )
+        else:
+            gp = FixedNoiseMultiTaskGP(
+                train_X=X,
+                train_Y=Y,
+                train_Yvar=Yvar,
+                task_feature=task_feature,
+                rank=kwargs.get("rank"),
+                prior=prior,
+            )
     return gp

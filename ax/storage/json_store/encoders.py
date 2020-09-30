@@ -15,7 +15,8 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.multi_type_experiment import MultiTypeExperiment
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
@@ -27,11 +28,15 @@ from ax.core.parameter_constraint import (
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
+from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
+from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
-from ax.storage.utils import get_object_properties
+from ax.utils.common.serialization import serialize_init_args
 
 
 def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
@@ -50,6 +55,7 @@ def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
         "trials": experiment.trials,
         "is_test": experiment.is_test,
         "data_by_trial": experiment.data_by_trial,
+        "properties": experiment._properties,
     }
 
 
@@ -58,12 +64,25 @@ def simple_experiment_to_dict(experiment: SimpleExperiment) -> Dict[str, Any]:
     return experiment_to_dict(experiment)
 
 
+def multi_type_experiment_to_dict(experiment: MultiTypeExperiment) -> Dict[str, Any]:
+    """Convert AE multitype experiment to a dictionary."""
+    multi_type_dict = {
+        "default_trial_type": experiment._default_trial_type,
+        "_metric_to_canonical_name": experiment._metric_to_canonical_name,
+        "_metric_to_trial_type": experiment._metric_to_trial_type,
+        "_trial_type_to_runner": experiment._trial_type_to_runner,
+    }
+    multi_type_dict.update(experiment_to_dict(experiment))
+    return multi_type_dict
+
+
 def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
     """Convert Ax batch to a dictionary."""
     return {
         "__type": batch.__class__.__name__,
         "index": batch.index,
         "trial_type": batch.trial_type,
+        "ttl_seconds": batch.ttl_seconds,
         "status": batch.status,
         "status_quo": batch.status_quo,
         "status_quo_weight_override": batch._status_quo_weight_override,
@@ -78,6 +97,8 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,
         "optimize_for_power": batch.optimize_for_power,
+        "generation_step_index": batch._generation_step_index,
+        "properties": batch._properties,
     }
 
 
@@ -87,6 +108,7 @@ def trial_to_dict(trial: Trial) -> Dict[str, Any]:
         "__type": trial.__class__.__name__,
         "index": trial.index,
         "trial_type": trial.trial_type,
+        "ttl_seconds": trial.ttl_seconds,
         "status": trial.status,
         "time_created": trial.time_created,
         "time_completed": trial.time_completed,
@@ -97,6 +119,8 @@ def trial_to_dict(trial: Trial) -> Dict[str, Any]:
         "generator_run": trial.generator_run,
         "runner": trial.runner,
         "num_arms_created": trial._num_arms_created,
+        "generation_step_index": trial._generation_step_index,
+        "properties": trial._properties,
     }
 
 
@@ -197,7 +221,7 @@ def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:
 
 def metric_to_dict(metric: Metric) -> Dict[str, Any]:
     """Convert Ax metric to a dictionary."""
-    properties = get_object_properties(object=metric)
+    properties = serialize_init_args(object=metric)
     properties["__type"] = metric.__class__.__name__
     return properties
 
@@ -207,6 +231,16 @@ def objective_to_dict(objective: Objective) -> Dict[str, Any]:
     return {
         "__type": objective.__class__.__name__,
         "metric": objective.metric,
+        "minimize": objective.minimize,
+    }
+
+
+def multi_objective_to_dict(objective: MultiObjective) -> Dict[str, Any]:
+    """Convert Ax objective to a dictionary."""
+    return {
+        "__type": objective.__class__.__name__,
+        "metrics": objective.metrics,
+        "weights": objective.weights,
         "minimize": objective.minimize,
     }
 
@@ -245,30 +279,34 @@ def optimization_config_to_dict(
 
 def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
     """Convert Ax generator run to a dictionary."""
+    gr = generator_run
+    cand_metadata = gr.candidate_metadata_by_arm_signature
     return {
-        "__type": generator_run.__class__.__name__,
-        "arms": generator_run.arms,
-        "weights": generator_run.weights,
-        "optimization_config": generator_run.optimization_config,
-        "search_space": generator_run.search_space,
-        "time_created": generator_run.time_created,
-        "model_predictions": generator_run.model_predictions,
-        "best_arm_predictions": generator_run.best_arm_predictions,
-        "generator_run_type": generator_run.generator_run_type,
-        "index": generator_run.index,
-        "fit_time": generator_run.fit_time,
-        "gen_time": generator_run.gen_time,
-        "model_key": generator_run._model_key,
-        "model_kwargs": generator_run._model_kwargs,
-        "bridge_kwargs": generator_run._bridge_kwargs,
-        "gen_metadata": generator_run._gen_metadata,
-        "model_state_after_gen": generator_run._model_state_after_gen,
+        "__type": gr.__class__.__name__,
+        "arms": gr.arms,
+        "weights": gr.weights,
+        "optimization_config": gr.optimization_config,
+        "search_space": gr.search_space,
+        "time_created": gr.time_created,
+        "model_predictions": gr.model_predictions,
+        "best_arm_predictions": gr.best_arm_predictions,
+        "generator_run_type": gr.generator_run_type,
+        "index": gr.index,
+        "fit_time": gr.fit_time,
+        "gen_time": gr.gen_time,
+        "model_key": gr._model_key,
+        "model_kwargs": gr._model_kwargs,
+        "bridge_kwargs": gr._bridge_kwargs,
+        "gen_metadata": gr._gen_metadata,
+        "model_state_after_gen": gr._model_state_after_gen,
+        "generation_step_index": gr._generation_step_index,
+        "candidate_metadata_by_arm_signature": cand_metadata,
     }
 
 
 def runner_to_dict(runner: SyntheticRunner) -> Dict[str, Any]:
     """Convert Ax synthetic runner to a dictionary."""
-    properties = get_object_properties(object=runner)
+    properties = serialize_init_args(object=runner)
     properties["__type"] = runner.__class__.__name__
     return properties
 
@@ -291,9 +329,30 @@ def transform_type_to_dict(transform_type: Type[Transform]) -> Dict[str, Any]:
     }
 
 
+def generation_step_to_dict(generation_step: GenerationStep) -> Dict[str, Any]:
+    """Converts Ax generation step to a dictionary."""
+    return {
+        "__type": generation_step.__class__.__name__,
+        "model": generation_step.model,
+        "num_trials": generation_step.num_trials,
+        "min_trials_observed": generation_step.min_trials_observed,
+        "max_parallelism": generation_step.max_parallelism,
+        "use_update": generation_step.use_update,
+        "enforce_num_trials": generation_step.enforce_num_trials,
+        "model_kwargs": _encode_callables_as_references(
+            generation_step.model_kwargs or {}
+        ),
+        "model_gen_kwargs": _encode_callables_as_references(
+            generation_step.model_gen_kwargs or {}
+        ),
+        "index": generation_step.index,
+    }
+
+
 def generation_strategy_to_dict(
     generation_strategy: GenerationStrategy,
 ) -> Dict[str, Any]:
+    """Converts Ax generation strategy to a dictionary."""
     if generation_strategy.uses_non_registered_models:
         raise ValueError(  # pragma: no cover
             "Generation strategies that use custom models provided through "
@@ -304,9 +363,6 @@ def generation_strategy_to_dict(
         "db_id": generation_strategy._db_id,
         "name": generation_strategy.name,
         "steps": generation_strategy._steps,
-        "generated": generation_strategy._generated,
-        "observed": generation_strategy._observed,
-        "data": generation_strategy._data,
         "curr_index": generation_strategy._curr.index,
         "generator_runs": generation_strategy._generator_runs,
         "had_initialized_model": generation_strategy.model is not None,
@@ -323,6 +379,7 @@ def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str,
         "start_time": obs_features.start_time,
         "end_time": obs_features.end_time,
         "random_split": obs_features.random_split,
+        "metadata": obs_features.metadata,
     }
 
 
@@ -349,8 +406,49 @@ def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, 
             "optimal_value": benchmark_problem.optimal_value,
         }
     elif isinstance(benchmark_problem, BenchmarkProblem):
-        properties = get_object_properties(object=benchmark_problem)
+        properties = serialize_init_args(object=benchmark_problem)
         properties["__type"] = benchmark_problem.__class__.__name__
         return properties
     else:  # pragma: no cover
         raise ValueError(f"Expected benchmark problem, got: {benchmark_problem}.")
+
+
+def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
+    """Convert Ax model to a dictionary."""
+    return {
+        "__type": model.__class__.__name__,
+        "surrogate": model.surrogate,
+        "surrogate_fit_options": model.surrogate_fit_options,
+        "acquisition_class": model.acquisition_class,
+        "botorch_acqf_class": model.botorch_acqf_class,
+        "acquisition_options": model.acquisition_options or {},
+    }
+
+
+def surrogate_to_dict(surrogate: Surrogate) -> Dict[str, Any]:
+    """Convert Ax surrogate to a dictionary."""
+    return {
+        "__type": surrogate.__class__.__name__,
+        "botorch_model_class": surrogate.botorch_model_class,
+        "mll_class": surrogate.mll_class,
+        # TODO: Add these once they are implemented.
+        # "kernel_class": surrogate.kernel_class,
+        # "kernel_options": surrogate.kernel_options or {},
+        # "likelihood": surrogate.likelihood,
+    }
+
+
+def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
+    """Convert any class to a dictionary."""
+    for _class in CLASS_TO_REGISTRY:
+        if issubclass(class_type, _class):
+            registry = CLASS_TO_REGISTRY[_class]
+            return {
+                "__type": f"Type[{_class.__name__}]",
+                "index": registry[class_type],
+                "class": f"{_class}",
+            }
+    raise ValueError(
+        f"{class_type} does not have a corresponding parent class in "
+        "CLASS_TO_REGISTRY."
+    )

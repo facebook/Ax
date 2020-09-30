@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import json
 from copy import deepcopy
 from typing import List, Optional, Tuple
@@ -11,10 +13,24 @@ from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.types import TParameterization
+from ax.core.types import TCandidateMetadata, TParameterization
+from ax.utils.common.constants import Keys
+from ax.utils.common.equality import Base
+from ax.utils.common.timeutils import current_timestamp_in_millis
+
+
+OBS_COLS = {
+    "arm_name",
+    "trial_index",
+    "start_time",
+    "end_time",
+    "random_split",
+    "fidelities",
+}
+
+OBS_KWARGS = {"trial_index", "start_time", "end_time", "random_split"}
 
 
 class ObservationFeatures(Base):
@@ -44,26 +60,26 @@ class ObservationFeatures(Base):
         trial_index: Optional[np.int64] = None,
         # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         start_time: Optional[pd.Timestamp] = None,
-        # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
+        metadata: TCandidateMetadata = None,
     ) -> None:
         self.parameters = parameters
         self.trial_index = trial_index
         self.start_time = start_time
         self.end_time = end_time
         self.random_split = random_split
+        self.metadata = metadata
 
     @staticmethod
     def from_arm(
         arm: Arm,
         trial_index: Optional[np.int64] = None,
-        # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         start_time: Optional[pd.Timestamp] = None,
-        # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,
-    ) -> "ObservationFeatures":
+        metadata: TCandidateMetadata = None,
+    ) -> ObservationFeatures:
         """Convert a Arm to an ObservationFeatures, including additional
         data as specified.
         """
@@ -73,11 +89,10 @@ class ObservationFeatures(Base):
             start_time=start_time,
             end_time=end_time,
             random_split=random_split,
+            metadata=metadata,
         )
 
-    def update_features(
-        self, new_features: "ObservationFeatures"
-    ) -> "ObservationFeatures":
+    def update_features(self, new_features: ObservationFeatures) -> ObservationFeatures:
         """Updates the existing ObservationFeatures with the fields of the the input.
 
         Adds all of the new parameters to the existing parameters and overwrites
@@ -162,8 +177,7 @@ class Observation(Base):
     """Represents an observation.
 
     A set of features (ObservationFeatures) and corresponding measurements
-    (ObservationData). Optionally, a arm name associated with the
-    features.
+    (ObservationData). Optionally, an arm name associated with the features.
 
     Attributes:
         features (ObservationFeatures)
@@ -182,60 +196,101 @@ class Observation(Base):
         self.arm_name = arm_name
 
 
+def _observations_from_dataframe(
+    experiment: Experiment, df: pd.DataFrame, cols: List[str], arm_name_only: bool
+) -> List[Observation]:
+    """Helper method for extracting observations grouped by `cols` from `df`."""
+    observations = []
+    for g, d in df.groupby(by=cols):
+        if arm_name_only:
+            features = {"arm_name": g}
+            arm_name = g
+            trial_index = None
+        else:
+            features = dict(zip(cols, g))
+            arm_name = features["arm_name"]
+            trial_index = features.get("trial_index", None)
+        obs_kwargs = {}
+        obs_parameters = experiment.arms_by_name[arm_name].parameters.copy()
+        if obs_parameters:
+            obs_kwargs["parameters"] = obs_parameters
+        for f, val in features.items():
+            if f in OBS_KWARGS:
+                obs_kwargs[f] = val
+        fidelities = features.get("fidelities")
+        if fidelities is not None:
+            obs_parameters.update(json.loads(fidelities))
+        if trial_index is not None:
+            trial = experiment.trials[trial_index]
+            metadata = trial._get_candidate_metadata(arm_name) or {}
+            if Keys.OBS_FROM_DF_TIMESTAMP not in metadata:
+                metadata[Keys.OBS_FROM_DF_TIMESTAMP] = current_timestamp_in_millis()
+            obs_kwargs[Keys.METADATA] = metadata
+        observations.append(
+            Observation(
+                features=ObservationFeatures(**obs_kwargs),
+                data=ObservationData(
+                    metric_names=d["metric_name"].tolist(),
+                    means=d["mean"].values,
+                    covariance=np.diag(d["sem"].values ** 2),
+                ),
+                arm_name=arm_name,
+            )
+        )
+    return observations
+
+
 def observations_from_data(experiment: Experiment, data: Data) -> List[Observation]:
     """Convert Data to observations.
 
-    Converts a Data object to a list of Observation objects. Pulls
-    arm parameters from experiment.  Overrides fidelity parameters in the arm
-    with those found in the Data object.
+    Converts a Data object to a list of Observation objects. Pulls arm parameters from
+    from experiment. Overrides fidelity parameters in the arm with those found in the
+    Data object.
 
     Uses a diagonal covariance matrix across metric_names.
 
     Args:
         experiment: Experiment with arm parameters.
-        data: Data of observations
+        data: Data of observations.
 
-    Returns: List of Observation objects.
+    Returns:
+        List of Observation objects.
     """
-    feature_cols = list(
-        {
-            "arm_name",
-            "trial_index",
-            "start_time",
-            "end_time",
-            "random_split",
-            "fidelities",
-        }.intersection(data.df.columns)
-    )
+    feature_cols = list(OBS_COLS.intersection(data.df.columns))
     observations = []
-    for g, d in data.df.groupby(by=feature_cols):
-        # If g were a single value, zip would transform it into an index,
-        # and we want the value.
-        if not isinstance(g, (list, tuple)):
-            g = [g]  # pragma: no cover
-        features = dict(zip(feature_cols, g))
-        obs_kwargs = {}
-        obs_parameters = experiment.arms_by_name[features["arm_name"]].parameters.copy()
-        if obs_parameters:
-            obs_kwargs["parameters"] = obs_parameters
-        for f in ["trial_index", "start_time", "end_time", "random_split"]:
-            obs_kwargs[f] = features.get(f, None)
-        if "fidelities" in features:
-            fidelity_dict = json.loads(features["fidelities"])
-            for param_name, val in fidelity_dict.items():
-                obs_parameters[param_name] = val
-        observations.append(
-            Observation(
-                features=ObservationFeatures(**obs_kwargs),
-                data=ObservationData(
-                    metric_names=list(d["metric_name"].values),
-                    means=d["mean"].values,
-                    covariance=np.diag(d["sem"].values ** 2),
-                ),
-                arm_name=features["arm_name"],
-            )
-        )
+    arm_name_only = len(feature_cols) == 1  # there will always be an arm name
+    # One DataFrame where all rows are complete.
+    isnull = data.df.isnull()
+    isnull_any = isnull.any(axis=1)
+    incomplete_df_cols = isnull[isnull_any].any()
 
+    # Get the incomplete_df columns that are complete, and usable as groupby keys.
+    complete_feature_cols = list(
+        OBS_COLS.intersection(incomplete_df_cols.index[~incomplete_df_cols])
+    )
+
+    grouped = data.df.groupby(by=complete_feature_cols)
+    complete_df = grouped.filter(lambda r: ~r.isnull().any().any())
+    incomplete_df = grouped.filter(lambda r: r.isnull().any().any())
+
+    # Get Observations from complete_df
+    observations.extend(
+        _observations_from_dataframe(
+            experiment=experiment,
+            df=complete_df,
+            cols=feature_cols,
+            arm_name_only=arm_name_only,
+        )
+    )
+    # Get Observations from incomplete_df
+    observations.extend(
+        _observations_from_dataframe(
+            experiment=experiment,
+            df=incomplete_df,
+            cols=complete_feature_cols,
+            arm_name_only=arm_name_only,
+        )
+    )
     return observations
 
 

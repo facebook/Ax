@@ -18,6 +18,8 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_batch_trial,
     get_experiment_with_data,
+    get_experiment_with_multi_objective,
+    get_experiment_with_scalarized_objective,
     get_factorial_metric,
     get_fixed_parameter,
     get_generator_run,
@@ -29,6 +31,7 @@ from ax.utils.testing.core_stubs import (
     get_outcome_constraint,
     get_parameter_constraint,
     get_range_parameter,
+    get_scalarized_objective,
     get_simple_experiment_with_batch_trial,
     get_sum_constraint1,
     get_sum_constraint2,
@@ -84,6 +87,18 @@ TEST_CASES = [
         Decoder.experiment_from_sqa,
     ),
     (
+        "Experiment",
+        get_experiment_with_multi_objective,
+        Encoder.experiment_to_sqa,
+        Decoder.experiment_from_sqa,
+    ),
+    (
+        "Experiment",
+        get_experiment_with_scalarized_objective,
+        Encoder.experiment_to_sqa,
+        Decoder.experiment_from_sqa,
+    ),
+    (
         "FixedParameter",
         get_fixed_parameter,
         Encoder.parameter_to_sqa,
@@ -128,6 +143,18 @@ TEST_CASES = [
     ("Metric", get_metric, Encoder.metric_to_sqa, Decoder.metric_from_sqa),
     ("Objective", get_objective, Encoder.objective_to_sqa, Decoder.metric_from_sqa),
     (
+        "ScalarizedObjective",
+        get_scalarized_objective,
+        Encoder.objective_to_sqa,
+        Decoder.metric_from_sqa,
+    ),
+    (
+        "ScalarizedObjective",
+        get_scalarized_objective,
+        Encoder.objective_to_sqa,
+        Decoder.metric_from_sqa,
+    ),
+    (
         "OutcomeConstraint",
         get_outcome_constraint,
         Encoder.outcome_constraint_to_sqa,
@@ -170,6 +197,12 @@ TEST_CASES = [
 # This map records discrepancies between Python and SQA representations,
 # so that we can validate that the SQA representation is complete
 ENCODE_DECODE_FIELD_MAPS = {
+    "Metric": EncodeDecodeFieldsMap(
+        encoded_only={
+            "scalarized_objective_children_metrics",
+            "scalarized_objective_weight",
+        }
+    ),
     "AbandonedArm": EncodeDecodeFieldsMap(
         python_to_encoded={"reason": "abandoned_reason", "time": "time_abandoned"}
     ),
@@ -181,9 +214,13 @@ ENCODE_DECODE_FIELD_MAPS = {
             "generator_run_structs": "generator_runs",
             "abandoned_arms_metadata": "abandoned_arms",
             "num_arms_created": "num_arms_created",
+            # Dunder fields in Py get prepended with class name (BaseTrial in this
+            # case because that's the one that carries the `__status` attribute,
+            # which BatchTrial inherits)
+            "BaseTrial__status": "status",
         },
         python_only=["experiment", "status_quo", "status_quo_weight_override"],
-        encoded_only=["is_batch", "status_quo_name", "deployed_name"],
+        encoded_only=["is_batch", "status_quo_name", "deployed_name", "properties"],
     ),
     "BraninObjective": EncodeDecodeFieldsMap(
         python_only=["metric"],
@@ -198,6 +235,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "relative",
             "trial_type",
             "canonical_name",
+            "scalarized_objective_children_metrics",
+            "scalarized_objective_weight",
         ],
     ),
     "BraninOutcomeConstraint": EncodeDecodeFieldsMap(
@@ -211,6 +250,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "minimize",
             "trial_type",
             "canonical_name",
+            "scalarized_objective_children_metrics",
+            "scalarized_objective_weight",
         ],
     ),
     "ChoiceParameter": EncodeDecodeFieldsMap(
@@ -235,10 +276,13 @@ ENCODE_DECODE_FIELD_MAPS = {
         ],
         python_only=[
             "arms_by_signature",
+            "arms_by_name",
             "search_space",
             "runner",
             "optimization_config",
             "status_quo",
+            "trial_indices_by_status",
+            "trials_have_ttl",
         ],
         python_to_encoded={
             "data_by_trial": "data",
@@ -293,7 +337,44 @@ ENCODE_DECODE_FIELD_MAPS = {
             "bound",
             "trial_type",
             "canonical_name",
+            "scalarized_objective_children_metrics",
+            "scalarized_objective_weight",
         ],
+    ),
+    "MultiObjective": EncodeDecodeFieldsMap(
+        encoded_only=[
+            "metric_type",
+            "intent",
+            "name",
+            "lower_is_better",
+            "properties",
+            "op",
+            "relative",
+            "bound",
+            "trial_type",
+            "canonical_name",
+            "scalarized_objective_weight",
+        ],
+        python_only=["weights"],
+        python_to_encoded={"metrics": "scalarized_objective_children_metrics"},
+    ),
+    "ScalarizedObjective": EncodeDecodeFieldsMap(
+        encoded_only=[
+            "metric_type",
+            "intent",
+            "name",
+            "lower_is_better",
+            "properties",
+            "op",
+            "relative",
+            "bound",
+            "trial_type",
+            "canonical_name",
+        ],
+        python_to_encoded={
+            "metrics": "scalarized_objective_children_metrics",
+            "weights": "scalarized_objective_weight",
+        },
     ),
     "OrderConstraint": EncodeDecodeFieldsMap(
         encoded_only=["constraint_dict", "type"],
@@ -310,6 +391,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "minimize",
             "trial_type",
             "canonical_name",
+            "scalarized_objective_children_metrics",
+            "scalarized_objective_weight",
         ],
     ),
     "ParameterConstraint": EncodeDecodeFieldsMap(encoded_only=["type"]),
@@ -334,11 +417,14 @@ ENCODE_DECODE_FIELD_MAPS = {
         ],
         python_only=[
             "arms_by_signature",
+            "arms_by_name",
             "search_space",
             "runner",
             "optimization_config",
             "status_quo",
             "evaluation_function",
+            "trial_indices_by_status",
+            "trials_have_ttl",
         ],
         python_to_encoded={"data_by_trial": "data", "tracking_metrics": "metrics"},
     ),
@@ -350,6 +436,10 @@ ENCODE_DECODE_FIELD_MAPS = {
         python_to_encoded={
             "generator_run": "generator_runs",
             "num_arms_created": "num_arms_created",
+            # Dunder fields in Py get prepended with class name (BaseTrial in this
+            # case because that's the one that carries the `__status` attribute,
+            # which Trial inherits)
+            "BaseTrial__status": "status",
         },
         python_only=["experiment"],
         encoded_only=[
@@ -358,6 +448,7 @@ ENCODE_DECODE_FIELD_MAPS = {
             "status_quo_name",
             "deployed_name",
             "optimize_for_power",
+            "properties",
         ],
     ),
 }

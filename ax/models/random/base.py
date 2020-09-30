@@ -128,6 +128,9 @@ class RandomModel(Model):
                 self.generated_points = np.vstack([self.generated_points, points])
         return (points, np.ones(len(points)))
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `Model` for 1st param but got
+    #  `(self: RandomModel) -> Dict[str, typing.Any]`.
     @copy_doc(Model._get_state)
     def _get_state(self) -> Dict[str, Any]:
         state = super()._get_state()

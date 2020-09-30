@@ -13,11 +13,15 @@ from ax.modelbridge.factory import (
     get_GPEI,
     get_GPKG,
     get_GPMES,
+    get_MOO_EHVI,
+    get_MOO_PAREGO,
+    get_MOO_RS,
     get_MTGP,
     get_sobol,
     get_thompson,
     get_uniform,
 )
+from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
@@ -25,6 +29,7 @@ from ax.models.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
     get_branin_optimization_config,
     get_factorial_experiment,
     get_multi_type_experiment,
@@ -201,3 +206,80 @@ class ModelBridgeFactoryTest(TestCase):
         self.assertIsInstance(uniform, RandomModelBridge)
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)
+
+    def test_MOO_RS(self):
+        single_obj_exp = get_branin_experiment(with_batch=True)
+        with self.assertRaises(ValueError):
+            get_MOO_RS(experiment=single_obj_exp, data=single_obj_exp.fetch_data())
+
+        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        with self.assertRaises(ValueError):
+            get_MOO_RS(experiment=multi_obj_exp, data=multi_obj_exp.fetch_data())
+
+        multi_obj_exp.trials[0].run()
+        moo_rs = get_MOO_RS(experiment=multi_obj_exp, data=multi_obj_exp.fetch_data())
+        self.assertIsInstance(moo_rs, MultiObjectiveTorchModelBridge)
+        self.assertEqual(
+            {
+                "acquisition_function_kwargs": {
+                    "random_scalarization": True,
+                    "sequential": True,
+                }
+            },
+            moo_rs._default_model_gen_options,
+        )
+        moo_rs_run = moo_rs.gen(n=2)
+        self.assertEqual(len(moo_rs_run.arms), 2)
+
+    def test_MOO_PAREGO(self):
+        single_obj_exp = get_branin_experiment(with_batch=True)
+        with self.assertRaises(ValueError):
+            get_MOO_PAREGO(experiment=single_obj_exp, data=single_obj_exp.fetch_data())
+
+        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        with self.assertRaises(ValueError):
+            get_MOO_PAREGO(experiment=multi_obj_exp, data=multi_obj_exp.fetch_data())
+
+        multi_obj_exp.trials[0].run()
+        moo_parego = get_MOO_PAREGO(
+            experiment=multi_obj_exp, data=multi_obj_exp.fetch_data()
+        )
+        self.assertIsInstance(moo_parego, MultiObjectiveTorchModelBridge)
+        self.assertEqual(
+            {
+                "acquisition_function_kwargs": {
+                    "chebyshev_scalarization": True,
+                    "sequential": True,
+                }
+            },
+            moo_parego._default_model_gen_options,
+        )
+        moo_parego_run = moo_parego.gen(n=2)
+        self.assertEqual(len(moo_parego_run.arms), 2)
+
+    def test_MOO_EHVI(self):
+        single_obj_exp = get_branin_experiment(with_batch=True)
+        with self.assertRaises(ValueError):
+            get_MOO_EHVI(
+                experiment=single_obj_exp,
+                data=single_obj_exp.fetch_data(),
+                ref_point=[0, 0],
+            )
+        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        metrics = multi_obj_exp.optimization_config.objective.metrics
+        with self.assertRaises(ValueError):
+            get_MOO_EHVI(
+                experiment=multi_obj_exp,
+                data=multi_obj_exp.fetch_data(),
+                ref_point={metrics[0].name: 0.0, metrics[1].name: 0.0},
+            )
+
+        multi_obj_exp.trials[0].run()
+        moo_ehvi = get_MOO_EHVI(
+            experiment=multi_obj_exp,
+            data=multi_obj_exp.fetch_data(),
+            ref_point={metrics[0].name: 0.0, metrics[1].name: 0.0},
+        )
+        self.assertIsInstance(moo_ehvi, MultiObjectiveTorchModelBridge)
+        moo_ehvi_run = moo_ehvi.gen(n=1)
+        self.assertEqual(len(moo_ehvi_run.arms), 1)

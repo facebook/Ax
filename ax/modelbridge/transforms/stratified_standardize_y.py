@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
-logger = get_logger("StratifiedStandardizeY")
+logger = get_logger(__name__)
 
 
 class StratifiedStandardizeY(Transform):
@@ -121,8 +121,8 @@ class StratifiedStandardizeY(Transform):
         for c in optimization_config.outcome_constraints:
             if c.relative:
                 raise ValueError(
-                    f"StratifiedStandardizeY transform does not support relative "
-                    "constraint {c}"
+                    "StratifiedStandardizeY transform does not support relative "
+                    f"constraint {c}"
                 )
             c.bound = (c.bound - self.Ymean[(c.metric.name, v)]) / self.Ystd[
                 (c.metric.name, v)

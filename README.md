@@ -26,7 +26,7 @@ For full documentation and tutorials, see the [Ax website](https://ax.dev)
 * **Versatility**: Ax supports different kinds of experiments, from dynamic ML-assisted A/B testing, to hyperparameter optimization in machine learning.
 * **Customization**: Ax makes it easy to add new modeling and decision algorithms, enabling research and development with minimal overhead.
 * **Production-completeness**: Ax comes with storage integration and ability to fully save and reload experiments.
-* **Support for multi-modal and constrained experimentation**: Ax allows for running and combining multiple experiments (e.g. simulation with a real-world "online" A/B test) and for constrained optimization (e.g. improving classification accuracy without signifant increase in resource-utilization).
+* **Support for multi-modal and constrained experimentation**: Ax allows for running and combining multiple experiments (e.g. simulation with a real-world "online" A/B test) and for constrained optimization (e.g. improving classification accuracy without significant increase in resource-utilization).
 * **Efficiency in high-noise setting**: Ax offers state-of-the-art algorithms specifically geared to noisy experiments, such as simulations with reinforcement-learning agents.
 * **Ease of use**: Ax includes 3 different APIs that strike different balances between lightweight structure and flexibility. Using the most concise Loop API, a whole optimization can be done in just one function call. The Service API integrates easily with external schedulers. The most elaborate Developer API affords full algorithm customization and experiment introspection.
 
@@ -62,7 +62,7 @@ artificial evaluation function):
 ## Installation
 
 ### Requirements
-You need Python 3.6 or later to run Ax.
+You need Python 3.7 or later to run Ax.
 
 The required Python dependencies are:
 
@@ -165,4 +165,4 @@ See recommendation for installing PyTorch for MacOS users above.
 
 ## License
 
-Ax is licensed under the [MIT license](LICENSE.md).
+Ax is licensed under the [MIT license](./LICENSE).

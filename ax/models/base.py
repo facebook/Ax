@@ -17,6 +17,21 @@ class Model:
     which they all share the signature.
     """
 
+    @classmethod
+    def serialize_state(cls, raw_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Serialized output of `self._get_state` to a JSON-ready dict.
+        This may involve storing part of state in files / external storage and
+        saving handles for that storage in the resulting serialized state.
+        """
+        return raw_state  # pragma: no cover
+
+    @classmethod
+    def deserialize_state(cls, serialized_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Restores model's state from its serialized form, to the format it
+        expects to receive as kwargs.
+        """
+        return serialized_state  # pragma: no cover
+
     def _get_state(self) -> Dict[str, Any]:
         """Obtain the state of this model, in order to be able to serialize it
         and restore it from the serialized version.
@@ -30,6 +45,9 @@ class Model:
         this method, so that a model can be reinstantiated and 'pick up where it
         left off' –– more arms can be generated as if the model just continued
         generation and was never interrupted and serialized.
+
+        NOTE: In most cases, `state` is passed into the model's initialization as
+        kwargs, so keys in the state dict should correspond to model's kwargs.
         """
         return {}  # pragma: no cover
 

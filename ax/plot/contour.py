@@ -98,6 +98,9 @@ def _get_contour_predictions(
 
     f_plt = mu[metric]
     sd_plt = np.sqrt(cov[metric][metric])
+    # pyre-fixme[7]: Expected `Tuple[PlotData, np.ndarray, np.ndarray, np.ndarray,
+    #  np.ndarray, Dict[str, bool]]` but got `Tuple[PlotData, typing.List[float],
+    #  typing.Any, np.ndarray, np.ndarray, Dict[str, bool]]`.
     return plot_data, f_plt, sd_plt, grid_x, grid_y, scales
 
 
@@ -319,9 +322,13 @@ def interact_contour(
         is_log_dict[parameter.name] = parameter.log_scale
         grid_dict[parameter.name] = get_grid_for_parameter(parameter, density)
 
+    # pyre-fixme[9]: f_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
+    #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
     f_dict: Dict[str, Dict[str, np.ndarray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }
+    # pyre-fixme[9]: sd_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
+    #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
     sd_dict: Dict[str, Dict[str, np.ndarray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }
@@ -417,7 +424,15 @@ def interact_contour(
         "yaxis": "y2",
     }
 
+    # pyre-fixme[6]: Expected `Mapping[str, typing.Union[Dict[str,
+    #  typing.Union[Dict[str, int], float, str]], typing.List[Tuple[float, str]], bool,
+    #  str]]` for 1st param but got `Dict[str, typing.Union[Dict[str, str], int,
+    #  str]]`.
     f_contour_trace_base.update(CONTOUR_CONFIG)
+    # pyre-fixme[6]: Expected `Mapping[str, typing.Union[Dict[str,
+    #  typing.Union[Dict[str, int], float, str]], typing.List[Tuple[float, str]],
+    #  str]]` for 1st param but got `Dict[str, typing.Union[Dict[str, str], int,
+    #  str]]`.
     sd_contour_trace_base.update(CONTOUR_CONFIG)
 
     insample_param_values = {}
@@ -505,6 +520,8 @@ def interact_contour(
                 "xaxis2.title": short_name(xvar),
                 "xaxis.range": axis_range(grid_dict[xvar], is_log_dict[xvar]),
                 "xaxis2.range": axis_range(grid_dict[xvar], is_log_dict[xvar]),
+                "xaxis.type": "log" if is_log_dict[xvar] else "linear",
+                "xaxis2.type": "log" if is_log_dict[xvar] else "linear",
             },
         ]
         xbuttons.append({"args": xbutton_args, "label": xvar, "method": "update"})
@@ -527,6 +544,8 @@ def interact_contour(
                         "yaxis2.range": axis_range(
                             grid_dict[y_param], is_log_dict[y_param]
                         ),
+                        "yaxis.type": "log" if is_log_dict[y_param] else "linear",
+                        "yaxis2.type": "log" if is_log_dict[y_param] else "linear",
                     },
                 ],
                 "label": param_names[y_idx],

@@ -29,7 +29,6 @@ def randomized_onehot_round(x: np.ndarray) -> np.ndarray:
     if sum(x) == 0:
         x = np.ones_like(x)
     w = x / sum(x)
-    # pyre-fixme[6]: Expected `Sized` for 1st param but got `float`.
     hot = np.random.choice(len(w), size=1, p=w)[0]
     z = np.zeros_like(x)
     z[hot] = 1

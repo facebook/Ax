@@ -44,6 +44,8 @@ class ALEBOInitializer(UniformGenerator):
         self.init_bound = init_bound
         super().__init__(**kwargs)
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(UniformGenerator.gen)
     def gen(
         self,
@@ -74,7 +76,6 @@ class ALEBOInitializer(UniformGenerator):
             # Map to [-b, b]
             X_b = 2 * b * X01 - b
             # Project down to B and back up
-            # pyre-fixme[16]: `float` has no attribute `__matmul__`.
             X = X_b @ np.transpose(self.Q)
             # Filter out to points in [-1, 1]^D
             X = X[(X >= -1.0).all(axis=1) & (X <= 1.0).all(axis=1)]
@@ -82,5 +83,5 @@ class ALEBOInitializer(UniformGenerator):
                 finished = True
             else:
                 b = b / 2.0  # Constrict the space
-        X = X[:n, :]  # pyre-ignore
+        X = X[:n, :]
         return X, np.ones(n)

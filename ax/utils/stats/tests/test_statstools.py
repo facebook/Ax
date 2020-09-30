@@ -6,8 +6,13 @@
 
 import numpy as np
 import pandas as pd
+from ax.core.data import Data
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import inverse_variance_weight, marginal_effects
+from ax.utils.stats.statstools import (
+    inverse_variance_weight,
+    marginal_effects,
+    relativize_data,
+)
 
 
 class InverseVarianceWeightingTest(TestCase):
@@ -65,3 +70,73 @@ class MarginalEffectsTest(TestCase):
         fx = marginal_effects(df)
         self.assertTrue(np.allclose(fx["Beta"].values, [-40, 40, -20, 20], atol=1e-3))
         self.assertTrue(np.allclose(fx["SE"].values, [2.83] * 4, atol=1e-2))
+
+
+class RelativizeDataTest(TestCase):
+    def test_relativize_data(self):
+        data = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "mean": 2,
+                        "sem": 0,
+                        "metric_name": "foobar",
+                        "arm_name": "status_quo",
+                    },
+                    {
+                        "mean": 5,
+                        "sem": 0,
+                        "metric_name": "foobaz",
+                        "arm_name": "status_quo",
+                    },
+                    {"mean": 1, "sem": 0, "metric_name": "foobar", "arm_name": "0_0"},
+                    {"mean": 10, "sem": 0, "metric_name": "foobaz", "arm_name": "0_0"},
+                ]
+            )
+        )
+        expected_relativized_data = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "mean": -0.5,
+                        "sem": 0,
+                        "metric_name": "foobar",
+                        "arm_name": "0_0",
+                    },
+                    {"mean": 1, "sem": 0, "metric_name": "foobaz", "arm_name": "0_0"},
+                ]
+            )
+        )
+        expected_relativized_data_with_sq = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "mean": 0,
+                        "sem": 0,
+                        "metric_name": "foobar",
+                        "arm_name": "status_quo",
+                    },
+                    {
+                        "mean": -0.5,
+                        "sem": 0,
+                        "metric_name": "foobar",
+                        "arm_name": "0_0",
+                    },
+                    {
+                        "mean": 0,
+                        "sem": 0,
+                        "metric_name": "foobaz",
+                        "arm_name": "status_quo",
+                    },
+                    {"mean": 1, "sem": 0, "metric_name": "foobaz", "arm_name": "0_0"},
+                ]
+            )
+        )
+
+        actual_relativized_data = relativize_data(data=data)
+        self.assertEqual(expected_relativized_data, actual_relativized_data)
+
+        actual_relativized_data_with_sq = relativize_data(data=data, include_sq=True)
+        self.assertEqual(
+            expected_relativized_data_with_sq, actual_relativized_data_with_sq
+        )

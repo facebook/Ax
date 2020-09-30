@@ -8,6 +8,15 @@ ax.exceptions
 .. currentmodule:: ax.exceptions
 
 
+Constants
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.exceptions.constants
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Core
 ~~~~~~~~~~~~~~~~~~
 
@@ -20,6 +29,14 @@ Data
 ~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.exceptions.data_provider
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Generation Strategy
+~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.exceptions.generation_strategy
     :members:
     :undoc-members:
     :show-inheritance:

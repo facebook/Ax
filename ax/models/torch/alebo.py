@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, List, MutableMapping, Optional, Tuple, U
 import gpytorch
 import numpy as np
 import torch
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_defaults import get_NEI
@@ -38,7 +38,7 @@ from scipy.optimize import approx_fprime
 from torch import Tensor
 
 
-logger = get_logger(name="ALEBO")
+logger = get_logger(__name__)
 
 
 class ALEBOKernel(Kernel):
@@ -152,7 +152,7 @@ class ALEBOGP(FixedNoiseGP):
             return super().__call__(x)
         # Else, approximately integrate over batches with moment matching.
         # Take X as (b) x q x d, and expand to (b) x ns x q x d
-        if x.ndim > 3:  # pyre-ignore
+        if x.ndim > 3:
             raise ValueError("Don't know how to predict this shape")  # pragma: no cover
         x = x.unsqueeze(-3).expand(
             x.shape[:-2]
@@ -267,6 +267,8 @@ def get_map_model(
         mll.train()
         mll, info_dict = fit_gpytorch_scipy(mll, track_iterations=False, method="tnc")
         logger.debug(info_dict)
+        # pyre-fixme[58]: `<` is not supported for operand types
+        #  `Union[List[botorch.optim.fit.OptimizationIteration], float]` and `float`.
         if info_dict["fopt"] < f_best:
             f_best = float(info_dict["fopt"])  # pyre-ignore
             sd_best = m.state_dict()
@@ -311,7 +313,7 @@ def laplace_sample_U(
             x_all[i] = x[0]
             return -_scipy_objective_and_grad(x_all, mll, property_dict)[1][i]
 
-        H[i, i] = approx_fprime(np.array([x0[i]]), f, epsilon=epsilon)
+        H[i, i] = approx_fprime(np.array([x0[i]]), f, epsilon=epsilon[i])  # pyre-ignore
 
     # Sample only Uvec; leave mean and output scale fixed.
     assert list(property_dict.keys()) == [
@@ -483,32 +485,45 @@ def alebo_acqf_optimizer(
     random restart of the acquisition function optimization with points that
     lie within that polytope.
     """
-    assert n == 1  # Handle batch later
-    # Generate initial points for optimization inside embedding
-    m_init = ALEBOInitializer(B.cpu().numpy(), nsamp=10 * raw_samples)
-    Xrnd_npy, _ = m_init.gen(n=raw_samples, bounds=[(-1.0, 1.0)] * B.shape[1])
+    candidate_list, acq_value_list = [], []
+    candidates = torch.tensor([], device=B.device, dtype=B.dtype)
+    base_X_pending = acq_function.X_pending  # pyre-ignore
+    for i in range(n):
+        # Generate initial points for optimization inside embedding
+        m_init = ALEBOInitializer(B.cpu().numpy(), nsamp=10 * raw_samples)
+        Xrnd_npy, _ = m_init.gen(n=raw_samples, bounds=[(-1.0, 1.0)] * B.shape[1])
 
-    Xrnd = torch.tensor(Xrnd_npy, dtype=B.dtype, device=B.device).unsqueeze(1)
-    Yrnd = torch.matmul(Xrnd, B.t())  # Project down to the embedding
-    with gpytorch.settings.max_cholesky_size(2000):
-        with torch.no_grad():
-            alpha = acq_function(Yrnd)
+        Xrnd = torch.tensor(Xrnd_npy, dtype=B.dtype, device=B.device).unsqueeze(1)
+        Yrnd = torch.matmul(Xrnd, B.t())  # Project down to the embedding
+        with gpytorch.settings.max_cholesky_size(2000):
+            with torch.no_grad():
+                alpha = acq_function(Yrnd)
 
-        Yinit = initialize_q_batch_nonneg(X=Yrnd, Y=alpha, n=num_restarts)
+            Yinit = initialize_q_batch_nonneg(X=Yrnd, Y=alpha, n=num_restarts)
 
-        # Optimize the acquisition function, separately for each random restart.
-        Xopt = optimize_acqf(
-            acq_function=acq_function,
-            bounds=[None, None],  # pyre-ignore
-            q=n,
-            num_restarts=num_restarts,
-            raw_samples=0,
-            options={"method": "SLSQP", "batch_limit": 1},
-            inequality_constraints=inequality_constraints,
-            batch_initial_conditions=Yinit,
-            sequential=False,
-        )
-    return Xopt
+            # Optimize the acquisition function, separately for each random restart.
+            candidate, acq_value = optimize_acqf(
+                acq_function=acq_function,
+                bounds=[None, None],  # pyre-ignore
+                q=1,
+                num_restarts=num_restarts,
+                raw_samples=0,
+                options={"method": "SLSQP", "batch_limit": 1},
+                inequality_constraints=inequality_constraints,
+                batch_initial_conditions=Yinit,
+                sequential=False,
+            )
+            candidate_list.append(candidate)
+            acq_value_list.append(acq_value)
+            candidates = torch.cat(candidate_list, dim=-2)
+            acq_function.set_X_pending(
+                torch.cat([base_X_pending, candidates], dim=-2)
+                if base_X_pending is not None
+                else candidates
+            )
+        logger.info(f"Generated sequential candidate {i+1} of {n}")
+    acq_function.set_X_pending(base_X_pending)
+    return candidates, torch.stack(acq_value_list)
 
 
 class ALEBO(BotorchModel):
@@ -543,6 +558,8 @@ class ALEBO(BotorchModel):
             acqf_optimizer=alebo_acqf_optimizer,
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.fit)
     def fit(
         self,
@@ -554,6 +571,7 @@ class ALEBO(BotorchModel):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         assert len(task_features) == 0
         assert len(fidelity_features) == 0
@@ -567,12 +585,16 @@ class ALEBO(BotorchModel):
         self.dtype = self.B.dtype
         self.model = self.get_and_fit_model(Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars)
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X` expected.
     @copy_doc(TorchModel.predict)
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         Xd = (self.B @ X.t()).t()  # Project down
         with gpytorch.settings.max_cholesky_size(2000):
             return super().predict(X=Xd)
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
@@ -598,7 +620,7 @@ class ALEBO(BotorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata]:
+    ) -> Tuple[Tensor, Tensor, TGenMetadata, List[TCandidateMetadata]]:
         """Generate candidates.
 
         Candidates are generated in the linear embedding with the polytope
@@ -629,7 +651,7 @@ class ALEBO(BotorchModel):
                 "B": self.B,
             },
         }
-        Xd_opt, w, _ = super().gen(
+        Xd_opt, w, _gen_metadata, _candidate_metadata = super().gen(
             n=n,
             bounds=[(-1e8, 1e8)] * self.B.shape[0],
             objective_weights=objective_weights,
@@ -644,10 +666,21 @@ class ALEBO(BotorchModel):
         if Xopt.min() < -1 or Xopt.max() > 1:
             logger.debug(f"Clipping from [{Xopt.min()}, {Xopt.max()}]")
             Xopt = torch.clamp(Xopt, min=-1.0, max=1.0)
-        return Xopt, w, {}
+        # pyre-fixme[7]: Expected `Tuple[Tensor, Tensor, Dict[str, typing.Any],
+        #  List[Optional[Dict[str, typing.Any]]]]` but got `Tuple[typing.Any, Tensor,
+        #  Dict[str, typing.Any], None]`.
+        return Xopt, w, {}, None
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.update)
-    def update(self, Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]) -> None:
+    def update(
+        self,
+        Xs: List[Tensor],
+        Ys: List[Tensor],
+        Yvars: List[Tensor],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+    ) -> None:
         if self.model is None:
             raise RuntimeError(
                 "Cannot update model that has not been fit"
@@ -665,6 +698,8 @@ class ALEBO(BotorchModel):
             Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars, state_dicts=state_dicts
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X_test` expected.
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,
@@ -721,6 +756,8 @@ class ALEBO(BotorchModel):
                 train_Yvar=Yvars[i],
                 restarts=fit_restarts,
                 nsamp=self.laplace_nsamp,
+                # pyre-fixme[6]: Expected `Optional[Dict[str, Tensor]]` for 7th
+                #  param but got `Optional[MutableMapping[str, Tensor]]`.
                 init_state_dict=state_dicts[i],
             )
             for i, X in enumerate(Xs)

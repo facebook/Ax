@@ -22,6 +22,12 @@ class AxError(Exception):
         return " ".join([self.message, getattr(self, "hint", "")]).rstrip()
 
 
+class UserInputError(AxError):
+    """Raised when the user passes in an invalid input"""
+
+    pass
+
+
 class UnsupportedError(AxError):
     """Raised when an unsupported request is made.
 
@@ -43,7 +49,11 @@ class ExperimentNotReadyError(AxError):
     Useful to distinguish data failure reasons in automated analyses.
     """
 
-    pass
+    def __init__(
+        self, message: str, hint: str = "", exposures_unavailable: bool = False
+    ) -> None:
+        super().__init__(message=message, hint=hint)
+        self.exposures_unavailable = exposures_unavailable
 
 
 class NoDataError(AxError):
@@ -64,3 +74,37 @@ class DataRequiredError(AxError):
     """
 
     pass
+
+
+class MisconfiguredExperiment(AxError):
+    """Raised when experiment has incomplete or incorrect information."""
+
+    pass
+
+
+class SearchSpaceExhausted(AxError):
+    """Raised when using an algorithm that deduplicates points and no more
+    new points can be sampled from the search space."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(
+            message=message
+            or "No more new points could be sampled in the search space."
+        )
+
+
+class AxWarning(Warning):
+    """Base Ax warning.
+
+    All warnings derived from AxWarning need to define a custom warning message.
+    Additionally, warnings can define a hint property that provides additional
+    guidance as to how to remedy the warning.
+
+    """
+
+    def __init__(self, message: str, hint: str = "") -> None:
+        self.message: str = message
+        self.hint: str = hint
+
+    def __str__(self) -> str:
+        return " ".join([self.message, getattr(self, "hint", "")]).rstrip()

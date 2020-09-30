@@ -13,13 +13,17 @@ from ax.core.experiment import Experiment
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.array import FIT_MODEL_ERROR, ArrayModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchModel
+from ax.utils.common.typeutils import not_none
 from torch import Tensor
 
 
+# pyre-fixme[13]: Attribute `model` is never initialized.
+# pyre-fixme[13]: Attribute `outcomes` is never initialized.
+# pyre-fixme[13]: Attribute `parameters` is never initialized.
 class TorchModelBridge(ArrayModelBridge):
     """A model bridge for using torch-based models.
 
@@ -41,10 +45,8 @@ class TorchModelBridge(ArrayModelBridge):
     # pyre-fixme[15]: `parameters` overrides attribute defined in `ArrayModelBridge`
     #  inconsistently.
     parameters: Optional[List[str]]
+    _default_model_gen_options: TConfig
 
-    # pyre-fixme[13]: Attribute `model` is never initialized.
-    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
-    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     def __init__(
         self,
         experiment: Experiment,
@@ -58,11 +60,14 @@ class TorchModelBridge(ArrayModelBridge):
         status_quo_name: Optional[str] = None,
         status_quo_features: Optional[ObservationFeatures] = None,
         optimization_config: Optional[OptimizationConfig] = None,
+        fit_out_of_design: bool = False,
+        default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
         if torch_dtype is None:  # pragma: no cover
             torch_dtype = torch.float  # noqa T484
         self.dtype = torch_dtype
         self.device = torch_device
+        self._default_model_gen_options = default_model_gen_options or {}
         super().__init__(
             experiment=experiment,
             search_space=search_space,
@@ -73,7 +78,19 @@ class TorchModelBridge(ArrayModelBridge):
             status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
+            fit_out_of_design=fit_out_of_design,
         )
+
+    def _validate_observation_data(
+        self, observation_data: List[ObservationData]
+    ) -> None:
+        if len(observation_data) == 0:
+            raise ValueError(
+                "Torch models cannot be fit without observation data. Possible "
+                "reasons include empty data being passed to the model's constructor "
+                "or data being excluded because it is out-of-design. Try setting "
+                "`fit_out_of_design`=True during construction to fix the latter."
+            )
 
     def _fit(
         self,
@@ -82,12 +99,23 @@ class TorchModelBridge(ArrayModelBridge):
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
     ) -> None:  # pragma: no cover
+        self._validate_observation_data(observation_data)
         super()._fit(
             model=model,
             search_space=search_space,
             observation_features=observation_features,
             observation_data=observation_data,
         )
+
+    def _model_evaluate_acquisition_function(self, X: np.ndarray) -> np.ndarray:
+        if not self.model:  # pragma: no cover
+            raise ValueError(
+                FIT_MODEL_ERROR.format(action="_model_evaluate_acquisition_function")
+            )
+        evals = not_none(self.model).evaluate_acquisition_function(
+            X=self._array_to_tensor(X)
+        )
+        return evals.detach().cpu().clone().numpy()
 
     def _model_fit(
         self,
@@ -100,6 +128,7 @@ class TorchModelBridge(ArrayModelBridge):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]],
     ) -> None:
         self.model = model
         # Convert numpy arrays to torch tensors
@@ -116,10 +145,15 @@ class TorchModelBridge(ArrayModelBridge):
             feature_names=feature_names,
             metric_names=metric_names,
             fidelity_features=fidelity_features,
+            candidate_metadata=candidate_metadata,
         )
 
     def _model_update(
-        self, Xs: List[np.ndarray], Ys: List[np.ndarray], Yvars: List[np.ndarray]
+        self,
+        Xs: List[np.ndarray],
+        Ys: List[np.ndarray],
+        Yvars: List[np.ndarray],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_update"))
@@ -127,56 +161,15 @@ class TorchModelBridge(ArrayModelBridge):
         Ys: List[Tensor] = self._array_list_to_tensors(Ys)
         Yvars: List[Tensor] = self._array_list_to_tensors(Yvars)
         # pyre-fixme[16]: `Optional` has no attribute `update`.
-        self.model.update(Xs=Xs, Ys=Ys, Yvars=Yvars)
+        self.model.update(
+            Xs=Xs, Ys=Ys, Yvars=Yvars, candidate_metadata=candidate_metadata
+        )
 
     def _model_predict(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_predict"))
-        # pyre-fixme[16]: `Optional` has no attribute `predict`.
-        f, var = self.model.predict(X=self._array_to_tensor(X))
+        f, var = not_none(self.model).predict(X=self._array_to_tensor(X))
         return f.detach().cpu().clone().numpy(), var.detach().cpu().clone().numpy()
-
-    def _validate_and_convert_to_tensors(
-        self,
-        objective_weights: np.ndarray,
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
-        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
-        pending_observations: Optional[List[np.ndarray]],
-    ) -> Tuple[
-        Tensor,
-        Optional[Tuple[Tensor, Tensor]],
-        Optional[Tuple[Tensor, Tensor]],
-        Optional[List[Tensor]],
-    ]:
-        objective_weights: Tensor = self._array_to_tensor(objective_weights)
-        if outcome_constraints is not None:  # pragma: no cover
-            # pyre-fixme[9]: outcome_constraints has type `Optional[Tuple[ndarray,
-            #  ndarray]]`; used as `Tuple[Tensor, Tensor]`.
-            outcome_constraints = (
-                self._array_to_tensor(outcome_constraints[0]),
-                self._array_to_tensor(outcome_constraints[1]),
-            )
-        if linear_constraints is not None:  # pragma: no cover
-            # pyre-fixme[9]: linear_constraints has type `Optional[Tuple[ndarray,
-            #  ndarray]]`; used as `Tuple[Tensor, Tensor]`.
-            linear_constraints = (
-                self._array_to_tensor(linear_constraints[0]),
-                self._array_to_tensor(linear_constraints[1]),
-            )
-        if pending_observations is not None:  # pragma: no cover
-            # pyre-fixme[9]: pending_observations has type
-            #  `Optional[List[ndarray]]`; used as `List[Tensor]`.
-            pending_observations = self._array_list_to_tensors(pending_observations)
-        # pyre-fixme[7]: Expected `Tuple[Tensor, Optional[Tuple[Tensor, Tensor]],
-        #  Optional[Tuple[Tensor, Tensor]], Optional[List[Tensor]]]` but got
-        #  `Tuple[Tensor, Optional[Tuple[ndarray, ndarray]], Optional[Tuple[ndarray,
-        #  ndarray]], Optional[List[ndarray]]]`.
-        return (
-            objective_weights,
-            outcome_constraints,
-            linear_constraints,
-            pending_observations,
-        )
 
     def _model_gen(
         self,
@@ -190,7 +183,7 @@ class TorchModelBridge(ArrayModelBridge):
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
         target_fidelities: Optional[Dict[int, float]],
-    ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata]:
+    ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata, List[TCandidateMetadata]]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
         obj_w, oc_c, l_c, pend_obs = self._validate_and_convert_to_tensors(
@@ -200,8 +193,12 @@ class TorchModelBridge(ArrayModelBridge):
             pending_observations=pending_observations,
         )
         tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
+        augmented_model_gen_options = {
+            **self._default_model_gen_options,
+            **(model_gen_options or {}),
+        }
         # pyre-fixme[16]: `Optional` has no attribute `gen`.
-        X, w, gen_metadata = self.model.gen(
+        X, w, gen_metadata, candidate_metadata = self.model.gen(
             n=n,
             bounds=bounds,
             objective_weights=obj_w,
@@ -209,7 +206,7 @@ class TorchModelBridge(ArrayModelBridge):
             linear_constraints=l_c,
             fixed_features=fixed_features,
             pending_observations=pend_obs,
-            model_gen_options=model_gen_options,
+            model_gen_options=augmented_model_gen_options,
             rounding_func=tensor_rounding_func,
             target_fidelities=target_fidelities,
         )
@@ -217,6 +214,7 @@ class TorchModelBridge(ArrayModelBridge):
             X.detach().cpu().clone().numpy(),
             w.detach().cpu().clone().numpy(),
             gen_metadata,
+            candidate_metadata,
         )
 
     def _model_best_point(
@@ -275,6 +273,40 @@ class TorchModelBridge(ArrayModelBridge):
             cov_test.detach().cpu().clone().numpy(),
         )
 
+    def _validate_and_convert_to_tensors(
+        self,
+        objective_weights: np.ndarray,
+        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
+        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
+        pending_observations: Optional[List[np.ndarray]],
+    ) -> Tuple[
+        Tensor,
+        Optional[Tuple[Tensor, Tensor]],
+        Optional[Tuple[Tensor, Tensor]],
+        Optional[List[Tensor]],
+    ]:
+        objective_weights: Tensor = self._array_to_tensor(objective_weights)
+        if outcome_constraints is not None:  # pragma: no cover
+            outcome_constraints: Tuple[Tensor, Tensor] = (
+                self._array_to_tensor(outcome_constraints[0]),
+                self._array_to_tensor(outcome_constraints[1]),
+            )
+        if linear_constraints is not None:  # pragma: no cover
+            linear_constraints: Tuple[Tensor, Tensor] = (
+                self._array_to_tensor(linear_constraints[0]),
+                self._array_to_tensor(linear_constraints[1]),
+            )
+        if pending_observations is not None:  # pragma: no cover
+            pending_observations: List[Tensor] = self._array_list_to_tensors(
+                pending_observations
+            )
+        return (
+            objective_weights,
+            outcome_constraints,
+            linear_constraints,
+            pending_observations,
+        )
+
     def _array_to_tensor(self, array: np.ndarray) -> Tensor:
         return torch.tensor(array, dtype=self.dtype, device=self.device)
 
@@ -288,3 +320,10 @@ class TorchModelBridge(ArrayModelBridge):
             self._array_to_tensor(array_func(x.detach().cpu().clone().numpy()))
         )
         return tensor_func
+
+    def _transform_observation_features(
+        self, observation_features: List[ObservationFeatures]
+    ) -> Tensor:
+        return self._array_to_tensor(
+            super()._transform_observation_features(observation_features)
+        )

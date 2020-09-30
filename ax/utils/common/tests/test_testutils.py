@@ -7,6 +7,7 @@
 import io
 import sys
 
+from ax.utils.common.equality import Base
 from ax.utils.common.testutils import TestCase
 
 
@@ -15,11 +16,34 @@ def _f():
     raise e
 
 
+F_FAILURE_LINENO = 16  # Line # for the error in `_f`.
+
+
 def _g():
     _f()  # Lines along the path are matched too
 
 
+class MyBase(Base):
+    def __init__(self, val: str) -> None:
+        self.field = val
+
+
 class TestTestUtils(TestCase):
+    def test_equal(self):
+        try:  # Check case where values aren't `Base` subclasses.
+            self.assertEqual(1, 2)
+        except AssertionError as err:
+            self.assertEqual(str(err), "1 != 2")
+
+        try:  # Check case where values are `Base` subclasses.
+            self.assertEqual(MyBase("red"), MyBase("panda"))
+        except AssertionError as err:
+            expected_suffix = (
+                "\n\nFields with different values:\n* field: red "
+                "(type <class 'str'>) VS. panda (type <class 'str'>)"
+            )
+            self.assertIn(expected_suffix, str(err))
+
     def test_raises_on(self):
         with self.assertRaisesOn(RuntimeError, "raise e"):
             _f()
@@ -43,7 +67,7 @@ class TestTestUtils(TestCase):
         with self.assertRaisesOn(RuntimeError) as cm:
             _f()
         self.assertEqual(cm.filename, __file__)
-        self.assertEqual(cm.lineno, 15)
+        self.assertEqual(cm.lineno, F_FAILURE_LINENO)
 
     def test_silence_warning_normal(self):
         new_stderr = io.StringIO()

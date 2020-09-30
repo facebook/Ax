@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from ax.core import Experiment
 from ax.core.metric import Metric
@@ -33,8 +33,10 @@ def exp_to_df(
     exp: Experiment,
     metrics: Optional[List[Metric]] = None,
     key_components: Optional[List[str]] = None,
+    **kwargs: Any,
 ) -> DataFrame:
-    """Transforms an experiment to a DataFrame. Only supports SimpleExperiments.
+    """Transforms an experiment to a DataFrame. Only supports Experiment and
+    SimpleExperiment.
 
     Transforms an Experiment into a dataframe with rows keyed by trial_index
     and arm_name, metrics pivoted into one row.
@@ -45,6 +47,8 @@ def exp_to_df(
         key_components: fields that combine to make a unique key corresponding
             to rows, similar to the list of fields passed to a GROUP BY.
             Defaults to ['arm_name', 'trial_index'].
+        **kwargs: Custom named arguments, useful for passing complex
+            objects from call-site to the `fetch_data` callback.
 
     Returns:
         DataFrame: A dataframe of inputs and metrics by trial and arm.
@@ -55,7 +59,7 @@ def exp_to_df(
     if isinstance(exp, MultiTypeExperiment):
         raise ValueError("Cannot transform MultiTypeExperiments to DataFrames.")
 
-    results = exp.fetch_data(metrics).df
+    results = exp.fetch_data(metrics, **kwargs).df
     if len(results.index) == 0:  # Handle empty case
         return results
     key_col = "-".join(key_components)
@@ -75,6 +79,7 @@ def exp_to_df(
             for i, (name, arm) in enumerate(exp.arms_by_name.items())
         ]
     )
+    metrics_pivot = metrics_pivot.reset_index(drop=True)
     results = metrics_pivot.merge(inputs, on="arm_name", copy=False)
 
     results.rename(columns=_rename_tuples, inplace=True)

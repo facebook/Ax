@@ -10,7 +10,9 @@ from unittest.mock import Mock, PropertyMock
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
+from ax.core.generator_run import GeneratorRun
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -18,6 +20,7 @@ from ax.core.observation import (
     observations_from_data,
     separate_observations,
 )
+from ax.core.trial import Trial
 from ax.utils.common.testutils import TestCase
 
 
@@ -193,9 +196,20 @@ class ObservationsTest(TestCase):
                 "metric_name": "b",
             },
         ]
-        arms = {obs["arm_name"]: Arm(parameters=obs["parameters"]) for obs in truth}
+        arms = {
+            obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
+            for obs in truth
+        }
         experiment = Mock()
+        experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
+        trials = {
+            obs["trial_index"]: Trial(
+                experiment, GeneratorRun(arms=[arms[obs["arm_name"]]])
+            )
+            for obs in truth
+        }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
+        type(experiment).trials = PropertyMock(return_value=trials)
 
         df = pd.DataFrame(truth)[
             ["arm_name", "trial_index", "mean", "sem", "metric_name"]
@@ -265,10 +279,19 @@ class ObservationsTest(TestCase):
             },
         }
         arms = {
-            obs["arm_name"]: Arm(parameters=obs["parameters"]) for obs in truth.values()
+            obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
+            for _, obs in truth.items()
         }
         experiment = Mock()
+        experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
+        trials = {
+            obs["trial_index"]: Trial(
+                experiment, GeneratorRun(arms=[arms[obs["arm_name"]]])
+            )
+            for _, obs in truth.items()
+        }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
+        type(experiment).trials = PropertyMock(return_value=trials)
 
         df = pd.DataFrame(list(truth.values()))[
             ["arm_name", "trial_index", "mean", "sem", "metric_name", "fidelities"]
@@ -285,6 +308,88 @@ class ObservationsTest(TestCase):
             self.assertTrue(np.array_equal(obs.data.means, t["mean_t"]))
             self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
             self.assertEqual(obs.arm_name, t["arm_name"])
+
+    def testObservationsFromDataWithSomeMissingTimes(self):
+        truth = [
+            {
+                "arm_name": "0_0",
+                "parameters": {"x": 0, "y": "a"},
+                "mean": 2.0,
+                "sem": 2.0,
+                "trial_index": 1,
+                "metric_name": "a",
+                "start_time": 0,
+            },
+            {
+                "arm_name": "0_1",
+                "parameters": {"x": 1, "y": "b"},
+                "mean": 3.0,
+                "sem": 3.0,
+                "trial_index": 2,
+                "metric_name": "a",
+                "start_time": 0,
+            },
+            {
+                "arm_name": "0_0",
+                "parameters": {"x": 0, "y": "a"},
+                "mean": 4.0,
+                "sem": 4.0,
+                "trial_index": 1,
+                "metric_name": "b",
+                "start_time": None,
+            },
+            {
+                "arm_name": "0_1",
+                "parameters": {"x": 1, "y": "b"},
+                "mean": 5.0,
+                "sem": 5.0,
+                "trial_index": 2,
+                "metric_name": "b",
+                "start_time": None,
+            },
+        ]
+        arms = {
+            obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
+            for obs in truth
+        }
+        experiment = Mock()
+        experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
+        trials = {
+            obs["trial_index"]: Trial(
+                experiment, GeneratorRun(arms=[arms[obs["arm_name"]]])
+            )
+            for obs in truth
+        }
+        type(experiment).arms_by_name = PropertyMock(return_value=arms)
+        type(experiment).trials = PropertyMock(return_value=trials)
+
+        df = pd.DataFrame(truth)[
+            ["arm_name", "trial_index", "mean", "sem", "metric_name", "start_time"]
+        ]
+        data = Data(df=df)
+        observations = observations_from_data(experiment, data)
+
+        self.assertEqual(len(observations), 2)
+        # Get them in the order we want for tests below
+        if observations[0].features.parameters["x"] == 1:
+            observations.reverse()
+
+        obsd_truth = {
+            "metric_names": [["a", "b"], ["a", "b"]],
+            "means": [np.array([2.0, 4.0]), np.array([3.0, 5.0])],
+            "covariance": [np.diag([4.0, 16.0]), np.diag([9.0, 25.0])],
+        }
+        cname_truth = ["0_0", "0_1"]
+
+        for i, obs in enumerate(observations):
+            self.assertEqual(obs.features.parameters, truth[i]["parameters"])
+            self.assertEqual(obs.features.trial_index, truth[i]["trial_index"])
+            self.assertEqual(obs.data.metric_names, obsd_truth["metric_names"][i])
+            self.assertTrue(np.array_equal(obs.data.means, obsd_truth["means"][i]))
+            self.assertTrue(
+                np.array_equal(obs.data.covariance, obsd_truth["covariance"][i])
+            )
+            self.assertEqual(obs.arm_name, cname_truth[i])
 
     def testSeparateObservations(self):
         obs = Observation(
@@ -310,3 +415,57 @@ class ObservationsTest(TestCase):
                 means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
             ),
         )
+
+    def testObservationsWithCandidateMetadata(self):
+        SOME_METADATA_KEY = "metadatum"
+        truth = [
+            {
+                "arm_name": "0_0",
+                "parameters": {"x": 0, "y": "a"},
+                "mean": 2.0,
+                "sem": 2.0,
+                "trial_index": 0,
+                "metric_name": "a",
+            },
+            {
+                "arm_name": "1_0",
+                "parameters": {"x": 1, "y": "b"},
+                "mean": 3.0,
+                "sem": 3.0,
+                "trial_index": 1,
+                "metric_name": "a",
+            },
+        ]
+        arms = {
+            obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
+            for obs in truth
+        }
+        experiment = Mock()
+        experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
+        trials = {
+            obs["trial_index"]: Trial(
+                experiment,
+                GeneratorRun(
+                    arms=[arms[obs["arm_name"]]],
+                    candidate_metadata_by_arm_signature={
+                        arms[obs["arm_name"]].signature: {
+                            SOME_METADATA_KEY: f"value_{obs['trial_index']}"
+                        }
+                    },
+                ),
+            )
+            for obs in truth
+        }
+        type(experiment).arms_by_name = PropertyMock(return_value=arms)
+        type(experiment).trials = PropertyMock(return_value=trials)
+
+        df = pd.DataFrame(truth)[
+            ["arm_name", "trial_index", "mean", "sem", "metric_name"]
+        ]
+        data = Data(df=df)
+        observations = observations_from_data(experiment, data)
+        for observation in observations:
+            self.assertEqual(
+                observation.features.metadata.get(SOME_METADATA_KEY),
+                f"value_{observation.features.trial_index}",
+            )

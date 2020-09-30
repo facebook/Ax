@@ -39,6 +39,8 @@ class REMBOInitializer(UniformGenerator):
         Z = np.transpose(self.A @ np.transpose(X))
         return np.clip(Z, a_min=-1, a_max=1)
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(UniformGenerator.gen)
     def gen(
         self,
@@ -63,6 +65,6 @@ class REMBOInitializer(UniformGenerator):
         up = np.array(up)
         X_d = X_01 * (up - lw) + lw
         # Store
-        self.X_d_gen.extend([x for x in X_d])
+        self.X_d_gen.extend(list(X_d))
         # And finally project up
         return self.project_up(X_d), w

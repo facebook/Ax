@@ -15,7 +15,7 @@ Bayesian optimization (BO) allows us to tune parameters in relatively few iterat
 
 ## How does it work?
 
-Parameter tuning is often done with simple strategies like grid search. However, grid search scales very poorly with the number of parameters (the dimensionality of the parameter space) and generally does not work well for more than a couple of continuous parameters. Alternative global optimization techniques like DIRECT or genetic algorithms are more flexible, but also typically require more evaluations than is feasible, especially in the presence of uncertainty.  
+Parameter tuning is often done with simple strategies like grid search. However, grid search scales very poorly with the number of parameters (the dimensionality of the parameter space) and generally does not work well for more than a couple of continuous parameters. Alternative global optimization techniques like DIRECT or genetic algorithms are more flexible, but also typically require more evaluations than is feasible, especially in the presence of uncertainty.
 
 Bayesian optimization starts by building a smooth surrogate model of the outcomes using Gaussian processes (GPs) based on the (possibly noisy) observations available from previous rounds of experimentation. See [below](bayesopt.md#a-closer-look-at-gaussian-processes) for more details on how the GP model works. This surrogate model can be used to make predictions at unobserved parameterizations and quantify the uncertainty around them. The predictions and the uncertainty estimates are combined to derive an acquisition function, which quantifies the value of observing a particular parameterization. We optimize the acquisition function to find the best configuration to observe, and then after observing the outcomes at that configuration a new surrogate model is fitted and the process is repeated until convergence. The entire process is adaptive in the sense that the predictions and uncertainty estimates are updated as new observations are made.
 
@@ -25,6 +25,16 @@ The strategy of relying on successive surrogate models to update knowledge of th
 
 
 Figure 1 shows a 1D example, where a surrogate model is fitted to five noisy observations using GPs to predict the objective (solid line) and place uncertainty estimates (proportional to the width of the shaded bands) over the entire x-axis, which represents the range of possible parameter values. The model is able to predict the outcome of configurations that have not yet been tested. As intuitively expected, the uncertainty bands are tight in regions that are well-explored and become wider as we move away from them.
+
+
+## Tradeoff between parallelism and total number of trials
+
+In Bayesian Optimization (any optimization, really), we have the choice between performing evaluations of our function in a sequential fashion (i.e. only generate a new candidate point to evaluate after the previous candidate has been evaluated), or in a parallel fashion (where we evaluate multiple candidates concurrently). The sequential approach will (in expectation) produce better optimization results, since at any point during the optimization the ML model that drives it uses strictly more information than the parallel approach. However, if function evaluations take a long time and end-to-end optimization time is important, then the parallel approach becomes attractive. The difference between the performance of a sequential (aka 'fully adaptive') algorithm and that of a (partially) parallelized algorithm is referred to as the 'adaptivity gap'.
+
+To balance end-to-end optimization time with finding the optimal solution in fewer trials, we opt for a ‘staggered’ approach by allowing a limited number of trials to be evaluated in parallel. By default, in simplified Ax APIs (e.g., in Service API) the allowed parallelism for the Bayesian phase of the optimization is 3. [Service API tutorial]("https://ax.dev/tutorials/gpei_hartmann_service.html#How-many-trials-can-run-in-parallel?") has more information on how to handle and change allowed parallelism for that API.
+
+For cases where its not too computationally expensive to run many trials (and therefore sample efficiency is less of a concern), higher parallelism can significantly speed up the end-to-end optimization time. By default, we recommend keeping the ratio of allowed parallelism to total trials relatively small (<10%) in order to not hurt optimization performance too much, but the reasonable ratio can differ depending on the specific setup.
+
 
 ## Acquisition functions
 

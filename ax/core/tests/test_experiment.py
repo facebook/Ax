@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Type
+
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -12,12 +14,15 @@ from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_arm,
     get_branin_arms,
+    get_branin_optimization_config,
     get_branin_search_space,
     get_data,
     get_experiment,
@@ -30,6 +35,24 @@ from ax.utils.testing.core_stubs import (
 class ExperimentTest(TestCase):
     def setUp(self):
         self.experiment = get_experiment()
+
+    def _setupBraninExperiment(self, n: int) -> Experiment:
+        exp = Experiment(
+            name="test3",
+            search_space=get_branin_search_space(),
+            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
+            runner=SyntheticRunner(),
+        )
+        batch = exp.new_batch_trial()
+        batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
+        batch.run()
+
+        (
+            exp.new_batch_trial()
+            .add_arms_and_weights(arms=get_branin_arms(n=3 * n, seed=1))
+            .run()
+        )
+        return exp
 
     def testExperimentInit(self):
         self.assertEqual(self.experiment.name, "test")
@@ -119,6 +142,12 @@ class ExperimentTest(TestCase):
             len(get_optimization_config().metrics) + 2, len(self.experiment.metrics)
         )
 
+        # Test adding new tracking metrics
+        self.experiment.add_tracking_metrics([Metric(name="z1")])
+        self.assertEqual(
+            len(get_optimization_config().metrics) + 3, len(self.experiment.metrics)
+        )
+
         # Verify update_tracking_metric updates the metric definition
         self.assertIsNone(self.experiment.metrics["m4"].lower_is_better)
         self.experiment.update_tracking_metric(Metric(name="m4", lower_is_better=True))
@@ -128,9 +157,17 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.add_tracking_metric(Metric(name="m4"))
 
+        # Verify unable to add existing metric
+        with self.assertRaises(ValueError):
+            self.experiment.add_tracking_metrics([Metric(name="z1"), Metric(name="m4")])
+
         # Verify unable to add metric in optimization config
         with self.assertRaises(ValueError):
             self.experiment.add_tracking_metric(Metric(name="m1"))
+
+        # Verify unable to add metric in optimization config
+        with self.assertRaises(ValueError):
+            self.experiment.add_tracking_metrics([Metric(name="z2"), Metric(name="m1")])
 
         # Cannot update metric not already on experiment
         with self.assertRaises(ValueError):
@@ -177,6 +214,7 @@ class ExperimentTest(TestCase):
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
         self.assertEqual(self.experiment.status_quo.name, "status_quo")
+        self.assertTrue("status_quo" in self.experiment.arms_by_name)
 
         # Verify all None values
         self.experiment.status_quo = Arm({n: None for n in sq_parameters.keys()})
@@ -193,13 +231,15 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.status_quo = Arm(sq_parameters)
 
-        # Verify arms_by_signature only contains status_quo
+        # Verify arms_by_signature, arms_by_name only contains status_quo
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
+        self.assertEqual(len(self.experiment.arms_by_name), 1)
 
         # Change status quo, verify still just 1 arm
         sq_parameters["w"] = 3.6
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
+        self.assertEqual(len(self.experiment.arms_by_name), 1)
 
         # Make a batch, add status quo to it, then change exp status quo, verify 2 arms
         batch = self.experiment.new_batch_trial()
@@ -207,7 +247,9 @@ class ExperimentTest(TestCase):
         sq_parameters["w"] = 3.7
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(len(self.experiment.arms_by_signature), 2)
+        self.assertEqual(len(self.experiment.arms_by_name), 2)
         self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
+        self.assertTrue("status_quo_e0" in self.experiment.arms_by_name)
 
         # Try missing param
         sq_parameters.pop("w")
@@ -232,23 +274,14 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             exp.status_quo = Arm(arms[0].parameters, name="new_name")
 
-    def _setupBraninExperiment(self, n: int) -> Experiment:
-        exp = Experiment(
-            name="test3",
-            search_space=get_branin_search_space(),
-            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
-            runner=SyntheticRunner(),
-        )
-        batch = exp.new_batch_trial()
-        batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
-        batch.run()
-
-        (
-            exp.new_batch_trial()
-            .add_arms_and_weights(arms=get_branin_arms(n=3 * n, seed=1))
-            .run()
-        )
-        return exp
+    def testRegisterArm(self):
+        # Create a new arm, register on experiment
+        parameters = self.experiment.status_quo.parameters
+        parameters["w"] = 3.5
+        arm = Arm(name="my_arm_name", parameters=parameters)
+        self.experiment._register_arm(arm)
+        self.assertEqual(self.experiment.arms_by_name[arm.name], arm)
+        self.assertEqual(self.experiment.arms_by_signature[arm.signature], arm)
 
     def testFetchAndStoreData(self):
         n = 10
@@ -257,7 +290,6 @@ class ExperimentTest(TestCase):
 
         # Test fetch data
         batch_data = batch.fetch_data()
-        print(batch_data.df)
         self.assertEqual(len(batch_data.df), n)
 
         exp_data = exp.fetch_data()
@@ -271,7 +303,6 @@ class ExperimentTest(TestCase):
 
         # Test local storage
         t1 = exp.attach_data(batch_data)
-
         t2 = exp.attach_data(exp_data)
 
         full_dict = exp.data_by_trial
@@ -290,30 +321,54 @@ class ExperimentTest(TestCase):
 
         new_data = Data(
             df=pd.DataFrame.from_records(
-                [{"arm_name": "0_0", "metric_name": "z", "mean": 3, "trial_index": 0}]
+                [
+                    {
+                        "arm_name": "0_0",
+                        "metric_name": "z",
+                        "mean": 3,
+                        "sem": 0,
+                        "trial_index": 0,
+                    }
+                ]
             )
         )
         t3 = exp.attach_data(new_data, combine_with_last_data=True)
         self.assertEqual(len(full_dict[0]), 3)  # 3 data objs for batch 0 now
         self.assertIn("z", exp.lookup_data_for_ts(t3).df["metric_name"].tolist())
-        # Remove the newly added data.
-        del exp._data_by_trial[0][t3]
 
         # Verify we don't get the data if the trial is abandoned
         batch._status = TrialStatus.ABANDONED
         self.assertEqual(len(batch.fetch_data().df), 0)
         self.assertEqual(len(exp.fetch_data().df), 3 * n)
 
-        # Verify we do get the data if the trial is a candidate
+        # For `CANDIDATE` trials, we append attached data to fetched data,
+        # so the attached data row with metric name "z" should appear in fetched
+        # data.
         batch._status = TrialStatus.CANDIDATE
-        self.assertEqual(len(batch.fetch_data().df), n)
-        self.assertEqual(len(exp.fetch_data().df), 4 * n)
+        self.assertEqual(len(batch.fetch_data().df), n + 1)
+        # n arms in trial #0, 3 * n arms in trial #1
+        self.assertEqual(len(exp.fetch_data().df), 4 * n + 1)
+        metrics_in_data = set(batch.fetch_data().df["metric_name"].values)
+        self.assertEqual(metrics_in_data, {"b", "z"})
 
-        # Verify we do get the stored data if there is an unimplemented metric
+        # Verify we do get the stored data if there are an unimplemented metrics.
+        del exp._data_by_trial[0][t3]  # Remove attached data for nonexistent metric.
+        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
+        exp.add_tracking_metric(Metric(name="dummy"))  # Add unimplemented metric.
         batch._status = TrialStatus.RUNNING
-        exp.add_tracking_metric(Metric(name="m"))
-        self.assertEqual(len(batch.fetch_data().df), n)
-        self.assertEqual(len(exp.fetch_data().df), 4 * n)
+        # Data should be getting looked up now.
+        self.assertEqual(batch.fetch_data(), exp.lookup_data_for_ts(t1))
+        self.assertEqual(exp.fetch_data(), exp.lookup_data_for_ts(t2))
+        metrics_in_data = set(batch.fetch_data().df["metric_name"].values)
+        # Data for metric "z" should no longer be present since we removed it.
+        self.assertEqual(metrics_in_data, {"b"})
+
+        # Check that error will be raised if dummy and implemented metrics are
+        # fetched at once.
+        with self.assertRaisesRegex(ValueError, "Unexpected combination"):
+            exp.fetch_data(
+                [BraninMetric(name="b", param_names=["x1", "x2"]), Metric(name="m")]
+            )
 
     def testEmptyMetrics(self):
         empty_experiment = Experiment(
@@ -351,3 +406,114 @@ class ExperimentTest(TestCase):
         batch.add_arms_and_weights(arms=get_branin_arms(n=5, seed=0))
         batch.run()
         self.assertEqual(batch.run_metadata, {"name": "0"})
+
+    def testExperimentRunner(self):
+        original_runner = SyntheticRunner()
+        self.experiment.runner = original_runner
+        batch = self.experiment.new_batch_trial()
+        batch.run()
+        self.assertEqual(batch.runner, original_runner)
+
+        # Simulate a failed run/deployment, in which the runner is attached
+        # but the actual run fails, and so the trial remains CANDIDATE.
+        candidate_batch = self.experiment.new_batch_trial()
+        candidate_batch.run()
+        candidate_batch._status = TrialStatus.CANDIDATE
+        self.assertEqual(self.experiment.trials_expecting_data, [batch])
+        tbs = self.experiment.trials_by_status  # All statuses should be present
+        self.assertEqual(len(tbs), len(TrialStatus))
+        self.assertEqual(tbs[TrialStatus.RUNNING], [batch])
+        self.assertEqual(tbs[TrialStatus.CANDIDATE], [candidate_batch])
+        tibs = self.experiment.trial_indices_by_status
+        self.assertEqual(len(tibs), len(TrialStatus))
+        self.assertEqual(tibs[TrialStatus.RUNNING], {0})
+        self.assertEqual(tibs[TrialStatus.CANDIDATE], {1})
+
+        identifier = {"new_runner": True}
+        new_runner = SyntheticRunner(dummy_metadata=identifier)
+
+        self.experiment.reset_runners(new_runner)
+        # Don't update trials that have been run.
+        self.assertEqual(batch.runner, original_runner)
+        # Update default runner
+        self.assertEqual(self.experiment.runner, new_runner)
+        # Update candidate trial runners.
+        self.assertEqual(self.experiment.trials[1].runner, new_runner)
+
+    def testFetchTrialsData(self):
+        exp = self._setupBraninExperiment(n=5)
+        batch_0 = exp.trials[0]
+        batch_1 = exp.trials[1]
+        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
+        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
+        self.assertEqual(
+            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
+        )
+        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
+        self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
+        self.assertEqual(
+            set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
+        )
+        self.assertEqual(
+            exp.fetch_trials_data(trial_indices=[0, 1]),
+            Data.from_multiple_data([batch_0_data, batch_1_data]),
+        )
+        with self.assertRaisesRegex(ValueError, ".* not associated .*"):
+            exp.fetch_trials_data(trial_indices=[2])
+        # Try to fetch data when there are only metrics and no attached data.
+        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
+        exp.add_tracking_metric(Metric(name="dummy"))  # Add unimplemented metric.
+        self.assertTrue(exp.fetch_trials_data(trial_indices=[0]).df.empty)
+        # Try fetching attached data.
+        exp.attach_data(batch_0_data)
+        exp.attach_data(batch_1_data)
+        self.assertEqual(exp.fetch_trials_data(trial_indices=[0]), batch_0_data)
+        self.assertEqual(exp.fetch_trials_data(trial_indices=[1]), batch_1_data)
+        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
+        self.assertEqual(
+            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
+        )
+
+    def test_immutable_search_space_and_opt_config(self):
+        mutable_exp = self._setupBraninExperiment(n=5)
+        self.assertFalse(mutable_exp.immutable_search_space_and_opt_config)
+        immutable_exp = Experiment(
+            name="test4",
+            search_space=get_branin_search_space(),
+            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
+            optimization_config=get_branin_optimization_config(),
+            runner=SyntheticRunner(),
+            properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
+        )
+        self.assertTrue(immutable_exp.immutable_search_space_and_opt_config)
+        with self.assertRaises(UnsupportedError):
+            immutable_exp.optimization_config = get_branin_optimization_config()
+        immutable_exp.new_batch_trial()
+        with self.assertRaises(UnsupportedError):
+            immutable_exp.search_space = get_branin_search_space()
+
+        # Check that passing the property as just a string is processed
+        # correctly.
+        immutable_exp_2 = Experiment(
+            name="test4",
+            search_space=get_branin_search_space(),
+            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
+            runner=SyntheticRunner(),
+            properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value: True},
+        )
+        self.assertTrue(immutable_exp_2.immutable_search_space_and_opt_config)
+
+    def test_fetch_as_class(self):
+        class MyMetric(Metric):
+            @property
+            def fetch_multi_group_by_metric(self) -> Type[Metric]:
+                return Metric
+
+        m = MyMetric(name="test_metric")
+        exp = Experiment(
+            name="test",
+            search_space=get_branin_search_space(),
+            tracking_metrics=[m],
+            runner=SyntheticRunner(),
+        )
+        self.assertEqual(exp._metrics_by_class(), {Metric: [m]})

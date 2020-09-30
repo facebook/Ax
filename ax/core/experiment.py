@@ -8,11 +8,10 @@ import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from functools import reduce
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -23,7 +22,10 @@ from ax.core.parameter import Parameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.exceptions.core import UnsupportedError
+from ax.utils.common.constants import UNEXPECTED_METRIC_COMBINATION, Keys
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.equality import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis
 
@@ -31,6 +33,7 @@ from ax.utils.common.timeutils import current_timestamp_in_millis
 logger: logging.Logger = get_logger(__name__)
 
 
+# pyre-fixme[13]: Attribute `_search_space` is never initialized.
 class Experiment(Base):
     """Base class for defining an experiment."""
 
@@ -45,6 +48,7 @@ class Experiment(Base):
         description: Optional[str] = None,
         is_test: bool = False,
         experiment_type: Optional[str] = None,
+        properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Inits Experiment.
 
@@ -58,6 +62,7 @@ class Experiment(Base):
             description: Description of the experiment.
             is_test: Convenience metadata tracker for the user to mark test experiments.
             experiment_type: The class of experiments this one belongs to.
+            properties: Dictionary of this experiment's properties.
         """
         # appease pyre
         self._search_space: SearchSpace
@@ -74,10 +79,20 @@ class Experiment(Base):
         self._tracking_metrics: Dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
+        self._properties: Dict[str, Any] = properties or {}
+        # Used to keep track of whether any trials on the experiment
+        # specify a TTL. Since trials need to be checked for their TTL's
+        # expiration often, having this attribute helps avoid unnecessary
+        # TTL checks for experiments that do not use TTL.
+        self._trials_have_ttl = False
+        # Make sure all statuses appear in this dict, to avoid key errors.
+        self._trial_indices_by_status: Dict[TrialStatus, Set[int]] = {
+            status: set() for status in TrialStatus
+        }
         self._arms_by_signature: Dict[str, Arm] = {}
+        self._arms_by_name: Dict[str, Arm] = {}
 
-        for metric in tracking_metrics or []:
-            self.add_tracking_metric(metric)
+        self.add_tracking_metrics(tracking_metrics or [])
 
         # call setters defined below
         self.search_space = search_space
@@ -132,34 +147,42 @@ class Experiment(Base):
         must be preserved. However, if no trials have been created, all
         modifications are allowed.
         """
-
-        # TODO maybe return a copy here to guard against implicit changes
+        # TODO: maybe return a copy here to guard against implicit changes
         return self._search_space
 
     @search_space.setter
     def search_space(self, search_space: SearchSpace) -> None:
         # Allow all modifications when no trials present.
-        if len(self.trials) > 0:
-            if len(search_space.parameters) < len(self._search_space.parameters):
-                raise ValueError(
-                    "New search_space must contain all parameters in the existing."
-                )
-            for param_name, parameter in search_space.parameters.items():
-                if param_name not in self._search_space.parameters:
-                    raise ValueError(
-                        f"Cannot add new parameter `{param_name}` because "
-                        "it is not defined in the existing search space."
-                    )
-                elif (
-                    parameter.parameter_type
-                    != self._search_space.parameters[param_name].parameter_type
-                ):
-                    raise ValueError(
-                        f"Expected parameter `{param_name}` to be of type "
-                        f"{self._search_space.parameters[param_name].parameter_type}, "
-                        f"got {parameter.parameter_type}."
-                    )
+        if not hasattr(self, "_search_space") or len(self.trials) < 1:
+            self._search_space = search_space
+            return
 
+        # At least 1 trial is present.
+        if self.immutable_search_space_and_opt_config:
+            raise UnsupportedError(
+                "Modifications of search space are disabled by the "
+                f"`{Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value}` "
+                "property that is set to `True` on this experiment."
+            )
+        if len(search_space.parameters) < len(self._search_space.parameters):
+            raise ValueError(
+                "New search_space must contain all parameters in the existing."
+            )
+        for param_name, parameter in search_space.parameters.items():
+            if param_name not in self._search_space.parameters:
+                raise ValueError(
+                    f"Cannot add new parameter `{param_name}` because "
+                    "it is not defined in the existing search space."
+                )
+            elif (
+                parameter.parameter_type
+                != self._search_space.parameters[param_name].parameter_type
+            ):
+                raise ValueError(
+                    f"Expected parameter `{param_name}` to be of type "
+                    f"{self._search_space.parameters[param_name].parameter_type}, "
+                    f"got {parameter.parameter_type}."
+                )
         self._search_space = search_space
 
     @property
@@ -194,6 +217,7 @@ class Experiment(Base):
             if not persist_old_sq:
                 # pyre-fixme[16]: `Optional` has no attribute `signature`.
                 self._arms_by_signature.pop(self._status_quo.signature)
+                self._arms_by_name.pop(self._status_quo.name)
 
         self._status_quo = status_quo
 
@@ -205,7 +229,7 @@ class Experiment(Base):
     @property
     def arms_by_name(self) -> Dict[str, Arm]:
         """The arms belonging to this experiment, by their name."""
-        return {arm.name: arm for arm in self._arms_by_signature.values()}
+        return self._arms_by_name
 
     @property
     def arms_by_signature(self) -> Dict[str, Arm]:
@@ -233,6 +257,15 @@ class Experiment(Base):
 
     @optimization_config.setter
     def optimization_config(self, optimization_config: OptimizationConfig) -> None:
+        if (
+            getattr(self, "_optimization_config", None) is not None
+            and self.immutable_search_space_and_opt_config
+        ):
+            raise UnsupportedError(
+                "Modifications of optimization config are disabled by the "
+                f"`{Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value}` "
+                "property that is set to `True` on this experiment."
+            )
         for metric_name in optimization_config.metrics.keys():
             if metric_name in self._tracking_metrics:
                 self.remove_tracking_metric(metric_name)
@@ -248,6 +281,19 @@ class Experiment(Base):
         """
         return self._data_by_trial
 
+    @property
+    def immutable_search_space_and_opt_config(self) -> bool:
+        """Boolean representing whether search space and metrics on this experiment
+        are mutable (by default they are).
+
+        NOTE: For experiments with immutable search spaces and metrics, generator
+        runs will not store copies of search space and metrics, which improves
+        storage layer performance. Not keeping copies of those on generator runs
+        also disables keeping track of changes to search space and metrics,
+        thereby necessitating that those attributes be immutable on experiment.
+        """
+        return self._properties.get(Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF, False)
+
     def add_tracking_metric(self, metric: Metric) -> "Experiment":
         """Add a new metric to the experiment.
 
@@ -260,6 +306,7 @@ class Experiment(Base):
                 "Use `update_tracking_metric` to update an existing metric definition."
             )
 
+        # pyre-fixme[16]: `Optional` has no attribute `metrics`.
         if self.optimization_config and metric.name in self.optimization_config.metrics:
             raise ValueError(
                 f"Metric `{metric.name}` already present in experiment's "
@@ -268,6 +315,39 @@ class Experiment(Base):
             )
 
         self._tracking_metrics[metric.name] = metric
+        return self
+
+    def add_tracking_metrics(self, metrics: List[Metric]) -> "Experiment":
+        """Add a list of new metrics to the experiment.
+
+        If any of the metrics are already defined on the experiment,
+        we raise an error and don't add any of them to the experiment
+
+        Args:
+            metrics: Metrics to be added.
+        """
+        # Before setting any metrics, we validate none are already on
+        # the experiment
+        for metric in metrics:
+            if metric.name in self._tracking_metrics:
+                raise ValueError(
+                    f"Metric `{metric.name}` already defined on experiment. "
+                    "Use `update_tracking_metric` to update an existing metric"
+                    " definition."
+                )
+
+            if (
+                self.optimization_config
+                # pyre-fixme[16]: `Optional` has no attribute `metrics`.
+                and metric.name in self.optimization_config.metrics
+            ):
+                raise ValueError(
+                    f"Metric `{metric.name}` already present in experiment's "
+                    "OptimizationConfig. Set a new OptimizationConfig without"
+                    " this metric before adding it to tracking metrics."
+                )
+        for metric in metrics:
+            self._tracking_metrics[metric.name] = metric
         return self
 
     def update_tracking_metric(self, metric: Metric) -> "Experiment":
@@ -299,6 +379,7 @@ class Experiment(Base):
         """The metrics attached to the experiment."""
         optimization_config_metrics: Dict[str, Metric] = {}
         if self.optimization_config is not None:
+            # pyre-fixme[16]: `Optional` has no attribute `metrics`.
             optimization_config_metrics = self.optimization_config.metrics
         return {**self._tracking_metrics, **optimization_config_metrics}
 
@@ -307,7 +388,12 @@ class Experiment(Base):
     ) -> Dict[Type[Metric], List[Metric]]:
         metrics_by_class: Dict[Type[Metric], List[Metric]] = defaultdict(list)
         for metric in metrics or list(self.metrics.values()):
-            metrics_by_class[metric.__class__].append(metric)
+            # By default, all metrics are grouped by their class for fetch;
+            # however, for some metrics, `fetch_trial_data_multi` of a
+            # superclass is used for fetch the subclassing metrics' data. In
+            # those cases, "fetch_multi_group_by_metric" property on metric
+            # will be set to a class other than its own (likely a superclass).
+            metrics_by_class[metric.fetch_multi_group_by_metric].append(metric)
         return metrics_by_class
 
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
@@ -321,34 +407,77 @@ class Experiment(Base):
         Returns:
             Data for the experiment.
         """
+        return self._fetch_trials_data(
+            trials=list(self.trials.values()), metrics=metrics, **kwargs
+        )
+
+    def fetch_trials_data(
+        self,
+        trial_indices: Iterable[int],
+        metrics: Optional[List[Metric]] = None,
+        **kwargs: Any,
+    ) -> Data:
+        """Fetches data for specific trials on the experiment.
+
+        Args:
+            trial_indices: Indices of trials, for which to fetch data.
+            metrics: If provided, fetch data for these metrics instead of the ones
+                defined on the experiment.
+            kwargs: Keyword args to pass to underlying metrics' fetch data functions.
+
+        Returns:
+            Data for the specific trials on the experiment.
+        """
+        return self._fetch_trials_data(
+            trials=self.get_trials_by_indices(trial_indices=trial_indices),
+            metrics=metrics,
+            **kwargs,
+        )
+
+    def _fetch_trials_data(
+        self,
+        trials: List[BaseTrial],
+        metrics: Optional[Iterable[Metric]] = None,
+        **kwargs: Any,
+    ) -> Data:
         if not self.metrics and not metrics:
             raise ValueError(
                 "No metrics to fetch data for, as no metrics are defined for "
                 "this experiment, and none were passed in to `fetch_data`."
             )
-        try:
+        metrics = list(metrics or self.metrics.values())
+        if all(type(m) is Metric for m in metrics):
+            # All metrics are 'dummy' base `Metric` class metrics, which do not
+            # implement actual data-fetching logic, so should look up attached
+            # data instead of trying to fetch it via logic in metrics.
+            return Data.from_multiple_data(
+                [self.lookup_data_for_trial(trial_index=t.index)[0] for t in trials]
+            )
+        elif all(isinstance(m, Metric) and type(m) is not Metric for m in metrics):
+            # All metrics are subclasses of `Metric`, which should implement fetching.
             data_list = [
-                metric_cls.fetch_experiment_data_multi(self, metric_list, **kwargs)
+                metric_cls.fetch_experiment_data_multi(
+                    experiment=self, metrics=metric_list, trials=trials, **kwargs
+                )
                 for metric_cls, metric_list in self._metrics_by_class(
                     metrics=metrics
                 ).items()
             ]
-
             # For trials in candidate phase, append any attached data
-            for trial in self.trials.values():
+            for trial in trials:
                 if trial.status == TrialStatus.CANDIDATE:
                     trial_data, _ = self.lookup_data_for_trial(trial_index=trial.index)
                     if not trial_data.df.empty:
                         data_list.append(trial_data)
 
             return Data.from_multiple_data(data_list)
-        except NotImplementedError:
-            # If some of the metrics do not implement data fetching, we should
-            # fall back to data that has been attached.
-            return Data.from_multiple_data(
-                [self.lookup_data_for_trial(trial_index=idx)[0] for idx in self.trials]
-            )
 
+        raise ValueError(UNEXPECTED_METRIC_COMBINATION)
+
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `BaseTrial` for 1st param but
+    #  got `(self: Experiment, trial_index: int, metrics:
+    #  Optional[List[ax.core.metric.Metric]] = ..., **(Any)) -> Data`.
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
@@ -359,41 +488,58 @@ class Experiment(Base):
                 "this experiment, and none were passed in to `fetch_trial_data`."
             )
         trial = self.trials[trial_index]
+        metrics = list(metrics or self.metrics.values())
 
-        if trial.status == TrialStatus.CANDIDATE:
+        if trial.status == TrialStatus.CANDIDATE or all(
+            type(m) is Metric for m in metrics
+        ):
+            # Either trial is a `CANDIDATE` (so cannot use fetching logic) or
+            # all metrics are 'dummy' base `Metric` class metrics, which do not
+            # implement actual data-fetching logic. Should look up attached
+            # data instead of trying to fetch it via logic in metrics.
             return self.lookup_data_for_trial(trial_index=trial_index)[0]
 
-        elif not trial.status.expecting_data:
-            return Data()
-
-        try:
-            return Data.from_multiple_data(
-                [
-                    metric_cls.fetch_trial_data_multi(trial, metric_list, **kwargs)
-                    for metric_cls, metric_list in self._metrics_by_class(
-                        metrics=metrics
-                    ).items()
-                ]
+        elif all(isinstance(m, Metric) and type(m) is not Metric for m in metrics):
+            # All metrics are subclasses of `Metric`, which should implement fetching.
+            if not trial.status.expecting_data:
+                return Data()
+            return self._fetch_trial_data_no_lookup(
+                trial_index=trial_index, metrics=metrics, **kwargs
             )
-        except NotImplementedError:
-            # If some of the metrics do not implement data fetching, we should
-            # fall back to data that has been attached.
-            return self.lookup_data_for_trial(trial_index=trial_index)[0]
+
+        raise ValueError(UNEXPECTED_METRIC_COMBINATION)
+
+    def _fetch_trial_data_no_lookup(
+        self, trial_index: int, metrics: Optional[List[Metric]], **kwargs: Any
+    ) -> Data:
+        """Fetches data explicitly from metric logic, does not look up attached
+        data on experiment.
+        """
+        return Data.from_multiple_data(
+            [
+                metric_cls.fetch_trial_data_multi(
+                    self.trials[trial_index], metric_list, **kwargs
+                )
+                for metric_cls, metric_list in self._metrics_by_class(
+                    metrics=metrics
+                ).items()
+            ]
+        )
 
     def attach_data(self, data: Data, combine_with_last_data: bool = False) -> int:
         """Attach data to experiment. Stores data in `experiment._data_by_trial`,
-        to be looked up via `experiment.lookup_data_by_trial`.
+        to be looked up via `experiment.lookup_data_for_trial`.
 
         Args:
             data: Data object to store.
             combine_with_last_data: By default, when attaching data, it's identified
-                by its timestamp, and `experiment.lookup_data_by_trial` returns
+                by its timestamp, and `experiment.lookup_data_for_trial` returns
                 data by most recent timestamp. In some cases, however, the goal
                 is to combine all data attached for a trial into a single `Data`
                 object. To achieve that goal, every call to `attach_data` after
                 the initial data is attached to trials, should be set to `True`.
                 Then, the newly attached data will be appended to existing data,
-                rather than stored as a separate object, and `lookup_data_by_trial`
+                rather than stored as a separate object, and `lookup_data_for_trial`
                 will return the combined data object, rather than just the most
                 recently added data. This will validate that the newly added data
                 does not contain observations for the metrics that already have
@@ -402,6 +548,8 @@ class Experiment(Base):
         Returns:
             Timestamp of storage in millis.
         """
+        if data.df.empty:
+            raise ValueError("Data to attach is empty.")
         cur_time_millis = current_timestamp_in_millis()
         for trial_index, trial_df in data.df.groupby(data.df["trial_index"]):
             current_trial_data = (
@@ -465,16 +613,17 @@ class Experiment(Base):
         Returns:
             The requested data object, and its storage timestamp in milliseconds.
         """
-        if trial_index not in self._data_by_trial:
+        try:
+            trial_data_dict = self._data_by_trial[trial_index]
+        except KeyError:
             return (Data(), -1)
 
-        trial_data_list = list(self._data_by_trial[trial_index].values())
-        storage_time_list = list(self._data_by_trial[trial_index].keys())
-        return (
-            (trial_data_list[-1], storage_time_list[-1])
-            if len(trial_data_list) > 0
-            else (Data(), -1)
-        )
+        if len(trial_data_dict) == 0:
+            return (Data(), -1)
+
+        storage_time = max(trial_data_dict.keys())
+        trial_data = trial_data_dict[storage_time]
+        return trial_data, storage_time
 
     @property
     def num_trials(self) -> int:
@@ -483,17 +632,61 @@ class Experiment(Base):
 
     @property
     def trials(self) -> Dict[int, BaseTrial]:
-        """The trials associated with the experiment."""
+        """The trials associated with the experiment.
+
+        NOTE: If some trials on this experiment specify their TTL, `RUNNING` trials
+        will be checked for whether their TTL elapsed during this call. Found past-
+        TTL trials will be marked as `FAILED`.
+        """
+        self._check_TTL_on_running_trials()
         return self._trials
+
+    @property
+    def trials_by_status(self) -> Dict[TrialStatus, List[BaseTrial]]:
+        """Trials associated with the experiment, grouped by trial status."""
+        # Make sure all statuses appear in this dict, to avoid key errors.
+        return {
+            status: self.get_trials_by_indices(trial_indices=idcs)
+            for status, idcs in self.trial_indices_by_status.items()
+        }
+
+    @property
+    def trial_indices_by_status(self) -> Dict[TrialStatus, Set[int]]:
+        """Indices of trials associated with the experiment, grouped by trial
+        status.
+        """
+        self._check_TTL_on_running_trials()  # Marks past-TTL trials as failed.
+        return self._trial_indices_by_status
 
     def new_trial(
         self,
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
     ) -> Trial:
-        """Create a new trial associated with this experiment."""
+        """Create a new trial associated with this experiment.
+
+        Args:
+            generator_run: GeneratorRun, associated with this trial.
+                Trial has only one generator run (and thus arm)
+                attached to it. This can also be set later through `add_arm`
+                or `add_generator_run`, but a trial's associated generator run is
+                immutable once set.
+            trial_type: Type of this trial, if used in MultiTypeExperiment.
+            ttl_seconds: If specified, trials will be considered failed after
+                this many seconds since the time the trial was ran, unless the
+                trial is completed before then. Meant to be used to detect
+                'dead' trials, for which the evaluation process might have
+                crashed etc., and which should be considered failed after
+                their 'time to live' has passed.
+        """
+        if ttl_seconds is not None:
+            self._trials_have_ttl = True
         return Trial(
-            experiment=self, trial_type=trial_type, generator_run=generator_run
+            experiment=self,
+            trial_type=trial_type,
+            generator_run=generator_run,
+            ttl_seconds=ttl_seconds,
         )
 
     def new_batch_trial(
@@ -501,22 +694,70 @@ class Experiment(Base):
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
+        ttl_seconds: Optional[int] = None,
     ) -> BatchTrial:
-        """Create a new batch trial associated with this experiment."""
+        """Create a new batch trial associated with this experiment.
+
+        Args:
+            generator_run: GeneratorRun, associated with this trial. This can a
+                also be set later through `add_arm` or `add_generator_run`, but a
+                trial's associated generator run is immutable once set.
+            trial_type: Type of this trial, if used in MultiTypeExperiment.
+            optimize_for_power: Whether to optimize the weights of arms in this
+                trial such that the experiment's power to detect effects of
+                certain size is as high as possible. Refer to documentation of
+                `BatchTrial.set_status_quo_and_optimize_power` for more detail.
+            ttl_seconds: If specified, trials will be considered failed after
+                this many seconds since the time the trial was ran, unless the
+                trial is completed before then. Meant to be used to detect
+                'dead' trials, for which the evaluation process might have
+                crashed etc., and which should be considered failed after
+                their 'time to live' has passed.
+        """
+        if ttl_seconds is not None:
+            self._trials_have_ttl = True
         return BatchTrial(
             experiment=self,
             trial_type=trial_type,
             generator_run=generator_run,
             optimize_for_power=optimize_for_power,
+            ttl_seconds=ttl_seconds,
         )
 
-    def _attach_trial(self, trial: BaseTrial) -> int:
+    def get_trials_by_indices(self, trial_indices: Iterable[int]) -> List[BaseTrial]:
+        """Grabs trials on this experiment by their indices."""
+        trial_indices = list(trial_indices)
+        try:
+            return [self.trials[idx] for idx in trial_indices]
+        except KeyError:
+            missing = set(trial_indices) - set(self.trials)
+            raise ValueError(
+                f"Trial indices {missing} are not associated with the experiment."
+            )
+
+    def reset_runners(self, runner: Runner) -> None:
+        """Replace all candidate trials runners.
+
+        Args:
+            runner: New runner to replace with.
+        """
+        for trial in self._trials.values():
+            if trial.status == TrialStatus.CANDIDATE:
+                trial.runner = runner
+        self.runner = runner
+
+    def _attach_trial(self, trial: BaseTrial, index: Optional[int] = None) -> int:
         """Attach a trial to this experiment.
 
         Should only be called within the trial constructor.
 
         Args:
             trial: The trial to be attached.
+            index: If specified, the trial's index will be set accordingly.
+                This should generally not be specified, as the index
+                will be automatically determined based on the number
+                of existing trials. This is only used for the purpose
+                of loading from storage.
 
         Returns:
             The index of the trial within the experiment's trial list.
@@ -529,7 +770,15 @@ class Experiment(Base):
             if existing_trial is trial:
                 raise ValueError("BatchTrial already attached to experiment.")
 
-        index = 0 if len(self._trials) == 0 else max(self._trials.keys()) + 1
+        if index is not None and index in self._trials:
+            logger.warning(  # pragma: no cover
+                f"Trial index {index} already exists on the experiment. Overwriting."
+            )
+        index = (
+            index
+            if index is not None
+            else (0 if len(self._trials) == 0 else max(self._trials.keys()) + 1)
+        )
         self._trials[index] = trial
         return index
 
@@ -560,7 +809,31 @@ class Experiment(Base):
         else:
             if not arm.has_name:
                 arm.name = proposed_name
-            self._arms_by_signature[arm.signature] = arm
+            self._register_arm(arm)
+
+    def _register_arm(self, arm: Arm) -> None:
+        """Add a new arm to the experiment, updating the relevant
+        lookup dictionaries.
+
+        Args:
+            arm: Arm to add
+        """
+        self._arms_by_signature[arm.signature] = arm
+        self._arms_by_name[arm.name] = arm
+
+    def _check_TTL_on_running_trials(self) -> None:
+        """Checks whether any past-TTL trials are still marked as `RUNNING`
+        and marks them as failed if so.
+
+        NOTE: this function just calls `trial.status` for each trial, as the
+        computation of that property checks the TTL for trials.
+        """
+        if not self._trials_have_ttl:
+            return
+
+        running = list(self._trial_indices_by_status[TrialStatus.RUNNING])
+        for idx in running:
+            self._trials[idx].status  # `status` property checks TTL if applicable.
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + f"({self._name})"

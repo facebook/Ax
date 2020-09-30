@@ -86,7 +86,6 @@ def table_view_plot(
     )
 
     if plot_data.status_quo_name:
-        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         status_quo_arm = plot_data.in_sample.get(plot_data.status_quo_name)
         rel = True
     else:
@@ -145,7 +144,8 @@ def table_view_plot(
 
     records = [[name.replace(":", " : ") for name in metric_names]] + transpose(records)
     colors = [["#ffffff"] * len(metric_names)] + transpose(colors)
-    # pyre-fixme[18]: Global name `arm_names` is undefined.
+    # pyre-fixme[58]: `+` is not supported for operand types `List[str]` and
+    #  `List[float]`.
     header = [f"<b>{x}</b>" for x in [f"{arm_noun}s"] + arm_names]
     column_widths = [300] + [150] * len(arm_names)
 

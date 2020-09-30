@@ -9,23 +9,31 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import torch
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     get_NEI,
-    predict_from_model,
     recommend_best_observed_point,
     scipy_optimizer,
 )
-from ax.models.torch.utils import _get_X_pending_and_observed, normalize_indices
+from ax.models.torch.utils import (
+    _get_X_pending_and_observed,
+    _to_inequality_constraints,
+    normalize_indices,
+    predict_from_model,
+    subset_model,
+)
 from ax.models.torch_base import TorchModel
+from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from torch import Tensor
 
-from .utils import subset_model
+
+logger = get_logger(__name__)
 
 
 TModelConstructor = Callable[
@@ -225,11 +233,7 @@ class BotorchModel(TorchModel):
         #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],
         #  **(Any)], AcquisitionFunction]`.
         acqf_constructor: TAcqfConstructor = get_NEI,
-        # pyre-fixme[9]: acqf_optimizer has type `Callable[[AcquisitionFunction,
-        #  Tensor, int, Optional[Dict[int, float]], Optional[Callable[[Tensor],
-        #  Tensor]], Any], Tensor]`; used as `Callable[[AcquisitionFunction, Tensor,
-        #  int, Optional[Dict[int, float]], Optional[Callable[[Tensor], Tensor]],
-        #  **(Any)], Tensor]`.
+        # pyre-fixme[9]: acqf_optimizer declared/used type mismatch
         acqf_optimizer: TOptimizer = scipy_optimizer,
         best_point_recommender: TBestPointRecommender = recommend_best_observed_point,
         refit_on_cv: bool = False,
@@ -256,6 +260,8 @@ class BotorchModel(TorchModel):
         self.fidelity_features: List[int] = []
         self.metric_names: List[str] = []
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.fit)
     def fit(
         self,
@@ -267,6 +273,7 @@ class BotorchModel(TorchModel):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         self.dtype = Xs[0].dtype
         self.device = Xs[0].device
@@ -287,10 +294,14 @@ class BotorchModel(TorchModel):
             **self._kwargs,
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X` expected.
     @copy_doc(TorchModel.predict)
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         return self.model_predictor(model=self.model, X=X)  # pyre-ignore [28]
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.gen)
     def gen(
         self,
@@ -304,10 +315,10 @@ class BotorchModel(TorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata]:
+    ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
         options = model_gen_options or {}
-        acf_options = options.get("acquisition_function_kwargs", {})
-        optimizer_options = options.get("optimizer_kwargs", {})
+        acf_options = options.get(Keys.ACQF_KWARGS, {})
+        optimizer_options = options.get(Keys.OPTIMIZER_KWARGS, {})
 
         if target_fidelities:
             raise NotImplementedError(
@@ -326,9 +337,9 @@ class BotorchModel(TorchModel):
 
         model = self.model
 
-        # subset model only to the outcomes we need for the optimization
-        if options.get("subset_model", True):
-            model, objective_weights, outcome_constraints = subset_model(
+        # subset model only to the outcomes we need for the optimization	357
+        if options.get(Keys.SUBSET_MODEL, True):
+            model, objective_weights, outcome_constraints, _ = subset_model(
                 model=model,  # pyre-ignore [6]
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
@@ -336,18 +347,8 @@ class BotorchModel(TorchModel):
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
-        if linear_constraints is not None:
-            A, b = linear_constraints
-            inequality_constraints = []
-            k, d = A.shape
-            for i in range(k):
-                indicies = A[i, :].nonzero().view(-1)
-                coefficients = -A[i, indicies]
-                rhs = -b[i, 0]
-                inequality_constraints.append((indicies, coefficients, rhs))
-        else:
-            inequality_constraints = None
 
+        botorch_rounding_func = get_rounding_func(rounding_func)
         acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
             model=model,
             objective_weights=objective_weights,
@@ -356,14 +357,15 @@ class BotorchModel(TorchModel):
             X_pending=X_pending,
             **acf_options,
         )
-
-        botorch_rounding_func = get_rounding_func(rounding_func)
+        acquisition_function = checked_cast(AcquisitionFunction, acquisition_function)
         # pyre-ignore: [28]
         candidates, expected_acquisition_value = self.acqf_optimizer(
             acq_function=checked_cast(AcquisitionFunction, acquisition_function),
             bounds=bounds_,
             n=n,
-            inequality_constraints=inequality_constraints,
+            inequality_constraints=_to_inequality_constraints(
+                linear_constraints=linear_constraints
+            ),
             fixed_features=fixed_features,
             rounding_func=botorch_rounding_func,
             **optimizer_options,
@@ -372,8 +374,11 @@ class BotorchModel(TorchModel):
             candidates.detach().cpu(),
             torch.ones(n, dtype=self.dtype),
             {"expected_acquisition_value": expected_acquisition_value.tolist()},
+            None,
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
@@ -397,6 +402,8 @@ class BotorchModel(TorchModel):
             target_fidelities=target_fidelities,
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X_test` expected.
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,
@@ -423,8 +430,16 @@ class BotorchModel(TorchModel):
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.update)
-    def update(self, Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]) -> None:
+    def update(
+        self,
+        Xs: List[Tensor],
+        Ys: List[Tensor],
+        Yvars: List[Tensor],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+    ) -> None:
         if self.model is None:
             raise RuntimeError("Cannot update model that has not been fitted")
         self.Xs = Xs

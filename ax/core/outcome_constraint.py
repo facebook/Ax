@@ -9,9 +9,9 @@
 import logging
 from typing import Dict
 
-from ax.core.base import Base
 from ax.core.metric import Metric
 from ax.core.types import ComparisonOp
+from ax.utils.common.equality import Base
 from ax.utils.common.logger import get_logger
 
 

@@ -23,6 +23,7 @@ class OptimizationConfigTest(TestCase):
     def setUp(self):
         self.metrics = {"m1": Metric(name="m1"), "m2": Metric(name="m2")}
         self.objective = Objective(metric=self.metrics["m1"], minimize=False)
+        self.alt_objective = Objective(metric=self.metrics["m2"], minimize=False)
         self.m2_objective = ScalarizedObjective(
             metrics=[self.metrics["m1"], self.metrics["m2"]]
         )
@@ -43,7 +44,7 @@ class OptimizationConfigTest(TestCase):
         )
         self.assertEqual(str(config1), CONFIG_STR)
         with self.assertRaises(ValueError):
-            config1.objective = self.m2_objective
+            config1.objective = self.alt_objective  # constrained Objective.
         # updating constraints is fine.
         config1.outcome_constraints = [self.outcome_constraint]
         self.assertEqual(len(config1.metrics), 2)
@@ -54,9 +55,10 @@ class OptimizationConfigTest(TestCase):
 
         # setting objective is fine too, if it's compatible with constraints..
         config2.objective = self.m2_objective
-        # setting incompatible constraints is not fine.
-        with self.assertRaises(ValueError):
-            config2.outcome_constraints = self.outcome_constraints
+        # setting constraints on objectives is fine for MultiObjective components.
+
+        config2.outcome_constraints = self.outcome_constraints
+        self.assertEqual(config2.outcome_constraints, self.outcome_constraints)
 
     def testEq(self):
         config1 = OptimizationConfig(

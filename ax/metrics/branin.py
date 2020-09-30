@@ -7,7 +7,7 @@
 import numpy as np
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.utils.common.typeutils import checked_cast
-from ax.utils.measurement.synthetic_functions import branin
+from ax.utils.measurement.synthetic_functions import aug_branin, branin
 
 
 class BraninMetric(NoisyFunctionMetric):
@@ -20,3 +20,8 @@ class NegativeBraninMetric(BraninMetric):
     def f(self, x: np.ndarray) -> float:
         fpos = super().f(x)
         return -fpos
+
+
+class AugmentedBraninMetric(NoisyFunctionMetric):
+    def f(self, x: np.ndarray) -> float:
+        return checked_cast(float, aug_branin(x))

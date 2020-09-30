@@ -67,7 +67,6 @@ class SobolGenerator(RandomModel):
             self._engine = SobolEngine(
                 dimension=n_tunable_features, scramble=self.scramble, seed=self.seed
             ).fast_forward(self.init_position)
-        # pyre-fixme[7]: Expected `SobolEngine` but got `None`.
         return self._engine
 
     @property
@@ -122,12 +121,17 @@ class SobolGenerator(RandomModel):
             self.init_position = not_none(self.engine).num_generated
         return (points, weights)
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `Model` for 1st param but got
+    #  `(self: SobolGenerator) -> Dict[str, typing.Any]`.
     @copy_doc(Model._get_state)
     def _get_state(self) -> Dict[str, Any]:
         state = super()._get_state()
         state.update({"init_position": self.init_position})
         return state
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `d` expected.
     @copy_doc(RandomModel._gen_unconstrained)
     def _gen_unconstrained(
         self,
@@ -139,6 +143,7 @@ class SobolGenerator(RandomModel):
         if len(tunable_feature_indices) == 0:
             # Search space is entirely fixed, should return the only avail. point.
             fixed_features = fixed_features or {}
+            # pyre-fixme[7]: Expected `ndarray` but got `Tuple[typing.Any, typing.Any]`.
             return (
                 np.tile(np.array([list(not_none(fixed_features).values())]), (n, 1)),
                 np.ones(n),

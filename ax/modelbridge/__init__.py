@@ -15,6 +15,7 @@ from ax.modelbridge.factory import (
     get_thompson,
     get_uniform,
 )
+from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.numpy import NumpyModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 
@@ -24,6 +25,7 @@ __all__ = [
     "Models",
     "NumpyModelBridge",
     "TorchModelBridge",
+    "MultiObjectiveTorchModelBridge",
     "get_factorial",
     "get_GPEI",
     "get_GPKG",

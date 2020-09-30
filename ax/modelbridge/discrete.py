@@ -107,7 +107,7 @@ class DiscreteModelBridge(ModelBridge):
         # Extract parameter values
         parameter_values = _get_parameter_values(search_space, self.parameters)
         # Extract objective and outcome constraints
-        if self.outcomes is None or optimization_config is None:  # pragma: no cover
+        if len(self.outcomes) == 0 or optimization_config is None:  # pragma: no cover
             objective_weights = None
             outcome_constraints = None
         else:

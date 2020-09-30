@@ -18,6 +18,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
@@ -39,12 +40,14 @@ from ax.service.utils.instantiation import (
     make_experiment,
     raw_data_to_evaluation,
 )
+from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
 )
 from ax.storage.json_store.encoder import object_to_json
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
@@ -58,18 +61,16 @@ from botorch.utils.sampling import manual_seed
 logger = get_logger(__name__)
 
 
-try:  # We don't require SQLAlchemy by default.
-    from sqlalchemy.exc import OperationalError
-    from ax.storage.sqa_store.structs import DBSettings
-    from ax.service.utils.storage import (
-        load_experiment_and_generation_strategy,
-        save_experiment_and_generation_strategy,
-    )
-except ModuleNotFoundError:  # pragma: no cover
-    DBSettings = None
+CHOLESKY_ERROR_ANNOTATION = (
+    "Cholesky errors typically occur when the same or very similar "
+    "arms are suggested repeatedly. This can mean the model has "
+    "already converged and you should avoid running further trials. "
+    "It will also help to convert integer or categorical parameters "
+    "to float ranges where reasonable.\nOriginal error: "
+)
 
 
-class AxClient:
+class AxClient(WithDBSettingsBase):
     """
     Convenience handler for management of experimentation cycle through a
     service-like API. External system manages scheduling of the cycle and makes
@@ -93,7 +94,7 @@ class AxClient:
 
         enforce_sequential_optimization: Whether to enforce that when it is
             reasonable to switch models during the optimization (as prescribed
-            by `num_arms` in generation strategy), Ax will wait for enough trials
+            by `num_trials` in generation strategy), Ax will wait for enough trials
             to be completed with data to proceed. Defaults to True. If set to
             False, Ax will keep generating new trials from the previous model
             until enough data is gathered. Use this only if necessary;
@@ -128,12 +129,13 @@ class AxClient:
     def __init__(
         self,
         generation_strategy: Optional[GenerationStrategy] = None,
-        db_settings: Any = None,
+        db_settings: Optional[DBSettings] = None,
         enforce_sequential_optimization: bool = True,
         random_seed: Optional[int] = None,
         verbose_logging: bool = True,
         suppress_storage_errors: bool = False,
     ) -> None:
+        super().__init__(db_settings=db_settings)
         if not verbose_logging:
             logger.setLevel(logging.WARNING)  # pragma: no cover
         else:
@@ -143,13 +145,6 @@ class AxClient:
                 "values in the logs are rounded to 2 decimal points."
             )
         self._generation_strategy = generation_strategy
-        if db_settings and (not DBSettings or not isinstance(db_settings, DBSettings)):
-            raise ValueError(
-                "`db_settings` argument should be of type ax.storage.sqa_store."
-                "structs.DBSettings. To use `DBSettings`, you will need SQLAlchemy "
-                "installed in your environment (can be installed through pip)."
-            )
-        self.db_settings = db_settings
         self._experiment: Optional[Experiment] = None
         self._enforce_sequential_optimization = enforce_sequential_optimization
         self._random_seed = random_seed
@@ -183,12 +178,23 @@ class AxClient:
 
         Args:
             parameters: List of dictionaries representing parameters in the
-                experiment search space. Required elements in the dictionaries
-                are: "name" (name of this parameter, string), "type" (type of the
-                parameter: "range", "fixed", or "choice", string), and "bounds"
-                for range parameters (list of two values, lower bound first),
-                "values" for choice parameters (list of values), and "value" for
-                fixed parameters (single value).
+                experiment search space.
+                Required elements in the dictionaries are:
+                1. "name" (name of parameter, string),
+                2. "type" (type of parameter: "range", "fixed", or "choice", string),
+                and one of the following:
+                3a. "bounds" for range parameters (list of two values, lower bound
+                first),
+                3b. "values" for choice parameters (list of values), or
+                3c. "value" for fixed parameters (single value).
+                Optional elements are:
+                1. "log_scale" (for float-valued range parameters, bool),
+                2. "value_type" (to specify type that values of this parameter should
+                take; expects "float", "int", "bool" or "str"),
+                3. "is_fidelity" (bool) and "target_value" (float) for fidelity
+                parameters,
+                4. "is_ordered" (bool) for choice parameters, and
+                5. "is_task" (bool) for task parameters.
             objective: Name of the metric used as objective in this experiment.
                 This metric must be present in `raw_data` argument to `complete_trial`.
             name: Name of the experiment to be created.
@@ -206,30 +212,28 @@ class AxClient:
                 on this `AxClient` instance, whether to reset it to the new one.
                 If overwriting the experiment, generation strategy will be
                 re-selected for the new experiment and restarted.
+                To protect experiments in production, one cannot overwrite existing
+                experiments if the experiment is already stored in the database,
+                regardless of the value of `overwrite_existing_experiment`.
             choose_generation_strategy_kwargs: Keyword arguments to pass to
                 `choose_generation_strategy` function which determines what
                 generation strategy should be used when none was specified on init.
         """
-        if self.db_settings and not name:
+        if self.db_settings_set and not name:
             raise ValueError(  # pragma: no cover
                 "Must give the experiment a name if `db_settings` is not None."
             )
-        if self.db_settings:
-            existing = None
-            try:
-                existing, _ = load_experiment_and_generation_strategy(
-                    experiment_name=not_none(name), db_settings=self.db_settings
-                )
-            except ValueError:  # Experiment does not exist, nothing to do.
-                pass
-            if existing and overwrite_existing_experiment:
-                logger.info(f"Overwriting existing experiment {name}.")
-            elif existing:
+        if self.db_settings_set:
+            experiment_id, _ = self._get_experiment_and_generation_strategy_db_id(
+                experiment_name=not_none(name)
+            )
+            if experiment_id:
                 raise ValueError(
-                    f"Experiment {name} exists; set the `overwrite_existing_"
-                    "experiment` to `True` to overwrite with new experiment "
-                    "or use `ax_client.load_experiment_from_database` to "
-                    "continue an existing experiment."
+                    f"Experiment {name} already exists in the database. "
+                    "To protect experiments that are running in production, "
+                    "overwriting stored experiments is not allowed. To "
+                    "start a new experiment and store it, change the "
+                    "experiment's name."
                 )
         if self._experiment is not None:
             if overwrite_existing_experiment:
@@ -243,7 +247,7 @@ class AxClient:
                 self._generation_strategy = None
             else:
                 raise ValueError(
-                    f"Experiment already created for this client instance. "
+                    "Experiment already created for this client instance. "
                     "Set the `overwrite_existing_experiment` to `True` to overwrite "
                     "with new experiment."
                 )
@@ -258,41 +262,80 @@ class AxClient:
             status_quo=status_quo,
             experiment_type=experiment_type,
         )
-        choose_generation_strategy_kwargs = choose_generation_strategy_kwargs or {}
-        random_seed = choose_generation_strategy_kwargs.pop(
-            "random_seed", self._random_seed
-        )
-        enforce_sequential_optimization = choose_generation_strategy_kwargs.pop(
-            "enforce_sequential_optimization", self._enforce_sequential_optimization
-        )
-        if self._generation_strategy is None:
-            self._generation_strategy = choose_generation_strategy(
-                search_space=not_none(self._experiment).search_space,
-                enforce_sequential_optimization=enforce_sequential_optimization,
-                random_seed=random_seed,
-                **choose_generation_strategy_kwargs,
+
+        try:
+            self._save_experiment_to_db_if_possible(
+                experiment=self.experiment,
+                suppress_all_errors=self._suppress_storage_errors,
             )
-        self._save_experiment_and_generation_strategy_to_db_if_possible(
-            overwrite_existing_experiment=True
+        except Exception:
+            # Unset the experiment on this `AxClient` instance if encountered and
+            # raising an error from saving the experiment, to avoid a case where
+            # overall `create_experiment` call fails with a storage error, but
+            # `self._experiment` is still set and user has to specify the
+            # `ooverwrite_existing_experiment` kwarg to re-attempt exp. creation.
+            self._experiment = None
+            raise
+
+        self._set_generation_strategy(
+            choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
+        )
+        self._save_generation_strategy_to_db_if_possible(
+            generation_strategy=self.generation_strategy,
+            suppress_all_errors=self._suppress_storage_errors,
         )
 
-    def get_next_trial(self) -> Tuple[TParameterization, int]:
+    @retry_on_exception(
+        logger=logger,
+        exception_types=(RuntimeError,),
+        suppress_all_errors=False,
+        wrap_error_message_in=CHOLESKY_ERROR_ANNOTATION,
+    )
+    def get_next_trial(
+        self, ttl_seconds: Optional[int] = None
+    ) -> Tuple[TParameterization, int]:
         """
         Generate trial with the next set of parameters to try in the iteration process.
 
         Note: Service API currently supports only 1-arm trials.
 
+        Args:
+            ttl_seconds: If specified, will consider the trial failed after this
+                many seconds. Used to detect dead trials that were not marked
+                failed properly.
+
         Returns:
             Tuple of trial parameterization, trial index
         """
-        trial = self.experiment.new_trial(generator_run=self._gen_new_generator_run())
+        trial = self.experiment.new_trial(
+            generator_run=self._gen_new_generator_run(), ttl_seconds=ttl_seconds
+        )
+
         logger.info(
             f"Generated new trial {trial.index} with parameters "
             f"{_round_floats_for_logging(item=not_none(trial.arm).parameters)}."
         )
         trial.mark_running(no_runner_required=True)
-        self._save_experiment_and_generation_strategy_to_db_if_possible()
+        self._save_new_trial_to_db_if_possible(
+            experiment=self.experiment,
+            trial=trial,
+            suppress_all_errors=self._suppress_storage_errors,
+        )
+        self._update_generation_strategy_in_db_if_possible(
+            generation_strategy=self.generation_strategy,
+            new_generator_runs=trial.generator_runs,
+            suppress_all_errors=self._suppress_storage_errors,
+        )
         return not_none(trial.arm).parameters, trial.index
+
+    def abandon_trial(self, trial_index: int, reason: Optional[str] = None) -> None:
+        """Abandons a trial and adds optional metadata to it.
+
+        Args:
+            trial_index: Index of trial within the experiment.
+        """
+        trial = self._get_trial(trial_index=trial_index)
+        trial.mark_abandoned(reason=reason)
 
     def complete_trial(
         self,
@@ -328,6 +371,13 @@ class AxClient:
             trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
         trial._run_metadata = metadata or {}
+        for metric_name in data.df["metric_name"].values:
+            if metric_name not in self.experiment.metrics:
+                logger.info(
+                    f"Data was logged for metric {metric_name} that was not yet "
+                    "tracked on the experiment. Adding it as tracking metric."
+                )
+                self.experiment.add_tracking_metric(Metric(name=metric_name))
         self.experiment.attach_data(data=data)
         trial.mark_completed()
         data_for_logging = _round_floats_for_logging(
@@ -337,7 +387,11 @@ class AxClient:
             f"Completed trial {trial_index} with data: "
             f"{_round_floats_for_logging(item=data_for_logging)}."
         )
-        self._save_experiment_and_generation_strategy_to_db_if_possible()
+        self._save_updated_trial_to_db_if_possible(
+            experiment=self.experiment,
+            trial=trial,
+            suppress_all_errors=self._suppress_storage_errors,
+        )
 
     def update_trial_data(
         self,
@@ -376,6 +430,14 @@ class AxClient:
             trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
         trial._run_metadata.update(metadata or {})
+        # Registering trial data update is needed for generation strategies that
+        # leverage the `update` functionality of model and bridge setup and therefore
+        # need to be aware of new data added to experiment. Usually this happends
+        # seamlessly, by looking at newly completed trials, but in this case trial
+        # status does not change, so we manually register the new data.
+        # Currently this call will only result in a `NotImplementedError` if generation
+        # strategy uses `update` (`GenerationStep.use_update` is False by default).
+        self.generation_strategy._register_trial_data_update(trial=trial, data=data)
         self.experiment.attach_data(data, combine_with_last_data=True)
         data_for_logging = _round_floats_for_logging(
             item=evaluations[next(iter(evaluations.keys()))]
@@ -384,7 +446,10 @@ class AxClient:
             f"Added data: {_round_floats_for_logging(item=data_for_logging)} "
             f"to trial {trial.index}."
         )
-        self._save_experiment_and_generation_strategy_to_db_if_possible()
+        self._save_experiment_to_db_if_possible(
+            experiment=self.experiment,
+            suppress_all_errors=self._suppress_storage_errors,
+        )
 
     def log_trial_failure(
         self, trial_index: int, metadata: Optional[Dict[str, str]] = None
@@ -400,33 +465,50 @@ class AxClient:
         logger.info(f"Registered failure of trial {trial_index}.")
         if metadata is not None:
             trial._run_metadata = metadata
-        self._save_experiment_and_generation_strategy_to_db_if_possible()
+        self._save_experiment_to_db_if_possible(
+            experiment=self.experiment,
+            suppress_all_errors=self._suppress_storage_errors,
+        )
 
     def attach_trial(
-        self, parameters: TParameterization
+        self, parameters: TParameterization, ttl_seconds: Optional[int] = None
     ) -> Tuple[TParameterization, int]:
         """Attach a new trial with the given parameterization to the experiment.
 
         Args:
             parameters: Parameterization of the new trial.
+            ttl_seconds: If specified, will consider the trial failed after this
+                many seconds. Used to detect dead trials that were not marked
+                failed properly.
 
         Returns:
             Tuple of parameterization and trial index from newly created trial.
         """
         self._validate_search_space_membership(parameters=parameters)
-        trial = self.experiment.new_trial().add_arm(Arm(parameters=parameters))
+        trial = self.experiment.new_trial(ttl_seconds=ttl_seconds).add_arm(
+            Arm(parameters=parameters)
+        )
         trial.mark_running(no_runner_required=True)
         logger.info(
             "Attached custom parameterization "
             f"{_round_floats_for_logging(item=parameters)} as trial {trial.index}."
         )
-        self._save_experiment_and_generation_strategy_to_db_if_possible()
+        self._save_new_trial_to_db_if_possible(
+            experiment=self.experiment,
+            trial=trial,
+            suppress_all_errors=self._suppress_storage_errors,
+        )
         return not_none(trial.arm).parameters, trial.index
 
     def get_trial_parameters(self, trial_index: int) -> TParameterization:
         """Retrieve the parameterization of the trial by the given index."""
         return not_none(self._get_trial(trial_index).arm).parameters
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `Experiment` for 1st param
+    #  but got `(self: AxClient) -> Optional[Tuple[Dict[str, typing.Union[None, bool,
+    #  float, int, str]], Optional[Tuple[Dict[str, float], Optional[Dict[str,
+    #  typing.Dict[str, float]]]]]]]`.
     @copy_doc(best_point_utils.get_best_parameters)
     def get_best_parameters(
         self,
@@ -436,13 +518,14 @@ class AxClient:
     def get_trials_data_frame(self) -> pd.DataFrame:
         return exp_to_df(exp=self.experiment)
 
-    def get_recommended_max_parallelism(self) -> List[Tuple[int, int]]:
-        """Recommends maximum number of trials that can be scheduled in parallel
+    def get_max_parallelism(self) -> List[Tuple[int, int]]:
+        """Retrieves maximum number of trials that can be scheduled in parallel
         at different stages of optimization.
 
         Some optimization algorithms profit significantly from sequential
-        optimization (e.g. suggest a few points, get updated with data for them,
-        repeat). This setting indicates how many trials should be in flight
+        optimization (i.e. suggest a few points, get updated with data for them,
+        repeat, see https://ax.dev/docs/bayesopt.html).
+        Parallelism setting indicates how many trials should be running simulteneously
         (generated, but not yet completed with data).
 
         The output of this method is mapping of form
@@ -453,7 +536,7 @@ class AxClient:
         should be used for all subsequent trials.
 
         For example, if the returned list is [(5, -1), (12, 6), (-1, 3)],
-        the schedule could be: run 5 trials in parallel, run 6 trials in
+        the schedule could be: run 5 trials with any parallelism, run 6 trials in
         parallel twice, run 3 trials in parallel for as long as needed. Here,
         'running' a trial means obtaining a next trial from `AxClient` through
         get_next_trials and completing it with data when available.
@@ -464,7 +547,7 @@ class AxClient:
         parallelism_settings = []
         for step in self.generation_strategy._steps:
             parallelism_settings.append(
-                (step.num_arms, step.recommended_max_parallelism or step.num_arms)
+                (step.num_trials, step.max_parallelism or step.num_trials)
             )
         return parallelism_settings
 
@@ -480,18 +563,21 @@ class AxClient:
         """
         if not self.experiment.trials:
             raise ValueError("Cannot generate plot as there are no trials.")
+        # pyre-fixme[16]: `Optional` has no attribute `objective`.
         objective_name = self.experiment.optimization_config.objective.metric.name
         best_objectives = np.array(
             [
                 [
                     checked_cast(Trial, trial).objective_mean
                     for trial in self.experiment.trials.values()
+                    if trial.status.is_completed
                 ]
             ]
         )
         hover_labels = [
             _format_dict(not_none(checked_cast(Trial, trial).arm).parameters)
             for trial in self.experiment.trials.values()
+            if trial.status.is_completed
         ]
         return optimization_trace_single_method(
             y=(
@@ -619,7 +705,11 @@ class AxClient:
             "of this optimization."
         )
 
-    def load_experiment_from_database(self, experiment_name: str) -> None:
+    def load_experiment_from_database(
+        self,
+        experiment_name: str,
+        choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Load an existing experiment from database using the `DBSettings`
         passed to this `AxClient` on instantiation.
 
@@ -629,22 +719,20 @@ class AxClient:
         Returns:
             Experiment object.
         """
-        if not self.db_settings:
-            raise ValueError(  # pragma: no cover
-                "Cannot load an experiment in the absence of the DB settings."
-                "Please initialize `AxClient` with DBSettings."
-            )
-        experiment, generation_strategy = load_experiment_and_generation_strategy(
-            experiment_name=experiment_name, db_settings=self.db_settings
+        experiment, generation_strategy = self._load_experiment_and_generation_strategy(
+            experiment_name=experiment_name
         )
+        if experiment is None:
+            raise ValueError(f"Experiment by name '{experiment_name}' not found.")
         self._experiment = experiment
         logger.info(f"Loaded {experiment}.")
         if generation_strategy is None:  # pragma: no cover
-            self._generation_strategy = choose_generation_strategy(
-                # pyre-fixme[16]: `Optional` has no attribute `search_space`.
-                search_space=self._experiment.search_space,
-                enforce_sequential_optimization=self._enforce_sequential_optimization,
-                random_seed=self._random_seed,
+            self._set_generation_strategy(
+                choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
+            )
+            self._save_generation_strategy_to_db_if_possible(
+                generation_strategy=self.generation_strategy,
+                suppress_all_errors=self._suppress_storage_errors,
             )
         else:
             self._generation_strategy = generation_strategy
@@ -790,37 +878,26 @@ class AxClient:
         opt_config = not_none(self.experiment.optimization_config)
         return opt_config.objective.metric.name
 
-    def _save_experiment_and_generation_strategy_to_db_if_possible(
-        self, overwrite_existing_experiment: bool = False
-    ) -> bool:
-        """Saves attached experiment and generation strategy if DB settings are
-        set on this AxClient instance.
-
-        Args:
-            overwrite_existing_experiment: If the experiment being created
-                has the same name as some experiment already stored, this flag
-                determines whether to overwrite the existing experiment.
-                Defaults to False.
-
-        Returns:
-            bool: Whether the experiment was saved.
+    def _set_generation_strategy(
+        self, choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Selects the generation strategy and applies specified dispatch kwargs,
+        if any.
         """
-        if self.db_settings is not None:
-            for i in range(3):
-                try:
-                    save_experiment_and_generation_strategy(
-                        experiment=self.experiment,
-                        generation_strategy=self.generation_strategy,
-                        db_settings=self.db_settings,
-                        overwrite_existing_experiment=overwrite_existing_experiment,
-                    )
-                    return True
-                except OperationalError as err:  # pragma: no covert
-                    if i < 2 or self._suppress_storage_errors:
-                        logger.exception(err)
-                        continue
-                    raise
-        return False
+        choose_generation_strategy_kwargs = choose_generation_strategy_kwargs or {}
+        random_seed = choose_generation_strategy_kwargs.pop(
+            "random_seed", self._random_seed
+        )
+        enforce_sequential_optimization = choose_generation_strategy_kwargs.pop(
+            "enforce_sequential_optimization", self._enforce_sequential_optimization
+        )
+        if self._generation_strategy is None:
+            self._generation_strategy = choose_generation_strategy(
+                search_space=self.experiment.search_space,
+                enforce_sequential_optimization=enforce_sequential_optimization,
+                random_seed=random_seed,
+                **choose_generation_strategy_kwargs,
+            )
 
     def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
         """Generate new generator run for this experiment.
@@ -891,13 +968,18 @@ class AxClient:
         if isinstance(trial, BatchTrial):
             assert isinstance(  # pragma: no cover
                 raw_data, dict
-            ), f"Raw data must be a dict for batched trials."
+            ), "Raw data must be a dict for batched trials."
         elif isinstance(trial, Trial):
             arm_name = not_none(trial.arm).name
             raw_data = {arm_name: raw_data}  # pyre-ignore[9]
         else:  # pragma: no cover
             raise ValueError(f"Unexpected trial type: {type(trial)}.")
         assert isinstance(raw_data, dict)
+        not_trial_arm_names = set(raw_data.keys()) - set(trial.arms_by_name.keys())
+        if not_trial_arm_names:
+            raise ValueError(
+                f"Arms {not_trial_arm_names} are not part of trial #{trial.index}."
+            )
         evaluations = {
             arm_name: raw_data_to_evaluation(
                 raw_data=raw_data[arm_name], objective_name=self.objective_name
@@ -950,10 +1032,18 @@ class AxClient:
                     f"Value for parameter {p_name} is of type {typ}, expected "
                     f"{parameter.python_type}. If the intention was to have the "
                     f"parameter on experiment be of type {typ}, set `value_type` "
-                    "on experiment creation for {p_name}."
+                    f"on experiment creation for {p_name}."
                 )
 
     # -------- Backward-compatibility with old save / load method names. -------
+
+    @staticmethod
+    def get_recommended_max_parallelism() -> None:
+        raise NotImplementedError(
+            "Use `get_max_parallelism` instead; parallelism levels are now "
+            "enforced in generation strategy, so max parallelism is no longer "
+            "just recommended."
+        )
 
     @staticmethod
     def load_experiment(experiment_name: str) -> None:

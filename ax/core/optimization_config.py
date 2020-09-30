@@ -9,11 +9,11 @@
 from itertools import groupby
 from typing import Dict, List, Optional
 
-from ax.core.base import Base
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
+from ax.utils.common.equality import Base
 
 
 MAX_OBJECTIVES: int = 4
@@ -108,9 +108,9 @@ class OptimizationConfig(Base):
         constraint_metrics = [
             constraint.metric.name for constraint in outcome_constraints
         ]
-        objective_metric_names = [metric.name for metric in objective.metrics]
-        for name in objective_metric_names:
-            if name in constraint_metrics:
+        unconstrainable_metrics = objective.get_unconstrainable_metrics()
+        for metric in unconstrainable_metrics:
+            if metric.name in constraint_metrics:
                 raise ValueError("Cannot constrain on objective metric.")
 
         def get_metric_name(oc: OutcomeConstraint) -> str:

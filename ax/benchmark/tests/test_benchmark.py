@@ -21,26 +21,33 @@ from scipy.optimize import minimize
 
 
 class TestBenchmark(TestCase):
+    def setUp(self):
+        self.CATEGORY_NAME = "my_category"
+
     def test_basic(self):
         """Run through the benchmarking loop."""
         results = full_benchmark_run(
-            problems=[
-                SimpleBenchmarkProblem(branin, noise_sd=0.4),
-                BenchmarkProblem(
-                    name="Branin",
-                    search_space=get_branin_search_space(),
-                    optimization_config=get_branin_optimization_config(),
-                ),
-                BenchmarkProblem(
-                    search_space=get_branin_search_space(),
-                    optimization_config=get_optimization_config(),
-                ),
-            ],
-            methods=[
-                GenerationStrategy(
-                    steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
-                )
-            ],
+            problem_groups={
+                self.CATEGORY_NAME: [
+                    SimpleBenchmarkProblem(branin, noise_sd=0.4),
+                    BenchmarkProblem(
+                        name="Branin",
+                        search_space=get_branin_search_space(),
+                        optimization_config=get_branin_optimization_config(),
+                    ),
+                    BenchmarkProblem(
+                        search_space=get_branin_search_space(),
+                        optimization_config=get_optimization_config(),
+                    ),
+                ]
+            },
+            method_groups={
+                self.CATEGORY_NAME: [
+                    GenerationStrategy(
+                        steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
+                    )
+                ]
+            },
             num_replications=3,
             num_trials=5,
             # Just to have it be more telling if something is broken
@@ -59,12 +66,16 @@ class TestBenchmark(TestCase):
 
         with self.assertRaisesRegex(ValueError, "Oh, exception!"):
             full_benchmark_run(
-                problems=[SimpleBenchmarkProblem(branin, noise_sd=0.4)],
-                methods=[
-                    GenerationStrategy(
-                        steps=[GenerationStep(model=Models.SOBOL, num_arms=-1)]
-                    )
-                ],
+                problem_groups={
+                    self.CATEGORY_NAME: [SimpleBenchmarkProblem(branin, noise_sd=0.4)]
+                },
+                method_groups={
+                    self.CATEGORY_NAME: [
+                        GenerationStrategy(
+                            steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
+                        )
+                    ]
+                },
                 num_replications=3,
                 num_trials=5,
                 raise_all_exceptions=True,

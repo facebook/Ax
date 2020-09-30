@@ -64,7 +64,7 @@ class MaxValueEntropySearchTest(TestCase):
         new_X_dummy = torch.rand(1, 1, 3, dtype=self.dtype, device=self.device)
         with mock.patch(self.optimize_acqf) as mock_optimize_acqf:
             mock_optimize_acqf.side_effect = [(new_X_dummy, None)]
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=1,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -101,7 +101,7 @@ class MaxValueEntropySearchTest(TestCase):
             torch.tensor([[0.5], [1.0]]),
         )
         with self.assertRaises(UnsupportedError):
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=1,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -113,7 +113,7 @@ class MaxValueEntropySearchTest(TestCase):
             [1.0, 1.0], dtype=self.dtype, device=self.device
         )
         with self.assertRaises(UnsupportedError):
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=1, bounds=self.bounds, objective_weights=objective_weights
             )
 
@@ -177,7 +177,7 @@ class MaxValueEntropySearchTest(TestCase):
         with mock.patch(
             self.optimize_acqf, side_effect=[(new_X_dummy, None)]
         ) as mock_optimize_acqf:
-            Xgen, wgen, _ = model.gen(
+            Xgen, wgen, _, __ = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,

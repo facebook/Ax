@@ -41,10 +41,13 @@ TEvaluationOutcome = Union[
     TTrialEvaluation, Tuple[float, Optional[float]], float, TFidelityTrialEvaluation
 ]
 
-TConfig = Dict[str, Union[int, float, str, AcquisitionFunction]]
+TConfig = Dict[str, Union[int, float, str, AcquisitionFunction, Dict[str, Any]]]
 TBucket = List[Dict[str, List[str]]]
 
 TGenMetadata = Dict[str, Any]
+
+# Model's metadata about a given candidate (or X).
+TCandidateMetadata = Optional[Dict[str, Any]]
 
 
 class ComparisonOp(enum.Enum):

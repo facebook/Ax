@@ -105,7 +105,6 @@ def _obs_vs_pred_dropdown_plot(
                 "This plot does not support both context and relativization at "
                 "the same time."
             )
-        # pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.
         status_quo_arm = data.in_sample[data.status_quo_name]
     else:
         status_quo_arm = None
@@ -315,9 +314,9 @@ def _get_cv_plot_data(cv_results: List[CVResult]) -> PlotData:
     insample_data: Dict[str, PlotInSampleArm] = {}
 
     # Assume input is well formed and this is consistent
-    metric_names = cv_results[0].observed.data.metric_names
+    metric_names = cv_results[0].predicted.metric_names
 
-    for cv_result in cv_results:
+    for rid, cv_result in enumerate(cv_results):
         arm_name = cv_result.observed.arm_name
         arm_data = {
             "name": cv_result.observed.arm_name,
@@ -339,7 +338,7 @@ def _get_cv_plot_data(cv_results: List[CVResult]) -> PlotData:
         # Expected `str` for 2nd anonymous parameter to call `dict.__setitem__` but got
         # `Optional[str]`.
         # pyre-fixme[6]:
-        insample_data[arm_name] = PlotInSampleArm(**arm_data)
+        insample_data[f"{arm_name}_{rid}"] = PlotInSampleArm(**arm_data)
     return PlotData(
         metrics=metric_names,
         in_sample=insample_data,
@@ -383,6 +382,7 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
                 # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
                 arm_data["y"][metric_name] = row["mean"]
                 arm_data["se"][metric_name] = row["sem"]
+                # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
                 arm_data["y_hat"][metric_name] = predictions[0][metric_name][i]
                 arm_data["se_hat"][metric_name] = predictions[1][metric_name][
                     metric_name

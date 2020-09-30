@@ -27,6 +27,23 @@ class Footer extends React.Component {
 
     return (
       <footer className="nav-footer" id="footer">
+        <section className="sitemap">
+          <div className="footerSection">
+            <h5>Legal</h5>
+            <a
+              href="https://opensource.facebook.com/legal/privacy/"
+              target="_blank"
+              rel="noreferrer noopener">
+              Privacy
+            </a>
+            <a
+              href="https://opensource.facebook.com/legal/terms/"
+              target="_blank"
+              rel="noreferrer noopener">
+              Terms
+            </a>
+          </div>
+        </section>
         <a
           href="https://code.facebook.com/projects/"
           target="_blank"

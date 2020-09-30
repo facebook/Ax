@@ -23,7 +23,7 @@ def not_none(val: Optional[T]) -> T:
 
     Args:
       val: the value to cast to a non ``None`` type
-    Retruns:
+    Returns:
       V:  ``val`` when ``val`` is not ``None``
     Throws:
       ValueError if ``val`` is ``None``
@@ -64,10 +64,10 @@ def checked_cast_optional(typ: Type[T], val: Optional[V]) -> Optional[T]:
     return checked_cast(typ, val)
 
 
-def checked_cast_list(typ: Type[T], l: List[V]) -> List[T]:
+def checked_cast_list(typ: Type[T], old_l: List[V]) -> List[T]:
     """Calls checked_cast on all items in a list."""
     new_l = []
-    for val in l:
+    for val in old_l:
         val = checked_cast(typ, val)
         new_l.append(val)
     return new_l
@@ -101,6 +101,7 @@ def checked_cast_to_tuple(typ: Tuple[Type[V], ...], val: V) -> T:
     """
     if not isinstance(val, typ):
         raise ValueError(f"Value was not of type {type!r}:\n{val!r}")
+    # pyre-fixme[7]: Expected `T` but got `V`.
     return val
 
 

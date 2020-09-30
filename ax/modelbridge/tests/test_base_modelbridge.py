@@ -23,6 +23,7 @@ from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge, gen_arms, unwrap_observation_data
 from ax.modelbridge.transforms.log import Log
 from ax.models.base import Model
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_repeated_arms,
@@ -51,7 +52,9 @@ class BaseModelBridgeTest(TestCase):
         return_value=([get_observation1(), get_observation2()]),
     )
     @mock.patch(
-        "ax.modelbridge.base.gen_arms", autospec=True, return_value=[Arm(parameters={})]
+        "ax.modelbridge.base.gen_arms",
+        autospec=True,
+        return_value=([Arm(parameters={})], None),
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
     def testModelBridge(self, mock_fit, mock_gen_arms, mock_observations_from_data):
@@ -66,8 +69,11 @@ class BaseModelBridgeTest(TestCase):
             experiment=exp,
             data=0,
         )
+        self.assertFalse(
+            modelbridge._experiment_has_immutable_search_space_and_opt_config
+        )
         self.assertEqual(
-            list(modelbridge.transforms.keys()), ["transform_1", "transform_2"]
+            list(modelbridge.transforms.keys()), ["Cast", "transform_1", "transform_2"]
         )
         fit_args = mock_fit.mock_calls[0][2]
         self.assertTrue(fit_args["search_space"] == get_search_space_for_value(8.0))
@@ -216,6 +222,14 @@ class BaseModelBridgeTest(TestCase):
         with self.assertRaises(NotImplementedError):
             modelbridge.feature_importances("a")
 
+        # Test transform observation features
+        with mock.patch(
+            "ax.modelbridge.base.ModelBridge._transform_observation_features",
+            autospec=True,
+        ) as mock_tr:
+            modelbridge.transform_observation_features([get_observation2().features])
+        mock_tr.assert_called_with(modelbridge, [get_observation2trans().features])
+
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
@@ -356,16 +370,26 @@ class BaseModelBridgeTest(TestCase):
             ObservationFeatures(parameters=p1),
             ObservationFeatures(parameters=p2),
         ]
-        arms = gen_arms(observation_features=observation_features)
+        arms, candidate_metadata = gen_arms(observation_features=observation_features)
         self.assertEqual(arms[0].parameters, p1)
+        self.assertIsNone(candidate_metadata)
 
         arm = Arm(name="1_1", parameters=p1)
         arms_by_signature = {arm.signature: arm}
-        arms = gen_arms(
+        observation_features[0].metadata = {"some_key": "some_val_0"}
+        observation_features[1].metadata = {"some_key": "some_val_1"}
+        arms, candidate_metadata = gen_arms(
             observation_features=observation_features,
             arms_by_signature=arms_by_signature,
         )
         self.assertEqual(arms[0].name, "1_1")
+        self.assertEqual(
+            candidate_metadata,
+            {
+                arms[0].signature: {"some_key": "some_val_0"},
+                arms[1].signature: {"some_key": "some_val_1"},
+            },
+        )
 
     @mock.patch(
         "ax.modelbridge.base.ModelBridge._gen",
@@ -395,6 +419,29 @@ class BaseModelBridgeTest(TestCase):
             ),
             pending_observations={},
         )
+
+    @mock.patch(
+        "ax.modelbridge.base.ModelBridge._gen",
+        autospec=True,
+        return_value=([get_observation1trans().features], [2], None, {}),
+    )
+    @mock.patch(
+        "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
+    )
+    def test_gen_on_experiment_with_imm_ss_and_opt_conf(self, _, __):
+        exp = get_experiment_for_value()
+        exp._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = True
+        exp.optimization_config = get_optimization_config_no_constraints()
+        ss = get_search_space_for_range_value()
+        modelbridge = ModelBridge(
+            search_space=ss, model=Model(), transforms=[], experiment=exp
+        )
+        self.assertTrue(
+            modelbridge._experiment_has_immutable_search_space_and_opt_config
+        )
+        gr = modelbridge.gen(1)
+        self.assertIsNone(gr.optimization_config)
+        self.assertIsNone(gr.search_space)
 
     @mock.patch(
         "ax.modelbridge.base.ModelBridge._gen",
@@ -435,7 +482,7 @@ class BaseModelBridgeTest(TestCase):
         )
         exp.new_trial(generator_run=modelbridge.gen(1))
         modelbridge.update(
-            data=Data(
+            new_data=Data(
                 pd.DataFrame(
                     [{"arm_name": "1_0", "metric_name": "m1", "mean": 5.0, "sem": 0.0}]
                 )
@@ -446,7 +493,7 @@ class BaseModelBridgeTest(TestCase):
         # Trying to update with unrecognised metric should error.
         with self.assertRaisesRegex(ValueError, "Unrecognised metric"):
             modelbridge.update(
-                data=Data(
+                new_data=Data(
                     pd.DataFrame(
                         [
                             {

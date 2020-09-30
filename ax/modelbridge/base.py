@@ -23,13 +23,21 @@ from ax.core.observation import (
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TGenMetadata, TModelCov, TModelMean, TModelPredict
+from ax.core.types import (
+    TCandidateMetadata,
+    TConfig,
+    TGenMetadata,
+    TModelCov,
+    TModelMean,
+    TModelPredict,
+)
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.cast import Cast
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
 
-logger = get_logger("ModelBridge")
+logger = get_logger(__name__)
 
 
 class ModelBridge(ABC):
@@ -96,6 +104,10 @@ class ModelBridge(ABC):
                 Otherwise, only in design points are returned.
         """
         t_fit_start = time.time()
+        transforms = transforms or []
+        # pyre-ignore: Cast is a Tranform
+        transforms: List[Type[Transform]] = [Cast] + transforms
+
         self._metric_names: Set[str] = set()
         self._training_data: List[Observation] = []
         self._optimization_config: Optional[OptimizationConfig] = optimization_config
@@ -111,14 +123,14 @@ class ModelBridge(ABC):
         self._raw_transforms = transforms
         self._transform_configs: Optional[Dict[str, TConfig]] = transform_configs
         self._fit_out_of_design = fit_out_of_design
-
+        imm = experiment and experiment.immutable_search_space_and_opt_config
+        self._experiment_has_immutable_search_space_and_opt_config = imm
         if experiment is not None:
             if self._optimization_config is None:
                 self._optimization_config = experiment.optimization_config
             self._arms_by_signature = experiment.arms_by_signature
 
         observations = (
-            # pyre-fixme[6]: Expected `Experiment` for 1st param but got `None`.
             observations_from_data(experiment, data)
             if experiment is not None and data is not None
             else []
@@ -261,14 +273,18 @@ class ModelBridge(ABC):
         observation_data: List[ObservationData],
     ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
         """Set training_in_design, and decide whether to filter out of design points."""
+        # Don't filter points.
+        if self._fit_out_of_design:
+            # Use all data for training
+            # Set training_in_design to True for all observations so that
+            # all observations are used in CV and plotting
+            self.training_in_design = [True] * len(observation_features)
+            return observation_features, observation_data
         in_design = [
             search_space.check_membership(obsf.parameters)
             for obsf in observation_features
         ]
         self.training_in_design = in_design
-        # Don't filter points.
-        if self._fit_out_of_design:
-            return observation_features, observation_data
         in_design_indices = [i for i, in_design in enumerate(in_design) if in_design]
         in_design_features = [observation_features[i] for i in in_design_indices]
         in_design_data = [observation_data[i] for i in in_design_indices]
@@ -410,7 +426,6 @@ class ModelBridge(ABC):
         observation_data = self._predict(observation_features)
 
         # Apply reverse transforms, in reverse order
-        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(self.transforms.values()):  # noqa T484
             observation_features = t.untransform_observation_features(
                 observation_features
@@ -493,7 +508,7 @@ class ModelBridge(ABC):
         """
         raise NotImplementedError  # pragma: no cover
 
-    def update(self, data: Data, experiment: Experiment) -> None:
+    def update(self, new_data: Data, experiment: Experiment) -> None:
         """Update the model bridge and the underlying model with new data. This
         method should be used instead of `fit`, in cases where the underlying
         model does not need to be re-fit from scratch, but rather updated.
@@ -502,13 +517,14 @@ class ModelBridge(ABC):
         or last update) to be passed in, not all data in the experiment.
 
         Args:
-            data: data from the experiment obtained since the last update
-            experiment: experiment, in which this data was obtained
+            new_data: Data from the experiment obtained since the last call to
+                `update`.
+            experiment: Experiment, in which this data was obtained.
         """
         t_update_start = time.time()
         observations = (
-            observations_from_data(experiment, data)
-            if experiment is not None and data is not None
+            observations_from_data(experiment=experiment, data=new_data)
+            if experiment is not None and new_data is not None
             else []
         )
         obs_feats_raw, obs_data_raw = self._extend_training_data(
@@ -612,7 +628,6 @@ class ModelBridge(ABC):
         )
 
         # Apply reverse transforms
-        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(self.transforms.values()):  # noqa T484
             observation_features = t.untransform_observation_features(
                 observation_features
@@ -630,22 +645,29 @@ class ModelBridge(ABC):
         except NotImplementedError:  # pragma: no cover
             model_predictions = None
 
-        best_arm = (
-            None
-            if best_obsf is None
-            else gen_arms(
+        if best_obsf is None:
+            best_arm = None
+        else:
+            best_arms, _ = gen_arms(
                 observation_features=[best_obsf],
                 arms_by_signature=self._arms_by_signature,
-            )[0]
+            )
+            best_arm = best_arms[0]
+
+        arms, candidate_metadata = gen_arms(
+            observation_features=observation_features,
+            arms_by_signature=self._arms_by_signature,
+        )
+        # If experiment has immutable search space and metrics, no need to
+        # save them on generator runs.
+        immutable = getattr(
+            self, "_experiment_has_immutable_search_space_and_opt_config", False
         )
         gr = GeneratorRun(
-            arms=gen_arms(
-                observation_features=observation_features,
-                arms_by_signature=self._arms_by_signature,
-            ),
+            arms=arms,
             weights=weights,
-            optimization_config=optimization_config,
-            search_space=search_space,
+            optimization_config=None if immutable else optimization_config,
+            search_space=None if immutable else search_space,
             model_predictions=model_predictions,
             best_arm_predictions=None
             if best_arm is None
@@ -656,7 +678,8 @@ class ModelBridge(ABC):
             model_kwargs=self._model_kwargs,
             bridge_kwargs=self._bridge_kwargs,
             gen_metadata=gen_metadata,
-            model_state_after_gen=self._get_model_state(),
+            model_state_after_gen=self._get_serialized_model_state(),
+            candidate_metadata_by_arm_signature=candidate_metadata,
         )
         self.fit_time_since_gen = 0.0
         return gr
@@ -709,7 +732,6 @@ class ModelBridge(ABC):
             obs_feats=obs_feats, obs_data=obs_data, cv_test_points=cv_test_points
         )
         # Apply reverse transforms, in reverse order
-        # pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...
         for t in reversed(self.transforms.values()):
             cv_test_points = t.untransform_observation_features(cv_test_points)
             cv_predictions = t.untransform_observation_data(
@@ -728,6 +750,30 @@ class ModelBridge(ABC):
         """
         raise NotImplementedError  # pragma: no cover
 
+    def evaluate_acquisition_function(
+        self, observation_features: List[ObservationFeatures]
+    ) -> List[float]:
+        """Evaluate the acquisition function for given set of observation
+        features.
+
+        Args:
+            observation_features: A list of observation features, representing
+                parameterizations, for which to evaluate the acquisition function.
+
+        Returns:
+            A list of acquisition function values, in the same order as the
+            input observation features.
+        """
+        obs_feats = deepcopy(observation_features)
+        for t in self.transforms.values():
+            obs_feats = t.transform_observation_features(obs_feats)
+        return self._evaluate_acquisition_function(observation_features=obs_feats)
+
+    def _evaluate_acquisition_function(
+        self, observation_features: List[ObservationFeatures]
+    ) -> List[float]:
+        raise NotImplementedError  # pragma: no cover
+
     def _set_kwargs_to_save(
         self,
         model_key: str,
@@ -743,14 +789,49 @@ class ModelBridge(ABC):
         self._model_kwargs = model_kwargs
         self._bridge_kwargs = bridge_kwargs
 
-    def _get_model_state(self) -> Dict[str, Any]:
-        """Obtains the state of the underlying model if using a stateful one."""
-        return not_none(self.model)._get_state()
+    def _get_serialized_model_state(self) -> Dict[str, Any]:
+        """Obtains the state of the underlying model (if using a stateful one)
+        in a readily JSON-serializable form.
+        """
+        model = not_none(self.model)
+        return model.serialize_state(raw_state=model._get_state())
+
+    def _deserialize_model_state(
+        self, serialized_state: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        model = not_none(self.model)
+        return model.deserialize_state(serialized_state=serialized_state)
 
     def feature_importances(self, metric_name: str) -> Dict[str, float]:
         raise NotImplementedError(
             "Feature importance not available for this model type"
         )
+
+    def transform_observation_features(
+        self, observation_features: List[ObservationFeatures]
+    ) -> Any:
+        """Applies transforms to given observation features and returns them in the
+        model space.
+
+        Args:
+            observation_features: ObservationFeatures to be transformed.
+
+        Returns:
+            Transformed values. This could be e.g. a torch Tensor, depending
+            on the ModelBridge subclass.
+        """
+        obsf = deepcopy(observation_features)
+        for t in self.transforms.values():
+            obsf = t.transform_observation_features(obsf)
+        # Apply terminal transform and return
+        return self._transform_observation_features(obsf)
+
+    def _transform_observation_features(
+        self, observation_features: List[ObservationFeatures]
+    ) -> Any:
+        """Apply terminal transform to given observation features and return result.
+        """
+        raise NotImplementedError  # pragma: no cover
 
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:
@@ -778,14 +859,19 @@ def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPr
 def gen_arms(
     observation_features: List[ObservationFeatures],
     arms_by_signature: Optional[Dict[str, Arm]] = None,
-) -> List[Arm]:
-    """Converts observation features to arms."""
+) -> Tuple[List[Arm], Optional[Dict[str, TCandidateMetadata]]]:
+    """Converts observation features to a tuple of arms list and candidate metadata
+    dict, where arm signatures are mapped to their respective candidate metadata.
+    """
     # TODO(T34225939): handle static context (which is stored on observation_features)
     arms = []
+    candidate_metadata = {}
     for of in observation_features:
         arm = Arm(parameters=of.parameters)
         if arms_by_signature is not None and arm.signature in arms_by_signature:
             existing_arm = arms_by_signature[arm.signature]
             arm = Arm(name=existing_arm.name, parameters=existing_arm.parameters)
         arms.append(arm)
-    return arms
+        if of.metadata:
+            candidate_metadata[arm.signature] = of.metadata
+    return arms, candidate_metadata or None  # None if empty cand. metadata.

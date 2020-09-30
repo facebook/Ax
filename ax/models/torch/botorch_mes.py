@@ -7,21 +7,22 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
-from ax.models.torch.utils import _get_X_pending_and_observed
+from ax.models.torch.utils import (
+    _get_X_pending_and_observed,
+    get_out_of_sample_best_point_acqf,
+)
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility
-from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.max_value_entropy_search import (
     qMaxValueEntropy,
     qMultiFidelityMaxValueEntropy,
 )
-from botorch.acquisition.objective import ScalarizedObjective
 from botorch.acquisition.utils import (
     expand_trace_observations,
     project_to_target_fidelity,
@@ -31,6 +32,8 @@ from botorch.models.cost import AffineFidelityCostModel
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf
 from torch import Tensor
+
+from .utils import subset_model
 
 
 class MaxValueEntropySearch(BotorchModel):
@@ -57,6 +60,8 @@ class MaxValueEntropySearch(BotorchModel):
         )
         self.cost_intercept = cost_intercept
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.gen)
     def gen(
         self,
@@ -70,7 +75,7 @@ class MaxValueEntropySearch(BotorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata]:
+    ) -> Tuple[Tensor, Tensor, TGenMetadata, List[TCandidateMetadata]]:
         if linear_constraints is not None or outcome_constraints is not None:
             raise UnsupportedError(
                 "Constraints are not yet supported by max-value entropy search!"
@@ -95,6 +100,16 @@ class MaxValueEntropySearch(BotorchModel):
             fixed_features=fixed_features,
         )
 
+        model = self.model
+
+        # subset model only to the outcomes we need for the optimization
+        if options.get("subset_model", True):
+            model, objective_weights, outcome_constraints, _ = subset_model(
+                model=model,  # pyre-ignore [6]
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+            )
+
         # get the acquisition function
         num_fantasies = acf_options.get("num_fantasies", 16)
         num_mv_samples = acf_options.get("num_mv_samples", 10)
@@ -111,7 +126,7 @@ class MaxValueEntropySearch(BotorchModel):
         candidate_set = bounds_[0] + (bounds_[1] - bounds_[0]) * candidate_set
 
         acq_function = _instantiate_MES(
-            model=self.model,  # pyre-ignore: [6]
+            model=model,  # pyre-ignore [6]
             candidate_set=candidate_set,
             num_fantasies=num_fantasies,
             num_trace_observations=options.get("num_trace_observations", 0),
@@ -144,7 +159,10 @@ class MaxValueEntropySearch(BotorchModel):
             sequential=True,
         )
         new_x = candidates.detach().cpu()
-        return new_x, torch.ones(n, dtype=self.dtype), {}
+        # pyre-fixme[7]: Expected `Tuple[Tensor, Tensor, Dict[str, typing.Any],
+        #  List[Optional[Dict[str, typing.Any]]]]` but got `Tuple[Tensor, typing.Any,
+        #  Dict[str, typing.Any], None]`.
+        return new_x, torch.ones(n, dtype=self.dtype), {}, None
 
     def _get_best_point_acqf(
         self,
@@ -156,43 +174,28 @@ class MaxValueEntropySearch(BotorchModel):
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         seed_inner: Optional[int] = None,
         qmc: bool = True,
+        **kwargs: Any,
     ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
-        fixed_features = fixed_features or {}
-        target_fidelities = target_fidelities or {}
-        objective = ScalarizedObjective(weights=objective_weights)
-        acq_function = PosteriorMean(
-            model=self.model, objective=objective  # pyre-ignore: [6]
+        # `outcome_constraints` is validated to be None in `gen`
+        if outcome_constraints is not None:
+            raise UnsupportedError("Outcome constraints not yet supported.")
+
+        return get_out_of_sample_best_point_acqf(
+            model=not_none(self.model),
+            Xs=self.Xs,
+            objective_weights=objective_weights,
+            # With None `outcome_constraints`, `get_objective` utility
+            # always returns a `ScalarizedObjective`, which results in
+            # `get_out_of_sample_best_point_acqf` always selecting
+            # `PosteriorMean`.
+            outcome_constraints=outcome_constraints,
+            X_observed=not_none(X_observed),
+            seed_inner=seed_inner,
+            fixed_features=fixed_features,
+            fidelity_features=self.fidelity_features,
+            target_fidelities=target_fidelities,
+            qmc=qmc,
         )
-
-        if self.fidelity_features:
-            # we need to optimize at the target fidelities
-            if any(f in self.fidelity_features for f in fixed_features):
-                raise RuntimeError("Fixed features cannot also be fidelity features")
-            elif not set(self.fidelity_features) == set(target_fidelities):
-                raise RuntimeError(
-                    "Must provide a target fidelity for every fidelity feature"
-                )
-            # make sure to not modify fixed_features in-place
-            fixed_features = {**fixed_features, **target_fidelities}
-        elif target_fidelities:
-            raise RuntimeError(
-                "Must specify fidelity_features in fit() when using target fidelities"
-            )
-
-        if fixed_features:
-            acq_function = FixedFeatureAcquisitionFunction(
-                acq_function=acq_function,
-                d=X_observed.size(-1),
-                columns=list(fixed_features.keys()),
-                values=list(fixed_features.values()),
-            )
-            non_fixed_idcs = [
-                i for i in range(self.Xs[0].size(-1)) if i not in fixed_features
-            ]
-        else:
-            non_fixed_idcs = None
-
-        return acq_function, non_fixed_idcs
 
 
 def _instantiate_MES(

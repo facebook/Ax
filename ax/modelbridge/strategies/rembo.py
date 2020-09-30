@@ -130,7 +130,7 @@ class REMBOStrategy(GenerationStrategy):
         steps = [
             GenerationStep(
                 model=get_rembo_initializer,
-                num_arms=1,
+                num_trials=1,
                 model_kwargs={"A": A, "bounds_d": bounds_d},
             )
         ]
@@ -158,6 +158,8 @@ class REMBOStrategy(GenerationStrategy):
             experiment=experiment, data=data, arm_sigs=self.arms_by_proj[i]
         )
         lgr = self.last_generator_run
+        # NOTE: May need to `model_class.deserialize_model_state` in the
+        # future if using non-readily serializable state.
         model_state = (
             not_none(lgr._model_state_after_gen)
             if lgr is not None and lgr._model_state_after_gen is not None
@@ -236,7 +238,7 @@ class REMBOStrategy(GenerationStrategy):
         Also return the box bounds for the low-d space.
         """
         A = torch.randn((D, d), dtype=dtype, device=device)
-        bounds_d = [(-math.sqrt(d), math.sqrt(d))] * d
+        bounds_d = [(-(math.sqrt(d)), math.sqrt(d))] * d
         return A, bounds_d
 
 

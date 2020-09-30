@@ -6,12 +6,14 @@
 
 import math
 import sys
+import time
 from math import ceil
 from typing import List, Tuple
 from unittest.mock import patch
 
 import numpy as np
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -48,7 +50,6 @@ def run_trials_using_recommended_parallelism(
         if num_trials == -1:
             num_trials = remaining_trials
         for _ in range(ceil(num_trials / parallelism_setting)):
-            print(ax_client.generation_strategy.model)
             in_flight_trials = []
             if parallelism_setting > remaining_trials:
                 parallelism_setting = remaining_trials
@@ -183,13 +184,15 @@ class TestAxClient(TestCase):
             [s.model for s in not_none(ax_client.generation_strategy)._steps],
             [Models.SOBOL],
         )
-        self.assertEqual(ax_client.get_recommended_max_parallelism(), [(-1, -1)])
+        self.assertEqual(ax_client.get_max_parallelism(), [(-1, -1)])
         self.assertTrue(ax_client.get_trials_data_frame().empty)
 
     def test_create_experiment(self) -> None:
         """Test basic experiment creation."""
         ax_client = AxClient(
-            GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
+            GenerationStrategy(
+                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+            )
         )
         with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
             ax_client.experiment
@@ -297,7 +300,9 @@ class TestAxClient(TestCase):
     def test_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""
         ax_client = AxClient(
-            GenerationStrategy(steps=[GenerationStep(model=Models.SOBOL, num_arms=30)])
+            GenerationStrategy(
+                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+            )
         )
         with self.assertRaises(ValueError):
             ax_client.create_experiment(
@@ -369,6 +374,10 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
+        self.assertFalse(
+            ax_client.generation_strategy._steps[0].enforce_num_trials, False
+        )
+        self.assertFalse(ax_client.generation_strategy._steps[1].max_parallelism, None)
         for _ in range(10):
             parameterization, trial_index = ax_client.get_next_trial()
 
@@ -418,6 +427,53 @@ class TestAxClient(TestCase):
         best_trial_values = ax_client.get_best_parameters()[1]
         self.assertEqual(best_trial_values[0], {"objective": -2.0})
         self.assertTrue(math.isnan(best_trial_values[1]["objective"]["objective"]))
+
+    def test_abandon_trial(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+
+        # An abandoned trial adds no data.
+        params, idx = ax_client.get_next_trial()
+        ax_client.abandon_trial(trial_index=idx)
+        data = ax_client.experiment.fetch_data()
+        self.assertEqual(len(data.df.index), 0)
+
+        # Can't update a completed trial.
+        params2, idx2 = ax_client.get_next_trial()
+        ax_client.complete_trial(trial_index=idx2, raw_data={"objective": (0, 0.0)})
+        with self.assertRaisesRegex(ValueError, ".* in a terminal state."):
+            ax_client.abandon_trial(trial_index=idx2)
+
+    def test_ttl_trial(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+
+        # A ttl trial that ends adds no data.
+        params, idx = ax_client.get_next_trial(ttl_seconds=1)
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_running)
+        time.sleep(1)  # Wait for TTL to elapse.
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
+        # Also make sure we can no longer complete the trial as it is failed.
+        with self.assertRaisesRegex(
+            ValueError, ".* has been marked FAILED, so it no longer expects data."
+        ):
+            ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
+
+        params2, idy = ax_client.get_next_trial(ttl_seconds=1)
+        ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
+        self.assertEqual(ax_client.get_best_parameters()[0], params2)
 
     def test_start_and_end_time_in_trial_completion(self):
         start_time = current_timestamp_in_millis()
@@ -501,6 +557,36 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(ValueError, ".* is of type"):
             ax_client.attach_trial({"x": 1, "y": 2})
 
+    def test_attach_trial_ttl_seconds(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+        )
+        params, idx = ax_client.attach_trial(
+            parameters={"x": 0.0, "y": 1.0}, ttl_seconds=1
+        )
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_running)
+        time.sleep(1)  # Wait for TTL to elapse.
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
+        # Also make sure we can no longer complete the trial as it is failed.
+        with self.assertRaisesRegex(
+            ValueError, ".* has been marked FAILED, so it no longer expects data."
+        ):
+            ax_client.complete_trial(trial_index=idx, raw_data=5)
+
+        params2, idx2 = ax_client.attach_trial(
+            parameters={"x": 0.0, "y": 1.0}, ttl_seconds=1
+        )
+        ax_client.complete_trial(trial_index=idx2, raw_data=5)
+        self.assertEqual(ax_client.get_best_parameters()[0], params2)
+        self.assertEqual(
+            ax_client.get_trial_parameters(trial_index=idx2), {"x": 0, "y": 1}
+        )
+
     def test_attach_trial_numpy(self):
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -532,7 +618,7 @@ class TestAxClient(TestCase):
     def test_recommended_parallelism(self):
         ax_client = AxClient()
         with self.assertRaisesRegex(ValueError, "No generation strategy"):
-            ax_client.get_recommended_max_parallelism()
+            ax_client.get_max_parallelism()
         ax_client.create_experiment(
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
@@ -540,10 +626,10 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
-        self.assertEqual(ax_client.get_recommended_max_parallelism(), [(5, 5), (-1, 3)])
+        self.assertEqual(ax_client.get_max_parallelism(), [(5, 5), (-1, 3)])
         self.assertEqual(
             run_trials_using_recommended_parallelism(
-                ax_client, ax_client.get_recommended_max_parallelism(), 20
+                ax_client, ax_client.get_max_parallelism(), 20
             ),
             0,
         )
@@ -562,23 +648,15 @@ class TestAxClient(TestCase):
 
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
     @patch.dict(sys.modules, {"sqalchemy": None})
+    @patch("ax.service.ax_client.DBSettings", None)
     def test_no_sqa(self):
-        # Pretend we couldn't import sqa_store.structs (this could happen when
+        # Make sure we couldn't import sqa_store.structs (this could happen when
         # SQLAlchemy is not installed).
-        patcher = patch("ax.service.ax_client.DBSettings", None)
-        patcher.start()
         with self.assertRaises(ModuleNotFoundError):
             import ax_client.storage.sqa_store.structs  # noqa F401
         # Make sure we can still import ax_client.
         __import__("ax.service.ax_client")
         AxClient()  # Make sure we still can instantiate client w/o db settings.
-        # Even with correctly typed DBSettings, `AxClient` instantiation should
-        # fail here, because `DBSettings` are mocked to None in `ax_client`.
-        db_settings = DBSettings()
-        self.assertIsInstance(db_settings, DBSettings)
-        with self.assertRaisesRegex(ValueError, "`db_settings` argument should "):
-            AxClient(db_settings=db_settings)
-        patcher.stop()
         # DBSettings should be defined in `ax_client` now, but incorrectly typed
         # `db_settings` argument should still make instantiation fail.
         with self.assertRaisesRegex(ValueError, "`db_settings` argument should "):
@@ -648,6 +726,13 @@ class TestAxClient(TestCase):
         gs = ax_client.generation_strategy
         ax_client = AxClient(db_settings=db_settings)
         ax_client.load_experiment_from_database("test_experiment")
+        # Trial #4 was completed after the last time the generation strategy
+        # generated candidates, so pre-save generation strategy was not
+        # "aware" of completion of trial #4. Post-restoration generation
+        # strategy is aware of it, however, since it gets restored with most
+        # up-to-date experiment data. Do adding trial #4 to the seen completed
+        # trials of pre-storage GS to check their equality otherwise.
+        gs._seen_trial_indices_by_status[TrialStatus.COMPLETED].add(4)
         self.assertEqual(gs, ax_client.generation_strategy)
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.
@@ -659,14 +744,17 @@ class TestAxClient(TestCase):
                 ],
                 minimize=True,
             )
-        # Overwriting existing experiment with overwrite flag.
-        ax_client.create_experiment(
-            name="test_experiment",
-            parameters=[{"name": "x", "type": "range", "bounds": [-5.0, 10.0]}],
-            overwrite_existing_experiment=True,
-        )
-        # There should be no trials, as we just put in a fresh experiment.
-        self.assertEqual(len(ax_client.experiment.trials), 0)
+        with self.assertRaises(ValueError):
+            # Overwriting existing experiment with overwrite flag with present
+            # DB settings. This should fail as we no longer allow overwriting
+            # experiments stored in the DB.
+            ax_client.create_experiment(
+                name="test_experiment",
+                parameters=[{"name": "x", "type": "range", "bounds": [-5.0, 10.0]}],
+                overwrite_existing_experiment=True,
+            )
+        # Original experiment should still be in DB and not have been overwritten.
+        self.assertEqual(len(ax_client.experiment.trials), 5)
 
     def test_overwrite(self):
         init_test_engine_and_session_factory(force_init=True)
@@ -825,6 +913,8 @@ class TestAxClient(TestCase):
             ax_client.load()
         with self.assertRaises(NotImplementedError):
             ax_client.load_experiment("test_experiment")
+        with self.assertRaises(NotImplementedError):
+            ax_client.get_recommended_max_parallelism()
 
     def test_find_last_trial_with_parameterization(self):
         ax_client = AxClient()
@@ -884,22 +974,8 @@ class TestAxClient(TestCase):
             )
         )
 
-    # Patching `OperationalError`, since its hard to instantiate.
-    @patch(f"{AxClient.__module__}.OperationalError", new=RuntimeError)
-    @patch(
-        f"{AxClient.__module__}.save_experiment_and_generation_strategy",
-        side_effect=RuntimeError,
-    )
-    def test_storage_error_handling(self, mock_save_fails):
-        """Check that if `suppress_storage_errors` is True, AxClient won't
-        visibly fail if encountered storage errors.
-        """
-        init_test_engine_and_session_factory(force_init=True)
-        config = SQAConfig()
-        encoder = Encoder(config=config)
-        decoder = Decoder(config=config)
-        db_settings = DBSettings(encoder=encoder, decoder=decoder)
-        ax_client = AxClient(db_settings=db_settings, suppress_storage_errors=True)
+    def test_tracking_metric_addition(self):
+        ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
             parameters=[
@@ -907,9 +983,30 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
+            objective_name="a",
         )
-        for _ in range(3):
-            parameters, trial_index = ax_client.get_next_trial()
-            ax_client.complete_trial(
-                trial_index=trial_index, raw_data=branin(*parameters.values())
-            )
+        params, trial_idx = ax_client.get_next_trial()
+        self.assertEqual(list(ax_client.experiment.metrics.keys()), ["a"])
+        ax_client.complete_trial(trial_index=trial_idx, raw_data={"a": 1.0, "b": 2.0})
+        self.assertEqual(list(ax_client.experiment.metrics.keys()), ["b", "a"])
+
+    @patch(
+        "ax.core.experiment.Experiment.new_trial",
+        side_effect=RuntimeError("cholesky_cpu error - bad matrix"),
+    )
+    def test_annotate_exception(self, _):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            minimize=True,
+            objective_name="a",
+        )
+        with self.assertRaisesRegex(
+            expected_exception=RuntimeError,
+            expected_regex="Cholesky errors typically occur",
+        ):
+            ax_client.get_next_trial()

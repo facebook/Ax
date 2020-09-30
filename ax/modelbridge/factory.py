@@ -11,11 +11,13 @@ import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.multi_type_experiment import MultiTypeExperiment
+from ax.core.objective import MultiObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.discrete import DiscreteModelBridge
+from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
     Cont_X_trans,
@@ -48,6 +50,7 @@ logger: Logger = get_logger(__name__)
 
 
 DEFAULT_TORCH_DEVICE = torch.device("cpu")
+DEFAULT_EHVI_BATCH_LIMIT = 5
 
 
 """
@@ -258,6 +261,12 @@ def get_MTGP(
         data=data,
         model=BotorchModel(),
         transforms=transforms,
+        # pyre-fixme[6]: Expected `Optional[Dict[str, Dict[str,
+        #  typing.Union[botorch.acquisition.acquisition.AcquisitionFunction, float,
+        #  int, str]]]]` for 6th param but got `Optional[Dict[str,
+        #  typing.Union[Dict[str, Dict[str, Dict[int, Optional[str]]]], Dict[str,
+        #  typing.Union[botorch.acquisition.acquisition.AcquisitionFunction, float,
+        #  int, str]]]]]`.
         transform_configs=transform_configs,
         torch_dtype=torch.double,
         torch_device=DEFAULT_TORCH_DEVICE,
@@ -354,3 +363,122 @@ def get_GPMES(
     if any(p.is_fidelity for k, p in experiment.parameters.items()):
         inputs["linear_truncated"] = kwargs.get("linear_truncated", True)
     return checked_cast(TorchModelBridge, Models.GPMES(**inputs))  # pyre-ignore: [16]
+
+
+def get_MOO_EHVI(
+    experiment: Experiment,
+    data: Data,
+    ref_point: Dict[str, float],
+    search_space: Optional[SearchSpace] = None,
+    dtype: torch.dtype = torch.double,
+    device: torch.device = (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    ),
+) -> MultiObjectiveTorchModelBridge:
+    """Instantiates a multi-objective model that generates points with EHVI.
+
+    Requires a `ref_point`, a dictionary of the metric name to the reference point value
+    for every objective being optimized. An arm only improves hypervolume if it is
+    strictly better than this point in all metrics.
+    """
+    # pyre-ignore: [16] `Optional` has no attribute `objective`.
+    if not isinstance(experiment.optimization_config.objective, MultiObjective):
+        raise ValueError("Multi-objective optimization requires multiple objectives.")
+    if data.df.empty:  # pragma: no cover
+        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    return checked_cast(
+        MultiObjectiveTorchModelBridge,
+        Models.MOO(
+            experiment=experiment,
+            data=data,
+            ref_point=ref_point,
+            search_space=search_space or experiment.search_space,
+            torch_dtype=dtype,
+            torch_device=device,
+            default_model_gen_options={
+                "acquisition_function_kwargs": {"sequential": True},
+                "optimizer_kwargs": {
+                    # having a batch limit is very important for avoiding
+                    # memory issues in the initialization
+                    "batch_limit": DEFAULT_EHVI_BATCH_LIMIT
+                },
+            },
+        ),
+    )
+
+
+def get_MOO_PAREGO(
+    experiment: Experiment,
+    data: Data,
+    ref_point: Optional[List[float]] = None,
+    search_space: Optional[SearchSpace] = None,
+    dtype: torch.dtype = torch.double,
+    device: torch.device = DEFAULT_TORCH_DEVICE,
+) -> MultiObjectiveTorchModelBridge:
+    """Instantiates a multi-objective model that generates points with ParEGO.
+
+    qParEGO optimizes random augmented chebyshev scalarizations of the multiple
+    objectives. This allows it to explore non-convex pareto frontiers.
+    """
+    # pyre-ignore: [16] `Optional` has no attribute `objective`.
+    if not isinstance(experiment.optimization_config.objective, MultiObjective):
+        raise ValueError("Multi-Objective optimization requires multiple objectives")
+    if data.df.empty:
+        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    return checked_cast(
+        MultiObjectiveTorchModelBridge,
+        Models.MOO(
+            experiment=experiment,
+            data=data,
+            ref_point=ref_point,
+            search_space=search_space or experiment.search_space,
+            torch_dtype=dtype,
+            torch_device=device,
+            acqf_constructor=get_NEI,
+            default_model_gen_options={
+                "acquisition_function_kwargs": {
+                    "chebyshev_scalarization": True,
+                    "sequential": True,
+                }
+            },
+        ),
+    )
+
+
+def get_MOO_RS(
+    experiment: Experiment,
+    data: Data,
+    ref_point: Optional[List[float]] = None,
+    search_space: Optional[SearchSpace] = None,
+    dtype: torch.dtype = torch.double,
+    device: torch.device = DEFAULT_TORCH_DEVICE,
+) -> MultiObjectiveTorchModelBridge:
+    """Instantiates a Random Scalarization multi-objective model.
+
+    Chooses a different random linear scalarization of the objectives
+    for generating each new candidate arm. This will only explore the
+    convex hull of the pareto frontier.
+    """
+    # pyre-ignore: [16] `Optional` has no attribute `objective`.
+    if not isinstance(experiment.optimization_config.objective, MultiObjective):
+        raise ValueError("Multi-Objective optimization requires multiple objectives")
+    if data.df.empty:
+        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    return checked_cast(
+        MultiObjectiveTorchModelBridge,
+        Models.MOO(
+            experiment=experiment,
+            data=data,
+            ref_point=ref_point,
+            search_space=search_space or experiment.search_space,
+            torch_dtype=dtype,
+            torch_device=device,
+            acqf_constructor=get_NEI,
+            default_model_gen_options={
+                "acquisition_function_kwargs": {
+                    "random_scalarization": True,
+                    "sequential": True,
+                }
+            },
+        ),
+    )

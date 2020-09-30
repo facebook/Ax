@@ -27,6 +27,8 @@ from typing import (
     Type,
 )
 
+from ax.utils.common.equality import Base, object_attribute_dicts_find_unequal_fields
+
 
 def _get_tb_lines(tb: types.TracebackType) -> List[Tuple[str, int, str]]:
     """Get the filename and line number and line contents of all the lines in the
@@ -74,6 +76,12 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
             expected=expected, test_case=test_case, expected_regex=expected_regex
         )
 
+    # pyre-fixme[14]: `__exit__` overrides method defined in `_AssertRaisesContext`
+    #  inconsistently.
+    # pyre-fixme[14]: `__exit__` overrides method defined in `_AssertRaisesContext`
+    #  inconsistently.
+    # pyre-fixme[14]: `__exit__` overrides method defined in `_AssertRaisesContext`
+    #  inconsistently.
     def __exit__(
         self,
         exc_type: Optional[Type[Exception]],
@@ -103,8 +111,9 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
 
 # Instead of showing a warning (like in the standard library) we throw an error when
 # deprecated functions are called.
-# pyre-fixme[3]: Return annotation cannot contain `Any`.
-# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def _deprecate(original_func: Callable) -> Callable:
     def _deprecated_func(*args: List[Any], **kwargs: Dict[str, Any]) -> None:
         raise RuntimeError(
@@ -118,6 +127,42 @@ def _deprecate(original_func: Callable) -> Callable:
 class TestCase(unittest.TestCase):
     """The base test case for Ax, contains various helper functions to write unittest.
     """
+
+    def __init__(self, methodName: str = "runTest") -> None:
+        super().__init__(methodName=methodName)
+
+    def assertEqual(
+        self,
+        first: Any,  # pyre-ignore[2]
+        second: Any,  # pyre-ignore[2]
+        msg: Optional[str] = None,
+    ) -> None:
+        if isinstance(first, Base) and isinstance(second, Base):
+            self.assertAxBaseEqual(first=first, second=second, msg=msg)
+        else:
+            super().assertEqual(first=first, second=second, msg=msg)
+
+    def assertAxBaseEqual(
+        self, first: Base, second: Base, msg: Optional[str] = None
+    ) -> None:
+        self.assertIsInstance(
+            first, Base, "First argument is not a subclass of Ax `Base`."
+        )
+        self.assertIsInstance(
+            second, Base, "Second argument is not a subclass of Ax `Base`."
+        )
+        if first != second:
+            _, unequal_val = object_attribute_dicts_find_unequal_fields(
+                one_dict=first.__dict__, other_dict=second.__dict__, fast_return=False
+            )
+            msg = msg or ""
+            msg += f"{first} (type {type(first)}) != {second} (type {type(second)})."
+            if unequal_val:
+                msg += "\n\nFields with different values:"
+                for field, (one_val, other_val) in unequal_val.items():
+                    msg += f"\n* {field}: {one_val} (type {type(one_val)}) VS. "
+                    msg += f"{other_val} (type {type(other_val)})"
+            raise self.failureException(msg)
 
     def assertRaisesOn(
         self,

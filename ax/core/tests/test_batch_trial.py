@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
+from time import sleep
 from unittest.mock import PropertyMock, patch
 
 import numpy as np
@@ -22,6 +23,8 @@ from ax.utils.testing.core_stubs import (
     get_arm_weights1,
     get_arms,
     get_experiment,
+    get_generator_run,
+    get_generator_run2,
     get_weights,
 )
 
@@ -203,6 +206,12 @@ class BatchTrialTest(TestCase):
         )
 
     def testBatchLifecycle(self):
+        # Check that state of trial statuses mapping on experiment: there should only be
+        # one index, 0, among the `CANDIDATE` trials.
+        trial_idcs_by_status = iter(self.experiment.trial_indices_by_status.values())
+        self.assertEqual(next(trial_idcs_by_status), {0})  # `CANDIDATE` trial indices
+        # ALl other trial statuses should not yet have trials carry them.
+        self.assertTrue(all(len(idcs) == 0 for idcs in trial_idcs_by_status))
         staging_mock = PropertyMock()
         with patch.object(SyntheticRunner, "staging_required", staging_mock):
             mock_runner = SyntheticRunner()
@@ -210,6 +219,15 @@ class BatchTrialTest(TestCase):
             self.batch.runner = mock_runner
             self.batch.run()
             self.assertEqual(self.batch.status, TrialStatus.STAGED)
+            # Check that the trial statuses mapping on experiment has been updated.
+            self.assertEqual(
+                self.experiment.trial_indices_by_status[TrialStatus.STAGED], {0}
+            )
+            self.assertTrue(
+                all(len(idcs) == 0)
+                for status, idcs in self.experiment.trial_indices_by_status.items()
+                if status != TrialStatus.STAGED
+            )
             self.assertIsNotNone(self.batch.time_staged)
             self.assertTrue(self.batch.status.is_deployed)
             self.assertFalse(self.batch.status.expecting_data)
@@ -227,6 +245,15 @@ class BatchTrialTest(TestCase):
 
             self.batch.mark_running()
             self.assertEqual(self.batch.status, TrialStatus.RUNNING)
+            # Check that the trial statuses mapping on experiment has been updated.
+            self.assertEqual(
+                self.experiment.trial_indices_by_status[TrialStatus.RUNNING], {0}
+            )
+            self.assertTrue(
+                all(len(idcs) == 0)
+                for status, idcs in self.experiment.trial_indices_by_status.items()
+                if status != TrialStatus.RUNNING
+            )
             self.assertIsNotNone(self.batch.time_run_started)
             self.assertTrue(self.batch.status.expecting_data)
 
@@ -237,6 +264,15 @@ class BatchTrialTest(TestCase):
 
             # Verify trial is completed
             self.assertEqual(self.batch.status, TrialStatus.COMPLETED)
+            # Check that the trial statuses mapping on experiment has been updated.
+            self.assertEqual(
+                self.experiment.trial_indices_by_status[TrialStatus.COMPLETED], {0}
+            )
+            self.assertTrue(
+                all(len(idcs) == 0)
+                for status, idcs in self.experiment.trial_indices_by_status.items()
+                if status != TrialStatus.COMPLETED
+            )
             self.assertIsNotNone(self.batch.time_completed)
             self.assertTrue(self.batch.status.is_terminal)
 
@@ -255,6 +291,18 @@ class BatchTrialTest(TestCase):
 
             with self.assertRaises(ValueError):
                 self.batch.mark_failed()
+
+            # Check that the trial statuses mapping on experiment is updated when
+            # trial status is set hackily / directly, without using `mark_X`.
+            self.batch._status = TrialStatus.CANDIDATE
+            self.assertEqual(
+                self.experiment.trial_indices_by_status[TrialStatus.CANDIDATE], {0}
+            )
+            self.assertTrue(
+                all(len(idcs) == 0)
+                for status, idcs in self.experiment.trial_indices_by_status.items()
+                if status != TrialStatus.CANDIDATE
+            )
 
     def testAbandonBatchTrial(self):
         reason = "BatchTrial behaved poorly"
@@ -448,5 +496,88 @@ class BatchTrialTest(TestCase):
         self.assertEqual(batch_trial._status_quo_weight_override, np.sqrt(2))
 
     def testRepr(self):
-        repr_ = "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)"  # noqa
-        self.assertEqual(str(self.batch), repr_)
+        self.assertEqual(
+            str(self.batch),
+            "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)",
+        )
+
+    def test_TTL(self):
+        # Verify that TLL is checked on execution of the `status` property.
+        self.batch.ttl_seconds = 1
+        self.batch.mark_running(no_runner_required=True)
+        self.assertTrue(self.batch.status.is_running)
+        sleep(1)  # Wait 1 second for trial TTL to elapse.
+        self.assertTrue(self.batch.status.is_failed)
+        self.assertIn(0, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
+
+        # Verify that TTL is checked on `experiment.trial_indices_by_status`.
+        batch_trial = self.experiment.new_batch_trial(ttl_seconds=1)
+        batch_trial.mark_running(no_runner_required=True)
+        self.assertTrue(batch_trial.status.is_running)
+        sleep(1)  # Wait 1 second for trial TTL to elapse.
+        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
+        self.assertTrue(self.experiment.trials[1].status.is_failed)
+
+        # Verify that TTL is checked on `experiment.trials`.
+        batch_trial = self.experiment.new_batch_trial(ttl_seconds=1)
+        batch_trial.mark_running(no_runner_required=True)
+        self.assertTrue(batch_trial.status.is_running)
+        self.assertIn(2, self.experiment.trial_indices_by_status[TrialStatus.RUNNING])
+        sleep(1)  # Wait 1 second for trial TTL to elapse.
+        self.experiment.trials
+        # Check `_status`, not `status`, to ensure it's within `trials` that the status
+        # was actually changed, not in `status`.
+        self.assertEqual(batch_trial._status, TrialStatus.FAILED)
+        self.assertIn(2, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
+
+    def test_get_candidate_metadata_from_all_generator_runs(self):
+        gr_1 = get_generator_run()
+        gr_2 = get_generator_run2()
+        self.batch.add_generator_run(gr_1)
+        # Arms are named when adding GR to trial, so reassign to have a GR that has
+        # names arms.
+        gr_1 = self.batch._generator_run_structs[-1].generator_run
+        self.batch.add_generator_run(gr_2)
+        gr_2 = self.batch._generator_run_structs[-1].generator_run
+        # gr_2 has no candidate metadata; all candidate metadata should come from gr_1
+        cand_metadata_expected = {
+            a.name: gr_1.candidate_metadata_by_arm_signature[a.signature]
+            for a in gr_1.arms
+        }
+        self.assertEqual(
+            self.batch._get_candidate_metadata_from_all_generator_runs(),
+            cand_metadata_expected,
+        )
+        for arm in self.batch.arms:
+            self.assertEqual(
+                cand_metadata_expected[arm.name],
+                self.batch._get_candidate_metadata(arm.name),
+            )
+        self.assertRaises(
+            ValueError, self.batch._get_candidate_metadata, "this_is_not_an_arm"
+        )
+
+        # Check that if we add cand. metadata to gr_2, it will appear in cand.
+        # metadata for the batch.
+        gr_3 = get_generator_run2()
+        new_cand_metadata = {
+            a.signature: {"md_key": f"md_val_{a.signature}"} for a in gr_3.arms
+        }
+        gr_3._candidate_metadata_by_arm_signature = new_cand_metadata
+        self.batch.add_generator_run(gr_3)
+        gr_3 = self.batch._generator_run_structs[-1].generator_run
+        cand_metadata_expected.update(
+            {
+                a.name: gr_1.candidate_metadata_by_arm_signature[a.signature]
+                for a in gr_1.arms
+            }
+        )
+        self.assertEqual(
+            self.batch._get_candidate_metadata_from_all_generator_runs(),
+            cand_metadata_expected,
+        )
+        for arm in self.batch.arms:
+            self.assertEqual(
+                cand_metadata_expected[arm.name],
+                self.batch._get_candidate_metadata(arm.name),
+            )

@@ -86,6 +86,8 @@ def benchmark_trial(
         )
     if use_Service_API:
         sem = 0.0 if isinstance(evaluation_function, SyntheticFunction) else None
+        # pyre-fixme[7]: Expected `Union[Tuple[float, float], Data]` but got
+        #  `Tuple[typing.Any, Optional[float]]`.
         return evaluation_function(parameterization), sem  # pyre-ignore[29]: call err.
     else:
         trial_index = not_none(trial_index)
@@ -226,8 +228,12 @@ def benchmark_test(  # One test, multiple replications.
 
 
 def full_benchmark_run(  # Full run, multiple tests.
-    problems: Optional[Union[List[BenchmarkProblem], List[str]]] = None,
-    methods: Optional[Union[List[GenerationStrategy], List[str]]] = None,
+    problem_groups: (
+        Optional[Dict[str, Union[List[BenchmarkProblem], List[str]]]]
+    ) = None,
+    method_groups: (
+        Optional[Dict[str, Union[List[GenerationStrategy], List[str]]]]
+    ) = None,
     num_trials: Union[int, List[List[int]]] = 20,
     num_replications: int = 20,
     batch_size: Union[int, List[List[int]]] = 1,
@@ -246,13 +252,33 @@ def full_benchmark_run(  # Full run, multiple tests.
     by passing in a wrapped (in some scheduling logic) version of a corresponding
     function from this module.
 
+    Here, `problem_groups` and `method_groups` are dictionaries that have the same
+    keys such that we can run a specific subset of problems with a corresponding
+    subset of methods.
+
+    Example:
+
+    ::
+
+        problem_groups = {
+            "single_fidelity": [ackley, branin],
+            "multi_fidelity": [augmented_hartmann],
+        }
+        method_groups = {
+            "single_fidelity": [single_task_GP_and_NEI_strategy],
+            "multi_fidelity": [fixed_noise_MFGP_and_MFKG_strategy],
+        }
+
+    Here, `ackley` and `branin` will be run against `single_task_GP_and_NEI_strategy`
+    and `augmented_hartmann` against `fixed_noise_MFGP_and_MFKG_strategy`.
+
     Args:
-        problems: Problems to benchmark on, represented as BenchmarkProblem-s
-            or string keys (must be in standard BOProblems). Defaults to all
-            standard BOProblems.
-        methods: Methods to benchmark, represented as generation strategies or
-            or string keys (must be in standard BOMethods). Defaults to all
-            standard BOMethods.
+        problem_groups: Problems to benchmark on, represented as a dictionary from
+            category string to List of BenchmarkProblem-s or string keys (must be
+            in standard BOProblems). More on `problem_groups` below.
+        method_groups: Methods to benchmark on, represented as a dictionary from
+            category string to List of generation strategies or string keys (must
+            be in standard BOMethods). More on `method_groups` below.
         num_replications: Number of times to run each test (each problem-method
             combination), for an aggregated result.
         num_trials: Number of trials in each test experiment.
@@ -275,39 +301,44 @@ def full_benchmark_run(  # Full run, multiple tests.
         failed_replications_tolerated: How many replications can fail before a
             test is considered failed and aborted. Defaults to 3.
     """
+    problem_groups = problem_groups or {}
+    method_groups = method_groups or {}
+    _validate_groups(problem_groups, method_groups)
     exceptions = []
     tests: Dict[str, Dict[str, List[Experiment]]] = {}
-    problems, methods = utils.get_problems_and_methods(
-        problems=problems, methods=methods
-    )
-    for problem_idx, problem in enumerate(problems):
-        tests[problem.name] = {}
-        for method_idx, method in enumerate(methods):
-            tests[problem.name][method.name] = []
-            try:
-                tests[problem.name][method.name] = benchmark_test(
-                    problem=problem,
-                    method=method,
-                    num_replications=num_replications,
-                    # For arguments passed as either numbers, or matrices,
-                    # xtract corresponding values for the given combination.
-                    num_trials=utils.get_corresponding(
-                        num_trials, problem_idx, method_idx
-                    ),
-                    batch_size=utils.get_corresponding(
-                        batch_size, problem_idx, method_idx
-                    ),
-                    benchmark_replication=benchmark_replication,
-                    benchmark_trial=benchmark_trial,
-                    raise_all_exceptions=raise_all_exceptions,
-                    verbose_logging=verbose_logging,
-                    failed_replications_tolerated=failed_replications_tolerated,
-                    failed_trials_tolerated=failed_trials_tolerated,
-                )
-            except Exception as err:
-                if raise_all_exceptions:
-                    raise
-                exceptions.append(err)  # TODO[T53975770]: test
+    for group_name in problem_groups:
+        problems, methods = utils.get_problems_and_methods(
+            problems=problem_groups.get(group_name),
+            methods=method_groups.get(group_name),
+        )
+        for problem_idx, problem in enumerate(problems):
+            tests[problem.name] = {}
+            for method_idx, method in enumerate(methods):
+                tests[problem.name][method.name] = []
+                try:
+                    tests[problem.name][method.name] = benchmark_test(
+                        problem=problem,
+                        method=method,
+                        num_replications=num_replications,
+                        # For arguments passed as either numbers, or matrices,
+                        # xtract corresponding values for the given combination.
+                        num_trials=utils.get_corresponding(
+                            num_trials, problem_idx, method_idx
+                        ),
+                        batch_size=utils.get_corresponding(
+                            batch_size, problem_idx, method_idx
+                        ),
+                        benchmark_replication=benchmark_replication,
+                        benchmark_trial=benchmark_trial,
+                        raise_all_exceptions=raise_all_exceptions,
+                        verbose_logging=verbose_logging,
+                        failed_replications_tolerated=failed_replications_tolerated,
+                        failed_trials_tolerated=failed_trials_tolerated,
+                    )
+                except Exception as err:
+                    if raise_all_exceptions:
+                        raise
+                    exceptions.append(err)  # TODO[T53975770]: test
     logger.info(f"Obtained benchmarking test experiments: {tests}")
     return tests
 
@@ -398,14 +429,17 @@ def _benchmark_replication_Dev_API(
         optimization_config=problem.optimization_config,
         runner=SyntheticRunner(),
     )
-    for _ in range(num_trials):
+    for trial_index in range(num_trials):
         try:
             gr = method.gen(experiment=experiment, n=batch_size)
             if batch_size == 1:
-                experiment.new_trial(generator_run=gr).run()
+                trial = experiment.new_trial(generator_run=gr)
             else:
                 assert batch_size > 1
-                experiment.new_batch_trial(generator_run=gr).run()
+                trial = experiment.new_batch_trial(generator_run=gr)
+            trial.run()
+            benchmark_trial(experiment=experiment, trial_index=trial_index)
+            trial.mark_completed()
         except Exception as err:  # TODO[T53975770]: test
             if raise_all_exceptions:
                 raise
@@ -495,12 +529,13 @@ def benchmark_minimize_callable(
             previous_ts = experiment.trials[num_trials - 1].time_created.timestamp()
             gen_time = time.time() - previous_ts
         # Create a GR
+        arms, candidate_metadata_by_arm_signature = gen_arms(
+            observation_features=[obsf], arms_by_signature=experiment.arms_by_signature
+        )
         gr = GeneratorRun(
-            arms=gen_arms(
-                observation_features=[obsf],
-                arms_by_signature=experiment.arms_by_signature,
-            ),
+            arms=arms,
             gen_time=gen_time,
+            candidate_metadata_by_arm_signature=candidate_metadata_by_arm_signature,
         )
         # Add it as a trial
         trial = experiment.new_trial().add_generator_run(gr).run()
@@ -514,3 +549,34 @@ def benchmark_minimize_callable(
         return obj
 
     return experiment, evaluation_function
+
+
+def _validate_groups(
+    problem_groups: Dict[str, Union[List[BenchmarkProblem], List[str]]],
+    method_groups: Dict[str, Union[List[GenerationStrategy], List[str]]],
+) -> None:
+    # Check for dict with lists as values.
+    problem_groups_is_dict_of_lists = isinstance(problem_groups, dict) and all(
+        isinstance(problems, list) for problems in problem_groups.values()
+    )
+    if not problem_groups_is_dict_of_lists:
+        raise ValueError(
+            "`problem_groups` does not match the expected type of "
+            "Dict[str, List[BenchmarkProblem]]. "
+            "Example: problem_groups = {'single_fidelity': [problem1, problem2]}"
+        )
+    method_groups_is_dict_of_lists = isinstance(method_groups, dict) and all(
+        isinstance(problems, list) for problems in method_groups.values()
+    )
+    if not method_groups_is_dict_of_lists:
+        raise ValueError(
+            "`method_groups` does not match the expected type of "
+            "Dict[str, List[GenerationStrategy]]. "
+            "Example: method_groups = {'single_fidelity': [strategy1, strategy2]}"
+        )
+
+    # Check that `problem_groups` and `method_groups` have the same keys.
+    if problem_groups.keys() != method_groups.keys():
+        raise ValueError(
+            "`problem_groups` and `method_groups` should have the same keys."
+        )

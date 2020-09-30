@@ -4,12 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from collections import defaultdict
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import torch
 from ax.core.types import TConfig, TParamCounter
+from ax.exceptions.core import SearchSpaceExhausted
+from ax.models.numpy_base import NumpyModel
 from ax.models.torch_base import TorchModel
 
 
@@ -104,9 +108,10 @@ def rejection_sample(
 
     if successful_draws < n:
         # Only possible if attempted_draws >= max_draws.
-        raise ValueError(
-            f"Specified maximum draws ({max_draws}) exhausted, without "
-            f"finding sufficiently many ({n}) candidates."
+        raise SearchSpaceExhausted(
+            f"Rejection sampling error (specified maximum draws ({max_draws}) exhausted"
+            f", without finding sufficiently many ({n}) candidates). This likely means "
+            "that there are no new points left in the search space."
         )
     else:
         return (points, attempted_draws)
@@ -224,14 +229,14 @@ def validate_bounds(
 
 
 def best_observed_point(
-    model: Union["models.numpy_base.NumpyModel", "models.torch_base.TorchModel"],
+    model: Union[NumpyModel, TorchModel],
     bounds: List[Tuple[float, float]],
     objective_weights: Optional[Tensoray],
     outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
     linear_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
     options: Optional[TConfig] = None,
-) -> Optional[np.ndarray]:
+) -> Optional[Tensoray]:
     """Select the best point that has been observed.
 
     Implements two approaches to selecting the best point.
@@ -282,6 +287,80 @@ def best_observed_point(
     """
     if not hasattr(model, "Xs"):
         raise ValueError(f"Model must store training data Xs, but {model} does not.")
+    best_point_and_value = best_in_sample_point(
+        Xs=model.Xs,  # pyre-ignore[16]: Presence of attr. checked above.
+        model=model,
+        bounds=bounds,
+        objective_weights=objective_weights,
+        outcome_constraints=outcome_constraints,
+        linear_constraints=linear_constraints,
+        fixed_features=fixed_features,
+        options=options,
+    )
+    return None if best_point_and_value is None else best_point_and_value[0]
+
+
+def best_in_sample_point(
+    Xs: Union[List[torch.Tensor], List[np.ndarray]],
+    model: Union[NumpyModel, TorchModel],
+    bounds: List[Tuple[float, float]],
+    objective_weights: Optional[Tensoray],
+    outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
+    linear_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
+    fixed_features: Optional[Dict[int, float]] = None,
+    options: Optional[TConfig] = None,
+) -> Optional[Tuple[Tensoray, float]]:
+    """Select the best point that has been observed.
+
+    Implements two approaches to selecting the best point.
+
+    For both approaches, only points that satisfy parameter space constraints
+    (bounds, linear_constraints, fixed_features) will be returned. Points must
+    also be observed for all objective and constraint outcomes. Returned
+    points may violate outcome constraints, depending on the method below.
+
+    1: Select the point that maximizes the expected utility
+    (objective_weights^T posterior_objective_means - baseline) * Prob(feasible)
+    Here baseline should be selected so that at least one point has positive
+    utility. It can be specified in the options dict, otherwise
+    min (objective_weights^T posterior_objective_means)
+    will be used, where the min is over observed points.
+
+    2: Select the best-objective point that is feasible with at least
+    probability p.
+
+    The following quantities may be specified in the options dict:
+
+    - best_point_method: 'max_utility' (default) or 'feasible_threshold'
+      to select between the two approaches described above.
+    - utility_baseline: Value for the baseline used in max_utility approach. If
+      not provided, defaults to min objective value.
+    - probability_threshold: Threshold for the feasible_threshold approach.
+      Defaults to p=0.95.
+    - feasibility_mc_samples: Number of MC samples used for estimating the
+      probability of feasibility (defaults 10k).
+
+    Args:
+        Xs: Training data for the points, among which to select the best.
+        model: Numpy or Torch model.
+        bounds: A list of (lower, upper) tuples for each feature.
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b.
+        linear_constraints: A tuple of (A, b). For k linear constraints on
+            d-dimensional x, A is (k x d) and b is (k x 1) such that
+            A x <= b.
+        fixed_features: A map {feature_index: value} for features that
+            should be fixed to a particular value in the best point.
+        options: A config dictionary with settings described above.
+
+    Returns:
+        A two-element tuple or None if no feasible point exist. In tuple:
+        - d-array of the best point,
+        - utility at the best point.
+    """
     # Parse options
     if options is None:
         options = {}
@@ -302,8 +381,7 @@ def best_observed_point(
         return None  # pragma: no cover
     objective_weights_np = as_array(objective_weights)
     X_obs = get_observed(
-        # pyre-fixme[16]: attribute must exist, otherwise error raised above
-        Xs=model.Xs,
+        Xs=Xs,
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
     )
@@ -317,10 +395,9 @@ def best_observed_point(
     if len(X_obs) == 0:
         # No feasible points
         return None
-    # Predict objective and P(feas) at these points
-    if isinstance(model, TorchModel):
-        # pyre-fixme[29]: `Union[() -> Tensor, Any]` is not a function.
-        X_obs = X_obs.clone().detach()
+    # Predict objective and P(feas) at these points for Torch models.
+    if isinstance(Xs[0], torch.Tensor):
+        X_obs = X_obs.detach().clone()
     f, cov = as_array(model.predict(X_obs))
     obj = objective_weights_np @ f.transpose()  # pyre-ignore
     pfeas = np.ones_like(obj)
@@ -345,7 +422,7 @@ def best_observed_point(
     if utility[i] == -np.Inf:
         return None
     else:
-        return X_obs[i, :]
+        return X_obs[i, :], utility[i]
 
 
 def as_array(
@@ -400,14 +477,26 @@ def get_observed(
             np.where(as_array(outcome_constraints)[0] != 0)[1]
         )
     outcome_list = list(used_outcomes)
+    # pyre-fixme[16]: `Tensor` has no attribute `__iter__`.
     X_obs_set = {tuple(float(x_i) for x_i in x) for x in Xs[outcome_list[0]]}
     for _, idx in enumerate(outcome_list, start=1):
         X_obs_set = X_obs_set.intersection(
             {tuple(float(x_i) for x_i in x) for x in Xs[idx]}
         )
     if isinstance(Xs[0], np.ndarray):
+        # pyre-fixme[6]: Expected `Union[None, Dict[str, Tuple[typing.Any, int]],
+        #  Dict[str, Union[typing.Sequence[typing.Any], typing.Sequence[Union[None,
+        #  bytes, str]], typing.Sequence[int], typing.Sequence[str], int]],
+        #  List[Union[Tuple[Union[Tuple[str, str], str], typing.Any],
+        #  Tuple[Union[Tuple[str, str], str], typing.Any, Union[typing.Sequence[int],
+        #  int]]]], Tuple[typing.Any, typing.Any], Tuple[typing.Any,
+        #  Union[typing.Sequence[int], int]], Tuple[typing.Any, int],
+        #  typing.Type[typing.Any], np.dtype, str]` for 2nd param but got
+        #  `Union[np.dtype, torch.dtype]`.
         return np.array(list(X_obs_set), dtype=Xs[0].dtype)  # (n x d)
     if isinstance(Xs[0], torch.Tensor):
+        # pyre-fixme[7]: Expected `Union[np.ndarray, torch.Tensor]` but got implicit
+        #  return value of `None`.
         return torch.tensor(list(X_obs_set), device=Xs[0].device, dtype=Xs[0].dtype)
 
 

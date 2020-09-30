@@ -135,3 +135,7 @@ class MultiTypeExperimentTest(TestCase):
         # Try making trial with unsupported trial type
         with self.assertRaises(ValueError):
             self.experiment.new_batch_trial(trial_type="type3")
+
+        # Try resetting runners.
+        with self.assertRaises(NotImplementedError):
+            self.experiment.reset_runners(SyntheticRunner())

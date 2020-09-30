@@ -173,11 +173,14 @@ def extract_optimization_trace(  # pragma: no cover
         logger.info(
             "Cannot obtain true best objectives since an ad-hoc function was used."
         )
+        # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
         assert len(experiment.optimization_config.outcome_constraints) == 0
         values = np.array(
             [checked_cast(Trial, trial).objective_mean for trial in experiment.trials]
         )
         return best_feasible_objective(
+            # pyre-fixme[6]: Expected `OptimizationConfig` for 1st param but got
+            #  `Optional[ax.core.optimization_config.OptimizationConfig]`.
             optimization_config=experiment.optimization_config,
             values={problem.name: values},
         )
@@ -203,7 +206,10 @@ def _extract_optimization_trace_from_metrics(experiment: Experiment) -> np.ndarr
         df_b = pd.merge(iters_df, df_m, how="left", on="arm_name")
         true_values[metric] = df_b["mean"].values
     return best_feasible_objective(
-        optimization_config=experiment.optimization_config, values=true_values
+        # pyre-fixme[6]: Expected `OptimizationConfig` for 1st param but got
+        #  `Optional[ax.core.optimization_config.OptimizationConfig]`.
+        optimization_config=experiment.optimization_config,
+        values=true_values,
     )
 
 
@@ -219,6 +225,8 @@ def _extract_optimization_trace_from_synthetic_function(
         value = problem.f(*[float(x) for x in parameters.values()])  # pyre-ignore[6]
         true_values.append(value)
     return best_feasible_objective(
+        # pyre-fixme[6]: Expected `OptimizationConfig` for 1st param but got
+        #  `Optional[ax.core.optimization_config.OptimizationConfig]`.
         optimization_config=experiment.optimization_config,
         values={problem.name: true_values},
     )

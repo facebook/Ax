@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from enum import Enum
 from inspect import isfunction, signature
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
@@ -15,6 +17,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.discrete import DiscreteModelBridge
+from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
@@ -33,6 +36,7 @@ from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandar
 from ax.modelbridge.transforms.task_encode import TaskEncode
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.modelbridge.transforms.unit_x import UnitX
+from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
@@ -41,6 +45,8 @@ from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_kg import KnowledgeGradient
 from ax.models.torch.botorch_mes import MaxValueEntropySearch
+from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
@@ -99,6 +105,11 @@ ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
     TaskEncode,
 ]
 
+# Single-type MTGP transforms
+Specified_Task_ST_MTGP_trans: List[Type[Transform]] = (
+    Cont_X_trans + [Derelativize, StratifiedStandardizeY, TaskEncode]
+)
+
 STANDARD_TORCH_BRIDGE_KWARGS: Dict[str, Any] = {
     "torch_dtype": torch.double,
     "torch_device": torch.device("cpu"),
@@ -113,9 +124,10 @@ class ModelSetup(NamedTuple):
     """
 
     bridge_class: Type[ModelBridge]
-    model_class: Any
+    model_class: Type[Model]
     transforms: List[Type[Transform]]
     standard_bridge_kwargs: Optional[Dict[str, Any]] = None
+    not_saved_model_kwargs: Optional[List[str]] = None
 
 
 """A mapping of string keys that indicate a model, to the corresponding
@@ -126,6 +138,12 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
     "BO": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
+        transforms=Cont_X_trans + Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
+    "BoTorch": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=BoTorchModel,
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
@@ -172,6 +190,12 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         model_class=UniformGenerator,
         transforms=Cont_X_trans,
     ),
+    "MOO": ModelSetup(
+        bridge_class=MultiObjectiveTorchModelBridge,
+        model_class=MultiObjectiveBotorchModel,
+        transforms=Cont_X_trans + Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
 }
 
 
@@ -199,10 +223,22 @@ class Models(Enum):
     FACTORIAL = "Factorial"
     THOMPSON = "Thompson"
     BOTORCH = "BO"
+    BOTORCH_MODULAR = "BoTorch"
     EMPIRICAL_BAYES_THOMPSON = "EB"
     UNIFORM = "Uniform"
+    MOO = "MOO"
 
-    # TODO[Lena]: test that none of the preset model+bridge combos share a kwarg
+    @property
+    def model_class(self) -> Type[Model]:
+        """Type of `Model` used for the given model+bridge setup."""
+        return MODEL_KEY_TO_MODEL_SETUP[self.value].model_class
+
+    @property
+    def model_bridge_class(self) -> Type[ModelBridge]:
+        """Type of `ModelBridge` used for the given model+bridge setup."""
+        return MODEL_KEY_TO_MODEL_SETUP[self.value].bridge_class
+
+    # TODO[T67370152]: Test that none of the `ModelSetup`-s share a kwarg.
     def __call__(
         self,
         search_space: Optional[SearchSpace] = None,
@@ -255,6 +291,10 @@ class Models(Enum):
             **bridge_kwargs,
         )
 
+        if model_setup_info.not_saved_model_kwargs:
+            for key in model_setup_info.not_saved_model_kwargs:
+                model_kwargs.pop(key, None)
+
         # Store all kwargs on model bridge, to be saved on generator run.
         model_bridge._set_kwargs_to_save(
             model_key=self.value,
@@ -284,8 +324,8 @@ class Models(Enum):
         Returns:
             A tuple of annotated keyword arguments for the model and the model bridge.
         """
-        model_class = MODEL_KEY_TO_MODEL_SETUP[self.value].model_class
-        bridge_class = MODEL_KEY_TO_MODEL_SETUP[self.value].bridge_class
+        model_class = self.model_class
+        bridge_class = self.model_bridge_class
         return (
             {kw: p.annotation for kw, p in signature(model_class).parameters.items()},
             {kw: p.annotation for kw, p in signature(bridge_class).parameters.items()},
@@ -321,8 +361,8 @@ def get_model_from_generator_run(
     generator_run: GeneratorRun,
     experiment: Experiment,
     data: Data,
-    models_enum: Optional[Type["Models"]] = None,
-    after_gen: bool = False,
+    models_enum: Optional[Type[Models]] = None,
+    after_gen: bool = True,
 ) -> ModelBridge:
     """Reinstantiate a model from model key and kwargs stored on a given generator
     run, with the given experiment and the data to initialize the model with.
@@ -342,9 +382,9 @@ def get_model_from_generator_run(
             registry that extends `Models`.
         after_gen: Whether to reinstantiate the model in the state, in which it
             was after it created this generator run, as opposed to before.
-            Defaults to False, useful when reinstantiating the model to resume
+            Defaults to True, useful when reinstantiating the model to resume
             optimization, rather than to recreate its state at the time of
-            generation.
+            generation. TO recreate state at the time of generation, set to `False`.
     """
     if not generator_run._model_key:  # pragma: no cover
         raise ValueError(
@@ -353,15 +393,17 @@ def get_model_from_generator_run(
         )
     model = (models_enum or Models)(generator_run._model_key)
     model_kwargs = generator_run._model_kwargs or {}
-    if after_gen and generator_run._model_state_after_gen is not None:
-        model_kwargs.update(not_none(generator_run._model_state_after_gen))
+    if after_gen:
+        model_kwargs = _combine_model_kwargs_and_state(
+            generator_run=generator_run, model_class=model.model_class
+        )
     bridge_kwargs = generator_run._bridge_kwargs or {}
     model_kwargs = _decode_callables_from_references(model_kwargs)
     bridge_kwargs = _decode_callables_from_references(bridge_kwargs)
     model_keywords = list(model_kwargs.keys())
     for key in model_keywords:
         if key in bridge_kwargs:  # pragma: no cover
-            logger.info(
+            logger.debug(
                 f"Keyword argument `{key}` occurs in both model and model bridge "
                 f"kwargs stored in the generator run. Assuming the `{key}` kwarg "
                 "is passed into the model by the model bridge and removing its "
@@ -369,6 +411,25 @@ def get_model_from_generator_run(
             )
             del model_kwargs[key]
     return model(experiment=experiment, data=data, **bridge_kwargs, **model_kwargs)
+
+
+def _combine_model_kwargs_and_state(
+    generator_run: GeneratorRun,
+    model_class: Type[Model],
+    model_kwargs: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Produces a combined dict of model kwargs and model state after gen,
+    extracted from generator run. If model kwargs are not specified,
+    model kwargs from the generator run will be used.
+    """
+    model_kwargs = model_kwargs or generator_run._model_kwargs or {}
+    if generator_run._model_state_after_gen is None:
+        return model_kwargs
+
+    serialized_model_state = not_none(generator_run._model_state_after_gen)
+    # We don't want to update `model_kwargs` on the `GenerationStep`,
+    # just to add to them for the purpose of this function.
+    return {**model_kwargs, **model_class.deserialize_state(serialized_model_state)}
 
 
 def _encode_callables_as_references(kwarg_dict: Dict[str, Any]) -> Dict[str, Any]:

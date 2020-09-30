@@ -11,42 +11,112 @@ import torch
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
+    get_chebyshev_scalarization,
     recommend_best_out_of_sample_point,
 )
+from ax.models.torch.utils import sample_simplex
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import FixedNoiseGP, ModelListGP
 from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
+from gpytorch.priors import GammaPrior
+from gpytorch.priors.lkj_prior import LKJCovariancePrior
 
 
-FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
+FIT_MODEL_MO_PATH = f"{get_and_fit_model.__module__}.fit_gpytorch_model"
+SAMPLE_SIMPLEX_UTIL_PATH = f"{sample_simplex.__module__}.sample_simplex"
+SAMPLE_HYPERSPHERE_UTIL_PATH = f"{sample_simplex.__module__}.sample_hypersphere"
+CHEBYSHEV_SCALARIZATION_PATH = (
+    f"{get_chebyshev_scalarization.__module__}.get_chebyshev_scalarization"
+)
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
     return X
 
 
-def _get_torch_test_data(dtype=torch.float, cuda=False, constant_noise=True):
-    device = torch.device("cuda") if cuda else torch.device("cpu")
-    Xs = [torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=dtype, device=device)]
-    Ys = [torch.tensor([[3.0], [4.0]], dtype=dtype, device=device)]
-    Yvars = [torch.tensor([[0.0], [2.0]], dtype=dtype, device=device)]
-    if constant_noise:
-        Yvars[0].fill_(1.0)
-    bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
-    task_features = []
-    feature_names = ["x1", "x2", "x3"]
-    metric_names = ["y"]
-    return Xs, Ys, Yvars, bounds, task_features, feature_names, metric_names
-
-
 class BotorchModelTest(TestCase):
-    def test_BotorchModel(self, dtype=torch.float, cuda=False):
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
+    def test_fixed_rank_BotorchModel(self, dtype=torch.float, cuda=False):
+        Xs1, Ys1, Yvars1, bounds, _, fns, __package__ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
-        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
+        Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
+            dtype=dtype, cuda=cuda, constant_noise=True
+        )
+        model = BotorchModel(multitask_gp_ranks={"y": 2, "w": 1})
+
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1 + Xs2,
+                Ys=Ys1 + Ys2,
+                Yvars=Yvars1 + Yvars2,
+                bounds=bounds,
+                task_features=[0],
+                feature_names=fns,
+                metric_names=["y", "w"],
+                fidelity_features=[],
+            )
+            _mock_fit_model.assert_called_once()
+
+        # Check ranks
+        model_list = model.model.models
+        self.assertEqual(model_list[0]._rank, 2)
+        self.assertEqual(model_list[1]._rank, 1)
+
+    def test_fixed_prior_BotorchModel(self, dtype=torch.float, cuda=False):
+        Xs1, Ys1, Yvars1, bounds, _, fns, __package__ = get_torch_test_data(
+            dtype=dtype, cuda=cuda, constant_noise=True
+        )
+        Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
+            dtype=dtype, cuda=cuda, constant_noise=True
+        )
+        kwargs = {
+            "prior": {
+                "type": LKJCovariancePrior,
+                "sd_prior": GammaPrior(2.0, 0.44),
+                "eta": 0.6,
+            }
+        }
+        model = BotorchModel(**kwargs)
+
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1 + Xs2,
+                Ys=Ys1 + Ys2,
+                Yvars=Yvars1 + Yvars2,
+                bounds=bounds,
+                task_features=[0],
+                feature_names=fns,
+                metric_names=["y", "w"],
+                fidelity_features=[],
+            )
+            _mock_fit_model.assert_called_once()
+
+        # Check ranks
+        model_list = model.model.models
+        for i in range(1):
+            self.assertIsInstance(
+                model_list[i].task_covar_module.IndexKernelPrior, LKJCovariancePrior
+            )
+            self.assertEqual(
+                model_list[i].task_covar_module.IndexKernelPrior.sd_prior.concentration,
+                2.0,
+            )
+            self.assertEqual(
+                model_list[i].task_covar_module.IndexKernelPrior.sd_prior.rate, 0.44
+            )
+            self.assertEqual(
+                model_list[i].task_covar_module.IndexKernelPrior.correlation_prior.eta,
+                0.6,
+            )
+
+    def test_BotorchModel(self, dtype=torch.float, cuda=False):
+        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
+            dtype=dtype, cuda=cuda, constant_noise=True
+        )
+        Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         model = BotorchModel()
@@ -164,7 +234,7 @@ class BotorchModelTest(TestCase):
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
         ) as mock_optimize_acqf:
-            Xgen, wgen, gen_metadata = model.gen(
+            Xgen, wgen, gen_metadata, cand_metadata = model.gen(
                 n=n,
                 bounds=bounds,
                 objective_weights=objective_weights,
@@ -184,7 +254,7 @@ class BotorchModelTest(TestCase):
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
         ) as mock_optimize_acqf:
-            Xgen, wgen, gen_metadata = model.gen(
+            Xgen, wgen, gen_metadata, cand_metadata = model.gen(
                 n=n,
                 bounds=bounds,
                 objective_weights=objective_weights,
@@ -313,7 +383,7 @@ class BotorchModelTest(TestCase):
             Yvars=Yvars1,
             task_features=[],
             fidelity_features=[],
-            metric_names=[],
+            metric_names=mns[0],
             state_dict=true_state_dict,
             refit_model=False,
         )
@@ -324,16 +394,13 @@ class BotorchModelTest(TestCase):
         true_state_dict["mean_module.constant"] += 0.1
         true_state_dict["covar_module.raw_outputscale"] += 0.1
         true_state_dict["covar_module.base_kernel.raw_lengthscale"] += 0.1
-        true_state_dict = {
-            key: torch.tensor(val, **tkwargs) for key, val in true_state_dict.items()
-        }
         model = get_and_fit_model(
             Xs=Xs1,
             Ys=Ys1,
             Yvars=Yvars1,
             task_features=[],
             fidelity_features=[],
-            metric_names=[],
+            metric_names=mns[0],
             state_dict=true_state_dict,
             refit_model=True,
         )
@@ -372,7 +439,7 @@ class BotorchModelTest(TestCase):
             self.test_BotorchModel(dtype=torch.double, cuda=True)
 
     def test_BotorchModelOneOutcome(self):
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
+        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
         model = BotorchModel()
@@ -384,7 +451,7 @@ class BotorchModelTest(TestCase):
                 bounds=bounds,
                 task_features=tfs,
                 feature_names=fns,
-                metric_names=mns,
+                metric_names=mns[0],
                 fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
@@ -394,10 +461,10 @@ class BotorchModelTest(TestCase):
         self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
 
     def test_BotorchModelConstraints(self):
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
+        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
-        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
+        Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
         # make infeasible

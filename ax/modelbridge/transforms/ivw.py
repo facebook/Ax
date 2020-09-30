@@ -12,7 +12,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.logger import get_logger
 
 
-logger = get_logger("IVW")
+logger = get_logger(__name__)
 
 
 def ivw_metric_merge(

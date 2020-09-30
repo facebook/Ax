@@ -8,7 +8,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
@@ -16,7 +15,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import Objective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
@@ -48,14 +47,14 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.utils import (
-    DomainType,
-    MetricIntent,
-    ParameterConstraintType,
-    get_object_properties,
-)
-from ax.utils.common.timeutils import current_timestamp_in_millis
+from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.utils.common.constants import Keys
+from ax.utils.common.equality import Base, datetime_equals
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+
+
+logger = get_logger(__name__)
 
 
 class Encoder:
@@ -70,6 +69,26 @@ class Encoder:
 
     def __init__(self, config: SQAConfig) -> None:
         self.config = config
+
+    @classmethod
+    def validate_experiment_metadata(
+        cls,
+        experiment: Experiment,
+        existing_sqa_experiment: Optional[SQAExperiment],
+        owners: Optional[List[str]] = None,
+    ) -> None:
+        """Validates required experiment metadata.
+
+        Does *not* expect owners kwarg, present for use in subclasses.
+        """
+        if owners:
+            raise ValueError("Owners for experiment unexpectedly provided.")
+        if existing_sqa_experiment is not None and not datetime_equals(
+            existing_sqa_experiment.time_created, experiment.time_created
+        ):
+            raise Exception(
+                f"An experiment already exists with the name {experiment.name}."
+            )
 
     def get_enum_value(
         self, value: Optional[str], enum: Optional[Enum]
@@ -131,9 +150,9 @@ class Encoder:
             value=experiment.experiment_type, enum=self.config.experiment_type_enum
         )
 
-        properties = {}
+        properties = experiment._properties
         if isinstance(experiment, MultiTypeExperiment):
-            properties["subclass"] = "MultiTypeExperiment"
+            properties[Keys.SUBCLASS] = "MultiTypeExperiment"
             runners = [
                 self.runner_to_sqa(runner, trial_type)
                 for trial_type, runner in experiment._trial_type_to_runner.items()
@@ -154,13 +173,13 @@ class Encoder:
             )
 
         if isinstance(experiment, SimpleExperiment):
-            properties["subclass"] = "SimpleExperiment"
+            properties[Keys.SUBCLASS] = "SimpleExperiment"
 
         # pyre-fixme: Expected `Base` for 1st...yping.Type[Experiment]`.
         experiment_class: Type[SQAExperiment] = self.config.class_to_sqa_class[
             Experiment
         ]
-        return experiment_class(  # pyre-ignore[28]
+        return experiment_class(
             description=experiment.description,
             is_test=experiment.is_test,
             name=experiment.name,
@@ -220,7 +239,7 @@ class Encoder:
         else:
             raise SQAEncodeError(
                 "Cannot encode parameter to SQLAlchemy because parameter's "
-                "subclass is invalid."
+                f"subclass ({type(parameter)}) is invalid."
             )  # pragma: no cover
 
     def parameter_constraint_to_sqa(
@@ -279,19 +298,17 @@ class Encoder:
         and construct a dictionary to be stored in the database `properties`
         json blob.
         """
-        metric_type = METRIC_REGISTRY.get(type(metric))
+        metric_class = type(metric)
+        metric_type = METRIC_REGISTRY.get(metric_class)
         if metric_type is None:
             raise SQAEncodeError(
                 "Cannot encode metric to SQLAlchemy because metric's "
-                "subclass is invalid."
+                f"subclass ({metric_class}) is missing from the registry. "
+                "The metric registry currently contains the following: "
+                f"{','.join(map(str, METRIC_REGISTRY.keys()))}"
             )  # pragma: no cover
 
-        # name and lower_is_better are stored directly on the metric,
-        # so we don't need to include these in the properties blob
-        properties = get_object_properties(
-            object=metric, exclude_fields=["name", "lower_is_better"]
-        )
-
+        properties = metric_class.serialize_init_args(metric=metric)
         return metric_type, properties
 
     def metric_to_sqa(self, metric: Metric) -> SQAMetric:
@@ -311,6 +328,12 @@ class Encoder:
 
     def objective_to_sqa(self, objective: Objective) -> SQAMetric:
         """Convert Ax Objective to SQLAlchemy."""
+
+        if isinstance(objective, ScalarizedObjective):
+            return self.scalarized_objective_to_sqa(objective)
+        if isinstance(objective, MultiObjective):
+            return self.multi_objective_to_sqa(objective)
+
         metric = objective.metric
         metric_type, properties = self.get_metric_type_and_properties(metric=metric)
 
@@ -325,6 +348,121 @@ class Encoder:
             properties=properties,
             lower_is_better=metric.lower_is_better,
         )
+
+    def multi_objective_to_sqa(self, objective: MultiObjective) -> SQAMetric:
+        """Convert Ax Multi Objective to SQLAlchemy. Returns a parent
+        SQAMetric, whose children are the SQAMetrics corresponding to
+        metrics attribute of MultiObjective. The parent is used as a placeholder
+        for storage purposes."""
+        metrics = objective.metrics
+
+        # pyre-fixme[9]: Expected SQABase type of an attribute;
+        # re-defined to be SQAMetric.
+        metrics_by_name: Dict[
+            str, Tuple[Metric, SQAMetric, Tuple[int, Dict[str, Any]]]
+        ] = {
+            metric.name: (
+                metric,
+                self.config.class_to_sqa_class[Metric],
+                self.get_metric_type_and_properties(metric=metric),
+            )
+            for metric in metrics
+        }
+
+        # Constructing children SQAMetric classes
+        children_metrics = [
+            # pyre-fixme[29]: `SQAMetric` is not a function.
+            metric_class(
+                name=metric.name,
+                metric_type=metrics_type_and_properties[0],
+                intent=MetricIntent.OBJECTIVE,
+                minimize=objective.minimize,
+                properties=metrics_type_and_properties[1],
+                lower_is_better=metric.lower_is_better,
+            )
+            for metric_name, (
+                metric,
+                metric_class,
+                metrics_type_and_properties,
+            ) in metrics_by_name.items()
+        ]
+
+        # Constructing a parent SQAMetric class
+        # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
+        parent_metric: SQAMetric = self.config.class_to_sqa_class[Metric]
+        # pyre-fixme[29]: `SQAMetric` is not a function.
+        parent_metric = parent_metric(
+            name="scalarized_objective",
+            metric_type=METRIC_REGISTRY[Metric],
+            intent=MetricIntent.MULTI_OBJECTIVE,
+            minimize=objective.minimize,
+            lower_is_better=objective.minimize,
+            scalarized_objective_children_metrics=children_metrics,
+        )
+
+        return parent_metric
+
+    def scalarized_objective_to_sqa(self, objective: ScalarizedObjective) -> SQAMetric:
+        """Convert Ax Scalarized Objective to SQLAlchemy. Returns a parent
+        SQAMetric, whose children are the SQAMetrics corresponding to
+        metrics attribute of Scalarized Objective. The parent is used as a placeholder
+        for storage purposes."""
+        metrics, weights = objective.metrics, objective.weights
+
+        if metrics is None or weights is None or len(metrics) != len(weights):
+            raise SQAEncodeError(
+                "Metrics and weights in scalarized objective \
+                must be lists of equal length."
+            )  # pragma: no cover
+
+        # pyre-fixme[9]: Expected SQABase type of an attribute;
+        # re-defined to be SQAMetric.
+        metrics_by_name: Dict[
+            str, Tuple[Metric, float, SQAMetric, Tuple[int, Dict[str, Any]]]
+        ] = {
+            metric.name: (
+                metric,
+                weight,
+                self.config.class_to_sqa_class[Metric],
+                self.get_metric_type_and_properties(metric=metric),
+            )
+            for (metric, weight) in zip(metrics, weights)
+        }
+
+        # Constructing children SQAMetric classes
+        children_metrics = [
+            # pyre-fixme[29]: `SQAMetric` is not a function.
+            metric_class(
+                name=metric_name,
+                metric_type=metrics_type_and_properties[0],
+                intent=MetricIntent.OBJECTIVE,
+                minimize=objective.minimize,
+                properties=metrics_type_and_properties[1],
+                lower_is_better=metric.lower_is_better,
+                scalarized_objective_weight=weight,
+            )
+            for metric_name, (
+                metric,
+                weight,
+                metric_class,
+                metrics_type_and_properties,
+            ) in metrics_by_name.items()
+        ]
+
+        # Constructing a parent SQAMetric class
+        # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
+        parent_metric: SQAMetric = self.config.class_to_sqa_class[Metric]
+        # pyre-fixme[29]: `SQAMetric` is not a function.
+        parent_metric = parent_metric(
+            name="scalarized_objective",
+            metric_type=METRIC_REGISTRY[Metric],
+            intent=MetricIntent.SCALARIZED_OBJECTIVE,
+            minimize=objective.minimize,
+            lower_is_better=objective.minimize,
+            scalarized_objective_children_metrics=children_metrics,
+        )
+
+        return parent_metric
 
     def outcome_constraint_to_sqa(
         self, outcome_constraint: OutcomeConstraint
@@ -449,6 +587,10 @@ class Encoder:
             bridge_kwargs=object_to_json(generator_run._bridge_kwargs),
             gen_metadata=object_to_json(generator_run._gen_metadata),
             model_state_after_gen=object_to_json(generator_run._model_state_after_gen),
+            generation_step_index=generator_run._generation_step_index,
+            candidate_metadata_by_arm_signature=object_to_json(
+                generator_run._candidate_metadata_by_arm_signature
+            ),
         )
 
     def generation_strategy_to_sqa(
@@ -466,21 +608,11 @@ class Encoder:
         return gs_class(
             name=generation_strategy.name,
             steps=object_to_json(generation_strategy._steps),
-            generated=generation_strategy._generated,
-            observed=generation_strategy._observed,
             curr_index=generation_strategy._curr.index,
             generator_runs=[
                 self.generator_run_to_sqa(gr)
                 for gr in generation_strategy._generator_runs
             ],
-            data=self.data_to_sqa(
-                data=generation_strategy._data,
-                # Generation strategy data is a compilation of data, so it does
-                # not strictly speaking have a timestamp. Setting timestamp to
-                # current.
-                timestamp=current_timestamp_in_millis(),
-                trial_index=None,
-            ),
             experiment_id=experiment_id,
         )
 
@@ -488,13 +620,16 @@ class Encoder:
         self, runner: Runner, trial_type: Optional[str] = None
     ) -> SQARunner:
         """Convert Ax Runner to SQLAlchemy."""
-        runner_type = RUNNER_REGISTRY.get(type(runner))
+        runner_class = type(runner)
+        runner_type = RUNNER_REGISTRY.get(runner_class)
         if runner_type is None:
             raise SQAEncodeError(
                 "Cannot encode runner to SQLAlchemy because runner's "
-                "subclass is invalid."
+                f"subclass ({runner_class}) is missing from the registry. "
+                "The runner registry currently contains the following: "
+                f"{','.join(map(str, RUNNER_REGISTRY.keys()))}"
             )  # pragma: no cover
-        properties = get_object_properties(object=runner)
+        properties = runner_class.serialize_init_args(runner=runner)
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Runner]`.
         runner_class: SQARunner = self.config.class_to_sqa_class[Runner]
@@ -545,7 +680,14 @@ class Encoder:
                     self.generator_run_to_sqa(generator_run=status_quo_generator_run)
                 )
                 status_quo_name = trial_status_quo.name
-            optimize_for_power = trial.optimize_for_power
+            if hasattr(trial, "optimize_for_power"):
+                optimize_for_power = trial.optimize_for_power
+            else:
+                optimize_for_power = None
+                logger.warning(
+                    f"optimize_for_power not present in BatchTrial: {trial.__dict__}"
+                )
+
         elif isinstance(trial, Trial):
             if trial.generator_run:
                 generator_runs = [
@@ -564,6 +706,7 @@ class Encoder:
             is_batch=isinstance(trial, BatchTrial),
             num_arms_created=trial._num_arms_created,
             optimize_for_power=optimize_for_power,
+            ttl_seconds=trial.ttl_seconds,
             run_metadata=trial.run_metadata,
             status=trial.status,
             status_quo_name=status_quo_name,
@@ -575,6 +718,8 @@ class Encoder:
             abandoned_arms=abandoned_arms,
             generator_runs=generator_runs,
             runner=runner,
+            generation_step_index=trial._generation_step_index,
+            properties=trial._properties,
         )
 
     def data_to_sqa(

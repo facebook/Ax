@@ -40,6 +40,9 @@ class CenteredUnitX(Transform):
             ):
                 self.bounds[p_name] = (p.lower, p.upper)
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `observation_features`
+    #  expected.
     @copy_doc(Transform.transform_observation_features)
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
@@ -53,6 +56,8 @@ class CenteredUnitX(Transform):
                     obsf.parameters[p_name] = -1 + 2 * (param - l) / (u - l)
         return observation_features
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `search_space` expected.
     @copy_doc(Transform.transform_search_space)
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, p in search_space.parameters.items():
@@ -68,6 +73,9 @@ class CenteredUnitX(Transform):
                     raise ValueError("Does not support parameter constraints")
         return search_space
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `observation_features`
+    #  expected.
     @copy_doc(Transform.untransform_observation_features)
     def untransform_observation_features(
         self, observation_features: List[ObservationFeatures]

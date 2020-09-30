@@ -4,13 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import MagicMock, Mock
 
-import pandas as pd
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import AbandonedArm
-from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -21,6 +20,7 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.storage import ImmutabilityError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.metric_registry import METRIC_REGISTRY, register_metric
@@ -40,7 +40,13 @@ from ax.storage.sqa_store.load import (
     load_generation_strategy_by_experiment_name,
     load_generation_strategy_by_id,
 )
-from ax.storage.sqa_store.save import save_experiment, save_generation_strategy
+from ax.storage.sqa_store.save import (
+    save_experiment,
+    save_generation_strategy,
+    save_new_trial,
+    update_generation_strategy,
+    update_trial,
+)
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAExperiment,
@@ -58,9 +64,10 @@ from ax.storage.utils import (
     DomainType,
     MetricIntent,
     ParameterConstraintType,
-    get_object_properties,
     remove_prefix,
 )
+from ax.utils.common.constants import Keys
+from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_arm,
@@ -69,7 +76,10 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_metric,
     get_choice_parameter,
+    get_data,
     get_experiment_with_batch_trial,
+    get_experiment_with_multi_objective,
+    get_experiment_with_scalarized_objective,
     get_fixed_parameter,
     get_generator_run,
     get_multi_type_experiment,
@@ -179,18 +189,14 @@ class SQAStoreTest(TestCase):
         self.decoder.generator_run_from_sqa(generator_run_sqa)
 
     def testExperimentSaveAndLoad(self):
-        save_experiment(self.experiment)
-        loaded_experiment = load_experiment(self.experiment.name)
-        self.assertEqual(loaded_experiment, self.experiment)
-
-    def testExperimentOverwriting(self):
-        save_experiment(self.experiment)
-        exp = get_experiment_with_batch_trial()
-        # hack because otherwise time_createds will be too close
-        exp._time_created = exp.time_created + timedelta(seconds=1)
-        with self.assertRaises(Exception):
+        for exp in [
+            self.experiment,
+            get_experiment_with_multi_objective(),
+            get_experiment_with_scalarized_objective(),
+        ]:
             save_experiment(exp)
-        save_experiment(exp, overwrite=True)
+            loaded_experiment = load_experiment(exp.name)
+            self.assertEqual(loaded_experiment, exp)
 
     def testMTExperimentSaveAndLoad(self):
         experiment = get_multi_type_experiment(add_trials=True)
@@ -202,6 +208,79 @@ class SQAStoreTest(TestCase):
         self.assertEqual(loaded_experiment.metric_to_trial_type["m2"], "type2")
         self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
         self.assertEqual(len(loaded_experiment.trials), 2)
+
+    def testExperimentNewTrial(self):
+        save_experiment(self.experiment)
+        trial = self.experiment.new_batch_trial()
+        save_new_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(len(loaded_experiment.trials), 2)
+        self.assertEqual(trial, loaded_experiment.trials[1])
+
+        trial = self.experiment.new_batch_trial(generator_run=get_generator_run())
+        save_new_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(len(loaded_experiment.trials), 3)
+        self.assertEqual(trial, loaded_experiment.trials[2])
+
+    def testExperimentNewTrialValidation(self):
+        trial = self.experiment.new_batch_trial()
+
+        with self.assertRaises(ValueError):
+            # must save experiment first
+            save_new_trial(experiment=self.experiment, trial=trial)
+
+        save_experiment(self.experiment)
+
+        with self.assertRaises(ValueError):
+            # can't save new trial twice
+            save_new_trial(experiment=self.experiment, trial=trial)
+
+    def testExperimentUpdateTrial(self):
+        save_experiment(self.experiment)
+
+        trial = self.experiment.trials[0]
+        trial.mark_staged()
+        update_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(trial, loaded_experiment.trials[0])
+
+        trial._run_metadata = {"foo": "bar"}
+        update_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(trial, loaded_experiment.trials[0])
+
+        self.experiment.attach_data(get_data(trial_index=trial.index))
+        update_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(self.experiment, loaded_experiment)
+
+        trial = self.experiment.new_batch_trial(generator_run=get_generator_run())
+        save_new_trial(experiment=self.experiment, trial=trial)
+        self.experiment.attach_data(get_data(trial_index=trial.index))
+        update_trial(experiment=self.experiment, trial=trial)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(self.experiment, loaded_experiment)
+
+    def testExperimentUpdateTrialValidation(self):
+        trial = self.experiment.trials[0]
+
+        with self.assertRaises(ValueError):
+            # must save experiment first
+            update_trial(experiment=self.experiment, trial=trial)
+
+        save_experiment(self.experiment)
+        trial._index = 1
+
+        with self.assertRaises(ValueError):
+            # has bad index
+            update_trial(experiment=self.experiment, trial=trial)
 
     def testSaveValidation(self):
         with self.assertRaises(ValueError):
@@ -222,11 +301,8 @@ class SQAStoreTest(TestCase):
             encode_func = unbound_encode_func.__get__(self.encoder)
             decode_func = unbound_decode_func.__get__(self.decoder)
             sqa_object = encode_func(original_object)
-            if (
-                class_ == "OrderConstraint"
-                or class_ == "ParameterConstraint"
-                or class_ == "SumConstraint"
-            ):
+
+            if class_ in ["OrderConstraint", "ParameterConstraint", "SumConstraint"]:
                 converted_object = decode_func(sqa_object, self.dummy_parameters)
             else:
                 converted_object = decode_func(sqa_object)
@@ -239,6 +315,11 @@ class SQAStoreTest(TestCase):
 
                 original_object.evaluation_function = None
                 converted_object.evaluation_function = None
+                # Experiment to SQA encoder stores the experiment subclass
+                # among its properties; we then remove the subclass when
+                # decoding. Removing subclass from original object here
+                # for parity with the expected decoded (converted) object.
+                original_object._properties.pop(Keys.SUBCLASS)
 
             self.assertEqual(
                 original_object,
@@ -259,6 +340,7 @@ class SQAStoreTest(TestCase):
 
             encode_func = unbound_encode_func.__get__(self.encoder)
             sqa_object = encode_func(original_object)
+
             if isinstance(
                 original_object, AbandonedArm
             ):  # handle NamedTuple differently
@@ -303,9 +385,7 @@ class SQAStoreTest(TestCase):
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
 
-        experiment.status_quo = Arm(
-            parameters={"w": 0.0, "x": 1, "y": "y", "z": True}, name="new_status_quo"
-        )
+        experiment.status_quo = Arm(parameters={"w": 0.0, "x": 1, "y": "y", "z": True})
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
 
@@ -604,10 +684,7 @@ class SQAStoreTest(TestCase):
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 3)
 
-        generator_run = get_generator_run()  # TODO[Lena, T46190605]: remove
-        generator_run._model_key = None
-        generator_run._model_kwargs = None
-        generator_run._bridge_kwargs = None
+        generator_run = get_generator_run()
         trial.add_generator_run(generator_run=generator_run, multiplier=0.5)
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 4)
@@ -759,7 +836,7 @@ class SQAStoreTest(TestCase):
 
         sqa_metric.intent = MetricIntent.TRACKING
         sqa_metric.properties = {}
-        with self.assertRaises(SQADecodeError):
+        with self.assertRaises(ValueError):
             self.decoder.metric_from_sqa(sqa_metric)
 
     def testRunnerDecodeFailure(self):
@@ -799,11 +876,20 @@ class SQAStoreTest(TestCase):
         save_experiment(self.experiment)
 
     def testGetProperties(self):
-        properties = get_object_properties(Metric(name="foo"))
-        self.assertEqual(properties, {"name": "foo"})
+        # Extract default value.
+        properties = serialize_init_args(Metric(name="foo"))
+        self.assertEqual(
+            properties, {"name": "foo", "lower_is_better": None, "properties": {}}
+        )
 
-        properties = get_object_properties(Metric(name="foo", lower_is_better=True))
-        self.assertEqual(properties, {"name": "foo", "lower_is_better": True})
+        # Extract passed value.
+        properties = serialize_init_args(
+            Metric(name="foo", lower_is_better=True, properties={"foo": "bar"})
+        )
+        self.assertEqual(
+            properties,
+            {"name": "foo", "lower_is_better": True, "properties": {"foo": "bar"}},
+        )
 
     def testRegistryAdditions(self):
         class MyRunner(Runner):
@@ -843,8 +929,6 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsNone(generation_strategy._experiment)
-        self.assertEqual(len(generation_strategy._generated), 0)
-        self.assertEqual(len(generation_strategy._observed), 0)
 
         # Cannot load generation strategy before it has been saved
         experiment = get_branin_experiment()
@@ -856,11 +940,7 @@ class SQAStoreTest(TestCase):
         # it has generated some trials and been updated with some data.
         generation_strategy = new_generation_strategy
         experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        experiment.new_trial(
-            generation_strategy.gen(experiment, data=get_branin_data())
-        )
-        self.assertGreater(len(generation_strategy._generated), 0)
-        self.assertGreater(len(generation_strategy._observed), 0)
+        generation_strategy.gen(experiment, data=get_branin_data())
         save_generation_strategy(generation_strategy=generation_strategy)
         save_experiment(experiment)
         # Try restoring the generation strategy using the experiment its
@@ -877,18 +957,6 @@ class SQAStoreTest(TestCase):
     def testUpdateGenerationStrategy(self):
         generation_strategy = get_generation_strategy()
         save_generation_strategy(generation_strategy=generation_strategy)
-
-        # Add data, save, reload
-        generation_strategy._data = Data(
-            df=pd.DataFrame.from_records(
-                [{"metric_name": "foo", "mean": 1, "arm_name": "bar"}]
-            )
-        )
-        save_generation_strategy(generation_strategy=generation_strategy)
-        loaded_generation_strategy = load_generation_strategy_by_id(
-            gs_id=generation_strategy._db_id
-        )
-        self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         experiment = get_branin_experiment()
         generation_strategy = get_generation_strategy()
@@ -911,6 +979,14 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
+        # During restoration of generation strategy's model from its last generator
+        # run, we set `_seen_trial_indices_by_status` to that of the experiment,
+        # from which we are grabbing the data to restore the model with. When the
+        # experiment was updated more recently than the last `gen` from generation
+        # strategy, the generation strategy prior to save might not have 'seen'
+        # some recently added trials, so we update the mappings to match and check
+        # that the generation strategies are equal otherwise.
+        generation_strategy._seen_trial_indices_by_status[TrialStatus.CANDIDATE].add(1)
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # make sure that we can update the experiment too
@@ -934,3 +1010,33 @@ class SQAStoreTest(TestCase):
         generator_run_sqa = self.encoder.generator_run_to_sqa(gr)
         decoded_gr = self.decoder.generator_run_from_sqa(generator_run_sqa)
         self.assertEqual(decoded_gr.gen_metadata, gen_metadata)
+
+    def testUpdateGenerationStrategyIncrementally(self):
+        experiment = get_branin_experiment()
+        generation_strategy = choose_generation_strategy(experiment.search_space)
+        save_experiment(experiment=experiment)
+        save_generation_strategy(generation_strategy=generation_strategy)
+
+        # add generator runs, save, reload
+        generator_runs = []
+        for i in range(7):
+            data = get_branin_data() if i > 0 else None
+            gr = generation_strategy.gen(experiment, data=data)
+            generator_runs.append(gr)
+            trial = experiment.new_trial(generator_run=gr).mark_running(
+                no_runner_required=True
+            )
+            trial.mark_completed()
+
+        save_experiment(experiment=experiment)
+        update_generation_strategy(
+            generation_strategy=generation_strategy, generator_runs=generator_runs
+        )
+        loaded_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name
+        )
+
+        self.assertEqual(
+            generation_strategy._curr.index, loaded_generation_strategy._curr.index, 1
+        )
+        self.assertEqual(len(loaded_generation_strategy._generator_runs), 7)

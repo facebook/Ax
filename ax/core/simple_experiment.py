@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import inspect
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 from ax.core.arm import Arm
@@ -45,22 +45,23 @@ class SimpleExperiment(Experiment):
     Simplified experiment class with defaults.
 
     Args:
-        search_space: parameter space
-        name: name of this experiment
-        objective_name: which of the metrics computed by the evaluation
-            function is the objective
-        evaluation_function: function that evaluates
+        search_space: Parameter space.
+        name: Name of this experiment.
+        objective_name: Which of the metrics computed by the evaluation
+            function is the objective.
+        evaluation_function: Function that evaluates
             mean and standard error for a parameter configuration. This
             function should accept a dictionary of parameter names to parameter
             values (TParametrization) and optionally a weight, and return a
             dictionary of metric names to a tuple of means and standard errors
             (TEvaluationOutcome). The function can also return a single tuple,
             in which case we assume the metric is the objective.
-        minimize: whether the objective should be minimized,
-            defaults to False
+        minimize: Whether the objective should be minimized,
+            defaults to `False`.
         outcome_constraints: constraints on the outcome,
-            if any
-        status_quo: Arm representing existing "control" arm
+            if any.
+        status_quo: Arm representing existing "control" arm.
+        properties: Dictionary of this experiment's properties.
     """
 
     _evaluation_function: TEvaluationFunction
@@ -74,6 +75,7 @@ class SimpleExperiment(Experiment):
         minimize: bool = False,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
         status_quo: Optional[Arm] = None,
+        properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         optimization_config = OptimizationConfig(
             objective=Objective(
@@ -87,6 +89,7 @@ class SimpleExperiment(Experiment):
             search_space=search_space,
             optimization_config=optimization_config,
             status_quo=status_quo,
+            properties=properties,
         )
         self._evaluation_function = evaluation_function
 
@@ -190,6 +193,7 @@ class SimpleExperiment(Experiment):
         if isinstance(evaluation, dict):
             return evaluation
         elif isinstance(evaluation, tuple):
+            # pyre-fixme[16]: `Optional` has no attribute `objective`.
             return {self.optimization_config.objective.metric.name: evaluation}
         elif isinstance(evaluation, (float, int)):
             return {self.optimization_config.objective.metric.name: (evaluation, 0.0)}
@@ -206,6 +210,10 @@ class SimpleExperiment(Experiment):
             "or a single mean, sem tuple, or a single mean."
         )
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `Experiment` for 1st param
+    #  but got `(self: SimpleExperiment, metrics: Optional[List[ax.core.metric.Metric]]
+    #  = ..., **(Any)) -> Data`.
     @copy_doc(Experiment.fetch_data)
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
         return self.eval()
@@ -216,10 +224,14 @@ class SimpleExperiment(Experiment):
     ) -> Data:
         return self.eval_trial(self.trials[trial_index])
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `metric` expected.
     @copy_doc(Experiment.add_tracking_metric)
     def add_tracking_metric(self, metric: Metric) -> "SimpleExperiment":
         raise NotImplementedError("SimpleExperiment does not support metric addition.")
 
+    # pyre-fixme[56]: While applying decorator
+    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `metric` expected.
     @copy_doc(Experiment.update_tracking_metric)
     def update_tracking_metric(self, metric: Metric) -> "SimpleExperiment":
         raise NotImplementedError("SimpleExperiment does not support metric updates.")

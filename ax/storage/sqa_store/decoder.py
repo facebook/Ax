@@ -4,14 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import inspect
 from collections import OrderedDict, defaultdict
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base import Base
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.data import Data
@@ -19,7 +17,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import Objective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
@@ -34,10 +32,10 @@ from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.registry import Models
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
 from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
-from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
@@ -53,6 +51,7 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
 
 
@@ -118,7 +117,12 @@ class Decoder:
                 "only supported for MultiTypeExperiment."
             )
 
-        subclass = (experiment_sqa.properties or {}).get("subclass")
+        # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
+        # so need to convert it to regular dict.
+        properties = dict(experiment_sqa.properties or {})
+        # Remove 'subclass' from experiment's properties, since its only
+        # used for decoding to the correct experiment subclass in storage.
+        subclass = properties.pop(Keys.SUBCLASS, None)
         if subclass == "SimpleExperiment":
             if opt_config is None:
                 raise SQADecodeError(  # pragma: no cover
@@ -131,6 +135,7 @@ class Decoder:
                 minimize=opt_config.objective.minimize,
                 outcome_constraints=opt_config.outcome_constraints,
                 status_quo=status_quo,
+                properties=properties,
             )
             experiment.description = experiment_sqa.description
             experiment.is_test = experiment_sqa.is_test
@@ -144,6 +149,7 @@ class Decoder:
                 runner=runner,
                 status_quo=status_quo,
                 is_test=experiment_sqa.is_test,
+                properties=properties,
             )
         return experiment
 
@@ -178,13 +184,20 @@ class Decoder:
             for sqa_runner in experiment_sqa.runners
         }
         default_trial_type = not_none(experiment_sqa.default_trial_type)
+        properties = experiment_sqa.properties
+        if properties:
+            # Remove 'subclass' from experiment's properties, since its only
+            # used for decoding to the correct experiment subclass in storage.
+            properties.pop(Keys.SUBCLASS, None)
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,
+            description=experiment_sqa.description,
             search_space=search_space,
             default_trial_type=default_trial_type,
             default_runner=trial_type_to_runner[default_trial_type],
             optimization_config=opt_config,
             status_quo=status_quo,
+            properties=properties,
         )
         experiment._trial_type_to_runner = trial_type_to_runner
         sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
@@ -199,7 +212,7 @@ class Decoder:
 
     def experiment_from_sqa(self, experiment_sqa: SQAExperiment) -> Experiment:
         """Convert SQLAlchemy Experiment to Ax Experiment."""
-        subclass = (experiment_sqa.properties or {}).get("subclass")
+        subclass = (experiment_sqa.properties or {}).get(Keys.SUBCLASS)
         if subclass == "MultiTypeExperiment":
             experiment = self._init_mt_experiment_from_sqa(experiment_sqa)
         else:
@@ -222,13 +235,15 @@ class Decoder:
         }
 
         experiment._trials = {trial.index: trial for trial in trials}
+        experiment._arms_by_name = {}
         for trial in trials:
+            if trial.ttl_seconds is not None:
+                experiment._trials_have_ttl = True
             for arm in trial.arms:
-                experiment._arms_by_signature[arm.signature] = arm
+                experiment._register_arm(arm)
         if experiment.status_quo is not None:
-            # pyre-fixme[16]: `Optional` has no attribute `signature`.
-            sq_sig = experiment.status_quo.signature
-            experiment._arms_by_signature[sq_sig] = experiment.status_quo
+            sq = not_none(experiment.status_quo)
+            experiment._register_arm(sq)
         experiment._time_created = experiment_sqa.time_created
         experiment._experiment_type = self.get_enum_name(
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
@@ -372,49 +387,27 @@ class Decoder:
             parameters=parameters, parameter_constraints=parameter_constraints
         )
 
-    def get_init_args_from_properties(
-        self, object_sqa: SQABase, class_: Base
-    ) -> Dict[str, Any]:
-        """Given a SQAAlchemy instance with a properties blob, extract the
-        arguments required for its class's initializer.
-        """
-        args = dict(getattr(object_sqa, "properties", None) or {})
-        signature = inspect.signature(class_.__init__)
-        exclude_args = ["self", "args", "kwargs"]
-        for arg, info in signature.parameters.items():
-            if arg in exclude_args or arg in args:
-                continue
-            value = getattr(object_sqa, arg, None)
-            if value is None:
-                # Only necessary to raise an exception if there is no default
-                # value for this argument
-                if info.default is inspect.Parameter.empty:
-                    raise SQADecodeError(
-                        f"Cannot decode because required argument {arg} is missing."
-                    )
-                else:
-                    # Constructor will use default value
-                    continue  # pragma: no cover
-            args[arg] = value
-        return args
-
-    def metric_from_sqa(
-        self, metric_sqa: SQAMetric
-    ) -> Union[Metric, Objective, OutcomeConstraint]:
-        """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
+    def metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
+        """Convert SQLAlchemy Metric to Ax Metric"""
         metric_class = REVERSE_METRIC_REGISTRY.get(metric_sqa.metric_type)
         if metric_class is None:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type."
             )
-
-        args = self.get_init_args_from_properties(
-            # pyre-fixme[6]: Expected `SQABase` for ...es` but got `SQAMetric`.
-            object_sqa=metric_sqa,
-            class_=metric_class,
-        )
+        args = metric_sqa.properties or {}
+        args["name"] = metric_sqa.name
+        args["lower_is_better"] = metric_sqa.lower_is_better
+        args = metric_class.deserialize_init_args(args=args)
         metric = metric_class(**args)
+        return metric
+
+    def metric_from_sqa(
+        self, metric_sqa: SQAMetric
+    ) -> Union[Metric, Objective, OutcomeConstraint]:
+        """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
+
+        metric = self.metric_from_sqa_util(metric_sqa)
 
         if metric_sqa.intent == MetricIntent.TRACKING:
             return metric
@@ -423,8 +416,70 @@ class Decoder:
                 raise SQADecodeError(  # pragma: no cover
                     "Cannot decode SQAMetric to Objective because minimize is None."
                 )
-            # pyre-fixme[6]: Expected `bool` for 2nd param but got `Optional[bool]`.
+            if metric_sqa.scalarized_objective_weight is not None:
+                raise SQADecodeError(  # pragma: no cover
+                    "The metric corresponding to regular objective does not \
+                    have weight attribute"
+                )
             return Objective(metric=metric, minimize=metric_sqa.minimize)
+        elif (
+            metric_sqa.intent == MetricIntent.MULTI_OBJECTIVE
+        ):  # metric_sqa is a parent whose children are individual
+            # metrics in MultiObjective
+            if metric_sqa.minimize is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to MultiObjective \
+                    because minimize is None."
+                )
+            metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
+            if metrics_sqa_children is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to MultiObjective \
+                    because the parent metric has no children metrics."
+                )
+
+            # Extracting metric and weight for each child
+            metrics = [
+                self.metric_from_sqa_util(child) for child in metrics_sqa_children
+            ]
+
+            return MultiObjective(
+                metrics=list(metrics),
+                # pyre-fixme[6]: Expected `bool` for 2nd param but got `Optional[bool]`.
+                minimize=metric_sqa.minimize,
+            )
+        elif (
+            metric_sqa.intent == MetricIntent.SCALARIZED_OBJECTIVE
+        ):  # metric_sqa is a parent whose children are individual
+            # metrics in Scalarized Objective
+            if metric_sqa.minimize is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to Scalarized Objective \
+                    because minimize is None."
+                )
+            metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
+            if metrics_sqa_children is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to Scalarized Objective \
+                    because the parent metric has no children metrics."
+                )
+
+            # Extracting metric and weight for each child
+            metrics, weights = zip(
+                *[
+                    (
+                        self.metric_from_sqa_util(child),
+                        child.scalarized_objective_weight,
+                    )
+                    for child in metrics_sqa_children
+                ]
+            )
+            return ScalarizedObjective(
+                metrics=list(metrics),
+                weights=list(weights),
+                # pyre-fixme[6]: Expected `bool` for 3nd param but got `Optional[bool]`.
+                minimize=metric_sqa.minimize,
+            )
         elif metric_sqa.intent == MetricIntent.OUTCOME_CONSTRAINT:
             if (
                 metric_sqa.bound is None
@@ -565,6 +620,10 @@ class Decoder:
             model_state_after_gen=object_from_json(
                 generator_run_sqa.model_state_after_gen
             ),
+            generation_step_index=generator_run_sqa.generation_step_index,
+            candidate_metadata_by_arm_signature=object_from_json(
+                generator_run_sqa.candidate_metadata_by_arm_signature
+            ),
         )
         generator_run._time_created = generator_run_sqa.time_created
         generator_run._generator_run_type = self.get_enum_name(
@@ -580,11 +639,7 @@ class Decoder:
         """Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""
         steps = object_from_json(gs_sqa.steps)
         gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
-        gs._generated = list(gs_sqa.generated)
-        gs._observed = list(gs_sqa.observed)
         gs._curr = gs._steps[gs_sqa.curr_index]
-        # There is just one data object on generation strategy.
-        gs._data = self.data_from_sqa(gs_sqa.data)
         gs._generator_runs = [
             self.generator_run_from_sqa(gr) for gr in gs_sqa.generator_runs
         ]
@@ -592,7 +647,16 @@ class Decoder:
             # Generation strategy had an initialized model.
             # pyre-ignore[16]: SQAGenerationStrategy does not have `experiment` attr.
             gs._experiment = self.experiment_from_sqa(gs_sqa.experiment)
-            gs._restore_model_from_generator_run()
+            # If model in the current step was not directly from the `Models` enum,
+            # pass its type to `restore_model_from_generator_run`, which will then
+            # attempt to use this type to recreate the model.
+            if type(gs._curr.model) != Models:
+                models_enum = type(gs._curr.model)
+                assert issubclass(models_enum, Models)
+                # pyre-ignore[6]: `models_enum` typing hackiness
+                gs._restore_model_from_generator_run(models_enum=models_enum)
+            else:
+                gs._restore_model_from_generator_run()
         gs._db_id = gs_sqa.id
         return gs
 
@@ -604,11 +668,7 @@ class Decoder:
                 f"Cannot decode SQARunner because {runner_sqa.runner_type} "
                 f"is an invalid type."
             )
-        args = self.get_init_args_from_properties(
-            # pyre-fixme[6]: Expected `SQABase` for ...es` but got `SQARunner`.
-            object_sqa=runner_sqa,
-            class_=runner_class,
-        )
+        args = runner_class.deserialize_init_args(args=runner_sqa.properties or {})
         # pyre-fixme[45]: Cannot instantiate abstract class `Runner`.
         return runner_class(**args)
 
@@ -616,7 +676,10 @@ class Decoder:
         """Convert SQLAlchemy Trial to Ax Trial."""
         if trial_sqa.is_batch:
             trial = BatchTrial(
-                experiment=experiment, optimize_for_power=trial_sqa.optimize_for_power
+                experiment=experiment,
+                optimize_for_power=trial_sqa.optimize_for_power,
+                ttl_seconds=trial_sqa.ttl_seconds,
+                index=trial_sqa.index,
             )
             generator_run_structs = [
                 GeneratorRunStruct(
@@ -648,7 +711,11 @@ class Decoder:
                 for abandoned_arm_sqa in trial_sqa.abandoned_arms
             }
         else:
-            trial = Trial(experiment=experiment)
+            trial = Trial(
+                experiment=experiment,
+                ttl_seconds=trial_sqa.ttl_seconds,
+                index=trial_sqa.index,
+            )
             if trial_sqa.generator_runs:
                 if len(trial_sqa.generator_runs) != 1:
                     raise SQADecodeError(  # pragma: no cover
@@ -658,7 +725,6 @@ class Decoder:
                 trial._generator_run = self.generator_run_from_sqa(
                     generator_run_sqa=trial_sqa.generator_runs[0]
                 )
-        trial._index = trial_sqa.index
         trial._trial_type = trial_sqa.trial_type
         # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
         # equivalent to `RUNNING`.
@@ -685,6 +751,8 @@ class Decoder:
         trial._runner = (
             self.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None
         )
+        trial._generation_step_index = trial_sqa.generation_step_index
+        trial._properties = trial_sqa.properties or {}
         return trial
 
     def data_from_sqa(self, data_sqa: SQAData) -> Data:

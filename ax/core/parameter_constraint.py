@@ -8,9 +8,9 @@
 
 from typing import Dict, List, Union
 
-from ax.core.base import Base
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.types import ComparisonOp
+from ax.utils.common.equality import Base
 
 
 class ParameterConstraint(Base):
@@ -73,7 +73,6 @@ class ParameterConstraint(Base):
         )
         # Expected `int` for 2nd anonymous parameter to call `int.__le__` but got
         # `float`.
-        # pyre-fixme[6]: Expected `int` for 1st param but got `float`.
         return weighted_sum <= self._bound
 
     def clone(self) -> "ParameterConstraint":
@@ -275,5 +274,5 @@ def validate_constraint_parameters(parameters: List[Parameter]) -> None:
         # models only support linear constraints.
         if isinstance(parameter, RangeParameter) and parameter.log_scale is True:
             raise ValueError(
-                f"Parameter constraints not allowed on log scale parameters."
+                "Parameter constraints not allowed on log scale parameters."
             )

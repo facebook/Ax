@@ -9,6 +9,8 @@ import tempfile
 from functools import partial
 
 import numpy as np
+import torch
+from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
@@ -18,14 +20,17 @@ from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
 )
+from ax.storage.json_store.decoders import class_from_json
 from ax.storage.json_store.encoder import object_to_json
+from ax.storage.json_store.encoders import botorch_modular_to_dict
 from ax.storage.json_store.load import load_experiment
+from ax.storage.json_store.registry import CLASS_ENCODER_REGISTRY
 from ax.storage.json_store.save import save_experiment
 from ax.storage.metric_registry import register_metric
 from ax.storage.runner_registry import register_runner
 from ax.storage.utils import EncodeDecodeFieldsMap, remove_prefix
 from ax.utils.common.testutils import TestCase
-from ax.utils.measurement.synthetic_functions import branin
+from ax.utils.measurement.synthetic_functions import ackley, branin, from_botorch
 from ax.utils.testing.benchmark_stubs import (
     get_branin_benchmark_problem,
     get_branin_simple_benchmark_problem,
@@ -33,19 +38,30 @@ from ax.utils.testing.benchmark_stubs import (
     get_sum_simple_benchmark_problem,
 )
 from ax.utils.testing.core_stubs import (
+    get_acquisition_function_type,
+    get_acquisition_type,
     get_arm,
+    get_augmented_branin_metric,
+    get_augmented_hartmann_metric,
     get_batch_trial,
+    get_botorch_model,
+    get_botorch_model_with_default_acquisition_class,
     get_branin_data,
     get_branin_experiment,
     get_branin_metric,
     get_choice_parameter,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_data,
+    get_experiment_with_trial_with_ttl,
     get_factorial_metric,
     get_fixed_parameter,
     get_generator_run,
     get_hartmann_metric,
     get_metric,
+    get_mll_type,
+    get_model_type,
+    get_multi_objective,
+    get_multi_type_experiment,
     get_objective,
     get_optimization_config,
     get_order_constraint,
@@ -57,6 +73,7 @@ from ax.utils.testing.core_stubs import (
     get_simple_experiment_with_batch_trial,
     get_sum_constraint1,
     get_sum_constraint2,
+    get_surrogate,
     get_synthetic_runner,
     get_trial,
 )
@@ -65,15 +82,21 @@ from ax.utils.testing.modeling_stubs import (
     get_observation_features,
     get_transform_type,
 )
+from botorch.test_functions.synthetic import Ackley
 
 
 TEST_CASES = [
+    ("Arm", get_arm),
+    ("AugmentedBraninMetric", get_augmented_branin_metric),
+    ("AugmentedHartmannMetric", get_augmented_hartmann_metric),
     ("BatchTrial", get_batch_trial),
     ("BenchmarkProblem", get_branin_benchmark_problem),
+    ("BoTorchModel", get_botorch_model),
+    ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
     ("BraninMetric", get_branin_metric),
     ("ChoiceParameter", get_choice_parameter),
-    ("Arm", get_arm),
     ("Experiment", get_experiment_with_batch_and_single_trial),
+    ("Experiment", get_experiment_with_trial_with_ttl),
     ("Experiment", get_experiment_with_data),
     ("FactorialMetric", get_factorial_metric),
     ("FixedParameter", get_fixed_parameter),
@@ -81,6 +104,8 @@ TEST_CASES = [
     ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
     ("GeneratorRun", get_generator_run),
     ("Metric", get_metric),
+    ("MultiObjective", get_multi_objective),
+    ("MultiTypeExperiment", get_multi_type_experiment),
     ("ObservationFeatures", get_observation_features),
     ("Objective", get_objective),
     ("OptimizationConfig", get_optimization_config),
@@ -96,7 +121,12 @@ TEST_CASES = [
     ("SimpleExperiment", get_simple_experiment_with_batch_trial),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
+    ("Surrogate", get_surrogate),
     ("SyntheticRunner", get_synthetic_runner),
+    ("Type[Acquisition]", get_acquisition_type),
+    ("Type[AcquisitionFunction]", get_acquisition_function_type),
+    ("Type[Model]", get_model_type),
+    ("Type[MarginalLogLikelihood]", get_mll_type),
     ("Type[Transform]", get_transform_type),
     ("Trial", get_trial),
 ]
@@ -109,16 +139,41 @@ TEST_CASES = [
 #    (because the name used by JSON is the name used by the constructor,
 #    might not be the same used by the attribute)
 ENCODE_DECODE_FIELD_MAPS = {
-    "Experiment": EncodeDecodeFieldsMap(python_only=["arms_by_signature"]),
-    "BatchTrial": EncodeDecodeFieldsMap(python_only=["experiment"]),
+    "Experiment": EncodeDecodeFieldsMap(
+        python_only=[
+            "arms_by_signature",
+            "arms_by_name",
+            "trial_indices_by_status",
+            "trials_have_ttl",
+        ]
+    ),
+    "BatchTrial": EncodeDecodeFieldsMap(
+        python_only=["experiment"], python_to_encoded={"BaseTrial__status": "status"}
+    ),
     "SimpleBenchmarkProblem": EncodeDecodeFieldsMap(encoded_only=["function_name"]),
     "GenerationStrategy": EncodeDecodeFieldsMap(
-        python_only=["model", "uses_registered_models"],
-        encoded_only=["had_initialized_model"],
+        python_only=["uses_registered_models", "seen_trial_indices_by_status"],
+        encoded_only=["had_initialized_model", "db_id"],
         python_to_encoded={"curr": "curr_index"},
     ),
     "GeneratorRun": EncodeDecodeFieldsMap(
         encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
+    ),
+    "MultiTypeExperiment": EncodeDecodeFieldsMap(
+        python_only=[
+            "arms_by_signature",
+            "arms_by_name",
+            "metric_to_canonical_name",
+            "metric_to_trial_type",
+            "trial_indices_by_status",
+            "trials_have_ttl",
+            "trial_type_to_runner",
+        ],
+        encoded_only=[
+            "_metric_to_canonical_name",
+            "_metric_to_trial_type",
+            "_trial_type_to_runner",
+        ],
     ),
     "OrderConstraint": EncodeDecodeFieldsMap(
         python_only=["bound"],
@@ -128,12 +183,51 @@ ENCODE_DECODE_FIELD_MAPS = {
         },
     ),
     "SimpleExperiment": EncodeDecodeFieldsMap(
-        python_only=["arms_by_signature", "evaluation_function"]
+        python_only=[
+            "arms_by_signature",
+            "arms_by_name",
+            "evaluation_function",
+            "trial_indices_by_status",
+            "trials_have_ttl",
+        ]
     ),
     "SumConstraint": EncodeDecodeFieldsMap(
         python_only=["constraint_dict", "parameters"]
     ),
-    "Trial": EncodeDecodeFieldsMap(python_only=["experiment"]),
+    "Trial": EncodeDecodeFieldsMap(
+        python_only=["experiment"], python_to_encoded={"BaseTrial__status": "status"}
+    ),
+    "Type[Acquisition]": EncodeDecodeFieldsMap(
+        python_only=["_module__", "_doc__", "default_botorch_acqf_class"],
+        encoded_only=["index", "class"],
+    ),
+    "Type[AcquisitionFunction]": EncodeDecodeFieldsMap(
+        python_only=[
+            "_module__",
+            "_doc__",
+            "_init__",
+            "_abstractmethods__",
+            "forward",
+            "abc_impl",
+        ],
+        encoded_only=["index", "class"],
+    ),
+    "Type[Model]": EncodeDecodeFieldsMap(
+        python_only=[
+            "_module__",
+            "_doc__",
+            "_init__",
+            "_abstractmethods__",
+            "forward",
+            "construct_inputs",
+            "abc_impl",
+        ],
+        encoded_only=["index", "class"],
+    ),
+    "Type[MarginalLogLikelihood]": EncodeDecodeFieldsMap(
+        python_only=["_module__", "_doc__", "_init__", "forward", "pyro_factor"],
+        encoded_only=["index", "class"],
+    ),
     "Type[Transform]": EncodeDecodeFieldsMap(
         python_only=[
             "transform_observation_features",
@@ -234,12 +328,30 @@ class JSONStoreTest(TestCase):
                 for python, encoded in map.python_to_encoded.items():
                     json_keys.remove(encoded)
                     json_keys.add(python)
-
+            # TODO: Remove this check if able. `_slotnames__` is not a class attribute
+            # when testing locally, but it is a class attribute on Travis.
+            if class_ == "Type[Model]":
+                object_keys.discard("_slotnames__")
             self.assertEqual(
                 object_keys,
                 json_keys,
                 msg=f"Mismatch between Python and JSON representation in {class_}.",
             )
+
+    def testEncodeDecodeTorchTensor(self):
+        x = torch.tensor(
+            [[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64, device=torch.device("cpu")
+        )
+        expected_json = {
+            "__type": "Tensor",
+            "value": [[1.0, 2.0], [3.0, 4.0]],
+            "dtype": {"__type": "torch_dtype", "value": "torch.float64"},
+            "device": {"__type": "torch_device", "value": "cpu"},
+        }
+        x_json = object_to_json(x)
+        self.assertEqual(expected_json, x_json)
+        x2 = object_from_json(x_json)
+        self.assertTrue(torch.equal(x, x2))
 
     def testDecodeGenerationStrategy(self):
         generation_strategy = get_generation_strategy()
@@ -254,9 +366,9 @@ class JSONStoreTest(TestCase):
         self.assertIsNone(new_generation_strategy.model)
 
         # Check that we can encode and decode the generation strategy after
-        # it has generated some trials.
+        # it has generated some generator runs.
         generation_strategy = new_generation_strategy
-        experiment.new_trial(generator_run=generation_strategy.gen(experiment))
+        gr = generation_strategy.gen(experiment)
         gs_json = object_to_json(generation_strategy)
         new_generation_strategy = generation_strategy_from_json(gs_json)
         self.assertEqual(generation_strategy, new_generation_strategy)
@@ -268,18 +380,16 @@ class JSONStoreTest(TestCase):
         # Check that we can encode and decode the generation strategy after
         # it has generated some trials and been updated with some data.
         generation_strategy = new_generation_strategy
-        experiment.new_trial(
-            generation_strategy.gen(experiment, data=get_branin_data())
-        )
-        self.assertGreater(len(generation_strategy._generated), 0)
-        self.assertGreater(len(generation_strategy._observed), 0)
+        experiment.new_trial(gr)  # Add previously generated GR as trial.
+        # Make generation strategy aware of the trial's data via `gen`.
+        generation_strategy.gen(experiment, data=get_branin_data())
         gs_json = object_to_json(generation_strategy)
         new_generation_strategy = generation_strategy_from_json(gs_json)
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)
 
-    def test_encode_decode_numpy(self):
+    def testEncodeDecodeNumpy(self):
         arr = np.array([[1, 2, 3], [4, 5, 6]])
         self.assertTrue(np.array_equal(arr, object_from_json(object_to_json(arr))))
 
@@ -292,6 +402,14 @@ class JSONStoreTest(TestCase):
             branin_problem.f(1, 2), new_branin_problem.f(1, 2), branin(1, 2)
         )
         self.assertEqual(sum_problem.f([1, 2]), new_sum_problem.f([1, 2]), 3)
+        # Test using `from_botorch`.
+        ackley_problem = SimpleBenchmarkProblem(
+            f=from_botorch(Ackley()), noise_sd=0.0, minimize=True
+        )
+        new_ackley_problem = object_from_json(object_to_json(ackley_problem))
+        self.assertEqual(
+            ackley_problem.f(1, 2), new_ackley_problem.f(1, 2), ackley(1, 2)
+        )
 
     def testRegistryAdditions(self):
         class MyRunner(Runner):
@@ -315,3 +433,31 @@ class JSONStoreTest(TestCase):
             loaded_experiment = load_experiment(f.name)
             self.assertEqual(loaded_experiment, experiment)
             os.remove(f.name)
+
+    def testEncodeUnknownClassToDict(self):
+        # Cannot encode `UnknownClass` type because it is not registered in the
+        # CLASS_ENCODER_REGISTRY.
+        class UnknownClass:
+            def __init__(self):
+                pass
+
+        with self.assertRaisesRegex(
+            ValueError, "is a class. Add it to the CLASS_ENCODER_REGISTRY"
+        ):
+            object_to_json(UnknownClass)
+        # `UnknownClass` type is registered in the CLASS_ENCODER_REGISTRY and uses the
+        # `botorch_modular_to_dict` encoder, but `UnknownClass` is not registered in
+        # the `botorch_modular_registry.py` file.
+        CLASS_ENCODER_REGISTRY[UnknownClass] = botorch_modular_to_dict
+        with self.assertRaisesRegex(
+            ValueError,
+            "does not have a corresponding parent class in CLASS_TO_REGISTRY",
+        ):
+            object_to_json(UnknownClass)
+
+    def testDecodeUnknownClassFromJson(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "does not have a corresponding entry in CLASS_TO_REVERSE_REGISTRY",
+        ):
+            class_from_json({"index": 0, "class": "unknown_path"})

@@ -11,16 +11,14 @@ from IPython.display import display
 from plotly.offline import init_notebook_mode, iplot
 
 
-logger = get_logger("ipy_plotting")
+logger = get_logger(__name__)
 
 
 def init_notebook_plotting(offline=False):
     """Initialize plotting in notebooks, either in online or offline mode."""
     display_bundle = {"text/html": _wrap_js(_js_requires(offline=offline))}
     display(display_bundle, raw=True)
-    logger.info(
-        "Injecting Plotly library into cell. " "Do not overwrite or delete cell."
-    )
+    logger.info("Injecting Plotly library into cell. Do not overwrite or delete cell.")
     init_notebook_mode()
 
 
@@ -28,6 +26,9 @@ def render(plot_config: AxPlotConfig, inject_helpers=False) -> None:
     """Render plot config."""
     if plot_config.plot_type == AxPlotTypes.GENERIC:
         iplot(plot_config.data)
+    elif plot_config.plot_type == AxPlotTypes.HTML:
+        assert "text/html" in plot_config.data
+        display(plot_config.data, raw=True)
     else:
         display_bundle = {
             "text/html": plot_config_to_html(plot_config, inject_helpers=inject_helpers)

@@ -177,6 +177,11 @@ ax.storage.sqa\_store.validation module
 Registries
 -----------------
 
+.. automodule:: ax.storage.botorch_modular_registry
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 .. automodule:: ax.storage.metric_registry
     :members:
     :undoc-members:
