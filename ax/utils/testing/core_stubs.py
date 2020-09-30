@@ -55,6 +55,7 @@ from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.logger import get_logger
+from ax.utils.measurement.synthetic_functions import branin
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
@@ -88,10 +89,12 @@ def get_branin_experiment(
     with_batch: bool = False,
     with_status_quo: bool = False,
     with_fidelity_parameter: bool = False,
+    with_choice_parameter: bool = False,
     search_space: Optional[SearchSpace] = None,
 ) -> Experiment:
     search_space = search_space or get_branin_search_space(
-        with_fidelity_parameter=with_fidelity_parameter
+        with_fidelity_parameter=with_fidelity_parameter,
+        with_choice_parameter=with_choice_parameter,
     )
     exp = Experiment(
         name="branin_test_experiment",
@@ -312,17 +315,13 @@ def get_experiment_with_scalarized_objective() -> Experiment:
 
 
 def get_search_space() -> SearchSpace:
-    parameters = [
+    parameters: List[Parameter] = [
         get_range_parameter(),
         get_range_parameter2(),
         get_choice_parameter(),
         get_fixed_parameter(),
     ]
     return SearchSpace(
-        # pyre: Expected `List[ax.core.parameter.Parameter]` for 1st
-        # pyre: parameter `parameters` to call `ax.core.search_space.
-        # pyre: SearchSpace.__init__` but got `List[typing.
-        # pyre-fixme[6]: Union[ChoiceParameter, FixedParameter, RangeParameter]]`.
         parameters=parameters,
         parameter_constraints=[
             get_order_constraint(),
@@ -332,12 +331,20 @@ def get_search_space() -> SearchSpace:
     )
 
 
-def get_branin_search_space(with_fidelity_parameter: bool = False) -> SearchSpace:
+def get_branin_search_space(
+    with_fidelity_parameter: bool = False, with_choice_parameter: bool = False
+) -> SearchSpace:
     parameters = [
         RangeParameter(
             name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
         ),
-        RangeParameter(
+        ChoiceParameter(
+            name="x2",
+            parameter_type=ParameterType.FLOAT,
+            values=[float(x) for x in range(0, 16)],
+        )
+        if with_choice_parameter
+        else RangeParameter(
             name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=15
         ),
     ]
@@ -875,6 +882,24 @@ def get_branin_data(trial_indices: Optional[Iterable[int]] = None) -> Data:
         for trial_index in (trial_indices or [0])
     ]
     return Data(df=pd.DataFrame.from_records(df_dicts))
+
+
+def get_branin_data_batch(batch: BatchTrial) -> Data:
+    return Data(
+        pd.DataFrame(
+            {
+                "arm_name": [arm.name for arm in batch.arms],
+                "metric_name": "branin",
+                "mean": [
+                    # pyre-ignore[6]: This function can fail if a parameter value
+                    # does not support conversion to float.
+                    branin(float(arm.parameters["x1"]), float(arm.parameters["x2"]))
+                    for arm in batch.arms
+                ],
+                "sem": 0.1,
+            }
+        )
+    )
 
 
 def get_branin_data_multi_objective(
