@@ -10,13 +10,15 @@ import torch
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch import get_rounding_func
 from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
-    choose_mll_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
-    construct_training_data,
+    construct_single_training_data,
+    construct_training_data_list,
+    use_model_list,
     validate_data_format,
 )
 from ax.models.torch.utils import _to_inequality_constraints
@@ -114,24 +116,19 @@ class BoTorchModel(TorchModel, Base):
 
         # Choose `Surrogate` and undelying `Model` based on properties of data.
         if not self._surrogate:
-            model_class = choose_model_class(
+            self._autoset_surrogate(
+                Xs=Xs,
+                Ys=Ys,
                 Yvars=Yvars,
                 task_features=task_features,
                 fidelity_features=fidelity_features,
-            )
-            mll_class = choose_mll_class(
-                model_class=model_class,
-                state_dict=self.surrogate_fit_options.get(Keys.STATE_DICT, None),
-                refit=self.surrogate_fit_options.get(Keys.REFIT_ON_UPDATE, True),
-            )
-            self._surrogate = Surrogate(
-                botorch_model_class=model_class, mll_class=mll_class
+                metric_names=metric_names,
             )
 
-        # Construct `TrainingData` based on properties of data and type of `Model`.
-        training_data = construct_training_data(
-            Xs=Xs, Ys=Ys, Yvars=Yvars, model_class=self.surrogate.botorch_model_class
-        )
+        if isinstance(self.surrogate, ListSurrogate):
+            training_data = construct_training_data_list(Xs=Xs, Ys=Ys, Yvars=Yvars)
+        else:
+            training_data = construct_single_training_data(Xs=Xs, Ys=Ys, Yvars=Yvars)
 
         # Fit the model.
         if self.surrogate_fit_options.get(
@@ -139,6 +136,9 @@ class BoTorchModel(TorchModel, Base):
         ) and not self.surrogate_fit_options.get(Keys.WARM_START_REFITTING, True):
             self.surrogate_fit_options[Keys.STATE_DICT] = None
         self.surrogate.fit(
+            # pyre-ignore[6]: Base `Surrogate` expects only single `TrainingData`,
+            # but `ListSurrogate` expects a list of them, to `training_data` here is
+            # a union of the two.
             training_data=training_data,
             bounds=bounds,
             task_features=task_features,
@@ -246,6 +246,45 @@ class BoTorchModel(TorchModel, Base):
             acq_options=acq_options,
         )
         return acqf.evaluate(X=X)
+
+    def _autoset_surrogate(
+        self,
+        Xs: List[Tensor],
+        Ys: List[Tensor],
+        Yvars: List[Tensor],
+        task_features: List[int],
+        fidelity_features: List[int],
+        metric_names: List[str],
+    ) -> None:
+        """Sets a default surrogate on this model if one was not explicitly
+        provided.
+        """
+        # To determine whether to use `ListSurrogate`, we need to check for
+        # the batched multi-output case, so we first see which model would
+        # be chosen given the Yvars and the properties of data.
+        botorch_model_class = choose_model_class(
+            Yvars=Yvars,
+            task_features=task_features,
+            fidelity_features=fidelity_features,
+        )
+        if use_model_list(Xs=Xs, botorch_model_class=botorch_model_class):
+            # If using `ListSurrogate` / `ModelListGP`, pick submodels for each
+            # outcome.
+            botorch_model_class_per_outcome = {
+                metric_name: choose_model_class(
+                    Yvars=[Yvar],
+                    task_features=task_features,
+                    fidelity_features=fidelity_features,
+                )
+                for Yvar, metric_name in zip(Yvars, metric_names)
+            }
+            self._surrogate = ListSurrogate(
+                botorch_model_class_per_outcome=botorch_model_class_per_outcome
+            )
+        else:
+            # Using regular `Surrogate`, so botorch model picked at the beginning
+            # of the function is the one we should use.
+            self._surrogate = Surrogate(botorch_model_class=botorch_model_class)
 
     def _bounds_as_tensor(self, bounds: List[Tuple[float, float]]) -> Tensor:
         bounds_ = torch.tensor(

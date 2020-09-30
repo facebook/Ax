@@ -4,8 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from inspect import isclass
-from typing import Dict, List, Optional, Tuple, Type
+from typing import List, Optional, Tuple, Type
 
 import torch
 from ax.core.types import TConfig
@@ -20,16 +19,26 @@ from botorch.models.gp_regression_fidelity import (
 )
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel
 from botorch.models.model import Model
-from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.utils.containers import TrainingData
-from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
-from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
-from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
+
+
+def use_model_list(Xs: List[Tensor], botorch_model_class: Type[Model]) -> bool:
+    if len(Xs) == 1:
+        # Just one outcome, can use single model.
+        return False
+    if issubclass(botorch_model_class, BatchedMultiOutputGPyTorchModel) and all(
+        torch.equal(Xs[0], X) for X in Xs[1:]
+    ):
+        # Single model, batched multi-output case.
+        return False
+    # If there are multiple Xs and they are not all equal, we
+    # use `ListSurrogate` and `ModelListGP`.
+    return True
 
 
 def choose_model_class(
@@ -87,42 +96,21 @@ def choose_model_class(
     return FixedNoiseGP  # Known observation noise.
 
 
-def choose_mll_class(
-    model_class: Type[Model],
-    state_dict: Optional[Dict[str, Tensor]] = None,
-    refit: bool = True,
-) -> Type[MarginalLogLikelihood]:
-    r"""Chooses a BoTorch `MarginalLogLikelihood` class using the given `Model` class.
-
-    Args:
-        model_class: BoTorch `Model` class.
-        state_dict: If provided, will set model parameters to this state
-            dictionary. Otherwise, will fit the model.
-        refit: Flag for refitting model.
-
-    Returns:
-        A `MarginalLogLikelihood` class.
-    """
-    # NOTE: We currently do not support `ModelListGP`. This code block will only
-    # be relevant once we support `ModelListGP`.
-    if (state_dict is None or refit) and issubclass(model_class, ModelListGP):
-        return SumMarginalLogLikelihood
-    return ExactMarginalLogLikelihood
-
-
 def choose_botorch_acqf_class() -> Type[AcquisitionFunction]:
-    r"""Chooses a BoTorch `AcquisitionFunction` class."""
+    """Chooses a BoTorch `AcquisitionFunction` class."""
     # NOTE: In the future, this dispatch function could leverage any
     # of the attributes of `BoTorchModel` or kwargs passed to
     # `BoTorchModel.gen` to intelligently select acquisition function.
     return qNoisyExpectedImprovement
 
 
-def construct_training_data(
-    Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor], model_class: Type[Model]
+def construct_single_training_data(
+    Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]
 ) -> TrainingData:
-    """Construct a `TrainingData` object based on sizes of Xs, Ys, and Yvars, and
-    the type of model, for which the training data is intended.
+    """Construct a `TrainingData` object for a single-outcome model or a batched
+    multi-output model. **This function assumes that a single `TrainingData` is
+    expected (so if all Xs are equal, it will produce `TrainingData` for a batched
+    multi-output model).**
 
     NOTE: All four outputs are organized as lists over outcomes. E.g. if there are two
     outcomes, 'x' and 'y', the Xs are formatted like so: `[Xs_x_ndarray, Xs_y_ndarray]`.
@@ -137,25 +125,43 @@ def construct_training_data(
         batched multi-output training data if appropriate for given model and if
         all X inputs in Xs are equal.
     """
-    if not isclass(model_class):  # pragma: no cover
-        raise ValueError(
-            f"Expected `Type[Model]`, got: {model_class} "
-            f"(type: {type(model_class)})."
-        )
     if len(Xs) == len(Ys) == 1:
         # Just one outcome, can use single model.
         return TrainingData(X=Xs[0], Y=Ys[0], Yvar=Yvars[0])
-    elif issubclass(model_class, BatchedMultiOutputGPyTorchModel) and all(
-        torch.equal(Xs[0], X) for X in Xs[1:]
-    ):
+    elif all(torch.equal(Xs[0], X) for X in Xs[1:]):
+        if not len(Xs) == len(Ys) == len(Yvars):  # pragma: no cover
+            raise ValueError("Xs, Ys, and Yvars must have equal lengths.")
         # All Xs are the same and model supports batched multioutput.
         return TrainingData(
             X=Xs[0], Y=torch.cat(Ys, dim=-1), Yvar=torch.cat(Yvars, dim=-1)
         )
-    elif model_class is ModelListGP:  # pragma: no cover
-        # TODO: This will be case for `ListSurrogate`.
-        raise NotImplementedError("`ModelListGP` not yet supported.")
-    raise ValueError(f"Unexpected training data format for {model_class}.")
+    raise ValueError(
+        "Unexpected training data format. Use `construct_training_data_list` if "
+        "constructing training data for multiple outcomes (and not using batched "
+        "multi-output)."
+    )
+
+
+def construct_training_data_list(
+    Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor]
+) -> List[TrainingData]:
+    """Construct a list of `TrainingData` objects, for use in `ListSurrogate` and
+    `ModelListGP`. Each `TrainingData` corresponds to an outcome.
+
+    NOTE: All four outputs are organized as lists over outcomes. E.g. if there are two
+    outcomes, 'x' and 'y', the Xs are formatted like so: `[Xs_x_ndarray, Xs_y_ndarray]`.
+    We specifically do not assume that every point is observed for every outcome.
+    This means that the array for each of those outcomes may be different, and in
+    particular could have a different length (e.g. if a particular arm was observed
+    only for half of the outcomes, it would be present in half of the arrays in the
+    list but not the other half.)
+
+    Returns:
+        A list of `TrainingData` for all outcomes, preserves the order of Xs.
+    """
+    if not len(Xs) == len(Ys) == len(Yvars):  # pragma: no cover
+        raise ValueError("Xs, Ys, and Yvars must have equal lengths.")
+    return [TrainingData(X=X, Y=Y, Yvar=Yvar) for X, Y, Yvar in zip(Xs, Ys, Yvars)]
 
 
 def validate_data_format(

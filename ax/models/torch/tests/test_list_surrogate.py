@@ -32,7 +32,6 @@ class ListSurrogateTest(TestCase):
     def setUp(self):
         self.outcomes = ["outcome_1", "outcome_2"]
         self.mll_class = SumMarginalLogLikelihood
-        self.device = torch.device("cpu")
         self.dtype = torch.float
         self.task_features = [0]
         Xs1, Ys1, Yvars1, bounds, _, _, _ = get_torch_test_data(

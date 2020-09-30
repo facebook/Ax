@@ -9,6 +9,7 @@ from unittest.mock import ANY, patch
 import torch
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kg import KnowledgeGradient
+from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class
@@ -19,7 +20,6 @@ from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.containers import TrainingData
-from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 
 
 CURRENT_PATH = __name__
@@ -50,13 +50,13 @@ class BoTorchModelTest(TestCase):
 
         self.dtype = torch.float
         Xs1, Ys1, Yvars1, self.bounds, _, _, _ = get_torch_test_data(dtype=self.dtype)
-        Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype)
+        Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
         self.Xs = Xs1 + Xs2
         self.Ys = Ys1 + Ys2
         self.Yvars = Yvars1 + Yvars2
-        self.X = self.Xs[0]
-        self.Y = self.Ys[0]
-        self.Yvar = self.Yvars[0]
+        self.X = Xs1[0]
+        self.Y = Ys1[0]
+        self.Yvar = Yvars1[0]
         self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
         self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
         self.task_features = []
@@ -105,8 +105,7 @@ class BoTorchModelTest(TestCase):
 
     @patch(f"{SURROGATE_PATH}.Surrogate.fit")
     @patch(f"{MODEL_PATH}.choose_model_class", return_value=SingleTaskGP)
-    @patch(f"{MODEL_PATH}.choose_mll_class", return_value=ExactMarginalLogLikelihood)
-    def test_fit(self, mock_choose_mll_class, mock_choose_model_class, mock_fit):
+    def test_fit(self, mock_choose_model_class, mock_fit):
         # If surrogate is not yet set, initialize it with dispatcher functions.
         self.model._surrogate = None
         self.model.fit(
@@ -126,12 +125,6 @@ class BoTorchModelTest(TestCase):
             Yvars=[self.Yvar],
             task_features=self.task_features,
             fidelity_features=self.fidelity_features,
-        )
-        # `choose_mll_class` is called.
-        mock_choose_mll_class.assert_called_with(
-            model_class=SingleTaskGP,
-            state_dict={"non-empty": "non-empty"},
-            refit=self.surrogate_fit_options[Keys.REFIT_ON_UPDATE],
         )
         # Since we want to refit on updates but not warm start refit, we clear the
         # state dict.
@@ -259,3 +252,44 @@ class BoTorchModelTest(TestCase):
         # `_mock_kg` is a mock of class, so to check the mock `evaluate` on
         # instance of that class, we use `_mock_kg.return_value.evaluate`
         _mock_kg.return_value.evaluate.assert_called()
+
+    @patch(
+        f"{ACQUISITION_PATH}.Acquisition._extract_training_data",
+        # Mock to register calls, but still execute the function.
+        side_effect=Acquisition._extract_training_data,
+    )
+    @patch(
+        f"{ACQUISITION_PATH}.Acquisition.optimize",
+        # Dummy candidates and acquisition function value.
+        return_value=(torch.tensor([[2.0]]), torch.tensor([1.0])),
+    )
+    def test_list_surrogate_choice(self, _, mock_extract_training_data):
+        model = BoTorchModel()
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            task_features=self.task_features,
+            feature_names=self.feature_names,
+            metric_names=self.metric_names_for_list_surrogate,
+            fidelity_features=self.fidelity_features,
+            target_fidelities=self.target_fidelities,
+            candidate_metadata=self.candidate_metadata,
+        )
+        model.gen(
+            n=1,
+            bounds=self.bounds,
+            objective_weights=self.objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+            pending_observations=self.pending_observations,
+            model_gen_options=self.model_gen_options,
+            rounding_func=self.rounding_func,
+            target_fidelities=self.target_fidelities,
+        )
+        mock_extract_training_data.assert_called_once()
+        self.assertIsInstance(
+            mock_extract_training_data.call_args[1]["surrogate"], ListSurrogate
+        )

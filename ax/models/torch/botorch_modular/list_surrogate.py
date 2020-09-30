@@ -67,27 +67,35 @@ class ListSurrogate(Surrogate):
             raise ValueError(NOT_YET_FIT_MSG)
         return not_none(self._training_data_per_outcome)
 
+    @property
+    def dtype(self) -> torch.dtype:
+        return next(iter(self.training_data_per_outcome.values())).X.dtype
+
+    @property
+    def device(self) -> torch.device:
+        return next(iter(self.training_data_per_outcome.values())).X.device
+
     # pyre-ignore[14]: `construct` takes in list of training data in list surrogate,
     # whereas it takes just a single training data in base surrogate.
     def construct(self, training_data: List[TrainingData], **kwargs: Any) -> None:
         """Constructs the underlying BoTorch `Model` using the training data.
 
         Args:
-            training_data: List of Training data for the submodels of `ModelListGP`.
+            training_data: List of `TrainingData` for the submodels of `ModelListGP`.
                 Each training data is for one outcome, and the order of outcomes
                 should match the order of metrics in `metric_names` argument.
-            **kwargs: Keyword arguments, expects all of:
+            **kwargs: Keyword arguments, accepts:
+                - `metric_names` (required): Names of metrics, in the same order
+                as training data (so if training data is `[tr_A, tr_B]`, the metrics
+                would be `["A" and "B"]`). These are used to match training data
+                with correct submodels of `ModelListGP`,
                 - `fidelity_features`: Indices of columns in X that represent
-                fidelity.
+                fidelity,
                 - `task_features`: Indices of columns in X that represent tasks.
-                - `metric_names`: Names of metrics, in the same order as training
-                data (so it training data is `[tr_A, tr_B]`, the metrics would be
-                `["A" and "B"]`). These are used to match training data with correct
-                submodels of `ModelListGP`.
         """
         metric_names = kwargs.get(Keys.METRIC_NAMES)
-        fidelity_features = kwargs.get(Keys.FIDELITY_FEATURES)
-        task_features = kwargs.get(Keys.TASK_FEATURES)
+        fidelity_features = kwargs.get(Keys.FIDELITY_FEATURES, [])
+        task_features = kwargs.get(Keys.TASK_FEATURES, [])
         if metric_names is None:
             raise ValueError("Metric names are required.")
 
@@ -103,8 +111,8 @@ class ListSurrogate(Surrogate):
             tr = self.training_data_per_outcome[metric_name]
             formatted_model_inputs = model_cls.construct_inputs(
                 training_data=tr,
-                fidelity_features=fidelity_features or [],
-                task_features=task_features or [],
+                fidelity_features=fidelity_features,
+                task_features=task_features,
             )
             kwargs = submodel_options.get(metric_name, {})
             # pyre-ignore[45]: Py raises informative msg if `model_cls` abstract.

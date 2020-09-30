@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import Dict
 
 import torch
@@ -14,15 +16,28 @@ def get_optimizer_kwargs() -> Dict[str, int]:
 
 
 def get_torch_test_data(
-    dtype=torch.float, cuda=False, constant_noise=True, task_features=None
+    dtype=torch.float, cuda=False, constant_noise=True, task_features=None, offset=0.0
 ):
     device = torch.device("cuda") if cuda else torch.device("cpu")
-    Xs = [torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=dtype, device=device)]
-    Ys = [torch.tensor([[3.0], [4.0]], dtype=dtype, device=device)]
-    Yvars = [torch.tensor([[0.0], [2.0]], dtype=dtype, device=device)]
+    Xs = [
+        torch.tensor(
+            [
+                [1.0 + offset, 2.0 + offset, 3.0 + offset],
+                [2.0 + offset, 3.0 + offset, 4.0 + offset],
+            ],
+            dtype=dtype,
+            device=device,
+        )
+    ]
+    Ys = [torch.tensor([[3.0 + offset], [4.0 + offset]], dtype=dtype, device=device)]
+    Yvars = [torch.tensor([[0.0 + offset], [2.0 + offset]], dtype=dtype, device=device)]
     if constant_noise:
         Yvars[0].fill_(1.0)
-    bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
+    bounds = [
+        (0.0 + offset, 1.0 + offset),
+        (1.0 + offset, 4.0 + offset),
+        (2.0 + offset, 5.0 + offset),
+    ]
     feature_names = ["x1", "x2", "x3"]
     task_features = [] if task_features is None else task_features
     metric_names = ["y", "r"]
