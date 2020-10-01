@@ -40,7 +40,7 @@ class ListSurrogateTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=self.dtype, task_features=self.task_features
         )
-        self.botorch_model_class_per_outcome = {
+        self.botorch_submodel_class_per_outcome = {
             self.outcomes[0]: choose_model_class(
                 Yvars=Yvars1, task_features=self.task_features, fidelity_features=[]
             ),
@@ -49,7 +49,7 @@ class ListSurrogateTest(TestCase):
             ),
         }
         self.expected_submodel_type = FixedNoiseMultiTaskGP
-        for submodel_cls in self.botorch_model_class_per_outcome.values():
+        for submodel_cls in self.botorch_submodel_class_per_outcome.values():
             self.assertEqual(submodel_cls, FixedNoiseMultiTaskGP)
         self.Xs = Xs1 + Xs2
         self.Ys = Ys1 + Ys2
@@ -58,14 +58,14 @@ class ListSurrogateTest(TestCase):
             TrainingData(X=X, Y=Y, Yvar=Yvar)
             for X, Y, Yvar in zip(self.Xs, self.Ys, self.Yvars)
         ]
-        self.submodel_options = {
+        self.submodel_options_per_outcome = {
             self.outcomes[0]: {RANK: 1},
             self.outcomes[1]: {RANK: 2},
         }
         self.surrogate = ListSurrogate(
-            botorch_model_class_per_outcome=self.botorch_model_class_per_outcome,
+            botorch_submodel_class_per_outcome=self.botorch_submodel_class_per_outcome,
             mll_class=self.mll_class,
-            submodel_options_per_outcome=self.submodel_options,
+            submodel_options_per_outcome=self.submodel_options_per_outcome,
         )
         self.bounds = [(0.0, 1.0), (1.0, 4.0)]
         self.feature_names = ["x1", "x2"]
@@ -76,13 +76,14 @@ class ListSurrogateTest(TestCase):
         for idx, submodel in enumerate(c.model.models):
             self.assertIsInstance(submodel, self.expected_submodel_type)
             self.assertEqual(
-                submodel._rank, self.submodel_options[self.outcomes[idx]][RANK]
+                submodel._rank,
+                self.submodel_options_per_outcome[self.outcomes[idx]][RANK],
             )
 
     def test_init(self):
         self.assertEqual(
-            self.surrogate.botorch_model_class_per_outcome,
-            self.botorch_model_class_per_outcome,
+            self.surrogate.botorch_submodel_class_per_outcome,
+            self.botorch_submodel_class_per_outcome,
         )
         self.assertEqual(self.surrogate.mll_class, self.mll_class)
         with self.assertRaises(NotImplementedError):
@@ -99,12 +100,15 @@ class ListSurrogateTest(TestCase):
         # Mock to register calls, but still execute the function.
         side_effect=FixedNoiseMultiTaskGP.construct_inputs,
     )
-    def test_construct(self, mock_MTGP_construct_inputs):
+    def test_construct_per_outcome_options(self, mock_MTGP_construct_inputs):
         with self.assertRaisesRegex(ValueError, ".* are required"):
             self.surrogate.construct(training_data=self.training_data)
+        with self.assertRaisesRegex(ValueError, "No model class specified for"):
+            self.surrogate.construct(
+                training_data=self.training_data, metric_names=["new_metric"]
+            )
         self.surrogate.construct(
             training_data=self.training_data,
-            fidelity_features=[],
             task_features=self.task_features,
             metric_names=self.outcomes,
         )
@@ -112,32 +116,62 @@ class ListSurrogateTest(TestCase):
         # Should construct inputs for MTGP twice.
         self.assertEqual(len(mock_MTGP_construct_inputs.call_args_list), 2)
         # First construct inputs should be called for MTGP with training data #0.
-        self.assertEqual(
-            # `call_args` is a tuple of (args, kwargs), and we are interested in kwargs.
-            mock_MTGP_construct_inputs.call_args_list[0][1],
-            {
-                "fidelity_features": [],
-                "task_features": self.task_features,
-                "training_data": self.training_data[0],
+        for idx in range(len(mock_MTGP_construct_inputs.call_args_list)):
+            self.assertEqual(
+                # `call_args` is a tuple of (args, kwargs), and we check kwargs.
+                mock_MTGP_construct_inputs.call_args_list[idx][1],
+                {
+                    "fidelity_features": [],
+                    "task_features": self.task_features,
+                    "training_data": self.training_data[idx],
+                    "rank": self.submodel_options_per_outcome[self.outcomes[idx]][
+                        "rank"
+                    ],
+                },
+            )
+
+    @patch(
+        f"{CURRENT_PATH}.FixedNoiseMultiTaskGP.construct_inputs",
+        # Mock to register calls, but still execute the function.
+        side_effect=FixedNoiseMultiTaskGP.construct_inputs,
+    )
+    def test_construct_shared_shortcut_options(self, mock_construct_inputs):
+        surrogate = ListSurrogate(
+            botorch_submodel_class=self.botorch_submodel_class_per_outcome[
+                self.outcomes[0]
+            ],
+            submodel_options={"shared_option": True},
+            submodel_options_per_outcome={
+                outcome: {"individual_option": f"val_{idx}"}
+                for idx, outcome in enumerate(self.outcomes)
             },
         )
-        # Then, with training data #1.
-        self.assertEqual(
-            # `call_args` is a tuple of (args, kwargs), and we are interested in kwargs.
-            mock_MTGP_construct_inputs.call_args_list[1][1],
-            {
-                "fidelity_features": [],
-                "task_features": self.task_features,
-                "training_data": self.training_data[1],
-            },
+        surrogate.construct(
+            training_data=self.training_data,
+            task_features=self.task_features,
+            metric_names=self.outcomes,
         )
+        # 2 submodels should've been constructed, both of type `botorch_submodel_class`.
+        self.assertEqual(len(mock_construct_inputs.call_args_list), 2)
+        first_call_args, second_call_args = mock_construct_inputs.call_args_list
+        for idx in range(len(mock_construct_inputs.call_args_list)):
+            self.assertEqual(
+                mock_construct_inputs.call_args_list[idx][1],
+                {
+                    "fidelity_features": [],
+                    "individual_option": f"val_{idx}",
+                    "shared_option": True,
+                    "task_features": [0],
+                    "training_data": self.training_data[idx],
+                },
+            )
 
     @patch(f"{CURRENT_PATH}.ModelListGP.load_state_dict", return_value=None)
     @patch(f"{CURRENT_PATH}.SumMarginalLogLikelihood")
     @patch(f"{SURROGATE_PATH}.fit_gpytorch_model")
     def test_fit(self, mock_fit_gpytorch, mock_MLL, mock_state_dict):
         surrogate = ListSurrogate(
-            botorch_model_class_per_outcome=self.botorch_model_class_per_outcome,
+            botorch_submodel_class_per_outcome=self.botorch_submodel_class_per_outcome,
             mll_class=SumMarginalLogLikelihood,
         )
         # Checking that model is None before `fit` (and `construct`) calls.

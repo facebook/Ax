@@ -241,7 +241,7 @@ class AcquisitionTest(TestCase):
             self.training_data,
         )
         # `ListSurrogate` case.
-        list_surrogate = ListSurrogate(botorch_model_class_per_outcome={})
+        list_surrogate = ListSurrogate(botorch_submodel_class=self.botorch_model_class)
         list_surrogate._training_data_per_outcome = {"a": self.training_data}
         self.assertEqual(
             self.acquisition._extract_training_data(surrogate=list_surrogate),

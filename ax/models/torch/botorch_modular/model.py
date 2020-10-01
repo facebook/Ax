@@ -270,7 +270,7 @@ class BoTorchModel(TorchModel, Base):
         if use_model_list(Xs=Xs, botorch_model_class=botorch_model_class):
             # If using `ListSurrogate` / `ModelListGP`, pick submodels for each
             # outcome.
-            botorch_model_class_per_outcome = {
+            botorch_submodel_class_per_outcome = {
                 metric_name: choose_model_class(
                     Yvars=[Yvar],
                     task_features=task_features,
@@ -279,7 +279,7 @@ class BoTorchModel(TorchModel, Base):
                 for Yvar, metric_name in zip(Yvars, metric_names)
             }
             self._surrogate = ListSurrogate(
-                botorch_model_class_per_outcome=botorch_model_class_per_outcome
+                botorch_submodel_class_per_outcome=botorch_submodel_class_per_outcome
             )
         else:
             # Using regular `Surrogate`, so botorch model picked at the beginning

@@ -12,6 +12,7 @@ import torch
 from ax.core.types import TCandidateMetadata
 from ax.models.torch.botorch_modular.surrogate import NOT_YET_FIT_MSG, Surrogate
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from botorch.models.model import Model, TrainingData
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -20,23 +21,38 @@ from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 
 
+logger = get_logger(__name__)
+
+
 class ListSurrogate(Surrogate):
     """Special type of `Surrogate` that wraps a set of submodels into
     `ModelListGP` under the hood for multi-outcome or multi-task
     models.
 
     Args:
-        botorch_model_class_per_outcome: Mapping from metric name to
+        botorch_submodel_class_per_outcome: Mapping from metric name to
             BoTorch model class that should be used as surrogate model for
-            that metric.
+            that metric. Use instead of `botorch_submodel_class`.
+        botorch_submodel_class: BoTorch `Model` class, shortcut for when
+            all submodels of this surrogate's underlying `ModelListGP` are
+            of the same type. Use instead of `botorch_submodel_class_per_
+            outcome`.
         submodel_options_per_outcome: Optional mapping from metric name to
             dictionary of kwargs for the submodel for that outcome.
+        submodel_options: Optional dictionary of kwargs, shared between all
+            submodels.
+            NOTE: kwargs for submodel are `submodel_options` (shared) +
+            `submodel_outions_per_outcome[submodel_outcome]` (individual).
         mll_class: `MarginalLogLikelihood` class to use for model-fitting.
     """
 
-    botorch_model_class_per_outcome: Dict[str, Type[Model]]
+    botorch_submodel_class_per_outcome: Dict[str, Type[Model]]
+    botorch_submodel_class: Optional[Type[Model]]
+    submodel_options_per_outcome: Dict[str, Dict[str, Any]]
+    submodel_options: Dict[str, Any]
     mll_class: Type[MarginalLogLikelihood]
     kernel_class: Optional[Type[Kernel]] = None
+
     _training_data_per_outcome: Optional[Dict[str, TrainingData]] = None
     _model: Optional[Model] = None
     # Special setting for surrogates instantiated via `Surrogate.from_BoTorch`,
@@ -46,12 +62,24 @@ class ListSurrogate(Surrogate):
 
     def __init__(
         self,
-        botorch_model_class_per_outcome: Dict[str, Type[Model]],
+        botorch_submodel_class_per_outcome: Optional[Dict[str, Type[Model]]] = None,
+        botorch_submodel_class: Optional[Type[Model]] = None,
         submodel_options_per_outcome: Optional[Dict[str, Dict[str, Any]]] = None,
+        submodel_options: Optional[Dict[str, Any]] = None,
         mll_class: Type[MarginalLogLikelihood] = SumMarginalLogLikelihood,
     ) -> None:
-        self.botorch_model_class_per_outcome = botorch_model_class_per_outcome
-        self.submodel_options_per_outcome = submodel_options_per_outcome
+        if not bool(botorch_submodel_class_per_outcome) ^ bool(botorch_submodel_class):
+            raise ValueError(  # pragma: no cover
+                "Please specify either `botorch_submodel_class_per_outcome` or "
+                "`botorch_model_class`. In the latter case, the same submodel "
+                "class will be used for all outcomes."
+            )
+        self.botorch_submodel_class_per_outcome = (
+            botorch_submodel_class_per_outcome or {}
+        )
+        self.botorch_submodel_class = botorch_submodel_class
+        self.submodel_options_per_outcome = submodel_options_per_outcome or {}
+        self.submodel_options = submodel_options or {}
         super().__init__(botorch_model_class=ModelListGP, mll_class=mll_class)
 
     @property
@@ -102,21 +130,36 @@ class ListSurrogate(Surrogate):
         self._training_data_per_outcome = {
             metric_name: tr for metric_name, tr in zip(metric_names, training_data)
         }
-        submodel_options = self.submodel_options_per_outcome or {}
-        submodels = []
 
-        for metric_name, model_cls in self.botorch_model_class_per_outcome.items():
-            if metric_name not in self.training_data_per_outcome:
-                continue  # pragma: no cover
-            tr = self.training_data_per_outcome[metric_name]
+        submodels = []
+        for m in metric_names:
+            model_cls = self.botorch_submodel_class_per_outcome.get(
+                m, self.botorch_submodel_class
+            )
+            if not model_cls:
+                raise ValueError(f"No model class specified for outcome {m}.")
+
+            if m not in self.training_data_per_outcome:  # pragma: no cover
+                logger.info(f"Metric {m} not in training data.")
+                continue
+
+            # NOTE: here we do a shallow copy of `self.submodel_options`, to
+            # protect from accidental modification of shared options. As it is
+            # a shallow copy, it does not protect the objects in the dictionary,
+            # just the dictionary itself.
+            submodel_options = {
+                **self.submodel_options,
+                **self.submodel_options_per_outcome.get(m, {}),
+            }
+
             formatted_model_inputs = model_cls.construct_inputs(
-                training_data=tr,
+                training_data=self.training_data_per_outcome[m],
                 fidelity_features=fidelity_features,
                 task_features=task_features,
+                **submodel_options,
             )
-            kwargs = submodel_options.get(metric_name, {})
-            # pyre-ignore[45]: Py raises informative msg if `model_cls` abstract.
-            submodels.append(model_cls(**formatted_model_inputs, **kwargs))
+            # pyre-ignore[45]: Py raises informative error if model is abstract.
+            submodels.append(model_cls(**formatted_model_inputs))
         self._model = ModelListGP(*submodels)
 
     # pyre-ignore[14]: `fit` takes in list of training data in list surrogate,
