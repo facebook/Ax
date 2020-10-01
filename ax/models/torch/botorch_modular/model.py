@@ -54,13 +54,21 @@ class BoTorchModel(TorchModel, Base):
         surrogate: An instance of `Surrogate` to be used as part of
             this model; if not specified, type of `Surrogate` and
             underlying BoTorch `Model` will be auto-selected based
-            on experiment and data.
+            on experiment and data, with kwargs in `surrogate_options`
+            applied.
+        surrogate_options: Optional dict of kwargs for `Surrogate`
+            (used if no pre-instantiated Surrogate via is passed via `surrogate`).
         surrogate_fit_options: Optional dict of kwargs, passed to
-            `Surrogate.fit`, like `state_dict` or `refit_on_update`.
+            `Surrogate.fit`, including:
+                - state_dict: `state_dict` for the underlying BoTorch
+                  `Model`,
+                - refit_on_update: Whether to re-fit the underlying
+                  BoTorch `Model` when updating it with new data.
     """
 
     acquisition_class: Type[Acquisition]
-    acquisition_options: TConfig
+    acquisition_options: Dict[str, Any]
+    surrogate_options: Dict[str, Any]
     surrogate_fit_options: Dict[str, Any]
     _surrogate: Optional[Surrogate]
     _botorch_acqf_class: Optional[Type[AcquisitionFunction]]
@@ -68,12 +76,20 @@ class BoTorchModel(TorchModel, Base):
     def __init__(
         self,
         acquisition_class: Optional[Type[Acquisition]] = None,
-        acquisition_options: Optional[TConfig] = None,
+        acquisition_options: Optional[Dict[str, Any]] = None,
         botorch_acqf_class: Optional[Type[AcquisitionFunction]] = None,
         surrogate: Optional[Surrogate] = None,
+        surrogate_options: Optional[Dict[str, Any]] = None,
         surrogate_fit_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._surrogate = surrogate
+        if surrogate and surrogate_options:
+            raise ValueError(  # pragma: no cover
+                "`surrogate_options` are only applied when using the default "
+                "surrogate, so only one of `surrogate` and `surrogate_options`"
+                " arguments is expected."
+            )
+        self.surrogate_options = surrogate_options or {}
         self.surrogate_fit_options = surrogate_fit_options or {}
         self.acquisition_class = acquisition_class or Acquisition
         # `_botorch_acqf_class` can be set to `None` here. If so,
@@ -279,12 +295,15 @@ class BoTorchModel(TorchModel, Base):
                 for Yvar, metric_name in zip(Yvars, metric_names)
             }
             self._surrogate = ListSurrogate(
-                botorch_submodel_class_per_outcome=botorch_submodel_class_per_outcome
+                botorch_submodel_class_per_outcome=botorch_submodel_class_per_outcome,
+                **self.surrogate_options
             )
         else:
             # Using regular `Surrogate`, so botorch model picked at the beginning
             # of the function is the one we should use.
-            self._surrogate = Surrogate(botorch_model_class=botorch_model_class)
+            self._surrogate = Surrogate(
+                botorch_model_class=botorch_model_class, **self.surrogate_options
+            )
 
     def _bounds_as_tensor(self, bounds: List[Tuple[float, float]]) -> Tensor:
         bounds_ = torch.tensor(

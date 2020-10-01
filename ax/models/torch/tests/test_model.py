@@ -19,6 +19,8 @@ from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
+from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.containers import TrainingData
 
 
@@ -27,6 +29,7 @@ MODEL_PATH = BoTorchModel.__module__
 SURROGATE_PATH = Surrogate.__module__
 UTILS_PATH = choose_model_class.__module__
 ACQUISITION_PATH = Acquisition.__module__
+LIST_SURROGATE_PATH = ListSurrogate.__module__
 
 
 class BoTorchModelTest(TestCase):
@@ -253,6 +256,30 @@ class BoTorchModelTest(TestCase):
         # instance of that class, we use `_mock_kg.return_value.evaluate`
         _mock_kg.return_value.evaluate.assert_called()
 
+    @patch(f"{LIST_SURROGATE_PATH}.ListSurrogate.__init__", return_value=None)
+    @patch(f"{LIST_SURROGATE_PATH}.ListSurrogate.fit", return_value=None)
+    def test_surrogate_options_propagation(self, _, mock_init):
+        model = BoTorchModel(surrogate_options={"some_option": "some_value"})
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            task_features=self.task_features,
+            feature_names=self.feature_names,
+            metric_names=self.metric_names_for_list_surrogate,
+            fidelity_features=self.fidelity_features,
+            target_fidelities=self.target_fidelities,
+            candidate_metadata=self.candidate_metadata,
+        )
+        mock_init.assert_called_with(
+            botorch_submodel_class_per_outcome={
+                outcome: FixedNoiseMultiFidelityGP
+                for outcome in self.metric_names_for_list_surrogate
+            },
+            some_option="some_value",
+        )
+
     @patch(
         f"{ACQUISITION_PATH}.Acquisition._extract_training_data",
         # Mock to register calls, but still execute the function.
@@ -277,6 +304,12 @@ class BoTorchModelTest(TestCase):
             target_fidelities=self.target_fidelities,
             candidate_metadata=self.candidate_metadata,
         )
+        # A list surrogate should be chosen, since Xs are not all the same.
+        self.assertIsInstance(model.surrogate.model, ModelListGP)
+        for submodel in model.surrogate.model.models:
+            # There are fidelity features and nonempty Yvars, so
+            # fixed noise MFGP should be chosen.
+            self.assertIsInstance(submodel, FixedNoiseMultiFidelityGP)
         model.gen(
             n=1,
             bounds=self.bounds,
