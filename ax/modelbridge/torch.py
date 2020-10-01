@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import Callable, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -307,7 +307,7 @@ class TorchModelBridge(ArrayModelBridge):
             pending_observations,
         )
 
-    def _array_to_tensor(self, array: np.ndarray) -> Tensor:
+    def _array_to_tensor(self, array: Union[np.ndarray, List[float]]) -> Tensor:
         return torch.tensor(array, dtype=self.dtype, device=self.device)
 
     def _array_list_to_tensors(self, arrays: List[np.ndarray]) -> List[Tensor]:

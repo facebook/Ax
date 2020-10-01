@@ -24,11 +24,14 @@ from ax.modelbridge.array import (
 )
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
+from ax.models.torch.botorch_moo_defaults import (
+    _get_weighted_mc_objective_and_ref_point,
+)
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
-from torch import Tensor
+from botorch.utils.multi_objective.hypervolume import Hypervolume
 
 
 logger = get_logger("MultiObjectiveTorchModelBridge")
@@ -317,7 +320,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         ref_point = self._transform_ref_point(
             ref_point=not_none(ref_point), padding_obs_data=padding_obs_data
         )
-        rf_pt = self._array_to_tensor(np.array(self._get_ref_point_list(ref_point)))
+        rf_pt = self._array_to_tensor(self._get_ref_point_list(ref_point))
         # Transform features, Evaluate a frontier, and untransform results
         # pyre-ignore [16]:  `TorchModel` has no attribute `frontier_evaluator`
         f, cov = not_none(self.model).frontier_evaluator(
@@ -346,7 +349,8 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         observation_features: Optional[List[ObservationFeatures]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> List[ObservationData]:
-        """Generate a pareto frontier based on predictions of given observation features.
+        """Generate a pareto frontier based on the posterior means of given
+        observation features.
 
         Given a model and features to evaluate use the model to predict which points
         lie on the pareto frontier.
@@ -405,8 +409,120 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             optimization_config=optimization_config,
         )
 
-    def hypervolume(self, X: Tensor) -> Tensor:
-        raise NotImplementedError()  # pragma: no cover
+    def _hypervolume(
+        self,
+        ref_point: Optional[Dict[str, float]] = None,
+        observation_features: Optional[List[ObservationFeatures]] = None,
+        observation_data: Optional[List[ObservationData]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> float:
+        """Helper function that computes hypervolume of a given list of outcomes."""
+        # Extract a tensor of outcome means from observation data.
+        observation_data = self._pareto_frontier(
+            ref_point=ref_point,
+            observation_features=observation_features,
+            observation_data=observation_data,
+            optimization_config=optimization_config,
+        )
+        means, _ = self._transform_observation_data(observation_data)
 
-    def observed_hypervolume(self) -> Tensor:
-        raise NotImplementedError()  # pragma: no cover
+        # Extract objective_weights and ref_points
+        if optimization_config is None:
+            optimization_config = (
+                # pyre-fixme[16]: `Optional` has no attribute `clone`.
+                self._optimization_config.clone()
+                if self._optimization_config is not None
+                else None
+            )
+        else:
+            optimization_config = optimization_config.clone()
+
+        objective_weights = extract_objective_weights(
+            objective=optimization_config.objective, outcomes=self.outcomes
+        )
+        obj_w, _, _, _ = self._validate_and_convert_to_tensors(
+            objective_weights=objective_weights,
+            outcome_constraints=None,
+            linear_constraints=None,
+            pending_observations=None,
+        )
+        # pyre-fixme[6]: Expected `Dict[str, float]` but got `Optional[Dict[str,float]]`
+        rf_pt = self._array_to_tensor(self._get_ref_point_list(ref_point))
+        obj, rf_pt = _get_weighted_mc_objective_and_ref_point(
+            objective_weights=obj_w, ref_point=rf_pt
+        )
+        means = obj(means)
+        # Transform ref_point to tensor
+        hv = Hypervolume(ref_point=rf_pt)
+        return hv.compute(means)
+
+    def predicted_hypervolume(
+        self,
+        ref_point: Optional[Dict[str, float]] = None,
+        observation_features: Optional[List[ObservationFeatures]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> float:
+        """Calculate hypervolume of a pareto frontier based on the posterior means of
+        given observation features.
+
+        Given a model and features to evaluate calculate the hypervolume of the pareto
+        frontier formed from their predicted outcomes.
+
+        Args:
+            model: Model used to predict outcomes.
+            ref_point: point defining the origin of hyperrectangles that can contribute
+                to hypervolume.
+            observation_features: observation features to predict. Model's training
+                data used by default if unspecified.
+            optimization_config: Optimization config
+
+        Returns:
+            (float) calculated hypervolume.
+        """
+        # If observation_features is not provided, use model training features.
+        observation_features = (
+            observation_features
+            if observation_features is not None
+            else [obs.features for obs in self.get_training_data()]
+        )
+        if not observation_features:
+            raise ValueError(
+                "Must receive observation_features as input or the model must "
+                "have training data."
+            )
+
+        return self._hypervolume(
+            ref_point=ref_point,
+            observation_features=observation_features,
+            optimization_config=optimization_config,
+        )
+
+    def observed_hypervolume(
+        self,
+        ref_point: Optional[Dict[str, float]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> float:
+        """Calculate hypervolume of a pareto frontier based on observed data.
+
+        Given observed data, return the hypervolume of the pareto frontier formed from
+        those outcomes.
+
+        Args:
+            model: Model used to predict outcomes.
+            ref_point: point defining the origin of hyperrectangles that can contribute
+                to hypervolume.
+            observation_features: observation features to predict. Model's training
+                data used by default if unspecified.
+            optimization_config: Optimization config
+
+        Returns:
+            (float) calculated hypervolume.
+        """
+        # Get observation_data from current training data.
+        observation_data = [obs.data for obs in self.get_training_data()]
+
+        return self._hypervolume(
+            ref_point=ref_point,
+            observation_data=observation_data,
+            optimization_config=optimization_config,
+        )

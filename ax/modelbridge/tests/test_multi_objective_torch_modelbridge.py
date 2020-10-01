@@ -232,6 +232,48 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         )
         self.assertTrue(len(predicted_frontier_data) <= 2)
 
+    def test_hypervolume(self):
+        exp = get_branin_experiment_with_multi_objective(
+            has_optimization_config=True, with_batch=False
+        )
+        metrics = exp.optimization_config.objective.metrics
+        ref_point = {metrics[0].name: 0.0, metrics[1].name: 0.0}
+        exp = get_branin_experiment_with_multi_objective(
+            has_optimization_config=True, with_batch=True
+        )
+        exp.attach_data(get_branin_data_multi_objective(trial_indices=exp.trials))
+        modelbridge = MultiObjectiveTorchModelBridge(
+            search_space=exp.search_space,
+            model=MultiObjectiveBotorchModel(),
+            optimization_config=exp.optimization_config,
+            transforms=[t1, t2],
+            experiment=exp,
+            data=exp.fetch_data(),
+            ref_point=ref_point,
+        )
+        with patch(
+            PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
+        ) as wrapped_frontier_evaluator:
+            modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
+            hv = modelbridge.observed_hypervolume(ref_point=ref_point)
+            expected_hv = 25  # (5 - 0) * (5 - 0)
+            wrapped_frontier_evaluator.assert_called_once()
+            self.assertEqual(expected_hv, hv)
+
+        with self.assertRaises(ValueError):
+            modelbridge.predicted_hypervolume(
+                ref_point=ref_point, observation_features=[]
+            )
+
+        observation_features = [
+            ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0}),
+            ObservationFeatures(parameters={"x1": 2.0, "x2": 1.0}),
+        ]
+        predicted_hv = modelbridge.predicted_hypervolume(
+            ref_point=ref_point, observation_features=observation_features
+        )
+        self.assertTrue(predicted_hv >= 0)
+
     def test_multi_type_experiment(self):
         exp = get_multi_type_experiment()
         with self.assertRaises(NotImplementedError):
