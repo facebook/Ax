@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.metric import Metric
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
@@ -21,12 +21,16 @@ CONFIG_STR = (
 
 class OptimizationConfigTest(TestCase):
     def setUp(self):
-        self.metrics = {"m1": Metric(name="m1"), "m2": Metric(name="m2")}
+        self.metrics = {
+            "m1": Metric(name="m1", lower_is_better=True),
+            "m2": Metric(name="m2", lower_is_better=False),
+        }
         self.objective = Objective(metric=self.metrics["m1"], minimize=False)
         self.alt_objective = Objective(metric=self.metrics["m2"], minimize=False)
-        self.m2_objective = ScalarizedObjective(
+        self.multi_objective = MultiObjective(
             metrics=[self.metrics["m1"], self.metrics["m2"]]
         )
+        self.multi_objective_just_m2 = MultiObjective(metrics=[self.metrics["m2"]])
         self.outcome_constraint = OutcomeConstraint(
             metric=self.metrics["m2"], op=ComparisonOp.GEQ, bound=-0.25
         )
@@ -37,6 +41,13 @@ class OptimizationConfigTest(TestCase):
             self.outcome_constraint,
             self.additional_outcome_constraint,
         ]
+        self.ref_point = {"m2": (-1.0, False)}
+        self.absolute_constraint = OutcomeConstraint(
+            metric=self.metrics["m2"], op=ComparisonOp.GEQ, bound=-1.0, relative=False
+        )
+        self.m1_constraint = OutcomeConstraint(
+            metric=self.metrics["m1"], op=ComparisonOp.LEQ, bound=0.1, relative=True
+        )
 
     def testInit(self):
         config1 = OptimizationConfig(
@@ -51,14 +62,39 @@ class OptimizationConfigTest(TestCase):
 
         # objective without outcome_constraints is also supported
         config2 = OptimizationConfig(objective=self.objective)
-        self.assertEqual(config2.outcome_constraints, [])
 
-        # setting objective is fine too, if it's compatible with constraints..
-        config2.objective = self.m2_objective
+        # setting objective is fine too, if it's compatible with constraints.
+        config2.objective = self.multi_objective
+
         # setting constraints on objectives is fine for MultiObjective components.
+        config2._outcome_constraints = [self.outcome_constraint]
+        self.assertEqual(config2.objective_constraints, [self.outcome_constraint])
 
-        config2.outcome_constraints = self.outcome_constraints
-        self.assertEqual(config2.outcome_constraints, self.outcome_constraints)
+        # construct constraints with ref_point:
+        config3 = OptimizationConfig(
+            objective=self.multi_objective, ref_point=self.ref_point
+        )
+        self.assertEqual(config3.all_constraints, [self.absolute_constraint])
+
+        # ref_point and outcome constraints together.
+        config4 = OptimizationConfig(
+            objective=self.multi_objective,
+            ref_point=self.ref_point,
+            outcome_constraints=[self.m1_constraint],
+        )
+        self.assertEqual(
+            config4.all_constraints, [self.m1_constraint, self.absolute_constraint]
+        )
+        self.assertEqual(config4.outcome_constraints, [])
+        self.assertEqual(config4.ref_point, {"m1": (0.1, True), "m2": (-1.0, False)})
+
+        # verify relative_ref_point works:
+        config5 = OptimizationConfig(
+            objective=self.multi_objective, ref_point={"m2": (-0.25, True)}
+        )
+        constraint = config5.objective_constraints[0]
+        self.assertTrue(constraint.relative)
+        self.assertEqual(constraint.bound, -0.25)
 
     def testEq(self):
         config1 = OptimizationConfig(
@@ -147,3 +183,22 @@ class OptimizationConfigTest(TestCase):
             objective=self.objective, outcome_constraints=self.outcome_constraints
         )
         self.assertEqual(config1, config1.clone())
+
+        config2 = OptimizationConfig(
+            objective=self.multi_objective,
+            ref_point=self.ref_point,
+            outcome_constraints=[self.m1_constraint],
+        )
+        self.assertEqual(config2, config2.clone())
+
+    def testCloneWithArgs(self):
+        config1 = OptimizationConfig(
+            objective=self.multi_objective_just_m2,
+            outcome_constraints=[self.m1_constraint],
+        )
+        config2 = OptimizationConfig(
+            objective=self.multi_objective_just_m2,
+            ref_point=self.ref_point,
+            outcome_constraints=[self.m1_constraint],
+        )
+        self.assertEqual(config1.clone_with_args(ref_point=self.ref_point), config2)

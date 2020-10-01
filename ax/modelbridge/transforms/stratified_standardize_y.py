@@ -110,7 +110,7 @@ class StratifiedStandardizeY(Transform):
         modelbridge: Optional["modelbridge_module.base.ModelBridge"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
-        if len(optimization_config.outcome_constraints) == 0:
+        if len(optimization_config.all_constraints) == 0:
             return optimization_config
         if self.p_name not in fixed_features.parameters:
             raise ValueError(
@@ -118,7 +118,7 @@ class StratifiedStandardizeY(Transform):
                 "during generation."
             )
         v = fixed_features.parameters[self.p_name]
-        for c in optimization_config.outcome_constraints:
+        for c in optimization_config.all_constraints:
             if c.relative:
                 raise ValueError(
                     "StratifiedStandardizeY transform does not support relative "

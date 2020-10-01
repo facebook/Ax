@@ -35,7 +35,7 @@ class Derelativize(Transform):
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         has_relative_constraint = any(
-            c.relative for c in optimization_config.outcome_constraints
+            c.relative for c in optimization_config.all_constraints
         )
         if not has_relative_constraint:
             return optimization_config
@@ -68,7 +68,7 @@ class Derelativize(Transform):
                 raise  # pragma: no cover
 
         # Plug in the status quo value to each relative constraint.
-        for c in optimization_config.outcome_constraints:
+        for c in optimization_config.all_constraints:
             if c.relative:
                 # Compute new bound.
                 c.bound = (1 + c.bound / 100.0) * f[c.metric.name][0]

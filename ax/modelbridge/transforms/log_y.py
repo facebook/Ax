@@ -73,7 +73,7 @@ class LogY(Transform):
         modelbridge: Optional["base_modelbridge.ModelBridge"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
-        for c in optimization_config.outcome_constraints:
+        for c in optimization_config.all_constraints:
             if c.metric.name in self.metric_names:
                 raise ValueError(
                     f"LogY transform cannot be applied to metric {c.metric.name} "

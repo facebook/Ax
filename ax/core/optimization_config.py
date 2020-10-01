@@ -4,17 +4,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-strict
-
+from copy import deepcopy
 from itertools import groupby
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.types import ComparisonOp
+from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.utils.common.equality import Base
+from ax.utils.common.logger import get_logger
 
+
+logger = get_logger(__name__)
+
+TRefPoint = Dict[str, Tuple[Union[int, float], bool]]
 
 MAX_OBJECTIVES: int = 4
 OC_TEMPLATE: str = (
@@ -35,16 +38,26 @@ class OptimizationConfig(Base):
         self,
         objective: Objective,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
+        ref_point: Optional[TRefPoint] = None,
     ) -> None:
         """Inits OptimizationConfig.
 
         Args:
             objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints on metrics.
+            ref_point: A dict from metric_names to (val, is_relative) pairs.
+                Ex. {"a": (10, False), "b": (-1.0, True)} gives metric "a"
+                an absolute threshold of 10 and metric b a relative threshold
+                of -1% worse than the status_quo.
         """
         constraints: List[
             OutcomeConstraint
         ] = [] if outcome_constraints is None else outcome_constraints
+        ref_point = ref_point or {}
+        ref_constraints = extract_constraints_from_ref_point(
+            ref_point=ref_point, objective=objective
+        )
+        constraints.extend(ref_constraints)
         self._validate_optimization_config(
             objective=objective, outcome_constraints=constraints
         )
@@ -53,9 +66,24 @@ class OptimizationConfig(Base):
 
     def clone(self) -> "OptimizationConfig":
         """Make a copy of this optimization config."""
+        return self.clone_with_args()
+
+    def clone_with_args(
+        self,
+        objective: Optional[Objective] = None,
+        outcome_constraints: Optional[List[OutcomeConstraint]] = None,
+        ref_point: Optional[TRefPoint] = None,
+    ) -> "OptimizationConfig":
+        """Make a copy of this optimization config."""
+        objective = objective or self.objective.clone()
+        outcome_constraints = outcome_constraints or [
+            constraint.clone() for constraint in self.outcome_constraints
+        ]
+        ref_point = ref_point or deepcopy(self.ref_point)
         return OptimizationConfig(
-            self.objective.clone(),
-            [constraint.clone() for constraint in self.outcome_constraints],
+            objective=objective,
+            outcome_constraints=outcome_constraints,
+            ref_point=ref_point,
         )
 
     @property
@@ -72,7 +100,47 @@ class OptimizationConfig(Base):
     @property
     def outcome_constraints(self) -> List[OutcomeConstraint]:
         """Get outcome constraints."""
+        all_constraints = self._outcome_constraints
+        objective_metric_names = {metric.name for metric in self.objective.metrics}
+        non_objective_constraints = [
+            c for c in all_constraints if c.metric.name not in objective_metric_names
+        ]
+        return non_objective_constraints
+
+    @property
+    def objective_constraints(self) -> List[OutcomeConstraint]:
+        """Get outcome constraints."""
+        all_constraints = self._outcome_constraints
+        objective_metric_names = {metric.name for metric in self.objective.metrics}
+        objective_outcome_constraints = [
+            c for c in all_constraints if c.metric.name in objective_metric_names
+        ]
+        return objective_outcome_constraints
+
+    @property
+    def all_constraints(self) -> List[OutcomeConstraint]:
+        """Get outcome constraints."""
         return self._outcome_constraints
+
+    @property
+    def ref_point(self) -> TRefPoint:
+        """Get reference point."""
+        ref_point = {}
+        for constraint in self.objective_constraints:
+            metric_name = constraint.metric.name
+            metric_lower_is_better = constraint.metric.lower_is_better
+            constraint_bounds_above = constraint.op == ComparisonOp.LEQ
+            # Only include constraints that bound in the correct direction.
+            if metric_lower_is_better != constraint_bounds_above:
+                raise ValueError(
+                    make_wrong_direction_warning(
+                        metric_name=metric_name,
+                        constraint_bounds_above=constraint_bounds_above,
+                        metric_lower_is_better=metric_lower_is_better,
+                    )
+                )
+            ref_point[metric_name] = (constraint.bound, constraint.relative)
+        return ref_point
 
     @property
     def metrics(self) -> Dict[str, Metric]:
@@ -116,6 +184,30 @@ class OptimizationConfig(Base):
         def get_metric_name(oc: OutcomeConstraint) -> str:
             return oc.metric.name
 
+        # Verify we aren't optimizing too many objectives.
+        objective_metrics_by_name = {
+            metric.name: metric for metric in objective.metrics
+        }
+        if len(objective_metrics_by_name) > MAX_OBJECTIVES:
+            raise ValueError(
+                f"Objective: {objective} optimizes more than the maximum allowed "
+                f"{MAX_OBJECTIVES} metrics."
+            )
+        # Warn if constraints on objective_metrics have the wrong direction.
+        for constraint in outcome_constraints:
+            metric_name = constraint.metric.name
+            if metric_name in objective_metrics_by_name:
+                metric_lower_is_better = constraint.metric.lower_is_better
+                constraint_bounds_above = constraint.op == ComparisonOp.LEQ
+                if metric_lower_is_better != constraint_bounds_above:
+                    raise ValueError(
+                        make_wrong_direction_warning(
+                            metric_name=metric_name,
+                            constraint_bounds_above=constraint_bounds_above,
+                            metric_lower_is_better=metric_lower_is_better,
+                        )
+                    )
+
         sorted_constraints = sorted(outcome_constraints, key=get_metric_name)
         for metric_name, constraints_itr in groupby(
             sorted_constraints, get_metric_name
@@ -144,3 +236,52 @@ class OptimizationConfig(Base):
                 constraint.__repr__() for constraint in self.outcome_constraints
             ),
         )
+
+
+def make_wrong_direction_warning(
+    metric_name: str,
+    constraint_bounds_above: bool,
+    metric_lower_is_better: Optional[bool],
+) -> str:
+    return (
+        f"Constraint on {metric_name} bounds from "
+        f"{'above' if constraint_bounds_above else 'below'} "
+        f"but {metric_name} is being "
+        f"{'minimized' if metric_lower_is_better else 'maximized'}."
+    ).format(metric_name)
+
+
+def extract_constraints_from_ref_point(
+    ref_point: TRefPoint, objective: Objective
+) -> List[OutcomeConstraint]:
+    """Extract outcome constraints on objective metrics from a reference point.
+
+    Only metrics in the objective will be constrained.
+
+    Args:
+        ref_point: reference point to convert
+        objective: objective containing metrics that can be validly constrained.
+
+    Return:
+        A list of constraints on objective metrics.
+    """
+    constraints = []
+    objective_metrics_by_name = {metric.name: metric for metric in objective.metrics}
+    for metric_name in objective_metrics_by_name.keys():
+        if metric_name not in ref_point:
+            continue
+        bound_config = ref_point[metric_name]
+        val = bound_config[0]
+        rel = bound_config[1]
+        metric = objective_metrics_by_name[metric_name]
+        op = ComparisonOp.LEQ if metric.lower_is_better else ComparisonOp.GEQ
+        # Add constraint based on ref_point. Any constraint on objectives is
+        # treated like  a reference point coordinate.
+        constraints.append(OutcomeConstraint(metric, op=op, bound=val, relative=rel))
+    for metric_name in ref_point:
+        if metric_name not in objective_metrics_by_name:
+            logger.warning(
+                f"ref_point includes metric_name {metric_name} not present in "
+                f"objective metrics {list(objective_metrics_by_name.keys())}"
+            )
+    return constraints

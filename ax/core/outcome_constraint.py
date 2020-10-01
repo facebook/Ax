@@ -18,7 +18,7 @@ from ax.utils.common.logger import get_logger
 logger: logging.Logger = get_logger(__name__)
 
 CONSTRAINT_WARNING_MESSAGE: str = (
-    "Specified constraint appears invalid: {bound} bound on metric "
+    "Constraint on {name} appears invalid: {bound} bound on metric "
     + "for which {is_better} values are better."
 )
 LOWER_BOUND_MISMATCH: Dict[str, str] = {"bound": "Lower", "is_better": "lower"}
@@ -91,6 +91,7 @@ class OutcomeConstraint(Base):
             if op == ComparisonOp.LEQ and not metric.lower_is_better:
                 fmt_data = UPPER_BOUND_MISMATCH
         if fmt_data is not None:
+            fmt_data["name"] = metric.name
             logger.warning(CONSTRAINT_WARNING_MESSAGE.format(**fmt_data))
 
     def __repr__(self) -> str:

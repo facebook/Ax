@@ -72,7 +72,7 @@ class StandardizeY(Transform):
         modelbridge: Optional["base_modelbridge.ModelBridge"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
-        for c in optimization_config.outcome_constraints:
+        for c in optimization_config.all_constraints:
             if c.relative:
                 raise ValueError(
                     f"StandardizeY transform does not support relative constraint {c}"

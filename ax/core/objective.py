@@ -84,7 +84,6 @@ class Objective(Base):
         return self.metrics
 
 
-# TODO (jej): Support sqa_store encoding. Currenlty only single metric obj supported.
 class MultiObjective(Objective):
     """Class for an objective composed of a multiple component objectives.
 
