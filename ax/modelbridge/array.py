@@ -9,15 +9,19 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import numpy as np
 import torch
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig, TRefPoint
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+    TRefPoint,
+)
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.modelbridge_utils import (
+    extract_objective_thresholds,
     extract_objective_weights,
     extract_outcome_constraints,
     extract_parameter_constraints,
-    extract_ref_point,
     get_bounds_and_task,
     get_fixed_features,
     parse_observation_features,
@@ -28,10 +32,10 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.models.torch.frontier_utils import (
     TFrontierEvaluator,
     get_default_frontier_evaluator,
-    get_weighted_mc_objective_and_ref_point,
+    get_weighted_mc_objective_and_objective_thresholds,
 )
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast_optional, not_none
 from botorch.utils.multi_objective.hypervolume import Hypervolume
 from torch import Tensor
 
@@ -445,10 +449,10 @@ class ArrayModelBridge(ModelBridge):
     @copy_doc(ModelBridge._pareto_frontier)
     def _pareto_frontier(
         self,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         observation_data: Optional[List[ObservationData]] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
     ) -> List[ObservationData]:
         # TODO(jej): This method should be refactored to move tensor
         # conversions into a separate utility, and eventually should be
@@ -469,25 +473,30 @@ class ArrayModelBridge(ModelBridge):
             Y, Yvar = (self._array_to_tensor(Y), self._array_to_tensor(Yvar))
 
         # Optimization_config
-        opt_conf = optimization_config or self._optimization_config
-        if not opt_conf:
+        mooc = optimization_config or checked_cast_optional(
+            MultiObjectiveOptimizationConfig, self._optimization_config
+        )
+        if not mooc:
             raise ValueError(
                 (
-                    "Modelbridge must have an existing optimization_config "
-                    "or optimization_config must be passed as an argument."
+                    "experiment must have an existing optimization_config "
+                    "of type MultiObjectiveOptimizationConfig "
+                    "or `optimization_config` must be passed as an argument."
                 )
             )
-        if ref_point:
-            optimization_config = opt_conf.clone_with_args(ref_point=ref_point)
-        else:
-            optimization_config = opt_conf.clone()
+        if not isinstance(mooc, MultiObjectiveOptimizationConfig):
+            mooc = not_none(MultiObjectiveOptimizationConfig.from_opt_conf(mooc))
+        if objective_thresholds:
+            mooc = mooc.clone_with_args(objective_thresholds=objective_thresholds)
+
+        optimization_config = mooc
 
         # Transform OptimizationConfig.
         optimization_config = self.transform_optimization_config(
             optimization_config=optimization_config,
             fixed_features=ObservationFeatures(parameters={}),
         )
-        # Extract weights, constraints, and ref_point
+        # Extract weights, constraints, and objective_thresholds
         objective_weights = extract_objective_weights(
             objective=optimization_config.objective, outcomes=self.outcomes
         )
@@ -495,8 +504,9 @@ class ArrayModelBridge(ModelBridge):
             outcome_constraints=optimization_config.outcome_constraints,
             outcomes=self.outcomes,
         )
-        ref_point_arr = extract_ref_point(
-            ref_point=optimization_config.ref_point, outcomes=self.outcomes
+        objective_thresholds_arr = extract_objective_thresholds(
+            objective_thresholds=optimization_config.objective_thresholds,
+            outcomes=self.outcomes,
         )
         # Transform to tensors.
         obj_w, oc_c, _, _ = validate_and_apply_final_transform(
@@ -506,7 +516,7 @@ class ArrayModelBridge(ModelBridge):
             pending_observations=None,
             final_transform=self._array_to_tensor,
         )
-        rf_pt = self._array_to_tensor(ref_point_arr)
+        obj_t = self._array_to_tensor(objective_thresholds_arr)
         frontier_evaluator = self._get_frontier_evaluator()
         # pyre-ignore[28]: Unexpected keyword `model` to anonymous call
         f, cov = frontier_evaluator(
@@ -514,7 +524,7 @@ class ArrayModelBridge(ModelBridge):
             X=X,
             Y=Y,
             Yvar=Yvar,
-            ref_point=rf_pt,
+            objective_thresholds=obj_t,
             objective_weights=obj_w,
             outcome_constraints=oc_c,
         )
@@ -534,7 +544,7 @@ class ArrayModelBridge(ModelBridge):
     @copy_doc(ModelBridge.predicted_pareto_frontier)
     def predicted_pareto_frontier(
         self,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> List[ObservationData]:
@@ -551,7 +561,7 @@ class ArrayModelBridge(ModelBridge):
             )
 
         return self._pareto_frontier(
-            ref_point=ref_point,
+            objective_thresholds=objective_thresholds,
             observation_features=observation_features,
             optimization_config=optimization_config,
         )
@@ -561,14 +571,14 @@ class ArrayModelBridge(ModelBridge):
     @copy_doc(ModelBridge._hypervolume)
     def _hypervolume(
         self,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         observation_data: Optional[List[ObservationData]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> float:
         # Extract a tensor of outcome means from observation data.
         observation_data = self._pareto_frontier(
-            ref_point=ref_point,
+            objective_thresholds=objective_thresholds,
             observation_features=observation_features,
             observation_data=observation_data,
             optimization_config=optimization_config,
@@ -578,7 +588,7 @@ class ArrayModelBridge(ModelBridge):
             return 0
         means, _ = self._transform_observation_data(observation_data)
 
-        # Extract objective_weights and ref_points
+        # Extract objective_weights and objective_thresholds
         if optimization_config is None:
             optimization_config = (
                 # pyre-fixme[16]: `Optional` has no attribute `clone`.
@@ -589,26 +599,27 @@ class ArrayModelBridge(ModelBridge):
         else:
             optimization_config = optimization_config.clone()
 
-        if ref_point is not None:
+        if objective_thresholds is not None:
             optimization_config = optimization_config.clone_with_args(
-                ref_point=ref_point
+                objective_thresholds=objective_thresholds
             )
 
         obj_w = extract_objective_weights(
             objective=optimization_config.objective, outcomes=self.outcomes
         )
         obj_w = self._array_to_tensor(obj_w)  # TODO: can I get rid of these tensors?
-        ref_point_arr = extract_ref_point(
-            ref_point=optimization_config.ref_point, outcomes=self.outcomes
+        objective_thresholds_arr = extract_objective_thresholds(
+            objective_thresholds=optimization_config.objective_thresholds,
+            outcomes=self.outcomes,
         )
-        rf_pt = self._array_to_tensor(
-            ref_point_arr
+        obj_t = self._array_to_tensor(
+            objective_thresholds_arr
         )  # TODO: can I get rid of these tensors?
-        obj, rf_pt = get_weighted_mc_objective_and_ref_point(
-            objective_weights=obj_w, ref_point=rf_pt
+        obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
+            objective_weights=obj_w, objective_thresholds=obj_t
         )
         means = obj(means)
-        hv = Hypervolume(ref_point=rf_pt)
+        hv = Hypervolume(ref_point=obj_t)
         return hv.compute(means)
 
     # pyre-ignore [56]: While applying decorator
@@ -616,7 +627,7 @@ class ArrayModelBridge(ModelBridge):
     @copy_doc(ModelBridge.predicted_hypervolume)
     def predicted_hypervolume(
         self,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> float:
@@ -633,7 +644,7 @@ class ArrayModelBridge(ModelBridge):
             )
 
         return self._hypervolume(
-            ref_point=ref_point,
+            objective_thresholds=objective_thresholds,
             observation_features=observation_features,
             optimization_config=optimization_config,
         )

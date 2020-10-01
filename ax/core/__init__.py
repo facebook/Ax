@@ -11,10 +11,17 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.objective import Objective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import (
+    ComparisonOp,
+    ObjectiveThreshold,
+    OutcomeConstraint,
+)
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -44,7 +51,10 @@ __all__ = [
     "FixedParameter",
     "GeneratorRun",
     "Metric",
+    "MultiObjective",
+    "MultiObjectiveOptimizationConfig",
     "Objective",
+    "ObjectiveThreshold",
     "OptimizationConfig",
     "OrderConstraint",
     "OutcomeConstraint",

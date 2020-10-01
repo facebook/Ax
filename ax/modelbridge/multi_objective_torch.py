@@ -13,12 +13,16 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig, TRefPoint
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+    TRefPoint,
+)
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
-from ax.modelbridge.array import (
-    FIT_MODEL_ERROR,
-    extract_ref_point,
+from ax.modelbridge.array import FIT_MODEL_ERROR
+from ax.modelbridge.modelbridge_utils import (
+    extract_objective_thresholds,
     validate_and_apply_final_transform,
 )
 from ax.modelbridge.torch import TorchModelBridge
@@ -30,7 +34,7 @@ from ax.models.torch.frontier_utils import (
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast_optional, not_none
 
 
 logger = get_logger("MultiObjectiveTorchModelBridge")
@@ -64,34 +68,42 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         torch_device: Optional[torch.device] = None,
         status_quo_name: Optional[str] = None,
         status_quo_features: Optional[ObservationFeatures] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
         fit_out_of_design: bool = False,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
-        if isinstance(experiment, MultiTypeExperiment) and ref_point is not None:
+        if (
+            isinstance(experiment, MultiTypeExperiment)
+            and objective_thresholds is not None
+        ):
             raise NotImplementedError(
-                "Ref-point dependent multi-objective optimization algorithms "
+                "Objective threshold dependent multi-objective optimization algos "
                 "like EHVI are not yet supported for MultiTypeExperiments. "
-                "Remove the reference point arg and use a compatible algorithm "
+                "Remove the objective threshold arg and use a compatible algorithm "
                 "like ParEGO."
             )
         self._objective_metric_names = None
-        optimization_config = optimization_config or experiment.optimization_config
-        # TODO: Validate optimization config?
-        # Extract ref_point from optimization_config, or inject it.
-        if optimization_config:
-            self._objective_metric_names = [
-                m.name for m in optimization_config.objective.metrics
-            ]
-            # If ref_point was not passed as an arg, check optimization_config
-            if optimization_config.ref_point:
-                self.ref_point = ref_point or optimization_config.ref_point
-            elif ref_point is not None:
-                optimization_config = optimization_config.clone_with_args(
-                    ref_point=ref_point
+        # Optimization_config
+        mooc = optimization_config or checked_cast_optional(
+            MultiObjectiveOptimizationConfig, experiment.optimization_config
+        )
+        # Extract objective_thresholds from optimization_config, or inject it.
+        if not mooc:
+            raise ValueError(
+                (
+                    "experiment must have an existing optimization_config "
+                    "of type MultiObjectiveOptimizationConfig "
+                    "or `optimization_config` must be passed as an argument."
                 )
-                self.ref_point = ref_point
+            )
+        if not isinstance(mooc, MultiObjectiveOptimizationConfig):
+            mooc = not_none(MultiObjectiveOptimizationConfig.from_opt_conf(mooc))
+        if objective_thresholds:
+            mooc = mooc.clone_with_args(objective_thresholds=objective_thresholds)
+
+        optimization_config = mooc
+
         super().__init__(
             experiment=experiment,
             search_space=search_space,
@@ -111,11 +123,20 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
     def _get_extra_model_gen_kwargs(
         self, optimization_config: OptimizationConfig
     ) -> Dict[str, Any]:
-        ref_point = extract_ref_point(
-            ref_point=optimization_config.ref_point, outcomes=self.outcomes
-        )
-        ref_point: Optional[np.ndarray] = ref_point if len(ref_point) else None
-        return {"ref_point": ref_point}
+        extra_kwargs_dict = {}
+        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+            objective_thresholds = extract_objective_thresholds(
+                objective_thresholds=optimization_config.objective_thresholds,
+                outcomes=self.outcomes,
+            )
+        else:
+            objective_thresholds = np.array([])
+        objective_thresholds: Optional[np.ndarray] = objective_thresholds if len(
+            objective_thresholds
+        ) else None
+        if objective_thresholds is not None:
+            extra_kwargs_dict["objective_thresholds"] = objective_thresholds
+        return extra_kwargs_dict
 
     def _model_gen(
         self,
@@ -129,7 +150,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
         target_fidelities: Optional[Dict[int, float]],
-        ref_point: Optional[np.ndarray] = None,
+        objective_thresholds: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata, List[TCandidateMetadata]]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
@@ -140,7 +161,11 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             pending_observations=pending_observations,
             final_transform=self._array_to_tensor,
         )
-        rf_pt = self._array_to_tensor(ref_point) if ref_point is not None else None
+        obj_t = (
+            self._array_to_tensor(objective_thresholds)
+            if objective_thresholds is not None
+            else None
+        )
         tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
         augmented_model_gen_options = {
             **self._default_model_gen_options,
@@ -152,7 +177,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             bounds=bounds,
             objective_weights=obj_w,
             outcome_constraints=oc_c,
-            ref_point=rf_pt,
+            objective_thresholds=obj_t,
             linear_constraints=l_c,
             fixed_features=fixed_features,
             pending_observations=pend_obs,

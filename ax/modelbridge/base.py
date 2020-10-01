@@ -885,7 +885,7 @@ class ModelBridge(ABC):
 
     def _pareto_frontier(
         self,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         observation_data: Optional[List[ObservationData]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
@@ -895,7 +895,7 @@ class ModelBridge(ABC):
 
     def predicted_pareto_frontier(
         self,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> List[ObservationData]:
@@ -906,8 +906,8 @@ class ModelBridge(ABC):
         lie on the pareto frontier.
 
         Args:
-            ref_point: metric values bounding the region of interest in the objective
-                outcome space.
+            objective_thresholds: metric values bounding the region of interest in
+                the objective outcome space.
             observation_features: observation features to predict. Model's training
                 data used by default if unspecified.
             optimization_config: Optimization config
@@ -919,7 +919,7 @@ class ModelBridge(ABC):
 
     def observed_pareto_frontier(
         self,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> List[ObservationData]:
         """Generate a pareto frontier based on observed data.
@@ -927,8 +927,8 @@ class ModelBridge(ABC):
         Given observed data, return those outcomes in the pareto frontier.
 
         Args:
-            ref_point: point defing the origin of hyperrectangles that can contribute
-                to hypervolume.
+            objective_thresholds: metric values bounding the region of interest in
+                the objective outcome space.
             optimization_config: Optimization config
 
         Returns:
@@ -938,14 +938,14 @@ class ModelBridge(ABC):
         observation_data = [obs.data for obs in self.get_training_data()]
 
         return self._pareto_frontier(
-            ref_point=ref_point,
+            objective_thresholds=objective_thresholds,
             observation_data=observation_data,
             optimization_config=optimization_config,
         )
 
     def _hypervolume(
         self,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         observation_data: Optional[List[ObservationData]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
@@ -955,7 +955,7 @@ class ModelBridge(ABC):
 
     def predicted_hypervolume(
         self,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> float:
@@ -966,8 +966,8 @@ class ModelBridge(ABC):
         frontier formed from their predicted outcomes.
 
         Args:
-            ref_point: point defining the origin of hyperrectangles that can contribute
-                to hypervolume.
+            objective_thresholds: point defining the origin of hyperrectangles that
+                can contribute to hypervolume.
             observation_features: observation features to predict. Model's training
                 data used by default if unspecified.
             optimization_config: Optimization config
@@ -979,7 +979,7 @@ class ModelBridge(ABC):
 
     def observed_hypervolume(
         self,
-        ref_point: Optional[TRefPoint] = None,
+        objective_thresholds: Optional[TRefPoint] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> float:
         """Calculate hypervolume of a pareto frontier based on observed data.
@@ -989,8 +989,8 @@ class ModelBridge(ABC):
 
         Args:
             model: Model used to predict outcomes.
-            ref_point: point defining the origin of hyperrectangles that can contribute
-                to hypervolume.
+            objective_thresholds: point defining the origin of hyperrectangles that
+                can contribute to hypervolume.
             observation_features: observation features to predict. Model's training
                 data used by default if unspecified.
             optimization_config: Optimization config
@@ -1002,7 +1002,7 @@ class ModelBridge(ABC):
         observation_data = [obs.data for obs in self.get_training_data()]
 
         return self._hypervolume(
-            ref_point=ref_point,
+            objective_thresholds=objective_thresholds,
             observation_data=observation_data,
             optimization_config=optimization_config,
         )

@@ -11,7 +11,10 @@ import numpy as np
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import OrderConstraint, SumConstraint
@@ -244,7 +247,7 @@ class NumpyModelBridgeTest(TestCase):
         )
 
         # Test with MultiObjective (unweighted multiple objectives)
-        oc3 = OptimizationConfig(
+        oc3 = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(
                 metrics=[Metric(name="a"), Metric(name="b", lower_is_better=True)],
                 minimize=True,

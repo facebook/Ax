@@ -161,17 +161,17 @@ class MultiObjectiveBotorchModel(BotorchModel):
         frontier_evaluator(
             model,
             objective_weights,
-            ref_point,
+            objective_thresholds,
             X,
             Y,
             Yvar,
             outcome_constraints,
         )
 
-    Here `model` is a botorch `Model`, `ref_point` is used in hypervolume evaluations,
-    `objective_weights` is a tensor of weights applied to the  objectives (sign
-    represents direction), `X`, `Y`, `Yvar` are tensors, `outcome_constraints` is a
-    tuple of tensors describing the (linear) outcome constraints.
+    Here `model` is a botorch `Model`, `objective_thresholds` is used in hypervolume
+    evaluations, `objective_weights` is a tensor of weights applied to the  objectives
+    (sign represents direction), `X`, `Y`, `Yvar` are tensors, `outcome_constraints` is
+    a tuple of tensors describing the (linear) outcome constraints.
     """
 
     dtype: Optional[torch.dtype]
@@ -233,7 +233,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         bounds: List[Tuple[float, float]],
         objective_weights: Tensor,  # objective_directions
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        ref_point: Optional[Tensor] = None,
+        objective_thresholds: Optional[Tensor] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         pending_observations: Optional[List[Tensor]] = None,
@@ -318,7 +318,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
             acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
                 model=model,
                 objective_weights=objective_weights,
-                ref_point=ref_point,
+                objective_thresholds=objective_thresholds,
                 outcome_constraints=outcome_constraints,
                 X_observed=X_observed,
                 X_pending=X_pending,

@@ -11,6 +11,7 @@ from ax.core.outcome_constraint import (
     CONSTRAINT_WARNING_MESSAGE,
     LOWER_BOUND_MISMATCH,
     UPPER_BOUND_MISMATCH,
+    ObjectiveThreshold,
     OutcomeConstraint,
 )
 from ax.core.types import ComparisonOp
@@ -61,6 +62,50 @@ class OutcomeConstraintTest(TestCase):
             )
         with mock.patch(logger_name) as mock_warning:
             OutcomeConstraint(
+                metric=self.maximize_metric, op=ComparisonOp.LEQ, bound=self.bound
+            )
+            mock_warning.warning.assert_called_once_with(
+                CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH)
+            )
+
+
+class ObjectiveThresholdTest(TestCase):
+    def setUp(self):
+        self.minimize_metric = Metric(name="bar", lower_is_better=True)
+        self.maximize_metric = Metric(name="baz", lower_is_better=False)
+        self.ambiguous_metric = Metric(name="buz")
+        self.bound = 0
+        self.threshold = ObjectiveThreshold(
+            metric=self.maximize_metric, op=ComparisonOp.GEQ, bound=self.bound
+        )
+
+    def testEq(self):
+        threshold1 = ObjectiveThreshold(metric=self.minimize_metric, bound=self.bound)
+        threshold2 = ObjectiveThreshold(metric=self.minimize_metric, bound=self.bound)
+        self.assertEqual(threshold1, threshold2)
+
+        constraint3 = OutcomeConstraint(
+            metric=self.minimize_metric, op=ComparisonOp.LEQ, bound=self.bound
+        )
+        self.assertNotEqual(threshold1, constraint3)
+
+    def testValidMutations(self):
+        # updating constraint metric is ok as long as lower_is_better is compatible.
+        self.threshold.metric = self.ambiguous_metric
+        self.threshold.op = ComparisonOp.LEQ
+        self.assertEqual(self.threshold.metric.name, "buz")
+
+    def testObjectiveThresholdFail(self):
+        logger_name = OUTCOME_CONSTRAINT_PATH + ".logger"
+        with mock.patch(logger_name) as mock_warning:
+            ObjectiveThreshold(
+                metric=self.minimize_metric, op=ComparisonOp.GEQ, bound=self.bound
+            )
+            mock_warning.warning.assert_called_once_with(
+                CONSTRAINT_WARNING_MESSAGE.format(**LOWER_BOUND_MISMATCH)
+            )
+        with mock.patch(logger_name) as mock_warning:
+            ObjectiveThreshold(
                 metric=self.maximize_metric, op=ComparisonOp.LEQ, bound=self.bound
             )
             mock_warning.warning.assert_called_once_with(

@@ -20,7 +20,10 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
@@ -718,7 +721,7 @@ def get_branin_optimization_config() -> OptimizationConfig:
 
 
 def get_branin_multi_objective_optimization_config() -> OptimizationConfig:
-    return OptimizationConfig(objective=get_branin_multi_objective())
+    return MultiObjectiveOptimizationConfig(objective=get_branin_multi_objective())
 
 
 def get_augmented_branin_optimization_config() -> OptimizationConfig:

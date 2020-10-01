@@ -67,20 +67,30 @@ def get_bounds_and_task(
     return bounds, task_features, target_fidelities
 
 
-def extract_ref_point(ref_point: TRefPoint, outcomes: List[str]) -> np.ndarray:
-    """Extracts reference_point values, in the order of `outcomes`.
+def extract_objective_thresholds(
+    objective_thresholds: TRefPoint, outcomes: List[str]
+) -> np.ndarray:
+    """Extracts objective thresholds' values, in the order of `outcomes`.
 
-    The extracted array will be no greater than the number of values in the ref_point,
-    typically the same as number of objectives being optimized.
+    The extracted array will be no greater than the number of values in the
+    objective_thresholds, typically the same as number of objectives being
+    optimized.
 
     Args:
-        ref_point: Reference Point to extract values from.
+        objective_thresholds: Reference Point to extract values from.
         outcomes: n-length list of names of metrics.
 
     Returns:
-        len(ref_point)-length list of reference point coordinates
+        len(objective_thresholds)-length list of reference point coordinates
     """
-    return np.array([ref_point[name][0] for name in outcomes if name in ref_point])
+    objective_threshold_dict = {ot.metric.name: ot.bound for ot in objective_thresholds}
+    return np.array(
+        [
+            objective_threshold_dict[name]
+            for name in outcomes
+            if name in objective_threshold_dict
+        ]
+    )
 
 
 def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.ndarray:

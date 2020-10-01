@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
+from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
@@ -115,9 +116,26 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=False
         )
-        ref_point = {"branin_a": (0.0, False), "branin_b": (0.0, False)}
+        metrics_dict = exp.optimization_config.metrics
+        objective_thresholds = [
+            ObjectiveThreshold(
+                metric=metrics_dict["branin_a"],
+                bound=0.0,
+                relative=False,
+                op=ComparisonOp.GEQ,
+            ),
+            ObjectiveThreshold(
+                metric=metrics_dict["branin_b"],
+                bound=0.0,
+                relative=False,
+                op=ComparisonOp.GEQ,
+            ),
+        ]
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
+        )
+        exp.optimization_config = exp.optimization_config.clone_with_args(
+            objective_thresholds=objective_thresholds
         )
         exp.attach_data(get_branin_data_multi_objective(trial_indices=exp.trials))
         modelbridge = MultiObjectiveTorchModelBridge(
@@ -127,21 +145,21 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             transforms=[t1, t2],
             experiment=exp,
             data=exp.fetch_data(),
-            ref_point=ref_point,
+            objective_thresholds=objective_thresholds,
         )
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
             modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
             observed_frontier_data = modelbridge.observed_pareto_frontier(
-                ref_point=ref_point
+                objective_thresholds=objective_thresholds
             )
             wrapped_frontier_evaluator.assert_called_once()
             self.assertEqual(1, len(observed_frontier_data))
 
         with self.assertRaises(ValueError):
             modelbridge.predicted_pareto_frontier(
-                ref_point=ref_point, observation_features=[]
+                objective_thresholds=objective_thresholds, observation_features=[]
             )
 
         observation_features = [
@@ -149,7 +167,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             ObservationFeatures(parameters={"x1": 1.0, "x2": 0.0}),
         ]
         predicted_frontier_data = modelbridge.predicted_pareto_frontier(
-            ref_point=ref_point, observation_features=observation_features
+            objective_thresholds=objective_thresholds,
+            observation_features=observation_features,
         )
         self.assertTrue(len(predicted_frontier_data) <= 2)
 
@@ -157,32 +176,51 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=False
         )
-        ref_point = {"branin_a": (0.0, False), "branin_b": (0.0, False)}
+        metrics_dict = exp.optimization_config.metrics
+        objective_thresholds = [
+            ObjectiveThreshold(
+                metric=metrics_dict["branin_a"],
+                bound=0.0,
+                relative=False,
+                op=ComparisonOp.GEQ,
+            ),
+            ObjectiveThreshold(
+                metric=metrics_dict["branin_b"],
+                bound=0.0,
+                relative=False,
+                op=ComparisonOp.GEQ,
+            ),
+        ]
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
+        )
+        optimization_config = exp.optimization_config.clone_with_args(
+            objective_thresholds=objective_thresholds
         )
         exp.attach_data(get_branin_data_multi_objective(trial_indices=exp.trials))
         modelbridge = MultiObjectiveTorchModelBridge(
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
-            optimization_config=exp.optimization_config,
+            optimization_config=optimization_config,
             transforms=[t1, t2],
             experiment=exp,
             data=exp.fetch_data(),
-            ref_point=ref_point,
+            objective_thresholds=objective_thresholds,
         )
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
             modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
-            hv = modelbridge.observed_hypervolume(ref_point=ref_point)
+            hv = modelbridge.observed_hypervolume(
+                objective_thresholds=objective_thresholds
+            )
             expected_hv = 25  # (5 - 0) * (5 - 0)
             wrapped_frontier_evaluator.assert_called_once()
             self.assertEqual(expected_hv, hv)
 
         with self.assertRaises(ValueError):
             modelbridge.predicted_hypervolume(
-                ref_point=ref_point, observation_features=[]
+                objective_thresholds=objective_thresholds, observation_features=[]
             )
 
         observation_features = [
@@ -190,7 +228,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             ObservationFeatures(parameters={"x1": 2.0, "x2": 1.0}),
         ]
         predicted_hv = modelbridge.predicted_hypervolume(
-            ref_point=ref_point, observation_features=observation_features
+            objective_thresholds=objective_thresholds,
+            observation_features=observation_features,
         )
         self.assertTrue(predicted_hv >= 0)
 
@@ -203,5 +242,5 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 model=MultiObjectiveBotorchModel(),
                 transforms=[],
                 data=exp.fetch_data(),
-                ref_point={"branin_b": 0.0},
+                objective_thresholds={"branin_b": 0.0},
             )

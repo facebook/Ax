@@ -42,7 +42,7 @@ class FrontierEvaluatorTest(TestCase):
             torch.tensor([[0.0, 0.0, 1.0]]),
             torch.tensor([[3.5]]),
         )
-        self.ref_point = torch.tensor([0.5, 1.5])
+        self.objective_thresholds = torch.tensor([0.5, 1.5])
         self.objective_weights = torch.tensor([1.0, 1.0])
         bounds = [(0.0, 4.0), (0.0, 4.0)]
         self.model = MultiObjectiveBotorchModel(model_predictor=dummy_predict)
@@ -63,7 +63,7 @@ class FrontierEvaluatorTest(TestCase):
         with self.assertRaises(ValueError):
             pareto_frontier_evaluator(
                 model=self.model,
-                ref_point=self.ref_point,
+                objective_thresholds=self.objective_thresholds,
                 objective_weights=self.objective_weights,
                 Yvar=self.Yvar,
             )
@@ -72,14 +72,14 @@ class FrontierEvaluatorTest(TestCase):
         Y, cov = pareto_frontier_evaluator(
             model=self.model,
             objective_weights=self.objective_weights,
-            ref_point=self.ref_point,
+            objective_thresholds=self.objective_thresholds,
             Y=self.Y,
             Yvar=self.Yvar,
         )
         pred = self.Y[2:4]
         self.assertTrue(torch.allclose(Y, pred), f"{Y} does not match {pred}")
 
-        # Omit ref_point
+        # Omit objective_thresholds
         Y, cov = pareto_frontier_evaluator(
             model=self.model,
             objective_weights=self.objective_weights,
@@ -93,7 +93,7 @@ class FrontierEvaluatorTest(TestCase):
         Y, cov = pareto_frontier_evaluator(
             model=self.model,
             objective_weights=torch.tensor([1.0, -1.0]),
-            ref_point=self.ref_point,
+            objective_thresholds=self.objective_thresholds,
             Y=self.Y,
             Yvar=self.Yvar,
         )
@@ -106,7 +106,7 @@ class FrontierEvaluatorTest(TestCase):
         Y, cov = pareto_frontier_evaluator(
             model=self.model,
             objective_weights=self.objective_weights,
-            ref_point=self.ref_point,
+            objective_thresholds=self.objective_thresholds,
             X=self.X,
         )
         pred = self.Y[2:4]
@@ -118,7 +118,7 @@ class FrontierEvaluatorTest(TestCase):
         Y, cov = pareto_frontier_evaluator(
             model=self.model,
             objective_weights=self.objective_weights,
-            ref_point=self.ref_point,
+            objective_thresholds=self.objective_thresholds,
             Y=self.Y,
             Yvar=self.Yvar,
             outcome_constraints=self.outcome_constraints,
@@ -148,11 +148,15 @@ class BotorchMOODefaultsTest(TestCase):
         model = MultiObjectiveBotorchModel()
         x = torch.zeros(2, 2)
         weights = torch.ones(2)
-        ref_point = torch.zeros(2)
+        objective_thresholds = torch.zeros(2)
         with self.assertRaisesRegex(
             ValueError, "There are no feasible observed points."
         ):
-            get_EHVI(model=model, objective_weights=weights, ref_point=ref_point)
+            get_EHVI(
+                model=model,
+                objective_weights=weights,
+                objective_thresholds=objective_thresholds,
+            )
         with self.assertRaisesRegex(
             ValueError, "Expected Hypervolume Improvement requires Ys argument"
         ):
@@ -160,5 +164,5 @@ class BotorchMOODefaultsTest(TestCase):
                 model=model,
                 X_observed=x,
                 objective_weights=weights,
-                ref_point=ref_point,
+                objective_thresholds=objective_thresholds,
             )

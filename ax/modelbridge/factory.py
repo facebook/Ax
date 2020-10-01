@@ -368,7 +368,7 @@ def get_GPMES(
 def get_MOO_EHVI(
     experiment: Experiment,
     data: Data,
-    ref_point: Optional[TRefPoint] = None,
+    objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = (
@@ -377,12 +377,13 @@ def get_MOO_EHVI(
 ) -> MultiObjectiveTorchModelBridge:
     """Instantiates a multi-objective model that generates points with EHVI.
 
-    Requires a `ref_point`,
-    a dictionary of metric_name: str -> Tuple(value: numeric, is_relative: bool),
-    for every objective being optimized. An arm only improves hypervolume if it is
-    strictly better than this point in all metrics.
+    Requires `objective_thresholds`,
+    a list of `ax.core.ObjectiveThresholds`, for every objective being optimized.
+    An arm only improves hypervolume if it is strictly better than all
+    objective thresholds.
 
-    This ref_point can be passed in the optimization_config or passed directly here.
+    `objective_thresholds` can be passed in the optimization_config or
+    passed directly here.
     """
     # pyre-ignore: [16] `Optional` has no attribute `objective`.
     if not isinstance(experiment.optimization_config.objective, MultiObjective):
@@ -394,7 +395,7 @@ def get_MOO_EHVI(
         Models.MOO(
             experiment=experiment,
             data=data,
-            ref_point=ref_point,
+            objective_thresholds=objective_thresholds,
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
@@ -413,7 +414,7 @@ def get_MOO_EHVI(
 def get_MOO_PAREGO(
     experiment: Experiment,
     data: Data,
-    ref_point: Optional[TRefPoint] = None,
+    objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
@@ -433,7 +434,7 @@ def get_MOO_PAREGO(
         Models.MOO(
             experiment=experiment,
             data=data,
-            ref_point=ref_point,
+            objective_thresholds=objective_thresholds,
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
@@ -451,7 +452,7 @@ def get_MOO_PAREGO(
 def get_MOO_RS(
     experiment: Experiment,
     data: Data,
-    ref_point: Optional[TRefPoint] = None,
+    objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
@@ -472,7 +473,7 @@ def get_MOO_RS(
         Models.MOO(
             experiment=experiment,
             data=data,
-            ref_point=ref_point,
+            objective_thresholds=objective_thresholds,
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,

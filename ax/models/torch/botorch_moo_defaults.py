@@ -46,23 +46,23 @@ def get_default_frontier_evaluator() -> TFrontierEvaluator:
     return pareto_frontier_evaluator
 
 
-def get_weighted_mc_objective_and_ref_point(
-    objective_weights: Tensor, ref_point: Tensor
+def get_weighted_mc_objective_and_objective_thresholds(
+    objective_weights: Tensor, objective_thresholds: Tensor
 ) -> Tuple[WeightedMCMultiOutputObjective, Tensor]:
-    r"""Construct weighted objective and apply the weights to the reference point.
+    r"""Construct weighted objective and apply the weights to objective thresholds.
 
     Args:
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
-        ref_point: A reference point from which to calculate pareto frontier
-            hypervolume. Points that do not dominate the ref_point contribute
-            nothing to hypervolume.
+        objective_thresholds: A tensor containing thresholds forming a reference point
+            from which to calculate pareto frontier hypervolume. Points that do not
+            dominate the objective_thresholds contribute nothing to hypervolume.
 
     Returns:
-        A two-element tuple with the objective and reference point:
+        A two-element tuple with the objective and objective thresholds:
 
             - The objective
-            - The reference point
+            - The objective thresholds
 
     """
     # pyre-ignore [16]
@@ -71,14 +71,14 @@ def get_weighted_mc_objective_and_ref_point(
     objective = WeightedMCMultiOutputObjective(
         weights=objective_weights, outcomes=nonzero_idcs.tolist()
     )
-    ref_point = torch.mul(ref_point, objective_weights)
-    return objective, ref_point
+    objective_thresholds = torch.mul(objective_thresholds, objective_weights)
+    return objective, objective_thresholds
 
 
 def get_EHVI(
     model: Model,
     objective_weights: Tensor,
-    ref_point: Tensor,
+    objective_thresholds: Tensor,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
@@ -91,9 +91,9 @@ def get_EHVI(
             to estimate acquisition values of candidates.
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
-        ref_point: A reference point from which to calculate pareto frontier
-            hypervolume. Points that do not dominate the ref_point contribute
-            nothing to hypervolume.
+        objective_thresholds:  A tensor containing thresholds forming a reference point
+            from which to calculate pareto frontier hypervolume. Points that do not
+            dominate the objective_thresholds contribute nothing to hypervolume.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. (Not used by single task models)
@@ -113,8 +113,11 @@ def get_EHVI(
     if X_observed is None:
         raise ValueError("There are no feasible observed points.")
     # construct Objective module
-    objective, ref_point = get_weighted_mc_objective_and_ref_point(
-        objective_weights=objective_weights, ref_point=ref_point
+    (
+        objective,
+        objective_thresholds,
+    ) = get_weighted_mc_objective_and_objective_thresholds(
+        objective_weights=objective_weights, objective_thresholds=objective_thresholds
     )
     if "Ys" not in kwargs:
         raise ValueError("Expected Hypervolume Improvement requires Ys argument")
@@ -139,7 +142,7 @@ def get_EHVI(
         mc_samples=kwargs.get("mc_samples", DEFAULT_EHVI_MC_SAMPLES),
         qmc=kwargs.get("qmc", True),
         seed=torch.randint(1, 10000, (1,)).item(),
-        ref_point=ref_point.tolist(),
+        ref_point=objective_thresholds.tolist(),
         Y=Y_tensor,
     )
 
@@ -201,7 +204,7 @@ def scipy_optimizer_list(
 def pareto_frontier_evaluator(
     model: TorchModel,
     objective_weights: Tensor,
-    ref_point: Optional[Tensor] = None,
+    objective_thresholds: Optional[Tensor] = None,
     X: Optional[Tensor] = None,
     Y: Optional[Tensor] = None,
     Yvar: Optional[Tensor] = None,
@@ -216,7 +219,9 @@ def pareto_frontier_evaluator(
         model: Model used to predict outcomes.
         objective_weights: A `m` tensor of values indicating the weight to put
             on different outcomes. For pareto frontiers only the sign matters.
-        ref_point: reference point for hypervolume computation.
+        objective_thresholds:  A tensor containing thresholds forming a reference point
+            from which to calculate pareto frontier hypervolume. Points that do not
+            dominate the objective_thresholds contribute nothing to hypervolume.
         X: A `n x d` tensor of features to evaluate.
         Y: A `n x m` tensor of outcomes to use instead of predictions.
         Yvar: A `n x m` tensor of input variances (NaN if unobserved).
@@ -240,22 +245,27 @@ def pareto_frontier_evaluator(
             "points on the pareto frontier."
         )
 
-    # Apply objective_weights to outcomes and reference_point.
-    # If ref_point is not None use a dummy tensor of zeros.
-    obj, weighted_ref_point = get_weighted_mc_objective_and_ref_point(
+    # Apply objective_weights to outcomes and objective_thresholds.
+    # If objective_thresholds is not None use a dummy tensor of zeros.
+    (
+        obj,
+        weighted_objective_thresholds,
+    ) = get_weighted_mc_objective_and_objective_thresholds(
         objective_weights=objective_weights,
-        ref_point=(
-            ref_point if ref_point is not None else torch.zeros(objective_weights.shape)
+        objective_thresholds=(
+            objective_thresholds
+            if objective_thresholds is not None
+            else torch.zeros(objective_weights.shape)
         ),
     )
     Y_obj = obj(Y)
 
-    # Filter Y, Yvar, Y_obj to items that dominate the reference point
-    if ref_point is not None:
-        ref_point_mask = (Y_obj >= weighted_ref_point).all(dim=1)
-        Y = Y[ref_point_mask]
-        Yvar = Yvar[ref_point_mask]
-        Y_obj = Y_obj[ref_point_mask]
+    # Filter Y, Yvar, Y_obj to items that dominate all objective thresholds
+    if objective_thresholds is not None:
+        objective_thresholds_mask = (Y_obj >= weighted_objective_thresholds).all(dim=1)
+        Y = Y[objective_thresholds_mask]
+        Yvar = Yvar[objective_thresholds_mask]
+        Y_obj = Y_obj[objective_thresholds_mask]
 
     # Get feasible points that do not violate outcome_constraints
     if outcome_constraints is not None:

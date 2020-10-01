@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.parameter import RangeParameter
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import (
@@ -260,29 +261,38 @@ class ModelBridgeFactoryTest(TestCase):
     def test_MOO_EHVI(self):
         single_obj_exp = get_branin_experiment(with_batch=True)
         metrics = single_obj_exp.optimization_config.objective.metrics
+        metrics[0].lower_is_better = True
+        objective_thresholds = [
+            ObjectiveThreshold(
+                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            )
+        ]
         with self.assertRaises(ValueError):
             get_MOO_EHVI(
                 experiment=single_obj_exp,
                 data=single_obj_exp.fetch_data(),
-                ref_point={metrics[0].name: (0.0, False)},
+                objective_thresholds=objective_thresholds,
             )
         multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
         metrics = multi_obj_exp.optimization_config.objective.metrics
+        metrics[0].lower_is_better = False
+        metrics[1].lower_is_better = True
+        multi_objective_thresholds = [
+            ObjectiveThreshold(metric=metrics[0], bound=0.0, relative=False),
+            ObjectiveThreshold(metric=metrics[1], bound=0.0, relative=False),
+        ]
         with self.assertRaises(ValueError):
             get_MOO_EHVI(
                 experiment=multi_obj_exp,
                 data=multi_obj_exp.fetch_data(),
-                ref_point={
-                    metrics[0].name: (0.0, False),
-                    metrics[1].name: (0.0, False),
-                },
+                objective_thresholds=multi_objective_thresholds,
             )
 
         multi_obj_exp.trials[0].run()
         moo_ehvi = get_MOO_EHVI(
             experiment=multi_obj_exp,
             data=multi_obj_exp.fetch_data(),
-            ref_point={metrics[0].name: (0.0, False), metrics[1].name: (0.0, False)},
+            objective_thresholds=multi_objective_thresholds,
         )
         self.assertIsInstance(moo_ehvi, MultiObjectiveTorchModelBridge)
         moo_ehvi_run = moo_ehvi.gen(n=1)
