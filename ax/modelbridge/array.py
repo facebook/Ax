@@ -388,12 +388,26 @@ class ArrayModelBridge(ModelBridge):
         importances_arr = importances_dict[metric_name].flatten()
         return dict(zip(self.parameters, importances_arr))
 
+    def _transform_observation_data(
+        self, observation_data: List[ObservationData]
+    ) -> Any:  # TODO(jej): Make return type parametric
+        """Apply terminal transform to given observation data and return result.
+
+        Converts a set of observation data to a tuple of
+            - an (n x m) array of means
+            - an (n x m x m) array of covariances
+        """
+        try:
+            return observation_data_to_array(observation_data=observation_data)
+        except (KeyError, TypeError):  # pragma: no cover
+            raise ValueError("Invalid formatting of observation data.")
+
     def _transform_observation_features(
         self, observation_features: List[ObservationFeatures]
-    ) -> Any:
-        """Apply terminal transform to given observation features and return result.
+    ) -> Any:  # TODO(jej): Make return type parametric
+        """Apply terminal transform to given observation features and return result
+        as an N x D array of points.
         """
-        """Converts a set of observation features to a nxd array of points."""
         try:
             return np.array(
                 [
@@ -413,8 +427,8 @@ def array_to_observation_data(
     """Convert arrays of model predictions to a list of ObservationData.
 
     Args:
-        f: An (n x d) array
-        cov: An (n x d x d) array
+        f: An (n x m) array
+        cov: An (n x m x m) array
         outcomes: A list of d outcome names
 
     Returns: A list of n ObservationData
@@ -429,6 +443,24 @@ def array_to_observation_data(
             )
         )
     return observation_data
+
+
+def observation_data_to_array(
+    observation_data: List[ObservationData],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Convert arrays of model predictions to a list of ObservationData.
+
+    Args:
+        observation_data_list: A list of n ObservationData
+
+    Returns:
+        A list of n ObservationData, each containing
+            - f: An (n x m) array
+            - cov: An (n x m x m) array
+    """
+    means = np.array([obsd.means for obsd in observation_data])
+    covs = np.array([obsd.covariance for obsd in observation_data])
+    return means, covs
 
 
 def _convert_observations(

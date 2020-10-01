@@ -327,3 +327,9 @@ class TorchModelBridge(ArrayModelBridge):
         return self._array_to_tensor(
             super()._transform_observation_features(observation_features)
         )
+
+    def _transform_observation_data(
+        self, observation_data: List[ObservationData]
+    ) -> Tuple[Tensor, Tensor]:
+        mean, cov = super()._transform_observation_data(observation_data)
+        return self._array_to_tensor(mean), self._array_to_tensor(cov)
