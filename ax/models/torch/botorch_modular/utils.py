@@ -28,6 +28,9 @@ MIN_OBSERVED_NOISE_LEVEL = 1e-7
 
 
 def use_model_list(Xs: List[Tensor], botorch_model_class: Type[Model]) -> bool:
+    if issubclass(botorch_model_class, MultiTaskGP):
+        # We currently always wrap multi-task models into `ModelListGP`.
+        return True
     if len(Xs) == 1:
         # Just one outcome, can use single model.
         return False

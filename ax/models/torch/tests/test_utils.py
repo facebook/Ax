@@ -189,3 +189,4 @@ class BoTorchModelUtilsTest(TestCase):
         self.assertTrue(
             use_model_list(Xs=self.Xs + self.Xs2, botorch_model_class=SingleTaskGP)
         )
+        self.assertTrue(use_model_list(Xs=self.Xs, botorch_model_class=MultiTaskGP))
