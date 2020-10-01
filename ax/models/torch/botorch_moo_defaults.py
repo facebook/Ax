@@ -26,7 +26,27 @@ from torch import Tensor
 DEFAULT_EHVI_MC_SAMPLES = 128
 
 
-def _get_weighted_mc_objective_and_ref_point(
+# Callable that takes tensors of observations and model parameters,
+# then returns means of observations that make up a pareto frontier.
+TFrontierEvaluator = Callable[
+    [
+        TorchModel,
+        Tensor,
+        Optional[Tensor],
+        Optional[Tensor],
+        Optional[Tensor],
+        Optional[Tensor],
+        Optional[Tuple[Tensor, Tensor]],
+    ],
+    Tuple[Tensor, Tensor],
+]
+
+
+def get_default_frontier_evaluator() -> TFrontierEvaluator:
+    return pareto_frontier_evaluator
+
+
+def get_weighted_mc_objective_and_ref_point(
     objective_weights: Tensor, ref_point: Tensor
 ) -> Tuple[WeightedMCMultiOutputObjective, Tensor]:
     r"""Construct weighted objective and apply the weights to the reference point.
@@ -93,7 +113,7 @@ def get_EHVI(
     if X_observed is None:
         raise ValueError("There are no feasible observed points.")
     # construct Objective module
-    objective, ref_point = _get_weighted_mc_objective_and_ref_point(
+    objective, ref_point = get_weighted_mc_objective_and_ref_point(
         objective_weights=objective_weights, ref_point=ref_point
     )
     if "Ys" not in kwargs:
@@ -222,7 +242,7 @@ def pareto_frontier_evaluator(
 
     # Apply objective_weights to outcomes and reference_point.
     # If ref_point is not None use a dummy tensor of zeros.
-    obj, weighted_ref_point = _get_weighted_mc_objective_and_ref_point(
+    obj, weighted_ref_point = get_weighted_mc_objective_and_ref_point(
         objective_weights=objective_weights,
         ref_point=(
             ref_point if ref_point is not None else torch.zeros(objective_weights.shape)

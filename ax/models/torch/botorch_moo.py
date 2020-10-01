@@ -28,6 +28,7 @@ from ax.models.torch.botorch_moo_defaults import (
     pareto_frontier_evaluator,
     scipy_optimizer_list,
 )
+from ax.models.torch.frontier_utils import TFrontierEvaluator
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     _to_inequality_constraints,
@@ -56,18 +57,6 @@ TOptimizerList = Callable[
         Any,
     ],
     Tuple[Tensor, Tensor],
-]
-TFrontierEvaluator = Callable[
-    [
-        TorchModel,
-        Tensor,
-        Optional[Tensor],
-        Optional[Tensor],
-        Optional[Tensor],
-        Optional[Tensor],
-        Optional[Tuple[Tensor, Tensor]],
-    ],
-    Optional[Tuple[Tensor, Tensor]],
 ]
 
 

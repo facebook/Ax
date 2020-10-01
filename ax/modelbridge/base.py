@@ -21,7 +21,7 @@ from ax.core.observation import (
     observations_from_data,
     separate_observations,
 )
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import OptimizationConfig, TRefPoint
 from ax.core.search_space import SearchSpace
 from ax.core.types import (
     TCandidateMetadata,
@@ -858,6 +858,154 @@ class ModelBridge(ABC):
         """Apply terminal transform to given observation features and return result.
         """
         raise NotImplementedError  # pragma: no cover
+
+    def transform_optimization_config(
+        self,
+        optimization_config: OptimizationConfig,
+        fixed_features: ObservationFeatures,
+    ) -> Any:
+        """Applies transforms to given optimization config.
+
+        Args:
+            optimization_config: OptimizationConfig to transform.
+            fixed_features: features which should not be transformed.
+
+        Returns:
+            Transformed values. This could be e.g. a torch Tensor, depending
+            on the ModelBridge subclass.
+        """
+        optimization_config = optimization_config.clone()
+        for t in self.transforms.values():
+            optimization_config = t.transform_optimization_config(
+                optimization_config=optimization_config,
+                modelbridge=self,
+                fixed_features=fixed_features,
+            )
+        return optimization_config
+
+    def _pareto_frontier(
+        self,
+        ref_point: Optional[TRefPoint] = None,
+        observation_features: Optional[List[ObservationFeatures]] = None,
+        observation_data: Optional[List[ObservationData]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> List[ObservationData]:
+        """Helper that applies transforms and calls frontier_evaluator."""
+        raise NotImplementedError  # pragma: no cover
+
+    def predicted_pareto_frontier(
+        self,
+        ref_point: Optional[TRefPoint] = None,
+        observation_features: Optional[List[ObservationFeatures]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> List[ObservationData]:
+        """Generate a pareto frontier based on the posterior means of given
+        observation features.
+
+        Given a model and features to evaluate use the model to predict which points
+        lie on the pareto frontier.
+
+        Args:
+            ref_point: metric values bounding the region of interest in the objective
+                outcome space.
+            observation_features: observation features to predict. Model's training
+                data used by default if unspecified.
+            optimization_config: Optimization config
+
+        Returns:
+            Data representing points on the pareto frontier.
+        """
+        raise NotImplementedError  # pragma: no cover
+
+    def observed_pareto_frontier(
+        self,
+        ref_point: Optional[TRefPoint] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> List[ObservationData]:
+        """Generate a pareto frontier based on observed data.
+
+        Given observed data, return those outcomes in the pareto frontier.
+
+        Args:
+            ref_point: point defing the origin of hyperrectangles that can contribute
+                to hypervolume.
+            optimization_config: Optimization config
+
+        Returns:
+            Data representing points on the pareto frontier.
+        """
+        # Get observation_data from current training data
+        observation_data = [obs.data for obs in self.get_training_data()]
+
+        return self._pareto_frontier(
+            ref_point=ref_point,
+            observation_data=observation_data,
+            optimization_config=optimization_config,
+        )
+
+    def _hypervolume(
+        self,
+        ref_point: Optional[TRefPoint] = None,
+        observation_features: Optional[List[ObservationFeatures]] = None,
+        observation_data: Optional[List[ObservationData]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> float:
+        """Helper function that computes hypervolume of a given list of outcomes."""
+        raise NotImplementedError  # pragma: no cover
+
+    def predicted_hypervolume(
+        self,
+        ref_point: Optional[TRefPoint] = None,
+        observation_features: Optional[List[ObservationFeatures]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> float:
+        """Calculate hypervolume of a pareto frontier based on the posterior means of
+        given observation features.
+
+        Given a model and features to evaluate calculate the hypervolume of the pareto
+        frontier formed from their predicted outcomes.
+
+        Args:
+            ref_point: point defining the origin of hyperrectangles that can contribute
+                to hypervolume.
+            observation_features: observation features to predict. Model's training
+                data used by default if unspecified.
+            optimization_config: Optimization config
+
+        Returns:
+            calculated hypervolume.
+        """
+        raise NotImplementedError  # pragma: no cover
+
+    def observed_hypervolume(
+        self,
+        ref_point: Optional[TRefPoint] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> float:
+        """Calculate hypervolume of a pareto frontier based on observed data.
+
+        Given observed data, return the hypervolume of the pareto frontier formed from
+        those outcomes.
+
+        Args:
+            model: Model used to predict outcomes.
+            ref_point: point defining the origin of hyperrectangles that can contribute
+                to hypervolume.
+            observation_features: observation features to predict. Model's training
+                data used by default if unspecified.
+            optimization_config: Optimization config
+
+        Returns:
+            (float) calculated hypervolume.
+        """
+        # Get observation_data from current training data.
+        observation_data = [obs.data for obs in self.get_training_data()]
+
+        return self._hypervolume(
+            ref_point=ref_point,
+            observation_data=observation_data,
+            optimization_config=optimization_config,
+        )
 
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:

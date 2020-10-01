@@ -7,9 +7,13 @@
 from typing import Callable, Dict, List, MutableMapping, Optional, Tuple
 
 import numpy as np
+import torch
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import ObservationFeatures
+from ax.core.optimization_config import TRefPoint
+from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
@@ -17,6 +21,7 @@ from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata, TParamValue
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.typeutils import not_none
+from torch import Tensor
 
 
 def extract_parameter_constraints(
@@ -60,6 +65,111 @@ def get_bounds_and_task(
             target_fidelities[i] = p.target_value
 
     return bounds, task_features, target_fidelities
+
+
+def extract_ref_point(ref_point: TRefPoint, outcomes: List[str]) -> np.ndarray:
+    """Extracts reference_point values, in the order of `outcomes`.
+
+    The extracted array will be no greater than the number of values in the ref_point,
+    typically the same as number of objectives being optimized.
+
+    Args:
+        ref_point: Reference Point to extract values from.
+        outcomes: n-length list of names of metrics.
+
+    Returns:
+        len(ref_point)-length list of reference point coordinates
+    """
+    return np.array([ref_point[name][0] for name in outcomes if name in ref_point])
+
+
+def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.ndarray:
+    """Extract a weights for objectives.
+
+    Weights are for a maximization problem.
+
+    Give an objective weight to each modeled outcome. Outcomes that are modeled
+    but not part of the objective get weight 0.
+
+    In the single metric case, the objective is given either +/- 1, depending
+    on the minimize flag.
+
+    In the multiple metric case, each objective is given the input weight,
+    multiplied by the minimize flag.
+
+    Args:
+        objective: Objective to extract weights from.
+        outcomes: n-length list of names of metrics.
+
+    Returns:
+        n-length list of weights.
+
+    """
+    s = -1.0 if objective.minimize else 1.0
+    objective_weights = np.zeros(len(outcomes))
+    if isinstance(objective, ScalarizedObjective):
+        for obj_metric, obj_weight in objective.metric_weights:
+            objective_weights[outcomes.index(obj_metric.name)] = obj_weight * s
+    elif isinstance(objective, MultiObjective):
+        for obj_metric, obj_weight in objective.metric_weights:
+            # Rely on previously extracted lower_is_better weights not objective.
+            objective_weights[outcomes.index(obj_metric.name)] = obj_weight or s
+    else:
+        objective_weights[outcomes.index(objective.metric.name)] = s
+    return objective_weights
+
+
+def extract_outcome_constraints(
+    outcome_constraints: List[OutcomeConstraint], outcomes: List[str]
+) -> TBounds:
+    # Extract outcome constraints
+    if len(outcome_constraints) > 0:
+        A = np.zeros((len(outcome_constraints), len(outcomes)))
+        b = np.zeros((len(outcome_constraints), 1))
+        for i, c in enumerate(outcome_constraints):
+            s = 1 if c.op == ComparisonOp.LEQ else -1
+            j = outcomes.index(c.metric.name)
+            A[i, j] = s
+            b[i, 0] = s * c.bound
+        outcome_constraint_bounds: TBounds = (A, b)
+    else:
+        outcome_constraint_bounds = None
+    return outcome_constraint_bounds
+
+
+def validate_and_apply_final_transform(
+    objective_weights: np.ndarray,
+    outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
+    linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
+    pending_observations: Optional[List[np.ndarray]],
+    final_transform: Callable[[np.ndarray], Tensor] = torch.tensor,
+) -> Tuple[
+    Tensor,
+    Optional[Tuple[Tensor, Tensor]],
+    Optional[Tuple[Tensor, Tensor]],
+    Optional[List[Tensor]],
+]:
+    objective_weights: Tensor = final_transform(objective_weights)
+    if outcome_constraints is not None:  # pragma: no cover
+        outcome_constraints: Tuple[Tensor, Tensor] = (
+            final_transform(outcome_constraints[0]),
+            final_transform(outcome_constraints[1]),
+        )
+    if linear_constraints is not None:  # pragma: no cover
+        linear_constraints: Tuple[Tensor, Tensor] = (
+            final_transform(linear_constraints[0]),
+            final_transform(linear_constraints[1]),
+        )
+    if pending_observations is not None:  # pragma: no cover
+        pending_observations: List[Tensor] = [
+            final_transform(pending_obs) for pending_obs in pending_observations
+        ]
+    return (
+        objective_weights,
+        outcome_constraints,
+        linear_constraints,
+        pending_observations,
+    )
 
 
 def get_fixed_features(

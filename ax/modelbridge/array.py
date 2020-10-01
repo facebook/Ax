@@ -7,22 +7,33 @@
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import numpy as np
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+import torch
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig, TRefPoint
-from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.core.types import TBounds, TCandidateMetadata, TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.modelbridge_utils import (
+    extract_objective_weights,
+    extract_outcome_constraints,
     extract_parameter_constraints,
+    extract_ref_point,
     get_bounds_and_task,
     get_fixed_features,
     parse_observation_features,
     pending_observations_as_array,
     transform_callback,
+    validate_and_apply_final_transform,
 )
+from ax.models.torch.frontier_utils import (
+    TFrontierEvaluator,
+    get_default_frontier_evaluator,
+    get_weighted_mc_objective_and_ref_point,
+)
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
+from botorch.utils.multi_objective.hypervolume import Hypervolume
+from torch import Tensor
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
@@ -429,6 +440,210 @@ class ArrayModelBridge(ModelBridge):
         except (KeyError, TypeError):  # pragma: no cover
             raise ValueError("Invalid formatting of observation features.")
 
+    # pyre-ignore [56]: While applying decorator
+    # `ax.utils.common.docutils.copy_doc(...)`: Expected ModelBridge but got...
+    @copy_doc(ModelBridge._pareto_frontier)
+    def _pareto_frontier(
+        self,
+        ref_point: Optional[TRefPoint] = None,
+        observation_features: Optional[List[ObservationFeatures]] = None,
+        observation_data: Optional[List[ObservationData]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> List[ObservationData]:
+        # TODO(jej): This method should be refactored to move tensor
+        # conversions into a separate utility, and eventually should be
+        # moved into base.py.
+        # The reason this method is currently implemented in array.py is to
+        # allow the broadest possible set of models to call frontier and
+        # hypervolume evaluation functions given the current API.
+        X = (
+            self.transform_observation_features(observation_features)
+            if observation_features
+            else None
+        )
+        X = self._array_to_tensor(X) if X is not None else None
+        Y, Yvar = (None, None)
+        if observation_data:
+            Y, Yvar = self.transform_observation_data(observation_data)
+        if Y is not None and Yvar is not None:
+            Y, Yvar = (self._array_to_tensor(Y), self._array_to_tensor(Yvar))
+
+        # Optimization_config
+        opt_conf = optimization_config or self._optimization_config
+        if not opt_conf:
+            raise ValueError(
+                (
+                    "Modelbridge must have an existing optimization_config "
+                    "or optimization_config must be passed as an argument."
+                )
+            )
+        if ref_point:
+            optimization_config = opt_conf.clone_with_args(ref_point=ref_point)
+        else:
+            optimization_config = opt_conf.clone()
+
+        # Transform OptimizationConfig.
+        optimization_config = self.transform_optimization_config(
+            optimization_config=optimization_config,
+            fixed_features=ObservationFeatures(parameters={}),
+        )
+        # Extract weights, constraints, and ref_point
+        objective_weights = extract_objective_weights(
+            objective=optimization_config.objective, outcomes=self.outcomes
+        )
+        outcome_constraints = extract_outcome_constraints(
+            outcome_constraints=optimization_config.outcome_constraints,
+            outcomes=self.outcomes,
+        )
+        ref_point_arr = extract_ref_point(
+            ref_point=optimization_config.ref_point, outcomes=self.outcomes
+        )
+        # Transform to tensors.
+        obj_w, oc_c, _, _ = validate_and_apply_final_transform(
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=None,
+            pending_observations=None,
+            final_transform=self._array_to_tensor,
+        )
+        rf_pt = self._array_to_tensor(ref_point_arr)
+        frontier_evaluator = self._get_frontier_evaluator()
+        # pyre-ignore[28]: Unexpected keyword `model` to anonymous call
+        f, cov = frontier_evaluator(
+            model=self.model,
+            X=X,
+            Y=Y,
+            Yvar=Yvar,
+            ref_point=rf_pt,
+            objective_weights=obj_w,
+            outcome_constraints=oc_c,
+        )
+        f, cov = f.detach().cpu().clone().numpy(), cov.detach().cpu().clone().numpy()
+        frontier_observation_data = array_to_observation_data(
+            f=f, cov=cov, outcomes=not_none(self.outcomes)
+        )
+        # Untransform observations
+        for t in reversed(self.transforms.values()):  # noqa T484
+            frontier_observation_data = t.untransform_observation_data(
+                frontier_observation_data, []
+            )
+        return frontier_observation_data
+
+    # pyre-ignore [56]: While applying decorator
+    # `ax.utils.common.docutils.copy_doc(...)`: Expected ModelBridge but got...
+    @copy_doc(ModelBridge.predicted_pareto_frontier)
+    def predicted_pareto_frontier(
+        self,
+        ref_point: Optional[TRefPoint] = None,
+        observation_features: Optional[List[ObservationFeatures]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> List[ObservationData]:
+        # If observation_features is not provided, use model training features.
+        observation_features = (
+            observation_features
+            if observation_features is not None
+            else [obs.features for obs in self.get_training_data()]
+        )
+        if not observation_features:
+            raise ValueError(
+                "Must receive observation_features as input or the model must "
+                "have training data."
+            )
+
+        return self._pareto_frontier(
+            ref_point=ref_point,
+            observation_features=observation_features,
+            optimization_config=optimization_config,
+        )
+
+    # pyre-ignore [56]: While applying decorator
+    # `ax.utils.common.docutils.copy_doc(...)`: Expected ModelBridge but got...
+    @copy_doc(ModelBridge._hypervolume)
+    def _hypervolume(
+        self,
+        ref_point: Optional[TRefPoint] = None,
+        observation_features: Optional[List[ObservationFeatures]] = None,
+        observation_data: Optional[List[ObservationData]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> float:
+        # Extract a tensor of outcome means from observation data.
+        observation_data = self._pareto_frontier(
+            ref_point=ref_point,
+            observation_features=observation_features,
+            observation_data=observation_data,
+            optimization_config=optimization_config,
+        )
+        if not observation_data:
+            # The hypervolume of an empty set is always 0.
+            return 0
+        means, _ = self._transform_observation_data(observation_data)
+
+        # Extract objective_weights and ref_points
+        if optimization_config is None:
+            optimization_config = (
+                # pyre-fixme[16]: `Optional` has no attribute `clone`.
+                self._optimization_config.clone()
+                if self._optimization_config is not None
+                else None
+            )
+        else:
+            optimization_config = optimization_config.clone()
+
+        if ref_point is not None:
+            optimization_config = optimization_config.clone_with_args(
+                ref_point=ref_point
+            )
+
+        obj_w = extract_objective_weights(
+            objective=optimization_config.objective, outcomes=self.outcomes
+        )
+        obj_w = self._array_to_tensor(obj_w)  # TODO: can I get rid of these tensors?
+        ref_point_arr = extract_ref_point(
+            ref_point=optimization_config.ref_point, outcomes=self.outcomes
+        )
+        rf_pt = self._array_to_tensor(
+            ref_point_arr
+        )  # TODO: can I get rid of these tensors?
+        obj, rf_pt = get_weighted_mc_objective_and_ref_point(
+            objective_weights=obj_w, ref_point=rf_pt
+        )
+        means = obj(means)
+        hv = Hypervolume(ref_point=rf_pt)
+        return hv.compute(means)
+
+    # pyre-ignore [56]: While applying decorator
+    # `ax.utils.common.docutils.copy_doc(...)`: Expected ModelBridge but got...
+    @copy_doc(ModelBridge.predicted_hypervolume)
+    def predicted_hypervolume(
+        self,
+        ref_point: Optional[TRefPoint] = None,
+        observation_features: Optional[List[ObservationFeatures]] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> float:
+        # If observation_features is not provided, use model training features.
+        observation_features = (
+            observation_features
+            if observation_features is not None
+            else [obs.features for obs in self.get_training_data()]
+        )
+        if not observation_features:
+            raise ValueError(
+                "Must receive observation_features as input or the model must "
+                "have training data."
+            )
+
+        return self._hypervolume(
+            ref_point=ref_point,
+            observation_features=observation_features,
+            optimization_config=optimization_config,
+        )
+
+    def _get_frontier_evaluator(self) -> TFrontierEvaluator:
+        return get_default_frontier_evaluator()
+
+    def _array_to_tensor(self, array: np.ndarray) -> Tensor:
+        return torch.tensor(array)
+
 
 def array_to_observation_data(
     f: np.ndarray, cov: np.ndarray, outcomes: List[str]
@@ -521,76 +736,6 @@ def _convert_observations(
     if not any_candidate_metadata_is_not_none:
         candidate_metadata = None  # pyre-ignore[9]: Change of variable type.
     return Xs_array, Ys_array, Yvars_array, candidate_metadata
-
-
-def extract_ref_point(ref_point: TRefPoint, outcomes: List[str]) -> np.ndarray:
-    """Extracts reference_point values, in the order of self.outcomes.
-
-    The extracted array will be no greater than the number of values in the ref_point,
-    typically the same as number of objectives being optimized.
-
-    Args:
-        ref_point: Reference Point to extract values from.
-        outcomes: n-length list of names of metrics.
-
-    Returns:
-        (len(ref_point),) array of reference point coordinates
-    """
-    return np.array([ref_point[name][0] for name in outcomes if name in ref_point])
-
-
-def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.ndarray:
-    """Extract a weights for objectives.
-
-    Weights are for a maximization problem.
-
-    Give an objective weight to each modeled outcome. Outcomes that are modeled
-    but not part of the objective get weight 0.
-
-    In the single metric case, the objective is given either +/- 1, depending
-    on the minimize flag.
-
-    In the multiple metric case, each objective is given the input weight,
-    multiplied by the minimize flag.
-
-    Args:
-        objective: Objective to extract weights from.
-        outcomes: n-length list of names of metrics.
-
-    Returns:
-        (n,) array of weights.
-
-    """
-    s = -1.0 if objective.minimize else 1.0
-    objective_weights = np.zeros(len(outcomes))
-    if isinstance(objective, ScalarizedObjective):
-        for obj_metric, obj_weight in objective.metric_weights:
-            objective_weights[outcomes.index(obj_metric.name)] = obj_weight * s
-    elif isinstance(objective, MultiObjective):
-        for obj_metric, obj_weight in objective.metric_weights:
-            # Rely on previously extracted lower_is_better weights not objective.
-            objective_weights[outcomes.index(obj_metric.name)] = obj_weight or s
-    else:
-        objective_weights[outcomes.index(objective.metric.name)] = s
-    return objective_weights
-
-
-def extract_outcome_constraints(
-    outcome_constraints: List[OutcomeConstraint], outcomes: List[str]
-) -> TBounds:
-    # Extract outcome constraints
-    if len(outcome_constraints) > 0:
-        A = np.zeros((len(outcome_constraints), len(outcomes)))
-        b = np.zeros((len(outcome_constraints), 1))
-        for i, c in enumerate(outcome_constraints):
-            s = 1 if c.op == ComparisonOp.LEQ else -1
-            j = outcomes.index(c.metric.name)
-            A[i, j] = s
-            b[i, 0] = s * c.bound
-        outcome_constraint_bounds: TBounds = (A, b)
-    else:
-        outcome_constraint_bounds = None
-    return outcome_constraint_bounds
 
 
 def validate_optimization_config(
