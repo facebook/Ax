@@ -82,8 +82,10 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_scalarized_objective,
     get_fixed_parameter,
     get_generator_run,
+    get_multi_objective_optimization_config,
     get_multi_type_experiment,
     get_objective,
+    get_objective_threshold,
     get_optimization_config,
     get_outcome_constraint,
     get_range_parameter,
@@ -555,6 +557,44 @@ class SQAStoreTest(TestCase):
         self.assertEqual(
             get_session().query(SQAMetric).count(), len(experiment.metrics)
         )
+
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(experiment, loaded_experiment)
+
+    def testExperimentObjectiveThresholdUpdates(self):
+        experiment = get_experiment_with_batch_trial()
+        save_experiment(experiment)
+        self.assertEqual(
+            get_session().query(SQAMetric).count(), len(experiment.metrics)
+        )
+
+        # update objective threshold
+        # (should perform update in place)
+        optimization_config = get_multi_objective_optimization_config()
+        objective_threshold = get_objective_threshold()
+        optimization_config.objective_thresholds = [objective_threshold]
+        experiment.optimization_config = optimization_config
+        save_experiment(experiment)
+        self.assertEqual(get_session().query(SQAMetric).count(), 6)
+
+        # add outcome constraint
+        outcome_constraint2 = OutcomeConstraint(
+            metric=Metric(name="outcome"), op=ComparisonOp.GEQ, bound=-0.5
+        )
+        optimization_config.outcome_constraints = [
+            optimization_config.outcome_constraints[0],
+            outcome_constraint2,
+        ]
+        experiment.optimization_config = optimization_config
+        save_experiment(experiment)
+        self.assertEqual(get_session().query(SQAMetric).count(), 7)
+
+        # remove outcome constraint
+        # (old one should become tracking metric)
+        optimization_config.outcome_constraints = []
+        experiment.optimization_config = optimization_config
+        save_experiment(experiment)
+        self.assertEqual(get_session().query(SQAMetric).count(), 5)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)

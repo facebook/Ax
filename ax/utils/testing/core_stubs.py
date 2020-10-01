@@ -24,7 +24,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -245,11 +245,7 @@ def get_experiment_with_data() -> Experiment:
 
 
 def get_experiment_with_multi_objective() -> Experiment:
-    objective = get_multi_objective()
-    outcome_constraints = [get_outcome_constraint()]
-    optimization_config = OptimizationConfig(
-        objective=objective, outcome_constraints=outcome_constraints
-    )
+    optimization_config = get_multi_objective_optimization_config()
 
     exp = Experiment(
         name="test_experiment_multi_objective",
@@ -641,6 +637,12 @@ def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
 ##############################
 
 
+def get_objective_threshold() -> ObjectiveThreshold:
+    return ObjectiveThreshold(
+        metric=Metric(name="m1"), bound=-0.25, op=ComparisonOp.GEQ
+    )
+
+
 def get_outcome_constraint() -> OutcomeConstraint:
     return OutcomeConstraint(metric=Metric(name="m2"), op=ComparisonOp.GEQ, bound=-0.25)
 
@@ -709,6 +711,17 @@ def get_optimization_config() -> OptimizationConfig:
     outcome_constraints = [get_outcome_constraint()]
     return OptimizationConfig(
         objective=objective, outcome_constraints=outcome_constraints
+    )
+
+
+def get_multi_objective_optimization_config() -> OptimizationConfig:
+    objective = get_multi_objective()
+    outcome_constraints = [get_outcome_constraint()]
+    objective_thresholds = [get_objective_threshold()]
+    return MultiObjectiveOptimizationConfig(
+        objective=objective,
+        outcome_constraints=outcome_constraints,
+        objective_thresholds=objective_thresholds,
     )
 
 

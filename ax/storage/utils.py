@@ -25,6 +25,7 @@ class MetricIntent(enum.Enum):
     # Additional objective is not yet supported in Ax open-source.
     ADDITIONAL_OBJECTIVE: str = "additional_objective"
     OUTCOME_CONSTRAINT: str = "outcome_constraint"
+    OBJECTIVE_THRESHOLD: str = "objective_threshold"
     TRACKING: str = "tracking"
 
 

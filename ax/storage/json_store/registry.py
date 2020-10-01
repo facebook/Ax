@@ -19,7 +19,7 @@ from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -110,6 +110,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     NegativeBraninMetric: metric_to_dict,
     NoisyFunctionMetric: metric_to_dict,
     Objective: objective_to_dict,
+    ObjectiveThreshold: outcome_constraint_to_dict,
     OptimizationConfig: optimization_config_to_dict,
     OrderConstraint: order_parameter_constraint_to_dict,
     OutcomeConstraint: outcome_constraint_to_dict,
@@ -168,6 +169,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "NegativeBraninMetric": NegativeBraninMetric,
     "NoisyFunctionMetric": NoisyFunctionMetric,
     "Objective": Objective,
+    "ObjectiveThreshold": ObjectiveThreshold,
     "OptimizationConfig": OptimizationConfig,
     "OrderConstraint": OrderConstraint,
     "OutcomeConstraint": OutcomeConstraint,

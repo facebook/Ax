@@ -18,8 +18,11 @@ from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
@@ -498,6 +501,20 @@ class Decoder:
                 op=metric_sqa.op,
                 relative=metric_sqa.relative,
             )
+        elif metric_sqa.intent == MetricIntent.OBJECTIVE_THRESHOLD:
+            if metric_sqa.bound is None or metric_sqa.relative is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "Cannot decode SQAMetric to ObjectiveThreshold because "
+                    "bound, op, or relative is None."
+                )
+            return ObjectiveThreshold(
+                metric=metric,
+                # pyre-fixme[6]: Expected `float` for 2nd param but got
+                #  `Optional[float]`.
+                bound=metric_sqa.bound,
+                relative=metric_sqa.relative,
+                op=metric_sqa.op,
+            )
         else:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.intent} "
@@ -511,12 +528,15 @@ class Decoder:
         and tracking metrics.
         """
         objective = None
+        objective_thresholds = []
         outcome_constraints = []
         tracking_metrics = []
         for metric_sqa in metrics_sqa:
             metric = self.metric_from_sqa(metric_sqa=metric_sqa)
             if isinstance(metric, Objective):
                 objective = metric
+            elif isinstance(metric, ObjectiveThreshold):
+                objective_thresholds.append(metric)
             elif isinstance(metric, OutcomeConstraint):
                 outcome_constraints.append(metric)
             else:
@@ -525,12 +545,17 @@ class Decoder:
         if objective is None:
             return None, tracking_metrics
 
-        return (
-            OptimizationConfig(
+        if objective_thresholds:
+            optimization_config = MultiObjectiveOptimizationConfig(
+                objective=objective,
+                outcome_constraints=outcome_constraints,
+                objective_thresholds=objective_thresholds,
+            )
+        else:
+            optimization_config = OptimizationConfig(
                 objective=objective, outcome_constraints=outcome_constraints
-            ),
-            tracking_metrics,
-        )
+            )
+        return (optimization_config, tracking_metrics)
 
     def arm_from_sqa(self, arm_sqa: SQAArm) -> Arm:
         """Convert SQLAlchemy Arm to Ax Arm."""

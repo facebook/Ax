@@ -16,8 +16,11 @@ from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
@@ -485,6 +488,27 @@ class Encoder:
             lower_is_better=metric.lower_is_better,
         )
 
+    def objective_threshold_to_sqa(
+        self, objective_threshold: ObjectiveThreshold
+    ) -> SQAMetric:
+        """Convert Ax OutcomeConstraint to SQLAlchemy."""
+        metric = objective_threshold.metric
+        metric_type, properties = self.get_metric_type_and_properties(metric=metric)
+
+        # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
+        metric_class: SQAMetric = self.config.class_to_sqa_class[Metric]
+        # pyre-fixme[29]: `SQAMetric` is not a function.
+        return metric_class(
+            name=metric.name,
+            metric_type=metric_type,
+            intent=MetricIntent.OBJECTIVE_THRESHOLD,
+            bound=objective_threshold.bound,
+            op=objective_threshold.op,
+            relative=objective_threshold.relative,
+            properties=properties,
+            lower_is_better=metric.lower_is_better,
+        )
+
     def optimization_config_to_sqa(
         self, optimization_config: Optional[OptimizationConfig]
     ) -> List[SQAMetric]:
@@ -497,7 +521,14 @@ class Encoder:
             self.outcome_constraint_to_sqa(outcome_constraint=constraint)
             for constraint in optimization_config.outcome_constraints
         ]
-        return [objective_sqa] + outcome_constraints_sqa
+        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+            objective_thresholds_sqa = [
+                self.objective_threshold_to_sqa(objective_threshold=threshold)
+                for threshold in optimization_config.objective_thresholds
+            ]
+        else:
+            objective_thresholds_sqa = []
+        return [objective_sqa] + outcome_constraints_sqa + objective_thresholds_sqa
 
     def arm_to_sqa(self, arm: Arm, weight: Optional[float] = 1.0) -> SQAArm:
         """Convert Ax Arm to SQLAlchemy."""
