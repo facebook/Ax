@@ -23,6 +23,7 @@ DEV_REQUIRES = [
     "sphinx<3.0.0",
     "sphinx-autodoc-typehints",
     "torchvision>=0.5.0",
+    "nbconvert<=5.6.1",
 ]
 
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
