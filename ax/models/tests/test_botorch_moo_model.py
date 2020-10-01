@@ -235,7 +235,7 @@ class BotorchMOOModelTest(TestCase):
                 bounds,
                 objective_weights,
                 model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
-                ref_point=[1.0, 1.0],
+                ref_point=torch.tensor([1.0, 1.0]),
             )
             # the EHVI acquisition function should be created only once.
             self.assertEqual(1, _mock_ehvi_acqf.call_count)
@@ -399,7 +399,7 @@ class BotorchMOOModelTest(TestCase):
                     torch.tensor([[10.0]], **tkwargs),
                 ),
                 model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
-                ref_point=[1.0, 1.0],
+                ref_point=torch.tensor([1.0, 1.0]),
             )
             # the EHVI acquisition function should be created only once.
             self.assertEqual(1, _mock_ehvi_acqf.call_count)

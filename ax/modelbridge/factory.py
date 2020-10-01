@@ -13,7 +13,7 @@ from ax.core.experiment import Experiment
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import OptimizationConfig, TRefPoint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.discrete import DiscreteModelBridge
@@ -368,7 +368,7 @@ def get_GPMES(
 def get_MOO_EHVI(
     experiment: Experiment,
     data: Data,
-    ref_point: Dict[str, float],
+    ref_point: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = (
@@ -377,9 +377,12 @@ def get_MOO_EHVI(
 ) -> MultiObjectiveTorchModelBridge:
     """Instantiates a multi-objective model that generates points with EHVI.
 
-    Requires a `ref_point`, a dictionary of the metric name to the reference point value
+    Requires a `ref_point`,
+    a dictionary of metric_name: str -> Tuple(value: numeric, is_relative: bool),
     for every objective being optimized. An arm only improves hypervolume if it is
     strictly better than this point in all metrics.
+
+    This ref_point can be passed in the optimization_config or passed directly here.
     """
     # pyre-ignore: [16] `Optional` has no attribute `objective`.
     if not isinstance(experiment.optimization_config.objective, MultiObjective):
@@ -410,7 +413,7 @@ def get_MOO_EHVI(
 def get_MOO_PAREGO(
     experiment: Experiment,
     data: Data,
-    ref_point: Optional[List[float]] = None,
+    ref_point: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
@@ -448,7 +451,7 @@ def get_MOO_PAREGO(
 def get_MOO_RS(
     experiment: Experiment,
     data: Data,
-    ref_point: Optional[List[float]] = None,
+    ref_point: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,

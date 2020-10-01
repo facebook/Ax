@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import numpy as np
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import OptimizationConfig, TRefPoint
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TBounds, TCandidateMetadata, TConfig, TGenMetadata
@@ -160,6 +160,11 @@ class ArrayModelBridge(ModelBridge):
     ) -> Tuple[np.ndarray, np.ndarray]:  # pragma: no cover
         return self.model.predict(X=X)
 
+    def _get_extra_model_gen_kwargs(
+        self, optimization_config: OptimizationConfig
+    ) -> Dict[str, Any]:
+        return {}
+
     def _gen(
         self,
         n: int,
@@ -205,6 +210,9 @@ class ArrayModelBridge(ModelBridge):
             outcome_constraints=optimization_config.outcome_constraints,
             outcomes=self.outcomes,
         )
+        extra_model_gen_kwargs = self._get_extra_model_gen_kwargs(
+            optimization_config=optimization_config
+        )
         linear_constraints = extract_parameter_constraints(
             search_space.parameter_constraints, self.parameters
         )
@@ -224,6 +232,7 @@ class ArrayModelBridge(ModelBridge):
             model_gen_options=model_gen_options,
             rounding_func=transform_callback(self.parameters, self.transforms),
             target_fidelities=target_fidelities,
+            **extra_model_gen_kwargs,
         )
         # Transform array to observations
         observation_features = parse_observation_features(
@@ -512,6 +521,22 @@ def _convert_observations(
     if not any_candidate_metadata_is_not_none:
         candidate_metadata = None  # pyre-ignore[9]: Change of variable type.
     return Xs_array, Ys_array, Yvars_array, candidate_metadata
+
+
+def extract_ref_point(ref_point: TRefPoint, outcomes: List[str]) -> np.ndarray:
+    """Extracts reference_point values, in the order of self.outcomes.
+
+    The extracted array will be no greater than the number of values in the ref_point,
+    typically the same as number of objectives being optimized.
+
+    Args:
+        ref_point: Reference Point to extract values from.
+        outcomes: n-length list of names of metrics.
+
+    Returns:
+        (len(ref_point),) array of reference point coordinates
+    """
+    return np.array([ref_point[name][0] for name in outcomes if name in ref_point])
 
 
 def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.ndarray:

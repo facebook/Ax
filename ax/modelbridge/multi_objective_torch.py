@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import numpy as np
 import torch
@@ -13,7 +13,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import OptimizationConfig, TRefPoint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.array import (
@@ -21,6 +21,7 @@ from ax.modelbridge.array import (
     array_to_observation_data,
     extract_objective_weights,
     extract_outcome_constraints,
+    extract_ref_point,
 )
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
@@ -51,7 +52,6 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
     them to the model.
     """
 
-    _transformed_ref_point: Optional[Dict[str, float]]
     _objective_metric_names: Optional[List[str]]
 
     def __init__(
@@ -68,7 +68,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         status_quo_features: Optional[ObservationFeatures] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
-        ref_point: Optional[Dict[str, float]] = None,
+        ref_point: Optional[TRefPoint] = None,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
         if isinstance(experiment, MultiTypeExperiment) and ref_point is not None:
@@ -78,12 +78,22 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
                 "Remove the reference point arg and use a compatible algorithm "
                 "like ParEGO."
             )
-        self.ref_point = ref_point
-        self._transformed_ref_point = None
         self._objective_metric_names = None
-        oc = optimization_config or experiment.optimization_config
-        if oc:
-            self._objective_metric_names = [m.name for m in oc.objective.metrics]
+        optimization_config = optimization_config or experiment.optimization_config
+        # TODO: Validate optimization config?
+        # Extract ref_point from optimization_config, or inject it.
+        if optimization_config:
+            self._objective_metric_names = [
+                m.name for m in optimization_config.objective.metrics
+            ]
+            # If ref_point was not passed as an arg, check optimization_config
+            if optimization_config.ref_point:
+                self.ref_point = ref_point or optimization_config.ref_point
+            elif ref_point is not None:
+                optimization_config = optimization_config.clone_with_args(
+                    ref_point=ref_point
+                )
+                self.ref_point = ref_point
         super().__init__(
             experiment=experiment,
             search_space=search_space,
@@ -100,11 +110,14 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             default_model_gen_options=default_model_gen_options,
         )
 
-    def _get_ref_point_list(self, ref_point: Dict[str, float]) -> List[float]:
-        """Formats ref_point's values as a list, in the order of self.outcomes."""
-        return [
-            ref_point[name] for name in not_none(self.outcomes) if name in ref_point
-        ]
+    def _get_extra_model_gen_kwargs(
+        self, optimization_config: OptimizationConfig
+    ) -> Dict[str, Any]:
+        ref_point = extract_ref_point(
+            ref_point=optimization_config.ref_point, outcomes=self.outcomes
+        )
+        ref_point: Optional[np.ndarray] = ref_point if len(ref_point) else None
+        return {"ref_point": ref_point}
 
     def _model_gen(
         self,
@@ -118,6 +131,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
         target_fidelities: Optional[Dict[int, float]],
+        ref_point: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata, List[TCandidateMetadata]]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
@@ -127,18 +141,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             linear_constraints=linear_constraints,
             pending_observations=pending_observations,
         )
-        ref_point = None
-        if self._transformed_ref_point:
-            ref_point = not_none(self._transformed_ref_point)
-        elif self.ref_point:
-            ref_point = self.ref_point
-            logger.warning(
-                "No attribute _transformed_ref_point. Using untransformed ref_point."
-            )
-        if ref_point is not None:
-            ref_point_list = self._get_ref_point_list(ref_point)
-        else:
-            ref_point_list = None
+        rf_pt = self._array_to_tensor(ref_point) if ref_point is not None else None
         tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
         augmented_model_gen_options = {
             **self._default_model_gen_options,
@@ -150,13 +153,13 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             bounds=bounds,
             objective_weights=obj_w,
             outcome_constraints=oc_c,
+            ref_point=rf_pt,
             linear_constraints=l_c,
             fixed_features=fixed_features,
             pending_observations=pend_obs,
             model_gen_options=augmented_model_gen_options,
             rounding_func=tensor_rounding_func,
             target_fidelities=target_fidelities,
-            ref_point=ref_point_list,
         )
         return (
             X.detach().cpu().clone().numpy(),
@@ -182,59 +185,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             transforms=transforms,
             transform_configs=transform_configs,
         )
-
-        ref_point = self.ref_point
-        if ref_point and obs_data:
-            self._transformed_ref_point = self._transform_ref_point(
-                ref_point=ref_point, padding_obs_data=obs_data[0]
-            )
         return obs_feats, obs_data, search_space
-
-    def _transform_ref_point(
-        self, ref_point: Dict[str, float], padding_obs_data: ObservationData
-    ) -> Dict[str, float]:
-        """Transform ref_point using same transforms as those applied to data.
-
-        Args:
-            ref_point: Reference point to transform.
-            padding_obs_data: Data used to add dummy outcomes that aren't part
-                of the reference point. This is necessary to apply transforms.
-
-        Return:
-            A transformed reference point.
-        """
-        metric_names = list(self._metric_names or [])
-        objective_metric_names = list(self._objective_metric_names or [])
-        num_metrics = len(metric_names)
-        # Create synthetic ObservationData representing the reference point.
-        # Pad with non-objective outcomes from existing data.
-        # Should always have existing data with BO.
-        padding_obs_data
-        padded_ref_dict: Dict[str, float] = dict(
-            zip(padding_obs_data.metric_names, padding_obs_data.means)
-        )
-        padded_ref_dict.update(ref_point)
-        ref_obs_data = [
-            ObservationData(
-                metric_names=list(padded_ref_dict.keys()),
-                means=np.array(list(padded_ref_dict.values())),
-                covariance=np.zeros((num_metrics, num_metrics)),
-            )
-        ]
-        ref_obs_feats = []
-
-        # Apply initialized transforms to reference point.
-        for t in self.transforms.values():
-            ref_obs_data = t.transform_observation_data(ref_obs_data, ref_obs_feats)
-        transformed_ref_obsd = ref_obs_data.pop()
-        transformed_ref_dict = dict(
-            zip(transformed_ref_obsd.metric_names, transformed_ref_obsd.means)
-        )
-        transformed_ref_point = {
-            objective_metric_name: transformed_ref_dict[objective_metric_name]
-            for objective_metric_name in objective_metric_names
-        }
-        return transformed_ref_point
 
     # pyre-fixme[56]: While applying decorator
     #  `ax.utils.common.docutils.copy_doc(...)`: Call expects argument `n`.
@@ -264,7 +215,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
 
     def _pareto_frontier(
         self,
-        ref_point: Optional[Dict[str, float]] = None,
+        ref_point: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         observation_data: Optional[List[ObservationData]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
@@ -292,6 +243,11 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         else:
             optimization_config = optimization_config.clone()
 
+        if ref_point is not None:
+            optimization_config = optimization_config.clone_with_args(
+                ref_point=ref_point
+            )
+
         # Transform OptimizationConfig, ObservationFeatures and ref_point
         for t in self.transforms.values():
             optimization_config = t.transform_optimization_config(
@@ -312,16 +268,10 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             linear_constraints=None,
             pending_observations=None,
         )
-        training_observations = self.get_training_data()
-        assert (
-            training_observations
-        ), "Cannot pad reference_point without training_observations"
-        padding_obs_data = training_observations[0].data
-        ref_point = self._transform_ref_point(
-            ref_point=not_none(ref_point), padding_obs_data=padding_obs_data
+        ref_point_arr = extract_ref_point(
+            ref_point=optimization_config.ref_point, outcomes=self.outcomes
         )
-        rf_pt = self._array_to_tensor(self._get_ref_point_list(ref_point))
-        # Transform features, Evaluate a frontier, and untransform results
+        rf_pt = self._array_to_tensor(ref_point_arr)
         # pyre-ignore [16]:  `TorchModel` has no attribute `frontier_evaluator`
         f, cov = not_none(self.model).frontier_evaluator(
             model=self.model,
@@ -345,7 +295,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
 
     def predicted_pareto_frontier(
         self,
-        ref_point: Optional[Dict[str, float]] = None,
+        ref_point: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> List[ObservationData]:
@@ -385,7 +335,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
 
     def observed_pareto_frontier(
         self,
-        ref_point: Optional[Dict[str, float]] = None,
+        ref_point: Optional[TRefPoint] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> List[ObservationData]:
         """Generate a pareto frontier based on observed data.
@@ -411,7 +361,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
 
     def _hypervolume(
         self,
-        ref_point: Optional[Dict[str, float]] = None,
+        ref_point: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         observation_data: Optional[List[ObservationData]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
@@ -437,6 +387,11 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         else:
             optimization_config = optimization_config.clone()
 
+        if ref_point is not None:
+            optimization_config = optimization_config.clone_with_args(
+                ref_point=ref_point
+            )
+
         objective_weights = extract_objective_weights(
             objective=optimization_config.objective, outcomes=self.outcomes
         )
@@ -446,19 +401,20 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             linear_constraints=None,
             pending_observations=None,
         )
-        # pyre-fixme[6]: Expected `Dict[str, float]` but got `Optional[Dict[str,float]]`
-        rf_pt = self._array_to_tensor(self._get_ref_point_list(ref_point))
+        ref_point_arr = extract_ref_point(
+            ref_point=optimization_config.ref_point, outcomes=self.outcomes
+        )
+        rf_pt = self._array_to_tensor(ref_point_arr)
         obj, rf_pt = _get_weighted_mc_objective_and_ref_point(
             objective_weights=obj_w, ref_point=rf_pt
         )
         means = obj(means)
-        # Transform ref_point to tensor
         hv = Hypervolume(ref_point=rf_pt)
         return hv.compute(means)
 
     def predicted_hypervolume(
         self,
-        ref_point: Optional[Dict[str, float]] = None,
+        ref_point: Optional[TRefPoint] = None,
         observation_features: Optional[List[ObservationFeatures]] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> float:
@@ -499,7 +455,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
 
     def observed_hypervolume(
         self,
-        ref_point: Optional[Dict[str, float]] = None,
+        ref_point: Optional[TRefPoint] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> float:
         """Calculate hypervolume of a pareto frontier based on observed data.

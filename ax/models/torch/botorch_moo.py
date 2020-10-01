@@ -244,13 +244,13 @@ class MultiObjectiveBotorchModel(BotorchModel):
         bounds: List[Tuple[float, float]],
         objective_weights: Tensor,  # objective_directions
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        ref_point: Optional[Tensor] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         pending_observations: Optional[List[Tensor]] = None,
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-        ref_point: Optional[List[float]] = None,
     ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
         options = model_gen_options or {}
         acf_options = options.get("acquisition_function_kwargs", {})
@@ -326,10 +326,6 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 **optimizer_options,
             )
         else:
-            if ref_point:
-                ref_point = torch.tensor(
-                    ref_point, dtype=self.dtype, device=self.device
-                )
             acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
                 model=model,
                 objective_weights=objective_weights,

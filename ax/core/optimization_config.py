@@ -128,15 +128,16 @@ class OptimizationConfig(Base):
         ref_point = {}
         for constraint in self.objective_constraints:
             metric_name = constraint.metric.name
-            metric_lower_is_better = constraint.metric.lower_is_better
-            constraint_bounds_above = constraint.op == ComparisonOp.LEQ
+            lower_is_better = constraint.metric.lower_is_better
+            bounded_above = constraint.op == ComparisonOp.LEQ
+            is_aligned = lower_is_better == bounded_above
             # Only include constraints that bound in the correct direction.
-            if metric_lower_is_better != constraint_bounds_above:
+            if not (is_aligned or lower_is_better is None):
                 raise ValueError(
                     make_wrong_direction_warning(
                         metric_name=metric_name,
-                        constraint_bounds_above=constraint_bounds_above,
-                        metric_lower_is_better=metric_lower_is_better,
+                        bounded_above=bounded_above,
+                        lower_is_better=lower_is_better,
                     )
                 )
             ref_point[metric_name] = (constraint.bound, constraint.relative)
@@ -197,14 +198,15 @@ class OptimizationConfig(Base):
         for constraint in outcome_constraints:
             metric_name = constraint.metric.name
             if metric_name in objective_metrics_by_name:
-                metric_lower_is_better = constraint.metric.lower_is_better
-                constraint_bounds_above = constraint.op == ComparisonOp.LEQ
-                if metric_lower_is_better != constraint_bounds_above:
+                lower_is_better = constraint.metric.lower_is_better
+                bounded_above = constraint.op == ComparisonOp.LEQ
+                is_aligned = lower_is_better == bounded_above
+                if not (is_aligned or lower_is_better is None):
                     raise ValueError(
                         make_wrong_direction_warning(
                             metric_name=metric_name,
-                            constraint_bounds_above=constraint_bounds_above,
-                            metric_lower_is_better=metric_lower_is_better,
+                            bounded_above=bounded_above,
+                            lower_is_better=lower_is_better,
                         )
                     )
 
@@ -239,15 +241,13 @@ class OptimizationConfig(Base):
 
 
 def make_wrong_direction_warning(
-    metric_name: str,
-    constraint_bounds_above: bool,
-    metric_lower_is_better: Optional[bool],
+    metric_name: str, bounded_above: bool, lower_is_better: Optional[bool]
 ) -> str:
     return (
         f"Constraint on {metric_name} bounds from "
-        f"{'above' if constraint_bounds_above else 'below'} "
+        f"{'above' if bounded_above else 'below'} "
         f"but {metric_name} is being "
-        f"{'minimized' if metric_lower_is_better else 'maximized'}."
+        f"{'minimized' if lower_is_better else 'maximized'}."
     ).format(metric_name)
 
 

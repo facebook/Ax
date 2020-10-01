@@ -7,12 +7,7 @@
 from unittest.mock import patch
 
 import numpy as np
-from ax.core.metric import Metric
-from ax.core.objective import MultiObjective
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
-from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
@@ -21,7 +16,6 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
-    get_branin_metric,
     get_multi_type_experiment,
 )
 
@@ -117,84 +111,11 @@ class t2(Transform):
 
 
 class MultiObjectiveTorchModelBridgeTest(TestCase):
-    @patch(
-        f"{ModelBridge.__module__}.unwrap_observation_data",
-        autospec=True,
-        return_value=(2, 2),
-    )
-    @patch(
-        f"{ModelBridge.__module__}.ModelBridge.predict",
-        autospec=True,
-        return_value=({"m": [1.0]}, {"m": {"m": [2.0]}}),
-    )
-    @patch(
-        (
-            f"{MultiObjectiveTorchModelBridge.__module__}."
-            "MultiObjectiveTorchModelBridge._fit"
-        ),
-        autospec=True,
-    )
-    def test_transform_ref_point(self, _mock_fit, _mock_predict, _mock_unwrap):
-        exp = get_branin_experiment_with_multi_objective(
-            has_optimization_config=True, with_batch=False
-        )
-        metrics = exp.optimization_config.objective.metrics
-        ref_point = {metrics[0].name: 0.0, metrics[1].name: 0.0}
-        modelbridge = MultiObjectiveTorchModelBridge(
-            search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
-            optimization_config=exp.optimization_config,
-            transforms=[t1, t2],
-            experiment=exp,
-            data=exp.fetch_data(),
-            ref_point=ref_point,
-        )
-        self.assertIsNone(modelbridge._transformed_ref_point)
-        exp = get_branin_experiment_with_multi_objective(
-            has_optimization_config=True, with_batch=True
-        )
-        exp.attach_data(get_branin_data_multi_objective(trial_indices=exp.trials))
-        modelbridge = MultiObjectiveTorchModelBridge(
-            search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
-            optimization_config=exp.optimization_config,
-            transforms=[t1, t2],
-            experiment=exp,
-            data=exp.fetch_data(),
-            ref_point=ref_point,
-        )
-        self.assertIsNotNone(modelbridge._transformed_ref_point)
-        self.assertEqual(2, len(modelbridge._transformed_ref_point))
-
-        mixed_objective_constraints_optimization_config = OptimizationConfig(
-            objective=MultiObjective(
-                metrics=[get_branin_metric(name="branin_b")], minimize=False
-            ),
-            outcome_constraints=[
-                OutcomeConstraint(
-                    metric=Metric(name="branin_a"), op=ComparisonOp.LEQ, bound=1
-                )
-            ],
-        )
-        modelbridge = MultiObjectiveTorchModelBridge(
-            search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
-            optimization_config=mixed_objective_constraints_optimization_config,
-            transforms=[t1, t2],
-            experiment=exp,
-            data=exp.fetch_data(),
-            ref_point={"branin_b": 0.0},
-        )
-        self.assertEqual({"branin_a", "branin_b"}, modelbridge._metric_names)
-        self.assertEqual(["branin_b"], modelbridge._objective_metric_names)
-        self.assertIsNotNone(modelbridge._transformed_ref_point)
-        self.assertEqual(1, len(modelbridge._transformed_ref_point))
-
     def test_pareto_frontier(self):
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=False
         )
-        ref_point = {"branin_a": 0.0, "branin_b": 0.0}
+        ref_point = {"branin_a": (0.0, False), "branin_b": (0.0, False)}
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
         )
@@ -236,8 +157,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=False
         )
-        metrics = exp.optimization_config.objective.metrics
-        ref_point = {metrics[0].name: 0.0, metrics[1].name: 0.0}
+        ref_point = {"branin_a": (0.0, False), "branin_b": (0.0, False)}
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
         )

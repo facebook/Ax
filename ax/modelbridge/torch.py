@@ -39,12 +39,6 @@ class TorchModelBridge(ArrayModelBridge):
     """
 
     model: Optional[TorchModel]
-    # pyre-fixme[15]: `outcomes` overrides attribute defined in `ArrayModelBridge`
-    #  inconsistently.
-    outcomes: Optional[List[str]]
-    # pyre-fixme[15]: `parameters` overrides attribute defined in `ArrayModelBridge`
-    #  inconsistently.
-    parameters: Optional[List[str]]
     _default_model_gen_options: TConfig
 
     def __init__(
