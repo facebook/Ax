@@ -16,7 +16,27 @@ const Container = CompLibrary.Container;
 const CWD = process.cwd();
 
 const versions = require(`${CWD}/_versions.json`);
-versions.sort().reverse();
+// Sort the versions, handling the version numbers and extra characters
+versions.sort(function compareVersions(a, b) {
+  a = a.replace("v", "");
+  v = b.replace("v", "");
+
+  var aArr = a.split(".")
+  var bArr = a.split(".")
+  if (aArr.len != bArr.len) {
+    throw 'Version formats do not match';
+  }
+  for (var i = 0 ; i < aArr.len; i++) {
+    aInt = parseInt(aArr[i]);
+    bInt = parseInt(bArr[i]);
+    if (aInt > bInt) {
+      return 1;
+    } else if (aInt < bInt) {
+      return -1;
+    }
+  }
+  return 0;
+}).reverse()
 
 function Versions(props) {
   const {config: siteConfig} = props;
