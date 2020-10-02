@@ -17,26 +17,26 @@ const CWD = process.cwd();
 
 const versions = require(`${CWD}/_versions.json`);
 // Sort the versions, handling the version numbers and extra characters
-versions.sort(function compareVersions(a, b) {
+versions.sort(function(a, b) {
   a = a.replace("v", "");
-  v = b.replace("v", "");
+  b = b.replace("v", "");
 
-  var aArr = a.split(".")
-  var bArr = a.split(".")
-  if (aArr.len != bArr.len) {
+  var aArr = a.split(".");
+  var bArr = b.split(".");
+  if (aArr.len !== bArr.len) {
     throw 'Version formats do not match';
   }
-  for (var i = 0 ; i < aArr.len; i++) {
+  for (var i = 0 ; i < aArr.length; i++) {
     aInt = parseInt(aArr[i]);
     bInt = parseInt(bArr[i]);
-    if (aInt > bInt) {
-      return 1;
-    } else if (aInt < bInt) {
-      return -1;
+    if (aInt === bInt) {
+      continue;
     }
+    return aInt - bInt; 
   }
   return 0;
-}).reverse()
+}).reverse();
+
 
 function Versions(props) {
   const {config: siteConfig} = props;
