@@ -599,6 +599,15 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
+        # Optimization config should correctly reload even with no
+        # objective_thresholds
+        optimization_config.objective_thresholds = []
+        save_experiment(experiment)
+        self.assertEqual(get_session().query(SQAMetric).count(), 4)
+
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(experiment, loaded_experiment)
+
     def testFailedLoad(self):
         with self.assertRaises(ValueError):
             load_experiment("nonexistent_experiment")
