@@ -34,7 +34,7 @@ from ax.utils.testing.core_stubs import (
 )
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import FixedNoiseGP
-from torch import device as torch_device, float64 as torch_float64
+from torch import float64 as torch_float64
 
 
 class ModelRegistryTest(TestCase):
@@ -109,7 +109,7 @@ class ModelRegistryTest(TestCase):
             {
                 "transform_configs": None,
                 "torch_dtype": torch_float64,
-                "torch_device": torch_device(type="cpu"),
+                "torch_device": None,
                 "status_quo_name": None,
                 "status_quo_features": None,
                 "optimization_config": None,
