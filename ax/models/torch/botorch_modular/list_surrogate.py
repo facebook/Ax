@@ -191,3 +191,16 @@ class ListSurrogate(Surrogate):
             state_dict=state_dict,
             refit=refit,
         )
+
+    def _serialize_attributes_as_kwargs(self) -> Dict[str, Any]:
+        """Serialize attributes of this surrogate, to be passed back to it
+        as kwargs on reinstantiation.
+        """
+        submodel_classes = self.botorch_submodel_class_per_outcome
+        return {
+            "botorch_submodel_class_per_outcome": submodel_classes,
+            "botorch_submodel_class": self.botorch_submodel_class,
+            "submodel_options_per_outcome": self.submodel_options_per_outcome,
+            "submodel_options": self.submodel_options,
+            "mll_class": self.mll_class,
+        }

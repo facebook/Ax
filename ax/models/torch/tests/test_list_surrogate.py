@@ -208,3 +208,11 @@ class ListSurrogateTest(TestCase):
         mock_state_dict.assert_called_once()
         mock_MLL.assert_not_called()
         mock_fit_gpytorch.assert_not_called()
+
+    def test_serialize_attributes_as_kwargs(self):
+        expected = self.surrogate.__dict__
+        # The two attributes below don't need to be saved as part of state,
+        # so we remove them from the expected dict.
+        expected.pop("botorch_model_class")
+        expected.pop("model_options")
+        self.assertEqual(self.surrogate._serialize_attributes_as_kwargs(), expected)

@@ -428,15 +428,9 @@ def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
 
 def surrogate_to_dict(surrogate: Surrogate) -> Dict[str, Any]:
     """Convert Ax surrogate to a dictionary."""
-    return {
-        "__type": surrogate.__class__.__name__,
-        "botorch_model_class": surrogate.botorch_model_class,
-        "mll_class": surrogate.mll_class,
-        # TODO: Add these once they are implemented.
-        # "kernel_class": surrogate.kernel_class,
-        # "kernel_options": surrogate.kernel_options or {},
-        # "likelihood": surrogate.likelihood,
-    }
+    dict_representation = {"__type": surrogate.__class__.__name__}
+    dict_representation.update(surrogate._serialize_attributes_as_kwargs())
+    return dict_representation
 
 
 def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
@@ -444,6 +438,12 @@ def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
     for _class in CLASS_TO_REGISTRY:
         if issubclass(class_type, _class):
             registry = CLASS_TO_REGISTRY[_class]
+            if class_type not in registry:
+                raise ValueError(  # pragma: no cover
+                    f"Class `{class_type.__name__}` not in Type[{_class.__name__}] "
+                    "registry, please add it. BoTorch object registries are "
+                    "located in `ax/storage/botorch_modular_registry.py`."
+                )
             return {
                 "__type": f"Type[{_class.__name__}]",
                 "index": registry[class_type],

@@ -41,8 +41,7 @@ def object_to_json(obj: Any) -> Any:
     if isclass(obj):
         for class_type in CLASS_ENCODER_REGISTRY:
             if issubclass(obj, class_type):
-                _type = class_type
-                obj_dict = CLASS_ENCODER_REGISTRY[_type](obj)
+                obj_dict = CLASS_ENCODER_REGISTRY[class_type](obj)
                 return {k: object_to_json(v) for k, v in obj_dict.items()}
         raise ValueError(
             f"{obj} is a class. Add it to the CLASS_ENCODER_REGISTRY "

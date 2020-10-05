@@ -54,6 +54,7 @@ from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kg import KnowledgeGradient
+from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
@@ -996,7 +997,20 @@ def get_botorch_model_with_default_acquisition_class() -> BoTorchModel:
 
 
 def get_surrogate() -> Surrogate:
-    return Surrogate(get_model_type())
+    return Surrogate(
+        botorch_model_class=get_model_type(),
+        mll_class=get_mll_type(),
+        model_options={"some_option": "some_value"},
+    )
+
+
+def get_list_surrogate() -> Surrogate:
+    return ListSurrogate(
+        botorch_submodel_class_per_outcome={"m": get_model_type()},
+        submodel_options_per_outcome={"m": {"some_option": "some_value"}},
+        submodel_options={"shared_option": "shared_option_value"},
+        mll_class=get_mll_type(),
+    )
 
 
 def get_acquisition_type() -> Type[Acquisition]:

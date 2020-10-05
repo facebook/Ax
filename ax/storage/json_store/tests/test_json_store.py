@@ -57,6 +57,7 @@ from ax.utils.testing.core_stubs import (
     get_fixed_parameter,
     get_generator_run,
     get_hartmann_metric,
+    get_list_surrogate,
     get_metric,
     get_mll_type,
     get_model_type,
@@ -104,6 +105,7 @@ TEST_CASES = [
     ("Hartmann6Metric", get_hartmann_metric),
     ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
     ("GeneratorRun", get_generator_run),
+    ("ListSurrogate", get_list_surrogate),
     ("Metric", get_metric),
     ("MultiObjective", get_multi_objective),
     ("MultiTypeExperiment", get_multi_type_experiment),
@@ -160,6 +162,9 @@ ENCODE_DECODE_FIELD_MAPS = {
     ),
     "GeneratorRun": EncodeDecodeFieldsMap(
         encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
+    ),
+    "ListSurrogate": EncodeDecodeFieldsMap(
+        python_only=["model_options", "botorch_model_class"]
     ),
     "MultiTypeExperiment": EncodeDecodeFieldsMap(
         python_only=[

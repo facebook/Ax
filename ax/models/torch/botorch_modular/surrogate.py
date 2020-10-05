@@ -48,6 +48,8 @@ class Surrogate(Base):
         botorch_model_class: `Model` class to be used as the underlying
             BoTorch model.
         mll_class: `MarginalLogLikelihood` class to use for model-fitting.
+        model_options: Dictionary of options / kwargs for the BoTorch
+            `Model` constructed during `Surrogate.fit`.
         kernel_class: `Kernel` class, not yet used. Will be used to
             construct custom BoTorch `Model` in the future.
         kernel_options: Kernel kwargs, not yet used. Will be used to
@@ -58,6 +60,7 @@ class Surrogate(Base):
 
     botorch_model_class: Type[Model]
     mll_class: Type[MarginalLogLikelihood]
+    model_options: Dict[str, Any]
     kernel_class: Optional[Type[Kernel]] = None
     _training_data: Optional[TrainingData] = None
     _model: Optional[Model] = None
@@ -72,12 +75,14 @@ class Surrogate(Base):
         # Construction will then be possible from likelihood, kernel, etc.
         botorch_model_class: Type[Model],
         mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
+        model_options: Optional[Dict[str, Any]] = None,
         kernel_class: Optional[Type[Kernel]] = None,  # TODO: use.
         kernel_options: Optional[Dict[str, Any]] = None,  # TODO: use.
         likelihood: Optional[Type[Likelihood]] = None,  # TODO: use.
     ) -> None:
         self.botorch_model_class = botorch_model_class
         self.mll_class = mll_class
+        self.model_options = model_options or {}
 
         # Temporary validation while we develop these customizations.
         if likelihood is not None:
@@ -339,3 +344,13 @@ class Surrogate(Base):
             state_dict=state_dict,
             refit=refit,
         )
+
+    def _serialize_attributes_as_kwargs(self) -> Dict[str, Any]:
+        """Serialize attributes of this surrogate, to be passed back to it
+        as kwargs on reinstantiation.
+        """
+        return {
+            "botorch_model_class": self.botorch_model_class,
+            "mll_class": self.mll_class,
+            "model_options": self.model_options,
+        }

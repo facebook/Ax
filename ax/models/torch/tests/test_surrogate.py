@@ -294,3 +294,7 @@ class SurrogateTest(TestCase):
                 fidelity_features=self.fidelity_features,
                 refit=self.refit,
             )
+
+    def test_serialize_attributes_as_kwargs(self):
+        expected = self.surrogate.__dict__
+        self.assertEqual(self.surrogate._serialize_attributes_as_kwargs(), expected)

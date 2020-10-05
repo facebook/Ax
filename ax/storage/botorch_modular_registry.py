@@ -39,6 +39,8 @@ from botorch.models.gp_regression_fidelity import (
     SingleTaskMultiFidelityGP,
 )
 from botorch.models.model import Model
+from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 
 # BoTorch `MarginalLogLikelihood` imports
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -68,6 +70,9 @@ MODEL_REGISTRY: Dict[Type[Model], int] = {
     SingleTaskGP: 1,
     FixedNoiseMultiFidelityGP: 2,
     SingleTaskMultiFidelityGP: 3,
+    ModelListGP: 4,
+    FixedNoiseMultiTaskGP: 5,
+    MultiTaskGP: 6,
 }
 
 
