@@ -149,6 +149,11 @@ class WithDBSettingsBase:
                     f"Generation strategy {generation_strategy.name} is not yet in DB, "
                     "storing it."
                 )
+                # If generation strategy does not yet have an experiment attached,
+                # attach the current experiment to it, as otherwise it will not be
+                # possible to retrieve by experiment name.
+                if generation_strategy._experiment is None:
+                    generation_strategy.experiment = experiment
                 self._save_generation_strategy_to_db_if_possible(
                     generation_strategy=generation_strategy
                 )
