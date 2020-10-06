@@ -20,12 +20,13 @@ const versions = require(`${CWD}/_versions.json`);
 versions.sort(function(a, b) {
   a = a.replace("v", "");
   b = b.replace("v", "");
-
   var aArr = a.split(".");
   var bArr = b.split(".");
   if (aArr.len !== bArr.len) {
     throw 'Version formats do not match';
   }
+
+  var aInt, bInt;
   for (var i = 0 ; i < aArr.length; i++) {
     aInt = parseInt(aArr[i]);
     bInt = parseInt(bArr[i]);
