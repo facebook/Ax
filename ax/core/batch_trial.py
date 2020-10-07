@@ -371,6 +371,7 @@ class BatchTrial(BaseTrial):
             for arm in self._abandoned_arms_metadata.values()
         ]
 
+    # pyre-ignore[6]: T77111662.
     @copy_doc(BaseTrial.generator_runs)
     @property
     def generator_runs(self) -> List[GeneratorRun]:

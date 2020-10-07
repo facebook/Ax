@@ -45,8 +45,6 @@ class FullFactorialGenerator(DiscreteModel):
         self.max_cardinality = max_cardinality
         self.check_cardinality = check_cardinality
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `n` expected.
     @copy_doc(DiscreteModel.gen)
     def gen(
         self,

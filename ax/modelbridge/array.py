@@ -444,9 +444,9 @@ class ArrayModelBridge(ModelBridge):
         except (KeyError, TypeError):  # pragma: no cover
             raise ValueError("Invalid formatting of observation features.")
 
-    # pyre-ignore [56]: While applying decorator
-    # `ax.utils.common.docutils.copy_doc(...)`: Expected ModelBridge but got...
     @copy_doc(ModelBridge._pareto_frontier)
+    # pyre-fixme[14]: `_pareto_frontier` overrides method defined in `ModelBridge`
+    #  inconsistently.
     def _pareto_frontier(
         self,
         objective_thresholds: Optional[TRefPoint] = None,
@@ -539,8 +539,6 @@ class ArrayModelBridge(ModelBridge):
             )
         return frontier_observation_data
 
-    # pyre-ignore [56]: While applying decorator
-    # `ax.utils.common.docutils.copy_doc(...)`: Expected ModelBridge but got...
     @copy_doc(ModelBridge.predicted_pareto_frontier)
     def predicted_pareto_frontier(
         self,
@@ -563,11 +561,11 @@ class ArrayModelBridge(ModelBridge):
         return self._pareto_frontier(
             objective_thresholds=objective_thresholds,
             observation_features=observation_features,
+            # pyre-fixme[6]: Expected `Optional[MultiObjectiveOptimizationConfig]`
+            #  for 3rd param but got `Optional[OptimizationConfig]`.
             optimization_config=optimization_config,
         )
 
-    # pyre-ignore [56]: While applying decorator
-    # `ax.utils.common.docutils.copy_doc(...)`: Expected ModelBridge but got...
     @copy_doc(ModelBridge._hypervolume)
     def _hypervolume(
         self,
@@ -581,6 +579,8 @@ class ArrayModelBridge(ModelBridge):
             objective_thresholds=objective_thresholds,
             observation_features=observation_features,
             observation_data=observation_data,
+            # pyre-fixme[6]: Expected `Optional[MultiObjectiveOptimizationConfig]`
+            #  for 4th param but got `Optional[OptimizationConfig]`.
             optimization_config=optimization_config,
         )
         if not observation_data:
@@ -622,8 +622,6 @@ class ArrayModelBridge(ModelBridge):
         hv = Hypervolume(ref_point=obj_t)
         return hv.compute(means)
 
-    # pyre-ignore [56]: While applying decorator
-    # `ax.utils.common.docutils.copy_doc(...)`: Expected ModelBridge but got...
     @copy_doc(ModelBridge.predicted_hypervolume)
     def predicted_hypervolume(
         self,

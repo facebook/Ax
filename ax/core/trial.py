@@ -67,6 +67,7 @@ class Trial(BaseTrial):
         """Generator run attached to this trial."""
         return self._generator_run
 
+    # pyre-ignore[6]: T77111662.
     @copy_doc(BaseTrial.generator_runs)
     @property
     def generator_runs(self) -> List[GeneratorRun]:

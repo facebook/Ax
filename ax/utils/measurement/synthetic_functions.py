@@ -220,9 +220,6 @@ class Hartmann6(SyntheticFunction):
         ]
     )
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `ndarray` for 1st param but
-    #  got `(self: Hartmann6, X: ndarray) -> float`.
     @copy_doc(SyntheticFunction._f)
     def _f(self, X: np.ndarray) -> float:
         y = 0.0
@@ -245,9 +242,6 @@ class Aug_Hartmann6(Hartmann6):
     _fmin = -3.32237
     _fmax = 0.0
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `ndarray` for 1st param but
-    #  got `(self: Aug_Hartmann6, X: ndarray) -> float`.
     @copy_doc(SyntheticFunction._f)
     def _f(self, X: np.ndarray) -> float:
         y = 0.0
@@ -272,9 +266,6 @@ class Branin(SyntheticFunction):
     _fmin = 0.397887
     _fmax = 294.0
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `ndarray` for 1st param but
-    #  got `(self: Branin, X: ndarray) -> float`.
     @copy_doc(SyntheticFunction._f)
     def _f(self, X: np.ndarray) -> float:
         x_1 = X[0]
@@ -295,9 +286,6 @@ class Aug_Branin(SyntheticFunction):
     _fmin = 0.397887
     _fmax = 294.0
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `ndarray` for 1st param but
-    #  got `(self: Aug_Branin, X: ndarray) -> float`.
     @copy_doc(SyntheticFunction._f)
     def _f(self, X: np.ndarray) -> float:
         x_1 = X[0]

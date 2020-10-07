@@ -198,8 +198,6 @@ class Acquisition(Base):
         # so below is equivalent to `self.acqf.forward(X=X)`.
         return self.acqf(X=X)
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(Surrogate.best_in_sample_point)
     def best_point(
         self,

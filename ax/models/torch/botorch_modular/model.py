@@ -111,8 +111,6 @@ class BoTorchModel(TorchModel, Base):
             raise ValueError("BoTorch `AcquisitionFunction` has not yet been set.")
         return not_none(self._botorch_acqf_class)
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.fit)
     def fit(
         self,
@@ -167,14 +165,10 @@ class BoTorchModel(TorchModel, Base):
             refit=self.surrogate_fit_options.get(Keys.REFIT_ON_UPDATE, True),
         )
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X` expected.
     @copy_doc(TorchModel.predict)
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         return self.surrogate.predict(X=X)
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.gen)
     def gen(
         self,
@@ -221,8 +215,6 @@ class BoTorchModel(TorchModel, Base):
             None,
         )
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
@@ -236,8 +228,6 @@ class BoTorchModel(TorchModel, Base):
     ) -> Optional[Tensor]:
         raise NotImplementedError("Coming soon.")
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.evaluate_acquisition_function)
     def evaluate_acquisition_function(
         self,

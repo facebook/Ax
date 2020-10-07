@@ -44,8 +44,6 @@ class ALEBOInitializer(UniformGenerator):
         self.init_bound = init_bound
         super().__init__(**kwargs)
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(UniformGenerator.gen)
     def gen(
         self,

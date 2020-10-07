@@ -121,17 +121,12 @@ class SobolGenerator(RandomModel):
             self.init_position = not_none(self.engine).num_generated
         return (points, weights)
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `Model` for 1st param but got
-    #  `(self: SobolGenerator) -> Dict[str, typing.Any]`.
     @copy_doc(Model._get_state)
     def _get_state(self) -> Dict[str, Any]:
         state = super()._get_state()
         state.update({"init_position": self.init_position})
         return state
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `d` expected.
     @copy_doc(RandomModel._gen_unconstrained)
     def _gen_unconstrained(
         self,

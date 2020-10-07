@@ -211,8 +211,6 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         )
         return obs_feats, obs_data, search_space
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Call expects argument `n`.
     @copy_doc(TorchModelBridge.gen)
     def gen(
         self,

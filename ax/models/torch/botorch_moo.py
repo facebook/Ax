@@ -224,8 +224,6 @@ class MultiObjectiveBotorchModel(BotorchModel):
         self.fidelity_features: List[int] = []
         self.metric_names: List[str] = []
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.gen)
     def gen(
         self,

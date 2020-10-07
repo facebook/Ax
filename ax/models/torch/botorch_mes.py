@@ -60,8 +60,6 @@ class MaxValueEntropySearch(BotorchModel):
         )
         self.cost_intercept = cost_intercept
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.gen)
     def gen(
         self,

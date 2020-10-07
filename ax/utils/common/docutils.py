@@ -10,13 +10,15 @@
 """
 
 
-from typing import TypeVar
+from typing import Any, Callable, TypeVar
 
 
 _T = TypeVar("_T")
 
 
-def copy_doc(src: _T) -> _T:
+# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+# pyre-ignore[34]: T77127616
+def copy_doc(src: Callable[..., Any]) -> Callable[[_T], _T]:
     """A decorator that copies the docstring of another object
 
     Since ``sphinx`` actually loads the python modules to grab the docstrings
@@ -49,5 +51,4 @@ def copy_doc(src: _T) -> _T:
         dst.__doc__ = src.__doc__
         return dst
 
-    # pyre-fixme[7]: Expected `_T` but got `Callable[[_T], _T]`.
     return copy_doc

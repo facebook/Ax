@@ -52,8 +52,6 @@ class REMBO(BotorchModel):
         self.num_outputs = 0
         super().__init__(**kwargs)
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.fit)
     def fit(
         self,
@@ -154,8 +152,6 @@ class REMBO(BotorchModel):
         Z = torch.clamp(Z, min=-1, max=1)
         return Z
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X` expected.
     @copy_doc(TorchModel.predict)
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         # Suports preditions in both low-d and high-D space, depending on shape
@@ -174,8 +170,6 @@ class REMBO(BotorchModel):
                 )
         return super().predict(X=self.to_01(X_d))
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.gen)
     def gen(
         self,
@@ -209,8 +203,6 @@ class REMBO(BotorchModel):
         self.X_d_gen.extend([x.clone() for x in Xopt])
         return self.project_up(Xopt), w, {}, None
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `bounds` expected.
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
@@ -236,8 +228,6 @@ class REMBO(BotorchModel):
             x_best = self.project_up(self.from_01(x_best.unsqueeze(0))).squeeze(0)
         return x_best
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `X_test` expected.
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,
@@ -256,8 +246,6 @@ class REMBO(BotorchModel):
             X_test=self.to_01(X_test_d),
         )
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `Xs` expected.
     @copy_doc(TorchModel.update)
     def update(
         self,

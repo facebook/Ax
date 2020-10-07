@@ -474,10 +474,6 @@ class Experiment(Base):
 
         raise ValueError(UNEXPECTED_METRIC_COMBINATION)
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `BaseTrial` for 1st param but
-    #  got `(self: Experiment, trial_index: int, metrics:
-    #  Optional[List[ax.core.metric.Metric]] = ..., **(Any)) -> Data`.
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any

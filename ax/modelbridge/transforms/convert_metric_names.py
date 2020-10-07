@@ -77,8 +77,6 @@ class ConvertMetricNames(Transform):
             else:
                 self.reverse_metric_name_map[trial_type] = {trans_name: orig_name}
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `observation_data` expected.
     @copy_doc(Transform.transform_observation_data)
     def transform_observation_data(
         self,
@@ -91,8 +89,6 @@ class ConvertMetricNames(Transform):
                     obsd.metric_names[i] = self.metric_name_map[obsd.metric_names[i]]
         return observation_data
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `observation_data` expected.
     @copy_doc(Transform.untransform_observation_data)
     def untransform_observation_data(
         self,

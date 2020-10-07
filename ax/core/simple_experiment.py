@@ -210,10 +210,6 @@ class SimpleExperiment(Experiment):
             "or a single mean, sem tuple, or a single mean."
         )
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Expected `Experiment` for 1st param
-    #  but got `(self: SimpleExperiment, metrics: Optional[List[ax.core.metric.Metric]]
-    #  = ..., **(Any)) -> Data`.
     @copy_doc(Experiment.fetch_data)
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
         return self.eval()
@@ -224,14 +220,10 @@ class SimpleExperiment(Experiment):
     ) -> Data:
         return self.eval_trial(self.trials[trial_index])
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `metric` expected.
     @copy_doc(Experiment.add_tracking_metric)
     def add_tracking_metric(self, metric: Metric) -> "SimpleExperiment":
         raise NotImplementedError("SimpleExperiment does not support metric addition.")
 
-    # pyre-fixme[56]: While applying decorator
-    #  `ax.utils.common.docutils.copy_doc(...)`: Argument `metric` expected.
     @copy_doc(Experiment.update_tracking_metric)
     def update_tracking_metric(self, metric: Metric) -> "SimpleExperiment":
         raise NotImplementedError("SimpleExperiment does not support metric updates.")
