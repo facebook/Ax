@@ -527,7 +527,7 @@ def _get_model(
                 train_Y=Y,
                 task_feature=task_feature,
                 rank=kwargs.get("rank"),
-                prior=prior,
+                task_covar_prior=prior,
             )
         else:
             gp = FixedNoiseMultiTaskGP(
@@ -536,6 +536,6 @@ def _get_model(
                 train_Yvar=Yvar,
                 task_feature=task_feature,
                 rank=kwargs.get("rank"),
-                prior=prior,
+                task_covar_prior=prior,
             )
     return gp
