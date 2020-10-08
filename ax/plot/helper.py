@@ -6,11 +6,11 @@
 
 import math
 from collections import Counter
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 from ax.core.generator_run import GeneratorRun
-from ax.core.observation import ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.types import TParameterization
 from ax.modelbridge.base import ModelBridge
@@ -108,6 +108,7 @@ def _get_in_sample_arms(
     model: ModelBridge,
     metric_names: Set[str],
     fixed_features: Optional[ObservationFeatures] = None,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
 ) -> Tuple[Dict[str, PlotInSampleArm], RawData, Dict[str, TParameterization]]:
     """Get in-sample arms from a model with observed and predicted values
     for specified metrics.
@@ -124,6 +125,7 @@ def _get_in_sample_arms(
             metrics in the model.
         fixed_features: Features that should be fixed in the arms this function
             will obtain predictions for.
+        data_selector: Function for selecting observations for plotting.
 
     Returns:
         A tuple containing
@@ -136,6 +138,8 @@ def _get_in_sample_arms(
         - Map from arm name to parameters
     """
     observations = model.get_training_data()
+    if data_selector is not None:
+        observations = [obs for obs in observations if data_selector(obs)]
     # Calculate raw data
     raw_data = []
     arm_name_to_parameters = {}
@@ -182,10 +186,10 @@ def _get_in_sample_arms(
                 obs_y[metric_name] = obs_data[i].means[j]
                 obs_se[metric_name] = np.sqrt(obs_data[i].covariance[j, j])
         # Make a prediction.
+        features = obs.features
+        if fixed_features is not None:
+            features.update_features(fixed_features)
         if model.training_in_design[i]:
-            features = obs.features
-            if fixed_features is not None:
-                features.update_features(fixed_features)
             pred_y, pred_se = _predict_at_point(model, features, metric_names)
         else:
             # Use raw data for out-of-design points
@@ -287,6 +291,7 @@ def get_plot_data(
     generator_runs_dict: Dict[str, GeneratorRun],
     metric_names: Optional[Set[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
 ) -> Tuple[PlotData, RawData, Dict[str, TParameterization]]:
     """Format data object with metrics for in-sample and out-of-sample
     arms.
@@ -305,6 +310,7 @@ def get_plot_data(
         metric_names: Restrict predictions to this set. If None, all metrics
             in the model will be returned.
         fixed_features: Fixed features to use when making model predictions.
+        data_selector: Function for selecting observations for plotting.
 
     Returns:
         A tuple containing
@@ -318,7 +324,10 @@ def get_plot_data(
     """
     metrics_plot = model.metric_names if metric_names is None else metric_names
     in_sample_plot, raw_data, cond_name_to_parameters = _get_in_sample_arms(
-        model=model, metric_names=metrics_plot, fixed_features=fixed_features
+        model=model,
+        metric_names=metrics_plot,
+        fixed_features=fixed_features,
+        data_selector=data_selector,
     )
     out_of_sample_plot = _get_out_of_sample_arms(
         model=model,
@@ -837,3 +846,12 @@ def slice_config_to_trace(
         )
 
     return traces
+
+
+def build_filter_trial(keep_trial_indices: List[int]) -> Callable[[Observation], bool]:
+    """Creates a callable that filters observations based on trial_index"""
+
+    def trial_filter(obs: Observation) -> bool:
+        return obs.features.trial_index in keep_trial_indices
+
+    return trial_filter

@@ -55,7 +55,7 @@ def cross_validate(
         model: Fitted model (ModelBridge) to cross validate.
         folds: Number of folds. Use -1 for leave-one-out, otherwise will be
             k-fold.
-        test_select: Function for selecting observations for the test set.
+        test_selector: Function for selecting observations for the test set.
 
     Returns:
         A CVResult for each observation in the training data.
