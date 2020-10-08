@@ -6,11 +6,11 @@
 
 import numbers
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import plotly.graph_objs as go
-from ax.core.observation import ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.modelbridge.base import ModelBridge
 from ax.plot.base import (
     CI_OPACITY,
@@ -253,6 +253,7 @@ def _multiple_metric_traces(
     rel_x: bool,
     rel_y: bool,
     fixed_features: Optional[ObservationFeatures] = None,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
 ) -> Traces:
     """Plot traces for multiple metrics given a model and metrics.
 
@@ -265,6 +266,7 @@ def _multiple_metric_traces(
         rel_x: if True, use relative effects on metric_x.
         rel_y: if True, use relative effects on metric_y.
         fixed_features: Fixed features to use when making model predictions.
+        data_selector: Function for selecting observations for plotting.
 
     """
     plot_data, _, _ = get_plot_data(
@@ -272,6 +274,7 @@ def _multiple_metric_traces(
         generator_runs_dict if generator_runs_dict is not None else {},
         {metric_x, metric_y},
         fixed_features=fixed_features,
+        data_selector=data_selector,
     )
 
     status_quo_arm = (
@@ -333,6 +336,7 @@ def plot_multiple_metrics(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     fixed_features: Optional[ObservationFeatures] = None,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
 ) -> AxPlotConfig:
     """Plot raw values or predictions of two metrics for arms.
 
@@ -346,6 +350,7 @@ def plot_multiple_metrics(
         generator_runs_dict: a mapping from
             generator run name to generator run.
         rel: if True, use relative effects. Default is True.
+        data_selector: Function for selecting observations for plotting.
 
     """
     traces = _multiple_metric_traces(
@@ -356,6 +361,7 @@ def plot_multiple_metrics(
         rel_x=rel,
         rel_y=rel,
         fixed_features=fixed_features,
+        data_selector=data_selector,
     )
     num_cand_traces = len(generator_runs_dict) if generator_runs_dict is not None else 0
 
@@ -465,6 +471,7 @@ def plot_objective_vs_constraints(
     rel: bool = True,
     infer_relative_constraints: Optional[bool] = False,
     fixed_features: Optional[ObservationFeatures] = None,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
 ) -> AxPlotConfig:
     """Plot the tradeoff between an objetive and all other metrics in a model.
 
@@ -488,6 +495,7 @@ def plot_objective_vs_constraints(
             Objectives will respect the `rel` parameter.
             Metrics that are not constraints will be relativized.
         fixed_features: Fixed features to use when making model predictions.
+        data_selector: Function for selecting observations for plotting.
 
     """
     if subset_metrics is not None:
@@ -520,6 +528,7 @@ def plot_objective_vs_constraints(
         rel_x=rels[objective],
         rel_y=rels[metrics[0]],
         fixed_features=fixed_features,
+        data_selector=data_selector,
     )
 
     for metric in metrics:
@@ -531,6 +540,7 @@ def plot_objective_vs_constraints(
             rel_x=rels[objective],
             rel_y=rels[metric],
             fixed_features=fixed_features,
+            data_selector=data_selector,
         )
 
         # Current version of Plotly does not allow updating the yaxis label
@@ -671,6 +681,7 @@ def lattice_multiple_metrics(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     show_arm_details_on_hover: bool = False,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
 ) -> AxPlotConfig:
     """Plot raw values or predictions of combinations of two metrics for arms.
 
@@ -681,6 +692,7 @@ def lattice_multiple_metrics(
         rel: if True, use relative effects. Default is True.
         show_arm_details_on_hover: if True, display
             parameterizations of arms on hover. Default is False.
+        data_selector: Function for selecting observations for plotting.
 
     """
     metrics = model.metric_names
@@ -693,7 +705,10 @@ def lattice_multiple_metrics(
     )
 
     plot_data, _, _ = get_plot_data(
-        model, generator_runs_dict if generator_runs_dict is not None else {}, metrics
+        model,
+        generator_runs_dict if generator_runs_dict is not None else {},
+        metrics,
+        data_selector=data_selector,
     )
     status_quo_arm = (
         None
@@ -954,6 +969,7 @@ def _single_metric_traces(
     show_CI: bool = True,
     arm_noun: str = "arm",
     fixed_features: Optional[ObservationFeatures] = None,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
 ) -> Traces:
     """Plot scatterplots with errors for a single metric (y-axis).
 
@@ -971,10 +987,15 @@ def _single_metric_traces(
         show_CI: if True, render confidence intervals.
         arm_noun: noun to use instead of "arm" (e.g. group)
         fixed_features: Fixed features to use when making model predictions.
+        data_selector: Function for selecting observations for plotting.
 
     """
     plot_data, _, _ = get_plot_data(
-        model, generator_runs_dict or {}, {metric}, fixed_features=fixed_features
+        model,
+        generator_runs_dict or {},
+        {metric},
+        fixed_features=fixed_features,
+        data_selector=data_selector,
     )
 
     status_quo_arm = (
@@ -1035,6 +1056,7 @@ def plot_fitted(
     custom_arm_order: Optional[List[str]] = None,
     custom_arm_order_name: str = "Custom",
     show_CI: bool = True,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
 ) -> AxPlotConfig:
     """Plot fitted metrics.
 
@@ -1050,10 +1072,16 @@ def plot_fitted(
         custom_arm_order_name: name for custom ordering to
             show in the ordering dropdown. Default is 'Custom'.
         show_CI: if True, render confidence intervals.
+        data_selector: Function for selecting observations for plotting.
 
     """
     traces = _single_metric_traces(
-        model, metric, generator_runs_dict, rel, show_CI=show_CI
+        model,
+        metric,
+        generator_runs_dict,
+        rel,
+        show_CI=show_CI,
+        data_selector=data_selector,
     )
 
     # order arm name sorting arm numbers within batch
@@ -1158,6 +1186,7 @@ def tile_fitted(
     arm_noun: str = "arm",
     metrics: Optional[List[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
 ) -> AxPlotConfig:
     """Tile version of fitted outcome plots.
 
@@ -1172,6 +1201,7 @@ def tile_fitted(
         arm_noun: noun to use instead of "arm" (e.g. group)
         metrics: List of metric names to restrict to when plotting.
         fixed_features: Fixed features to use when making model predictions.
+        data_selector: Function for selecting observations for plotting.
 
     """
     metrics = metrics or list(model.metric_names)
@@ -1205,6 +1235,7 @@ def tile_fitted(
             show_CI=show_CI,
             arm_noun=arm_noun,
             fixed_features=fixed_features,
+            data_selector=data_selector,
         )
 
         # order arm name sorting arm numbers within batch
@@ -1320,6 +1351,7 @@ def interact_fitted(
     arm_noun: str = "arm",
     metrics: Optional[List[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
 ) -> AxPlotConfig:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
@@ -1336,6 +1368,7 @@ def interact_fitted(
         arm_noun: noun to use instead of "arm" (e.g. group)
         metrics: List of metric names to restrict to when plotting.
         fixed_features: Fixed features to use when making model predictions.
+        data_selector: Function for selecting observations for plotting.
     """
     traces_per_metric = (
         1 if generator_runs_dict is None else len(generator_runs_dict) + 1
@@ -1356,6 +1389,7 @@ def interact_fitted(
             show_CI=show_CI,
             arm_noun=arm_noun,
             fixed_features=fixed_features,
+            data_selector=data_selector,
         )
 
         for d in data:
