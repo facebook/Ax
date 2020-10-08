@@ -121,7 +121,13 @@ class Data(Base):
     def from_multiple_data(
         data: Iterable[Data], subset_metrics: Optional[Iterable[str]] = None
     ) -> Data:
-        """Create a single `Data` object from multiple `Data`.
+        """Combines multiple data objects into one (with the concatenated
+        underlying dataframe).
+
+        NOTE: if one or more data objects in the iterable is of a custom
+        subclass of `Data`, object of that class will be returned. If
+        the iterable contains multiple types of `Data`, an error will be
+        raised.
 
         Args:
             data: Iterable of Ax `Data` objects to combine.
@@ -130,11 +136,26 @@ class Data(Base):
                 in the underlying dataframe.
         """
         dfs = [datum.df for datum in data]
+
         if len(dfs) == 0:
             return Data()
+
         if subset_metrics:
             dfs = [df.loc[df["metric_name"].isin(subset_metrics)] for df in dfs]
-        return Data(df=pd.concat(dfs, axis=0, sort=True))
+
+        # obtain type of first elt in iterable (we know it's not empty)
+        data_type = type(data[0])
+
+        # check if all types in iterable match the first type
+        if all((type(datum) is data_type) for datum in data):
+            # if all types in iterable are subclasses of Data, return the subclass
+            if issubclass(data_type, Data):
+                return data_type(df=pd.concat(dfs, axis=0, sort=True))
+            else:
+                # if not, return the original Data object
+                return Data(df=pd.concat(dfs, axis=0, sort=True))
+        else:
+            raise ValueError("More than one custom data type found in data iterable")
 
     @staticmethod
     def from_evaluations(

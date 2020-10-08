@@ -215,3 +215,91 @@ class DataTest(TestCase):
             )
         )
         self.assertEqual(clone_without_metrics(data, {"a"}), expected)
+
+    def testFromMultipleDataReturnSubclass(self):
+        CustomData = custom_data_class(
+            column_data_types={"metadata": str}, required_columns={"metadata"}
+        )
+        data = [
+            CustomData(
+                df=pd.DataFrame(
+                    [
+                        {
+                            "arm_name": "0_1",
+                            "mean": 3.7,
+                            "sem": 0.5,
+                            "metric_name": "b",
+                            "metadata": "42",
+                        },
+                        {
+                            "arm_name": "0_2",
+                            "mean": 3.7,
+                            "sem": 1.5,
+                            "metric_name": "x",
+                            "metadata": "43",
+                        },
+                    ]
+                )
+            ),
+            CustomData(
+                df=pd.DataFrame(
+                    [
+                        {
+                            "arm_name": "0_3",
+                            "mean": 2.4,
+                            "sem": 0.1,
+                            "metric_name": "a",
+                            "metadata": "42",
+                        }
+                    ]
+                )
+            ),
+        ]
+
+        returned_data_object = Data.from_multiple_data(data)
+
+        self.assertIsInstance(returned_data_object, CustomData)
+
+    def testFromMultipleDataMismatchedTypes(self):
+        # create two custom data types
+        CustomDataA = custom_data_class(
+            column_data_types={"metadata": str, "created_time": pd.Timestamp},
+            required_columns={"metadata"},
+        )
+
+        CustomDataB = custom_data_class(column_data_types={"year": pd.Timestamp})
+
+        # Test data of multiple empty custom types raises a value error
+        with self.assertRaises(ValueError):
+            Data.from_multiple_data([CustomDataA(), CustomDataB()])
+
+        # Test data of multiple non-empty types raises a value error
+        with self.assertRaises(ValueError):
+            data_elt_A = CustomDataA(
+                df=pd.DataFrame(
+                    [
+                        {
+                            "arm_name": "0_1",
+                            "mean": 3.7,
+                            "sem": 0.5,
+                            "metric_name": "b",
+                            "metadata": "42",
+                            "created_time": "2018-09-20",
+                        }
+                    ]
+                )
+            )
+            data_elt_B = CustomDataB(
+                df=pd.DataFrame(
+                    [
+                        {
+                            "arm_name": "0_1",
+                            "mean": 3.7,
+                            "sem": 0.5,
+                            "metric_name": "b",
+                            "year": "2018-09-20",
+                        }
+                    ]
+                )
+            )
+            Data.from_multiple_data([data_elt_A, data_elt_B])
