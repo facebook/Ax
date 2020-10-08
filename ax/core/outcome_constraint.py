@@ -92,7 +92,7 @@ class OutcomeConstraint(Base):
                 fmt_data = UPPER_BOUND_MISMATCH
         if fmt_data is not None:
             fmt_data["name"] = metric.name
-            logger.warning(CONSTRAINT_WARNING_MESSAGE.format(**fmt_data))
+            logger.debug(CONSTRAINT_WARNING_MESSAGE.format(**fmt_data))
 
     def __repr__(self) -> str:
         op = ">=" if self.op == ComparisonOp.GEQ else "<="
