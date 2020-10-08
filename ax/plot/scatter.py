@@ -332,6 +332,7 @@ def plot_multiple_metrics(
     metric_y: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
+    fixed_features: Optional[ObservationFeatures] = None,
 ) -> AxPlotConfig:
     """Plot raw values or predictions of two metrics for arms.
 
@@ -348,7 +349,13 @@ def plot_multiple_metrics(
 
     """
     traces = _multiple_metric_traces(
-        model, metric_x, metric_y, generator_runs_dict, rel_x=rel, rel_y=rel
+        model,
+        metric_x,
+        metric_y,
+        generator_runs_dict,
+        rel_x=rel,
+        rel_y=rel,
+        fixed_features=fixed_features,
     )
     num_cand_traces = len(generator_runs_dict) if generator_runs_dict is not None else 0
 
