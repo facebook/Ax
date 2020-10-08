@@ -78,7 +78,10 @@ def _get_slice_predictions(
     grid = get_grid_for_parameter(parameter, density)
 
     plot_data, raw_data, cond_name_to_parameters = get_plot_data(
-        model=model, generator_runs_dict=generator_runs_dict, metric_names={metric_name}
+        model=model,
+        generator_runs_dict=generator_runs_dict,
+        metric_names={metric_name},
+        fixed_features=fixed_features,
     )
 
     if fixed_features is not None:
