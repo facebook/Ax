@@ -118,10 +118,22 @@ class Data(Base):
         return COLUMN_DATA_TYPES
 
     @staticmethod
-    def from_multiple_data(data: Iterable[Data]) -> Data:
+    def from_multiple_data(
+        data: Iterable[Data], subset_metrics: Optional[Iterable[str]] = None
+    ) -> Data:
+        """Create a single `Data` object from multiple `Data`.
+
+        Args:
+            data: Iterable of Ax `Data` objects to combine.
+            subset_metrics: If specified, combined `Data` will only contain
+                metrics, names of which appear in this iterable,
+                in the underlying dataframe.
+        """
         dfs = [datum.df for datum in data]
         if len(dfs) == 0:
             return Data()
+        if subset_metrics:
+            dfs = [df.loc[df["metric_name"].isin(subset_metrics)] for df in dfs]
         return Data(df=pd.concat(dfs, axis=0, sort=True))
 
     @staticmethod
@@ -233,6 +245,13 @@ class Data(Base):
 
         """
         return md5(self.df.to_json().encode("utf-8")).hexdigest()  # pyre-ignore
+
+    @property
+    def metric_names(self) -> Set[str]:
+        """Set of metric names that appear in the underlying dataframe of
+        this `Data` object.
+        """
+        return set() if self.df.empty else set(self.df["metric_name"].values)
 
 
 def set_single_trial(data: Data) -> Data:

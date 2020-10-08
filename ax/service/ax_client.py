@@ -430,6 +430,13 @@ class AxClient(WithDBSettingsBase):
             trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
         trial._run_metadata.update(metadata or {})
+        for metric_name in data.df["metric_name"].values:
+            if metric_name not in self.experiment.metrics:
+                logger.info(
+                    f"Data was logged for metric {metric_name} that was not yet "
+                    "tracked on the experiment. Adding it as tracking metric."
+                )
+                self.experiment.add_tracking_metric(Metric(name=metric_name))
         # Registering trial data update is needed for generation strategies that
         # leverage the `update` functionality of model and bridge setup and therefore
         # need to be aware of new data added to experiment. Usually this happends

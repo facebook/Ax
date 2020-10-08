@@ -44,6 +44,13 @@ class FactorialMetric(Metric):
         self.batch_size = batch_size
         self.noise_var = noise_var
 
+    @classmethod
+    def is_available_while_running(cls) -> bool:
+        # This metric does not require a trial to complete to fetch its
+        # data, since there is no actual "data" to be fetched –– its
+        # fabricated from parameterizations.
+        return True
+
     def clone(self) -> "FactorialMetric":
         return FactorialMetric(
             self.name, self.coefficients, self.batch_size, self.noise_var

@@ -149,7 +149,7 @@ class ModelRegistryTest(TestCase):
         factorial = Models.FACTORIAL(exp.search_space)
         self.assertIsInstance(factorial, DiscreteModelBridge)
         factorial_run = factorial.gen(n=-1)
-        exp.new_batch_trial().add_generator_run(factorial_run).run()
+        exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
         data = exp.fetch_data()
         eb_thompson = Models.EMPIRICAL_BAYES_THOMPSON(
             experiment=exp, data=data, min_weight=0.0
@@ -165,7 +165,7 @@ class ModelRegistryTest(TestCase):
         factorial = Models.FACTORIAL(exp.search_space)
         self.assertIsInstance(factorial, DiscreteModelBridge)
         factorial_run = factorial.gen(n=-1)
-        exp.new_batch_trial().add_generator_run(factorial_run).run()
+        exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
         data = exp.fetch_data()
         thompson = Models.THOMPSON(experiment=exp, data=data)
         self.assertIsInstance(thompson.model, ThompsonSampler)

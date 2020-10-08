@@ -44,6 +44,10 @@ class NoisyFunctionMetric(Metric):
         self.noise_sd = noise_sd
         super().__init__(name=name, lower_is_better=lower_is_better)
 
+    @classmethod
+    def is_available_while_running(cls) -> bool:
+        return True
+
     def clone(self) -> "NoisyFunctionMetric":
         return self.__class__(
             name=self._name,

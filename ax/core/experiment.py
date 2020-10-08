@@ -23,7 +23,7 @@ from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.core import UnsupportedError
-from ax.utils.common.constants import UNEXPECTED_METRIC_COMBINATION, Keys
+from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import Base
 from ax.utils.common.logger import get_logger
@@ -397,7 +397,15 @@ class Experiment(Base):
         return metrics_by_class
 
     def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
-        """Fetches data for all metrics and trials on this experiment.
+        """Fetches data for all trials on this experiment and for either the
+        specified metrics or all metrics currently on the experiment, if `metrics`
+        argument is not specified.
+
+        NOTE: For metrics that are not available while trial is running, the data
+        may be retrieved from cache on the experiment. Data is cached on the experiment
+        via calls to `experiment.attach_data` and whetner a given metric class is
+        available while trial is running is determined by the boolean returned from its
+        `is_available_while_running` class method.
 
         Args:
             metrics: If provided, fetch data for these metrics instead of the ones
@@ -407,7 +415,7 @@ class Experiment(Base):
         Returns:
             Data for the experiment.
         """
-        return self._fetch_trials_data(
+        return self._lookup_or_fetch_trials_data(
             trials=list(self.trials.values()), metrics=metrics, **kwargs
         )
 
@@ -419,6 +427,12 @@ class Experiment(Base):
     ) -> Data:
         """Fetches data for specific trials on the experiment.
 
+        NOTE: For metrics that are not available while trial is running, the data
+        may be retrieved from cache on the experiment. Data is cached on the experiment
+        via calls to `experiment.attach_data` and whetner a given metric class is
+        available while trial is running is determined by the boolean returned from its
+        `is_available_while_running` class method.
+
         Args:
             trial_indices: Indices of trials, for which to fetch data.
             metrics: If provided, fetch data for these metrics instead of the ones
@@ -428,13 +442,13 @@ class Experiment(Base):
         Returns:
             Data for the specific trials on the experiment.
         """
-        return self._fetch_trials_data(
+        return self._lookup_or_fetch_trials_data(
             trials=self.get_trials_by_indices(trial_indices=trial_indices),
             metrics=metrics,
             **kwargs,
         )
 
-    def _fetch_trials_data(
+    def _lookup_or_fetch_trials_data(
         self,
         trials: List[BaseTrial],
         metrics: Optional[Iterable[Metric]] = None,
@@ -445,81 +459,29 @@ class Experiment(Base):
                 "No metrics to fetch data for, as no metrics are defined for "
                 "this experiment, and none were passed in to `fetch_data`."
             )
-        metrics = list(metrics or self.metrics.values())
-        if all(type(m) is Metric for m in metrics):
-            # All metrics are 'dummy' base `Metric` class metrics, which do not
-            # implement actual data-fetching logic, so should look up attached
-            # data instead of trying to fetch it via logic in metrics.
-            return Data.from_multiple_data(
-                [self.lookup_data_for_trial(trial_index=t.index)[0] for t in trials]
-            )
-        elif all(isinstance(m, Metric) and type(m) is not Metric for m in metrics):
-            # All metrics are subclasses of `Metric`, which should implement fetching.
-            data_list = [
-                metric_cls.fetch_experiment_data_multi(
-                    experiment=self, metrics=metric_list, trials=trials, **kwargs
+        if not any(t.status.expecting_data for t in trials):
+            return Data()
+        metrics_to_fetch = list(metrics or self.metrics.values())
+        metrics_by_class = self._metrics_by_class(metrics=metrics_to_fetch)
+        data_list = []
+        for metric_cls in metrics_by_class:
+            data_list.append(
+                metric_cls.lookup_or_fetch_experiment_data_multi(
+                    experiment=self,
+                    metrics=metrics_by_class[metric_cls],
+                    trials=trials,
+                    **kwargs,
                 )
-                for metric_cls, metric_list in self._metrics_by_class(
-                    metrics=metrics
-                ).items()
-            ]
-            # For trials in candidate phase, append any attached data
-            for trial in trials:
-                if trial.status == TrialStatus.CANDIDATE:
-                    trial_data, _ = self.lookup_data_for_trial(trial_index=trial.index)
-                    if not trial_data.df.empty:
-                        data_list.append(trial_data)
-
-            return Data.from_multiple_data(data_list)
-
-        raise ValueError(UNEXPECTED_METRIC_COMBINATION)
+            )
+        return Data.from_multiple_data(data=data_list)
 
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
     ) -> Data:
-        if not self.metrics and not metrics:
-            raise ValueError(
-                "No metrics to fetch data for, as no metrics are defined for "
-                "this experiment, and none were passed in to `fetch_trial_data`."
-            )
         trial = self.trials[trial_index]
-        metrics = list(metrics or self.metrics.values())
-
-        if trial.status == TrialStatus.CANDIDATE or all(
-            type(m) is Metric for m in metrics
-        ):
-            # Either trial is a `CANDIDATE` (so cannot use fetching logic) or
-            # all metrics are 'dummy' base `Metric` class metrics, which do not
-            # implement actual data-fetching logic. Should look up attached
-            # data instead of trying to fetch it via logic in metrics.
-            return self.lookup_data_for_trial(trial_index=trial_index)[0]
-
-        elif all(isinstance(m, Metric) and type(m) is not Metric for m in metrics):
-            # All metrics are subclasses of `Metric`, which should implement fetching.
-            if not trial.status.expecting_data:
-                return Data()
-            return self._fetch_trial_data_no_lookup(
-                trial_index=trial_index, metrics=metrics, **kwargs
-            )
-
-        raise ValueError(UNEXPECTED_METRIC_COMBINATION)
-
-    def _fetch_trial_data_no_lookup(
-        self, trial_index: int, metrics: Optional[List[Metric]], **kwargs: Any
-    ) -> Data:
-        """Fetches data explicitly from metric logic, does not look up attached
-        data on experiment.
-        """
-        return Data.from_multiple_data(
-            [
-                metric_cls.fetch_trial_data_multi(
-                    self.trials[trial_index], metric_list, **kwargs
-                )
-                for metric_cls, metric_list in self._metrics_by_class(
-                    metrics=metrics
-                ).items()
-            ]
+        return self._lookup_or_fetch_trials_data(
+            trials=[trial], metrics=metrics, **kwargs
         )
 
     def attach_data(self, data: Data, combine_with_last_data: bool = False) -> int:
@@ -546,6 +508,18 @@ class Experiment(Base):
         """
         if data.df.empty:
             raise ValueError("Data to attach is empty.")
+        metrics_not_on_exp = set(data.df["metric_name"].values) - set(
+            self.metrics.keys()
+        )
+        if metrics_not_on_exp:
+            logger.info(
+                f"Attached data has some metrics ({metrics_not_on_exp}) that are "
+                "not among the metrics on this experiment. Note that attaching data "
+                "will not automatically add those metrics to the experiment. "
+                "For these metrics to be automatically fetched by `experiment."
+                "fetch_data`, add them via `experiment.add_tracking_metric` or update "
+                "the experiment's optimization config."
+            )
         cur_time_millis = current_timestamp_in_millis()
         for trial_index, trial_df in data.df.groupby(data.df["trial_index"]):
             current_trial_data = (

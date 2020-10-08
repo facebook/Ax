@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from unittest.mock import patch
+
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
@@ -32,7 +34,6 @@ class TestModelbridgeUtils(TestCase):
     def test_get_pending_observation_features(self):
         # Pending observations should be none if there aren't any.
         self.assertIsNone(get_pending_observation_features(self.experiment))
-
         self.trial.mark_running(no_runner_required=True)
         # Now that the trial is deployed, it should become a pending trial on the
         # experiment and appear as pending for all metrics.
@@ -40,16 +41,19 @@ class TestModelbridgeUtils(TestCase):
             get_pending_observation_features(self.experiment),
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
-        self.experiment.attach_data(
-            Data.from_evaluations(
+        # With `fetch_data` on trial returning data for metric "m2", that metric
+        # should no longer have pending observation features.
+        with patch.object(
+            self.trial,
+            "fetch_data",
+            return_value=Data.from_evaluations(
                 {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(self.experiment),
+                {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
             )
-        )
-        # m2 should have empty pending features, since the trial was updated for m2.
-        self.assertEqual(
-            get_pending_observation_features(self.experiment),
-            {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
-        )
         # When a trial is marked failed, it should no longer appear in pending...
         self.trial.mark_failed()
         self.assertIsNone(get_pending_observation_features(self.experiment))
@@ -58,7 +62,7 @@ class TestModelbridgeUtils(TestCase):
             get_pending_observation_features(
                 self.experiment, include_failed_as_pending=True
             ),
-            {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
 
     def test_get_pending_observation_features_batch_trial(self):
@@ -100,15 +104,23 @@ class TestModelbridgeUtils(TestCase):
                 {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
             )
         )
+        # With `fetch_data` on trial returning data for metric "m2", that metric
+        # should no longer have pending observation features.
+        with patch.object(
+            self.trial,
+            "fetch_data",
+            return_value=Data.from_evaluations(
+                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+            ),
+        ):
+            pending = get_pending_observation_features(self.experiment)
         # There should be no pending observations for metric m2 now, since the
         # only trial there is, has been updated with data for it.
         self.assertEqual(
             [
                 x.tolist()
                 for x in pending_observations_as_array(
-                    pending_observations=get_pending_observation_features(
-                        self.experiment
-                    ),
+                    pending_observations=pending,
                     outcome_names=["m2", "m1"],
                     param_names=["x", "y", "z", "w"],
                 )

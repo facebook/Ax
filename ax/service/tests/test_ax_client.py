@@ -163,10 +163,11 @@ class TestAxClient(TestCase):
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
         ax_client.get_feature_importances()
-        self.assertIn("x", ax_client.get_trials_data_frame())
-        self.assertIn("y", ax_client.get_trials_data_frame())
-        self.assertIn("a", ax_client.get_trials_data_frame())
-        self.assertEqual(len(ax_client.get_trials_data_frame()), 6)
+        trials_df = ax_client.get_trials_data_frame()
+        self.assertIn("x", trials_df)
+        self.assertIn("y", trials_df)
+        self.assertIn("a", trials_df)
+        self.assertEqual(len(trials_df), 6)
 
     def test_default_generation_strategy_discrete(self) -> None:
         """Test that Sobol is used if no GenerationStrategy is provided and

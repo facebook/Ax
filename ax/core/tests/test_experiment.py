@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Type
+from unittest.mock import patch
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -47,11 +48,9 @@ class ExperimentTest(TestCase):
         batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
         batch.run()
 
-        (
-            exp.new_batch_trial()
-            .add_arms_and_weights(arms=get_branin_arms(n=3 * n, seed=1))
-            .run()
-        )
+        batch_2 = exp.new_batch_trial()
+        batch_2.add_arms_and_weights(arms=get_branin_arms(n=3 * n, seed=1))
+        batch_2.run()
         return exp
 
     def testExperimentInit(self):
@@ -287,6 +286,7 @@ class ExperimentTest(TestCase):
         n = 10
         exp = self._setupBraninExperiment(n)
         batch = exp.trials[0]
+        batch.mark_completed()
 
         # Test fetch data
         batch_data = batch.fetch_data()
@@ -298,8 +298,34 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp_data.df), 4 * n)
         self.assertEqual(len(exp.arms_by_name), 4 * n)
 
-        # Verify data lookup is empty
-        self.assertEqual(len(exp.lookup_data_for_trial(0)[0].df), 0)
+        # Verify that `metrics` kwarg to `experiment.fetch_data` is respected.
+        exp.add_tracking_metric(Metric(name="not_yet_on_experiment"))
+        exp.attach_data(
+            Data(
+                df=pd.DataFrame.from_records(
+                    [
+                        {
+                            "arm_name": "0_0",
+                            "metric_name": "not_yet_on_experiment",
+                            "mean": 3,
+                            "sem": 0,
+                            "trial_index": 0,
+                        }
+                    ]
+                )
+            )
+        )
+        self.assertEqual(
+            set(
+                exp.fetch_data(metrics=[Metric(name="not_yet_on_experiment")])
+                .df["metric_name"]
+                .values
+            ),
+            {"not_yet_on_experiment"},
+        )
+
+        # Verify data lookup is empty for trial that does not yet have data.
+        self.assertEqual(len(exp.lookup_data_for_trial(1)[0].df), 0)
 
         # Test local storage
         t1 = exp.attach_data(batch_data)
@@ -307,7 +333,7 @@ class ExperimentTest(TestCase):
 
         full_dict = exp.data_by_trial
         self.assertEqual(len(full_dict), 2)  # data for 2 trials
-        self.assertEqual(len(full_dict[0]), 2)  # 2 data objs for batch 0
+        self.assertEqual(len(full_dict[0]), 3)  # 3 data objs for batch 0
 
         # Test retrieving original batch 0 data
         self.assertEqual(len(exp.lookup_data_for_ts(t1).df), n)
@@ -333,7 +359,7 @@ class ExperimentTest(TestCase):
             )
         )
         t3 = exp.attach_data(new_data, combine_with_last_data=True)
-        self.assertEqual(len(full_dict[0]), 3)  # 3 data objs for batch 0 now
+        self.assertEqual(len(full_dict[0]), 4)  # 4 data objs for batch 0 now
         self.assertIn("z", exp.lookup_data_for_ts(t3).df["metric_name"].tolist())
 
         # Verify we don't get the data if the trial is abandoned
@@ -341,34 +367,25 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(batch.fetch_data().df), 0)
         self.assertEqual(len(exp.fetch_data().df), 3 * n)
 
-        # For `CANDIDATE` trials, we append attached data to fetched data,
-        # so the attached data row with metric name "z" should appear in fetched
-        # data.
-        batch._status = TrialStatus.CANDIDATE
-        self.assertEqual(len(batch.fetch_data().df), n + 1)
-        # n arms in trial #0, 3 * n arms in trial #1
-        self.assertEqual(len(exp.fetch_data().df), 4 * n + 1)
-        metrics_in_data = set(batch.fetch_data().df["metric_name"].values)
-        self.assertEqual(metrics_in_data, {"b", "z"})
-
         # Verify we do get the stored data if there are an unimplemented metrics.
         del exp._data_by_trial[0][t3]  # Remove attached data for nonexistent metric.
-        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
-        exp.add_tracking_metric(Metric(name="dummy"))  # Add unimplemented metric.
-        batch._status = TrialStatus.RUNNING
+        # Remove implemented metric that is `available_while_running`
+        # (and therefore not pulled from cache).
+        exp.remove_tracking_metric(metric_name="b")
+        exp.add_tracking_metric(Metric(name="b"))  # Add unimplemented metric.
+        batch._status = TrialStatus.COMPLETED
         # Data should be getting looked up now.
         self.assertEqual(batch.fetch_data(), exp.lookup_data_for_ts(t1))
-        self.assertEqual(exp.fetch_data(), exp.lookup_data_for_ts(t2))
+        self.assertEqual(exp.fetch_data(), exp.lookup_data_for_ts(t1))
         metrics_in_data = set(batch.fetch_data().df["metric_name"].values)
         # Data for metric "z" should no longer be present since we removed it.
         self.assertEqual(metrics_in_data, {"b"})
 
-        # Check that error will be raised if dummy and implemented metrics are
-        # fetched at once.
-        with self.assertRaisesRegex(ValueError, "Unexpected combination"):
-            exp.fetch_data(
-                [BraninMetric(name="b", param_names=["x1", "x2"]), Metric(name="m")]
-            )
+        # Verify that `metrics` kwarg to `experiment.fetch_data` is respected
+        # when pulling looked-up data.
+        self.assertEqual(
+            exp.fetch_data(metrics=[Metric(name="not_on_experiment")]), Data()
+        )
 
     def testEmptyMetrics(self):
         empty_experiment = Experiment(
@@ -378,11 +395,14 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             empty_experiment.fetch_data()
         batch = empty_experiment.new_batch_trial()
+        batch.mark_running(no_runner_required=True)
         self.assertEqual(empty_experiment.num_trials, 1)
         with self.assertRaises(ValueError):
             batch.fetch_data()
-        empty_experiment.add_tracking_metric(Metric(name="some_metric"))
+        empty_experiment.add_tracking_metric(Metric(name="ax_test_metric"))
+        self.assertTrue(empty_experiment.fetch_data().df.empty)
         empty_experiment.attach_data(get_data())
+        batch.mark_completed()
         self.assertFalse(empty_experiment.fetch_data().df.empty)
 
     def testNumArmsNoDeduplication(self):
@@ -444,6 +464,8 @@ class ExperimentTest(TestCase):
         exp = self._setupBraninExperiment(n=5)
         batch_0 = exp.trials[0]
         batch_1 = exp.trials[1]
+        batch_0.mark_completed()
+        batch_1.mark_completed()
         batch_0_data = exp.fetch_trials_data(trial_indices=[0])
         self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
         self.assertEqual(
@@ -462,7 +484,7 @@ class ExperimentTest(TestCase):
             exp.fetch_trials_data(trial_indices=[2])
         # Try to fetch data when there are only metrics and no attached data.
         exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
-        exp.add_tracking_metric(Metric(name="dummy"))  # Add unimplemented metric.
+        exp.add_tracking_metric(Metric(name="b"))  # Add unimplemented metric.
         self.assertTrue(exp.fetch_trials_data(trial_indices=[0]).df.empty)
         # Try fetching attached data.
         exp.attach_data(batch_0_data)
@@ -517,3 +539,46 @@ class ExperimentTest(TestCase):
             runner=SyntheticRunner(),
         )
         self.assertEqual(exp._metrics_by_class(), {Metric: [m]})
+
+    @patch(
+        # No-op mock just to record calls to `fetch_experiment_data_multi`.
+        f"{BraninMetric.__module__}.BraninMetric.fetch_experiment_data_multi",
+        side_effect=BraninMetric.fetch_experiment_data_multi,
+    )
+    def test_prefer_lookup_where_possible(self, mock_fetch_exp_data_multi):
+        # By default, `BraninMetric` is available while trial is running.
+        exp = self._setupBraninExperiment(n=5)
+        exp.fetch_data()
+        # Since metric is available while trial is running, we should be
+        # refetching the data and no data should be attached to experiment.
+        mock_fetch_exp_data_multi.assert_called_once()
+        self.assertEqual(len(exp._data_by_trial), 0)
+
+        with patch(
+            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+            return_value=False,
+        ):
+            # 1. No completed trials => no fetch case.
+            mock_fetch_exp_data_multi.reset_mock()
+            dat = exp.fetch_data()
+            mock_fetch_exp_data_multi.assert_not_called()
+            # Data should be empty since there are no completed trials.
+            self.assertTrue(dat.df.empty)
+
+            # 2. Newly completed trials => fetch case.
+            mock_fetch_exp_data_multi.reset_mock()
+            exp.trials.get(0).mark_completed()
+            exp.trials.get(1).mark_completed()
+            dat = exp.fetch_data()
+            # `fetch_experiment_data_multi` should be called N=number of trials times.
+            self.assertEqual(len(mock_fetch_exp_data_multi.call_args_list), 2)
+            # Data should no longer be empty since there are completed trials.
+            self.assertFalse(dat.df.empty)
+            # Data for two trials should get attached.
+            self.assertEqual(len(exp._data_by_trial), 2)
+
+            # 3. Previously fetched => look up in cache case.
+            mock_fetch_exp_data_multi.reset_mock()
+            # All fetched data should get cached, so no fetch should happen next time.
+            exp.fetch_data()
+            mock_fetch_exp_data_multi.assert_not_called()

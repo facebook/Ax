@@ -49,6 +49,20 @@ class Metric(Base):
         self.lower_is_better = lower_is_better
         self.properties = properties or {}
 
+    @classmethod
+    def is_available_while_running(cls) -> bool:
+        """Whether metrics of this class are available while the trial is running.
+        Metrics that are not available while the trial is running are assumed to be
+        available only upon trial completion. For such metrics, data is assumed to
+        never change once the trial is completed.
+
+        NOTE: If this method returns `False`, data-fetching via `experiment.fetch_data`
+        will return the data cached on the experiment (for the metrics of the given
+        class) whenever its available. Data is cached on experiment when attached
+        via `experiment.attach_data`.
+        """
+        return False
+
     @property
     def name(self) -> str:
         """Get name of metric."""
@@ -67,7 +81,7 @@ class Metric(Base):
         return self.__class__
 
     @classmethod
-    def serialize_init_args(cls, metric: "Metric") -> Dict[str, Any]:
+    def serialize_init_args(cls, metric: Metric) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the metric.
         Used for storage.
         """
@@ -114,9 +128,10 @@ class Metric(Base):
         Default behavior calls `fetch_trial_data` for each metric.
         Subclasses should override this to trial data computation for multiple metrics.
         """
-        return Data.from_multiple_data(
+        dat = Data.from_multiple_data(
             [metric.fetch_trial_data(trial, **kwargs) for metric in metrics]
         )
+        return dat
 
     @classmethod
     def fetch_experiment_data_multi(
@@ -138,6 +153,83 @@ class Metric(Base):
                 else Data()
                 for trial in (experiment.trials.values() if trials is None else trials)
             ]
+        )
+
+    @classmethod
+    def lookup_or_fetch_experiment_data_multi(
+        cls,
+        experiment: core.experiment.Experiment,
+        metrics: Iterable[Metric],
+        trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
+        **kwargs: Any,
+    ) -> Data:
+        """Fetch or lookup (with fallback to fetching) data for given metrics,
+        depending on whether they are available while running.
+
+        If metric is available while running, its data can change (and therefore
+        we should always re-fetch it). If metric is available only upon trial
+        completion, its data does not change, so we can look up that data on
+        the experiment and only fetch the data that is not already attached to
+        the experiment.
+
+        NOTE: If fetching data for a metrics class that is only available upon
+        trial completion, data fetched in this function (data that was not yet
+        available on experiment) will be attached to experiment.
+        """
+        # If this metric is available while trial is running, just default to
+        # `fetch_experiment_data_multi`.
+        if cls.is_available_while_running():
+            return cls.fetch_experiment_data_multi(
+                experiment=experiment, metrics=metrics, trials=trials, **kwargs
+            )
+
+        # If this metric is available only upon trial completion, look up data
+        # on experiment and only fetch data that is not already cached.
+        if trials is None:
+            completed_trials = experiment.trials_by_status[
+                core.base_trial.TrialStatus.COMPLETED
+            ]
+        else:
+            completed_trials = [t for t in trials if t.status.is_completed]
+
+        if not completed_trials:
+            return Data()
+
+        trials_data = []
+        for trial in completed_trials:
+            cached_trial_data = experiment.lookup_data_for_trial(
+                trial_index=trial.index
+            )[0]
+
+            cached_metric_names = cached_trial_data.metric_names
+            metrics_to_fetch = [m for m in metrics if m.name not in cached_metric_names]
+            if not metrics_to_fetch:
+                # If all needed data fetched from cache, no need to fetch any other data
+                # for trial.
+                trials_data.append(cached_trial_data)
+                continue
+
+            try:
+                fetched_trial_data = cls.fetch_experiment_data_multi(
+                    experiment=experiment,
+                    metrics=metrics_to_fetch,
+                    trials=[trial],
+                    **kwargs,
+                )
+
+            except NotImplementedError:
+                # Metric does not implement fetching logic and only uses lookup.
+                fetched_trial_data = Data()
+
+            final_data = Data.from_multiple_data(
+                [cached_trial_data, fetched_trial_data]
+            )
+            if not final_data.df.empty:
+                experiment.attach_data(final_data)
+            trials_data.append(final_data)
+
+        return Data.from_multiple_data(
+            trials_data, subset_metrics=[m.name for m in metrics]
         )
 
     def clone(self) -> "Metric":

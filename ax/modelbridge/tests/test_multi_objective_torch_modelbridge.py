@@ -24,6 +24,7 @@ from ax.utils.testing.core_stubs import (
 PARETO_FRONTIER_EVALUATOR_PATH = (
     f"{MultiObjectiveBotorchModel.__module__}.pareto_frontier_evaluator"
 )
+STUBS_PATH = get_branin_experiment_with_multi_objective.__module__
 
 
 # Prepare mock transforms
@@ -112,10 +113,18 @@ class t2(Transform):
 
 
 class MultiObjectiveTorchModelBridgeTest(TestCase):
-    def test_pareto_frontier(self):
+    @patch(
+        # Mocking `BraninMetric` as not available while running, so it will
+        # be grabbed from cache during `fetch_data`.
+        f"{STUBS_PATH}.BraninMetric.is_available_while_running",
+        return_value=False,
+    )
+    def test_pareto_frontier(self, _):
         exp = get_branin_experiment_with_multi_objective(
-            has_optimization_config=True, with_batch=False
+            has_optimization_config=True, with_batch=True
         )
+        for trial in exp.trials.values():
+            trial.mark_running(no_runner_required=True).mark_completed()
         metrics_dict = exp.optimization_config.metrics
         objective_thresholds = [
             ObjectiveThreshold(
@@ -131,13 +140,12 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 op=ComparisonOp.GEQ,
             ),
         ]
-        exp = get_branin_experiment_with_multi_objective(
-            has_optimization_config=True, with_batch=True
-        )
         exp.optimization_config = exp.optimization_config.clone_with_args(
             objective_thresholds=objective_thresholds
         )
-        exp.attach_data(get_branin_data_multi_objective(trial_indices=exp.trials))
+        exp.attach_data(
+            get_branin_data_multi_objective(trial_indices=exp.trials.keys())
+        )
         modelbridge = MultiObjectiveTorchModelBridge(
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
@@ -172,10 +180,18 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         )
         self.assertTrue(len(predicted_frontier_data) <= 2)
 
-    def test_hypervolume(self):
+    @patch(
+        # Mocking `BraninMetric` as not available while running, so it will
+        # be grabbed from cache during `fetch_data`.
+        f"{STUBS_PATH}.BraninMetric.is_available_while_running",
+        return_value=False,
+    )
+    def test_hypervolume(self, _):
         exp = get_branin_experiment_with_multi_objective(
-            has_optimization_config=True, with_batch=False
+            has_optimization_config=True, with_batch=True
         )
+        for trial in exp.trials.values():
+            trial.mark_running(no_runner_required=True).mark_completed()
         metrics_dict = exp.optimization_config.metrics
         objective_thresholds = [
             ObjectiveThreshold(
@@ -191,13 +207,12 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 op=ComparisonOp.GEQ,
             ),
         ]
-        exp = get_branin_experiment_with_multi_objective(
-            has_optimization_config=True, with_batch=True
-        )
         optimization_config = exp.optimization_config.clone_with_args(
             objective_thresholds=objective_thresholds
         )
-        exp.attach_data(get_branin_data_multi_objective(trial_indices=exp.trials))
+        exp.attach_data(
+            get_branin_data_multi_objective(trial_indices=exp.trials.keys())
+        )
         modelbridge = MultiObjectiveTorchModelBridge(
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
