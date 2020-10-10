@@ -87,12 +87,10 @@ class AcquisitionTest(TestCase):
         f"{CURRENT_PATH}.Acquisition.compute_model_dependencies",
         return_value={"current_value": 1.2},
     )
-    @patch(f"{CURRENT_PATH}.Acquisition.compute_data_dependencies", return_value={})
     @patch(f"{DummyACQFClass.__module__}.DummyACQFClass.__init__", return_value=None)
     def test_init(
         self,
         mock_botorch_acqf_class,
-        mock_compute_data_deps,
         mock_compute_model_deps,
         mock_get_objective,
         mock_subset_model,
@@ -162,23 +160,8 @@ class AcquisitionTest(TestCase):
             X_observed=torch.tensor([3.0]),
             use_scalarized_objective=False,
         )
-        # Check `compute_model_dependencies` kwargs
-        mock_compute_model_deps.assert_called_with(
-            surrogate=self.surrogate,
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-            pending_observations=self.pending_observations,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
-            options=self.options,
-        )
-        # Check `compute_data_dependencies` kwargs
-        mock_compute_data_deps.assert_called_with(training_data=self.training_data)
         # Check final `acqf` creation
         model_deps = {Keys.CURRENT_VALUE: 1.2}
-        data_deps = {}
         mock_botorch_acqf_class.assert_called_with(
             model=self.acquisition.surrogate.model,
             objective=botorch_objective,
@@ -186,7 +169,6 @@ class AcquisitionTest(TestCase):
             X_baseline=torch.tensor([3.0]),
             **self.options,
             **model_deps,
-            **data_deps,
         )
 
     @patch(f"{ACQUISITION_PATH}.optimize_acqf")

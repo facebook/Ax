@@ -12,18 +12,30 @@ from ax.models.torch.botorch_modular.multi_fidelity import MultiFidelityAcquisit
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from botorch.acquisition.knowledge_gradient import qMultiFidelityKnowledgeGradient
 from botorch.models.gp_regression import SingleTaskGP
+from botorch.utils.containers import TrainingData
 
 
-ACQUISITION_PATH = f"{Acquisition.__module__}"
-MULTI_FIDELITY_PATH = f"{MultiFidelityAcquisition.__module__}"
+ACQUISITION_PATH = Acquisition.__module__
+MULTI_FIDELITY_PATH = MultiFidelityAcquisition.__module__
+MFKG_PATH = (
+    f"{qMultiFidelityKnowledgeGradient.__module__}.qMultiFidelityKnowledgeGradient"
+)
 
 
 class MultiFidelityAcquisitionTest(TestCase):
     def setUp(self):
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
-
+        self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
+        self.Y = torch.tensor([[3.0], [4.0]])
+        self.Yvar = torch.tensor([[0.0], [2.0]])
+        self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
+        self.fidelity_features = [2]
+        self.surrogate.construct(
+            training_data=self.training_data, fidelity_features=self.fidelity_features
+        )
         self.acquisition_options = {Keys.NUM_FANTASIES: 64}
         self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
         self.objective_weights = torch.tensor([1.0])
@@ -40,17 +52,21 @@ class MultiFidelityAcquisitionTest(TestCase):
             Keys.COST_INTERCEPT: 1.0,
             Keys.NUM_TRACE_OBSERVATIONS: 0,
         }
+        with patch(f"{MFKG_PATH}.__init__", return_value=None):
+            # We don't actually need to instantiate the BoTorch acqf in these tests.
+            self.acquisition = MultiFidelityAcquisition(
+                surrogate=self.surrogate,
+                bounds=self.bounds,
+                objective_weights=self.objective_weights,
+                botorch_acqf_class=qMultiFidelityKnowledgeGradient,
+                target_fidelities=self.target_fidelities,
+            )
 
     @patch(f"{ACQUISITION_PATH}.Acquisition.__init__", return_value=None)
     @patch(f"{ACQUISITION_PATH}.Acquisition.optimize")
     def test_optimize(self, mock_Acquisition_optimize, mock_Acquisition_init):
-        # `MultiFidelityAcquisition.optimize()` should call `Acquisition.optimize()`
+        # `self.acquisition.optimize()` should call `Acquisition.optimize()`
         # once.
-        self.acquisition = MultiFidelityAcquisition(
-            surrogate=self.surrogate,
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-        )
         self.acquisition.optimize(bounds=self.bounds, n=1)
         mock_Acquisition_optimize.assert_called_once()
 
@@ -72,7 +88,7 @@ class MultiFidelityAcquisitionTest(TestCase):
         # Raise Error if `fidelity_weights` and `target_fidelities` do
         # not align.
         with self.assertRaisesRegex(RuntimeError, "Must provide the same indices"):
-            MultiFidelityAcquisition.compute_model_dependencies(
+            self.acquisition.compute_model_dependencies(
                 surrogate=self.surrogate,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -84,7 +100,7 @@ class MultiFidelityAcquisitionTest(TestCase):
                 options=self.options,
             )
         # Make sure `fidelity_weights` are set when they are not passed in.
-        MultiFidelityAcquisition.compute_model_dependencies(
+        self.acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
             bounds=self.bounds,
             objective_weights=self.objective_weights,
@@ -99,7 +115,7 @@ class MultiFidelityAcquisitionTest(TestCase):
             fidelity_weights={2: 1.0, 3: 1.0}, fixed_cost=1.0
         )
         # Usual case.
-        dependencies = MultiFidelityAcquisition.compute_model_dependencies(
+        dependencies = self.acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
             bounds=self.bounds,
             objective_weights=self.objective_weights,

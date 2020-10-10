@@ -42,9 +42,8 @@ class MaxValueEntropySearch(Acquisition):
             optimizer_options=optimizer_options,
         )
 
-    @classmethod
     def compute_model_dependencies(
-        cls,
+        self,
         surrogate: Surrogate,
         bounds: List[Tuple[float, float]],
         objective_weights: Tensor,
@@ -55,7 +54,6 @@ class MaxValueEntropySearch(Acquisition):
         target_fidelities: Optional[Dict[int, float]] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-
         dependencies = super().compute_model_dependencies(
             surrogate=surrogate,
             bounds=bounds,
@@ -68,6 +66,23 @@ class MaxValueEntropySearch(Acquisition):
             options=options,
         )
 
+        dependencies.update(
+            self._make_candidate_set_model_dependencies(
+                surrogate=surrogate,
+                bounds=bounds,
+                objective_weights=objective_weights,
+                options=options,
+            )
+        )
+        return dependencies
+
+    @staticmethod
+    def _make_candidate_set_model_dependencies(
+        surrogate: Surrogate,
+        bounds: List[Tuple[float, float]],
+        objective_weights: Tensor,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         options = options or {}
 
         bounds_ = torch.tensor(
@@ -80,29 +95,26 @@ class MaxValueEntropySearch(Acquisition):
 
         maximize = True if objective_weights[0] == 1 else False
 
-        dependencies.update(
-            {Keys.CANDIDATE_SET: candidate_set, Keys.MAXIMIZE: maximize}
-        )
-        return dependencies
+        return {Keys.CANDIDATE_SET: candidate_set, Keys.MAXIMIZE: maximize}
 
 
-class MultiFidelityMaxValueEntropySearch(MaxValueEntropySearch):
+class MultiFidelityMaxValueEntropySearch(
+    MultiFidelityAcquisition, MaxValueEntropySearch
+):
     default_botorch_acqf_class = qMultiFidelityMaxValueEntropy
 
-    @classmethod
     def compute_model_dependencies(
-        cls,
+        self,
         surrogate: Surrogate,
         bounds: List[Tuple[float, float]],
         objective_weights: Tensor,
-        target_fidelities: Dict[int, float],
+        target_fidelities: Optional[Dict[int, float]] = None,
         pending_observations: Optional[List[Tensor]] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-
         dependencies = super().compute_model_dependencies(
             surrogate=surrogate,
             bounds=bounds,
@@ -115,15 +127,10 @@ class MultiFidelityMaxValueEntropySearch(MaxValueEntropySearch):
             options=options,
         )
         dependencies.update(
-            MultiFidelityAcquisition.compute_model_dependencies(
+            self._make_candidate_set_model_dependencies(
                 surrogate=surrogate,
                 bounds=bounds,
                 objective_weights=objective_weights,
-                pending_observations=pending_observations,
-                outcome_constraints=outcome_constraints,
-                linear_constraints=linear_constraints,
-                fixed_features=fixed_features,
-                target_fidelities=target_fidelities,
                 options=options,
             )
         )

@@ -61,13 +61,12 @@ class KnowledgeGradient(OneShotAcquisition):
 class MultiFidelityKnowledgeGradient(MultiFidelityAcquisition, KnowledgeGradient):
     default_botorch_acqf_class = qMultiFidelityKnowledgeGradient
 
-    @classmethod
     def compute_model_dependencies(
-        cls,
+        self,
         surrogate: Surrogate,
         bounds: List[Tuple[float, float]],
         objective_weights: Tensor,
-        target_fidelities: Dict[int, float],
+        target_fidelities: Optional[Dict[int, float]] = None,
         pending_observations: Optional[List[Tensor]] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,

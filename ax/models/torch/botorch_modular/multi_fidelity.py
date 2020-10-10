@@ -22,19 +22,22 @@ class MultiFidelityAcquisition(Acquisition):
 
     # NOTE: Here, we do not consider using `IIDNormalSampler` and always
     # use the `SobolQMCNormalSampler`.
-    @classmethod
     def compute_model_dependencies(
-        cls,
+        self,
         surrogate: Surrogate,
         bounds: List[Tuple[float, float]],
         objective_weights: Tensor,
-        target_fidelities: Dict[int, float],
+        target_fidelities: Optional[Dict[int, float]] = None,
         pending_observations: Optional[List[Tensor]] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        if not target_fidelities:
+            raise ValueError(  # pragma: no cover
+                "Target fidelities are required for {self.__class__.__name__}."
+            )
 
         dependencies = super().compute_model_dependencies(
             surrogate=surrogate,
@@ -73,7 +76,7 @@ class MultiFidelityAcquisition(Acquisition):
         def expand(X: Tensor) -> Tensor:
             return expand_trace_observations(
                 X=X,
-                fidelity_dims=sorted(target_fidelities),
+                fidelity_dims=sorted(target_fidelities),  # pyre-ignore[6]
                 # pyre-fixme[16]: `Optional` has no attribute `get`.
                 num_trace_obs=options.get(Keys.NUM_TRACE_OBSERVATIONS, 0),
             )

@@ -68,13 +68,6 @@ class AcquisitionSetUp:
 class OneShotAcquisitionTest(AcquisitionSetUp, TestCase):
     def setUp(self):
         super().setUp()
-
-    @patch(
-        f"{KG_PATH}.gen_one_shot_kg_initial_conditions",
-        return_value=torch.tensor([1.0]),
-    )
-    @patch(f"{ACQUISITION_PATH}.Acquisition.optimize")
-    def test_optimize(self, mock_parent_optimize, mock_init_conditions):
         self.acquisition = OneShotAcquisition(
             surrogate=self.surrogate,
             bounds=self.bounds,
@@ -87,6 +80,13 @@ class OneShotAcquisitionTest(AcquisitionSetUp, TestCase):
             target_fidelities=self.target_fidelities,
             options=self.options,
         )
+
+    @patch(
+        f"{KG_PATH}.gen_one_shot_kg_initial_conditions",
+        return_value=torch.tensor([1.0]),
+    )
+    @patch(f"{ACQUISITION_PATH}.Acquisition.optimize")
+    def test_optimize(self, mock_parent_optimize, mock_init_conditions):
         self.acquisition.optimize(
             bounds=self.bounds,
             n=1,
@@ -124,23 +124,6 @@ class OneShotAcquisitionTest(AcquisitionSetUp, TestCase):
 class KnowledgeGradientTest(AcquisitionSetUp, TestCase):
     def setUp(self):
         super().setUp()
-
-    @patch(
-        f"{ACQUISITION_PATH}.Acquisition.compute_model_dependencies", return_value={}
-    )
-    def test_compute_model_dependencies(self, mock_Acquisition_compute):
-        # `KnowledgeGradient.compute_model_dependencies` should call
-        # `Acquisition.compute_model_dependencies` once.
-        dependencies = KnowledgeGradient.compute_model_dependencies(
-            surrogate=self.surrogate,
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-        )
-        mock_Acquisition_compute.assert_called_once()
-        self.assertEqual(dependencies, {})
-
-    @patch(f"{KG_PATH}.OneShotAcquisition.optimize")
-    def test_optimize(self, mock_OneShot_optimize):
         self.acquisition = KnowledgeGradient(
             surrogate=self.surrogate,
             bounds=self.bounds,
@@ -153,6 +136,23 @@ class KnowledgeGradientTest(AcquisitionSetUp, TestCase):
             target_fidelities=self.target_fidelities,
             options=self.options,
         )
+
+    @patch(
+        f"{ACQUISITION_PATH}.Acquisition.compute_model_dependencies", return_value={}
+    )
+    def test_compute_model_dependencies(self, mock_Acquisition_compute):
+        # `KnowledgeGradient.compute_model_dependencies` should call
+        # `Acquisition.compute_model_dependencies` once.
+        dependencies = self.acquisition.compute_model_dependencies(
+            surrogate=self.surrogate,
+            bounds=self.bounds,
+            objective_weights=self.objective_weights,
+        )
+        mock_Acquisition_compute.assert_called_once()
+        self.assertEqual(dependencies, {})
+
+    @patch(f"{KG_PATH}.OneShotAcquisition.optimize")
+    def test_optimize(self, mock_OneShot_optimize):
         # `KnowledgeGradient.optimize()` should call `OneShotAcquisition.optimize()`
         # once.
         self.acquisition.optimize(
@@ -170,6 +170,18 @@ class KnowledgeGradientTest(AcquisitionSetUp, TestCase):
 class MultiFidelityKnowledgeGradientTest(AcquisitionSetUp, TestCase):
     def setUp(self):
         super().setUp()
+        self.acquisition = MultiFidelityKnowledgeGradient(
+            surrogate=self.surrogate,
+            bounds=self.bounds,
+            objective_weights=self.objective_weights,
+            botorch_acqf_class=self.botorch_acqf_class,
+            pending_observations=self.pending_observations,
+            outcome_constraints=self.outcome_constraints,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+            target_fidelities=self.target_fidelities,
+            options=self.options,
+        )
 
     @patch(
         f"{ACQUISITION_PATH}.Acquisition.compute_model_dependencies", return_value={}
@@ -177,7 +189,7 @@ class MultiFidelityKnowledgeGradientTest(AcquisitionSetUp, TestCase):
     def test_compute_model_dependencies(self, mock_Acquisition_compute):
         # `MultiFidelityKnowledgeGradient.compute_model_dependencies` should
         # call `Acquisition.compute_model_dependencies` once.
-        dependencies = MultiFidelityKnowledgeGradient.compute_model_dependencies(
+        dependencies = self.acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
             bounds=self.bounds,
             objective_weights=self.objective_weights,
@@ -194,18 +206,6 @@ class MultiFidelityKnowledgeGradientTest(AcquisitionSetUp, TestCase):
 
     @patch(f"{KG_PATH}.OneShotAcquisition.optimize")
     def test_optimize(self, mock_OneShot_optimize):
-        self.acquisition = MultiFidelityKnowledgeGradient(
-            surrogate=self.surrogate,
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-            botorch_acqf_class=self.botorch_acqf_class,
-            pending_observations=self.pending_observations,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
-            options=self.options,
-        )
         # `MultiFidelityKnowledgeGradient.optimize()` should call
         # `OneShotAcquisition.optimize()` once.
         self.acquisition.optimize(

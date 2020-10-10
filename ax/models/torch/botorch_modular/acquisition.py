@@ -154,7 +154,6 @@ class Acquisition(Base):
             X_baseline=X_observed,
             **self.options,
             **model_deps,
-            **self.compute_data_dependencies(training_data=trd),
         )
 
     def optimize(
@@ -218,9 +217,8 @@ class Acquisition(Base):
             options=options,
         )
 
-    @classmethod
     def compute_model_dependencies(
-        cls,
+        self,
         surrogate: Surrogate,
         bounds: List[Tuple[float, float]],
         objective_weights: Tensor,
@@ -268,25 +266,6 @@ class Acquisition(Base):
                 the `Acquisition` object.
 
         Returns: A dictionary of surrogate model-dependent options, to be passed
-            as kwargs to BoTorch`AcquisitionFunction` constructor.
-        """
-        return {}
-
-    @classmethod
-    def compute_data_dependencies(
-        cls, training_data: Union[TrainingData, Dict[str, TrainingData]]
-    ) -> Dict[str, Any]:
-        """Computes inputs to acquisition function class based on the given
-        data in model's training data.
-
-        NOTE: May not be needed if model dependencies are handled entirely on
-        the BoTorch side.
-
-        Args:
-            training_data: Either a `TrainingData` for 1 outcome, or a mapping of
-                outcome name to respective `TrainingData` (if `ListSurrogate` is used).
-
-        Returns: A dictionary of training data-dependent options, to be passed
             as kwargs to BoTorch`AcquisitionFunction` constructor.
         """
         return {}

@@ -69,24 +69,6 @@ class AcquisitionSetUp:
 class MaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
     def setUp(self):
         super().setUp()
-
-    @patch(
-        f"{ACQUISITION_PATH}.Acquisition.compute_model_dependencies", return_value={}
-    )
-    def test_compute_model_dependencies(self, mock_Acquisition_compute):
-        # `MaxValueEntropySearch.compute_model_dependencies` should call
-        # `Acquisition.compute_model_dependencies` once.
-        depedencies = MaxValueEntropySearch.compute_model_dependencies(
-            surrogate=self.surrogate,
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-        )
-        mock_Acquisition_compute.assert_called_once()
-        self.assertTrue(Keys.CANDIDATE_SET in depedencies)
-        self.assertTrue(Keys.MAXIMIZE in depedencies)
-
-    @patch(f"{ACQUISITION_PATH}.Acquisition.optimize")
-    def test_optimize(self, mock_Acquisition_optimize):
         self.acquisition = MaxValueEntropySearch(
             surrogate=self.surrogate,
             bounds=self.bounds,
@@ -99,6 +81,24 @@ class MaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
             target_fidelities=self.target_fidelities,
             options=self.options,
         )
+
+    @patch(
+        f"{ACQUISITION_PATH}.Acquisition.compute_model_dependencies", return_value={}
+    )
+    def test_compute_model_dependencies(self, mock_Acquisition_compute):
+        # `MaxValueEntropySearch.compute_model_dependencies` should call
+        # `Acquisition.compute_model_dependencies` once.
+        depedencies = self.acquisition.compute_model_dependencies(
+            surrogate=self.surrogate,
+            bounds=self.bounds,
+            objective_weights=self.objective_weights,
+        )
+        mock_Acquisition_compute.assert_called_once()
+        self.assertTrue(Keys.CANDIDATE_SET in depedencies)
+        self.assertTrue(Keys.MAXIMIZE in depedencies)
+
+    @patch(f"{ACQUISITION_PATH}.Acquisition.optimize")
+    def test_optimize(self, mock_Acquisition_optimize):
         # `MaxValueEntropySearch.optimize()` should call
         # `Acquisition.optimize()` once.
         self.acquisition.optimize(
@@ -126,9 +126,21 @@ class MaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
 class MultiFidelityMaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
     def setUp(self):
         super().setUp()
+        self.acquisition = MultiFidelityMaxValueEntropySearch(
+            surrogate=self.surrogate,
+            bounds=self.bounds,
+            objective_weights=self.objective_weights,
+            botorch_acqf_class=self.botorch_acqf_class,
+            pending_observations=self.pending_observations,
+            outcome_constraints=self.outcome_constraints,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+            target_fidelities=self.target_fidelities,
+            options=self.options,
+        )
 
     @patch(
-        f"{MES_PATH}.MaxValueEntropySearch.compute_model_dependencies",
+        f"{MES_PATH}.MaxValueEntropySearch._make_candidate_set_model_dependencies",
         return_value={Keys.CANDIDATE_SET: None, Keys.MAXIMIZE: True},
     )
     @patch(
@@ -139,7 +151,7 @@ class MultiFidelityMaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
         # `MultiFidelityMaxValueEntropySearch.compute_model_dependencies` should
         # call `MaxValueEntropySearch.compute_model_dependencies` once and
         # call `MultiFidelityAcquisition.compute_model_dependencies` once.
-        depedencies = MultiFidelityMaxValueEntropySearch.compute_model_dependencies(
+        depedencies = self.acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
             bounds=self.bounds,
             objective_weights=self.objective_weights,
@@ -155,18 +167,6 @@ class MultiFidelityMaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
 
     @patch(f"{MES_PATH}.MaxValueEntropySearch.optimize")
     def test_optimize(self, mock_MES_optimize):
-        self.acquisition = MultiFidelityMaxValueEntropySearch(
-            surrogate=self.surrogate,
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-            botorch_acqf_class=self.botorch_acqf_class,
-            pending_observations=self.pending_observations,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
-            options=self.options,
-        )
         # `MultiFidelityMaxValueEntropySearch.optimize()` should call
         # `MaxValueEntropySearch.optimize()` once.
         self.acquisition.optimize(
