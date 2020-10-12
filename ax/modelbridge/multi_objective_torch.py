@@ -11,7 +11,6 @@ import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -73,16 +72,6 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         objective_thresholds: Optional[TRefPoint] = None,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
-        if (
-            isinstance(experiment, MultiTypeExperiment)
-            and objective_thresholds is not None
-        ):
-            raise NotImplementedError(
-                "Objective threshold dependent multi-objective optimization algos "
-                "like EHVI are not yet supported for MultiTypeExperiments. "
-                "Remove the objective threshold arg and use a compatible algorithm "
-                "like ParEGO."
-            )
         self._objective_metric_names = None
         # Optimization_config
         mooc = optimization_config or checked_cast_optional(

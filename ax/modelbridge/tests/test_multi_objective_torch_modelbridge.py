@@ -17,7 +17,6 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
-    get_multi_type_experiment,
 )
 
 
@@ -247,15 +246,3 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             observation_features=observation_features,
         )
         self.assertTrue(predicted_hv >= 0)
-
-    def test_multi_type_experiment(self):
-        exp = get_multi_type_experiment()
-        with self.assertRaises(NotImplementedError):
-            MultiObjectiveTorchModelBridge(
-                experiment=exp,
-                search_space=exp.search_space,
-                model=MultiObjectiveBotorchModel(),
-                transforms=[],
-                data=exp.fetch_data(),
-                objective_thresholds={"branin_b": 0.0},
-            )
