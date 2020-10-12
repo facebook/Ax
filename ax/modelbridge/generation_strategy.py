@@ -16,7 +16,7 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import DataRequiredError, NoDataError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     MaxParallelismReachedException,
@@ -482,7 +482,6 @@ class GenerationStrategy(Base):
                 model_class=not_none(not_none(self.model).model.__class__),
             )
 
-        # TODO[T65857344]: move from fetching all data to using cached data
         if data is None:
             if self._curr.use_update:
                 # If the new step is using `update`, it's important to instantiate
@@ -498,6 +497,24 @@ class GenerationStrategy(Base):
                 )
             else:
                 data = self.experiment.fetch_data()
+        # By the time we get here, we will have already transitioned
+        # to a new step, but if previou step required observed data,
+        # we should raise an error even if enough trials were completed.
+        # Such an empty data case does indicate an invalid state; this
+        # check is to improve the experience of detecting and debugging
+        # the invalid state that led to this.
+        previous_step_required_observations = (
+            self._curr.index > 0
+            and self._steps[self._curr.index - 1].min_trials_observed > 0
+        )
+        if data.df.empty and previous_step_required_observations:
+            raise NoDataError(
+                f"Observed data is required for generation step #{self._curr.index} "
+                f"(model {self._curr.model_name}), but fetched data was empty. "
+                "Something is wrong with experiment setup -- likely metrics do not "
+                "implement fetching logic (check your metrics) or no data was "
+                "attached to experiment for completed trials."
+            )
         if isinstance(self._curr.model, Models):
             self._set_current_model_from_models_enum(data=data, **model_kwargs)
         else:
