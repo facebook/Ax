@@ -107,7 +107,12 @@ class Acquisition(Base):
         self.surrogate = surrogate
         self.options = options or {}
         trd = self._extract_training_data(surrogate=surrogate)
-        Xs = [trd.X] if isinstance(trd, TrainingData) else [i.X for i in trd.values()]
+        Xs = (
+            # Assumes 1-D objective_weights, which should be safe.
+            [trd.X for o in range(objective_weights.shape[0])]
+            if isinstance(trd, TrainingData)
+            else [i.X for i in trd.values()]
+        )
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=Xs,
             pending_observations=pending_observations,
@@ -145,13 +150,18 @@ class Acquisition(Base):
             target_fidelities=target_fidelities,
             options=self.options,
         )
-        # pyre-ignore[28]: Some kwargs are not expected in base `Model`
-        # but are expected in its subclasses.
-        self.acqf = self._botorch_acqf_class(
+        X_baseline = X_observed
+        overriden_X_baseline = model_deps.get(Keys.X_BASELINE)
+        if overriden_X_baseline is not None:
+            X_baseline = overriden_X_baseline
+            model_deps.pop(Keys.X_BASELINE)
+        self.acqf = self._botorch_acqf_class(  # pyre-ignore[28]: Some kwargs are
+            # not expected in base `AcquisitionFunction` but are expected in
+            # its subclasses.
             model=model,
             objective=objective,
             X_pending=X_pending,
-            X_baseline=X_observed,
+            X_baseline=X_baseline,
             **self.options,
             **model_deps,
         )
@@ -170,7 +180,7 @@ class Acquisition(Base):
         candidates and their associated acquisition function values.
         """
         optimizer_options = optimizer_options or {}
-        # NOTE: Could make use of `optimizer_class` when it's added to BoTorch.
+        # NOTE: Could make use of `optimizer_class` when its added to BoTorch.
         return optimize_acqf(
             self.acqf,
             bounds=bounds,

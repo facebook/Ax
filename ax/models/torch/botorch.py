@@ -318,7 +318,6 @@ class BotorchModel(TorchModel):
             raise NotImplementedError(
                 "target_fidelities not implemented for base BotorchModel"
             )
-
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,
             pending_observations=pending_observations,

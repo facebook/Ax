@@ -336,7 +336,7 @@ def get_botorch_objective(
         return ConstrainedMCObjective(
             objective=obj_tf, constraints=con_tfs or [], infeasible_cost=inf_cost
         )
-    if use_scalarized_objective:
+    elif use_scalarized_objective:
         return ScalarizedObjective(weights=objective_weights)
     return LinearMCObjective(weights=objective_weights)
 
