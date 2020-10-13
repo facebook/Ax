@@ -138,3 +138,11 @@ CLASS_TO_REVERSE_REGISTRY: Dict[Any, Dict[int, Type[Any]]] = {
     MarginalLogLikelihood: REVERSE_MLL_REGISTRY,
     Model: REVERSE_MODEL_REGISTRY,
 }
+
+
+def register_acquisition(acq_class: Type[Acquisition]) -> None:
+    """Add a custom acquisition class to the SQA and JSON registries."""
+    ACQUISITION_REGISTRY = CLASS_TO_REGISTRY[Acquisition]
+    index = len(ACQUISITION_REGISTRY)
+    CLASS_TO_REGISTRY[Acquisition].update({acq_class: index})
+    CLASS_TO_REVERSE_REGISTRY[Acquisition].update({index: acq_class})

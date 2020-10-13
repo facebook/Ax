@@ -141,7 +141,8 @@ def class_from_json(json: Dict[str, Any]) -> Type[Any]:
             reverse_registry = CLASS_TO_REVERSE_REGISTRY[_class]
             if index_in_registry not in reverse_registry:  # pragma: no cover
                 raise ValueError(
-                    f"'{class_path}' is not registered in the reverse registry."
+                    f"Index '{index_in_registry}'"
+                    " is not registered in the reverse registry."
                 )
             return reverse_registry[index_in_registry]
     raise ValueError(
