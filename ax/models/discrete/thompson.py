@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.types import TConfig, TGenMetadata, TParamValue, TParamValueList
-from ax.exceptions.constants import TS_MIN_WEIGHT_ERROR
+from ax.exceptions.constants import TS_MIN_WEIGHT_ERROR, TS_NO_FEASIBLE_ARMS_ERROR
 from ax.exceptions.model import ModelError
 from ax.models.discrete_base import DiscreteModel
 from ax.utils.common.docutils import copy_doc
@@ -142,10 +142,7 @@ class ThompsonSampler(DiscreteModel):
             outcome_constraints=outcome_constraints,
         )
         if fraction_all_infeasible > 0.99:
-            raise ValueError(
-                "Less than 1% of samples have a feasible arm. "
-                "Check your outcome constraints."
-            )
+            raise ModelError(TS_NO_FEASIBLE_ARMS_ERROR)
 
         num_valid_samples = samples.shape[1]
         while num_valid_samples < self.num_samples:

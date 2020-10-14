@@ -159,7 +159,7 @@ class ThompsonSamplerTest(TestCase):
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ModelError):
             generator.gen(
                 n=3,
                 parameter_values=self.parameter_values,
