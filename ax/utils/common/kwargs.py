@@ -7,6 +7,12 @@
 from inspect import Parameter, signature
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
+from ax.utils.common.logger import get_logger
+from typeguard import check_type
+
+
+logger = get_logger(__name__)
+
 
 def consolidate_kwargs(
     kwargs_iterable: Iterable[Optional[Dict[str, Any]]], keywords: Iterable[str]
@@ -47,11 +53,37 @@ def get_function_default_arguments(function: Callable) -> Dict[str, Any]:
 
 
 def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> None:
-    """Raises a value error if some of the keyword argument types do not match
-    the signatures of the specified typed callables.
+    """Check if keywords in kwargs exist in any of the typed_callables and
+    if the type of each keyword value matches the type of corresponding arg in one of
+    the callables
 
     Note: this function expects the typed callables to have unique keywords for
     the arguments and will raise an error if repeat keywords are found.
     """
-    # TODO[Lena]: T46467254
-    pass
+    checked_kwargs = set()
+    for typed_callable in typed_callables:
+        params = signature(typed_callable).parameters
+        for kw, param in params.items():
+            if kw in kwargs:
+                if kw in checked_kwargs:
+                    logger.debug(
+                        f"`{typed_callables}` have duplicate keyword argument: {kw}."
+                    )
+                else:
+                    checked_kwargs.add(kw)
+                    kw_val = kwargs.get(kw)
+                    try:
+                        check_type(kw, kw_val, param.annotation)
+                    except TypeError:
+                        message = (
+                            f"Expected argument `{kw}` to be of type {param.annotation}"
+                            + f". Got {kw_val} (type: {type(kw_val)})."
+                        )
+                        logger.warning(message)
+
+    # check if kwargs contains keywords not exist in any callables
+    extra_keywords = [kw for kw in kwargs.keys() if kw not in checked_kwargs]
+    if len(extra_keywords) != 0:
+        raise ValueError(
+            f"Arguments {extra_keywords} are not expected by any of {typed_callables}."
+        )
