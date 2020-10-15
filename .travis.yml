@@ -17,6 +17,11 @@ jobs:
     # create custom environment variable for flagging jobs that are allowed to fail
     - env: ALLOW_FAILURE=true
   include:
+    - name: "Validate 'import ax' without extra requirements: Python 3.7"
+      install:
+        - pip install -q .
+      script:
+        - python scripts/import_ax.py
     - name: "Tests + Coverage: Python 3.7"
       python: "3.7"
       install:
