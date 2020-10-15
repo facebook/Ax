@@ -97,8 +97,8 @@ class UnitX(Transform):
 def normalize_value(value: float, bounds: Tuple[float, float]) -> float:
     """Transform bounds to [0,1], and apply the same transform to the value.
 
-        Note: if the value is outside of the bounds, then the value will be mapped
-            outside of [0,1].
+    Note: if the value is outside of the bounds, then the value will be mapped
+        outside of [0,1].
     """
     lower, upper = bounds
     return (value - lower) / (upper - lower)

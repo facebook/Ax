@@ -21,8 +21,7 @@ logger = get_logger(__name__)
 
 # TODO(jej): Add OptimizationConfig validation - can't transform outcome constraints.
 class PercentileY(Transform):
-    """Map Y values to percentiles based on their empirical CDF.
-    """
+    """Map Y values to percentiles based on their empirical CDF."""
 
     def __init__(
         self,

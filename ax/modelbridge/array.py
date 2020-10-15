@@ -112,8 +112,7 @@ class ArrayModelBridge(ModelBridge):
         fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]],
     ) -> None:
-        """Fit the model, given numpy types.
-        """
+        """Fit the model, given numpy types."""
         self.model = model
         self.model.fit(
             Xs=Xs,

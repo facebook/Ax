@@ -125,8 +125,7 @@ def _deprecate(original_func: Callable) -> Callable:
 
 
 class TestCase(unittest.TestCase):
-    """The base test case for Ax, contains various helper functions to write unittest.
-    """
+    """The base test case for Ax, contains various helper functions to write unittest."""
 
     def __init__(self, methodName: str = "runTest") -> None:
         super().__init__(methodName=methodName)
@@ -170,8 +169,7 @@ class TestCase(unittest.TestCase):
         line: Optional[str] = None,
         regex: Optional[str] = None,
     ) -> ContextManager[None]:
-        """Assert that an exception is raised on a specific line.
-        """
+        """Assert that an exception is raised on a specific line."""
         context = _AssertRaisesContextOn(exc, self, line, regex)
         # pyre-ignore [16]: ... has no attribute `handle`.
         return context.handle("assertRaisesOn", [], {})

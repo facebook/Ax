@@ -19,8 +19,7 @@ def fnid(m: ModuleInfo, fn: FunctionType) -> str:
 
 
 def check_annotation(m: ModuleInfo, fn: FunctionType) -> None:
-    """Check that a function is properly annotated
-    """
+    """Check that a function is properly annotated"""
     # local func within `equality_typechecker decorator`; can't be
     # annotated as it breaks sphinx-autodoc-typehints
     if fn.__name__ == "_type_safe_equals":
@@ -55,8 +54,7 @@ def _recurse(t: unittest.TestCase, m: ModuleInfo, obj, visited: Set[Type]) -> No
 
 
 def check_fully_annotated(t: unittest.TestCase, m: ModuleInfo) -> None:
-    """Check that every function in the module have type annotation
-    """
+    """Check that every function in the module have type annotation"""
     for val in m.module.__dict__.values():
         _recurse(t, m, val, set())
 

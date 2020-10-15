@@ -295,7 +295,7 @@ class BaseTrial(ABC, Base):
     @immutable_once_run
     def trial_type(self, trial_type: Optional[str]) -> None:
         """Identifier used to distinguish trial types in experiments
-           with multiple trial types.
+        with multiple trial types.
         """
         if self._experiment is not None:
             if not self._experiment.supports_trial_type(trial_type):

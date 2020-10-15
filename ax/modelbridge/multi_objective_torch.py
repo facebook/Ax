@@ -120,9 +120,9 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             )
         else:
             objective_thresholds = np.array([])
-        objective_thresholds: Optional[np.ndarray] = objective_thresholds if len(
-            objective_thresholds
-        ) else None
+        objective_thresholds: Optional[np.ndarray] = (
+            objective_thresholds if len(objective_thresholds) else None
+        )
         if objective_thresholds is not None:
             extra_kwargs_dict["objective_thresholds"] = objective_thresholds
         return extra_kwargs_dict

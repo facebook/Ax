@@ -463,8 +463,7 @@ class GenerationStrategy(Base):
             self._set_current_model(data=data)
 
     def _set_current_model(self, data: Optional[Data]) -> None:
-        """Instantiate the current model with all available data.
-        """
+        """Instantiate the current model with all available data."""
         model_kwargs = self._curr.model_kwargs or {}
 
         # If last generator run's index matches the current step, extract

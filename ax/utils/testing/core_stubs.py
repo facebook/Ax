@@ -471,7 +471,7 @@ def get_batch_trial(abandon_arm: bool = True) -> BatchTrial:
 
 
 def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
-    """ Create a batch that contains both new arms and N arms from the last
+    """Create a batch that contains both new arms and N arms from the last
     existed trial in the experiment. Where N is equal to the input argument
     'num_repeated_arms'.
     """

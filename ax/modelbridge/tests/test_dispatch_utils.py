@@ -18,8 +18,7 @@ from ax.utils.testing.core_stubs import (
 
 
 class TestDispatchUtils(TestCase):
-    """Tests that dispatching utilities correctly select generation strategies.
-    """
+    """Tests that dispatching utilities correctly select generation strategies."""
 
     def test_choose_generation_strategy(self):
         sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())

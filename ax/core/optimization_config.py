@@ -52,9 +52,9 @@ class OptimizationConfig(Base):
             objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints on metrics.
         """
-        constraints: List[
-            OutcomeConstraint
-        ] = [] if outcome_constraints is None else outcome_constraints
+        constraints: List[OutcomeConstraint] = (
+            [] if outcome_constraints is None else outcome_constraints
+        )
         self._validate_optimization_config(
             objective=objective, outcome_constraints=constraints
         )
@@ -221,9 +221,9 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
                 multi-objective optimization and for calculating frontiers
                 and hypervolumes.
         """
-        constraints: List[
-            OutcomeConstraint
-        ] = [] if outcome_constraints is None else outcome_constraints
+        constraints: List[OutcomeConstraint] = (
+            [] if outcome_constraints is None else outcome_constraints
+        )
         objective_thresholds = objective_thresholds or []
         self._validate_optimization_config(
             objective=objective,

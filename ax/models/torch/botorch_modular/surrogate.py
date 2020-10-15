@@ -299,8 +299,7 @@ class Surrogate(Base):
         )  # pragma: no cover
 
     def compute_diagnostics(self) -> Dict[str, Any]:
-        """Computes model diagnostics like cross-validation measure of fit, etc.
-        """
+        """Computes model diagnostics like cross-validation measure of fit, etc."""
         return {}  # pragma: no cover
 
     def update(

@@ -92,8 +92,7 @@ def build_file_handler(
 
 
 def _build_stream_formatter() -> logging.Formatter:
-    """Default formatter for log messages. Add timestamps to log messages.
-    """
+    """Default formatter for log messages. Add timestamps to log messages."""
     return logging.Formatter(
         fmt="[%(levelname)s %(asctime)s] %(output_name)s: %(message)s",
         datefmt="%m-%d %H:%M:%S",

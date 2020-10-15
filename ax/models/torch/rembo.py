@@ -146,8 +146,7 @@ class REMBO(BotorchModel):
         return torch.stack(X_d)
 
     def project_up(self, X: Tensor) -> Tensor:
-        """Project to high-dimensional space.
-        """
+        """Project to high-dimensional space."""
         Z = torch.t(self.A @ torch.t(X))
         Z = torch.clamp(Z, min=-1, max=1)
         return Z

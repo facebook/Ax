@@ -29,8 +29,7 @@ class TestDocUtils(TestCase):
 
             @copy_doc(has_doc)
             def inherits_doc():
-                """I already have a doc string
-                """
+                """I already have a doc string"""
                 pass
 
     def test_fail_when_no_doc_to_copy(self):

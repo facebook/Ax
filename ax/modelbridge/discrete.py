@@ -213,8 +213,7 @@ def _convert_observations(
 def _get_parameter_values(
     search_space: SearchSpace, param_names: List[str]
 ) -> List[TParamValueList]:
-    """Extract parameter values from a search space of discrete parameters.
-    """
+    """Extract parameter values from a search space of discrete parameters."""
     parameter_values: List[TParamValueList] = []
     for p_name in param_names:
         p = search_space.parameters[p_name]

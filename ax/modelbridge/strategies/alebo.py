@@ -133,8 +133,7 @@ class ALEBOStrategy(GenerationStrategy):
     def gen_projection(
         self, d: int, D: int, dtype: torch.dtype, device: torch.device
     ) -> torch.Tensor:
-        """Generate the projection matrix B as a (d x D) tensor
-        """
+        """Generate the projection matrix B as a (d x D) tensor"""
         B0 = torch.randn(d, D, dtype=dtype, device=device)
         B = B0 / torch.sqrt((B0 ** 2).sum(dim=0))
         return B

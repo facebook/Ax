@@ -392,9 +392,7 @@ class BatchTrial(BaseTrial):
         sufficient_factors = all(len(arm.parameters or []) >= 2 for arm in self.arms)
         if not sufficient_factors:
             return False
-        param_levels: DefaultDict[str, Dict[Union[str, float], int]] = (
-            defaultdict(dict)
-        )
+        param_levels: DefaultDict[str, Dict[Union[str, float], int]] = defaultdict(dict)
         for arm in self.arms:
             for param_name, param_value in arm.parameters.items():
                 # Expected `Union[float, str]` for 2nd anonymous parameter to call

@@ -14,8 +14,7 @@ from ax.utils.common import testutils
 
 
 def get_all_subclasses(cls):
-    """Reccursively get all the subclasses of cls
-    """
+    """Reccursively get all the subclasses of cls"""
     for x in cls.__subclasses__():  # subclasses only contains direct decendants
         yield x
         yield from get_all_subclasses(x)

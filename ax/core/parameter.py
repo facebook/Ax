@@ -202,8 +202,7 @@ class RangeParameter(Parameter):
 
     @property
     def log_scale(self) -> bool:
-        """Whether to sample in log space when drawing random values of the parameter.
-        """
+        """Whether to sample in log space when drawing random values of the parameter."""
         return self._log_scale
 
     def update_range(
@@ -272,7 +271,7 @@ class RangeParameter(Parameter):
 
     def is_valid_type(self, value: TParamValue) -> bool:
         """Same as default except allows floats whose value is an int
-           for Int parameters.
+        for Int parameters.
         """
         if not (isinstance(value, float) or isinstance(value, int)):
             return False

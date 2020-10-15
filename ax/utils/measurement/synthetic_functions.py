@@ -189,8 +189,7 @@ class FromBotorch(SyntheticFunction):
 def from_botorch(
     botorch_synthetic_function: botorch_synthetic.SyntheticTestFunction,
 ) -> SyntheticFunction:
-    """Utility to generate Ax synthetic functions from BoTorch synthetic functions.
-    """
+    """Utility to generate Ax synthetic functions from BoTorch synthetic functions."""
     return FromBotorch(botorch_synthetic_function=botorch_synthetic_function)
 
 

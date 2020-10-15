@@ -140,8 +140,7 @@ def interact_pareto_frontier(
     CI_level: float = DEFAULT_CI_LEVEL,
     show_parameterization_on_hover: bool = True,
 ) -> AxPlotConfig:
-    """Plot a pareto frontier from a list of objects
-    """
+    """Plot a pareto frontier from a list of objects"""
     if not frontier_list:
         raise ValueError("Must receive a non-empty list of pareto frontiers to plot.")
 

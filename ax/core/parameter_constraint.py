@@ -160,8 +160,7 @@ class OrderConstraint(ParameterConstraint):
 
 
 class SumConstraint(ParameterConstraint):
-    """Constraint on the sum of parameters being greater or less than a bound.
-    """
+    """Constraint on the sum of parameters being greater or less than a bound."""
 
     def __init__(
         self, parameters: List[Parameter], is_upper_bound: bool, bound: float

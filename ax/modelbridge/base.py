@@ -367,13 +367,11 @@ class ModelBridge(ABC):
 
     @property
     def model_space(self) -> SearchSpace:
-        """SearchSpace used to fit model.
-        """
+        """SearchSpace used to fit model."""
         return self._model_space
 
     def get_training_data(self) -> List[Observation]:
-        """A copy of the (untransformed) data with which the model was fit.
-        """
+        """A copy of the (untransformed) data with which the model was fit."""
         return deepcopy(self._training_data)
 
     @property
@@ -829,8 +827,7 @@ class ModelBridge(ABC):
     def _transform_observation_data(
         self, observation_data: List[ObservationData]
     ) -> Any:
-        """Apply terminal transform to given observation features and return result.
-        """
+        """Apply terminal transform to given observation features and return result."""
         raise NotImplementedError  # pragma: no cover
 
     def transform_observation_features(
@@ -855,8 +852,7 @@ class ModelBridge(ABC):
     def _transform_observation_features(
         self, observation_features: List[ObservationFeatures]
     ) -> Any:
-        """Apply terminal transform to given observation features and return result.
-        """
+        """Apply terminal transform to given observation features and return result."""
         raise NotImplementedError  # pragma: no cover
 
     def transform_optimization_config(
