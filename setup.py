@@ -11,6 +11,7 @@ REQUIRES = [
     "scipy",
     "scikit-learn",
     "plotly",
+    "typeguard",
 ]
 
 # pytest-cov requires pytest >= 3.6
