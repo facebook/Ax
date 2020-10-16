@@ -373,8 +373,10 @@ class JSONStoreTest(TestCase):
         self.assertIsNone(new_generation_strategy.model)
 
         # Check that we can encode and decode the generation strategy after
-        # it has generated some generator runs.
-        generation_strategy = new_generation_strategy
+        # it has generated some generator runs. Since we now need to `gen`,
+        # we remove the fake callable kwarg we added, since model does not
+        # expect it.
+        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         gr = generation_strategy.gen(experiment)
         gs_json = object_to_json(generation_strategy)
         new_generation_strategy = generation_strategy_from_json(gs_json)

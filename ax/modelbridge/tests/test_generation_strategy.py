@@ -39,14 +39,14 @@ class TestGenerationStrategy(TestCase):
 
         # Mock out slow GPEI.
         self.torch_model_bridge_patcher = patch(
-            f"{TorchModelBridge.__module__}.TorchModelBridge", spec=True
+            f"{TorchModelBridge.__module__}.TorchModelBridge", autospec=True
         )
         self.mock_torch_model_bridge = self.torch_model_bridge_patcher.start()
         self.mock_torch_model_bridge.return_value.gen.return_value = self.gr
 
         # Mock out slow TS.
         self.discrete_model_bridge_patcher = patch(
-            f"{DiscreteModelBridge.__module__}.DiscreteModelBridge", spec=True
+            f"{DiscreteModelBridge.__module__}.DiscreteModelBridge", autospec=True
         )
         self.mock_discrete_model_bridge = self.discrete_model_bridge_patcher.start()
         self.mock_discrete_model_bridge.return_value.gen.return_value = self.gr

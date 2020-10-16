@@ -987,7 +987,9 @@ class SQAStoreTest(TestCase):
 
         # Check that we can encode and decode the generation strategy *after*
         # it has generated some trials and been updated with some data.
-        generation_strategy = new_generation_strategy
+        # Since we now need to `gen`, we remove the fake callable kwarg we added,
+        # since model does not expect it.
+        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         experiment.new_trial(generation_strategy.gen(experiment=experiment))
         generation_strategy.gen(experiment, data=get_branin_data())
         save_generation_strategy(generation_strategy=generation_strategy)
@@ -1004,11 +1006,10 @@ class SQAStoreTest(TestCase):
         self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
 
     def testUpdateGenerationStrategy(self):
-        generation_strategy = get_generation_strategy()
+        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         save_generation_strategy(generation_strategy=generation_strategy)
 
         experiment = get_branin_experiment()
-        generation_strategy = get_generation_strategy()
         save_experiment(experiment)
 
         # add generator run, save, reload

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from typing import Dict
+from typing import Callable, Dict
 from unittest.mock import patch
 
 from ax.utils.common.kwargs import validate_kwarg_typing
@@ -27,6 +27,14 @@ class TestKwargUtils(TestCase):
         def typed_callable_dup_keyword(arg2: int, arg4: str = None) -> None:
             pass
 
+        def typed_callable_with_callable(
+            arg1: int, arg2: Callable[[int], Dict[str, int]]
+        ) -> None:
+            pass
+
+        def typed_callable_extra_arg(arg1: int, arg2: str, arg3: bool) -> None:
+            pass
+
         # pass
         try:
             kwargs = {"arg1": 1, "arg2": "test", "arg3": 2}
@@ -38,6 +46,20 @@ class TestKwargUtils(TestCase):
         try:
             kwargs = {"arg1": 1, "arg2": "test", "arg3": 2, "arg4": {"k1": 1}}
             validate_kwarg_typing([typed_callable, typed_callable_with_dict], **kwargs)
+        except Exception:
+            self.assertTrue(False, "Exception raised on valid kwargs")
+
+        # callable as arg (same arg count but diff type)
+        try:
+            kwargs = {"arg1": 1, "arg2": typed_callable}
+            validate_kwarg_typing([typed_callable_with_callable], **kwargs)
+        except Exception:
+            self.assertTrue(False, "Exception raised on valid kwargs")
+
+        # callable as arg (diff arg count)
+        try:
+            kwargs = {"arg1": 1, "arg2": typed_callable_extra_arg}
+            validate_kwarg_typing([typed_callable_with_callable], **kwargs)
         except Exception:
             self.assertTrue(False, "Exception raised on valid kwargs")
 
@@ -60,10 +82,11 @@ class TestKwargUtils(TestCase):
         # mismatch types
         with patch.object(logger, "warning") as mock_warning:
             kwargs = {"arg1": 1, "arg2": "test", "arg3": "test_again"}
-            validate_kwarg_typing([typed_callable, typed_callable_valid], **kwargs)
+            typed_callables = [typed_callable, typed_callable_valid]
+            validate_kwarg_typing(typed_callables, **kwargs)
             expected_message = (
-                f"Expected argument `arg3` to be of type {type(1)}. "
-                f"Got test_again (type: {type('test_again')})."
+                f"`{typed_callable_valid}` expected argument `arg3` to be of type"
+                f" {type(1)}. Got test_again (type: {type('test_again')})."
             )
             mock_warning.assert_called_once_with(expected_message)
 
@@ -71,9 +94,22 @@ class TestKwargUtils(TestCase):
         with patch.object(logger, "warning") as mock_warning:
             str_dic = {"k1": "test"}
             kwargs = {"arg1": 1, "arg2": "test", "arg3": 2, "arg4": str_dic}
-            validate_kwarg_typing([typed_callable, typed_callable_with_dict], **kwargs)
+            typed_callables = [typed_callable, typed_callable_with_dict]
+            validate_kwarg_typing(typed_callables, **kwargs)
             expected_message = (
-                f"Expected argument `arg4` to be of type typing.Dict[str, int]. "
-                f"Got {str_dic} (type: {type(str_dic)})."
+                f"`{typed_callable_with_dict}` expected argument `arg4` to be of type"
+                f" typing.Dict[str, int]. Got {str_dic} (type: {type(str_dic)})."
+            )
+            mock_warning.assert_called_once_with(expected_message)
+
+        # mismatch types with callable as arg
+        with patch.object(logger, "warning") as mock_warning:
+            kwargs = {"arg1": 1, "arg2": "test_again"}
+            typed_callables = [typed_callable_with_callable]
+            validate_kwarg_typing(typed_callables, **kwargs)
+            expected_message = (
+                f"`{typed_callable_with_callable}` expected argument `arg2` to be of"
+                f" type typing.Callable[[int], typing.Dict[str, int]]. "
+                f"Got test_again (type: {type('test_again')})."
             )
             mock_warning.assert_called_once_with(expected_message)
