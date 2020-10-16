@@ -160,12 +160,8 @@ class ArrayModelBridge(ModelBridge):
     def _predict(
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationData]:
-        # Convert observations to array
-        f, cov = self._model_predict(
-            X=self._transform_observation_features(
-                observation_features=observation_features
-            )
-        )
+        X = observation_features_to_array(self.parameters, observation_features)
+        f, cov = self._model_predict(X=X)
         # Convert arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
 
@@ -366,11 +362,8 @@ class ArrayModelBridge(ModelBridge):
     def _evaluate_acquisition_function(
         self, observation_features: List[ObservationFeatures]
     ) -> List[float]:
-        return self._model_evaluate_acquisition_function(
-            X=self._transform_observation_features(
-                observation_features=observation_features
-            )
-        ).tolist()
+        X = observation_features_to_array(self.parameters, observation_features)
+        return self._model_evaluate_acquisition_function(X=X).tolist()
 
     def _model_evaluate_acquisition_function(self, X: np.ndarray) -> np.ndarray:
         raise NotImplementedError  # pragma: no cover
@@ -680,19 +673,26 @@ def array_to_observation_data(
 def observation_data_to_array(
     observation_data: List[ObservationData],
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Convert arrays of model predictions to a list of ObservationData.
+    """Convert a list of Observation data to arrays.
 
     Args:
-        observation_data_list: A list of n ObservationData
+        observation_data: A list of n ObservationData
 
     Returns:
-        A list of n ObservationData, each containing
+        An array of n ObservationData, each containing
             - f: An (n x m) array
             - cov: An (n x m x m) array
     """
     means = np.array([obsd.means for obsd in observation_data])
     covs = np.array([obsd.covariance for obsd in observation_data])
     return means, covs
+
+
+def observation_features_to_array(
+    parameters: List[str], obsf: List[ObservationFeatures]
+) -> np.ndarray:
+    """Convert a list of Observation features to arrays."""
+    return np.array([[of.parameters[p] for p in parameters] for of in obsf])
 
 
 def _convert_observations(
