@@ -125,7 +125,7 @@ def _deprecate(original_func: Callable) -> Callable:
 
 
 class TestCase(unittest.TestCase):
-    """The base test case for Ax, contains various helper functions to write unittest."""
+    """The base Ax test case, contains various helper functions to write unittests."""
 
     def __init__(self, methodName: str = "runTest") -> None:
         super().__init__(methodName=methodName)

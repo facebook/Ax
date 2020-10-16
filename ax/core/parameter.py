@@ -202,7 +202,7 @@ class RangeParameter(Parameter):
 
     @property
     def log_scale(self) -> bool:
-        """Whether to sample in log space when drawing random values of the parameter."""
+        """Whether the parameter's random values should be sampled from log space."""
         return self._log_scale
 
     def update_range(
