@@ -185,6 +185,26 @@ class ALEBOTest(TestCase):
             noiseless=True,
         )
         self.assertEqual(acq.best_f.item(), 1.0)
+        with mock.patch(
+            "ax.models.torch.alebo.optimize_acqf",
+            autospec=True,
+            return_value=(train_X, train_Y),
+        ) as optim_mock:
+            alebo_acqf_optimizer(
+                acq_function=acq,
+                bounds=None,
+                n=1,
+                inequality_constraints=5.0,
+                fixed_features=None,
+                rounding_func=None,
+                raw_samples=100,
+                num_restarts=5,
+                B=B,
+            )
+        self.assertEqual(optim_mock.call_count, 1)
+        self.assertIsInstance(
+            optim_mock.mock_calls[0][2]["acq_function"], ExpectedImprovement
+        )
 
         acq = ei_or_nei(
             model=m,
