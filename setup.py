@@ -4,8 +4,10 @@
 from setuptools import find_packages, setup
 
 
+MIN_BOTORCH_VERSION = "0.3.1"
+
 REQUIRES = [
-    "botorch>=0.3.1",
+    f"botorch>={MIN_BOTORCH_VERSION}",
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
