@@ -72,14 +72,17 @@ def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> Non
                 else:
                     checked_kwargs.add(kw)
                     kw_val = kwargs.get(kw)
-                    try:
-                        check_type(kw, kw_val, param.annotation)
-                    except TypeError:
-                        message = (
-                            f"Expected argument `{kw}` to be of type {param.annotation}"
-                            + f". Got {kw_val} (type: {type(kw_val)})."
-                        )
-                        logger.warning(message)
+                    # if the keyword is a callable, we only do shallow checks
+                    if not (callable(kw_val) and callable(param.annotation)):
+                        try:
+                            check_type(kw, kw_val, param.annotation)
+                        except TypeError:
+                            message = (
+                                f"`{typed_callable}` expected argument `{kw}` to be of"
+                                f" type {param.annotation}. Got {kw_val}"
+                                f" (type: {type(kw_val)})."
+                            )
+                            logger.warning(message)
 
     # check if kwargs contains keywords not exist in any callables
     extra_keywords = [kw for kw in kwargs.keys() if kw not in checked_kwargs]

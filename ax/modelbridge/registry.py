@@ -243,7 +243,7 @@ class Models(Enum):
         search_space: Optional[SearchSpace] = None,
         experiment: Optional[Experiment] = None,
         data: Optional[Data] = None,
-        silently_filter_kwargs: bool = True,  # TODO[Lena]: default to False
+        silently_filter_kwargs: bool = False,
         **kwargs: Any,
     ) -> ModelBridge:
         assert self.value in MODEL_KEY_TO_MODEL_SETUP, f"Unknown model {self.value}"

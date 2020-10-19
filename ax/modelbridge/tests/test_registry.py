@@ -249,10 +249,11 @@ class ModelRegistryTest(TestCase):
         # Check restoration of GPEI, to ensure proper restoration of callable kwargs
         gpei = Models.GPEI(experiment=exp, data=get_branin_data())
         # Punch GPEI model + bridge kwargs into the Sobol generator run, to avoid
-        # a slow call to `gpei.gen`.
+        # a slow call to `gpei.gen`, and remove Sobol's model state.
         gr._model_key = "GPEI"
         gr._model_kwargs = gpei._model_kwargs
         gr._bridge_kwargs = gpei._bridge_kwargs
+        gr._model_state_after_gen = {}
         gpei_restored = get_model_from_generator_run(
             gr, experiment=exp, data=get_branin_data()
         )
