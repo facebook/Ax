@@ -311,3 +311,35 @@ class TestManagedLoop(TestCase):
         self.assertIn("objective", vals[0])
         self.assertIn("objective", vals[1])
         self.assertIn("objective", vals[1]["objective"])
+
+    @patch(
+        "ax.core.experiment.Experiment.new_trial",
+        side_effect=RuntimeError("cholesky_cpu error - bad matrix"),
+    )
+    def test_annotate_exception(self, _):
+        strategy0 = GenerationStrategy(
+            name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
+        )
+        loop = OptimizationLoop.with_evaluation_function(
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [-5.0, 10.0],
+                    "value_type": "float",
+                    "log_scale": False,
+                },
+                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
+            ],
+            experiment_name="test",
+            objective_name="branin",
+            minimize=True,
+            evaluation_function=_branin_evaluation_function,
+            total_trials=6,
+            generation_strategy=strategy0,
+        )
+        with self.assertRaisesRegex(
+            expected_exception=RuntimeError,
+            expected_regex="Cholesky errors typically occur",
+        ):
+            loop.run_trial()

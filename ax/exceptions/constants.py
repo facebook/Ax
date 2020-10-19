@@ -14,3 +14,11 @@ TS_NO_FEASIBLE_ARMS_ERROR = """
 Less than 1% of samples have a feasible arm.
 Check your outcome constraints.
 """
+
+CHOLESKY_ERROR_ANNOTATION = (
+    "Cholesky errors typically occur when the same or very similar "
+    "arms are suggested repeatedly. This can mean the model has "
+    "already converged and you should avoid running further trials. "
+    "It will also help to convert integer or categorical parameters "
+    "to float ranges where reasonable.\nOriginal error: "
+)

@@ -26,6 +26,7 @@ from ax.core.types import (
     TParameterization,
     TParamValue,
 )
+from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
@@ -59,15 +60,6 @@ from botorch.utils.sampling import manual_seed
 
 
 logger = get_logger(__name__)
-
-
-CHOLESKY_ERROR_ANNOTATION = (
-    "Cholesky errors typically occur when the same or very similar "
-    "arms are suggested repeatedly. This can mean the model has "
-    "already converged and you should avoid running further trials. "
-    "It will also help to convert integer or categorical parameters "
-    "to float ranges where reasonable.\nOriginal error: "
-)
 
 
 class AxClient(WithDBSettingsBase):

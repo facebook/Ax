@@ -13,6 +13,7 @@ from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment, TEvaluationFunction
 from ax.core.types import TModelPredictArm, TParameterization
+from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
@@ -28,6 +29,7 @@ from ax.service.utils.instantiation import (
     outcome_constraint_from_str,
     parameter_from_json,
 )
+from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import get_logger
 
 
@@ -134,6 +136,12 @@ class OptimizationLoop:
         # TODO[drfreund], T42401002
         raise NotImplementedError  # pragma: no cover
 
+    @retry_on_exception(
+        logger=logger,
+        exception_types=(RuntimeError,),
+        suppress_all_errors=False,
+        wrap_error_message_in=CHOLESKY_ERROR_ANNOTATION,
+    )
     def run_trial(self) -> None:
         """Run a single step of the optimization plan."""
         if self.current_trial >= self.total_trials:
