@@ -73,6 +73,18 @@ jobs:
         - pip install -q -e .[dev,mysql,notebook]
       script:
         - pytest -ra
+    - name: "Build with minimum supported BoTorch (for pushing new release)"
+      # Checks whether the current version on Ax master is compatible with the
+      # minimum allowed BoTorch release; this test should be passing before cutting new
+      # version of Ax.
+      python: "3.7"
+      env: ALLOW_FAILURE=true
+      install:
+        # TODO: read from a shared source.
+        - pip install botorch==0.3.1
+        - pip install -q -e .[dev,mysql,notebook]
+      script:
+        - pytest -ra
     - name: "Docs: Sphinx Coverage: Python 3.7"
       python: "3.7"
       script:
