@@ -240,6 +240,7 @@ class TestGenerationStrategy(TestCase):
         for i in range(7):
             g = sobol_GPEI.gen(exp)
             exp.new_trial(generator_run=g).run()
+            self.assertEqual(len(sobol_GPEI._generator_runs), i + 1)
             if i > 4:
                 self.mock_torch_model_bridge.assert_called()
             else:
@@ -288,6 +289,23 @@ class TestGenerationStrategy(TestCase):
                 self.assertIsInstance(
                     sobol_GPEI_generation_strategy.model, TorchModelBridge
                 )
+
+    def test_sobol_strategy(self):
+        exp = get_branin_experiment()
+        sobol_generation_strategy = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=5,
+                    max_parallelism=10,
+                    use_update=False,
+                    enforce_num_trials=False,
+                ),
+            ]
+        )
+        for i in range(1, 6):
+            sobol_generation_strategy.gen(exp, n=1)
+            self.assertEqual(len(sobol_generation_strategy._generator_runs), i)
 
     @patch(f"{Experiment.__module__}.Experiment.fetch_data", return_value=get_data())
     def test_factorial_thompson_strategy(self, _):

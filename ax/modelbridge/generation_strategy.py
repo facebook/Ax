@@ -460,7 +460,9 @@ class GenerationStrategy(Base):
                     num_running=num_running,
                 )
             else:
-                num_generator_runs = max_parallelism - num_running
+                num_generator_runs = min(
+                    num_generator_runs, max_parallelism - num_running
+                )
 
         # Make sure not to extend number of trials expected in step.
         if self._curr.enforce_num_trials and self._curr.num_trials > 0:
