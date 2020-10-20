@@ -306,8 +306,8 @@ class Experiment(Base):
                 "Use `update_tracking_metric` to update an existing metric definition."
             )
 
-        # pyre-fixme[16]: `Optional` has no attribute `metrics`.
-        if self.optimization_config and metric.name in self.optimization_config.metrics:
+        optimization_config = self.optimization_config
+        if optimization_config and metric.name in optimization_config.metrics:
             raise ValueError(
                 f"Metric `{metric.name}` already present in experiment's "
                 "OptimizationConfig. Set a new OptimizationConfig without this metric "
@@ -329,25 +329,7 @@ class Experiment(Base):
         # Before setting any metrics, we validate none are already on
         # the experiment
         for metric in metrics:
-            if metric.name in self._tracking_metrics:
-                raise ValueError(
-                    f"Metric `{metric.name}` already defined on experiment. "
-                    "Use `update_tracking_metric` to update an existing metric"
-                    " definition."
-                )
-
-            if (
-                self.optimization_config
-                # pyre-fixme[16]: `Optional` has no attribute `metrics`.
-                and metric.name in self.optimization_config.metrics
-            ):
-                raise ValueError(
-                    f"Metric `{metric.name}` already present in experiment's "
-                    "OptimizationConfig. Set a new OptimizationConfig without"
-                    " this metric before adding it to tracking metrics."
-                )
-        for metric in metrics:
-            self._tracking_metrics[metric.name] = metric
+            self.add_tracking_metric(metric)
         return self
 
     def update_tracking_metric(self, metric: Metric) -> "Experiment":
