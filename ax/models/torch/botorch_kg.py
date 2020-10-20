@@ -273,6 +273,8 @@ class KnowledgeGradient(BotorchModel):
         )
         # pyre-fixme[16]: `Optional` has no attribute `detach`.
         recommended_point = recommended_point.detach().unsqueeze(0)
+        # ensure correct device (`best_point` always returns a CPU tensor)
+        recommended_point = recommended_point.to(device=self.device)
         # Extract acquisition value (TODO: Make this less painful and repetitive)
         if non_fixed_idcs is not None:
             recommended_point = recommended_point[..., non_fixed_idcs]
