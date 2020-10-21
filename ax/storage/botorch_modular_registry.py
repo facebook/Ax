@@ -45,6 +45,7 @@ from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 # BoTorch `MarginalLogLikelihood` imports
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 
 
 # NOTE: When adding a new registry for a class, make sure to make changes
@@ -92,7 +93,10 @@ ACQUISITION_FUNCTION_REGISTRY: Dict[Type[AcquisitionFunction], int] = {
 """
 Mapping of BoTorch `MarginalLogLikelihood` classes to ints.
 """
-MLL_REGISTRY: Dict[Type[MarginalLogLikelihood], int] = {ExactMarginalLogLikelihood: 0}
+MLL_REGISTRY: Dict[Type[MarginalLogLikelihood], int] = {
+    ExactMarginalLogLikelihood: 0,
+    SumMarginalLogLikelihood: 1,
+}
 
 
 """
