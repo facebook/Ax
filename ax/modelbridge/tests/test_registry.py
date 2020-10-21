@@ -5,9 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from collections import OrderedDict
-from unittest.mock import patch
 
-from ax.core.observation import Observation
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
@@ -222,10 +220,7 @@ class ModelRegistryTest(TestCase):
             ),
         )
 
-    @patch(
-        f"{Observation.__module__}.current_timestamp_in_millis", return_value=123456789
-    )
-    def test_get_model_from_generator_run(self, _):
+    def test_get_model_from_generator_run(self):
         """Tests that it is possible to restore a model from a generator run it
         produced, if `Models` registry was used.
         """

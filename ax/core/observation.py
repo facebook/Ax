@@ -18,7 +18,7 @@ from ax.core.experiment import Experiment
 from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.constants import Keys
 from ax.utils.common.equality import Base
-from ax.utils.common.timeutils import current_timestamp_in_millis
+from ax.utils.common.typeutils import not_none
 
 
 OBS_COLS = {
@@ -223,8 +223,13 @@ def _observations_from_dataframe(
         if trial_index is not None:
             trial = experiment.trials[trial_index]
             metadata = trial._get_candidate_metadata(arm_name) or {}
-            if Keys.OBS_FROM_DF_TIMESTAMP not in metadata:
-                metadata[Keys.OBS_FROM_DF_TIMESTAMP] = current_timestamp_in_millis()
+            if Keys.TRIAL_COMPLETION_TIMESTAMP not in metadata:
+                trial = experiment.trials.get(trial_index)
+                assert trial is not None
+                if trial._time_completed is not None:
+                    metadata[Keys.TRIAL_COMPLETION_TIMESTAMP] = not_none(
+                        trial._time_completed
+                    ).timestamp()
             obs_kwargs[Keys.METADATA] = metadata
         observations.append(
             Observation(
