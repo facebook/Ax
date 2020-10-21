@@ -39,14 +39,14 @@ class TestGenerationStrategy(TestCase):
 
         # Mock out slow GPEI.
         self.torch_model_bridge_patcher = patch(
-            f"{TorchModelBridge.__module__}.TorchModelBridge", autospec=True
+            f"{TorchModelBridge.__module__}.TorchModelBridge", spec=True
         )
         self.mock_torch_model_bridge = self.torch_model_bridge_patcher.start()
         self.mock_torch_model_bridge.return_value.gen.return_value = self.gr
 
         # Mock out slow TS.
         self.discrete_model_bridge_patcher = patch(
-            f"{DiscreteModelBridge.__module__}.DiscreteModelBridge", autospec=True
+            f"{DiscreteModelBridge.__module__}.DiscreteModelBridge", spec=True
         )
         self.mock_discrete_model_bridge = self.discrete_model_bridge_patcher.start()
         self.mock_discrete_model_bridge.return_value.gen.return_value = self.gr
@@ -67,6 +67,13 @@ class TestGenerationStrategy(TestCase):
             },
         )
         self.mock_in_registry = self.registry_setup_dict_patcher.start()
+
+        # model bridges are mocked, which makes kwargs' validation difficult,
+        # so for now we will skip it in the generation strategy tests.
+        # NOTE: Starting with Python3.8 this is not a problem as `autospec=True`
+        # ensures that the mocks have correct signatures, but in earlier
+        # versions kwarg validation on mocks does not really work.
+        self.step_model_kwargs = {"silently_filter_kwargs": True}
 
     def tearDown(self):
         self.torch_model_bridge_patcher.stop()
@@ -230,8 +237,14 @@ class TestGenerationStrategy(TestCase):
         sobol_GPEI = GenerationStrategy(
             name="Sobol+GPEI",
             steps=[
-                GenerationStep(model=Models.SOBOL, num_trials=5),
-                GenerationStep(model=Models.GPEI, num_trials=2),
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=5,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.GPEI, num_trials=2, model_kwargs=self.step_model_kwargs
+                ),
             ],
         )
         self.assertEqual(sobol_GPEI.name, "Sobol+GPEI")
@@ -275,8 +288,16 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
         sobol_GPEI_generation_strategy = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.SOBOL, num_trials=5),
-                GenerationStep(model=Models.GPEI, num_trials=-1),
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=5,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.GPEI,
+                    num_trials=-1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
             ]
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
@@ -300,7 +321,7 @@ class TestGenerationStrategy(TestCase):
                     max_parallelism=10,
                     use_update=False,
                     enforce_num_trials=False,
-                ),
+                )
             ]
         )
         for i in range(1, 6):
@@ -312,8 +333,16 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
         factorial_thompson_generation_strategy = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.FACTORIAL, num_trials=1),
-                GenerationStep(model=Models.THOMPSON, num_trials=-1),
+                GenerationStep(
+                    model=Models.FACTORIAL,
+                    num_trials=1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.THOMPSON,
+                    num_trials=-1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
             ]
         )
         self.assertEqual(
@@ -367,8 +396,14 @@ class TestGenerationStrategy(TestCase):
         sobol_GPEI_generation_strategy = GenerationStrategy(
             name="Sobol+GPEI",
             steps=[
-                GenerationStep(model=Models.SOBOL, num_trials=1),
-                GenerationStep(model=Models.GPEI, num_trials=6),
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.GPEI, num_trials=6, model_kwargs=self.step_model_kwargs
+                ),
             ],
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")

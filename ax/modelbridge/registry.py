@@ -237,7 +237,6 @@ class Models(Enum):
         """Type of `ModelBridge` used for the given model+bridge setup."""
         return MODEL_KEY_TO_MODEL_SETUP[self.value].bridge_class
 
-    # TODO[T67370152]: Test that none of the `ModelSetup`-s share a kwarg.
     def __call__(
         self,
         search_space: Optional[SearchSpace] = None,
@@ -249,11 +248,12 @@ class Models(Enum):
         assert self.value in MODEL_KEY_TO_MODEL_SETUP, f"Unknown model {self.value}"
         # All model bridges require either a search space or an experiment.
         assert search_space or experiment, "Search space or experiment required."
+        search_space = search_space or not_none(experiment).search_space
         model_setup_info = MODEL_KEY_TO_MODEL_SETUP[self.value]
         model_class = model_setup_info.model_class
         bridge_class = model_setup_info.bridge_class
         if not silently_filter_kwargs:
-            validate_kwarg_typing(  # TODO[Lena]: T46467254, pragma: no cover
+            validate_kwarg_typing(
                 typed_callables=[model_class, bridge_class],
                 search_space=search_space,
                 experiment=experiment,
