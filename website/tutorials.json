@@ -25,6 +25,10 @@
     {
       "id": "multi_task",
       "title": "Multi-Task Modeling"
+    },
+    {
+      "id": "multiobjective_optimization",
+      "title": "Multi-Objective Optimization"
     }
   ],
   "Field Experiments": [
