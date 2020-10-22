@@ -232,7 +232,14 @@ ENCODE_DECODE_FIELD_MAPS = {
         encoded_only=["index", "class"],
     ),
     "Type[MarginalLogLikelihood]": EncodeDecodeFieldsMap(
-        python_only=["_module__", "_doc__", "_init__", "forward", "pyro_factor"],
+        python_only=[
+            "_module__",
+            "_doc__",
+            "_init__",
+            "forward",
+            "pyro_factor",
+            "add_other_terms",
+        ],
         encoded_only=["index", "class"],
     ),
     "Type[Transform]": EncodeDecodeFieldsMap(
@@ -336,7 +343,7 @@ class JSONStoreTest(TestCase):
                     json_keys.remove(encoded)
                     json_keys.add(python)
             # TODO: Remove this check if able. `_slotnames__` is not a class attribute
-            # when testing locally, but it is a class attribute on Travis.
+            # when testing locally, but it is a class attribute on Travis
             if class_ == "Type[Model]":
                 object_keys.discard("_slotnames__")
             self.assertEqual(
