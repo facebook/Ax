@@ -55,7 +55,6 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.equality import datetime_equals
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
 
 
 logger = get_logger(__name__)
@@ -121,9 +120,7 @@ class Encoder:
         )
         tracking_metrics = [
             self.metric_to_sqa(metric)
-            for metric in experiment.metrics.values()
-            if experiment.optimization_config is None
-            or metric.name not in not_none(experiment.optimization_config).metrics
+            for metric in experiment._tracking_metrics.values()
         ]
         parameters, parameter_constraints = self.search_space_to_sqa(
             experiment.search_space
