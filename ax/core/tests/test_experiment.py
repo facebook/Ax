@@ -85,6 +85,12 @@ class ExperimentTest(TestCase):
         )
         self.assertNotEqual(self.experiment, experiment2)
 
+    def testDBId(self):
+        self.assertIsNone(self.experiment.db_id)
+        some_id = 123456789
+        self.experiment.db_id = some_id
+        self.assertEqual(self.experiment.db_id, some_id)
+
     def testTrackingMetricsMerge(self):
         # Tracking and optimization metrics should get merged
         # m1 is on optimization_config while m3 is not

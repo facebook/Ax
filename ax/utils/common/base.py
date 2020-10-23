@@ -6,11 +6,25 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from ax.utils.common.equality import equality_typechecker, object_attribute_dicts_equal
 
 
-class Base(object):
-    """Metaclass for core Ax classes."""
+class Base:
+    """Metaclass for core Ax classes. Provides an equality check and `db_id`
+    property for SQA storage.
+    """
+
+    _db_id: Optional[int] = None
+
+    @property
+    def db_id(self) -> Optional[int]:
+        return self._db_id
+
+    @db_id.setter
+    def db_id(self, db_id: int) -> None:
+        self._db_id = db_id
 
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
