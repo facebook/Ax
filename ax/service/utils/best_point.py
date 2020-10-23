@@ -152,7 +152,9 @@ def get_best_parameters(
 
 
 def _get_best_row_for_scalarized_objective(
-    df: pd.DataFrame, objective: ScalarizedObjective
+    # pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
+    df: pd.DataFrame,
+    objective: ScalarizedObjective,
 ) -> pd.DataFrame:
     df = df.copy()
     # First, add a weight column, setting 0.0 if the metric is not part

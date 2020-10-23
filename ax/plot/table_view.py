@@ -135,6 +135,7 @@ def table_view_plot(
 
     if only_data_frame:
         return tuple(
+            # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
             pd.DataFrame.from_records(records, index=metric_names)
             for records in [records_with_mean, records_with_ci]
         )

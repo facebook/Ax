@@ -16,6 +16,7 @@ from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
 from ax.utils.common.equality import Base
 
 
+# pyre-fixme[16]: Module `pd` has no attribute `Timestamp`.
 TPdTimestamp = pd.Timestamp
 
 COLUMN_DATA_TYPES = {
@@ -52,7 +53,10 @@ class Data(Base):
     """
 
     def __init__(
-        self, df: Optional[pd.DataFrame] = None, description: Optional[str] = None
+        self,
+        # pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
+        df: Optional[pd.DataFrame] = None,
+        description: Optional[str] = None,
     ) -> None:
         """Init Data.
 
@@ -63,6 +67,7 @@ class Data(Base):
         """
         # Initialize with barebones DF.
         if df is None:
+            # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
             self._df = pd.DataFrame(columns=self.required_columns())
         else:
             columns = set(df.columns)
@@ -150,9 +155,11 @@ class Data(Base):
         if all((type(datum) is data_type) for datum in data):
             # if all types in iterable are subclasses of Data, return the subclass
             if issubclass(data_type, Data):
+                # pyre-fixme[16]: Module `pd` has no attribute `concat`.
                 return data_type(df=pd.concat(dfs, axis=0, sort=True))
             else:
                 # if not, return the original Data object
+                # pyre-fixme[16]: Module `pd` has no attribute `concat`.
                 return Data(df=pd.concat(dfs, axis=0, sort=True))
         else:
             raise ValueError("More than one custom data type found in data iterable")
@@ -198,6 +205,7 @@ class Data(Base):
         if sample_sizes:
             for record in records:
                 record["n"] = sample_sizes[str(record["arm_name"])]
+        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         return Data(df=pd.DataFrame(records))
 
     @staticmethod
@@ -244,6 +252,7 @@ class Data(Base):
         if sample_sizes:
             for record in records:
                 record["n"] = sample_sizes[str(record["arm_name"])]
+        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         return Data(df=pd.DataFrame(records))
 
     @property
@@ -265,7 +274,7 @@ class Data(Base):
             str: The hash of the DataFrame.
 
         """
-        return md5(self.df.to_json().encode("utf-8")).hexdigest()  # pyre-ignore
+        return md5(self.df.to_json().encode("utf-8")).hexdigest()
 
     @property
     def metric_names(self) -> Set[str]:

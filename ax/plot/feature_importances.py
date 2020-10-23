@@ -12,12 +12,15 @@ from ax.exceptions.core import NoDataError
 from ax.modelbridge import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.utils.common.logger import get_logger
+
+# pyre-fixme[21]: Could not find name `subplots` in `plotly`.
 from plotly import subplots
 
 
 logger = get_logger(__name__)
 
 
+# pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
 def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
     if df.empty:
         raise NoDataError("No Data on Feature Importances found.")
@@ -26,6 +29,7 @@ def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
         go.Bar(y=df.index, x=df[column_name], name=column_name, orientation="h")
         for column_name in df.columns
     ]
+    # pyre-fixme[16]: Module `plotly` has no attribute `subplots`.
     fig = subplots.make_subplots(
         rows=len(df.columns),
         cols=1,
@@ -61,6 +65,7 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
         raise NotImplementedError(
             "Feature importances could not be calculated for any metric"
         )
+    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
     df = pd.DataFrame(importances)
 
     # plot_feature_importance expects index in first column
@@ -88,6 +93,7 @@ def plot_feature_importance_by_feature(
             )
             continue
 
+        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         df = pd.DataFrame(
             [
                 {"Factor": factor, "Importance": importance}
@@ -165,6 +171,7 @@ def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
             logger.warning(
                 "Model for {} does not support feature importances.".format(metric_name)
             )
+    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
     df = pd.DataFrame(importances)
     df.set_index("index", inplace=True)
     df = df.div(df.sum(axis=1), axis=0)

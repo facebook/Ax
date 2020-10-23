@@ -8,6 +8,8 @@ from inspect import Parameter, signature
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from ax.utils.common.logger import get_logger
+
+# pyre-fixme[21]: Could not find module `typeguard`.
 from typeguard import check_type
 
 

@@ -10,7 +10,11 @@ import numpy as np
 from ax.core.types import TCandidateMetadata
 from ax.models.numpy_base import NumpyModel
 from ax.utils.common.docutils import copy_doc
+
+# pyre-fixme[21]: Could not find module `sklearn.ensemble`.
 from sklearn.ensemble import RandomForestRegressor
+
+# pyre-fixme[21]: Could not find module `sklearn.tree`.
 from sklearn.tree import DecisionTreeRegressor
 
 
@@ -34,6 +38,7 @@ class RandomForest(NumpyModel):
     ) -> None:
         self.max_features = max_features
         self.num_trees = num_trees
+        # pyre-fixme[11]: Annotation `RandomForestRegressor` is not defined as a type.
         self.models: List[RandomForestRegressor] = []
 
     @copy_doc(NumpyModel.fit)
@@ -104,6 +109,7 @@ def _get_rf(
 
     Returns: Fitted Random Forest.
     """
+    # pyre-fixme[16]: Module `sklearn` has no attribute `ensemble`.
     r = RandomForestRegressor(
         n_estimators=num_trees, max_features=max_features, bootstrap=True
     )
@@ -130,7 +136,7 @@ def _rf_predict(
     f = np.zeros((X.shape[0], len(models)))
     cov = np.zeros((X.shape[0], len(models), len(models)))
     for i, m in enumerate(models):
-        preds = np.vstack([tree.predict(X) for tree in m.estimators_])  # pyre-ignore
+        preds = np.vstack([tree.predict(X) for tree in m.estimators_])
         f[:, i] = preds.mean(0)
         cov[:, i, i] = preds.var(0)
     return f, cov

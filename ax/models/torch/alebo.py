@@ -34,6 +34,8 @@ from gpytorch.kernels.kernel import Kernel
 from gpytorch.kernels.rbf_kernel import postprocess_rbf
 from gpytorch.kernels.scale_kernel import ScaleKernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+
+# pyre-fixme[21]: Could not find module `scipy.optimize`.
 from scipy.optimize import approx_fprime
 from torch import Tensor
 

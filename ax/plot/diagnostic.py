@@ -25,6 +25,8 @@ from ax.plot.base import (
 )
 from ax.plot.scatter import _error_scatter_data, _error_scatter_trace
 from ax.utils.common.typeutils import not_none
+
+# pyre-fixme[21]: Could not find name `subplots` in `plotly`.
 from plotly import subplots
 
 
@@ -448,6 +450,7 @@ def tile_cross_validation(
     # make subplots (2 plots per row)
     nrows = int(np.ceil(len(metrics) / 2))
     ncols = min(len(metrics), 2)
+    # pyre-fixme[16]: Module `plotly` has no attribute `subplots`.
     fig = subplots.make_subplots(
         rows=nrows,
         cols=ncols,

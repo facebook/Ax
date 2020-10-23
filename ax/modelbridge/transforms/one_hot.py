@@ -16,6 +16,8 @@ from ax.modelbridge.transforms.rounding import (
     randomized_onehot_round,
     strict_onehot_round,
 )
+
+# pyre-fixme[21]: Could not find module `sklearn.preprocessing`.
 from sklearn.preprocessing import LabelBinarizer, LabelEncoder
 
 
@@ -26,11 +28,15 @@ T = TypeVar("T")
 class OneHotEncoder:
     """Joins the two encoders needed for OneHot transform."""
 
+    # pyre-fixme[11]: Annotation `LabelEncoder` is not defined as a type.
     int_encoder: LabelEncoder
+    # pyre-fixme[11]: Annotation `LabelBinarizer` is not defined as a type.
     label_binarizer: LabelBinarizer
 
     def __init__(self, values: List[T]) -> None:
+        # pyre-fixme[16]: Module `sklearn` has no attribute `preprocessing`.
         self.int_encoder = LabelEncoder().fit(values)
+        # pyre-fixme[16]: Module `sklearn` has no attribute `preprocessing`.
         self.label_binarizer = LabelBinarizer().fit(self.int_encoder.transform(values))
 
     def transform(self, labels: List[T]) -> np.ndarray:
@@ -46,9 +52,7 @@ class OneHotEncoder:
     @property
     def classes(self) -> np.ndarray:
         """Return number of classes discovered while fitting transform."""
-        return (
-            self.label_binarizer.classes_  # pyre-ignore[16]: missing attribute classes_
-        )
+        return self.label_binarizer.classes_
 
 
 class OneHot(Transform):

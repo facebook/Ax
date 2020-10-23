@@ -511,6 +511,7 @@ class Experiment(Base):
             )
             if combine_with_last_data and len(current_trial_data) > 0:
                 last_ts, last_data = list(current_trial_data.items())[-1]
+                # pyre-fixme[16]: Module `pd` has no attribute `merge`.
                 merged = pd.merge(
                     last_data.df,
                     trial_df,
