@@ -138,6 +138,7 @@ jobs:
         - pip install torchvision  # required for tutorials
         - pip install ray  # Required for building RayTune tutorial notebook.
         - pip install tabulate  # Required for building RayTune tutorial notebook.
+        - pip install matplotlib  # Required for building Multi-objective tutorial notebook.
       git:
         depth: false
       script:
