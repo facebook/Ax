@@ -51,8 +51,9 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
-from ax.utils.common.equality import Base, datetime_equals
+from ax.utils.common.equality import datetime_equals
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 

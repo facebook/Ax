@@ -16,8 +16,8 @@ from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.types import TCandidateMetadata, TParameterization
+from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
-from ax.utils.common.equality import Base
 from ax.utils.common.typeutils import not_none
 
 

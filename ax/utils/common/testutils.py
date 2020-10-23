@@ -27,7 +27,8 @@ from typing import (
     Type,
 )
 
-from ax.utils.common.equality import Base, object_attribute_dicts_find_unequal_fields
+from ax.utils.common.base import Base
+from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
 
 
 def _get_tb_lines(tb: types.TracebackType) -> List[Tuple[str, int, str]]:

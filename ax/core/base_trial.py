@@ -17,7 +17,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.core.types import TCandidateMetadata
-from ax.utils.common.equality import Base
+from ax.utils.common.base import Base
 from ax.utils.common.typeutils import not_none
 
 

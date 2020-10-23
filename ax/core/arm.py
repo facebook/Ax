@@ -11,7 +11,8 @@ import json
 from typing import Optional
 
 from ax.core.types import TParameterization
-from ax.utils.common.equality import Base, equality_typechecker
+from ax.utils.common.base import Base
+from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.typeutils import numpy_type_to_python_type
 
 
@@ -20,7 +21,6 @@ class Arm(Base):
 
     Randomization in experiments assigns units to a given arm. Thus, the arm
     encapsulates the parametrization needed by the unit.
-
     """
 
     def __init__(

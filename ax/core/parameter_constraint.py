@@ -10,7 +10,7 @@ from typing import Dict, List, Union
 
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.types import ComparisonOp
-from ax.utils.common.equality import Base
+from ax.utils.common.base import Base
 
 
 class ParameterConstraint(Base):

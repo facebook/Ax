@@ -13,7 +13,7 @@ from typing import Dict, Iterable, Optional, Set, Type
 import numpy as np
 import pandas as pd
 from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
-from ax.utils.common.equality import Base
+from ax.utils.common.base import Base
 
 
 # pyre-fixme[16]: Module `pd` has no attribute `Timestamp`.

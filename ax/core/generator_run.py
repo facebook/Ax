@@ -20,7 +20,7 @@ from ax.core.types import (
     TModelPredict,
     TModelPredictArm,
 )
-from ax.utils.common.equality import Base
+from ax.utils.common.base import Base
 from ax.utils.common.typeutils import not_none
 
 

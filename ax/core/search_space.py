@@ -16,7 +16,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.types import TParameterization
-from ax.utils.common.equality import Base
+from ax.utils.common.base import Base
 from ax.utils.common.typeutils import not_none
 
 

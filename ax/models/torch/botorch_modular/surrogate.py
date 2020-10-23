@@ -16,8 +16,8 @@ from ax.models.torch.utils import (
     pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
 )
+from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
-from ax.utils.common.equality import Base
 from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
 from botorch.fit import fit_gpytorch_model
 from botorch.models.model import Model

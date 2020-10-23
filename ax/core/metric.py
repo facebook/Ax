@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type
 
 from ax.core.data import Data
-from ax.utils.common.equality import Base
+from ax.utils.common.base import Base
 from ax.utils.common.serialization import extract_init_args, serialize_init_args
 
 

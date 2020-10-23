@@ -7,7 +7,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict
 
-from ax.utils.common.equality import Base
+from ax.utils.common.base import Base
 from ax.utils.common.serialization import extract_init_args, serialize_init_args
 
 

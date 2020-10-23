@@ -28,16 +28,6 @@ def equality_typechecker(eq_func: Callable) -> Callable:
     return _type_safe_equals
 
 
-class Base(object):
-    """Metaclass for core Ax classes."""
-
-    @equality_typechecker
-    def __eq__(self, other: Base) -> bool:
-        return object_attribute_dicts_equal(
-            one_dict=self.__dict__, other_dict=other.__dict__
-        )
-
-
 def same_elements(list1: List[Any], list2: List[Any]) -> bool:
     """Compare equality of two lists of core Ax objects.
 

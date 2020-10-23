@@ -23,9 +23,9 @@ from ax.models.torch.botorch_modular.utils import (
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchModel
+from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.equality import Base
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from torch import Tensor

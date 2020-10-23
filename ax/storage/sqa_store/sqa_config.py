@@ -32,7 +32,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQARunner,
     SQATrial,
 )
-from ax.utils.common.equality import Base
+from ax.utils.common.base import Base
 
 
 # pyre-fixme[9]: class_to_sqa_class has type `Dict[Type[Base], Type[SQABase]]`; used

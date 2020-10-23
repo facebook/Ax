@@ -14,7 +14,7 @@ from ax.core.outcome_constraint import (
     ObjectiveThreshold,
     OutcomeConstraint,
 )
-from ax.utils.common.equality import Base
+from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 
 
