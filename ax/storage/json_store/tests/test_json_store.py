@@ -238,7 +238,6 @@ ENCODE_DECODE_FIELD_MAPS = {
             "_init__",
             "forward",
             "pyro_factor",
-            "add_other_terms",
         ],
         encoded_only=["index", "class"],
     ),
@@ -346,6 +345,8 @@ class JSONStoreTest(TestCase):
             # when testing locally, but it is a class attribute on Travis
             if class_ == "Type[Model]":
                 object_keys.discard("_slotnames__")
+            if class_ == "Type[MarginalLogLikelihood]":
+                object_keys.discard("add_other_terms")
             self.assertEqual(
                 object_keys,
                 json_keys,
