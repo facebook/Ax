@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from typing import (
@@ -47,7 +49,7 @@ class AbandonedArm(NamedTuple):
     reason: Optional[str] = None
 
     @equality_typechecker
-    def __eq__(self, other: "AbandonedArm") -> bool:
+    def __eq__(self, other: AbandonedArm) -> bool:
         return (
             self.name == other.name
             and self.reason == other.reason
@@ -101,7 +103,7 @@ class BatchTrial(BaseTrial):
 
     def __init__(
         self,
-        experiment: "core.experiment.Experiment",
+        experiment: core.experiment.Experiment,
         generator_run: Optional[GeneratorRun] = None,
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
@@ -135,7 +137,7 @@ class BatchTrial(BaseTrial):
             self._status_quo = status_quo
 
     @property
-    def experiment(self) -> "core.experiment.Experiment":
+    def experiment(self) -> core.experiment.Experiment:
         """The experiment this batch belongs to."""
         return self._experiment
 
@@ -182,7 +184,7 @@ class BatchTrial(BaseTrial):
         raise NotImplementedError("Use `trial.add_arms_and_weights`")
 
     @immutable_once_run
-    def add_arm(self, arm: Arm, weight: float = 1.0) -> "BatchTrial":
+    def add_arm(self, arm: Arm, weight: float = 1.0) -> BatchTrial:
         """Add a arm to the trial.
 
         Args:
@@ -200,7 +202,7 @@ class BatchTrial(BaseTrial):
         arms: List[Arm],
         weights: Optional[List[float]] = None,
         multiplier: float = 1.0,
-    ) -> "BatchTrial":
+    ) -> BatchTrial:
         """Add arms and weights to the trial.
 
         Args:
@@ -223,7 +225,7 @@ class BatchTrial(BaseTrial):
     @immutable_once_run
     def add_generator_run(
         self, generator_run: GeneratorRun, multiplier: float = 1.0
-    ) -> "BatchTrial":
+    ) -> BatchTrial:
         """Add a generator run to the trial.
 
         The arms and weights from the generator run will be merged with
@@ -282,9 +284,7 @@ class BatchTrial(BaseTrial):
         self._status_quo = None
 
     @immutable_once_run
-    def set_status_quo_with_weight(
-        self, status_quo: Arm, weight: float
-    ) -> "BatchTrial":
+    def set_status_quo_with_weight(self, status_quo: Arm, weight: float) -> BatchTrial:
         """Sets status quo arm with given weight. This weight *overrides* any
         weight the status quo has from generator runs attached to this batch.
         Thus, this function is not the same as using add_arm, which will
@@ -306,7 +306,7 @@ class BatchTrial(BaseTrial):
         return self
 
     @immutable_once_run
-    def set_status_quo_and_optimize_power(self, status_quo: Arm) -> "BatchTrial":
+    def set_status_quo_and_optimize_power(self, status_quo: Arm) -> BatchTrial:
         """Adds a status quo arm to the batch and optimizes for power.
 
         NOTE: this optimization based on the arms that are currently attached
@@ -404,7 +404,7 @@ class BatchTrial(BaseTrial):
             param_cardinality *= len(param_values)
         return len(self.arms) == param_cardinality
 
-    def run(self) -> "BatchTrial":
+    def run(self) -> BatchTrial:
         return checked_cast(BatchTrial, super().run())
 
     def normalized_arm_weights(
@@ -445,7 +445,7 @@ class BatchTrial(BaseTrial):
 
     def mark_arm_abandoned(
         self, arm_name: str, reason: Optional[str] = None
-    ) -> "BatchTrial":
+    ) -> BatchTrial:
         """Mark a arm abandoned.
 
         Usually done after deployment when one arm causes issues but
@@ -465,7 +465,7 @@ class BatchTrial(BaseTrial):
         self._abandoned_arms_metadata[arm_name] = abandoned_arm
         return self
 
-    def clone(self) -> "BatchTrial":
+    def clone(self) -> BatchTrial:
         """Clone the trial.
 
         Returns:
