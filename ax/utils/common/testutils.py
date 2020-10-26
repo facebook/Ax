@@ -25,10 +25,14 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    Union,
 )
 
 from ax.utils.common.base import Base
 from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
+
+
+T_AX_BASE_OR_ATTR_DICT = Union[Base, Dict[str, Any]]
 
 
 def _get_tb_lines(tb: types.TracebackType) -> List[Tuple[str, int, str]]:
@@ -125,6 +129,90 @@ def _deprecate(original_func: Callable) -> Callable:
     return _deprecated_func
 
 
+def _build_comparison_str(
+    first: T_AX_BASE_OR_ATTR_DICT,
+    second: T_AX_BASE_OR_ATTR_DICT,
+    level: int = 0,
+    values_in_suffix: str = "",
+) -> str:
+    """Recursively build a comparison string for classes that extend Ax `Base`
+    or two dictionaries (dictionaries are passed in in the recursive case).
+    Prints out an 'inequality report' that includes nested fields.
+
+    NOTE: Allows recursion only up to level 4, with markers like '1)', then 'a)',
+    then 'i)', then '*' for the nested lists.
+
+    For example, for two experiments, the 'report' might look like this, if their
+    search spaces are unequal because of difference of parameters in parameter
+    constraints:
+
+    Experiment(test_1) (type `Experiment`) != Experiment(test_2) (type `Experiment`).
+
+    Fields with different values:
+
+    1) _search_space: ... != ...
+
+        Fields with different values in 1):
+
+            a) _parameter_constraints: ... != ...
+
+                Fields with different values in a):
+
+                    i) _parameter: ... != ...
+
+                        Fields with different values in i):
+
+                            * db_id: ... != ...
+    """
+
+    def _unequal_str(first: Any, second: Any) -> str:  # pyre-ignore[2]
+        return f"{first} (type {type(first)}) != {second} (type {type(second)})."
+
+    if first == second or level > 3:
+        # Don't go deeper than 4 levels as the inequality report will not be legible.
+        return ""
+
+    msg = ""
+    indent = " " * level * 4
+    _, unequal_val = object_attribute_dicts_find_unequal_fields(
+        one_dict=first.__dict__ if isinstance(first, Base) else first,
+        other_dict=second.__dict__ if isinstance(second, Base) else second,
+        fast_return=False,
+    )
+    if level == 0:
+        msg += f"{_unequal_str(first=first, second=second)}\n"
+
+    msg += f"\n{indent}Fields with different values{values_in_suffix}:\n"
+    for idx, (field, (first, second)) in enumerate(unequal_val.items()):
+        # For level 0, use numbers as bullets. For 1, use letters. For 2, use "i".
+        # For 3, use "*".
+        bul = "*"
+        if level == 0:
+            bul = f"{idx + 1})"
+        if level == 1:
+            bul = f"{chr(ord('a') + idx)})"
+        if level == 2:
+            bul = f"{'i' * (idx + 1)})"
+        msg += f"\n{indent}{bul} {field}: {_unequal_str(first=first, second=second)}\n"
+        if isinstance(first, (dict, Base)) and isinstance(second, (dict, Base)):
+            msg += _build_comparison_str(
+                first=first,
+                second=second,
+                level=level + 1,
+                values_in_suffix=f" in {bul}",
+            )
+        elif isinstance(first, list) and isinstance(second, list):
+            # To compare lists recursively via same function, making them into dicts
+            # with index keys.
+            msg += _build_comparison_str(
+                first=dict(zip([str(x) for x in range(len(first))], first)),
+                second=dict(zip([str(x) for x in range(len(second))], second)),
+                level=level + 1,
+                values_in_suffix=f" in {bul}",
+            )
+    return msg
+
+
 class TestCase(unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
@@ -152,17 +240,9 @@ class TestCase(unittest.TestCase):
             second, Base, "Second argument is not a subclass of Ax `Base`."
         )
         if first != second:
-            _, unequal_val = object_attribute_dicts_find_unequal_fields(
-                one_dict=first.__dict__, other_dict=second.__dict__, fast_return=False
+            raise self.failureException(
+                _build_comparison_str(first=first, second=second)
             )
-            msg = msg or ""
-            msg += f"{first} (type {type(first)}) != {second} (type {type(second)})."
-            if unequal_val:
-                msg += "\n\nFields with different values:"
-                for field, (one_val, other_val) in unequal_val.items():
-                    msg += f"\n* {field}: {one_val} (type {type(one_val)}) VS. "
-                    msg += f"{other_val} (type {type(other_val)})"
-            raise self.failureException(msg)
 
     def assertRaisesOn(
         self,

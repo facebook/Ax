@@ -39,8 +39,8 @@ class TestTestUtils(TestCase):
             self.assertEqual(MyBase("red"), MyBase("panda"))
         except AssertionError as err:
             expected_suffix = (
-                "\n\nFields with different values:\n* field: red "
-                "(type <class 'str'>) VS. panda (type <class 'str'>)"
+                "\n\nFields with different values:\n\n1) field: red "
+                "(type <class 'str'>) != panda (type <class 'str'>)"
             )
             self.assertIn(expected_suffix, str(err))
 
