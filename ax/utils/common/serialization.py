@@ -98,7 +98,9 @@ def extract_init_args(args: Dict[str, Any], class_: Type) -> Dict[str, Any]:
             # value for this argument
             if info.default is inspect.Parameter.empty:
                 raise ValueError(
-                    f"Cannot decode because required argument {arg} is missing."
+                    f"Cannot decode to class {class_} because required argument {arg} "
+                    "is missing. If that's not the class you were intending to decode, "
+                    "make sure you have updated your metric or runner registries."
                 )
             else:
                 # Constructor will use default value
