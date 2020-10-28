@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from enum import Enum
@@ -162,7 +164,7 @@ class SQABase:
         return l2
 
     @equality_typechecker
-    def equals(self, other: "SQABase") -> bool:
+    def equals(self, other: SQABase) -> bool:
         """Check if `other` equals `self.`"""
         for field in self.attributes:
             if field in ["id", "_sa_instance_state"] or is_foreign_key_field(field):
@@ -176,7 +178,7 @@ class SQABase:
                 return False
         return True
 
-    def update(self, other: "SQABase") -> None:
+    def update(self, other: SQABase) -> None:
         """Merge `other` into `self.`"""
         ignore_during_update_fields = set(
             getattr(self, "ignore_during_update_fields", [])
@@ -200,7 +202,7 @@ class SQABase:
                 continue
             self.update_field(other, field)
 
-    def update_field(self, other: "SQABase", field: str) -> None:
+    def update_field(self, other: SQABase, field: str) -> None:
         """Update `field` on `self` to be equal to `field` on `other`."""
         self_val = getattr(self, field)
         other_val = getattr(other, field)
@@ -213,7 +215,7 @@ class SQABase:
             return
         setattr(self, field, other_val)
 
-    def fields_equal(self, other: "SQABase", field: str) -> bool:
+    def fields_equal(self, other: SQABase, field: str) -> bool:
         """Check if `field` on `self` is equal to `field` on `other`."""
         self_val = getattr(self, field)
         other_val = getattr(other, field)
