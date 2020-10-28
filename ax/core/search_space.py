@@ -72,7 +72,24 @@ class SearchSpace(Base):
     def set_parameter_constraints(
         self, parameter_constraints: List[ParameterConstraint]
     ) -> None:
+        # Validate that all parameters in constraints are in search
+        # space already.
         self._validate_parameter_constraints(parameter_constraints)
+        # Set the parameter on the constraint to be the parameter by
+        # the matching name among the search space's parameters, so we
+        # are not keeping two copies of the same parameter.
+        for constraint in parameter_constraints:
+            if isinstance(constraint, OrderConstraint):
+                constraint._lower_parameter = self._parameters[
+                    constraint._lower_parameter.name
+                ]
+                constraint._upper_parameter = self._parameters[
+                    constraint._upper_parameter.name
+                ]
+            elif isinstance(constraint, SumConstraint):
+                for idx, parameter in enumerate(constraint.parameters):
+                    constraint.parameters[idx] = self._parameters[parameter.name]
+
         self._parameter_constraints: List[ParameterConstraint] = parameter_constraints
 
     def add_parameter(self, parameter: Parameter) -> None:
