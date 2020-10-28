@@ -32,9 +32,9 @@ class RandomModel(Model):
     `_gen_unconstrained`/`gen` can be directly implemented.
 
     Attributes:
-        deduplicate: If specified, a single instantiation of the model
-            will not return the same point twice. This flag is used in
-            rejection sampling.
+        deduplicate: If True (defaults to True), a single instantiation
+            of the model will not return the same point twice. This flag
+            is used in rejection sampling.
         scramble: If True, permutes the parameter values among
             the elements of the Sobol sequence. Default is True.
         seed: An optional seed value for scrambling.
@@ -42,7 +42,7 @@ class RandomModel(Model):
 
     def __init__(
         self,
-        deduplicate: bool = False,
+        deduplicate: bool = True,
         seed: Optional[int] = None,
         generated_points: Optional[np.ndarray] = None,
     ) -> None:
