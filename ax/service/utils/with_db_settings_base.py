@@ -181,11 +181,12 @@ class WithDBSettingsBase:
         if not self.db_settings_set:
             raise ValueError("Cannot load from DB in absence of DB settings.")
 
+        logger.info("Loading experiment and generation strategy...")
         start_time = time.time()
         experiment = _load_experiment(experiment_name, decoder=self.db_settings.decoder)
         if not isinstance(experiment, Experiment) or experiment.is_simple_experiment:
             raise ValueError("Service API only supports `Experiment`.")
-        logger.debug(
+        logger.info(
             f"Loaded experiment {experiment_name} in "
             f"{_round_floats_for_logging(time.time() - start_time)} seconds."
         )
@@ -195,7 +196,7 @@ class WithDBSettingsBase:
             generation_strategy = _load_generation_strategy_by_experiment_name(
                 experiment_name=experiment_name, decoder=self.db_settings.decoder
             )
-            logger.debug(
+            logger.info(
                 f"Loaded generation strategy for experiment {experiment_name} in "
                 f"{_round_floats_for_logging(time.time() - start_time)} seconds."
             )
