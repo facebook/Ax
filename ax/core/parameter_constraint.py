@@ -6,6 +6,8 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from typing import Dict, List, Union
 
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
@@ -75,7 +77,7 @@ class ParameterConstraint(Base):
         # `float`.
         return weighted_sum <= self._bound
 
-    def clone(self) -> "ParameterConstraint":
+    def clone(self) -> ParameterConstraint:
         """Clone."""
         return ParameterConstraint(
             constraint_dict=self._constraint_dict.copy(), bound=self._bound
@@ -83,7 +85,7 @@ class ParameterConstraint(Base):
 
     def clone_with_transformed_parameters(
         self, transformed_parameters: Dict[str, Parameter]
-    ) -> "ParameterConstraint":
+    ) -> ParameterConstraint:
         """Clone, but replaced parameters with transformed versions."""
         return self.clone()
 
@@ -137,7 +139,7 @@ class OrderConstraint(ParameterConstraint):
         """Weights on parameters for linear constraint representation."""
         return {self.lower_parameter.name: 1.0, self.upper_parameter.name: -1.0}
 
-    def clone(self) -> "OrderConstraint":
+    def clone(self) -> OrderConstraint:
         """Clone."""
         return OrderConstraint(
             lower_parameter=self.lower_parameter.clone(),
@@ -146,7 +148,7 @@ class OrderConstraint(ParameterConstraint):
 
     def clone_with_transformed_parameters(
         self, transformed_parameters: Dict[str, Parameter]
-    ) -> "OrderConstraint":
+    ) -> OrderConstraint:
         """Clone, but replace parameters with transformed versions."""
         return OrderConstraint(
             lower_parameter=transformed_parameters[self.lower_parameter.name],
@@ -197,7 +199,7 @@ class SumConstraint(ParameterConstraint):
         """Whether the sum is constrained by a <= or >= inequality."""
         return ComparisonOp.LEQ if self._is_upper_bound else ComparisonOp.GEQ
 
-    def clone(self) -> "SumConstraint":
+    def clone(self) -> SumConstraint:
         """Clone.
 
         To use the same constraint, we need to reconstruct the original bound.
@@ -211,7 +213,7 @@ class SumConstraint(ParameterConstraint):
 
     def clone_with_transformed_parameters(
         self, transformed_parameters: Dict[str, Parameter]
-    ) -> "SumConstraint":
+    ) -> SumConstraint:
         """Clone, but replace parameters with transformed versions."""
         return SumConstraint(
             parameters=[transformed_parameters[p.name] for p in self._parameters],
