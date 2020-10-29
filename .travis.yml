@@ -81,7 +81,7 @@ jobs:
       env: ALLOW_FAILURE=true
       install:
         # TODO: read from a shared source.
-        - pip install botorch==0.3.1
+        - pip install botorch==0.3.2
         - pip install -q -e .[dev,mysql,notebook]
       script:
         - pytest -ra
