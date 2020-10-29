@@ -161,7 +161,6 @@ class GenerationStrategy(Base):
     # Experiment, for which this generation strategy has generated trials, if
     # it exists.
     _experiment: Optional[Experiment] = None
-    _db_id: Optional[int] = None  # Used when storing to DB.
     # Trial indices as last seen by the model; updated in `_model` property setter.
     _seen_trial_indices_by_status = None
     _model: Optional[ModelBridge] = None  # Current model.
