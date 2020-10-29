@@ -228,8 +228,6 @@ def _observations_from_dataframe(
             trial = experiment.trials[trial_index]
             metadata = trial._get_candidate_metadata(arm_name) or {}
             if Keys.TRIAL_COMPLETION_TIMESTAMP not in metadata:
-                trial = experiment.trials.get(trial_index)
-                assert trial is not None
                 if trial._time_completed is not None:
                     metadata[Keys.TRIAL_COMPLETION_TIMESTAMP] = not_none(
                         trial._time_completed
