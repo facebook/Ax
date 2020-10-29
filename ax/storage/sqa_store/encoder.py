@@ -36,6 +36,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.metric_registry import METRIC_REGISTRY
 from ax.storage.runner_registry import RUNNER_REGISTRY
+from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
@@ -58,6 +59,7 @@ from ax.utils.common.logger import get_logger
 
 
 logger = get_logger(__name__)
+T_OBJ_TO_SQA = List[Tuple[Base, SQABase]]
 
 
 class Encoder:
