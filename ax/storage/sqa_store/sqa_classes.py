@@ -500,7 +500,7 @@ class SQAExperiment(Base):
         "SQAGenerationStrategy",
         backref=backref("experiment", lazy=False),
         uselist=False,
-        lazy="selectin",
+        lazy=True,
     )
 
     immutable_fields = ["name"]
