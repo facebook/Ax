@@ -415,7 +415,9 @@ def extract_map_statedict(
         else:
             model_idx = 0
             param_name = k
-        map_sds[model_idx][param_name] = torch.select(v, 0, 0)
+        if len(v.shape) > 1:
+            v = torch.select(v, 0, 0)
+        map_sds[model_idx][param_name] = v
     return map_sds
 
 

@@ -121,13 +121,15 @@ class ALEBOTest(TestCase):
         # Test extract_map_statedict
         map_sds = extract_map_statedict(m_b=m_b, num_outputs=1)
         self.assertEqual(len(map_sds), 1)
-        self.assertEqual(len(map_sds[0]), 3)
+        self.assertEqual(len(map_sds[0]), 5)
         self.assertEqual(
             set(map_sds[0]),
             {
                 "covar_module.base_kernel.Uvec",
                 "covar_module.raw_outputscale",
                 "mean_module.constant",
+                "covar_module.raw_outputscale_constraint.lower_bound",
+                "covar_module.raw_outputscale_constraint.upper_bound",
             },
         )
         self.assertEqual(
@@ -138,13 +140,15 @@ class ALEBOTest(TestCase):
         map_sds = extract_map_statedict(m_b=ml, num_outputs=2)
         self.assertEqual(len(map_sds), 2)
         for i in range(2):
-            self.assertEqual(len(map_sds[i]), 3)
+            self.assertEqual(len(map_sds[i]), 5)
             self.assertEqual(
                 set(map_sds[i]),
                 {
                     "covar_module.base_kernel.Uvec",
                     "covar_module.raw_outputscale",
                     "mean_module.constant",
+                    "covar_module.raw_outputscale_constraint.lower_bound",
+                    "covar_module.raw_outputscale_constraint.upper_bound",
                 },
             )
             self.assertEqual(
