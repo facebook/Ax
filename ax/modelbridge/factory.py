@@ -371,9 +371,7 @@ def get_MOO_EHVI(
     objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
-    device: torch.device = (
-        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    ),
+    device: Optional[torch.device] = None,
 ) -> MultiObjectiveTorchModelBridge:
     """Instantiates a multi-objective model that generates points with EHVI.
 
@@ -385,6 +383,9 @@ def get_MOO_EHVI(
     `objective_thresholds` can be passed in the optimization_config or
     passed directly here.
     """
+    device = device or (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    )
     # pyre-ignore: [16] `Optional` has no attribute `objective`.
     if not isinstance(experiment.optimization_config.objective, MultiObjective):
         raise ValueError("Multi-objective optimization requires multiple objectives.")
