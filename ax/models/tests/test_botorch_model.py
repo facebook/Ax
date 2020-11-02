@@ -369,8 +369,12 @@ class BotorchModelTest(TestCase):
             "mean_module.constant": [3.5004],
             "covar_module.raw_outputscale": 2.2438,
             "covar_module.base_kernel.raw_lengthscale": [[-0.9274, -0.9274, -0.9274]],
+            "covar_module.base_kernel.raw_lengthscale_constraint.lower_bound": 0.1,
+            "covar_module.base_kernel.raw_lengthscale_constraint.upper_bound": 2.5,
             "covar_module.base_kernel.lengthscale_prior.concentration": 3.0,
             "covar_module.base_kernel.lengthscale_prior.rate": 6.0,
+            "covar_module.raw_outputscale_constraint.lower_bound": 0.2,
+            "covar_module.raw_outputscale_constraint.upper_bound": 2.6,
             "covar_module.outputscale_prior.concentration": 2.0,
             "covar_module.outputscale_prior.rate": 0.15,
         }
