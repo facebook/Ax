@@ -7,7 +7,7 @@
 from datetime import datetime
 from inspect import signature
 from typing import Callable
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -214,6 +214,88 @@ class SQAStoreTest(TestCase):
             save_experiment(exp)
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
+
+    @patch(
+        f"{Decoder.__module__}.Decoder.generator_run_from_sqa",
+        side_effect=Decoder(SQAConfig()).generator_run_from_sqa,
+    )
+    @patch(
+        f"{Decoder.__module__}.Decoder.trial_from_sqa",
+        side_effect=Decoder(SQAConfig()).trial_from_sqa,
+    )
+    @patch(
+        f"{Decoder.__module__}.Decoder.experiment_from_sqa",
+        side_effect=Decoder(SQAConfig()).experiment_from_sqa,
+    )
+    def testExperimentSaveAndLoadReducedState(
+        self, _mock_exp_from_sqa, _mock_trial_from_sqa, _mock_gr_from_sqa
+    ):
+        # 1. No abandoned arms + no trials case, reduced state should be the
+        # same as non-reduced state.
+        exp = get_experiment_with_multi_objective()
+        save_experiment(exp)
+        loaded_experiment = load_experiment(exp.name, reduced_state=True)
+        self.assertEqual(loaded_experiment, exp)
+        _mock_exp_from_sqa.assert_called_once()
+        _mock_trial_from_sqa.assert_not_called()  # No trials on exp.
+        # Make sure decoder function was called with `reduced_state=True`.
+        self.assertTrue(_mock_exp_from_sqa.call_args().get("reduced_state"), True)
+        _mock_exp_from_sqa.reset_mock()
+
+        # 2. Try case with abandoned arms.
+        exp = self.experiment
+        save_experiment(exp)
+        loaded_experiment = load_experiment(exp.name, reduced_state=True)
+        # Experiments are not the same, because one has abandoned arms info.
+        self.assertNotEqual(loaded_experiment, exp)
+        # Remove all abandoned arms and check that all else is equal as expected.
+        exp.trials.get(0)._abandoned_arms_metadata = {}
+        self.assertEqual(loaded_experiment, exp)
+        # Make sure that all relevant decoding functions were called with
+        # `reduced_state=True` and correct number of times.
+        _mock_exp_from_sqa.assert_called_once()
+        self.assertTrue(_mock_exp_from_sqa.call_args().get("reduced_state"), True)
+        _mock_trial_from_sqa.assert_called_once()
+        self.assertTrue(_mock_trial_from_sqa.call_args().get("reduced_state"), True)
+        # 2 generator runs + regular and status quo.
+        self.assertEqual(len(_mock_gr_from_sqa.call_args_list), 2)
+        self.assertTrue(_mock_gr_from_sqa.call_args().get("reduced_state"), True)
+        _mock_exp_from_sqa.reset_mock()
+        _mock_trial_from_sqa.reset_mock()
+        _mock_gr_from_sqa.reset_mock()
+
+        # 3. Try case with model state and search space + opt.config on a
+        # generator run in the experiment.
+        gr = Models.SOBOL(experiment=exp).gen(1)
+        # Expecting model kwargs to have 5 fields (deduplicate, init_position, etc.)
+        # and the rest of model-state info on generator run to have values too.
+        self.assertEqual(len(gr._model_kwargs), 5)
+        self.assertEqual(len(gr._bridge_kwargs), 6)
+        self.assertEqual(len(gr._model_state_after_gen), 1)
+        self.assertEqual(len(gr._gen_metadata), 0)
+        self.assertIsNotNone(gr._search_space, gr.optimization_config)
+        exp.new_trial(generator_run=gr)
+        save_experiment(exp)
+        # Make sure that all relevant decoding functions were called with
+        # `reduced_state=True` and correct number of times.
+        loaded_experiment = load_experiment(exp.name, reduced_state=True)
+        _mock_exp_from_sqa.assert_called_once()
+        self.assertTrue(_mock_exp_from_sqa.call_args().get("reduced_state"), True)
+        self.assertEqual(len(_mock_trial_from_sqa.call_args_list), 2)
+        self.assertTrue(_mock_trial_from_sqa.call_args().get("reduced_state"), True)
+        # 2 generator runs from trial #0 + 1 from trial #1.
+        self.assertEqual(len(_mock_gr_from_sqa.call_args_list), 3)
+        self.assertTrue(_mock_gr_from_sqa.call_args().get("reduced_state"), True)
+        self.assertNotEqual(loaded_experiment, exp)
+        # Remove all fields that are not part of the reduced state and
+        # check that everything else is equal as expected.
+        exp.trials.get(1).generator_run._model_kwargs = None
+        exp.trials.get(1).generator_run._bridge_kwargs = None
+        exp.trials.get(1).generator_run._gen_metadata = None
+        exp.trials.get(1).generator_run._model_state_after_gen = None
+        exp.trials.get(1).generator_run._search_space = None
+        exp.trials.get(1).generator_run._optimization_config = None
+        self.assertEqual(loaded_experiment, exp)
 
     def testMTExperimentSaveAndLoad(self):
         experiment = get_multi_type_experiment(add_trials=True)

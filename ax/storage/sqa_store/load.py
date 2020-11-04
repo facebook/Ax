@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional
+from typing import Optional, Type, cast
 
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -12,21 +12,37 @@ from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.sqa_classes import SQAExperiment
 from ax.storage.sqa_store.sqa_config import SQAConfig
+from sqlalchemy.orm import defaultload, lazyload
 
 
 # ---------------------------- Loading `Experiment`. ---------------------------
 
 
 def load_experiment(
-    experiment_name: str, config: Optional[SQAConfig] = None
+    experiment_name: str,
+    config: Optional[SQAConfig] = None,
+    reduced_state: bool = False,
 ) -> Experiment:
-    """Load experiment by name (uses default SQAConfig)."""
+    """Load experiment by name.
+
+    Args:
+        experiment_name: Name of the expeirment to load.
+        config: `SQAConfig`, from which to retrieve the decoder. Optional,
+            defaults to base `SQAConfig`.
+        reduced_state: Whether to load experiment with a slightly reduced state
+            (without abandoned arms on experiment and withoug model state,
+            search space, and optimization config on generator runs).
+    """
     config = config or SQAConfig()
     decoder = Decoder(config=config)
-    return _load_experiment(experiment_name=experiment_name, decoder=decoder)
+    return _load_experiment(
+        experiment_name=experiment_name, decoder=decoder, reduced_state=reduced_state
+    )
 
 
-def _load_experiment(experiment_name: str, decoder: Decoder) -> Experiment:
+def _load_experiment(
+    experiment_name: str, decoder: Decoder, reduced_state: bool = False
+) -> Experiment:
     """Load experiment by name, using given Decoder instance.
 
     1) Get SQLAlchemy object from DB.
@@ -34,9 +50,12 @@ def _load_experiment(experiment_name: str, decoder: Decoder) -> Experiment:
     """
     # Convert SQA to user-facing class outside of session scope to avoid timeouts
     return decoder.experiment_from_sqa(
-        experiment_sqa=_get_experiment_sqa(
+        experiment_sqa=_get_experiment_sqa_reduced_state(
             experiment_name=experiment_name, decoder=decoder
         )
+        if reduced_state
+        else _get_experiment_sqa(experiment_name=experiment_name, decoder=decoder),
+        reduced_state=reduced_state,
     )
 
 
@@ -50,6 +69,45 @@ def _get_experiment_sqa(experiment_name: str, decoder: Decoder) -> SQAExperiment
         if sqa_experiment is None:
             raise ValueError(f"Experiment '{experiment_name}' not found.")
     return sqa_experiment  # pyre-ignore[7]
+
+
+def _get_experiment_sqa_reduced_state(
+    experiment_name: str, decoder: Decoder
+) -> SQAExperiment:
+    """Obtains most of the SQLAlchemy experiment object from DB, with some attributes
+    (model state on generator runs, abandoned arms) omitted. Used for loading
+    large experiments, in cases where model state history is not required.
+    """
+    exp_sqa_class = cast(
+        Type[SQAExperiment], decoder.config.class_to_sqa_class[Experiment]
+    )
+    with session_scope() as session:
+        sqa_experiment = (
+            session.query(exp_sqa_class)
+            .filter_by(name=experiment_name)
+            .options(
+                lazyload("trials.generator_runs.parameters"),
+                lazyload("trials.generator_runs.parameter_constraints"),
+                lazyload("trials.generator_runs.metrics"),
+                lazyload("trials.abandoned_arms"),
+                defaultload(exp_sqa_class.trials)
+                .defaultload("generator_runs")
+                .defer("model_kwargs"),
+                defaultload(exp_sqa_class.trials)
+                .defaultload("generator_runs")
+                .defer("bridge_kwargs"),
+                defaultload(exp_sqa_class.trials)
+                .defaultload("generator_runs")
+                .defer("model_state_after_gen"),
+                defaultload(exp_sqa_class.trials)
+                .defaultload("generator_runs")
+                .defer("gen_metadata"),
+            )
+            .one_or_none()
+        )
+        if sqa_experiment is None:
+            raise ValueError(f"Experiment '{experiment_name}' not found.")
+    return sqa_experiment
 
 
 def _get_experiment_id(experiment_name: str, decoder: Decoder) -> Optional[int]:
