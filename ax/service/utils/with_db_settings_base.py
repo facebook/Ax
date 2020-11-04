@@ -205,7 +205,9 @@ class WithDBSettingsBase:
         try:
             start_time = time.time()
             generation_strategy = _load_generation_strategy_by_experiment_name(
-                experiment_name=experiment_name, decoder=self.db_settings.decoder
+                experiment_name=experiment_name,
+                decoder=self.db_settings.decoder,
+                experiment=experiment,
             )
             logger.info(
                 f"Loaded generation strategy for experiment {experiment_name} in "
