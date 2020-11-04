@@ -371,10 +371,6 @@ class SQAGenerationStrategy(Base):
         order_by=lambda: SQAGeneratorRun.id,
     )
 
-    data: SQAData = relationship(
-        "SQAData", cascade="all, delete-orphan", lazy=False, uselist=False
-    )
-
 
 class SQATrial(Base):
     __tablename__: str = "trial_v2"
@@ -498,7 +494,7 @@ class SQAExperiment(Base):
     )
     generation_strategy: Optional[SQAGenerationStrategy] = relationship(
         "SQAGenerationStrategy",
-        backref=backref("experiment", lazy=False),
+        backref=backref("experiment", lazy=True),
         uselist=False,
         lazy=True,
     )

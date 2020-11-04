@@ -674,19 +674,39 @@ class Decoder:
         return generator_run
 
     def generation_strategy_from_sqa(
-        self, gs_sqa: SQAGenerationStrategy
+        self,
+        gs_sqa: SQAGenerationStrategy,
+        experiment: Optional[Experiment] = None,
+        reduced_state: bool = False,
     ) -> GenerationStrategy:
         """Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""
         steps = object_from_json(gs_sqa.steps)
         gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
         gs._curr = gs._steps[gs_sqa.curr_index]
-        gs._generator_runs = [
-            self.generator_run_from_sqa(gr) for gr in gs_sqa.generator_runs
-        ]
+        if reduced_state and gs_sqa.generator_runs:
+            # Only fully load the last of the generator runs, load the rest with
+            # reduced state.
+            gs._generator_runs = [
+                self.generator_run_from_sqa(generator_run_sqa=gr, reduced_state=True)
+                for gr in gs_sqa.generator_runs[:-1]
+            ]
+            gs._generator_runs.append(
+                self.generator_run_from_sqa(
+                    generator_run_sqa=gs_sqa.generator_runs[-1], reduced_state=False
+                )
+            )
+        else:
+            gs._generator_runs = [
+                self.generator_run_from_sqa(gr) for gr in gs_sqa.generator_runs
+            ]
         if len(gs._generator_runs) > 0:
             # Generation strategy had an initialized model.
-            # pyre-ignore[16]: SQAGenerationStrategy does not have `experiment` attr.
-            gs._experiment = self.experiment_from_sqa(gs_sqa.experiment)
+            if experiment is None:
+                raise SQADecodeError(
+                    "Cannot decode a generation strategy with a non-zero number of "
+                    "generator runs without an experiment."
+                )
+            gs._experiment = experiment
             # If model in the current step was not directly from the `Models` enum,
             # pass its type to `restore_model_from_generator_run`, which will then
             # attempt to use this type to recreate the model.

@@ -7,10 +7,15 @@
 from typing import Optional, Type, cast
 
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.sqa_classes import SQAExperiment
+from ax.storage.sqa_store.sqa_classes import (
+    SQAExperiment,
+    SQAGenerationStrategy,
+    SQAGeneratorRun,
+)
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from sqlalchemy.orm import defaultload, lazyload
 
@@ -131,7 +136,10 @@ def _get_experiment_id(experiment_name: str, decoder: Decoder) -> Optional[int]:
 
 
 def load_generation_strategy_by_experiment_name(
-    experiment_name: str, config: Optional[SQAConfig] = None
+    experiment_name: str,
+    config: Optional[SQAConfig] = None,
+    experiment: Optional[Experiment] = None,
+    reduced_state: bool = False,
 ) -> GenerationStrategy:
     """Finds a generation strategy attached to an experiment specified by a name
     and restores it from its corresponding SQA object.
@@ -139,31 +147,32 @@ def load_generation_strategy_by_experiment_name(
     config = config or SQAConfig()
     decoder = Decoder(config=config)
     return _load_generation_strategy_by_experiment_name(
-        experiment_name=experiment_name, decoder=decoder
+        experiment_name=experiment_name,
+        decoder=decoder,
+        experiment=experiment,
+        reduced_state=reduced_state,
     )
 
 
 def load_generation_strategy_by_id(
-    gs_id: int, config: Optional[SQAConfig] = None
+    gs_id: int,
+    config: Optional[SQAConfig] = None,
+    experiment: Optional[Experiment] = None,
+    reduced_state: bool = False,
 ) -> GenerationStrategy:
     """Finds a generation strategy stored by a given ID and restores it."""
     config = config or SQAConfig()
     decoder = Decoder(config=config)
-    return _load_generation_strategy_by_id(gs_id=gs_id, decoder=decoder)
-
-
-def _load_generation_strategy_by_id(gs_id: int, decoder: Decoder) -> GenerationStrategy:
-    """Finds a generation strategy stored by a given ID and restores it."""
-    gs_sqa_class = decoder.config.class_to_sqa_class[GenerationStrategy]
-    with session_scope() as session:
-        gs_sqa = session.query(gs_sqa_class).filter_by(id=gs_id).one_or_none()
-        if gs_sqa is None:
-            raise ValueError(f"Generation strategy with ID #{gs_id} not found.")
-    return decoder.generation_strategy_from_sqa(gs_sqa=gs_sqa)  # pyre-ignore[6]
+    return _load_generation_strategy_by_id(
+        gs_id=gs_id, decoder=decoder, experiment=experiment, reduced_state=reduced_state
+    )
 
 
 def _load_generation_strategy_by_experiment_name(
-    experiment_name: str, decoder: Decoder
+    experiment_name: str,
+    decoder: Decoder,
+    experiment: Optional[Experiment] = None,
+    reduced_state: bool = False,
 ) -> GenerationStrategy:
     """Load a generation strategy attached to an experiment specified by a name,
     using given Decoder instance.
@@ -171,23 +180,38 @@ def _load_generation_strategy_by_experiment_name(
     1) Get SQLAlchemy object from DB.
     2) Convert to corresponding Ax object.
     """
-    exp_sqa_class = decoder.config.class_to_sqa_class[Experiment]
-    gs_sqa_class = decoder.config.class_to_sqa_class[GenerationStrategy]
-    with session_scope() as session:
-        gs_sqa = (
-            session.query(gs_sqa_class)
-            .join(exp_sqa_class.generation_strategy)  # pyre-ignore[16]
-            # pyre-fixme[16]: `SQABase` has no attribute `name`.
-            .filter(exp_sqa_class.name == experiment_name)
-            .one_or_none()
-        )
-    if gs_sqa is None:
+    gs_id = _get_generation_strategy_id(
+        experiment_name=experiment_name, decoder=decoder
+    )
+    if gs_id is None:
         raise ValueError(
             f"Experiment {experiment_name} does not have a generation strategy "
             "attached to it."
         )
-    # pyre-fixme[6]: Expected `SQAGenerationStrategy` for 1st param but got `SQABase`.
-    return decoder.generation_strategy_from_sqa(gs_sqa=gs_sqa)
+    if not experiment:
+        experiment = _load_experiment(
+            experiment_name=experiment_name,
+            decoder=decoder,
+            reduced_state=reduced_state,
+        )
+    return _load_generation_strategy_by_id(
+        gs_id=gs_id, decoder=decoder, experiment=experiment, reduced_state=reduced_state
+    )
+
+
+def _load_generation_strategy_by_id(
+    gs_id: int,
+    decoder: Decoder,
+    experiment: Optional[Experiment] = None,
+    reduced_state: bool = False,
+) -> GenerationStrategy:
+    """Finds a generation strategy stored by a given ID and restores it."""
+    gs_sqa = _get_generation_strategy_sqa(
+        gs_id=gs_id, decoder=decoder, reduced_state=reduced_state
+    )
+    return decoder.generation_strategy_from_sqa(
+        gs_sqa=gs_sqa, experiment=experiment, reduced_state=reduced_state
+    )
 
 
 def _get_generation_strategy_id(
@@ -210,3 +234,48 @@ def _get_generation_strategy_id(
     if sqa_gs_id is None:
         return None
     return sqa_gs_id[0]
+
+
+def _get_generation_strategy_sqa(
+    gs_id: int, decoder: Decoder, reduced_state: bool = False
+) -> SQAGenerationStrategy:
+    """Obtains most of the SQLAlchemy experiment object from DB."""
+    gs_sqa_class = cast(
+        Type[SQAGenerationStrategy],
+        decoder.config.class_to_sqa_class[GenerationStrategy],
+    )
+    gr_sqa_class = cast(
+        Type[SQAGeneratorRun],
+        decoder.config.class_to_sqa_class[GeneratorRun],
+    )
+    with session_scope() as session:
+        query = session.query(gs_sqa_class).filter_by(id=gs_id)
+        if reduced_state:
+            query = query.options(
+                lazyload("generator_runs.parameters"),
+                lazyload("generator_runs.parameter_constraints"),
+                lazyload("generator_runs.metrics"),
+                defaultload(gs_sqa_class.generator_runs).defer("model_kwargs"),
+                defaultload(gs_sqa_class.generator_runs).defer("bridge_kwargs"),
+                defaultload(gs_sqa_class.generator_runs).defer("model_state_after_gen"),
+                defaultload(gs_sqa_class.generator_runs).defer("gen_metadata"),
+            )
+        gs_sqa = query.one_or_none()
+    if gs_sqa is None:
+        raise ValueError(f"Generation strategy with ID #{gs_id} not found.")
+
+    # Load full last generator run (including model state), for generation
+    # strategy restoration, if loading reduced state.
+    if reduced_state and gs_sqa.generator_runs:
+        last_generator_run_id = gs_sqa.generator_runs[-1].id
+        with session_scope() as session:
+            last_gr_sqa = (
+                session.query(gr_sqa_class)
+                .filter_by(id=last_generator_run_id)
+                .one_or_none()
+            )
+        # Swap last generator run with no state for a generator run with
+        # state.
+        gs_sqa.generator_runs[len(gs_sqa.generator_runs) - 1] = last_gr_sqa
+
+    return gs_sqa

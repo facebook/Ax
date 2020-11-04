@@ -1110,6 +1110,95 @@ class SQAStoreTest(TestCase):
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
 
+    def testEncodeDecodeGenerationStrategyReducedState(self):
+        """Try restoring the generation strategy using the experiment its attached to,
+        passing the experiment object.
+        """
+        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
+        experiment = get_branin_experiment()
+        experiment.new_trial(generation_strategy.gen(experiment=experiment))
+        generation_strategy.gen(experiment, data=get_branin_data())
+        self.assertEqual(len(generation_strategy._generator_runs), 2)
+        save_experiment(experiment)
+        save_generation_strategy(generation_strategy=generation_strategy)
+
+        new_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name,
+            reduced_state=True,
+            experiment=experiment,
+        )
+        self.assertEqual(len(new_generation_strategy._generator_runs), 2)
+        # Experiment should be the exact same object passed into `load_...`
+        self.assertTrue(new_generation_strategy.experiment is experiment)
+        # Generation strategies should not be equal, since its generator run #0
+        # should be missing model state (and #1 should have it).
+        self.assertNotEqual(new_generation_strategy, generation_strategy)
+        generation_strategy._generator_runs[0]._model_kwargs = None
+        generation_strategy._generator_runs[0]._bridge_kwargs = None
+        generation_strategy._generator_runs[0]._gen_metadata = None
+        generation_strategy._generator_runs[0]._model_state_after_gen = None
+        generation_strategy._generator_runs[0]._search_space = None
+        generation_strategy._generator_runs[0]._optimization_config = None
+        # Now the generation strategies should be equal.
+        self.assertEqual(new_generation_strategy, generation_strategy)
+        # Model should be successfully restored in generation strategy even with
+        # the reduced state.
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
+        self.assertEqual(len(new_generation_strategy._generator_runs), 2)
+        self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
+
+    def testEncodeDecodeGenerationStrategyReducedStateLoadExperiment(self):
+        """Try restoring the generation strategy using the experiment its
+        attached to, not passing the experiment object (it should then be loaded
+        as part of generation strategy loading).
+        """
+        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
+        experiment = get_branin_experiment()
+        experiment.new_trial(generation_strategy.gen(experiment=experiment))
+        generation_strategy.gen(experiment, data=get_branin_data())
+        self.assertEqual(len(generation_strategy._generator_runs), 2)
+        save_experiment(experiment)
+        save_generation_strategy(generation_strategy=generation_strategy)
+
+        new_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name,
+            reduced_state=True,
+        )
+        # Experiment should not be exactly the same object, since it was reloaded
+        # from DB and decoded.
+        self.assertFalse(new_generation_strategy.experiment is experiment)
+        # Generation strategies should not be equal, since only the original one
+        # has model state on generator run #0, not the reloaded one.
+        self.assertNotEqual(generation_strategy, new_generation_strategy)
+        self.assertNotEqual(
+            generation_strategy._generator_runs[0],
+            new_generation_strategy._generator_runs[0],
+        )
+        # Experiment should not be equal, since it would be loaded with reduced
+        # state along with the generation strategy.
+        self.assertNotEqual(new_generation_strategy.experiment, experiment)
+        # Adjust experiment to reduced state.
+        experiment.trials.get(0).generator_run._model_kwargs = None
+        experiment.trials.get(0).generator_run._bridge_kwargs = None
+        experiment.trials.get(0).generator_run._gen_metadata = None
+        experiment.trials.get(0).generator_run._model_state_after_gen = None
+        experiment.trials.get(0).generator_run._search_space = None
+        experiment.trials.get(0).generator_run._optimization_config = None
+        # Now experiment on generation strategy should be equal to the original
+        # experiment with reduced state.
+        self.assertEqual(new_generation_strategy.experiment, experiment)
+        # `generation_strategy` shares its generator runs with `experiment`,
+        # so adjusting the generator run on experiment above also adjusted it
+        # for the GS; now the reloaded and the original GS-s should be equal.
+        self.assertEqual(generation_strategy, new_generation_strategy)
+        # Model should be successfully restored in generation strategy even with
+        # the reduced state.
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
+        self.assertEqual(len(new_generation_strategy._generator_runs), 2)
+        self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
+
     def testUpdateGenerationStrategy(self):
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         save_generation_strategy(generation_strategy=generation_strategy)
