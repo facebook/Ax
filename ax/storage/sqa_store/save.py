@@ -15,16 +15,29 @@ from ax.storage.sqa_store.db import SQABase, optional_session_scope, session_sco
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.utils.common.base import Base
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from sqlalchemy.orm import Session
 
 
+logger = get_logger(__name__)
+
+
 def _set_db_ids(obj_to_sqa: List[Tuple[Base, SQABase]]) -> None:
     for obj, sqa_obj in obj_to_sqa:
-        # pyre-ignore[16]: `ax.storage.sqa_store.db.SQABase` has no attribute `id`
-        # (all classes in values of this mapping should, and if they don't, error
-        # should be raised)
-        obj.db_id = sqa_obj.id
+        if sqa_obj.id is not None:  # pyre-ignore[16]
+            obj.db_id = not_none(sqa_obj.id)
+        elif obj.db_id is None:
+            is_sq_gr = (
+                isinstance(obj, GeneratorRun)
+                and obj._generator_run_type == "STATUS_QUO"
+            )
+            # TODO: Remove this warning when storage & perf project is complete.
+            if not is_sq_gr:
+                logger.warning(
+                    f"User-facing object {obj} does not already have a db_id, "
+                    f"and the corresponding SQA object: {sqa_obj} does not either."
+                )
 
 
 def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) -> None:
