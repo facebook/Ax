@@ -161,7 +161,7 @@ class SQAStoreTest(TestCase):
             self.assertEqual(engine.pool.size(), 2)
 
     def testEquals(self):
-        trial_sqa = self.encoder.trial_to_sqa(get_batch_trial())
+        trial_sqa = self.encoder.trial_to_sqa(get_batch_trial())[0]
         self.assertTrue(trial_sqa.equals(trial_sqa))
 
     def testListEquals(self):
@@ -197,7 +197,7 @@ class SQAStoreTest(TestCase):
             self.encoder.generator_run_to_sqa(generator_run)
 
         generator_run._generator_run_type = "STATUS_QUO"
-        generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)
+        generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)[0]
         generator_run_sqa.generator_run_type = 2
         with self.assertRaises(SQADecodeError):
             self.decoder.generator_run_from_sqa(generator_run_sqa)
@@ -1251,7 +1251,7 @@ class SQAStoreTest(TestCase):
     def testGeneratorRunGenMetadata(self):
         gen_metadata = {"hello": "world"}
         gr = GeneratorRun(arms=[], gen_metadata=gen_metadata)
-        generator_run_sqa = self.encoder.generator_run_to_sqa(gr)
+        generator_run_sqa = self.encoder.generator_run_to_sqa(gr)[0]
         decoded_gr = self.decoder.generator_run_from_sqa(generator_run_sqa)
         self.assertEqual(decoded_gr.gen_metadata, gen_metadata)
 

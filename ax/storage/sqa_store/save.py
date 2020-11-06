@@ -53,7 +53,7 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
         #  got `Optional[ax.storage.sqa_store.db.SQABase]`.
         existing_sqa_experiment=existing_sqa_experiment,
     )
-    new_sqa_experiment = encoder.experiment_to_sqa(experiment)
+    new_sqa_experiment = encoder.experiment_to_sqa(experiment)[0]
 
     if existing_sqa_experiment is not None:
         # Update the SQA object outside of session scope to avoid timeouts.
@@ -185,7 +185,7 @@ def _save_new_trials(
             if trial.index in existing_trial_indices:
                 raise ValueError(f"Trial {trial.index} already attached to experiment.")
 
-            new_sqa_trial = encoder.trial_to_sqa(trial)
+            new_sqa_trial = encoder.trial_to_sqa(trial)[0]
             new_sqa_trial.experiment_id = experiment_id
             session.add(new_sqa_trial)
             existing_trial_indices.add(trial.index)
@@ -232,7 +232,7 @@ def _update_trials(
                     f"Trial {trial.index} is not attached to the experiment."
                 )
 
-            new_sqa_trial = encoder.trial_to_sqa(trial)
+            new_sqa_trial = encoder.trial_to_sqa(trial)[0]
             existing_trial.update(new_sqa_trial)
             session.add(existing_trial)
 
@@ -283,6 +283,6 @@ def _update_generation_strategy(
 
         session.add(gs_sqa)
         for generator_run in generator_runs:
-            gr_sqa = encoder.generator_run_to_sqa(generator_run=generator_run)
+            gr_sqa = encoder.generator_run_to_sqa(generator_run=generator_run)[0]
             gr_sqa.generation_strategy_id = gs_id
             session.add(gr_sqa)
