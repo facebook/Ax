@@ -228,6 +228,7 @@ def _update_trials(
     """Update trials and attach data."""
     trial_sqa_class = encoder.config.class_to_sqa_class[Trial]
     trial_indices = [trial.index for trial in trials]
+    obj_to_sqa = []
     with session_scope() as session:
         experiment_id = _get_experiment_id(
             experiment=experiment, encoder=encoder, session=session
@@ -249,9 +250,10 @@ def _update_trials(
                     f"Trial {trial.index} is not attached to the experiment."
                 )
 
-            new_sqa_trial = encoder.trial_to_sqa(trial)[0]
+            new_sqa_trial, _obj_to_sqa = encoder.trial_to_sqa(trial)
             existing_trial.update(new_sqa_trial)
             session.add(existing_trial)
+            obj_to_sqa.extend(_obj_to_sqa)
 
             data, ts = experiment.lookup_data_for_trial(trial_index=trial.index)
             if ts != -1:
@@ -259,7 +261,12 @@ def _update_trials(
                     data=data, trial_index=trial.index, timestamp=ts
                 )
                 sqa_data.experiment_id = experiment_id
+                obj_to_sqa.append((data, sqa_data))
                 session.add(sqa_data)
+
+        session.flush()
+
+    _set_db_ids(obj_to_sqa=obj_to_sqa)
 
 
 def update_generation_strategy(
@@ -286,10 +293,11 @@ def _update_generation_strategy(
     """Update generation strategy's current step and attach generator runs."""
     gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
 
-    gs_id = generation_strategy._db_id
+    gs_id = generation_strategy.db_id
     if gs_id is None:
         raise ValueError("GenerationStrategy must be saved before being updated.")
 
+    obj_to_sqa = []
     with session_scope() as session:
         experiment_id = _get_experiment_id(
             experiment=generation_strategy.experiment, encoder=encoder, session=session
@@ -297,9 +305,16 @@ def _update_generation_strategy(
         gs_sqa = session.query(gs_sqa_class).get(gs_id)
         gs_sqa.curr_index = generation_strategy._curr.index  # pyre-fixme
         gs_sqa.experiment_id = experiment_id  # pyre-ignore
-
+        obj_to_sqa.append((generation_strategy, gs_sqa))
         session.add(gs_sqa)
         for generator_run in generator_runs:
-            gr_sqa = encoder.generator_run_to_sqa(generator_run=generator_run)[0]
+            gr_sqa, _obj_to_sqa = encoder.generator_run_to_sqa(
+                generator_run=generator_run
+            )
             gr_sqa.generation_strategy_id = gs_id
+            obj_to_sqa.extend(_obj_to_sqa)
             session.add(gr_sqa)
+
+        session.flush()
+
+    _set_db_ids(obj_to_sqa=obj_to_sqa)
