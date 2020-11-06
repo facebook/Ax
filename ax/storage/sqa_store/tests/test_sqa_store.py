@@ -211,7 +211,9 @@ class SQAStoreTest(TestCase):
             get_experiment_with_multi_objective(),
             get_experiment_with_scalarized_objective(),
         ]:
+            self.assertIsNone(exp.db_id)
             save_experiment(exp)
+            self.assertIsNotNone(exp.db_id)
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
 
@@ -1097,8 +1099,8 @@ class SQAStoreTest(TestCase):
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         experiment.new_trial(generation_strategy.gen(experiment=experiment))
         generation_strategy.gen(experiment, data=get_branin_data())
-        save_generation_strategy(generation_strategy=generation_strategy)
         save_experiment(experiment)
+        save_generation_strategy(generation_strategy=generation_strategy)
         # Try restoring the generation strategy using the experiment its
         # attached to.
         new_generation_strategy = load_generation_strategy_by_experiment_name(
@@ -1191,7 +1193,7 @@ class SQAStoreTest(TestCase):
         # `generation_strategy` shares its generator runs with `experiment`,
         # so adjusting the generator run on experiment above also adjusted it
         # for the GS; now the reloaded and the original GS-s should be equal.
-        self.assertEqual(generation_strategy, new_generation_strategy)
+        self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)

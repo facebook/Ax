@@ -4,17 +4,27 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.storage.sqa_store.db import optional_session_scope, session_scope
+from ax.storage.sqa_store.db import SQABase, optional_session_scope, session_scope
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
+from ax.utils.common.base import Base
+from ax.utils.common.typeutils import not_none
 from sqlalchemy.orm import Session
+
+
+def _set_db_ids(obj_to_sqa: List[Tuple[Base, SQABase]]) -> None:
+    for obj, sqa_obj in obj_to_sqa:
+        # pyre-ignore[16]: `ax.storage.sqa_store.db.SQABase` has no attribute `id`
+        # (all classes in values of this mapping should, and if they don't, error
+        # should be raised)
+        obj.db_id = sqa_obj.id
 
 
 def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) -> None:
@@ -53,7 +63,7 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
         #  got `Optional[ax.storage.sqa_store.db.SQABase]`.
         existing_sqa_experiment=existing_sqa_experiment,
     )
-    new_sqa_experiment = encoder.experiment_to_sqa(experiment)[0]
+    new_sqa_experiment, obj_to_sqa = encoder.experiment_to_sqa(experiment)
 
     if existing_sqa_experiment is not None:
         # Update the SQA object outside of session scope to avoid timeouts.
@@ -66,6 +76,9 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
 
     with session_scope() as session:
         session.add(new_sqa_experiment)
+        session.flush()
+
+    _set_db_ids(obj_to_sqa=obj_to_sqa)
 
 
 def save_generation_strategy(
@@ -104,7 +117,7 @@ def _save_generation_strategy(
             encoder=encoder,
         )
 
-    gs_sqa, _ = encoder.generation_strategy_to_sqa(
+    gs_sqa, obj_to_sqa = encoder.generation_strategy_to_sqa(
         generation_strategy=generation_strategy, experiment_id=experiment_id
     )
 
@@ -129,10 +142,9 @@ def _save_generation_strategy(
         session.add(gs_sqa)
         session.flush()  # Ensures generation strategy id is set.
 
-    # pyre-fixme[16]: `None` has no attribute `id`.
-    generation_strategy._db_id = gs_sqa.id
-    # pyre-fixme[7]: Expected `int` but got `Optional[int]`.
-    return generation_strategy._db_id
+    _set_db_ids(obj_to_sqa=obj_to_sqa)
+
+    return not_none(generation_strategy.db_id)
 
 
 def _get_experiment_id(
@@ -170,6 +182,7 @@ def _save_new_trials(
 ) -> None:
     """Add new trials to the experiment."""
     trial_sqa_class = encoder.config.class_to_sqa_class[Trial]
+    obj_to_sqa = []
     with session_scope() as session:
         experiment_id = _get_experiment_id(
             experiment=experiment, encoder=encoder, session=session
@@ -185,10 +198,14 @@ def _save_new_trials(
             if trial.index in existing_trial_indices:
                 raise ValueError(f"Trial {trial.index} already attached to experiment.")
 
-            new_sqa_trial = encoder.trial_to_sqa(trial)[0]
+            new_sqa_trial, _obj_to_sqa = encoder.trial_to_sqa(trial)
+            obj_to_sqa.extend(_obj_to_sqa)
             new_sqa_trial.experiment_id = experiment_id
             session.add(new_sqa_trial)
             existing_trial_indices.add(trial.index)
+            session.flush()
+
+    _set_db_ids(obj_to_sqa=obj_to_sqa)
 
 
 def update_trial(
