@@ -71,7 +71,6 @@ def object_from_json(object_json: Any) -> Any:
         elif _type == "DataFrame":
             # Need dtype=False, otherwise infers arm_names like "4_1"
             # should be int 41
-            # pyre-fixme[16]: Module `pd` has no attribute `read_json`.
             return pd.read_json(object_json["value"], dtype=False)
         elif _type == "ndarray":
             return np.array(object_json["value"])

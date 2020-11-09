@@ -152,7 +152,6 @@ def get_best_parameters(
 
 
 def _get_best_row_for_scalarized_objective(
-    # pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
     df: pd.DataFrame,
     objective: ScalarizedObjective,
 ) -> pd.DataFrame:

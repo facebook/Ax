@@ -884,7 +884,6 @@ def get_data(trial_index: int = 0) -> Data:
         "sem": [0, 0.5, 0.25, 0.40, 0.15],
         "n": [100, 100, 100, 100, 100],
     }
-    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
     return Data(df=pd.DataFrame.from_records(df_dict))
 
 
@@ -899,13 +898,11 @@ def get_branin_data(trial_indices: Optional[Iterable[int]] = None) -> Data:
         }
         for trial_index in (trial_indices or [0])
     ]
-    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
 
 def get_branin_data_batch(batch: BatchTrial) -> Data:
     return Data(
-        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         pd.DataFrame(
             {
                 "arm_name": [arm.name for arm in batch.arms],
@@ -936,7 +933,6 @@ def get_branin_data_multi_objective(
         for trial_index in (trial_indices or [0])
         for suffix in ["a", "b"]
     ]
-    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
 

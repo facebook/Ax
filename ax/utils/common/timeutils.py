@@ -26,7 +26,6 @@ def to_ts(ds: str) -> datetime:
 
 def _ts_to_pandas(ts: int) -> pd.Timestamp:  # pyre-ignore[11]
     """Convert int timestamp into pandas timestamp."""
-    # pyre-fixme[16]: Module `pd` has no attribute `Timestamp`.
     return pd.Timestamp(datetime.fromtimestamp(ts))
 
 

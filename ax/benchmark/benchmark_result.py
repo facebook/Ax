@@ -195,7 +195,6 @@ def _extract_optimization_trace_from_metrics(experiment: Experiment) -> np.ndarr
         for i, arm in enumerate(trial.arms):
             reps = int(trial.weights[i]) if isinstance(trial, BatchTrial) else 1
             names.extend([arm.name] * reps)
-    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
     iters_df = pd.DataFrame({"arm_name": names})
     data_df = experiment.fetch_data(noisy=False).df
     metrics = data_df["metric_name"].unique()
@@ -204,7 +203,6 @@ def _extract_optimization_trace_from_metrics(experiment: Experiment) -> np.ndarr
         df_m = data_df[data_df["metric_name"] == metric]
         # Get one row per arm
         df_m = df_m.groupby("arm_name").first().reset_index()
-        # pyre-fixme[16]: Module `pd` has no attribute `merge`.
         df_b = pd.merge(iters_df, df_m, how="left", on="arm_name")
         true_values[metric] = df_b["mean"].values
     return best_feasible_objective(

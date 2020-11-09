@@ -280,7 +280,6 @@ class GenerationStrategy(Base):
         return trial_indices_by_step
 
     @property
-    # pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
     def trials_as_df(self) -> Optional[pd.DataFrame]:
         """Puts information on individual trials into a data frame for easy
         viewing. For example:
@@ -310,7 +309,6 @@ class GenerationStrategy(Base):
             for step_idx, trials in self.trial_indices_by_step.items()
             for trial_idx in trials
         ]
-        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         return pd.DataFrame.from_records(records).reindex(
             columns=[
                 "Generation Step",

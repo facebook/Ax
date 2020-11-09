@@ -13,7 +13,6 @@ from ax.plot.base import DECIMALS, AxPlotConfig, AxPlotTypes
 from ax.plot.helper import get_plot_data
 from ax.utils.stats.statstools import marginal_effects
 
-# pyre-fixme[21]: Could not find name `subplots` in `plotly`.
 from plotly import subplots
 
 
@@ -34,12 +33,10 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
 
     arm_dfs = []
     for arm in plot_data.in_sample.values():
-        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         arm_df = pd.DataFrame(arm.parameters, index=[arm.name])
         arm_df["mean"] = arm.y_hat[metric]
         arm_df["sem"] = arm.se_hat[metric]
         arm_dfs.append(arm_df)
-    # pyre-fixme[16]: Module `pd` has no attribute `concat`.
     effect_table = marginal_effects(pd.concat(arm_dfs, 0))
 
     varnames = effect_table["Name"].unique()
@@ -54,7 +51,6 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
                 name=varname,
             )
         ]
-    # pyre-fixme[16]: Module `plotly` has no attribute `subplots`.
     fig = subplots.make_subplots(
         cols=len(varnames),
         rows=1,

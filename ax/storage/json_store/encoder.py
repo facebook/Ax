@@ -78,7 +78,6 @@ def object_to_json(obj: Any) -> Any:
             "__type": _type.__name__,
             "value": datetime.datetime.strftime(obj, "%Y-%m-%d %H:%M:%S.%f"),
         }
-    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
     elif _type is pd.DataFrame:
         return {"__type": _type.__name__, "value": obj.to_json()}
     elif issubclass(_type, enum.Enum):

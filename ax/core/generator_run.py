@@ -291,7 +291,6 @@ class GeneratorRun(Base):
         return self._candidate_metadata_by_arm_signature
 
     @property
-    # pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
     def param_df(self) -> pd.DataFrame:
         """
         Constructs a Pandas dataframe with the parameter values for each arm.
@@ -301,7 +300,6 @@ class GeneratorRun(Base):
         Returns:
             pd.DataFrame: a dataframe with the generator run's arms.
         """
-        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         return pd.DataFrame.from_dict(
             {a.name_or_short_signature: a.parameters for a in self.arms}, orient="index"
         )

@@ -509,7 +509,6 @@ class AxClient(WithDBSettingsBase):
     ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
         return best_point_utils.get_best_parameters(self.experiment)
 
-    # pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
     def get_trials_data_frame(self) -> pd.DataFrame:
         return exp_to_df(exp=self.experiment)
 

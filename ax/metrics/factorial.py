@@ -85,7 +85,6 @@ class FactorialMetric(Metric):
                     "frac_nonnull": mean,
                 }
             )
-        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         return Data(df=pd.DataFrame(data))
 
 

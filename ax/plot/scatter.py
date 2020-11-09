@@ -35,7 +35,6 @@ from ax.plot.helper import (
 )
 from ax.utils.stats.statstools import relativize
 
-# pyre-fixme[21]: Could not find name `subplots` in `plotly`.
 from plotly import subplots
 
 
@@ -698,7 +697,6 @@ def lattice_multiple_metrics(
 
     """
     metrics = model.metric_names
-    # pyre-fixme[16]: Module `plotly` has no attribute `subplots`.
     fig = subplots.make_subplots(
         rows=len(metrics),
         cols=len(metrics),
@@ -1212,7 +1210,6 @@ def tile_fitted(
     ncols = min(len(metrics), 2)
 
     # make subplots (plot per row)
-    # pyre-fixme[16]: Module `plotly` has no attribute `subplots`.
     fig = subplots.make_subplots(
         rows=nrows,
         cols=ncols,

@@ -10,7 +10,6 @@ from ax.core import Experiment
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 
-# pyre-fixme[21]: Could not find name `DataFrame` in `pandas`.
 from pandas import DataFrame
 
 
@@ -36,7 +35,6 @@ def exp_to_df(
     metrics: Optional[List[Metric]] = None,
     key_components: Optional[List[str]] = None,
     **kwargs: Any,
-    # pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
 ) -> DataFrame:
     """Transforms an experiment to a DataFrame. Only supports Experiment and
     SimpleExperiment.
@@ -76,7 +74,6 @@ def exp_to_df(
 
     for key in key_components:
         _compact_column(metrics_pivot, key)
-    # pyre-fixme[16]: Module `pandas` has no attribute `DataFrame`.
     inputs = DataFrame(
         [
             dict(arm.parameters, arm_name=name)
