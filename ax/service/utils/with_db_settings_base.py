@@ -188,7 +188,10 @@ class WithDBSettingsBase:
         if not self.db_settings_set:
             raise ValueError("Cannot load from DB in absence of DB settings.")
 
-        logger.info("Loading experiment and generation strategy...")
+        logger.info(
+            "Loading experiment and generation strategy (with reduced state: "
+            f"{reduced_state})..."
+        )
         start_time = time.time()
         experiment = _load_experiment(
             experiment_name,
@@ -208,6 +211,7 @@ class WithDBSettingsBase:
                 experiment_name=experiment_name,
                 decoder=self.db_settings.decoder,
                 experiment=experiment,
+                reduced_state=reduced_state,
             )
             logger.info(
                 f"Loaded generation strategy for experiment {experiment_name} in "
