@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import copy
 from collections import OrderedDict
 from datetime import datetime
@@ -304,11 +306,11 @@ class GeneratorRun(Base):
             {a.name_or_short_signature: a.parameters for a in self.arms}, orient="index"
         )
 
-    def clone(self) -> "GeneratorRun":
+    def clone(self) -> GeneratorRun:
         """Return a deep copy of a GeneratorRun."""
         return self._clone_with_arms(arms=self.arms, weights=self.weights)
 
-    def split_by_arm(self, populate_all_fields: bool = False) -> List["GeneratorRun"]:
+    def split_by_arm(self, populate_all_fields: bool = False) -> List[GeneratorRun]:
         """Return a list of generator runs, each with all the metadata of
         generator run, but only with one of its arms. Useful when splitting
         a single generator run into multiple 1-arm trials.
@@ -334,7 +336,7 @@ class GeneratorRun(Base):
         arms: List[Arm],
         weights: Optional[List[float]],
         cherrypick_fields_to_clone: bool = False,
-    ) -> "GeneratorRun":
+    ) -> GeneratorRun:
         """Return a deep copy of a GeneratorRun with specified arms and
         weights.
 
