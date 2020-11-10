@@ -162,31 +162,3 @@ class GeneratorRunTest(TestCase):
             gen_metadata=gm,
         )
         self.assertEqual(generator_run.gen_metadata, gm)
-
-    def test_split_by_arm(self):
-        gm = {"hello": "world"}
-        generator_run = GeneratorRun(
-            arms=self.arms,
-            weights=self.weights,
-            optimization_config=get_optimization_config(),
-            search_space=get_search_space(),
-            gen_metadata=gm,
-        )
-        generator_runs = generator_run.split_by_arm()
-        self.assertEqual(len(generator_runs), len(self.arms))
-        for a, w, gr in zip(self.arms, self.weights, generator_runs):
-            with self.subTest(a=a, w=w, gr=gr):
-                # Make sure correct arms and weights appear in split
-                # generator runs.
-                self.assertEqual(gr.arms, [a])
-                self.assertEqual(gr.weights, [w])
-                self.assertEqual(
-                    gr._generator_run_type, generator_run._generator_run_type
-                )
-                self.assertEqual(gr._model_key, generator_run._model_key)
-                self.assertEqual(
-                    gr._generation_step_index, generator_run._generation_step_index
-                )
-                self.assertIsNone(gr._optimization_config)
-                self.assertIsNone(gr._search_space)
-                self.assertIsNone(gr._gen_metadata)
