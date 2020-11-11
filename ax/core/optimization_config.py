@@ -314,10 +314,11 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             outcome_constraints: Constraints to validate.
         """
         if not isinstance(objective, MultiObjective):
-            raise ValueError(
+            raise TypeError(
                 (
-                    "MultiObjectiveOptimizationConfig only not supports "
-                    " MultiObjective. Use OptimizationConfig instead."
+                    "`MultiObjectiveOptimizationConfig` requires an objective "
+                    "of type `MultiObjective`. Use `OptimizationConfig` instead "
+                    "if using a single-metric objective."
                 )
             )
         outcome_constraints = outcome_constraints or []

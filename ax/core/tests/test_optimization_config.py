@@ -203,7 +203,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             objective=self.multi_objective, outcome_constraints=self.outcome_constraints
         )
         self.assertEqual(str(config1), MOOC_STR)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             config1.objective = self.objective  # Wrong objective type
         # updating constraints is fine.
         config1.outcome_constraints = [self.outcome_constraint]
@@ -274,7 +274,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
 
     def testConstraintValidation(self):
         # Cannot build with non-MultiObjective
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             MultiObjectiveOptimizationConfig(objective=self.objective)
 
         # Two outcome_constraints on the same metric with the same op
