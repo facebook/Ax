@@ -620,10 +620,10 @@ class Experiment(Base):
 
         Args:
             generator_run: GeneratorRun, associated with this trial.
-                Trial has only one generator run (and thus arm)
-                attached to it. This can also be set later through `add_arm`
-                or `add_generator_run`, but a trial's associated generator run is
-                immutable once set.
+                Trial has only one arm attached to it and this generator_run
+                must therefore contain one arm. This arm can also be set later
+                through `add_arm` or `add_generator_run`, but a trial's
+                associated generator run is immutable once set.
             trial_type: Type of this trial, if used in MultiTypeExperiment.
             ttl_seconds: If specified, trials will be considered failed after
                 this many seconds since the time the trial was ran, unless the
