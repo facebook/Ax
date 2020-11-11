@@ -25,7 +25,6 @@ from ax.plot.base import (
 )
 from ax.plot.scatter import _error_scatter_data, _error_scatter_trace
 from ax.utils.common.typeutils import not_none
-
 from plotly import subplots
 
 

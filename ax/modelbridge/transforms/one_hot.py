@@ -16,7 +16,6 @@ from ax.modelbridge.transforms.rounding import (
     randomized_onehot_round,
     strict_onehot_round,
 )
-
 from sklearn.preprocessing import LabelBinarizer, LabelEncoder
 
 

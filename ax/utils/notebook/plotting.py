@@ -7,7 +7,6 @@
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.render import _js_requires, _wrap_js, plot_config_to_html
 from ax.utils.common.logger import get_logger
-
 from IPython.display import display
 from plotly.offline import init_notebook_mode, iplot
 

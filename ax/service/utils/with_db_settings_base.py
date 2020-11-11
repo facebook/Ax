@@ -34,9 +34,9 @@ try:  # We don't require SQLAlchemy by default.
         _update_generation_strategy,
         _update_trials,
     )
+    from ax.storage.sqa_store.structs import DBSettings
     from sqlalchemy.exc import OperationalError
     from sqlalchemy.orm.exc import StaleDataError
-    from ax.storage.sqa_store.structs import DBSettings
 
     # We retry on `OperationalError` if saving to DB.
     RETRY_EXCEPTION_TYPES = (OperationalError, StaleDataError)

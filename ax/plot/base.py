@@ -10,7 +10,6 @@ from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 from ax.core.types import TParameterization
 from ax.utils.common.serialization import named_tuple_to_dict
-
 from plotly import utils
 
 

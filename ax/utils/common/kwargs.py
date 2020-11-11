@@ -8,7 +8,6 @@ from inspect import Parameter, signature
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from ax.utils.common.logger import get_logger
-
 from typeguard import check_type
 
 

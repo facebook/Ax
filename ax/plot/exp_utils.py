@@ -9,7 +9,6 @@ from typing import Any, List, Optional
 from ax.core import Experiment
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-
 from pandas import DataFrame
 
 

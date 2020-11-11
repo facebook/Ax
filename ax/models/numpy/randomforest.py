@@ -10,9 +10,7 @@ import numpy as np
 from ax.core.types import TCandidateMetadata
 from ax.models.numpy_base import NumpyModel
 from ax.utils.common.docutils import copy_doc
-
 from sklearn.ensemble import RandomForestRegressor
-
 from sklearn.tree import DecisionTreeRegressor
 
 

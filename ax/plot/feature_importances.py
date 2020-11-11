@@ -12,7 +12,6 @@ from ax.exceptions.core import NoDataError
 from ax.modelbridge import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.utils.common.logger import get_logger
-
 from plotly import subplots
 
 

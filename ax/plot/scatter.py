@@ -34,7 +34,6 @@ from ax.plot.helper import (
     resize_subtitles,
 )
 from ax.utils.stats.statstools import relativize
-
 from plotly import subplots
 
 
