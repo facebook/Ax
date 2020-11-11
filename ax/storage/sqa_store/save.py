@@ -179,16 +179,25 @@ def _save_new_trials(
             .filter_by(experiment_id=experiment_id)
             .all()
         )
-        existing_trial_indices = {x[0] for x in existing_trial_indices}
 
-        for trial in trials:
-            if trial.index in existing_trial_indices:
-                raise ValueError(f"Trial {trial.index} already attached to experiment.")
+    existing_trial_indices = {x[0] for x in existing_trial_indices}
+    new_trial_idcs = set()
 
-            new_sqa_trial = encoder.trial_to_sqa(trial)
-            new_sqa_trial.experiment_id = experiment_id
-            session.add(new_sqa_trial)
-            existing_trial_indices.add(trial.index)
+    trials_sqa = []
+    for trial in trials:
+        if trial.index in existing_trial_indices:
+            raise ValueError(f"Trial {trial.index} already attached to experiment.")
+
+        if trial.index in new_trial_idcs:
+            raise ValueError(f"Trial {trial.index} appears in `trials` more than once.")
+
+        new_sqa_trial = encoder.trial_to_sqa(trial)
+        new_sqa_trial.experiment_id = experiment_id
+        trials_sqa.append(new_sqa_trial)
+        new_trial_idcs.add(trial.index)
+
+    with session_scope() as session:
+        session.add_all(trials_sqa)
 
 
 def update_trial(
