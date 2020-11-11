@@ -286,12 +286,18 @@ def _update_generation_strategy(
         experiment_id = _get_experiment_id(
             experiment=generation_strategy.experiment, encoder=encoder, session=session
         )
-        gs_sqa = session.query(gs_sqa_class).get(gs_id)
-        gs_sqa.curr_index = generation_strategy._curr.index  # pyre-fixme
-        gs_sqa.experiment_id = experiment_id  # pyre-ignore
+        session.query(gs_sqa_class).filter_by(id=gs_id).update(
+            {
+                "curr_index": generation_strategy._curr.index,
+                "experiment_id": experiment_id,
+            }
+        )
 
-        session.add(gs_sqa)
-        for generator_run in generator_runs:
-            gr_sqa = encoder.generator_run_to_sqa(generator_run=generator_run)
-            gr_sqa.generation_strategy_id = gs_id
-            session.add(gr_sqa)
+    generator_runs_sqa = []
+    for generator_run in generator_runs:
+        gr_sqa = encoder.generator_run_to_sqa(generator_run=generator_run)
+        gr_sqa.generation_strategy_id = gs_id
+        generator_runs_sqa.append(gr_sqa)
+
+    with session_scope() as session:
+        session.add_all(generator_runs_sqa)
