@@ -230,28 +230,30 @@ def _update_trials(
             .filter(trial_sqa_class.index.in_(trial_indices))  # pyre-ignore
             .all()
         )
-        trial_index_to_existing_trial = {
-            trial.index: trial for trial in existing_trials
-        }
 
-        for trial in trials:
-            existing_trial = trial_index_to_existing_trial.get(trial.index)
-            if existing_trial is None:
-                raise ValueError(
-                    f"Trial {trial.index} is not attached to the experiment."
-                )
+    trial_index_to_existing_trial = {trial.index: trial for trial in existing_trials}
 
-            new_sqa_trial = encoder.trial_to_sqa(trial)
-            existing_trial.update(new_sqa_trial)
-            session.add(existing_trial)
+    updated_sqa_trials, new_sqa_data = [], []
+    for trial in trials:
+        existing_trial = trial_index_to_existing_trial.get(trial.index)
+        if existing_trial is None:
+            raise ValueError(f"Trial {trial.index} is not attached to the experiment.")
 
-            data, ts = experiment.lookup_data_for_trial(trial_index=trial.index)
-            if ts != -1:
-                sqa_data = encoder.data_to_sqa(
-                    data=data, trial_index=trial.index, timestamp=ts
-                )
-                sqa_data.experiment_id = experiment_id
-                session.add(sqa_data)
+        new_sqa_trial = encoder.trial_to_sqa(trial)
+        existing_trial.update(new_sqa_trial)
+        updated_sqa_trials.append(existing_trial)
+
+        data, ts = experiment.lookup_data_for_trial(trial_index=trial.index)
+        if ts != -1:
+            sqa_data = encoder.data_to_sqa(
+                data=data, trial_index=trial.index, timestamp=ts
+            )
+            sqa_data.experiment_id = experiment_id
+            new_sqa_data.append(sqa_data)
+
+    with session_scope() as session:
+        session.add_all(updated_sqa_trials)
+        session.add_all(new_sqa_data)
 
 
 def update_generation_strategy(
