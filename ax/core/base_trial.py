@@ -511,11 +511,6 @@ class BaseTrial(ABC, Base):
     def mark_completed(self) -> BaseTrial:
         """Mark trial as completed.
 
-        Args:
-            allow_repeat_completion: If set to True, this function will not raise an
-                error is a trial that has already been marked as completed is
-                being marked as completed again.
-
         Returns:
             The trial instance.
         """
