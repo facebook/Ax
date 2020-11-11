@@ -82,7 +82,18 @@ class MisconfiguredExperiment(AxError):
     pass
 
 
-class SearchSpaceExhausted(AxError):
+class OptimizationComplete(AxError):
+    """Raised when you hit SearchSpaceExhausted and GenerationStrategyComplete."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(
+            message=message
+            or "No more new points could be sampled, or maybe the underlying \
+            generation strategy has been completed."
+        )
+
+
+class SearchSpaceExhausted(OptimizationComplete):
     """Raised when using an algorithm that deduplicates points and no more
     new points can be sampled from the search space."""
 
