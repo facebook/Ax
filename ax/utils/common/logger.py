@@ -11,7 +11,7 @@ import os
 from typing import Any
 
 
-AX_ROOT_LOGGER = "ax"
+AX_ROOT_LOGGER_NAME = "ax"
 DEFAULT_LOG_LEVEL: int = logging.INFO
 
 
@@ -34,6 +34,10 @@ def get_logger(name: str) -> logging.Logger:
     add `{"output_name": "[MY_OUTPUT_NAME]"}` to the logger's contextual
     information. By default, we use the logger's `name`
 
+    NOTE: To change the log level on particular outputs (e.g. STDERR logs),
+    set the proper log level on the relevant handler, instead of the logger
+    e.g. logger.handers[0].setLevel(INFO)
+
     Args:
         name: The name of the logger.
 
@@ -43,10 +47,6 @@ def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.addFilter(AxOutputNameFilter())
     return logger
-
-
-def get_root_logger() -> logging.Logger:
-    return get_logger(AX_ROOT_LOGGER)
 
 
 def build_stream_handler(level: int = DEFAULT_LOG_LEVEL) -> logging.StreamHandler:
@@ -99,17 +99,6 @@ def _build_stream_formatter() -> logging.Formatter:
     )
 
 
-def init_loggers() -> None:
-    """Sets up Ax's root logger to not propogate to Python's root logger and
-    use the default stream handler.
-    """
-    root_logger = get_root_logger()
-    root_logger.propagate = False
-    root_logger.setLevel(DEFAULT_LOG_LEVEL)
-    stream_handler = build_stream_handler()
-    root_logger.addHandler(stream_handler)
-
-
 # pyre-ignore (ignoring Any in argument and output typing)
 def _round_floats_for_logging(item: Any, decimal_places: int = 2) -> Any:
     """Round a number or numbers in a mapping to a given number of decimal places.
@@ -135,4 +124,20 @@ def _round_floats_for_logging(item: Any, decimal_places: int = 2) -> Any:
     return item
 
 
-init_loggers()
+def set_stderr_log_level(level: int) -> None:
+    """Set the log level for stream handler, such that logs of given level
+    are printed to STDERR by the root logger
+    """
+    ROOT_STREAM_HANDLER.setLevel(level)
+
+
+"""Sets up Ax's root logger to not propogate to Python's root logger and
+use the default stream handler.
+"""
+ROOT_LOGGER: logging.Logger = get_logger(AX_ROOT_LOGGER_NAME)
+ROOT_LOGGER.propagate = False
+# Uses a permissive level on the logger, instead make each
+# handler as permissive/restrictive as desired
+ROOT_LOGGER.setLevel(logging.DEBUG)
+ROOT_STREAM_HANDLER: logging.StreamHandler = build_stream_handler()
+ROOT_LOGGER.addHandler(ROOT_STREAM_HANDLER)
