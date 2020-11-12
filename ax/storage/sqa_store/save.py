@@ -237,6 +237,7 @@ def _update_trials(
     """Update trials and attach data."""
     trial_sqa_class = encoder.config.class_to_sqa_class[Trial]
     trial_indices = [trial.index for trial in trials]
+    obj_to_sqa = []
     with session_scope() as session:
         experiment_id = _get_experiment_id(
             experiment=experiment, encoder=encoder, session=session
@@ -256,7 +257,8 @@ def _update_trials(
         if existing_trial is None:
             raise ValueError(f"Trial {trial.index} is not attached to the experiment.")
 
-        new_sqa_trial = encoder.trial_to_sqa(trial)
+        new_sqa_trial, _obj_to_sqa = encoder.trial_to_sqa(trial)
+        obj_to_sqa.extend(_obj_to_sqa)
         existing_trial.update(new_sqa_trial)
         updated_sqa_trials.append(existing_trial)
 
@@ -265,12 +267,16 @@ def _update_trials(
             sqa_data = encoder.data_to_sqa(
                 data=data, trial_index=trial.index, timestamp=ts
             )
+            obj_to_sqa.append((data, sqa_data))
             sqa_data.experiment_id = experiment_id
             new_sqa_data.append(sqa_data)
 
     with session_scope() as session:
         session.add_all(updated_sqa_trials)
         session.add_all(new_sqa_data)
+        session.flush()
+
+    _set_db_ids(obj_to_sqa=obj_to_sqa)
 
 
 def update_generation_strategy(
@@ -297,10 +303,11 @@ def _update_generation_strategy(
     """Update generation strategy's current step and attach generator runs."""
     gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
 
-    gs_id = generation_strategy._db_id
+    gs_id = generation_strategy.db_id
     if gs_id is None:
         raise ValueError("GenerationStrategy must be saved before being updated.")
 
+    obj_to_sqa = []
     with session_scope() as session:
         experiment_id = _get_experiment_id(
             experiment=generation_strategy.experiment, encoder=encoder, session=session
@@ -314,11 +321,12 @@ def _update_generation_strategy(
 
     generator_runs_sqa = []
     for generator_run in generator_runs:
-        gr_sqa = encoder.generator_run_to_sqa(generator_run=generator_run)
+        gr_sqa, _obj_to_sqa = encoder.generator_run_to_sqa(generator_run=generator_run)
+        obj_to_sqa.extend(_obj_to_sqa)
         gr_sqa.generation_strategy_id = gs_id
         generator_runs_sqa.append(gr_sqa)
 
     with session_scope() as session:
         session.add_all(generator_runs_sqa)
 
-    # TODO: db ids
+    _set_db_ids(obj_to_sqa=obj_to_sqa)
