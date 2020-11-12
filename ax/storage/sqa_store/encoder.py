@@ -787,7 +787,6 @@ class Encoder:
                 )
                 obj_to_sqa.extend(_obj_to_sqa)
                 generator_runs.append(gr_sqa)
-                obj_to_sqa.append((status_quo_generator_run, gr_sqa))
                 status_quo_name = trial_status_quo.name
 
             optimize_for_power = getattr(trial, "optimize_for_power", None)
