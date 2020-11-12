@@ -104,7 +104,7 @@ def _save_generation_strategy(
             encoder=encoder,
         )
 
-    gs_sqa = encoder.generation_strategy_to_sqa(
+    gs_sqa, _ = encoder.generation_strategy_to_sqa(
         generation_strategy=generation_strategy, experiment_id=experiment_id
     )
 

@@ -680,7 +680,7 @@ class Encoder:
 
     def generation_strategy_to_sqa(
         self, generation_strategy: GenerationStrategy, experiment_id: Optional[int]
-    ) -> SQAGenerationStrategy:
+    ) -> Tuple[SQAGenerationStrategy, T_OBJ_TO_SQA]:
         """Convert an Ax `GenerationStrategy` to SQLAlchemy, preserving its state,
         so that the restored generation strategy can be resumed from the point
         at which it was interrupted and stored.
@@ -689,17 +689,23 @@ class Encoder:
         gs_class: SQAGenerationStrategy = self.config.class_to_sqa_class[
             cast(Type[Base], GenerationStrategy)
         ]
+        generator_runs_sqa = []
+        obj_to_sqa = []
+        for gr in generation_strategy._generator_runs:
+            gr_sqa, _obj_to_sqa = self.generator_run_to_sqa(gr)
+            generator_runs_sqa.append(gr_sqa)
+            obj_to_sqa.extend(_obj_to_sqa)
+
         # pyre-fixme[29]: `SQAGenerationStrategy` is not a function.
-        return gs_class(
+        gs_sqa = gs_class(
             name=generation_strategy.name,
             steps=object_to_json(generation_strategy._steps),
             curr_index=generation_strategy._curr.index,
-            generator_runs=[
-                self.generator_run_to_sqa(gr)[0]  # TODO: unhack this
-                for gr in generation_strategy._generator_runs
-            ],
+            generator_runs=generator_runs_sqa,
             experiment_id=experiment_id,
         )
+        obj_to_sqa.append((generation_strategy, gs_sqa))
+        return gs_sqa, obj_to_sqa
 
     def runner_to_sqa(
         self, runner: Runner, trial_type: Optional[str] = None
