@@ -297,8 +297,7 @@ class SQAStoreTest(TestCase):
         exp.trials.get(1).generator_run._model_state_after_gen = None
         exp.trials.get(1).generator_run._search_space = None
         exp.trials.get(1).generator_run._optimization_config = None
-        # TODO[D24786849]: bring back the check below
-        # self.assertEqual(loaded_experiment, exp)
+        self.assertEqual(loaded_experiment, exp)
 
     def testMTExperimentSaveAndLoad(self):
         experiment = get_multi_type_experiment(add_trials=True)
@@ -1181,20 +1180,22 @@ class SQAStoreTest(TestCase):
         # Experiment should not be equal, since it would be loaded with reduced
         # state along with the generation strategy.
         self.assertNotEqual(new_generation_strategy.experiment, experiment)
-        # Adjust experiment to reduced state.
+        # Adjust experiment and GS to reduced state.
         experiment.trials.get(0).generator_run._model_kwargs = None
         experiment.trials.get(0).generator_run._bridge_kwargs = None
         experiment.trials.get(0).generator_run._gen_metadata = None
         experiment.trials.get(0).generator_run._model_state_after_gen = None
         experiment.trials.get(0).generator_run._search_space = None
         experiment.trials.get(0).generator_run._optimization_config = None
+        generation_strategy._generator_runs[0]._model_kwargs = None
+        generation_strategy._generator_runs[0]._bridge_kwargs = None
+        generation_strategy._generator_runs[0]._gen_metadata = None
+        generation_strategy._generator_runs[0]._model_state_after_gen = None
+        generation_strategy._generator_runs[0]._search_space = None
+        generation_strategy._generator_runs[0]._optimization_config = None
         # Now experiment on generation strategy should be equal to the original
         # experiment with reduced state.
-        # TODO[D24786849]: bring back the check below
-        # self.assertEqual(new_generation_strategy.experiment, experiment)
-        # `generation_strategy` shares its generator runs with `experiment`,
-        # so adjusting the generator run on experiment above also adjusted it
-        # for the GS; now the reloaded and the original GS-s should be equal.
+        self.assertEqual(new_generation_strategy.experiment, experiment)
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
@@ -1235,8 +1236,7 @@ class SQAStoreTest(TestCase):
         # some recently added trials, so we update the mappings to match and check
         # that the generation strategies are equal otherwise.
         generation_strategy._seen_trial_indices_by_status[TrialStatus.CANDIDATE].add(1)
-        # TODO[D24786849]: bring back the check below
-        # self.assertEqual(generation_strategy, loaded_generation_strategy)
+        self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # make sure that we can update the experiment too
         experiment.description = "foobar"
@@ -1244,8 +1244,7 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # TODO[D24786849]: bring back the check below
-        # self.assertEqual(generation_strategy, loaded_generation_strategy)
+        self.assertEqual(generation_strategy, loaded_generation_strategy)
         self.assertEqual(
             generation_strategy._experiment.description, experiment.description
         )

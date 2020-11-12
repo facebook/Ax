@@ -846,7 +846,6 @@ class Decoder:
             description=data_sqa.description,
             # NOTE: Need dtype=False, otherwise infers arm_names like
             # "4_1" should be int 41.
-            # pyre-fixme[16]: Module `pd` has no attribute `read_json`.
             df=pd.read_json(data_sqa.data_json, dtype=False),
         )
         dat.db_id = data_sqa.id

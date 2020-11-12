@@ -468,7 +468,12 @@ class GenerationStrategy(Base):
             )
 
         model = not_none(self.model)
-        generator_runs = []
+        # TODO[T79183560]: Cloning generator runs here is a temporary measure
+        # to ensure a 1-to-1 correspondence between user-facing generator runs
+        # and their stored SQL counterparts. This will be no longer needed soon
+        # as we move to use foreign keys to avoid storing generotor runs on both
+        # experiment and generation strategy like we do now.
+        generator_run_clones = []
         for _ in range(num_generator_runs):
             try:
                 generator_run = model.gen(
@@ -479,17 +484,17 @@ class GenerationStrategy(Base):
                     ),
                 )
                 generator_run._generation_step_index = self._curr.index
-                generator_runs.append(generator_run)
+                self._generator_runs.append(generator_run)
+                generator_run_clones.append(generator_run.clone())
             except DataRequiredError as err:
                 # Model needs more data, so we log the error and return
                 # as many generator runs as we were able to produce, unless
                 # no trials were produced at all (in which case its safe to raise).
-                if len(generator_runs) == 0:
+                if len(generator_run_clones) == 0:
                     raise
                 logger.debug(f"Model required more data: {err}.")
 
-        self._generator_runs.extend(generator_runs)
-        return generator_runs
+        return generator_run_clones
 
     # ------------------------- Model selection logic helpers. -------------------------
 
