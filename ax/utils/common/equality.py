@@ -104,7 +104,10 @@ def object_attribute_dicts_equal(
 
 
 def object_attribute_dicts_find_unequal_fields(
-    one_dict: Dict[str, Any], other_dict: Dict[str, Any], fast_return: bool = True
+    one_dict: Dict[str, Any],
+    other_dict: Dict[str, Any],
+    fast_return: bool = True,
+    skip_db_id_check: bool = False,
 ) -> Tuple[Dict[str, Tuple[Any, Any]], Dict[str, Tuple[Any, Any]]]:
     """Utility for finding out what attributes of two objects' attribute dicts
     are unequal.
@@ -136,6 +139,11 @@ def object_attribute_dicts_find_unequal_fields(
         if field == "_experiment":
             # prevent infinite loop when checking equality of Trials
             equal = one_val is other_val is None or (one_val._name == other_val._name)
+        elif field == "analysis_scheduler":
+            # prevent infinite loop when checking equality of analysis runs
+            equal = one_val is other_val is None or (one_val.db_id == other_val.db_id)
+        elif field == "_db_id":
+            equal = skip_db_id_check or one_val == other_val
         elif field == "_model":  # pragma: no cover (tested in modelbridge)
             # TODO[T52643706]: replace with per-`ModelBridge` method like
             # `equivalent_models`, to compare models more meaningfully.
