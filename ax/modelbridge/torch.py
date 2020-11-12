@@ -127,8 +127,11 @@ class TorchModelBridge(ArrayModelBridge):
     ) -> None:
         self.model = model
         # Convert numpy arrays to torch tensors
+        # pyre-fixme[35]: Target cannot be annotated.
         Xs: List[Tensor] = self._array_list_to_tensors(Xs)
+        # pyre-fixme[35]: Target cannot be annotated.
         Ys: List[Tensor] = self._array_list_to_tensors(Ys)
+        # pyre-fixme[35]: Target cannot be annotated.
         Yvars: List[Tensor] = self._array_list_to_tensors(Yvars)
         # pyre-fixme[16]: `Optional` has no attribute `fit`.
         self.model.fit(
@@ -152,8 +155,11 @@ class TorchModelBridge(ArrayModelBridge):
     ) -> None:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_update"))
+        # pyre-fixme[35]: Target cannot be annotated.
         Xs: List[Tensor] = self._array_list_to_tensors(Xs)
+        # pyre-fixme[35]: Target cannot be annotated.
         Ys: List[Tensor] = self._array_list_to_tensors(Ys)
+        # pyre-fixme[35]: Target cannot be annotated.
         Yvars: List[Tensor] = self._array_list_to_tensors(Yvars)
         # pyre-fixme[16]: `Optional` has no attribute `update`.
         self.model.update(
@@ -257,9 +263,13 @@ class TorchModelBridge(ArrayModelBridge):
     ) -> Tuple[np.ndarray, np.ndarray]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_cross_validate"))
+        # pyre-fixme[35]: Target cannot be annotated.
         Xs_train: List[Tensor] = self._array_list_to_tensors(Xs_train)
+        # pyre-fixme[35]: Target cannot be annotated.
         Ys_train: List[Tensor] = self._array_list_to_tensors(Ys_train)
+        # pyre-fixme[35]: Target cannot be annotated.
         Yvars_train: List[Tensor] = self._array_list_to_tensors(Yvars_train)
+        # pyre-fixme[35]: Target cannot be annotated.
         X_test: Tensor = self._array_to_tensor(X_test)
         # pyre-fixme[16]: `Optional` has no attribute `cross_validate`.
         f_test, cov_test = self.model.cross_validate(

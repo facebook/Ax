@@ -159,18 +159,22 @@ def validate_and_apply_final_transform(
     Optional[Tuple[Tensor, Tensor]],
     Optional[List[Tensor]],
 ]:
+    # pyre-fixme[35]: Target cannot be annotated.
     objective_weights: Tensor = final_transform(objective_weights)
     if outcome_constraints is not None:  # pragma: no cover
+        # pyre-fixme[35]: Target cannot be annotated.
         outcome_constraints: Tuple[Tensor, Tensor] = (
             final_transform(outcome_constraints[0]),
             final_transform(outcome_constraints[1]),
         )
     if linear_constraints is not None:  # pragma: no cover
+        # pyre-fixme[35]: Target cannot be annotated.
         linear_constraints: Tuple[Tensor, Tensor] = (
             final_transform(linear_constraints[0]),
             final_transform(linear_constraints[1]),
         )
     if pending_observations is not None:  # pragma: no cover
+        # pyre-fixme[35]: Target cannot be annotated.
         pending_observations: List[Tensor] = [
             final_transform(pending_obs) for pending_obs in pending_observations
         ]
