@@ -53,7 +53,7 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
         #  got `Optional[ax.storage.sqa_store.db.SQABase]`.
         existing_sqa_experiment=existing_sqa_experiment,
     )
-    new_sqa_experiment = encoder.experiment_to_sqa(experiment)
+    new_sqa_experiment = encoder.experiment_to_sqa(experiment)[0]
 
     if existing_sqa_experiment is not None:
         # Update the SQA object outside of session scope to avoid timeouts.
@@ -199,6 +199,8 @@ def _save_new_trials(
     with session_scope() as session:
         session.add_all(trials_sqa)
 
+    # TODO: db ids
+
 
 def update_trial(
     experiment: Experiment, trial: BaseTrial, config: Optional[SQAConfig] = None
@@ -255,6 +257,8 @@ def _update_trials(
         session.add_all(updated_sqa_trials)
         session.add_all(new_sqa_data)
 
+    # TODO: db ids
+
 
 def update_generation_strategy(
     generation_strategy: GenerationStrategy,
@@ -303,3 +307,5 @@ def _update_generation_strategy(
 
     with session_scope() as session:
         session.add_all(generator_runs_sqa)
+
+    # TODO: db ids
