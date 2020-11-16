@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: Python package
+name: Build Workflow
 
 on:
   push:
@@ -10,7 +10,61 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  tests-and-coverage:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -q -e .[dev,mysql,notebook]
+    - name: Import Ax
+      run: |
+        python scripts/import_ax.py
+    - name: Tests and coverage
+      # run even if previous step (Black) failed
+      if: ${{ always() }}
+      run: |
+        pytest -ra --cov=ax
+
+  lint:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        pip install black
+        pip install flake8
+    - name: Black
+      run: |
+        black --check --diff .
+    - name: Flake8
+      # run even if previous step (Black) failed
+      if: ${{ always() }}
+      run: |
+        # don't use .flake8 config for now, since don't need custom plugin
+        flake8 --isolated --ignore=T484,T499,W503,E704,E231,E203 --max-line-length=88
+        
+  docs:
 
     runs-on: ubuntu-latest
     strategy:
@@ -28,6 +82,57 @@ jobs:
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -q -e .[dev,mysql,notebook]
-    - name: Test with pytest
+    - name: Validate Sphinx
       run: |
-        pytest -ra --cov=ax
+        python scripts/validate_sphinx.py -p "${pwd}"
+    - name: Run Sphinx
+      # run even if previous step (validate Sphinx) failed
+      if: ${{ always() }}
+      run: |
+        # warnings treated as errors
+        sphinx-build -WT sphinx/source sphinx/build
+        # since -W flag breaks on first error, re-run without it to print all
+        sphinx-build sphinx/source sphinx/build
+        
+  latest-stable-botorch:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        pip install botorch
+        pip install -q -e .[dev,mysql,notebook]
+    - name: Tests
+      run: |
+        pytest -ra
+        
+  minimum-botorch:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        # TODO: read from a shared source.
+        pip install botorch==0.3.2
+        pip install -q -e .[dev,mysql,notebook]
+    - name: Tests
+      run: |
+        pytest -ra
