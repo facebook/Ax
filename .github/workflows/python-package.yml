@@ -4,6 +4,9 @@
 name: Nightly Cron
 
 on:
+  push:
+    branches:
+      - ldworkin_test_github_actions_2
   workflow_dispatch:
   schedule:
     # * is a special character in YAML so you have to quote this string
