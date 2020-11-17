@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron:  '0 12 * * *'
+    - cron:  '0 5 * * *'
 
 jobs:
   latest-stable-botorch:
@@ -52,4 +52,46 @@ jobs:
     - name: Tests
       run: |
         pytest -ra
+        
+  deploy-website:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -q -e .[dev,mysql,notebook]
+        pip install torchvision  # required for tutorials
+        pip install ray  # Required for building RayTune tutorial notebook.
+        pip install tabulate  # Required for building RayTune tutorial notebook.
+        pip install matplotlib  # Required for building Multi-objective tutorial notebook.
+    - name: Deploy website
+      run: |
+        bash scripts/publish_site.sh -d
+    
+  test-pypi:
+    
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+        
+    steps:
+    - name: Upload to Test PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: lilidworkin
+        password: ${{ secrets.test_pypi_password }}
+        repository_url: https://test.pypi.org/legacy/
 
