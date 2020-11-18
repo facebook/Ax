@@ -56,7 +56,7 @@ jobs:
       run: |
         pytest -ra
         
-  deploy-website:
+  publish-latest-website:
 
     runs-on: ubuntu-latest
     strategy:
@@ -79,11 +79,11 @@ jobs:
         pip install ray  # Required for building RayTune tutorial notebook.
         pip install tabulate  # Required for building RayTune tutorial notebook.
         pip install matplotlib  # Required for building Multi-objective tutorial notebook.
-    - name: Deploy website
+    - name: Publish latest website
       run: |
         bash scripts/publish_site.sh -d
     
-  test-pypi:
+  deploy-test-pypi:
     
     runs-on: ubuntu-latest
     strategy:
@@ -91,7 +91,13 @@ jobs:
         python-version: [3.7]
         
     steps:
-    - name: Upload to Test PyPI
+    - name: Install dependencies
+      run: |
+        pip install -q -e .[dev,mysql,notebook]
+    - name: Build wheel
+      run: |
+        python setup.py sdist bdist_wheel
+    - name: Deploy to Test PyPI
       uses: pypa/gh-action-pypi-publish@master
       with:
         user: lilidworkin
