@@ -7,7 +7,7 @@
 import json
 import logging
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, Type
 
 import ax.service.utils.best_point as best_point_utils
 import numpy as np
@@ -60,6 +60,9 @@ from botorch.utils.sampling import manual_seed
 
 
 logger = get_logger(__name__)
+
+
+AxClientSubclass = TypeVar("AxClientSubclass", bound="AxClient")
 
 
 class AxClient(WithDBSettingsBase):
@@ -793,16 +796,16 @@ class AxClient(WithDBSettingsBase):
             file.write(json.dumps(self.to_json_snapshot()))
             logger.info(f"Saved JSON-serialized state of optimization to `{filepath}`.")
 
-    @staticmethod
+    @classmethod
     def load_from_json_file(
-        filepath: str = "ax_client_snapshot.json", **kwargs
-    ) -> "AxClient":
+        cls: Type[AxClientSubclass], filepath: str = "ax_client_snapshot.json", **kwargs
+    ) -> AxClientSubclass:
         """Restore an `AxClient` and its state from a JSON-serialized snapshot,
         residing in a .json file by the given path.
         """
         with open(filepath, "r") as file:  # pragma: no cover
             serialized = json.loads(file.read())
-            return AxClient.from_json_snapshot(serialized=serialized, **kwargs)
+            return cls.from_json_snapshot(serialized=serialized, **kwargs)
 
     def to_json_snapshot(self) -> Dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
@@ -818,12 +821,14 @@ class AxClient(WithDBSettingsBase):
             "_enforce_sequential_optimization": self._enforce_sequential_optimization,
         }
 
-    @staticmethod
-    def from_json_snapshot(serialized: Dict[str, Any], **kwargs) -> "AxClient":
+    @classmethod
+    def from_json_snapshot(
+        cls: Type[AxClientSubclass], serialized: Dict[str, Any], **kwargs
+    ) -> AxClientSubclass:
         """Recreate an `AxClient` from a JSON snapshot."""
         experiment = object_from_json(serialized.pop("experiment"))
         serialized_generation_strategy = serialized.pop("generation_strategy")
-        ax_client = AxClient(
+        ax_client = cls(
             generation_strategy=generation_strategy_from_json(
                 generation_strategy_json=serialized_generation_strategy
             )
