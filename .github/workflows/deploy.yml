@@ -1,0 +1,42 @@
+# This workflows will upload a Python Package using Twine when a release is created
+# For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#publishing-to-package-registries
+
+name: Deploy
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -q -e .[dev,mysql,notebook]
+        pip install torchvision  # required for tutorials
+        pip install ray  # Required for building RayTune tutorial notebook.
+        pip install tabulate  # Required for building RayTune tutorial notebook.
+        pip install matplotlib  # Required for building Multi-objective tutorial notebook.
+        pip install wheel
+    - name: Build wheel
+      run: |
+        python setup.py sdist bdist_wheel
+    - name: Publish website
+      run: |
+        bash scripts/publish_site.sh -d -k python3 -v $TRAVIS_TAG
+    - name: Deploy to PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: lilidworkin
+        password: ${{ secrets.pypi_password }}
