@@ -10,6 +10,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
 
@@ -77,19 +78,19 @@ class RangeParameterTest(TestCase):
         self.assertEqual(str(self.param2), self.param2_repr)
 
     def testBadCreations(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             RangeParameter("x", ParameterType.STRING, 1, 3)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             RangeParameter("x", ParameterType.FLOAT, 3, 1)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             RangeParameter("x", ParameterType.INT, 0, 1, log_scale=True)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             RangeParameter("x", ParameterType.INT, 0.5, 1)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             RangeParameter("x", ParameterType.INT, 0.5, 1, is_fidelity=True)
 
     def testBadSetter(self):
@@ -99,13 +100,13 @@ class RangeParameterTest(TestCase):
         with self.assertRaises(ValueError):
             self.param1.update_range(lower="foo")
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             self.param1.update_range(lower=4)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             self.param1.update_range(upper=0.5)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             self.param1.update_range(lower=1.0, upper=0.9)
 
     def testGoodSetter(self):
@@ -117,7 +118,7 @@ class RangeParameterTest(TestCase):
         self.assertEqual(self.param1.upper, 1.001)
 
         # This would cast Upper = Lower = 1, which is not allowed
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             self.param1.set_digits(1)
 
         self.param1.update_range(lower=2.0, upper=3.0)
@@ -166,7 +167,7 @@ class ChoiceParameterTest(TestCase):
         )
 
     def testBadCreations(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             ChoiceParameter(
                 name="x",
                 parameter_type=ParameterType.STRING,
@@ -216,11 +217,11 @@ class ChoiceParameterTest(TestCase):
         self.assertFalse(self.param1.validate("foo"))
 
     def testSingleValue(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             ChoiceParameter(
                 name="x", parameter_type=ParameterType.STRING, values=["foo"]
             )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             self.param1.set_values(["foo"])
 
     def testClone(self):
@@ -240,7 +241,7 @@ class FixedParameterTest(TestCase):
         self.param1_repr = "FixedParameter(name='x', parameter_type=BOOL, value=True)"
 
     def testBadCreations(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             FixedParameter(
                 name="x",
                 parameter_type=ParameterType.BOOL,
