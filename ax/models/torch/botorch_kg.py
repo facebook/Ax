@@ -53,11 +53,16 @@ class KnowledgeGradient(BotorchModel):
     """
 
     def __init__(
-        self, cost_intercept: float = 1.0, linear_truncated: bool = True, **kwargs: Any
+        self,
+        cost_intercept: float = 1.0,
+        linear_truncated: bool = True,
+        use_input_warping: bool = False,
+        **kwargs: Any,
     ) -> None:
         super().__init__(
             best_point_recommender=recommend_best_out_of_sample_point,
             linear_truncated=linear_truncated,
+            use_input_warping=use_input_warping,
             **kwargs,
         )
         self.cost_intercept = cost_intercept

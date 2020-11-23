@@ -239,6 +239,7 @@ class BotorchModel(TorchModel):
         refit_on_cv: bool = False,
         refit_on_update: bool = True,
         warm_start_refitting: bool = True,
+        use_input_warping: bool = False,
         **kwargs: Any,
     ) -> None:
         self.model_constructor = model_constructor
@@ -250,6 +251,7 @@ class BotorchModel(TorchModel):
         self.refit_on_cv = refit_on_cv
         self.refit_on_update = refit_on_update
         self.warm_start_refitting = warm_start_refitting
+        self.use_input_warping = use_input_warping
         self.model: Optional[Model] = None
         self.Xs = []
         self.Ys = []
@@ -289,6 +291,7 @@ class BotorchModel(TorchModel):
             task_features=self.task_features,
             fidelity_features=self.fidelity_features,
             metric_names=self.metric_names,
+            use_input_warping=self.use_input_warping,
             **self._kwargs,
         )
 
@@ -415,6 +418,8 @@ class BotorchModel(TorchModel):
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
             metric_names=self.metric_names,
+            refit_model=self.refit_on_cv,
+            use_input_warping=self.use_input_warping,
             **self._kwargs,
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
@@ -445,6 +450,7 @@ class BotorchModel(TorchModel):
             fidelity_features=self.fidelity_features,
             metric_names=self.metric_names,
             refit_model=self.refit_on_update,
+            use_input_warping=self.use_input_warping,
             **self._kwargs,
         )
 

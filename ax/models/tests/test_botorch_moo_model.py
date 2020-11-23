@@ -14,6 +14,8 @@ from ax.models.torch.botorch_moo_defaults import get_EHVI
 from ax.models.torch.utils import HYPERSPHERE
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
+from botorch.models import ModelListGP
+from botorch.models.transforms.input import Warp
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 
 
@@ -141,6 +143,28 @@ class BotorchMOOModelTest(TestCase):
             )
             # Sample_simplex should be called once per generated candidate.
             self.assertEqual(n, _mock_sample_hypersphere.call_count)
+
+        # test input warping
+        self.assertFalse(model.use_input_warping)
+        model = MultiObjectiveBotorchModel(
+            acqf_constructor=get_NEI, use_input_warping=True
+        )
+        model.fit(
+            Xs=Xs1 + Xs2,
+            Ys=Ys1 + Ys2,
+            Yvars=Yvars1 + Yvars2,
+            bounds=bounds,
+            task_features=tfs,
+            feature_names=fns,
+            metric_names=mns,
+            fidelity_features=[],
+        )
+        self.assertTrue(model.use_input_warping)
+        self.assertIsInstance(model.model, ModelListGP)
+        for m in model.model.models:
+            self.assertTrue(hasattr(m, "input_transform"))
+            self.assertIsInstance(m.input_transform, Warp)
+        self.assertFalse(hasattr(model.model, "input_transform"))
 
     def test_BotorchMOOModel_with_chebyshev_scalarization(
         self, dtype=torch.float, cuda=False
