@@ -19,6 +19,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import FixedNoiseGP, ModelListGP
+from botorch.models.transforms.input import Warp
 from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 from gpytorch.priors import GammaPrior
@@ -119,37 +120,46 @@ class BotorchModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
-        model = BotorchModel()
-        # Test ModelListGP
-        # make training data different for each output
-        Xs2_diff = [Xs2[0] + 0.1]
-        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
-            model.fit(
-                Xs=Xs1 + Xs2_diff,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
-                metric_names=mns,
-                fidelity_features=[],
-            )
-            _mock_fit_model.assert_called_once()
-        # Check attributes
-        self.assertTrue(torch.equal(model.Xs[0], Xs1[0]))
-        self.assertTrue(torch.equal(model.Xs[1], Xs2_diff[0]))
-        self.assertEqual(model.dtype, Xs1[0].dtype)
-        self.assertEqual(model.device, Xs1[0].device)
-        self.assertIsInstance(model.model, ModelListGP)
+        for use_input_warping in (True, False):
+            model = BotorchModel(use_input_warping=use_input_warping)
+            # Test ModelListGP
+            # make training data different for each output
+            Xs2_diff = [Xs2[0] + 0.1]
+            with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+                model.fit(
+                    Xs=Xs1 + Xs2_diff,
+                    Ys=Ys1 + Ys2,
+                    Yvars=Yvars1 + Yvars2,
+                    bounds=bounds,
+                    task_features=tfs,
+                    feature_names=fns,
+                    metric_names=mns,
+                    fidelity_features=[],
+                )
+                _mock_fit_model.assert_called_once()
+            # Check attributes
+            self.assertTrue(torch.equal(model.Xs[0], Xs1[0]))
+            self.assertTrue(torch.equal(model.Xs[1], Xs2_diff[0]))
+            self.assertEqual(model.dtype, Xs1[0].dtype)
+            self.assertEqual(model.device, Xs1[0].device)
+            self.assertIsInstance(model.model, ModelListGP)
 
-        # Check fitting
-        model_list = model.model.models
-        self.assertTrue(torch.equal(model_list[0].train_inputs[0], Xs1[0]))
-        self.assertTrue(torch.equal(model_list[1].train_inputs[0], Xs2_diff[0]))
-        self.assertTrue(torch.equal(model_list[0].train_targets, Ys1[0].view(-1)))
-        self.assertTrue(torch.equal(model_list[1].train_targets, Ys2[0].view(-1)))
-        self.assertIsInstance(model_list[0].likelihood, _GaussianLikelihoodBase)
-        self.assertIsInstance(model_list[1].likelihood, _GaussianLikelihoodBase)
+            # Check fitting
+            model_list = model.model.models
+            self.assertTrue(torch.equal(model_list[0].train_inputs[0], Xs1[0]))
+            self.assertTrue(torch.equal(model_list[1].train_inputs[0], Xs2_diff[0]))
+            self.assertTrue(torch.equal(model_list[0].train_targets, Ys1[0].view(-1)))
+            self.assertTrue(torch.equal(model_list[1].train_targets, Ys2[0].view(-1)))
+            self.assertIsInstance(model_list[0].likelihood, _GaussianLikelihoodBase)
+            self.assertIsInstance(model_list[1].likelihood, _GaussianLikelihoodBase)
+            if use_input_warping:
+                self.assertTrue(model.use_input_warping)
+            for m in model_list:
+                if use_input_warping:
+                    self.assertTrue(hasattr(m, "input_transform"))
+                    self.assertIsInstance(m.input_transform, Warp)
+                else:
+                    self.assertFalse(hasattr(m, "input_transform"))
 
         # Test batched multi-output FixedNoiseGP
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
@@ -446,23 +456,29 @@ class BotorchModelTest(TestCase):
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
-        model = BotorchModel()
-        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
-            model.fit(
-                Xs=Xs1,
-                Ys=Ys1,
-                Yvars=Yvars1,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
-                metric_names=mns[0],
-                fidelity_features=[],
-            )
-            _mock_fit_model.assert_called_once()
-        X = torch.rand(2, 3, dtype=torch.float)
-        f_mean, f_cov = model.predict(X)
-        self.assertTrue(f_mean.shape == torch.Size([2, 1]))
-        self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
+        for use_input_warping in (True, False):
+            model = BotorchModel(use_input_warping=use_input_warping)
+            with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+                model.fit(
+                    Xs=Xs1,
+                    Ys=Ys1,
+                    Yvars=Yvars1,
+                    bounds=bounds,
+                    task_features=tfs,
+                    feature_names=fns,
+                    metric_names=mns[0],
+                    fidelity_features=[],
+                )
+                _mock_fit_model.assert_called_once()
+            X = torch.rand(2, 3, dtype=torch.float)
+            f_mean, f_cov = model.predict(X)
+            self.assertTrue(f_mean.shape == torch.Size([2, 1]))
+            self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
+            if use_input_warping:
+                self.assertTrue(hasattr(model.model, "input_transform"))
+                self.assertIsInstance(model.model.input_transform, Warp)
+            else:
+                self.assertFalse(hasattr(model.model, "input_transform"))
 
     def test_BotorchModelConstraints(self):
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
