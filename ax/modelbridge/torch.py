@@ -281,7 +281,7 @@ class TorchModelBridge(ArrayModelBridge):
         )
 
     def _array_to_tensor(self, array: Union[np.ndarray, List[float]]) -> Tensor:
-        return torch.tensor(array, dtype=self.dtype, device=self.device)
+        return torch.as_tensor(array, dtype=self.dtype, device=self.device)
 
     def _array_list_to_tensors(self, arrays: List[np.ndarray]) -> List[Tensor]:
         return [self._array_to_tensor(x) for x in arrays]
