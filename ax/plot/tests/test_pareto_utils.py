@@ -38,3 +38,10 @@ class ParetoUtilsTest(TestCase):
             trial_index=0,
             absolute_metrics=[m.name for m in metrics],
         )
+        compute_pareto_frontier(
+            experiment,
+            metrics[0],
+            metrics[1],
+            data=experiment.fetch_data(),
+            absolute_metrics=[m.name for m in metrics],
+        )
