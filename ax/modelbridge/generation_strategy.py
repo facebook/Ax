@@ -493,6 +493,7 @@ class GenerationStrategy(Base):
                 if len(generator_run_clones) == 0:
                     raise
                 logger.debug(f"Model required more data: {err}.")
+                break
 
         return generator_run_clones
 
