@@ -323,7 +323,7 @@ def make_experiment(
     status_quo: Optional[TParameterization] = None,
     experiment_type: Optional[str] = None,
 ) -> Experiment:
-    """Instantiation wrapper that allows for creation of SimpleExperiment
+    """Instantiation wrapper that allows for creation of an Ax `Experiment`
     without importing or instantiating any Ax classes."""
 
     exp_parameters: List[Parameter] = [parameter_from_json(p) for p in parameters]
