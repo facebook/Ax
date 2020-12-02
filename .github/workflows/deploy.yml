@@ -8,7 +8,7 @@ on:
     types: [created]
 
 jobs:
-  deploy:
+  import-ax:
 
     runs-on: ubuntu-latest
 
@@ -20,21 +20,99 @@ jobs:
         python-version: 3.7
     - name: Install dependencies
       run: |
-        pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
+        pip install -q .
+    - name: Import Ax
+      run: |
+        python scripts/import_ax.py
+
+  latest-stable-botorch:
+
+    needs: import-ax # only run if previous step succeeds
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        pip install botorch
+        pip install -q -e .[dev,mysql,notebook]
+    - name: Tests
+      run: |
+        pytest -ra
+
+  minimum-botorch:
+
+    needs: latest-stable-botorch # only run if previous step succeeds
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        # TODO: read from a shared source.
+        pip install botorch==0.3.2
+        pip install -q -e .[dev,mysql,notebook]
+    - name: Tests
+      run: |
+        pytest -ra
+        
+  publish-stable-website:
+
+    needs: minimum-botorch # only run if previous step succeeds
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -q -e .[dev,mysql,notebook]
+        pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
         pip install torchvision  # required for tutorials
         pip install ray  # Required for building RayTune tutorial notebook.
         pip install tabulate  # Required for building RayTune tutorial notebook.
         pip install matplotlib  # Required for building Multi-objective tutorial notebook.
+    - name: Publish latest website    
+      env:
+        DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
+      run: |
+        bash scripts/publish_site.sh -d -k python3 -v ${{ github.event.release.tag_name }}
+ 
+  deploy:
+
+    needs: publish-stable-website # only run if previous step succeeds
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -q -e .[dev,mysql,notebook]
         pip install wheel
+    - name: Fetch all history for all tags and branches
+      run: git fetch --prune --unshallow
     - name: Build wheel
       run: |
         python setup.py sdist bdist_wheel
-    - name: Publish website
-      run: |
-        bash scripts/publish_site.sh -d -k python3 -v $TRAVIS_TAG
     - name: Deploy to PyPI
       uses: pypa/gh-action-pypi-publish@master
       with:
