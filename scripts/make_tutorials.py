@@ -80,10 +80,12 @@ def gen_tutorials(
     os.makedirs(os.path.join(repo_dir, "website", "_tutorials"), exist_ok=True)
     os.makedirs(os.path.join(repo_dir, "website", "static", "files"), exist_ok=True)
 
+    print(repo_dir)
+
     for config in tutorial_configs:
         tid = config["id"]
         t_dir = config.get("dir")
-        exec_on_build = config.get("exec_on_build", True)
+        exec_on_build = False
 
         print("Generating {} tutorial".format(tid))
 
