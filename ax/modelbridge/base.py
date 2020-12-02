@@ -31,6 +31,7 @@ from ax.core.types import (
     TModelMean,
     TModelPredict,
 )
+from ax.modelbridge.modelbridge_utils import clamp_observation_features
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.utils.common.logger import get_logger
@@ -586,6 +587,7 @@ class ModelBridge(ABC):
         # Get modifiable versions
         if search_space is None:
             search_space = self._model_space
+        orig_search_space = search_space
         search_space = search_space.clone()
 
         if optimization_config is None:
@@ -632,6 +634,13 @@ class ModelBridge(ABC):
             )
             if best_obsf is not None:
                 best_obsf = t.untransform_observation_features([best_obsf])[0]
+
+        # Clamp the untransformed data to the original search space
+        observation_features = clamp_observation_features(
+            observation_features, orig_search_space
+        )
+        if best_obsf is not None:
+            best_obsf = clamp_observation_features([best_obsf], orig_search_space)[0]
 
         best_point_predictions = None
         try:

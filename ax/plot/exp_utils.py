@@ -6,27 +6,10 @@
 
 from typing import Any, List, Optional
 
+import pandas as pd
 from ax.core import Experiment
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from pandas import DataFrame
-
-
-def _rename_tuples(input):
-    if isinstance(input, tuple):
-        if not input[1]:
-            return input[0]
-        else:
-            return input[1]  # "_".join(input)
-    else:
-        return input
-
-
-def _compact_column(df, column):
-    metrics_name_list = list(df[column].columns)
-    temp = df[column][metrics_name_list[0]]
-    del df[column]
-    df[column] = temp
 
 
 def exp_to_df(
@@ -34,7 +17,7 @@ def exp_to_df(
     metrics: Optional[List[Metric]] = None,
     key_components: Optional[List[str]] = None,
     **kwargs: Any,
-) -> DataFrame:
+) -> pd.DataFrame:
     """Transforms an experiment to a DataFrame. Only supports Experiment and
     SimpleExperiment.
 
@@ -67,21 +50,14 @@ def exp_to_df(
     for key in key_components[1:]:
         key_vals = key_vals + results[key].astype("str")
     results[key_col] = key_vals
-    metrics_pivot = results.pivot(
-        index=key_col, columns="metric_name", values=["mean"] + key_components
-    )
 
-    for key in key_components:
-        _compact_column(metrics_pivot, key)
-    inputs = DataFrame(
-        [
-            dict(arm.parameters, arm_name=name)
-            for i, (name, arm) in enumerate(exp.arms_by_name.items())
-        ]
+    metric_vals = results.pivot(
+        index=key_col, columns="metric_name", values="mean"
+    ).reset_index()
+    metadata = results[key_components + [key_col]].drop_duplicates()
+    metric_and_metadata = pd.merge(metric_vals, metadata, on=key_col)
+    arm_names_and_params = pd.DataFrame(
+        [{"arm_name": name, **arm.parameters} for name, arm in exp.arms_by_name.items()]
     )
-    metrics_pivot = metrics_pivot.reset_index(drop=True)
-    results = metrics_pivot.merge(inputs, on="arm_name", copy=False)
-
-    results.rename(columns=_rename_tuples, inplace=True)
-    results = results.loc[:, ~results.columns.duplicated()]
-    return results
+    exp_df = pd.merge(metric_and_metadata, arm_names_and_params, on="arm_name")
+    return exp_df.drop(key_col, axis=1).sort_values(key_components)

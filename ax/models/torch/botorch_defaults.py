@@ -26,6 +26,7 @@ from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.transforms.input import Warp
 from botorch.optim.optimize import optimize_acqf
 from botorch.utils import (
     get_objective_weights_transform,
@@ -51,6 +52,7 @@ def get_and_fit_model(
     metric_names: List[str],
     state_dict: Optional[Dict[str, Tensor]] = None,
     refit_model: bool = True,
+    use_input_warping: bool = False,
     **kwargs: Any,
 ) -> GPyTorchModel:
     r"""Instantiates and fits a botorch GPyTorchModel using the given data.
@@ -105,10 +107,12 @@ def get_and_fit_model(
                 Yvar=Yvars[0],
                 task_feature=task_feature,
                 fidelity_features=fidelity_features,
+                use_input_warping=use_input_warping,
                 **kwargs,
             )
-        elif all(torch.equal(Xs[0], X) for X in Xs[1:]):
+        elif all(torch.equal(Xs[0], X) for X in Xs[1:]) and not use_input_warping:
             # Use batched multioutput, single task GP
+            # Require using a ModelListGP if using input warping
             Y = torch.cat(Ys, dim=-1)
             Yvar = torch.cat(Yvars, dim=-1)
             model = _get_model(
@@ -124,7 +128,9 @@ def get_and_fit_model(
     if model is None:
         if task_feature is None:
             models = [
-                _get_model(X=X, Y=Y, Yvar=Yvar, **kwargs)
+                _get_model(
+                    X=X, Y=Y, Yvar=Yvar, use_input_warping=use_input_warping, **kwargs
+                )
                 for X, Y, Yvar in zip(Xs, Ys, Yvars)
             ]
         else:
@@ -147,6 +153,7 @@ def get_and_fit_model(
                     Yvar=Yvar,
                     task_feature=task_feature,
                     rank=mtgp_rank,
+                    use_input_warping=use_input_warping,
                     **kwargs,
                 )
                 for X, Y, Yvar, mtgp_rank in zip(Xs, Ys, Yvars, mtgp_rank_list)
@@ -453,6 +460,7 @@ def _get_model(
     Yvar: Tensor,
     task_feature: Optional[int] = None,
     fidelity_features: Optional[List[int]] = None,
+    use_input_warping: bool = False,
     **kwargs: Any,
 ) -> GPyTorchModel:
     """Instantiate a model of type depending on the input data.
@@ -481,6 +489,13 @@ def _get_model(
                 "Mix of known and unknown variances indicates valuation function "
                 "errors. Variances should all be specified, or none should be."
             )
+    if use_input_warping:
+        warp_tf = get_warping_transform(
+            d=X.shape[-1],
+            task_feature=task_feature,
+        )
+    else:
+        warp_tf = None
     if fidelity_features is None:
         fidelity_features = []
     if len(fidelity_features) == 0:
@@ -493,12 +508,18 @@ def _get_model(
             )
         # at this point we can assume that there is only a single fidelity parameter
         gp = SingleTaskMultiFidelityGP(
-            train_X=X, train_Y=Y, data_fidelity=fidelity_features[0], **kwargs
+            train_X=X,
+            train_Y=Y,
+            data_fidelity=fidelity_features[0],
+            input_transform=warp_tf,
+            **kwargs,
         )
     elif task_feature is None and all_nan_Yvar:
-        gp = SingleTaskGP(train_X=X, train_Y=Y, **kwargs)
+        gp = SingleTaskGP(train_X=X, train_Y=Y, input_transform=warp_tf, **kwargs)
     elif task_feature is None:
-        gp = FixedNoiseGP(train_X=X, train_Y=Y, train_Yvar=Yvar, **kwargs)
+        gp = FixedNoiseGP(
+            train_X=X, train_Y=Y, train_Yvar=Yvar, input_transform=warp_tf, **kwargs
+        )
     else:
         # instantiate multitask GP
         all_tasks, _, _ = MultiTaskGP.get_all_tasks(X, task_feature)
@@ -528,6 +549,7 @@ def _get_model(
                 task_feature=task_feature,
                 rank=kwargs.get("rank"),
                 task_covar_prior=prior,
+                input_transform=warp_tf,
             )
         else:
             gp = FixedNoiseMultiTaskGP(
@@ -537,5 +559,33 @@ def _get_model(
                 task_feature=task_feature,
                 rank=kwargs.get("rank"),
                 task_covar_prior=prior,
+                input_transform=warp_tf,
             )
     return gp
+
+
+def get_warping_transform(
+    d: int,
+    task_feature: Optional[int] = None,
+) -> Warp:
+    """Construct input warping transform.
+
+    Args:
+        d: The dimension of the input, including task features
+        task_feature: the index of the task feature
+
+    Returns:
+        The input warping transform.
+    """
+    indices = list(range(d))
+    # apply warping to all non-task features, including fidelity features
+    if task_feature is not None:
+        del indices[task_feature]
+    # Note: this currently uses the same warping functions for all tasks
+    tf = Warp(
+        indices=indices,
+        # use an uninformative prior with maximum log probability at 1
+        concentration1_prior=GammaPrior(1.01, 0.01),
+        concentration0_prior=GammaPrior(1.01, 0.01),
+    )
+    return tf

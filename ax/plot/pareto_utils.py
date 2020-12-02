@@ -70,7 +70,7 @@ def compute_pareto_frontier(
     chebyshev: bool = True,
 ) -> ParetoFrontierResults:
     """Compute the Pareto frontier between two objectives. For experiments
-    with batch trials, a trial index must be provided.
+    with batch trials, a trial index or data object must be provided.
 
     Args:
         experiment: The experiment to compute a pareto frontier for.
@@ -107,11 +107,13 @@ def compute_pareto_frontier(
         "acquisition_function_kwargs": {"chebyshev_scalarization": chebyshev}
     }
 
-    if trial_index is None and any(
-        isinstance(t, BatchTrial) for t in experiment.trials.values()
+    if (
+        trial_index is None
+        and data is None
+        and any(isinstance(t, BatchTrial) for t in experiment.trials.values())
     ):
         raise UnsupportedError(
-            "Must specify trial index for experiment with batch trials"
+            "Must specify trial index or data for experiment with batch trials"
         )
     absolute_metrics = [] if absolute_metrics is None else absolute_metrics
     for metric in absolute_metrics:

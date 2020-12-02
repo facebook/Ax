@@ -17,7 +17,10 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.parameter_constraint import (
@@ -274,6 +277,18 @@ def optimization_config_to_dict(
         "__type": optimization_config.__class__.__name__,
         "objective": optimization_config.objective,
         "outcome_constraints": optimization_config.outcome_constraints,
+    }
+
+
+def multi_objective_optimization_config_to_dict(
+    multi_objective_optimization_config: MultiObjectiveOptimizationConfig,
+) -> Dict[str, Any]:
+    """Convert Ax optimization config to a dictionary."""
+    return {
+        "__type": multi_objective_optimization_config.__class__.__name__,
+        "objective": multi_objective_optimization_config.objective,
+        "outcome_constraints": multi_objective_optimization_config.outcome_constraints,
+        "objective_thresholds": multi_objective_optimization_config.objective_thresholds,  # noqa E501
     }
 
 

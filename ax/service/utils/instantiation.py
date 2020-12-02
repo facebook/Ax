@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import enum
 from typing import Dict, List, Optional, Union, cast
 
 import numpy as np
@@ -11,8 +12,12 @@ from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
-from ax.core.objective import Objective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.objective import Objective, MultiObjective
+from ax.core.optimization_config import (
+    ObjectiveThreshold,
+    OptimizationConfig,
+    MultiObjectiveOptimizationConfig,
+)
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
     PARAMETER_PYTHON_TYPE_MAP,
@@ -34,6 +39,7 @@ from ax.core.types import (
     TParamValue,
     TTrialEvaluation,
 )
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
@@ -41,7 +47,6 @@ from ax.utils.common.typeutils import (
     not_none,
     numpy_type_to_python_type,
 )
-
 
 logger = get_logger(__name__)
 
@@ -66,6 +71,11 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
     "is_ordered",
     "is_task",
 }
+
+
+class MetricObjective(enum.Enum):
+    MINIMIZE = enum.auto()
+    MAXIMIZE = enum.auto()
 
 
 def _get_parameter_type(python_type: TParameterType) -> ParameterType:
@@ -313,34 +323,221 @@ def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
     return OutcomeConstraint(Metric(name=tokens[0]), op=op, bound=bound, relative=rel)
 
 
+def objective_threshold_constraint_from_str(
+    representation: str,
+) -> ObjectiveThreshold:
+    oc = outcome_constraint_from_str(representation)
+    return ObjectiveThreshold(
+        metric=oc.metric.clone(),
+        bound=oc.bound,
+        relative=oc.relative,
+        op=oc.op,
+    )
+
+
+def make_objectives(objectives: Dict[str, str]) -> List[Metric]:
+    try:
+        return [
+            Metric(
+                name=metric_name,
+                lower_is_better=(
+                    MetricObjective[min_or_max.upper()] == MetricObjective.MINIMIZE
+                ),
+            )
+            for metric_name, min_or_max in objectives.items()
+        ]
+    except KeyError as k:
+        raise ValueError(
+            f"Objective values should specify '{MetricObjective.MINIMIZE.name.lower()}'"
+            f" or '{MetricObjective.MAXIMIZE.name.lower()}', got {k} in"
+            f" objectives({objectives})"
+        )
+
+
+def make_outcome_constraints(
+    outcome_constraints: List[str], status_quo_defined: bool
+) -> List[OutcomeConstraint]:
+
+    typed_outcome_constraints = [
+        outcome_constraint_from_str(c) for c in outcome_constraints
+    ]
+
+    if status_quo_defined is False and any(
+        oc.relative for oc in typed_outcome_constraints
+    ):
+        raise ValueError("Must set status_quo to have relative outcome constraints.")
+
+    return typed_outcome_constraints
+
+
+def make_objective_thresholds(
+    objective_thresholds: List[str], status_quo_defined: bool
+) -> List[ObjectiveThreshold]:
+
+    typed_objective_thresholds = (
+        [objective_threshold_constraint_from_str(c) for c in objective_thresholds]
+        if objective_thresholds is not None
+        else []
+    )
+
+    if status_quo_defined is False and any(
+        oc.relative for oc in typed_objective_thresholds
+    ):
+        raise ValueError("Must set status_quo to have relative objective thresholds.")
+
+    return typed_objective_thresholds
+
+
+def optimization_config_from_objectives(
+    objectives: List[Metric],
+    objective_thresholds: List[ObjectiveThreshold],
+    outcome_constraints: List[OutcomeConstraint],
+) -> OptimizationConfig:
+    """Parse objectives and constraints to define optimization config.
+
+    The resulting optimization config will be regular single-objective config
+    if `objectives` is a list of one element and a multi-objective config
+    otherwise.
+
+    NOTE: If passing in multiple objectives, `objective_thresholds` must be a
+    non-empty list definining constraints for each objective.
+    """
+    if len(objectives) == 1:
+        if objective_thresholds:
+            raise ValueError(
+                "Single-objective optimizations must not specify objective thresholds."
+            )
+        return OptimizationConfig(
+            objective=Objective(
+                metric=objectives[0],
+            ),
+            outcome_constraints=outcome_constraints,
+        )
+    else:
+        objective_names = {m.name for m in objectives}
+        threshold_names = {oc.metric.name for oc in objective_thresholds}
+        if objective_names != threshold_names:
+            diff = objective_names.symmetric_difference(threshold_names)
+            raise ValueError(
+                "Multi-objective optimization requires one objective threshold "
+                f"per objective metric; unmatched names are {diff}"
+            )
+
+        return MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(metrics=objectives),
+            outcome_constraints=outcome_constraints,
+            objective_thresholds=objective_thresholds,
+        )
+
+
+def make_optimization_config(
+    objectives: Dict[str, str],
+    objective_thresholds: List[str],
+    outcome_constraints: List[str],
+    status_quo_defined: bool,
+) -> OptimizationConfig:
+
+    return optimization_config_from_objectives(
+        make_objectives(objectives),
+        make_objective_thresholds(objective_thresholds, status_quo_defined),
+        make_outcome_constraints(outcome_constraints, status_quo_defined),
+    )
+
+
+def make_search_space(
+    parameters: List[TParameterRepresentation],
+    parameter_constraints: List[str],
+) -> SearchSpace:
+
+    typed_parameters = [parameter_from_json(p) for p in parameters]
+    parameter_map = {p.name: p for p in typed_parameters}
+
+    typed_parameter_constraints = [
+        constraint_from_str(c, parameter_map) for c in parameter_constraints
+    ]
+
+    return SearchSpace(
+        parameters=typed_parameters,
+        parameter_constraints=typed_parameter_constraints,
+    )
+
+
 def make_experiment(
     parameters: List[TParameterRepresentation],
     name: Optional[str] = None,
-    objective_name: Optional[str] = None,
-    minimize: bool = False,
     parameter_constraints: Optional[List[str]] = None,
     outcome_constraints: Optional[List[str]] = None,
     status_quo: Optional[TParameterization] = None,
     experiment_type: Optional[str] = None,
+    # Single-objective optimization arguments:
+    objective_name: Optional[str] = None,
+    minimize: bool = False,
+    # Multi-objective optimization arguments:
+    objectives: Optional[Dict[str, str]] = None,
+    objective_thresholds: Optional[List[str]] = None,
 ) -> Experiment:
-    """Instantiation wrapper that allows for creation of SimpleExperiment
-    without importing or instantiating any Ax classes."""
+    """Instantiation wrapper that allows for Ax `Experiment` creation
+    without importing or instantiating any Ax classes.
 
-    exp_parameters: List[Parameter] = [parameter_from_json(p) for p in parameters]
+    Args:
+        parameters: List of dictionaries representing parameters in the
+            experiment search space.
+            Required elements in the dictionaries are:
+            1. "name" (name of parameter, string),
+            2. "type" (type of parameter: "range", "fixed", or "choice", string),
+            and one of the following:
+            3a. "bounds" for range parameters (list of two values, lower bound
+            first),
+            3b. "values" for choice parameters (list of values), or
+            3c. "value" for fixed parameters (single value).
+            Optional elements are:
+            1. "log_scale" (for float-valued range parameters, bool),
+            2. "value_type" (to specify type that values of this parameter should
+            take; expects "float", "int", "bool" or "str"),
+            3. "is_fidelity" (bool) and "target_value" (float) for fidelity
+            parameters,
+            4. "is_ordered" (bool) for choice parameters, and
+            5. "is_task" (bool) for task parameters.
+        name: Name of the experiment to be created.
+        parameter_constraints: List of string representation of parameter
+            constraints, such as "x3 >= x4" or "-x3 + 2*x4 - 3.5*x5 >= 2". For
+            the latter constraints, any number of arguments is accepted, and
+            acceptable operators are "<=" and ">=".
+        parameter_constraints: List of string representation of parameter
+                constraints, such as "x3 >= x4" or "-x3 + 2*x4 - 3.5*x5 >= 2". For
+                the latter constraints, any number of arguments is accepted, and
+                acceptable operators are "<=" and ">=".
+        outcome_constraints: List of string representation of outcome
+            constraints of form "metric_name >= bound", like "m1 <= 3."
+        status_quo: Parameterization of the current state of the system.
+            If set, this will be added to each trial to be evaluated alongside
+            test configurations.
+        experiment_type: String indicating type of the experiment (e.g. name of
+            a product in which it is used), if any.
+        objective_name: Name of the metric used as objective in this experiment,
+            if experiment is single-objective optimization.
+        minimize: Whether this experiment represents a minimization problem, if
+            experiment is a single-objective optimization.
+        objectives: Mapping from an objective name to "minimize" or "maximize"
+            representing the direction for that objective. Used only for
+            multi-objective optimization experiments.
+        objective_thresholds: A list of objective threshold constraints for multi-
+            objective optimization, in the same string format as `outcome_constraints`
+            argument.
+    """
+    if objective_name is not None and (
+        objectives is not None or objective_thresholds is not None
+    ):
+        raise UnsupportedError(
+            "Ambiguous objective definition: for single-objective optimization "
+            "`objective_name` and `minimize` arguments expected. For multi-objective "
+            "optimization `objectives` and `objective_thresholds` arguments expected."
+        )
+
     status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
-    parameter_map = {p.name: p for p in exp_parameters}
-    ocs = [outcome_constraint_from_str(c) for c in (outcome_constraints or [])]
-    if status_quo_arm is None and any(oc.relative for oc in ocs):
-        raise ValueError("Must set status_quo to have relative outcome constraints.")
-    return Experiment(
-        name=name,
-        search_space=SearchSpace(
-            parameters=exp_parameters,
-            parameter_constraints=None
-            if parameter_constraints is None
-            else [constraint_from_str(c, parameter_map) for c in parameter_constraints],
-        ),
-        optimization_config=OptimizationConfig(
+
+    if objectives is None:
+        optimization_config = OptimizationConfig(
             objective=Objective(
                 metric=Metric(
                     name=objective_name or DEFAULT_OBJECTIVE_NAME,
@@ -348,8 +545,22 @@ def make_experiment(
                 ),
                 minimize=minimize,
             ),
-            outcome_constraints=ocs,
-        ),
+            outcome_constraints=make_outcome_constraints(
+                outcome_constraints or [], status_quo_arm is not None
+            ),
+        )
+    else:
+        optimization_config = make_optimization_config(
+            objectives,
+            objective_thresholds or [],
+            outcome_constraints or [],
+            status_quo_arm is not None,
+        )
+
+    return Experiment(
+        name=name,
+        search_space=make_search_space(parameters, parameter_constraints or []),
+        optimization_config=optimization_config,
         status_quo=status_quo_arm,
         experiment_type=experiment_type,
     )
