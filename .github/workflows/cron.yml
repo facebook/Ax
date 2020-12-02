@@ -10,58 +10,61 @@ on:
     - cron:  '0 5 * * *'
 
 jobs:
-#   import-ax:
+  import-ax:
     
-#     runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        botorch: ['stable', 'minimum']
 
-#     steps:
-#     - uses: actions/checkout@v2
-#     - name: Set up Python
-#       uses: actions/setup-python@v2
-#       with:
-#         python-version: 3.7
-#     - name: Install dependencies
-#       run: |
-#         pip install -q .
-#     - name: Import Ax
-#       run: |
-#         python scripts/import_ax.py
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies (stable Botorch)
+      run: |
+        # will automatically install latest stable Botorch
+        pip install -q .
+      if: matrix.botorch == 'stable'
+    - name: Install dependencies (minimum Botorch)
+      run: |
+        # TODO: read from a shared source.
+        pip install botorch==0.3.2
+        pip install -q .
+      if: matrix.botorch == 'minimum'
+    - name: Import Ax
+      run: |
+        python scripts/import_ax.py
   
-#   stable-botorch:
+  tests-and-coverage:
 
-#     runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        botorch: ['stable', 'minimum']
 
-#     steps:
-#     - uses: actions/checkout@v2
-#     - name: Set up Python
-#       uses: actions/setup-python@v2
-#       with:
-#         python-version: 3.7
-#     - name: Install dependencies
-#       run: |
-#         pip install -q -e .[dev,mysql,notebook]
-#     - name: Tests
-#       run: |
-#         pytest -ra
-        
-#   minimum-botorch:
-
-#     runs-on: ubuntu-latest
-
-#     steps:
-#     - uses: actions/checkout@v2
-#     - name: Set up Python
-#       uses: actions/setup-python@v2
-#       with:
-#         python-version: 3.7
-#     - name: Install dependencies
-#       run: |
-#         # TODO: read from a shared source.
-#         pip install botorch==0.3.2
-#         pip install -q -e .[dev,mysql,notebook]
-#     - name: Tests
-#       run: |
-#         pytest -ra
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies (stable Botorch)
+      run: |
+        # will automatically install latest stable Botorch
+        pip install -q -e .[dev,mysql,notebook]
+      if: matrix.botorch == 'stable'
+    - name: Install dependencies (minimum Botorch)
+      run: |
+        # TODO: read from a shared source.
+        pip install botorch==0.3.2
+        pip install -q -e .[dev,mysql,notebook]
+      if: matrix.botorch == 'minimum'
+    - name: Tests
+      run: |
+        pytest -ra
         
 #   publish-latest-website:
 
