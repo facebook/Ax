@@ -20,8 +20,12 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata, TParamValue
 from ax.modelbridge.transforms.base import Transform
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import checked_cast, not_none
 from torch import Tensor
+
+
+logger = get_logger(__name__)
 
 
 def extract_parameter_constraints(
@@ -376,3 +380,32 @@ def get_pending_observation_features(
                         )
                     )
     return pending_features if any(x for x in pending_features.values()) else None
+
+
+def clamp_observation_features(
+    observation_features: List[ObservationFeatures], search_space: SearchSpace
+) -> List[ObservationFeatures]:
+    range_parameters = [
+        p for p in search_space.parameters.values() if isinstance(p, RangeParameter)
+    ]
+    for obsf in observation_features:
+        for p in range_parameters:
+            if p.name not in obsf.parameters:
+                continue
+            if p.parameter_type == ParameterType.FLOAT:
+                val = checked_cast(float, obsf.parameters[p.name])
+            else:
+                val = checked_cast(int, obsf.parameters[p.name])
+            if val < p.lower:
+                logger.info(
+                    f"Untransformed parameter {val} "
+                    f"less than lower bound {p.lower}, clamping"
+                )
+                obsf.parameters[p.name] = p.lower
+            elif val > p.upper:
+                logger.info(
+                    f"Untransformed parameter {val} "
+                    f"greater than upper bound {p.upper}, clamping"
+                )
+                obsf.parameters[p.name] = p.upper
+    return observation_features
