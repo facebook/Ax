@@ -11,42 +11,12 @@ on:
 
 jobs:
   
-  tests-and-coverage:
-
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        botorch: ['stable', 'minimum']
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.7
-    - name: Install dependencies (stable Botorch)
-      run: |
-        # will automatically install latest stable Botorch
-        pip install -q -e .[dev,mysql,notebook]
-      if: matrix.botorch == 'stable'
-    - name: Install dependencies (minimum Botorch)
-      run: |
-        # TODO: read from a shared source.
-        pip install botorch==0.3.2
-        pip install -q -e .[dev,mysql,notebook]
-      if: matrix.botorch == 'minimum'
-    - name: Import Ax
-      run: |
-        python scripts/import_ax.py
-    - name: Tests
-      # run even if previous step (import Ax) failed
-      if: ${{ always() }}
-      run: |
-        pytest -ra
-        
-#   publish-latest-website:
+#   tests-and-coverage:
 
 #     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         botorch: ['stable', 'minimum']
 
 #     steps:
 #     - uses: actions/checkout@v2
@@ -54,21 +24,51 @@ jobs:
 #       uses: actions/setup-python@v2
 #       with:
 #         python-version: 3.7
-#     - name: Install dependencies
+#     - name: Install dependencies (stable Botorch)
 #       run: |
-#         pip install git+https://github.com/cornellius-gp/gpytorch.git
-#         pip install git+https://github.com/pytorch/botorch.git
+#         # will automatically install latest stable Botorch
 #         pip install -q -e .[dev,mysql,notebook]
-#         pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
-#         pip install torchvision  # required for tutorials
-#         pip install ray  # Required for building RayTune tutorial notebook.
-#         pip install tabulate  # Required for building RayTune tutorial notebook.
-#         pip install matplotlib  # Required for building Multi-objective tutorial notebook.
-#     - name: Publish latest website    
-#       env:
-#         DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
+#       if: matrix.botorch == 'stable'
+#     - name: Install dependencies (minimum Botorch)
 #       run: |
-#         bash scripts/publish_site.sh -d
+#         # TODO: read from a shared source.
+#         pip install botorch==0.3.2
+#         pip install -q -e .[dev,mysql,notebook]
+#       if: matrix.botorch == 'minimum'
+#     - name: Import Ax
+#       run: |
+#         python scripts/import_ax.py
+#     - name: Tests
+#       # run even if previous step (import Ax) failed
+#       if: ${{ always() }}
+#       run: |
+#         pytest -ra
+        
+  publish-latest-website:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -q -e .[dev,mysql,notebook]
+        pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
+        pip install torchvision  # required for tutorials
+        pip install ray  # Required for building RayTune tutorial notebook.
+        pip install tabulate  # Required for building RayTune tutorial notebook.
+        pip install matplotlib  # Required for building Multi-objective tutorial notebook.
+    - name: Publish latest website    
+      env:
+        DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
+      run: |
+        bash scripts/publish_site.sh -d
     
 #   deploy-test-pypi:
     
