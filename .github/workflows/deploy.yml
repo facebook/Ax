@@ -24,8 +24,8 @@ jobs:
     - name: Import Ax
       run: |
         python scripts/import_ax.py
-
-  latest-stable-botorch:
+        
+  stable-botorch:
 
     needs: import-ax # only run if previous step succeeds
     runs-on: ubuntu-latest
@@ -38,7 +38,6 @@ jobs:
         python-version: 3.7
     - name: Install dependencies
       run: |
-        pip install botorch
         pip install -q -e .[dev,mysql,notebook]
     - name: Tests
       run: |
@@ -46,7 +45,7 @@ jobs:
 
   minimum-botorch:
 
-    needs: latest-stable-botorch # only run if previous step succeeds
+    needs: stable-botorch # only run if previous step succeeds
     runs-on: ubuntu-latest
 
     steps:
