@@ -1,10 +1,7 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
 name: Nightly Cron
 
 on:
-  push:
+  push: # remove this
     branches:
       - ldworkin_test_github_actions_2
   workflow_dispatch:
@@ -13,19 +10,33 @@ on:
     - cron:  '0 5 * * *'
 
 jobs:
+  import-ax:
+    
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        pip install -q .
+    - name: Import Ax
+      run: |
+        python scripts/import_ax.py
+  
 #   latest-stable-botorch:
 
 #     runs-on: ubuntu-latest
-#     strategy:
-#       matrix:
-#         python-version: [3.7]
 
 #     steps:
 #     - uses: actions/checkout@v2
-#     - name: Set up Python ${{ matrix.python-version }}
+#     - name: Set up Python
 #       uses: actions/setup-python@v2
 #       with:
-#         python-version: ${{ matrix.python-version }}
+#         python-version: 3.7
 #     - name: Install dependencies
 #       run: |
 #         pip install botorch
@@ -37,16 +48,13 @@ jobs:
 #   minimum-botorch:
 
 #     runs-on: ubuntu-latest
-#     strategy:
-#       matrix:
-#         python-version: [3.7]
 
 #     steps:
 #     - uses: actions/checkout@v2
-#     - name: Set up Python ${{ matrix.python-version }}
+#     - name: Set up Python
 #       uses: actions/setup-python@v2
 #       with:
-#         python-version: ${{ matrix.python-version }}
+#         python-version: 3.7
 #     - name: Install dependencies
 #       run: |
 #         # TODO: read from a shared source.
@@ -56,46 +64,40 @@ jobs:
 #       run: |
 #         pytest -ra
         
-#   publish-latest-website:
+  publish-latest-website:
 
-#     runs-on: ubuntu-latest
-#     strategy:
-#       matrix:
-#         python-version: [3.7]
+    runs-on: ubuntu-latest
 
-#     steps:
-#     - uses: actions/checkout@v2
-#     - name: Set up Python ${{ matrix.python-version }}
-#       uses: actions/setup-python@v2
-#       with:
-#         python-version: ${{ matrix.python-version }}
-#     - name: Install dependencies
-#       run: |
-#         pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
-#         pip install git+https://github.com/cornellius-gp/gpytorch.git
-#         pip install git+https://github.com/pytorch/botorch.git
-#         pip install -q -e .[dev,mysql,notebook]
-#         pip install torchvision  # required for tutorials
-#         pip install ray  # Required for building RayTune tutorial notebook.
-#         pip install tabulate  # Required for building RayTune tutorial notebook.
-#         pip install matplotlib  # Required for building Multi-objective tutorial notebook.
-#     - name: Publish latest website
-#       run: |
-#         bash scripts/publish_site.sh -d
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -q -e .[dev,mysql,notebook]
+        pip install torchvision  # required for tutorials
+        pip install ray  # Required for building RayTune tutorial notebook.
+        pip install tabulate  # Required for building RayTune tutorial notebook.
+        pip install matplotlib  # Required for building Multi-objective tutorial notebook.
+    - name: Publish latest website
+      run: |
+        bash scripts/publish_site.sh -d
     
   deploy-test-pypi:
     
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.7]
         
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: 3.7
     - name: Install dependencies
       run: |
         pip install git+https://github.com/cornellius-gp/gpytorch.git
