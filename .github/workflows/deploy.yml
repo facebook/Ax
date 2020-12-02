@@ -8,9 +8,12 @@ on:
     types: [created]
 
 jobs:
-  import-ax:
+  tests-and-coverage:
 
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        botorch: ['stable', 'minimum']
 
     steps:
     - uses: actions/checkout@v2
@@ -18,54 +21,27 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.7
-    - name: Install dependencies
+    - name: Install dependencies (stable Botorch)
       run: |
-        pip install -q .
-    - name: Import Ax
-      run: |
-        python scripts/import_ax.py
-        
-  stable-botorch:
-
-    needs: import-ax # only run if previous step succeeds
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.7
-    - name: Install dependencies
-      run: |
+        # will automatically install latest stable Botorch
         pip install -q -e .[dev,mysql,notebook]
-    - name: Tests
-      run: |
-        pytest -ra
-
-  minimum-botorch:
-
-    needs: stable-botorch # only run if previous step succeeds
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.7
-    - name: Install dependencies
+      if: matrix.botorch == 'stable'
+    - name: Install dependencies (minimum Botorch)
       run: |
         # TODO: read from a shared source.
         pip install botorch==0.3.2
         pip install -q -e .[dev,mysql,notebook]
+      if: matrix.botorch == 'minimum'
+    - name: Import Ax
+      run: |
+        python scripts/import_ax.py
     - name: Tests
       run: |
         pytest -ra
         
   publish-stable-website:
 
-    needs: minimum-botorch # only run if previous step succeeds
+    needs: tests-and-coverage # only run if previous step succeeds
     runs-on: ubuntu-latest
 
     steps:
