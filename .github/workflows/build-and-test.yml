@@ -28,12 +28,7 @@ jobs:
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -q -e .[dev,mysql,notebook]
-    - name: Import Ax
-      run: |
-        python scripts/import_ax.py
     - name: Tests and coverage
-      # run even if previous step (import Ax) failed
-      if: ${{ always() }}
       run: |
         pytest -ra --cov=ax
 
