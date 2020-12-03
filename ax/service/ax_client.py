@@ -364,14 +364,9 @@ class AxClient(WithDBSettingsBase):
         evaluations, data = self._make_evaluations_and_data(
             trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
+        self._validate_trial_data(trial=trial, data=data)
         trial._run_metadata = metadata or {}
-        for metric_name in data.df["metric_name"].values:
-            if metric_name not in self.experiment.metrics:
-                logger.info(
-                    f"Data was logged for metric {metric_name} that was not yet "
-                    "tracked on the experiment. Adding it as tracking metric."
-                )
-                self.experiment.add_tracking_metric(Metric(name=metric_name))
+
         self.experiment.attach_data(data=data)
         trial.mark_completed()
         data_for_logging = _round_floats_for_logging(
@@ -423,14 +418,9 @@ class AxClient(WithDBSettingsBase):
         evaluations, data = self._make_evaluations_and_data(
             trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
+        self._validate_trial_data(trial=trial, data=data)
         trial._run_metadata.update(metadata or {})
-        for metric_name in data.df["metric_name"].values:
-            if metric_name not in self.experiment.metrics:
-                logger.info(
-                    f"Data was logged for metric {metric_name} that was not yet "
-                    "tracked on the experiment. Adding it as tracking metric."
-                )
-                self.experiment.add_tracking_metric(Metric(name=metric_name))
+
         # Registering trial data update is needed for generation strategies that
         # leverage the `update` functionality of model and bridge setup and therefore
         # need to be aware of new data added to experiment. Usually this happends
@@ -1030,6 +1020,15 @@ class AxClient(WithDBSettingsBase):
                     f"parameter on experiment be of type {typ}, set `value_type` "
                     f"on experiment creation for {p_name}."
                 )
+
+    def _validate_trial_data(self, trial: Trial, data: Data) -> None:
+        for metric_name in data.df["metric_name"].values:
+            if metric_name not in self.experiment.metrics:
+                logger.info(
+                    f"Data was logged for metric {metric_name} that was not yet "
+                    "tracked on the experiment. Adding it as tracking metric."
+                )
+                self.experiment.add_tracking_metric(Metric(name=metric_name))
 
     # -------- Backward-compatibility with old save / load method names. -------
 
