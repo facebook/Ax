@@ -27,6 +27,7 @@ from ax.core.types import (
     TParamValue,
 )
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
+from ax.exceptions.core import UnsupportedPlotError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
@@ -578,6 +579,7 @@ class AxClient(WithDBSettingsBase):
             title="Model performance vs. # of iterations",
             ylabel=objective_name.capitalize(),
             hover_labels=hover_labels,
+            model_transitions=self.generation_strategy.model_transitions,
         )
 
     def get_contour_plot(
@@ -656,7 +658,7 @@ class AxClient(WithDBSettingsBase):
                     "`predict`, so it cannot be used to generate a response "
                     "surface plot."
                 )
-        raise ValueError(
+        raise UnsupportedPlotError(
             f'Could not obtain contour plot of "{metric_name}" for parameters '
             f'"{param_x}" and "{param_y}", as a model with predictive ability, '
             "such as a Gaussian Process, has not yet been trained in the course "

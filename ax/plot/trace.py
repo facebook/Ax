@@ -150,7 +150,7 @@ def model_transitions_scatter(
                 y=y_range,
                 mode="lines",
                 line={"dash": "dash", "color": rgba(generator_change_color)},
-                name="Generator change",
+                name="model change",
             )
         )
     return data

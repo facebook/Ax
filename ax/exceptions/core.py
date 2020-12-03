@@ -43,6 +43,19 @@ class UnsupportedError(AxError):
     pass
 
 
+class UnsupportedPlotError(AxError):
+    """Raised when plotting functionality is not supported for the
+    given configurations.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(
+            message=message
+            or "Plotting functionality is not supported for the \
+            given configurations."
+        )
+
+
 class ExperimentNotReadyError(AxError):
     """Raised when failing to query data due to immature experiment.
 
