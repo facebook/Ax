@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
@@ -345,27 +347,52 @@ class BotorchModel(TorchModel):
         bounds_ = bounds_.transpose(0, 1)
 
         botorch_rounding_func = get_rounding_func(rounding_func)
-        acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
-            model=model,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
-            X_pending=X_pending,
-            **acf_options,
-        )
-        acquisition_function = checked_cast(AcquisitionFunction, acquisition_function)
-        # pyre-ignore: [28]
-        candidates, expected_acquisition_value = self.acqf_optimizer(
-            acq_function=checked_cast(AcquisitionFunction, acquisition_function),
-            bounds=bounds_,
-            n=n,
-            inequality_constraints=_to_inequality_constraints(
-                linear_constraints=linear_constraints
-            ),
-            fixed_features=fixed_features,
-            rounding_func=botorch_rounding_func,
-            **optimizer_options,
-        )
+
+        # The following logic is to work around the limitation of PyTorch's Sobol
+        # sampler to <1111 dimensions.
+        # TODO: Remove once https://github.com/pytorch/pytorch/issues/41489 is resolved.
+
+        from botorch.exceptions.errors import UnsupportedError
+
+        def make_and_optimize_acqf(override_qmc: bool = False) -> Tuple[Tensor, Tensor]:
+            add_kwargs = {"qmc": False} if override_qmc else {}
+            acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
+                model=model,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_observed,
+                X_pending=X_pending,
+                **acf_options,
+                **add_kwargs,
+            )
+            acquisition_function = checked_cast(
+                AcquisitionFunction, acquisition_function
+            )
+            # pyre-ignore: [28]
+            candidates, expected_acquisition_value = self.acqf_optimizer(
+                acq_function=checked_cast(AcquisitionFunction, acquisition_function),
+                bounds=bounds_,
+                n=n,
+                inequality_constraints=_to_inequality_constraints(
+                    linear_constraints=linear_constraints
+                ),
+                fixed_features=fixed_features,
+                rounding_func=botorch_rounding_func,
+                **optimizer_options,
+            )
+            return candidates, expected_acquisition_value
+
+        try:
+            candidates, expected_acquisition_value = make_and_optimize_acqf()
+        except UnsupportedError as e:
+            if "SobolQMCSampler only supports dimensions q * o <= 1111" in str(e):
+                # dimension too large for Sobol, let's use IID
+                candidates, expected_acquisition_value = make_and_optimize_acqf(
+                    override_qmc=True
+                )
+            else:
+                raise e
+
         return (
             candidates.detach().cpu(),
             torch.ones(n, dtype=self.dtype),
