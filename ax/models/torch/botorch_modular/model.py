@@ -32,8 +32,7 @@ from torch import Tensor
 
 
 class BoTorchModel(TorchModel, Base):
-    """
-    **All classes in 'botorch_modular' directory are under
+    """**All classes in 'botorch_modular' directory are under
     construction, incomplete, and should be treated as alpha
     versions only.**
 
