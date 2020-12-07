@@ -18,6 +18,14 @@ AX_LIBRARY_PATH = "ax"
 # Regex for automodule directive used in Sphinx docs
 AUTOMODULE_REGEX = re.compile(r"\.\. automodule:: ([\.\w]*)")
 
+# Modules to exclude from validation
+EXCLUDE_MODULES = {
+    "ax.utils.testing.doctest",
+    "ax.utils.testing.fully_annotated",
+    "ax.utils.testing.manifest",
+    "ax.utils.testing.pyre_strict",
+}
+
 
 def parse_rst(rst_filename: str) -> Set[str]:
     """Extract automodule directives from rst."""
@@ -78,7 +86,11 @@ def validate_complete_sphinx(path_to_ax: str) -> None:
             prefix="ax." + module + ".",
             onerror=lambda x: None,
         ):
-            if not ispkg and ".tests" not in modname and modname not in modules_in_rst:
+            if (
+                not ispkg
+                and ".tests" not in modname
+                and modname not in modules_in_rst.union(EXCLUDE_MODULES)
+            ):
                 modules_not_in_docs.append(modname)
 
     assert len(modules_not_in_docs) == 0, "Not all modules are documented: {}".format(

@@ -95,10 +95,26 @@ ax.models.numpy.randomforest module
 Random Models
 ----------------
 
+ax.models.random.alebo_initializer module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.random.alebo_initializer
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.models.random.base module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.models.random.base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.random.rembo_initializer module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.random.rembo_initializer
     :members:
     :undoc-members:
     :show-inheritance:
@@ -122,6 +138,15 @@ ax.models.random.uniform module
 
 Torch Models
 ----------------
+
+ax.models.torch.alebo module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.alebo
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.models.torch.botorch module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -134,6 +159,150 @@ ax.models.torch.botorch_defaults module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.models.torch.botorch_defaults
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_kg module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_kg
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_mes module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_mes
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_moo module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_moo
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_moo_defaults module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_moo_defaults
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.acquisition module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.acquisition
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.kg module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.kg
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.list_surrogate module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.list_surrogate
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.mes module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.mes
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.model module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.model
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.multi_fidelity module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.multi_fidelity
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.surrogate module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.surrogate
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.utils module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.cbo_lcea module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.cbo_lcea
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.cbo_lcem module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.cbo_lcem
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.cbo_sac module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.cbo_sac
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.frontier_utils module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.frontier_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.posterior_mean module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.posterior_mean
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.rembo module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.rembo
     :members:
     :undoc-members:
     :show-inheritance:
