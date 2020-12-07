@@ -87,9 +87,9 @@ def validate_complete_sphinx(path_to_ax: str) -> None:
             onerror=lambda x: None,
         ):
             if (
-                not ispkg and
-                ".tests" not in modname and
-                modname not in modules_in_rst + EXCLUDE_MODULES
+                not ispkg
+                and ".tests" not in modname
+                and modname not in modules_in_rst.union(EXCLUDE_MODULES)
             ):
                 modules_not_in_docs.append(modname)
 
