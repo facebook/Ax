@@ -174,30 +174,6 @@ Core Stubs
     :undoc-members:
     :show-inheritance:
 
-Doctest
-~~~~~~~~~~~
-
-.. automodule:: ax.utils.testing.doctest
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Fully Annotated
-~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.utils.testing.fully_annotated
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Manifest
-~~~~~~~~~~~
-
-.. automodule:: ax.utils.testing.manifest
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Modeling Stubs
 ~~~~~~~~~~~~~~~
 
@@ -206,13 +182,6 @@ Modeling Stubs
     :undoc-members:
     :show-inheritance:
 
-Pyre Strict
-~~~~~~~~~~~~~~~
-
-.. automodule:: ax.utils.testing.pyre_strict
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 Test Init Files
 ~~~~~~~~~~~~~~~
