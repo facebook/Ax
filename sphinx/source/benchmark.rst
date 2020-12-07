@@ -60,7 +60,7 @@ Modular Botorch Benchmarking
 Standard Methods
 ~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.benchmark.standard_methods
+.. automodule:: ax.benchmark.botorch_modular.standard_methods
     :members:
     :undoc-members:
     :show-inheritance:
@@ -68,7 +68,7 @@ Standard Methods
 Standard Problems
 ~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.benchmark.standard_problems
+.. automodule:: ax.benchmark.botorch_modular.standard_problems
     :members:
     :undoc-members:
     :show-inheritance:

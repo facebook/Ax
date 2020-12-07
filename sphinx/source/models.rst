@@ -195,6 +195,70 @@ ax.models.torch.botorch_moo_defaults module
     :undoc-members:
     :show-inheritance:
 
+ax.models.torch.botorch_modular.acquisition module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.acquisition
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.kg module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.kg
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.list_surrogate module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.list_surrogate
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.mes module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.mes
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.model module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.model
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.multi_fidelity module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.multi_fidelity
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.surrogate module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.surrogate
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.utils module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.models.torch.cbo_lcea module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
