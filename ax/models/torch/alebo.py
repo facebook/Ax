@@ -85,6 +85,7 @@ class ALEBOKernel(Kernel):
         last_dim_is_batch: bool = False,
         **params: Any,
     ) -> Tensor:
+        """Compute kernel distance."""
         # Unpack Uvec into an upper triangular matrix U
         shapeU = self.Uvec.shape[:-1] + torch.Size([self.d, self.d])
         U_t = torch.zeros(shapeU, dtype=self.B.dtype, device=self.B.device)
