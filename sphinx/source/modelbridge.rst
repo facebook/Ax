@@ -210,7 +210,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.log_y`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.log_y
     :members:
