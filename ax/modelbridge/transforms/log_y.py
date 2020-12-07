@@ -153,10 +153,11 @@ def lognorm_to_norm(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute mean and covariance of a MVN from those of the associated log-MVN
 
-    If `Y` is log-normal with mean mu_ln and covariance Cov_ln,
-    then `X ~ N(mu_n, Cov_n)` with
-        - Cov_n_{ij} = log(1 + Cov_ln_{ij} / (mu_ln_{i} * mu_n_{j}))
-        - mu_n_{i} = log(mu_ln_{i}) - 0.5 * log(1 + Cov_ln_{ii} / mu_ln_{i}**2)
+    If `Y` is log-normal with mean mu_ln and covariance Cov_ln, then
+    `X ~ N(mu_n, Cov_n)` with
+
+        Cov_n_{ij} = log(1 + Cov_ln_{ij} / (mu_ln_{i} * mu_n_{j}))
+        mu_n_{i} = log(mu_ln_{i}) - 0.5 * log(1 + Cov_ln_{ii} / mu_ln_{i}**2)
     """
     Cov_n = np.log(1 + Cov_ln / np.outer(mu_ln, mu_ln))
     mu_n = np.log(mu_ln) - 0.5 * np.diag(Cov_n)
@@ -169,8 +170,9 @@ def norm_to_lognorm(
     """Compute mean and covariance of a log-MVN from its MVN sufficient statistics
 
     If `X ~ N(mu_n, Cov_n)` and `Y = exp(X)`, then `Y` is log-normal with
-        - mu_ln_{i} = exp(mu_n_{i}) + 0.5 * Cov_n_{ii}
-        - Cov_ln_{ij} = exp(mu_n_{i} + mu_n_{j} + 0.5 * (Cov_n_{ii} + Cov_n_{jj})) *
+
+        mu_ln_{i} = exp(mu_n_{i}) + 0.5 * Cov_n_{ii}
+        Cov_ln_{ij} = exp(mu_n_{i} + mu_n_{j} + 0.5 * (Cov_n_{ii} + Cov_n_{jj})) *
             (exp(Cov_n_{ij}) - 1)
     """
     diag_n = np.diag(Cov_n)
