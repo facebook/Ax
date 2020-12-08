@@ -488,28 +488,44 @@ class TestGenerationStrategy(TestCase):
         sobol_gs_with_update = GenerationStrategy(
             steps=[GenerationStep(model=Models.SOBOL, num_trials=-1, use_update=True)]
         )
-        # Try without passing data (generation strategy fetches data from experiment).
-        trial = exp.new_trial(generator_run=sobol_gs_with_update.gen(experiment=exp))
-        mock_update.assert_not_called()
-        trial._status = TrialStatus.COMPLETED
-        for i in range(3):
+        with self.assertRaises(NotImplementedError):
+            # `BraninMetric` is available while running by default, which should
+            # raise an error when use with `use_update=True` on a generation step, as we
+            # have not yet properly addressed that edge case (for lack of use case).
             trial = exp.new_trial(
                 generator_run=sobol_gs_with_update.gen(experiment=exp)
             )
-            self.assertEqual(
-                mock_fetch_trials_data.call_args[1].get("trial_indices"), {i}
+        core_stubs_module = get_branin_experiment.__module__
+        with patch(
+            f"{core_stubs_module}.BraninMetric.is_available_while_running",
+            return_value=False,
+        ) as patcher:
+            patcher.start()
+            # Try without passing data (GS fetches data from experiment).
+            trial = exp.new_trial(
+                generator_run=sobol_gs_with_update.gen(experiment=exp)
             )
+            mock_update.assert_not_called()
             trial._status = TrialStatus.COMPLETED
-        # `_seen_trial_indices_by_status` is set during `gen`, to the experiment's
-        # `trial_indices_by_Status` at the time of candidate generation.
-        self.assertNotEqual(
-            sobol_gs_with_update._seen_trial_indices_by_status,
-            exp.trial_indices_by_status,
-        )
-        # Try with passing data.
-        sobol_gs_with_update.gen(
-            experiment=exp, data=get_branin_data(trial_indices=range(4))
-        )
+            for i in range(3):
+                trial = exp.new_trial(
+                    generator_run=sobol_gs_with_update.gen(experiment=exp)
+                )
+                self.assertEqual(
+                    mock_fetch_trials_data.call_args[1].get("trial_indices"), {i}
+                )
+                trial._status = TrialStatus.COMPLETED
+            # `_seen_trial_indices_by_status` is set during `gen`, to the experiment's
+            # `trial_indices_by_Status` at the time of candidate generation.
+            self.assertNotEqual(
+                sobol_gs_with_update._seen_trial_indices_by_status,
+                exp.trial_indices_by_status,
+            )
+            # Try with passing data.
+            sobol_gs_with_update.gen(
+                experiment=exp, data=get_branin_data(trial_indices=range(4))
+            )
+            patcher.stop()
         # Now `_seen_trial_indices_by_status` should be set to experiment's,
         self.assertEqual(
             sobol_gs_with_update._seen_trial_indices_by_status,

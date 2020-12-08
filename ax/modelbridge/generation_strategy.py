@@ -567,6 +567,18 @@ class GenerationStrategy(Base):
                 # implement `fetch_experiment_data`). We avoid fetching data for
                 # trials with statuses other than `COMPLETED`, by fetching specifically
                 # for `COMPLETED` trials.
+                avail_while_running_metrics = {
+                    m.name
+                    for m in self.experiment.metrics.values()
+                    if m.is_available_while_running()
+                }
+                if avail_while_running_metrics:
+                    raise NotImplementedError(
+                        f"Metrics {avail_while_running_metrics} are available while "
+                        "trial is running, but use of `update` functionality in "
+                        "generation strategy relies on new data being available upon "
+                        "trial completion."
+                    )
                 data = self.experiment.fetch_trials_data(
                     self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
                 )
