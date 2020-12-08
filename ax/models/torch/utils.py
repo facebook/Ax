@@ -271,7 +271,7 @@ def _to_inequality_constraints(
         inequality_constraints = []
         k, d = A.shape
         for i in range(k):
-            indicies = A[i, :].nonzero().squeeze()
+            indicies = A[i, :].nonzero(as_tuple=False).squeeze()
             coefficients = -A[i, indicies]
             rhs = -b[i, 0]
             inequality_constraints.append((indicies, coefficients, rhs))
