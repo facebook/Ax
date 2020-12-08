@@ -4,7 +4,7 @@
 from setuptools import find_packages, setup
 
 
-MIN_BOTORCH_VERSION = "0.3.2"
+MIN_BOTORCH_VERSION = "0.3.3"
 
 REQUIRES = [
     f"botorch>={MIN_BOTORCH_VERSION}",
