@@ -32,8 +32,7 @@ from torch import Tensor
 
 
 class BoTorchModel(TorchModel, Base):
-    """
-    **All classes in 'botorch_modular' directory are under
+    """**All classes in 'botorch_modular' directory are under
     construction, incomplete, and should be treated as alpha
     versions only.**
 
@@ -60,10 +59,10 @@ class BoTorchModel(TorchModel, Base):
             (used if no pre-instantiated Surrogate via is passed via `surrogate`).
         surrogate_fit_options: Optional dict of kwargs, passed to
             `Surrogate.fit`, including:
-                - state_dict: `state_dict` for the underlying BoTorch
-                  `Model`,
-                - refit_on_update: Whether to re-fit the underlying
-                  BoTorch `Model` when updating it with new data.
+            - state_dict: `state_dict` for the underlying BoTorch `Model`,
+            - refit_on_update: Whether to re-fit the underlying BoTorch `Model`
+            when updating it with new data.
+
     """
 
     acquisition_class: Type[Acquisition]

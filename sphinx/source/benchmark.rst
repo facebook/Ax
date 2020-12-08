@@ -7,6 +7,8 @@ ax.benchmark
 .. automodule:: ax.benchmark
 .. currentmodule:: ax.benchmark
 
+Benchmark
+----------------
 
 Benchmark Problem
 ~~~~~~~~~~~~~~~~~~
@@ -47,6 +49,26 @@ BoTorch Methods
 ~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.botorch_methods
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Modular Botorch Benchmarking
+------------------------------
+
+Standard Methods
+~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.botorch_modular.standard_methods
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Standard Problems
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.botorch_modular.standard_problems
     :members:
     :undoc-members:
     :show-inheritance:

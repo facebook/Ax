@@ -129,6 +129,14 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
+`ax.modelbridge.transforms.cast`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.cast
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `ax.modelbridge.transforms.cap_parameter`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -185,10 +193,26 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
+`ax.modelbridge.transforms.inverse_gaussian_cdf_y`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.inverse_gaussian_cdf_y
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `ax.modelbridge.transforms.log`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.log
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+`ax.modelbridge.transforms.log_y`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.log_y
     :members:
     :undoc-members:
     :show-inheritance:
@@ -208,6 +232,15 @@ Transforms
     :members:
     :undoc-members:
     :show-inheritance:
+
+`ax.modelbridge.transforms.percentile_y`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.percentile_y
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 `ax.modelbridge.transforms.remove\_fixed`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -277,6 +310,22 @@ Transforms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.winsorize
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Strategies
+-------------
+
+`ax.modelbridge.strategies.alebo`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.strategies.alebo
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: ax.modelbridge.strategies.rembo
     :members:
     :undoc-members:
     :show-inheritance:
