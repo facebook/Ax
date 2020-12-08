@@ -36,7 +36,7 @@ from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarizat
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
-from gpytorch.priors.torch_priors import GammaPrior
+from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 from torch import Tensor
 
 
@@ -584,8 +584,8 @@ def get_warping_transform(
     # Note: this currently uses the same warping functions for all tasks
     tf = Warp(
         indices=indices,
-        # use an uninformative prior with maximum log probability at 1
-        concentration1_prior=GammaPrior(1.01, 0.01),
-        concentration0_prior=GammaPrior(1.01, 0.01),
+        # prior with a median of 1
+        concentration1_prior=LogNormalPrior(0.0, 0.75 ** 0.5),
+        concentration0_prior=LogNormalPrior(0.0, 0.75 ** 0.5),
     )
     return tf
