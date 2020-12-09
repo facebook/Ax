@@ -42,6 +42,7 @@ Core Classes
     :members:
     :undoc-members:
     :show-inheritance:
+    :noindex:
 
 `Experiment`
 ~~~~~~~~~~~~~~~~
@@ -66,6 +67,7 @@ Core Classes
     :members:
     :undoc-members:
     :show-inheritance:
+    :noindex:
 
 `MultiTypeExperiment`
 ~~~~~~~~~~~~~~~~~~~~~
@@ -82,6 +84,7 @@ Objective
     :members:
     :undoc-members:
     :show-inheritance:
+    :noindex:
 
 `Observation`
 ~~~~~~~~~~~~~~
@@ -106,6 +109,7 @@ Objective
     :members:
     :undoc-members:
     :show-inheritance:
+    :noindex:
 
 `Parameter`
 ~~~~~~~~~~~~~~~~~~~

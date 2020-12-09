@@ -75,6 +75,7 @@ Random Model Bridge
     :members:
     :undoc-members:
     :show-inheritance:
+    :noindex:
 
 Torch Model Bridge
 ~~~~~~~~~~~~~~~~~~~
