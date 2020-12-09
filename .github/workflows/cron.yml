@@ -31,7 +31,7 @@ jobs:
     - name: Install dependencies (minimum Botorch)
       run: |
         # TODO: read minimum supported Botorch version from a shared source
-        pip install botorch==0.3.2
+        pip install botorch==0.3.3
         pip install -q -e .[dev,mysql,notebook]
       if: matrix.botorch == 'minimum'
     - name: Import Ax
