@@ -28,6 +28,7 @@ CHEBYSHEV_SCALARIZATION_PATH = (
 EHVI_ACQF_PATH = (
     "botorch.acquisition.utils.moo_monte_carlo.qExpectedHypervolumeImprovement"
 )
+PARTITIONING_PATH = "botorch.acquisition.utils.NondominatedPartitioning"
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -253,7 +254,9 @@ class BotorchMOOModelTest(TestCase):
         ) as _mock_ehvi_acqf, mock.patch(
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
-        ) as _:
+        ) as _, mock.patch(
+            PARTITIONING_PATH, wraps=moo_monte_carlo.NondominatedPartitioning
+        ) as _mock_partitioning:
             model.gen(
                 n,
                 bounds,
@@ -263,6 +266,39 @@ class BotorchMOOModelTest(TestCase):
             )
             # the EHVI acquisition function should be created only once.
             self.assertEqual(1, _mock_ehvi_acqf.call_count)
+            # check partitioning strategy
+            self.assertEqual(_mock_partitioning.call_args[1]["alpha"], 0.0)
+
+        # 3 objective
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            model.fit(
+                Xs=Xs1 + Xs2 + Xs2,
+                Ys=Ys1 + Ys2 + Ys2,
+                Yvars=Yvars1 + Yvars2 + Yvars2,
+                bounds=bounds,
+                task_features=tfs,
+                feature_names=fns,
+                metric_names=mns,
+                fidelity_features=[],
+            )
+
+        with mock.patch(
+            EHVI_ACQF_PATH, wraps=moo_monte_carlo.qExpectedHypervolumeImprovement
+        ) as _mock_ehvi_acqf, mock.patch(
+            "ax.models.torch.botorch_defaults.optimize_acqf",
+            return_value=(X_dummy, acqfv_dummy),
+        ) as _, mock.patch(
+            PARTITIONING_PATH, wraps=moo_monte_carlo.NondominatedPartitioning
+        ) as _mock_partitioning:
+            model.gen(
+                n,
+                bounds,
+                torch.tensor([1.0, 1.0, 1.0], **tkwargs),
+                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
+                objective_thresholds=torch.tensor([1.0, 1.0, 1.0]),
+            )
+            # check partitioning strategy
+            self.assertEqual(_mock_partitioning.call_args[1]["alpha"], 1e-5)
 
     def test_BotorchMOOModel_with_random_scalarization_and_outcome_constraints(
         self, dtype=torch.float, cuda=False
