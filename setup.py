@@ -34,6 +34,13 @@ MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 NOTEBOOK_REQUIRES = ["jupyter"]
 
 
+def local_version(version):
+    """
+    Patch in a version that can be uploaded to test PyPI
+    """
+    return ""
+
+
 def setup_package() -> None:
     """Used for installing the Ax package."""
 
@@ -67,7 +74,10 @@ def setup_package() -> None:
             "mysql": MYSQL_REQUIRES,
             "notebook": NOTEBOOK_REQUIRES,
         },
-        use_scm_version={"write_to": "ax/version.py"},
+        use_scm_version={
+            "write_to": "ax/version.py",
+            "local_scheme": local_version,
+        },
         setup_requires=["setuptools_scm"],
     )
 
