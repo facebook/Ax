@@ -50,7 +50,6 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
     for metric_name in sorted(model.metric_names):
         try:
             vals: Dict[str, Any] = model.feature_importances(metric_name)
-            # pyre-fixme[6]: Expected `float` for 2nd param but got `str`.
             vals["index"] = metric_name
             importances.append(vals)
         except NotImplementedError:
@@ -158,7 +157,6 @@ def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
     for metric_name in sorted(model.metric_names):
         try:
             vals: Dict[str, Any] = model.feature_importances(metric_name)
-            # pyre-fixme[6]: Expected `float` for 2nd param but got `str`.
             vals["index"] = metric_name
             importances.append(vals)
         except Exception:
