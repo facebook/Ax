@@ -9,6 +9,12 @@ from unittest.mock import patch
 import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
+from ax.modelbridge.modelbridge_utils import (
+    predicted_hypervolume,
+    predicted_pareto_frontier,
+    observed_hypervolume,
+    observed_pareto_frontier,
+)
 from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
@@ -21,7 +27,7 @@ from ax.utils.testing.core_stubs import (
 
 
 PARETO_FRONTIER_EVALUATOR_PATH = (
-    f"{MultiObjectiveBotorchModel.__module__}.pareto_frontier_evaluator"
+    f"{pareto_frontier_evaluator.__module__}.pareto_frontier_evaluator"
 )
 STUBS_PATH = get_branin_experiment_with_multi_objective.__module__
 
@@ -158,22 +164,25 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
             modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
-            observed_frontier_data = modelbridge.observed_pareto_frontier(
-                objective_thresholds=objective_thresholds
+            observed_frontier_data = observed_pareto_frontier(
+                modelbridge=modelbridge, objective_thresholds=objective_thresholds
             )
             wrapped_frontier_evaluator.assert_called_once()
             self.assertEqual(1, len(observed_frontier_data))
 
         with self.assertRaises(ValueError):
-            modelbridge.predicted_pareto_frontier(
-                objective_thresholds=objective_thresholds, observation_features=[]
+            predicted_pareto_frontier(
+                modelbridge=modelbridge,
+                objective_thresholds=objective_thresholds,
+                observation_features=[],
             )
 
         observation_features = [
             ObservationFeatures(parameters={"x1": 0.0, "x2": 1.0}),
             ObservationFeatures(parameters={"x1": 1.0, "x2": 0.0}),
         ]
-        predicted_frontier_data = modelbridge.predicted_pareto_frontier(
+        predicted_frontier_data = predicted_pareto_frontier(
+            modelbridge=modelbridge,
             objective_thresholds=objective_thresholds,
             observation_features=observation_features,
         )
@@ -225,23 +234,26 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
             modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
-            hv = modelbridge.observed_hypervolume(
-                objective_thresholds=objective_thresholds
+            hv = observed_hypervolume(
+                modelbridge=modelbridge, objective_thresholds=objective_thresholds
             )
             expected_hv = 25  # (5 - 0) * (5 - 0)
             wrapped_frontier_evaluator.assert_called_once()
             self.assertEqual(expected_hv, hv)
 
         with self.assertRaises(ValueError):
-            modelbridge.predicted_hypervolume(
-                objective_thresholds=objective_thresholds, observation_features=[]
+            predicted_hypervolume(
+                modelbridge=modelbridge,
+                objective_thresholds=objective_thresholds,
+                observation_features=[],
             )
 
         observation_features = [
             ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0}),
             ObservationFeatures(parameters={"x1": 2.0, "x2": 1.0}),
         ]
-        predicted_hv = modelbridge.predicted_hypervolume(
+        predicted_hv = predicted_hypervolume(
+            modelbridge=modelbridge,
             objective_thresholds=objective_thresholds,
             observation_features=observation_features,
         )

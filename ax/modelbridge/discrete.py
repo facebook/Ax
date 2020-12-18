@@ -12,12 +12,12 @@ from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig, TGenMetadata, TParamValueList
 from ax.modelbridge.array import (
-    array_to_observation_data,
     extract_objective_weights,
     extract_outcome_constraints,
     validate_optimization_config,
 )
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.modelbridge_utils import array_to_observation_data
 from ax.models.discrete_base import DiscreteModel
 
 
