@@ -34,6 +34,7 @@ from botorch.utils import (
 )
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from gpytorch.mlls.leave_one_out_pseudo_likelihood import LeaveOneOutPseudoLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
@@ -53,6 +54,7 @@ def get_and_fit_model(
     state_dict: Optional[Dict[str, Tensor]] = None,
     refit_model: bool = True,
     use_input_warping: bool = False,
+    use_loocv_pseudo_likelihood: bool = False,
     **kwargs: Any,
 ) -> GPyTorchModel:
     r"""Instantiates and fits a botorch GPyTorchModel using the given data.
@@ -165,11 +167,15 @@ def get_and_fit_model(
     if state_dict is None or refit_model:
         # TODO: Add bounds for optimization stability - requires revamp upstream
         bounds = {}
+        if use_loocv_pseudo_likelihood:
+            mll_cls = LeaveOneOutPseudoLikelihood
+        else:
+            mll_cls = ExactMarginalLogLikelihood
         if isinstance(model, ModelListGP):
-            mll = SumMarginalLogLikelihood(model.likelihood, model)
+            mll = SumMarginalLogLikelihood(model.likelihood, model, mll_cls=mll_cls)
         else:
             # pyre-ignore: [16]
-            mll = ExactMarginalLogLikelihood(model.likelihood, model)
+            mll = mll_cls(model.likelihood, model)
         mll = fit_gpytorch_model(mll, bounds=bounds)
     return model
 

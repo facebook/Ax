@@ -101,6 +101,7 @@ class ModelRegistryTest(TestCase):
                 "refit_on_update": True,
                 "warm_start_refitting": True,
                 "use_input_warping": False,
+                "use_loocv_pseudo_likelihood": False,
             },
         )
         self.assertEqual(

@@ -178,6 +178,21 @@ class KnowledgeGradientTest(TestCase):
         self.assertTrue(hasattr(model.model, "input_transform"))
         self.assertIsInstance(model.model.input_transform, Warp)
 
+        # test loocv pseudo likelihood
+        self.assertFalse(model.use_loocv_pseudo_likelihood)
+        model = KnowledgeGradient(use_loocv_pseudo_likelihood=True)
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            feature_names=self.feature_names,
+            metric_names=self.metric_names,
+            task_features=[],
+            fidelity_features=[],
+        )
+        self.assertTrue(model.use_loocv_pseudo_likelihood)
+
     def test_KnowledgeGradient_multifidelity(self):
         model = KnowledgeGradient()
         model.fit(
@@ -259,6 +274,21 @@ class KnowledgeGradientTest(TestCase):
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
         self.assertIsInstance(model.model.input_transform, Warp)
+
+        # test loocv pseudo likelihood
+        self.assertFalse(model.use_loocv_pseudo_likelihood)
+        model = KnowledgeGradient(use_loocv_pseudo_likelihood=True)
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            task_features=[],
+            feature_names=self.feature_names,
+            metric_names=["L2NormMetric"],
+            fidelity_features=[2],
+        )
+        self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     def test_KnowledgeGradient_helpers(self):
 

@@ -149,6 +149,21 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertTrue(hasattr(model.model, "input_transform"))
         self.assertIsInstance(model.model.input_transform, Warp)
 
+        # test loocv pseudo likelihood
+        self.assertFalse(model.use_loocv_pseudo_likelihood)
+        model = MaxValueEntropySearch(use_loocv_pseudo_likelihood=True)
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            feature_names=self.feature_names,
+            metric_names=self.metric_names,
+            task_features=[],
+            fidelity_features=[],
+        )
+        self.assertTrue(model.use_loocv_pseudo_likelihood)
+
     def test_MaxValueEntropySearch_MultiFidelity(self):
         model = MaxValueEntropySearch()
         model.fit(
@@ -226,6 +241,21 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
         self.assertIsInstance(model.model.input_transform, Warp)
+
+        # test loocv pseudo likelihood
+        self.assertFalse(model.use_loocv_pseudo_likelihood)
+        model = MaxValueEntropySearch(use_loocv_pseudo_likelihood=True)
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            task_features=[],
+            feature_names=self.feature_names,
+            metric_names=self.metric_names,
+            fidelity_features=[-1],
+        )
+        self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     def test_instantiate_MES(self):
 

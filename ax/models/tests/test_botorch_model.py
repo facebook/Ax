@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from itertools import chain
+from itertools import chain, product
 from unittest import mock
 
 import torch
@@ -22,6 +22,7 @@ from botorch.models import FixedNoiseGP, ModelListGP
 from botorch.models.transforms.input import Warp
 from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
+from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
 
@@ -120,8 +121,13 @@ class BotorchModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
-        for use_input_warping in (True, False):
-            model = BotorchModel(use_input_warping=use_input_warping)
+        for use_input_warping, use_loocv_pseudo_likelihood in product(
+            (True, False), (True, False)
+        ):
+            model = BotorchModel(
+                use_input_warping=use_input_warping,
+                use_loocv_pseudo_likelihood=use_loocv_pseudo_likelihood,
+            )
             # Test ModelListGP
             # make training data different for each output
             Xs2_diff = [Xs2[0] + 0.1]
@@ -137,6 +143,14 @@ class BotorchModelTest(TestCase):
                     fidelity_features=[],
                 )
                 _mock_fit_model.assert_called_once()
+                if use_loocv_pseudo_likelihood:
+                    mll_cls = LeaveOneOutPseudoLikelihood
+                else:
+                    mll_cls = ExactMarginalLogLikelihood
+                mlls = _mock_fit_model.mock_calls[0][1][0].mlls
+                self.assertTrue(len(mlls) == 2)
+                for mll in mlls:
+                    self.assertIsInstance(mll, mll_cls)
             # Check attributes
             self.assertTrue(torch.equal(model.Xs[0], Xs1[0]))
             self.assertTrue(torch.equal(model.Xs[1], Xs2_diff[0]))
@@ -456,8 +470,13 @@ class BotorchModelTest(TestCase):
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
-        for use_input_warping in (True, False):
-            model = BotorchModel(use_input_warping=use_input_warping)
+        for use_input_warping, use_loocv_pseudo_likelihood in product(
+            (True, False), (True, False)
+        ):
+            model = BotorchModel(
+                use_input_warping=use_input_warping,
+                use_loocv_pseudo_likelihood=use_loocv_pseudo_likelihood,
+            )
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                 model.fit(
                     Xs=Xs1,
@@ -470,6 +489,14 @@ class BotorchModelTest(TestCase):
                     fidelity_features=[],
                 )
                 _mock_fit_model.assert_called_once()
+                if use_loocv_pseudo_likelihood:
+                    mll_cls = LeaveOneOutPseudoLikelihood
+                else:
+                    mll_cls = ExactMarginalLogLikelihood
+                self.assertIsInstance(
+                    _mock_fit_model.mock_calls[0][1][0],
+                    mll_cls,
+                )
             X = torch.rand(2, 3, dtype=torch.float)
             f_mean, f_cov = model.predict(X)
             self.assertTrue(f_mean.shape == torch.Size([2, 1]))

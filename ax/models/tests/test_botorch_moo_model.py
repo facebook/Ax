@@ -167,6 +167,23 @@ class BotorchMOOModelTest(TestCase):
             self.assertIsInstance(m.input_transform, Warp)
         self.assertFalse(hasattr(model.model, "input_transform"))
 
+        # test loocv pseudo likelihood
+        self.assertFalse(model.use_loocv_pseudo_likelihood)
+        model = MultiObjectiveBotorchModel(
+            acqf_constructor=get_NEI, use_loocv_pseudo_likelihood=True
+        )
+        model.fit(
+            Xs=Xs1 + Xs2,
+            Ys=Ys1 + Ys2,
+            Yvars=Yvars1 + Yvars2,
+            bounds=bounds,
+            task_features=tfs,
+            feature_names=fns,
+            metric_names=mns,
+            fidelity_features=[],
+        )
+        self.assertTrue(model.use_loocv_pseudo_likelihood)
+
     def test_BotorchMOOModel_with_chebyshev_scalarization(
         self, dtype=torch.float, cuda=False
     ):
