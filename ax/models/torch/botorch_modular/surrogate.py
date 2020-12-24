@@ -93,7 +93,10 @@ class Surrogate(Base):
     @property
     def model(self) -> Model:
         if self._model is None:
-            raise ValueError("BoTorch `Model` has not yet been constructed.")
+            raise ValueError(
+                "BoTorch `Model` has not yet been constructed, please fit the "
+                "surrogate first (done via `BoTorchModel.fit`)."
+            )
         return not_none(self._model)
 
     @property
@@ -131,6 +134,9 @@ class Surrogate(Base):
         # doesn't fully allow to constuct them).
         surrogate._should_reconstruct = False
         return surrogate
+
+    def clone_reset(self) -> Surrogate:
+        return self.__class__(**self._serialize_attributes_as_kwargs())
 
     def construct(self, training_data: TrainingData, **kwargs: Any) -> None:
         """Constructs the underlying BoTorch `Model` using the training data.
@@ -318,22 +324,6 @@ class Surrogate(Base):
         )
         return candidates[0], acqf_values[0]
 
-    def pareto_frontier(self) -> Tuple[Tensor, Tensor]:
-        """For multi-objective optimization, retrieve Pareto frontier instead
-        of best point.
-
-        Returns: A two-tuple of:
-            - tensor of points in the feature space,
-            - tensor of corresponding (multiple) outcomes.
-        """
-        raise NotImplementedError(
-            "Pareto frontier not yet implemented."
-        )  # pragma: no cover
-
-    def compute_diagnostics(self) -> Dict[str, Any]:
-        """Computes model diagnostics like cross-validation measure of fit, etc."""
-        return {}  # pragma: no cover
-
     def update(
         self,
         training_data: TrainingData,
@@ -392,6 +382,22 @@ class Surrogate(Base):
             state_dict=state_dict,
             refit=refit,
         )
+
+    def pareto_frontier(self) -> Tuple[Tensor, Tensor]:
+        """For multi-objective optimization, retrieve Pareto frontier instead
+        of best point.
+
+        Returns: A two-tuple of:
+            - tensor of points in the feature space,
+            - tensor of corresponding (multiple) outcomes.
+        """
+        raise NotImplementedError(
+            "Pareto frontier not yet implemented."
+        )  # pragma: no cover
+
+    def compute_diagnostics(self) -> Dict[str, Any]:
+        """Computes model diagnostics like cross-validation measure of fit, etc."""
+        return {}  # pragma: no cover
 
     def _serialize_attributes_as_kwargs(self) -> Dict[str, Any]:
         """Serialize attributes of this surrogate, to be passed back to it

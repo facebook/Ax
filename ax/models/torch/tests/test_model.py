@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, patch, MagicMock
 
 import torch
 from ax.models.torch.botorch_modular.acquisition import Acquisition
@@ -54,6 +54,7 @@ class BoTorchModelTest(TestCase):
         self.X = Xs1[0]
         self.Y = Ys1[0]
         self.Yvar = Yvars1[0]
+        self.X2 = Xs2[0]
         self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
         self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
         self.task_features = []
@@ -218,6 +219,81 @@ class BoTorchModelTest(TestCase):
     def test_predict(self, mock_predict):
         self.model.predict(X=self.X)
         mock_predict.assert_called_with(X=self.X)
+
+    @patch(f"{MODEL_PATH}.BoTorchModel.fit")
+    def test_cross_validate(self, mock_fit):
+        fit_cv_shared_kwargs = {
+            "bounds": self.bounds,
+            "task_features": self.task_features,
+            "feature_names": self.feature_names,
+            "metric_names": self.metric_names,
+            "fidelity_features": self.fidelity_features,
+        }
+        self.model.fit(
+            Xs=[self.X],
+            Ys=[self.Y],
+            Yvars=[self.Yvar],
+            candidate_metadata=self.candidate_metadata,
+            **fit_cv_shared_kwargs,
+        )
+
+        old_surrogate = self.model.surrogate
+        old_surrogate._model = MagicMock()
+        old_surrogate._model.state_dict.return_value = {"key": "val"}
+
+        for refit_on_cv, warm_start_refit in [
+            (True, True),
+            (True, False),
+            (False, True),
+        ]:
+            self.model.refit_on_cv = refit_on_cv
+            self.model.warm_start_refit = warm_start_refit
+            with patch(
+                f"{SURROGATE_PATH}.Surrogate.clone_reset",
+                return_value=MagicMock(spec=Surrogate),
+            ) as mock_clone_reset:
+                self.model.cross_validate(
+                    Xs_train=[self.X],
+                    Ys_train=[self.Y],
+                    Yvars_train=[self.Yvar],
+                    X_test=self.X2,
+                    **fit_cv_shared_kwargs,
+                )
+                # Check that `predict` is called on the cloned surrogate, not
+                # on the original one.
+                mock_predict = mock_clone_reset.return_value.predict
+                mock_predict.assert_called_once()
+
+                # Check correct X_test.
+                self.assertTrue(
+                    torch.equal(
+                        mock_predict.call_args_list[-1][1].get("X"),
+                        self.X2,
+                    ),
+                )
+
+            # Check that surrogate is reset back to `old_surrogate` at the
+            # end of cross-validation.
+            self.model.surrogate is old_surrogate
+
+            expected_state_dict = (
+                None
+                if refit_on_cv and not warm_start_refit
+                else self.model.surrogate.model.state_dict()
+            )
+
+            # Check correct `refit` and `state_dict` values.
+            self.assertEqual(mock_fit.call_args_list[-1][1].get("refit"), refit_on_cv)
+            if expected_state_dict is None:
+                self.assertIsNone(
+                    mock_fit.call_args_list[-1][1].get("state_dict"),
+                    expected_state_dict,
+                )
+            else:
+                self.assertEqual(
+                    mock_fit.call_args_list[-1][1].get("state_dict").keys(),
+                    expected_state_dict.keys(),
+                )
 
     @patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",

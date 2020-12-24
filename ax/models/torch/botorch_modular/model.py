@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import torch
@@ -301,6 +302,54 @@ class BoTorchModel(TorchModel, Base):
             acq_options=acq_options,
         )
         return acqf.evaluate(X=X)
+
+    def cross_validate(
+        self,
+        Xs_train: List[Tensor],
+        Ys_train: List[Tensor],
+        Yvars_train: List[Tensor],
+        X_test: Tensor,
+        bounds: List[Tuple[float, float]],
+        task_features: List[int],
+        feature_names: List[str],
+        metric_names: List[str],
+        fidelity_features: List[int],
+    ) -> Tuple[Tensor, Tensor]:
+        current_surrogate = self.surrogate
+        # If we should be refitting but not warm-starting the refit, set
+        # `state_dict` to None to avoid loading it.
+        state_dict = (
+            None
+            if self.refit_on_cv and not self.warm_start_refit
+            else deepcopy(current_surrogate.model.state_dict())
+        )
+
+        # Temporarily set `_surrogate` to cloned surrogate to set
+        # the training data on cloned surrogate to train set and
+        # use it to predict the test point.
+        surrogate_clone = self.surrogate.clone_reset()
+        self._surrogate = surrogate_clone
+
+        try:
+            self.fit(
+                Xs=Xs_train,
+                Ys=Ys_train,
+                Yvars=Yvars_train,
+                bounds=bounds,
+                task_features=task_features,
+                feature_names=feature_names,
+                metric_names=metric_names,
+                fidelity_features=fidelity_features,
+                state_dict=state_dict,
+                refit=self.refit_on_cv,
+            )
+            X_test_prediction = self.predict(X=X_test)
+        finally:
+            # Reset the surrogate back to this model's surrogate, make
+            # sure the cloned surrogate doesn't stay around if fit or
+            # predict fail.
+            self._surrogate = current_surrogate
+        return X_test_prediction
 
     def _autoset_surrogate(
         self,
