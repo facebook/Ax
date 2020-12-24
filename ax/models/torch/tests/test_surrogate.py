@@ -151,7 +151,7 @@ class SurrogateTest(TestCase):
         mock_fit_gpytorch.reset_mock()
         # Should `load_state_dict` when `state_dict` is not `None`
         # and `refit` is `False`.
-        state_dict = {}
+        state_dict = {"state_attribute": "value"}
         surrogate.fit(
             training_data=self.training_data,
             bounds=self.bounds,
@@ -267,7 +267,9 @@ class SurrogateTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
+            target_fidelities=self.target_fidelities,
             refit=self.refit,
+            state_dict={"key": "val"},
         )
         mock_fit.assert_called_with(
             training_data=self.training_data,
@@ -276,9 +278,10 @@ class SurrogateTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
+            target_fidelities=self.target_fidelities,
             candidate_metadata=None,
-            state_dict=self.surrogate.model.state_dict,
             refit=self.refit,
+            state_dict={"key": "val"},
         )
         # If should not be reconstructed, raise Error
         self.surrogate._should_reconstruct = False

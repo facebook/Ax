@@ -433,11 +433,13 @@ def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
     return {
         "__type": model.__class__.__name__,
         "surrogate": model.surrogate,
-        "surrogate_fit_options": model.surrogate_fit_options,
         "surrogate_options": model.surrogate_options,
         "acquisition_class": model.acquisition_class,
         "botorch_acqf_class": model.botorch_acqf_class,
         "acquisition_options": model.acquisition_options or {},
+        "refit_on_update": model.refit_on_update,
+        "refit_on_cv": model.refit_on_cv,
+        "warm_start_refit": model.warm_start_refit,
     }
 
 

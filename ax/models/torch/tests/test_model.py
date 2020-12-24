@@ -39,16 +39,10 @@ class BoTorchModelTest(TestCase):
         self.acquisition_class = KnowledgeGradient
         self.botorch_acqf_class = qKnowledgeGradient
         self.acquisition_options = {Keys.NUM_FANTASIES: 64}
-        self.surrogate_fit_options = {
-            Keys.REFIT_ON_UPDATE: True,
-            Keys.STATE_DICT: {"non-empty": "non-empty"},
-            Keys.WARM_START_REFITTING: False,
-        }
         self.model = BoTorchModel(
             surrogate=self.surrogate,
             acquisition_class=self.acquisition_class,
             acquisition_options=self.acquisition_options,
-            surrogate_fit_options=self.surrogate_fit_options,
         )
 
         self.dtype = torch.float
@@ -91,6 +85,24 @@ class BoTorchModelTest(TestCase):
         model = BoTorchModel(acquisition_class=KnowledgeGradient)
         self.assertEqual(model.acquisition_class, KnowledgeGradient)
         self.assertEqual(model.botorch_acqf_class, qKnowledgeGradient)
+
+        # Check defaults for refitting settings.
+        self.assertTrue(model.refit_on_update)
+        self.assertFalse(model.refit_on_cv)
+        self.assertTrue(model.warm_start_refit)
+
+        # Check setting non-default refitting settings
+        mdl2 = BoTorchModel(
+            surrogate=self.surrogate,
+            acquisition_class=self.acquisition_class,
+            acquisition_options=self.acquisition_options,
+            refit_on_update=False,
+            refit_on_cv=True,
+            warm_start_refit=False,
+        )
+        self.assertFalse(mdl2.refit_on_update)
+        self.assertTrue(mdl2.refit_on_cv)
+        self.assertFalse(mdl2.warm_start_refit)
 
     def test_surrogate_property(self):
         self.assertEqual(self.surrogate, self.model.surrogate)
@@ -143,6 +155,64 @@ class BoTorchModelTest(TestCase):
             state_dict=None,
             refit=True,
         )
+
+    @patch(f"{SURROGATE_PATH}.Surrogate.update")
+    def test_update(self, mock_update):
+        fit_update_shared_kwargs = {
+            "bounds": self.bounds,
+            "task_features": self.task_features,
+            "feature_names": self.feature_names,
+            "metric_names": self.metric_names,
+            "fidelity_features": self.fidelity_features,
+            "target_fidelities": self.target_fidelities,
+            "candidate_metadata": self.candidate_metadata,
+        }
+        self.model.fit(
+            Xs=[self.X], Ys=[self.Y], Yvars=[self.Yvar], **fit_update_shared_kwargs
+        )
+
+        for refit_on_update, warm_start_refit in [
+            (True, True),
+            (True, False),
+            (False, True),
+        ]:
+            self.model.refit_on_update = refit_on_update
+            self.model.warm_start_refit = warm_start_refit
+            self.model.update(
+                Xs=[self.X], Ys=[self.Y], Yvars=[self.Yvar], **fit_update_shared_kwargs
+            )
+            expected_state_dict = (
+                None
+                if refit_on_update and not warm_start_refit
+                else self.model.surrogate.model.state_dict()
+            )
+            # Check correct training data and `fit_update_shared_kwargs` values (can't
+            # directly use `assert_called_with` due to tensor comparison ambiguity in
+            # state dict).
+            self.assertEqual(
+                mock_update.call_args_list[-1][1].get("training_data"),
+                self.training_data,
+            )
+            for key in fit_update_shared_kwargs:
+                self.assertEqual(
+                    mock_update.call_args_list[-1][1].get(key),
+                    fit_update_shared_kwargs.get(key),
+                )
+
+            # Check correct `refit` and `state_dict` values.
+            self.assertEqual(
+                mock_update.call_args_list[-1][1].get("refit"), refit_on_update
+            )
+            if expected_state_dict is None:
+                self.assertIsNone(
+                    mock_update.call_args_list[-1][1].get("state_dict"),
+                    expected_state_dict,
+                )
+            else:
+                self.assertEqual(
+                    mock_update.call_args_list[-1][1].get("state_dict").keys(),
+                    expected_state_dict.keys(),
+                )
 
     @patch(f"{SURROGATE_PATH}.Surrogate.predict")
     def test_predict(self, mock_predict):

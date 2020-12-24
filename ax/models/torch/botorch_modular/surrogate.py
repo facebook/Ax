@@ -171,6 +171,37 @@ class Surrogate(Base):
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
     ) -> None:
+        """Fits the underlying BoTorch `Model` to `m` outcomes.
+
+        NOTE: `state_dict` and `refit` keyword arguments control how the
+        undelying BoTorch `Model` will be fit: whether its parameters will
+        be reoptimized and whether it will be warm-started from a given state.
+        There are three possbilities:
+        1. `fit(state_dict=None)`: fit model from stratch (optimize model
+           parameters and set its training data used for inference),
+        2. `fit(state_dict=some_state_dict, refit=True)`: warm-start refit
+           with a state dict of parameters (still re-optimize model parameters
+           and set the training data),
+        3. `fit(state_dict=some_state_dict, refit=False)`: load model parameters
+           without refitting, but set new training data (used in cross-validation,
+           for example).
+
+        Args:
+            training data: BoTorch `TrainingData` container with Xs, Ys, and
+                possibly Yvars, to be passed to `Model.construct_inputs` in
+                BoTorch.
+            bounds: A list of d (lower, upper) tuples for each column of X.
+            task_features: Columns of X that take integer values and should be
+                treated as task parameters.
+            feature_names: Names of each column of X.
+            metric_names: Names of each outcome Y in Ys.
+            fidelity_features: Columns of X that should be treated as fidelity
+                parameters.
+            candidate_metadata: Model-produced metadata for candidates, in
+                the order corresponding to the Xs.
+            state_dict: Optional state dict to load.
+            refit: Whether to re-optimize model parameters.
+        """
         if self._model is None or self._should_reconstruct:
             self.construct(
                 training_data=training_data,
@@ -179,8 +210,9 @@ class Surrogate(Base):
                 metric_names=metric_names,
                 task_features=task_features,
             )
-        if state_dict is not None:
-            self.model.load_state_dict(state_dict)
+        if state_dict:
+            self.model.load_state_dict(not_none(state_dict))
+
         if state_dict is None or refit:
             # pyre-ignore[16]: Model has no attribute likelihood.
             # All BoTorch `Model`-s expected to work with this setup have likelihood.
@@ -310,23 +342,39 @@ class Surrogate(Base):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
     ) -> None:
-        """Updates the surrogate model with new data.
+        """Updates the surrogate model with new data. In the base `Surrogate`,
+        just calls `fit` after checking that this surrogate was not created
+        via `Surrogate.from_BoTorch` (in which case the `Model` comes premade,
+        constructed manually and then supplied to `Surrogate).
+
+        NOTE: Expects `training_data` to be all available data,
+        not just the new data since the last time the model was updated.
 
         Args:
             training_data: Surrogate training_data containing all the data the model
-                should use for inference. NOTE: this should not be just the new data
-                since the last time the model was updated, but all available
-                data.
-            refit: Whether to re-optimize model parameters or just add the new
-                data to data used for inference.
+                should use for inference.
+            bounds: A list of d (lower, upper) tuples for each column of X.
+            task_features: Columns of X that take integer values and should be
+                treated as task parameters.
+            feature_names: Names of each column of X.
+            metric_names: Names of each outcome Y in Ys.
+            fidelity_features: Columns of X that should be treated as fidelity
+                parameters.
+            target_fidelities: Target values for fidelity parameters, representing
+                full-fidelity value.
+            candidate_metadata: Model-produced metadata for candidates, in
+                the order corresponding to the Xs.
+            state_dict: Optional state dict to load.
+            refit: Whether to re-optimize model parameters or just set the training
+                data used for interence to new training data.
         """
         # NOTE: In the future, could have `incremental` kwarg, in which case
         # `training_data` could contain just the new data.
-        state_dict = self.model.state_dict
         if not self._should_reconstruct:
             raise NotImplementedError(
                 "`update` not yet implemented for models that should "
@@ -339,6 +387,7 @@ class Surrogate(Base):
             feature_names=feature_names,
             metric_names=metric_names,
             fidelity_features=fidelity_features,
+            target_fidelities=target_fidelities,
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=refit,
