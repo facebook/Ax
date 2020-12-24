@@ -106,7 +106,7 @@ class SurrogateTest(TestCase):
             self.botorch_model_class(**self.surrogate_kwargs)
         )
         self.assertIsInstance(surrogate.model, self.botorch_model_class)
-        self.assertFalse(surrogate._should_reconstruct)
+        self.assertTrue(surrogate._constructed_manually)
 
     @patch(f"{CURRENT_PATH}.SingleTaskGP.__init__", return_value=None)
     def test_construct(self, mock_GP):
@@ -120,6 +120,7 @@ class SurrogateTest(TestCase):
             training_data=self.training_data, fidelity_features=self.fidelity_features
         )
         mock_GP.assert_called_with(train_X=self.Xs[0], train_Y=self.Ys[0])
+        self.assertFalse(self.surrogate._constructed_manually)
 
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
@@ -284,10 +285,8 @@ class SurrogateTest(TestCase):
             state_dict={"key": "val"},
         )
         # If should not be reconstructed, raise Error
-        self.surrogate._should_reconstruct = False
-        with self.assertRaisesRegex(
-            NotImplementedError, ".* models that should not be re-constructed"
-        ):
+        self.surrogate._constructed_manually = True
+        with self.assertRaisesRegex(NotImplementedError, ".* constructed manually"):
             self.surrogate.update(
                 training_data=self.training_data,
                 bounds=self.bounds,

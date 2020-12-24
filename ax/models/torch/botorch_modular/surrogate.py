@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from logging import Logger
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
@@ -18,6 +19,7 @@ from ax.models.torch.utils import (
 )
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
 from botorch.fit import fit_gpytorch_model
 from botorch.models.model import Model
@@ -33,6 +35,9 @@ NOT_YET_FIT_MSG = (
     "Underlying BoTorch `Model` has not yet received its training_data."
     "Please fit the model first."
 )
+
+
+logger: Logger = get_logger(__name__)
 
 
 class Surrogate(Base):
@@ -67,7 +72,7 @@ class Surrogate(Base):
     # Special setting for surrogates instantiated via `Surrogate.from_BoTorch`,
     # to avoid re-constructing the underlying BoTorch model on `Surrogate.fit`
     # when set to `False`.
-    _should_reconstruct: bool = True
+    _constructed_manually: bool = False
 
     def __init__(
         self,
@@ -132,7 +137,7 @@ class Surrogate(Base):
         # pre-made BoTorch `Model` instances to avoid reconstructing models
         # that were likely pre-constructed for a reason (e.g. if this setup
         # doesn't fully allow to constuct them).
-        surrogate._should_reconstruct = False
+        surrogate._constructed_manually = True
         return surrogate
 
     def clone_reset(self) -> Surrogate:
@@ -150,10 +155,13 @@ class Surrogate(Base):
                 - "fidelity_features": Indices of columns in X that represent
                 fidelity.
         """
+        if self._constructed_manually:
+            logger.warning("Reconstructing a manually constructed `Model`.")
         if not isinstance(training_data, TrainingData):
             raise ValueError(  # pragma: no cover
                 "Base `Surrogate` expects training data for single outcome."
             )
+
         kwargs = kwargs or {}
         self._training_data = training_data
 
@@ -208,7 +216,13 @@ class Surrogate(Base):
             state_dict: Optional state dict to load.
             refit: Whether to re-optimize model parameters.
         """
-        if self._model is None or self._should_reconstruct:
+        if self._constructed_manually:
+            logger.debug(
+                "For manually constructed surrogates (via `Surrogate.from_BoTorch`), "
+                "`fit` skips setting the training data on model and only reoptimizes "
+                "its parameters if `refit=True`."
+            )
+        if self._model is None and not self._constructed_manually:
             self.construct(
                 training_data=training_data,
                 fidelity_features=fidelity_features,
@@ -365,10 +379,12 @@ class Surrogate(Base):
         """
         # NOTE: In the future, could have `incremental` kwarg, in which case
         # `training_data` could contain just the new data.
-        if not self._should_reconstruct:
+        if self._constructed_manually:
             raise NotImplementedError(
-                "`update` not yet implemented for models that should "
-                "not be re-constructed."
+                "`update` not yet implemented for models that are "
+                "constructed manually, but it is possible to create a new "
+                "surrogate in the same way as the current manually constructed one, "
+                "via `Surrogate.from_BoTorch`."
             )
         self.fit(
             training_data=training_data,
