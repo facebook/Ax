@@ -538,12 +538,17 @@ class ModelBridge(ABC):
             transforms=self._raw_transforms,
             transform_configs=self._transform_configs,
         )
-        self._update(observation_features=obs_feats, observation_data=obs_data)
+        self._update(
+            search_space=search_space,
+            observation_features=obs_feats,
+            observation_data=obs_data,
+        )
         self.fit_time += time.time() - t_update_start
         self.fit_time_since_gen += time.time() - t_update_start
 
     def _update(
         self,
+        search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
     ) -> None:

@@ -30,14 +30,19 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.core.types import TBounds, TCandidateMetadata, TParamValue
+from ax.core.types import TBounds, TCandidateMetadata
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.frontier_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
     get_default_frontier_evaluator,
 )
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
+from ax.utils.common.typeutils import (
+    checked_cast,
+    checked_cast_optional,
+    not_none,
+    checked_cast_to_tuple,
+)
 from botorch.utils.multi_objective.hypervolume import Hypervolume
 from torch import Tensor
 
@@ -69,13 +74,13 @@ def extract_parameter_constraints(
 
 def get_bounds_and_task(
     search_space: SearchSpace, param_names: List[str]
-) -> Tuple[List[Tuple[float, float]], List[int], Dict[int, TParamValue]]:
+) -> Tuple[List[Tuple[float, float]], List[int], Dict[int, float]]:
     """Extract box bounds from a search space in the usual Scipy format.
     Identify integer parameters as task features.
     """
     bounds: List[Tuple[float, float]] = []
     task_features: List[int] = []
-    target_fidelities: Dict[int, TParamValue] = {}
+    target_fidelities: Dict[int, float] = {}
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
         # Validation
@@ -88,7 +93,13 @@ def get_bounds_and_task(
         if p.parameter_type == ParameterType.INT:
             task_features.append(i)
         if p.is_fidelity:
-            target_fidelities[i] = p.target_value
+            if not isinstance(not_none(p.target_value), (int, float)):
+                raise NotImplementedError(
+                    "Only numerical target values currently supported."
+                )
+            target_fidelities[i] = float(
+                checked_cast_to_tuple((int, float), p.target_value)
+            )
 
     return bounds, task_features, target_fidelities
 

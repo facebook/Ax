@@ -456,12 +456,13 @@ class BotorchModel(TorchModel):
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
     @copy_doc(TorchModel.update)
-    def update(
-        self,
+    def update(  # pyre-ignore[14]: Some `TorchModel.update` kwargs are not
+        self,  # needed here and therefore we just use `**kwargs` catchall.
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        **kwargs: Any,
     ) -> None:
         if self.model is None:
             raise RuntimeError("Cannot update model that has not been fitted")

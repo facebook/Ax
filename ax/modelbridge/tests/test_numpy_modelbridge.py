@@ -117,6 +117,7 @@ class NumpyModelBridgeTest(TestCase):
 
         # And update
         ma._update(
+            search_space=self.search_space,
             observation_features=self.observation_features,
             observation_data=self.observation_data,
         )

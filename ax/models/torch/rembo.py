@@ -252,6 +252,7 @@ class REMBO(BotorchModel):
         Ys: List[Tensor],
         Yvars: List[Tensor],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        **kwargs: Any,
     ) -> None:
         X_D = _get_single_X(Xs)
         X_d = self.project_down(X_D)

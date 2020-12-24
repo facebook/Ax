@@ -118,6 +118,7 @@ class ArrayModelBridge(ModelBridge):
 
     def _update(
         self,
+        search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
     ) -> None:
@@ -128,12 +129,23 @@ class ArrayModelBridge(ModelBridge):
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
+
+        bounds, task_features, target_fidelities = get_bounds_and_task(
+            search_space=search_space, param_names=self.parameters
+        )
+
         # Update in-design status for these new points.
         self._model_update(
             Xs=Xs_array,
             Ys=Ys_array,
             Yvars=Yvars_array,
             candidate_metadata=candidate_metadata,
+            bounds=bounds,
+            task_features=task_features,
+            feature_names=self.parameters,
+            metric_names=self.outcomes,
+            fidelity_features=list(target_fidelities.keys()),
+            target_fidelities=target_fidelities,
         )
 
     def _model_update(
@@ -141,10 +153,26 @@ class ArrayModelBridge(ModelBridge):
         Xs: List[np.ndarray],
         Ys: List[np.ndarray],
         Yvars: List[np.ndarray],
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]],
+        bounds: List[Tuple[float, float]],
+        task_features: List[int],
+        feature_names: List[str],
+        metric_names: List[str],
+        fidelity_features: List[int],
+        target_fidelities: Optional[Dict[int, float]],
     ) -> None:
         self.model.update(
-            Xs=Xs, Ys=Ys, Yvars=Yvars, candidate_metadata=candidate_metadata
+            Xs=Xs,
+            Ys=Ys,
+            Yvars=Yvars,
+            candidate_metadata=candidate_metadata,
+            bounds=bounds,
+            task_features=task_features,
+            feature_names=self.parameters,
+            metric_names=self.outcomes,
+            fidelity_features=list(target_fidelities.keys())
+            if target_fidelities
+            else None,
         )
 
     def _predict(
@@ -191,9 +219,7 @@ class ArrayModelBridge(ModelBridge):
         bounds, _, target_fidelities = get_bounds_and_task(
             search_space=search_space, param_names=self.parameters
         )
-        target_fidelities = {
-            i: float(v) for i, v in target_fidelities.items()  # pyre-ignore [6]
-        }
+        target_fidelities = {i: float(v) for i, v in target_fidelities.items()}
 
         if optimization_config is None:
             raise ValueError(

@@ -683,6 +683,7 @@ class ALEBO(BotorchModel):
         Ys: List[Tensor],
         Yvars: List[Tensor],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        **kwargs: Any,
     ) -> None:
         if self.model is None:
             raise RuntimeError(

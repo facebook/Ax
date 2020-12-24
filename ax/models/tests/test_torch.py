@@ -54,4 +54,13 @@ class TorchModelTest(TestCase):
     def testTorchModelUpdate(self):
         numpy_model = TorchModel()
         with self.assertRaises(NotImplementedError):
-            numpy_model.update(Xs=[np.array(0)], Ys=[np.array(0)], Yvars=[np.array(1)])
+            numpy_model.update(
+                Xs=[np.array(0)],
+                Ys=[np.array(0)],
+                Yvars=[np.array(1)],
+                bounds=[],
+                task_features=[],
+                fidelity_features=[],
+                feature_names=[],
+                metric_names=[],
+            )

@@ -151,7 +151,13 @@ class TorchModelBridge(ArrayModelBridge):
         Xs: List[np.ndarray],
         Ys: List[np.ndarray],
         Yvars: List[np.ndarray],
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]],
+        bounds: List[Tuple[float, float]],
+        task_features: List[int],
+        feature_names: List[str],
+        metric_names: List[str],
+        fidelity_features: List[int],
+        target_fidelities: Optional[Dict[int, float]],
     ) -> None:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_update"))
@@ -163,7 +169,17 @@ class TorchModelBridge(ArrayModelBridge):
         Yvars: List[Tensor] = self._array_list_to_tensors(Yvars)
         # pyre-fixme[16]: `Optional` has no attribute `update`.
         self.model.update(
-            Xs=Xs, Ys=Ys, Yvars=Yvars, candidate_metadata=candidate_metadata
+            Xs=Xs,
+            Ys=Ys,
+            Yvars=Yvars,
+            candidate_metadata=candidate_metadata,
+            bounds=bounds,
+            task_features=task_features,
+            feature_names=self.parameters,
+            metric_names=self.outcomes,
+            fidelity_features=list(target_fidelities.keys())
+            if target_fidelities
+            else None,
         )
 
     def _model_predict(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
