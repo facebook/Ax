@@ -49,6 +49,11 @@ class TorchModelTest(TestCase):
                 Ys_train=[np.array([1])],
                 Yvars_train=[np.array([1])],
                 X_test=np.array([1]),
+                bounds=[],
+                task_features=[],
+                fidelity_features=[],
+                feature_names=[],
+                metric_names=[],
             )
 
     def testTorchModelUpdate(self):

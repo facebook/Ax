@@ -58,7 +58,7 @@ class RandomModelBridgeTest(TestCase):
         modelbridge.transforms = OrderedDict()
         modelbridge.parameters = ["x", "y", "z"]
         with self.assertRaises(NotImplementedError):
-            modelbridge._cross_validate([], [], [])
+            modelbridge._cross_validate(None, [], [], [])
 
     @mock.patch(
         "ax.models.random.base.RandomModel.gen",

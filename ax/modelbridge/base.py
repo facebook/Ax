@@ -736,14 +736,19 @@ class ModelBridge(ABC):
         obs_feats, obs_data = separate_observations(
             observations=cv_training_data, copy=True
         )
+        search_space = self._model_space.clone()
         for t in self.transforms.values():
             obs_feats = t.transform_observation_features(obs_feats)
             obs_data = t.transform_observation_data(obs_data, obs_feats)
             cv_test_points = t.transform_observation_features(cv_test_points)
+            search_space = t.transform_search_space(search_space)
 
         # Apply terminal transform, and get predictions.
         cv_predictions = self._cross_validate(
-            obs_feats=obs_feats, obs_data=obs_data, cv_test_points=cv_test_points
+            search_space=search_space,
+            obs_feats=obs_feats,
+            obs_data=obs_data,
+            cv_test_points=cv_test_points,
         )
         # Apply reverse transforms, in reverse order
         for t in reversed(self.transforms.values()):
@@ -755,6 +760,7 @@ class ModelBridge(ABC):
 
     def _cross_validate(
         self,
+        search_space: SearchSpace,
         obs_feats: List[ObservationFeatures],
         obs_data: List[ObservationData],
         cv_test_points: List[ObservationFeatures],

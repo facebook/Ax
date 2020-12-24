@@ -276,6 +276,11 @@ class TorchModelBridge(ArrayModelBridge):
         Ys_train: List[np.ndarray],
         Yvars_train: List[np.ndarray],
         X_test: np.ndarray,
+        bounds: List[Tuple[float, float]],
+        task_features: List[int],
+        feature_names: List[str],
+        metric_names: List[str],
+        fidelity_features: List[int],
     ) -> Tuple[np.ndarray, np.ndarray]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_cross_validate"))
@@ -289,7 +294,15 @@ class TorchModelBridge(ArrayModelBridge):
         X_test: Tensor = self._array_to_tensor(X_test)
         # pyre-fixme[16]: `Optional` has no attribute `cross_validate`.
         f_test, cov_test = self.model.cross_validate(
-            Xs_train=Xs_train, Ys_train=Ys_train, Yvars_train=Yvars_train, X_test=X_test
+            Xs_train=Xs_train,
+            Ys_train=Ys_train,
+            Yvars_train=Yvars_train,
+            X_test=X_test,
+            bounds=bounds,
+            task_features=task_features,
+            feature_names=feature_names,
+            metric_names=metric_names,
+            fidelity_features=fidelity_features,
         )
         return (
             f_test.detach().cpu().clone().numpy(),

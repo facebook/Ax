@@ -166,6 +166,11 @@ class TorchModel(Model):
         Ys_train: List[Tensor],
         Yvars_train: List[Tensor],
         X_test: Tensor,
+        bounds: List[Tuple[float, float]],
+        task_features: List[int],
+        feature_names: List[str],
+        metric_names: List[str],
+        fidelity_features: List[int],
     ) -> Tuple[Tensor, Tensor]:
         """Do cross validation with the given training and test sets.
 
@@ -179,6 +184,13 @@ class TorchModel(Model):
                 for each outcome.
             Yvars_train: The variances of each entry in Ys, same shape.
             X_test: (j x d) tensor of the j points at which to make predictions.
+            bounds: A list of d (lower, upper) tuples for each column of X.
+            task_features: Columns of X that take integer values and should be
+                treated as task parameters.
+            feature_names: Names of each column of X.
+            metric_names: Names of each outcome Y in Ys.
+            fidelity_features: Columns of X that should be treated as fidelity
+                parameters.
 
         Returns:
             2-element tuple containing

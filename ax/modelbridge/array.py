@@ -341,6 +341,7 @@ class ArrayModelBridge(ModelBridge):
 
     def _cross_validate(
         self,
+        search_space: SearchSpace,
         obs_feats: List[ObservationFeatures],
         obs_data: List[ObservationData],
         cv_test_points: List[ObservationFeatures],
@@ -354,12 +355,24 @@ class ArrayModelBridge(ModelBridge):
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
+        bounds, task_features, target_fidelities = get_bounds_and_task(
+            search_space=search_space, param_names=self.parameters
+        )
+
         X_test = np.array(
             [[obsf.parameters[p] for p in self.parameters] for obsf in cv_test_points]
         )
         # Use the model to do the cross validation
         f_test, cov_test = self._model_cross_validate(
-            Xs_train=Xs_train, Ys_train=Ys_train, Yvars_train=Yvars_train, X_test=X_test
+            Xs_train=Xs_train,
+            Ys_train=Ys_train,
+            Yvars_train=Yvars_train,
+            X_test=X_test,
+            bounds=bounds,
+            task_features=task_features,
+            feature_names=self.parameters,
+            metric_names=self.outcomes,
+            fidelity_features=list(target_fidelities.keys()),
         )
         # Convert array back to ObservationData
         return array_to_observation_data(f=f_test, cov=cov_test, outcomes=self.outcomes)
@@ -370,9 +383,22 @@ class ArrayModelBridge(ModelBridge):
         Ys_train: List[np.ndarray],
         Yvars_train: List[np.ndarray],
         X_test: np.ndarray,
+        bounds: List[Tuple[float, float]],
+        task_features: List[int],
+        feature_names: List[str],
+        metric_names: List[str],
+        fidelity_features: List[int],
     ) -> Tuple[np.ndarray, np.ndarray]:  # pragma: no cover
         return self.model.cross_validate(
-            Xs_train=Xs_train, Ys_train=Ys_train, Yvars_train=Yvars_train, X_test=X_test
+            Xs_train=Xs_train,
+            Ys_train=Ys_train,
+            Yvars_train=Yvars_train,
+            X_test=X_test,
+            bounds=bounds,
+            task_features=task_features,
+            feature_names=feature_names,
+            metric_names=metric_names,
+            fidelity_features=fidelity_features,
         )
 
     def _evaluate_acquisition_function(

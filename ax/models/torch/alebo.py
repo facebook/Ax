@@ -709,6 +709,7 @@ class ALEBO(BotorchModel):
         Ys_train: List[Tensor],
         Yvars_train: List[Tensor],
         X_test: Tensor,
+        **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         if self.model is None:
             raise RuntimeError(

@@ -427,12 +427,13 @@ class BotorchModel(TorchModel):
         )
 
     @copy_doc(TorchModel.cross_validate)
-    def cross_validate(
-        self,
+    def cross_validate(  # pyre-ignore[14]: Some `TorchModel.cross_validate` kwargs
+        self,  # are not needed here and therefore we just use `**kwargs` catchall.
         Xs_train: List[Tensor],
         Ys_train: List[Tensor],
         Yvars_train: List[Tensor],
         X_test: Tensor,
+        **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         if self.model is None:
             raise RuntimeError("Cannot cross-validate model that has not been fitted")

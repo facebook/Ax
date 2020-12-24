@@ -324,7 +324,10 @@ class NumpyModelBridgeTest(TestCase):
         ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
         observation_data = ma._cross_validate(
-            self.observation_features, self.observation_data, self.observation_features
+            search_space=self.search_space,
+            obs_feats=self.observation_features,
+            obs_data=self.observation_data,
+            cv_test_points=self.observation_features,
         )
         Xs = [
             np.array([[0.2, 1.2, 3.0], [0.4, 1.4, 3.0], [0.6, 1.6, 3]]),

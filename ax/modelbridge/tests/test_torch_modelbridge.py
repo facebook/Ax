@@ -173,7 +173,15 @@ class TorchModelBridgeTest(TestCase):
         # Cross-validate
         model.cross_validate.return_value = (torch.tensor([3.0]), torch.tensor([4.0]))
         f, var = ma._model_cross_validate(
-            Xs_train=[X], Ys_train=[Y], Yvars_train=[var], X_test=X
+            Xs_train=[X],
+            Ys_train=[Y],
+            Yvars_train=[var],
+            X_test=X,
+            bounds=[(0, 1)],
+            task_features=[],
+            feature_names=[],
+            metric_names=[],
+            fidelity_features=[],
         )
         model_cv_args = model.cross_validate.mock_calls[0][2]
         self.assertTrue(
