@@ -155,15 +155,12 @@ class Acquisition(Base):
         if overriden_X_baseline is not None:
             X_baseline = overriden_X_baseline
             model_deps.pop(Keys.X_BASELINE)
-        self.acqf = self._botorch_acqf_class(  # pyre-ignore[28]: Some kwargs are
-            # not expected in base `AcquisitionFunction` but are expected in
-            # its subclasses.
+        self._instantiate_acqf(
             model=model,
             objective=objective,
+            model_dependent_kwargs=model_deps,
             X_pending=X_pending,
             X_baseline=X_baseline,
-            **self.options,
-            **model_deps,
         )
 
     def optimize(
@@ -295,6 +292,25 @@ class Acquisition(Base):
             ),
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
+        )
+
+    def _instantiate_acqf(
+        self,
+        model: Model,
+        objective: AcquisitionObjective,
+        model_dependent_kwargs: Dict[str, Any],
+        X_pending: Optional[Tensor] = None,
+        X_baseline: Optional[Tensor] = None,
+    ) -> None:
+        self.acqf = self._botorch_acqf_class(  # pyre-ignore[28]: Some kwargs are
+            # not expected in base `AcquisitionFunction` but are expected in
+            # its subclasses.
+            model=model,
+            objective=objective,
+            X_pending=X_pending,
+            X_baseline=X_baseline,
+            **self.options,
+            **model_dependent_kwargs,
         )
 
     @classmethod
