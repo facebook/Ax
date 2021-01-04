@@ -59,6 +59,7 @@ from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qExpectedImprovement
@@ -91,10 +92,12 @@ def get_experiment() -> Experiment:
 def get_branin_experiment(
     has_optimization_config: bool = True,
     with_batch: bool = False,
+    with_trial: bool = False,
     with_status_quo: bool = False,
     with_fidelity_parameter: bool = False,
     with_choice_parameter: bool = False,
     search_space: Optional[SearchSpace] = None,
+    minimize: bool = False,
 ) -> Experiment:
     search_space = search_space or get_branin_search_space(
         with_fidelity_parameter=with_fidelity_parameter,
@@ -103,7 +106,7 @@ def get_branin_experiment(
     exp = Experiment(
         name="branin_test_experiment",
         search_space=search_space,
-        optimization_config=get_branin_optimization_config()
+        optimization_config=get_branin_optimization_config(minimize=minimize)
         if has_optimization_config
         else None,
         runner=SyntheticRunner(),
@@ -119,6 +122,11 @@ def get_branin_experiment(
         exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
             sobol_run
         )
+
+    if with_trial:
+        sobol_generator = get_sobol(search_space=exp.search_space)
+        sobol_run = sobol_generator.gen(n=1)
+        exp.new_trial(generator_run=sobol_run)
 
     return exp
 
@@ -676,8 +684,8 @@ def get_scalarized_objective() -> Objective:
     )
 
 
-def get_branin_objective() -> Objective:
-    return Objective(metric=get_branin_metric(), minimize=False)
+def get_branin_objective(minimize: bool = False) -> Objective:
+    return Objective(metric=get_branin_metric(), minimize=minimize)
 
 
 def get_branin_multi_objective() -> Objective:
@@ -730,8 +738,8 @@ def get_optimization_config_no_constraints() -> OptimizationConfig:
     return OptimizationConfig(objective=Objective(metric=Metric("test_metric")))
 
 
-def get_branin_optimization_config() -> OptimizationConfig:
-    return OptimizationConfig(objective=get_branin_objective())
+def get_branin_optimization_config(minimize: bool = False) -> OptimizationConfig:
+    return OptimizationConfig(objective=get_branin_objective(minimize=minimize))
 
 
 def get_branin_multi_objective_optimization_config() -> OptimizationConfig:
@@ -884,28 +892,45 @@ def get_data(trial_index: int = 0) -> Data:
         "sem": [0, 0.5, 0.25, 0.40, 0.15],
         "n": [100, 100, 100, 100, 100],
     }
-    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
     return Data(df=pd.DataFrame.from_records(df_dict))
 
 
-def get_branin_data(trial_indices: Optional[Iterable[int]] = None) -> Data:
-    df_dicts = [
-        {
-            "trial_index": trial_index,
-            "metric_name": "branin",
-            "arm_name": f"{trial_index}_0",
-            "mean": 5.0,
-            "sem": 0.0,
-        }
-        for trial_index in (trial_indices or [0])
-    ]
-    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
+def get_branin_data(
+    trial_indices: Optional[Iterable[int]] = None,
+    trials: Optional[Iterable[Trial]] = None,
+) -> Data:
+    if trial_indices and trials:
+        raise ValueError("Expected `trial_indices` or `trials`, not both.")
+    if trials:
+        df_dicts = [
+            {
+                "trial_index": trial.index,
+                "metric_name": "branin",
+                "arm_name": not_none(checked_cast(Trial, trial).arm).name,
+                "mean": branin(
+                    float(not_none(trial.arm).parameters["x1"]),  # pyre-ignore[6]
+                    float(not_none(trial.arm).parameters["x2"]),  # pyre-ignore[6]
+                ),
+                "sem": 0.0,
+            }
+            for trial in trials
+        ]
+    else:
+        df_dicts = [
+            {
+                "trial_index": trial_index,
+                "metric_name": "branin",
+                "arm_name": f"{trial_index}_0",
+                "mean": 5.0,
+                "sem": 0.0,
+            }
+            for trial_index in (trial_indices or [0])
+        ]
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
 
 def get_branin_data_batch(batch: BatchTrial) -> Data:
     return Data(
-        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         pd.DataFrame(
             {
                 "arm_name": [arm.name for arm in batch.arms],
@@ -936,7 +961,6 @@ def get_branin_data_multi_objective(
         for trial_index in (trial_indices or [0])
         for suffix in ["a", "b"]
     ]
-    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
 

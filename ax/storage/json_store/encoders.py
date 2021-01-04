@@ -17,7 +17,10 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.parameter_constraint import (
@@ -277,6 +280,18 @@ def optimization_config_to_dict(
     }
 
 
+def multi_objective_optimization_config_to_dict(
+    multi_objective_optimization_config: MultiObjectiveOptimizationConfig,
+) -> Dict[str, Any]:
+    """Convert Ax optimization config to a dictionary."""
+    return {
+        "__type": multi_objective_optimization_config.__class__.__name__,
+        "objective": multi_objective_optimization_config.objective,
+        "outcome_constraints": multi_objective_optimization_config.outcome_constraints,
+        "objective_thresholds": multi_objective_optimization_config.objective_thresholds,  # noqa E501
+    }
+
+
 def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
     """Convert Ax generator run to a dictionary."""
     gr = generator_run
@@ -418,11 +433,13 @@ def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
     return {
         "__type": model.__class__.__name__,
         "surrogate": model.surrogate,
-        "surrogate_fit_options": model.surrogate_fit_options,
         "surrogate_options": model.surrogate_options,
         "acquisition_class": model.acquisition_class,
         "botorch_acqf_class": model.botorch_acqf_class,
         "acquisition_options": model.acquisition_options or {},
+        "refit_on_update": model.refit_on_update,
+        "refit_on_cv": model.refit_on_cv,
+        "warm_start_refit": model.warm_start_refit,
     }
 
 

@@ -14,6 +14,7 @@ from botorch.acquisition.max_value_entropy_search import (
     qMultiFidelityMaxValueEntropy,
 )
 from botorch.exceptions.errors import UnsupportedError
+from botorch.models.transforms.input import Warp
 from botorch.sampling.samplers import SobolQMCNormalSampler
 
 
@@ -131,6 +132,37 @@ class MaxValueEntropySearchTest(TestCase):
                 objective_weights=self.objective_weights,
                 target_fidelities={2: 1.0},
             )
+        # test input warping
+        self.assertFalse(model.use_input_warping)
+        model = MaxValueEntropySearch(use_input_warping=True)
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            feature_names=self.feature_names,
+            metric_names=self.metric_names,
+            task_features=[],
+            fidelity_features=[],
+        )
+        self.assertTrue(model.use_input_warping)
+        self.assertTrue(hasattr(model.model, "input_transform"))
+        self.assertIsInstance(model.model.input_transform, Warp)
+
+        # test loocv pseudo likelihood
+        self.assertFalse(model.use_loocv_pseudo_likelihood)
+        model = MaxValueEntropySearch(use_loocv_pseudo_likelihood=True)
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            feature_names=self.feature_names,
+            metric_names=self.metric_names,
+            task_features=[],
+            fidelity_features=[],
+        )
+        self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     def test_MaxValueEntropySearch_MultiFidelity(self):
         model = MaxValueEntropySearch()
@@ -192,6 +224,38 @@ class MaxValueEntropySearchTest(TestCase):
             self.assertTrue(torch.equal(Xgen, new_X_dummy.cpu()))
             self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=self.dtype)))
             mock_optimize_acqf.assert_called()
+
+        # test input warping
+        self.assertFalse(model.use_input_warping)
+        model = MaxValueEntropySearch(use_input_warping=True)
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            task_features=[],
+            feature_names=self.feature_names,
+            metric_names=self.metric_names,
+            fidelity_features=[-1],
+        )
+        self.assertTrue(model.use_input_warping)
+        self.assertTrue(hasattr(model.model, "input_transform"))
+        self.assertIsInstance(model.model.input_transform, Warp)
+
+        # test loocv pseudo likelihood
+        self.assertFalse(model.use_loocv_pseudo_likelihood)
+        model = MaxValueEntropySearch(use_loocv_pseudo_likelihood=True)
+        model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            bounds=self.bounds,
+            task_features=[],
+            feature_names=self.feature_names,
+            metric_names=self.metric_names,
+            fidelity_features=[-1],
+        )
+        self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     def test_instantiate_MES(self):
 

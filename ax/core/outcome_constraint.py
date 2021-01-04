@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-strict
+from __future__ import annotations
 
 import logging
 from typing import Dict, Optional
@@ -69,10 +69,13 @@ class OutcomeConstraint(Base):
         self._validate_metric_constraint(metric=self.metric, op=op)
         self._op = op
 
-    def clone(self) -> "OutcomeConstraint":
+    def clone(self) -> OutcomeConstraint:
         """Create a copy of this OutcomeConstraint."""
         return OutcomeConstraint(
-            metric=self.metric, op=self.op, bound=self.bound, relative=self.relative
+            metric=self.metric.clone(),
+            op=self.op,
+            bound=self.bound,
+            relative=self.relative,
         )
 
     @staticmethod
@@ -141,10 +144,13 @@ class ObjectiveThreshold(OutcomeConstraint):
             op = ComparisonOp.LEQ if metric.lower_is_better else ComparisonOp.GEQ
         super().__init__(metric=metric, op=op, bound=bound, relative=relative)
 
-    def clone(self) -> "ObjectiveThreshold":
+    def clone(self) -> ObjectiveThreshold:
         """Create a copy of this ObjectiveThreshold."""
         return ObjectiveThreshold(
-            metric=self.metric, bound=self.bound, relative=self.relative, op=self.op
+            metric=self.metric.clone(),
+            bound=self.bound,
+            relative=self.relative,
+            op=self.op,
         )
 
     def __repr__(self) -> str:

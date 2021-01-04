@@ -198,34 +198,10 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
 }
 
 
-class Models(Enum):
-    """Registry of available models.
-
-    Uses MODEL_KEY_TO_MODEL_SETUP to retrieve settings for model and model bridge,
-    by the key stored in the enum value.
-
-    To instantiate a model in this enum, simply call an enum member like so:
-    `Models.SOBOL(search_space=search_space)` or
-    `Models.GPEI(experiment=experiment, data=data)`. Keyword arguments
-    specified to the call will be passed into the model or the model bridge
-    constructors according to their keyword.
-
-    For instance, `Models.SOBOL(search_space=search_space, scramble=False)`
-    will instantiate a `RandomModelBridge(search_space=search_space)`
-    with a `SobolGenerator(scramble=False)` underlying model.
+class ModelRegistryBase(Enum):
+    """Base enum that provides instrumentation of `__call__` on enum values,
+    for enums that link their values to `ModelSetup`-s like `Models`.
     """
-
-    SOBOL = "Sobol"
-    GPEI = "GPEI"
-    GPKG = "GPKG"
-    GPMES = "GPMES"
-    FACTORIAL = "Factorial"
-    THOMPSON = "Thompson"
-    BOTORCH = "BO"
-    BOTORCH_MODULAR = "BoTorch"
-    EMPIRICAL_BAYES_THOMPSON = "EB"
-    UNIFORM = "Uniform"
-    MOO = "MOO"
 
     @property
     def model_class(self) -> Type[Model]:
@@ -356,11 +332,41 @@ class Models(Enum):
         )
 
 
+class Models(ModelRegistryBase):
+    """Registry of available models.
+
+    Uses MODEL_KEY_TO_MODEL_SETUP to retrieve settings for model and model bridge,
+    by the key stored in the enum value.
+
+    To instantiate a model in this enum, simply call an enum member like so:
+    `Models.SOBOL(search_space=search_space)` or
+    `Models.GPEI(experiment=experiment, data=data)`. Keyword arguments
+    specified to the call will be passed into the model or the model bridge
+    constructors according to their keyword.
+
+    For instance, `Models.SOBOL(search_space=search_space, scramble=False)`
+    will instantiate a `RandomModelBridge(search_space=search_space)`
+    with a `SobolGenerator(scramble=False)` underlying model.
+    """
+
+    SOBOL = "Sobol"
+    GPEI = "GPEI"
+    GPKG = "GPKG"
+    GPMES = "GPMES"
+    FACTORIAL = "Factorial"
+    THOMPSON = "Thompson"
+    BOTORCH = "BO"
+    BOTORCH_MODULAR = "BoTorch"
+    EMPIRICAL_BAYES_THOMPSON = "EB"
+    UNIFORM = "Uniform"
+    MOO = "MOO"
+
+
 def get_model_from_generator_run(
     generator_run: GeneratorRun,
     experiment: Experiment,
     data: Data,
-    models_enum: Optional[Type[Models]] = None,
+    models_enum: Optional[Type[ModelRegistryBase]] = None,
     after_gen: bool = True,
 ) -> ModelBridge:
     """Reinstantiate a model from model key and kwargs stored on a given generator

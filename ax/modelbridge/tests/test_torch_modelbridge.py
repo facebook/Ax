@@ -37,7 +37,7 @@ class TorchModelBridgeTest(TestCase):
         self.assertEqual(ma.dtype, torch.float64)
         self.assertEqual(ma.device, torch.device("cpu"))
         self.assertFalse(mock_init.call_args[-1]["fit_out_of_design"])
-        # Fit
+        # Test `fit`.
         model = mock.MagicMock(TorchModel, autospec=True, instance=True)
         X = np.array([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
         Y = np.array([[3.0], [4.0]])
@@ -73,8 +73,21 @@ class TorchModelBridgeTest(TestCase):
                 torch.tensor(var, dtype=torch_dtype, device=torch_device),
             )
         )
-        # Update
-        ma._model_update(Xs=[X], Ys=[Y], Yvars=[var], candidate_metadata=[])
+        # Test `update` (need to fill required fields before call to `_model_update`).
+        ma.parameters = []
+        ma.outcomes = []
+        ma._model_update(
+            Xs=[X],
+            Ys=[Y],
+            Yvars=[var],
+            candidate_metadata=[],
+            bounds=None,
+            feature_names=[],
+            metric_names=[],
+            task_features=[],
+            fidelity_features=[],
+            target_fidelities=[],
+        )
         model_update_args = model.update.mock_calls[0][2]
         self.assertTrue(
             torch.equal(
@@ -160,7 +173,15 @@ class TorchModelBridgeTest(TestCase):
         # Cross-validate
         model.cross_validate.return_value = (torch.tensor([3.0]), torch.tensor([4.0]))
         f, var = ma._model_cross_validate(
-            Xs_train=[X], Ys_train=[Y], Yvars_train=[var], X_test=X
+            Xs_train=[X],
+            Ys_train=[Y],
+            Yvars_train=[var],
+            X_test=X,
+            bounds=[(0, 1)],
+            task_features=[],
+            feature_names=[],
+            metric_names=[],
+            fidelity_features=[],
         )
         model_cv_args = model.cross_validate.mock_calls[0][2]
         self.assertTrue(

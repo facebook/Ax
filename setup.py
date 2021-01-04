@@ -4,7 +4,7 @@
 from setuptools import find_packages, setup
 
 
-MIN_BOTORCH_VERSION = "0.3.2"
+MIN_BOTORCH_VERSION = "0.3.3"
 
 REQUIRES = [
     f"botorch>={MIN_BOTORCH_VERSION}",
@@ -23,7 +23,7 @@ DEV_REQUIRES = [
     "flake8",
     "pytest>=4.6",
     "pytest-cov",
-    "sphinx<3.0.0",
+    "sphinx",
     "sphinx-autodoc-typehints",
     "torchvision>=0.5.0",
     "nbconvert<=5.6.1",
@@ -32,6 +32,13 @@ DEV_REQUIRES = [
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
+
+
+def local_version(version):
+    """
+    Patch in a version that can be uploaded to test PyPI
+    """
+    return ""
 
 
 def setup_package() -> None:
@@ -67,7 +74,10 @@ def setup_package() -> None:
             "mysql": MYSQL_REQUIRES,
             "notebook": NOTEBOOK_REQUIRES,
         },
-        use_scm_version={"write_to": "ax/version.py"},
+        use_scm_version={
+            "write_to": "ax/version.py",
+            "local_scheme": local_version,
+        },
         setup_requires=["setuptools_scm"],
     )
 

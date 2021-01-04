@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, patch, MagicMock
 
 import torch
 from ax.models.torch.botorch_modular.acquisition import Acquisition
@@ -39,16 +39,10 @@ class BoTorchModelTest(TestCase):
         self.acquisition_class = KnowledgeGradient
         self.botorch_acqf_class = qKnowledgeGradient
         self.acquisition_options = {Keys.NUM_FANTASIES: 64}
-        self.surrogate_fit_options = {
-            Keys.REFIT_ON_UPDATE: True,
-            Keys.STATE_DICT: {"non-empty": "non-empty"},
-            Keys.WARM_START_REFITTING: False,
-        }
         self.model = BoTorchModel(
             surrogate=self.surrogate,
             acquisition_class=self.acquisition_class,
             acquisition_options=self.acquisition_options,
-            surrogate_fit_options=self.surrogate_fit_options,
         )
 
         self.dtype = torch.float
@@ -60,6 +54,7 @@ class BoTorchModelTest(TestCase):
         self.X = Xs1[0]
         self.Y = Ys1[0]
         self.Yvar = Yvars1[0]
+        self.X2 = Xs2[0]
         self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
         self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
         self.task_features = []
@@ -92,6 +87,24 @@ class BoTorchModelTest(TestCase):
         self.assertEqual(model.acquisition_class, KnowledgeGradient)
         self.assertEqual(model.botorch_acqf_class, qKnowledgeGradient)
 
+        # Check defaults for refitting settings.
+        self.assertTrue(model.refit_on_update)
+        self.assertFalse(model.refit_on_cv)
+        self.assertTrue(model.warm_start_refit)
+
+        # Check setting non-default refitting settings
+        mdl2 = BoTorchModel(
+            surrogate=self.surrogate,
+            acquisition_class=self.acquisition_class,
+            acquisition_options=self.acquisition_options,
+            refit_on_update=False,
+            refit_on_cv=True,
+            warm_start_refit=False,
+        )
+        self.assertFalse(mdl2.refit_on_update)
+        self.assertTrue(mdl2.refit_on_cv)
+        self.assertFalse(mdl2.warm_start_refit)
+
     def test_surrogate_property(self):
         self.assertEqual(self.surrogate, self.model.surrogate)
         self.model._surrogate = None
@@ -120,7 +133,6 @@ class BoTorchModelTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             candidate_metadata=self.candidate_metadata,
         )
         # `choose_model_class` is called.
@@ -137,17 +149,148 @@ class BoTorchModelTest(TestCase):
             task_features=self.task_features,
             feature_names=self.feature_names,
             fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             metric_names=self.metric_names,
             candidate_metadata=self.candidate_metadata,
             state_dict=None,
             refit=True,
         )
 
+    @patch(f"{SURROGATE_PATH}.Surrogate.update")
+    def test_update(self, mock_update):
+        fit_update_shared_kwargs = {
+            "bounds": self.bounds,
+            "task_features": self.task_features,
+            "feature_names": self.feature_names,
+            "metric_names": self.metric_names,
+            "fidelity_features": self.fidelity_features,
+            "candidate_metadata": self.candidate_metadata,
+        }
+        self.model.fit(
+            Xs=[self.X], Ys=[self.Y], Yvars=[self.Yvar], **fit_update_shared_kwargs
+        )
+
+        for refit_on_update, warm_start_refit in [
+            (True, True),
+            (True, False),
+            (False, True),
+        ]:
+            self.model.refit_on_update = refit_on_update
+            self.model.warm_start_refit = warm_start_refit
+            self.model.update(
+                Xs=[self.X], Ys=[self.Y], Yvars=[self.Yvar], **fit_update_shared_kwargs
+            )
+            expected_state_dict = (
+                None
+                if refit_on_update and not warm_start_refit
+                else self.model.surrogate.model.state_dict()
+            )
+            # Check correct training data and `fit_update_shared_kwargs` values (can't
+            # directly use `assert_called_with` due to tensor comparison ambiguity in
+            # state dict).
+            self.assertEqual(
+                mock_update.call_args_list[-1][1].get("training_data"),
+                self.training_data,
+            )
+            for key in fit_update_shared_kwargs:
+                self.assertEqual(
+                    mock_update.call_args_list[-1][1].get(key),
+                    fit_update_shared_kwargs.get(key),
+                )
+
+            # Check correct `refit` and `state_dict` values.
+            self.assertEqual(
+                mock_update.call_args_list[-1][1].get("refit"), refit_on_update
+            )
+            if expected_state_dict is None:
+                self.assertIsNone(
+                    mock_update.call_args_list[-1][1].get("state_dict"),
+                    expected_state_dict,
+                )
+            else:
+                self.assertEqual(
+                    mock_update.call_args_list[-1][1].get("state_dict").keys(),
+                    expected_state_dict.keys(),
+                )
+
     @patch(f"{SURROGATE_PATH}.Surrogate.predict")
     def test_predict(self, mock_predict):
         self.model.predict(X=self.X)
         mock_predict.assert_called_with(X=self.X)
+
+    @patch(f"{MODEL_PATH}.BoTorchModel.fit")
+    def test_cross_validate(self, mock_fit):
+        fit_cv_shared_kwargs = {
+            "bounds": self.bounds,
+            "task_features": self.task_features,
+            "feature_names": self.feature_names,
+            "metric_names": self.metric_names,
+            "fidelity_features": self.fidelity_features,
+        }
+        self.model.fit(
+            Xs=[self.X],
+            Ys=[self.Y],
+            Yvars=[self.Yvar],
+            candidate_metadata=self.candidate_metadata,
+            **fit_cv_shared_kwargs,
+        )
+
+        old_surrogate = self.model.surrogate
+        old_surrogate._model = MagicMock()
+        old_surrogate._model.state_dict.return_value = {"key": "val"}
+
+        for refit_on_cv, warm_start_refit in [
+            (True, True),
+            (True, False),
+            (False, True),
+        ]:
+            self.model.refit_on_cv = refit_on_cv
+            self.model.warm_start_refit = warm_start_refit
+            with patch(
+                f"{SURROGATE_PATH}.Surrogate.clone_reset",
+                return_value=MagicMock(spec=Surrogate),
+            ) as mock_clone_reset:
+                self.model.cross_validate(
+                    Xs_train=[self.X],
+                    Ys_train=[self.Y],
+                    Yvars_train=[self.Yvar],
+                    X_test=self.X2,
+                    **fit_cv_shared_kwargs,
+                )
+                # Check that `predict` is called on the cloned surrogate, not
+                # on the original one.
+                mock_predict = mock_clone_reset.return_value.predict
+                mock_predict.assert_called_once()
+
+                # Check correct X_test.
+                self.assertTrue(
+                    torch.equal(
+                        mock_predict.call_args_list[-1][1].get("X"),
+                        self.X2,
+                    ),
+                )
+
+            # Check that surrogate is reset back to `old_surrogate` at the
+            # end of cross-validation.
+            self.model.surrogate is old_surrogate
+
+            expected_state_dict = (
+                None
+                if refit_on_cv and not warm_start_refit
+                else self.model.surrogate.model.state_dict()
+            )
+
+            # Check correct `refit` and `state_dict` values.
+            self.assertEqual(mock_fit.call_args_list[-1][1].get("refit"), refit_on_cv)
+            if expected_state_dict is None:
+                self.assertIsNone(
+                    mock_fit.call_args_list[-1][1].get("state_dict"),
+                    expected_state_dict,
+                )
+            else:
+                self.assertEqual(
+                    mock_fit.call_args_list[-1][1].get("state_dict").keys(),
+                    expected_state_dict.keys(),
+                )
 
     @patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
@@ -269,7 +412,6 @@ class BoTorchModelTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names_for_list_surrogate,
             fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             candidate_metadata=self.candidate_metadata,
         )
         mock_init.assert_called_with(
@@ -301,7 +443,6 @@ class BoTorchModelTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names_for_list_surrogate,
             fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             candidate_metadata=self.candidate_metadata,
         )
         # A list surrogate should be chosen, since Xs are not all the same.

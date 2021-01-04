@@ -35,7 +35,7 @@ from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Models, ModelRegistryBase
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
 from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
@@ -213,15 +213,26 @@ class Decoder:
             )
         return experiment
 
-    def experiment_from_sqa(self, experiment_sqa: SQAExperiment) -> Experiment:
-        """Convert SQLAlchemy Experiment to Ax Experiment."""
+    def experiment_from_sqa(
+        self, experiment_sqa: SQAExperiment, reduced_state: bool = False
+    ) -> Experiment:
+        """Convert SQLAlchemy Experiment to Ax Experiment.
+
+        Args:
+            experiment_sqa: `SQAExperiment` to decode.
+            reduced_state: Whether to load experiment with a slightly reduced state
+                (without abandoned arms on experiment and without model state,
+                search space, and optimization config on generator runs).
+        """
         subclass = (experiment_sqa.properties or {}).get(Keys.SUBCLASS)
         if subclass == "MultiTypeExperiment":
             experiment = self._init_mt_experiment_from_sqa(experiment_sqa)
         else:
             experiment = self._init_experiment_from_sqa(experiment_sqa)
         trials = [
-            self.trial_from_sqa(trial_sqa=trial, experiment=experiment)
+            self.trial_from_sqa(
+                trial_sqa=trial, experiment=experiment, reduced_state=reduced_state
+            )
             for trial in experiment_sqa.trials
         ]
 
@@ -252,7 +263,7 @@ class Decoder:
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
         experiment._data_by_trial = dict(data_by_trial)
-
+        experiment.db_id = experiment_sqa.id
         return experiment
 
     def parameter_from_sqa(self, parameter_sqa: SQAParameter) -> Parameter:
@@ -262,7 +273,7 @@ class Decoder:
                 raise SQADecodeError(  # pragma: no cover
                     "`lower` and `upper` must be set for RangeParameter."
                 )
-            return RangeParameter(
+            parameter = RangeParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
                 # pyre-fixme[6]: Expected `float` for 3rd param but got
@@ -279,7 +290,7 @@ class Decoder:
                 raise SQADecodeError(  # pragma: no cover
                     "`values` must be set for ChoiceParameter."
                 )
-            return ChoiceParameter(
+            parameter = ChoiceParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
                 # pyre-fixme[6]: Expected `List[Optional[Union[bool, float, int,
@@ -292,7 +303,7 @@ class Decoder:
         elif parameter_sqa.domain_type == DomainType.FIXED:
             # Don't throw an error if parameter_sqa.fixed_value is None;
             # that might be the actual value!
-            return FixedParameter(
+            parameter = FixedParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
                 value=parameter_sqa.fixed_value,
@@ -304,6 +315,9 @@ class Decoder:
                 f"Cannot decode SQAParameter because {parameter_sqa.domain_type} "
                 "is an invalid domain type."
             )
+
+        parameter.db_id = parameter_sqa.id
+        return parameter
 
     def parameter_constraint_from_sqa(
         self,
@@ -329,7 +343,7 @@ class Decoder:
             lower_parameter = parameter_map[lower_name]
             # pyre-fixme[6]: Expected `str` for 1st param but got `None`.
             upper_parameter = parameter_map[upper_name]
-            return OrderConstraint(
+            constraint = OrderConstraint(
                 lower_parameter=lower_parameter, upper_parameter=upper_parameter
             )
         elif parameter_constraint_sqa.type == ParameterConstraintType.SUM:
@@ -353,16 +367,19 @@ class Decoder:
             a = a_values[0]
             is_upper_bound = a == 1
             bound = parameter_constraint_sqa.bound * a
-            return SumConstraint(
+            constraint = SumConstraint(
                 parameters=constraint_parameters,
                 is_upper_bound=is_upper_bound,
                 bound=bound,
             )
         else:
-            return ParameterConstraint(
+            constraint = ParameterConstraint(
                 constraint_dict=dict(parameter_constraint_sqa.constraint_dict),
                 bound=parameter_constraint_sqa.bound,
             )
+
+        constraint.db_id = parameter_constraint_sqa.id
+        return constraint
 
     def search_space_from_sqa(
         self,
@@ -403,6 +420,7 @@ class Decoder:
         args["lower_is_better"] = metric_sqa.lower_is_better
         args = metric_class.deserialize_init_args(args=args)
         metric = metric_class(**args)
+        metric.db_id = metric_sqa.id
         return metric
 
     def metric_from_sqa(
@@ -559,7 +577,9 @@ class Decoder:
 
     def arm_from_sqa(self, arm_sqa: SQAArm) -> Arm:
         """Convert SQLAlchemy Arm to Ax Arm."""
-        return Arm(parameters=arm_sqa.parameters, name=arm_sqa.name)
+        arm = Arm(parameters=arm_sqa.parameters, name=arm_sqa.name)
+        arm.db_id = arm_sqa.id
+        return arm
 
     def abandoned_arm_from_sqa(
         self, abandoned_arm_sqa: SQAAbandonedArm
@@ -572,9 +592,15 @@ class Decoder:
         )
 
     def generator_run_from_sqa(
-        self, generator_run_sqa: SQAGeneratorRun
+        self, generator_run_sqa: SQAGeneratorRun, reduced_state: bool = False
     ) -> GeneratorRun:
-        """Convert SQLAlchemy GeneratorRun to Ax GeneratorRun."""
+        """Convert SQLAlchemy GeneratorRun to Ax GeneratorRun.
+
+        Args:
+            generator_run_sqa: `SQAGeneratorRun` to decode.
+            reduced_state: Whether to load generator runs with a slightly reduced state
+            (without model state, search space, and optimization config).
+        """
         arms = []
         weights = []
         opt_config = None
@@ -584,18 +610,22 @@ class Decoder:
             arms.append(self.arm_from_sqa(arm_sqa=arm_sqa))
             weights.append(arm_sqa.weight)
 
-        opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=generator_run_sqa.metrics
-        )
-        if len(tracking_metrics) > 0:
-            raise SQADecodeError(  # pragma: no cover
-                "GeneratorRun should not have tracking metrics."
+        if not reduced_state:
+            (
+                opt_config,
+                tracking_metrics,
+            ) = self.opt_config_and_tracking_metrics_from_sqa(
+                metrics_sqa=generator_run_sqa.metrics
             )
+            if len(tracking_metrics) > 0:
+                raise SQADecodeError(  # pragma: no cover
+                    "GeneratorRun should not have tracking metrics."
+                )
 
-        search_space = self.search_space_from_sqa(
-            parameters_sqa=generator_run_sqa.parameters,
-            parameter_constraints_sqa=generator_run_sqa.parameter_constraints,
-        )
+            search_space = self.search_space_from_sqa(
+                parameters_sqa=generator_run_sqa.parameters,
+                parameter_constraints_sqa=generator_run_sqa.parameter_constraints,
+            )
 
         best_arm_predictions = None
         model_predictions = None
@@ -605,23 +635,14 @@ class Decoder:
         ):
             best_arm = Arm(
                 name=generator_run_sqa.best_arm_name,
-                # pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float,
-                #  int, str]]]` for 2nd param but got `Optional[Dict[str,
-                #  Optional[Union[bool, float, int, str]]]]`.
-                parameters=generator_run_sqa.best_arm_parameters,
+                parameters=not_none(generator_run_sqa.best_arm_parameters),
             )
             best_arm_predictions = (
                 best_arm,
-                # pyre-fixme[6]: Expected `Iterable[_T_co]` for 1st param but got
-                #  `Optional[Tuple[Dict[str, float], Optional[Dict[str, Dict[str,
-                #  float]]]]]`.
-                tuple(generator_run_sqa.best_arm_predictions),
+                tuple(not_none(generator_run_sqa.best_arm_predictions)),
             )
         model_predictions = (
-            # pyre-fixme[6]: Expected `Iterable[_T_co]` for 1st param but got
-            #  `Optional[Tuple[Dict[str, List[float]], Dict[str, Dict[str,
-            #  List[float]]]]]`.
-            tuple(generator_run_sqa.model_predictions)
+            tuple(not_none(generator_run_sqa.model_predictions))
             if generator_run_sqa.model_predictions is not None
             else None
         )
@@ -633,18 +654,21 @@ class Decoder:
             search_space=search_space,
             fit_time=generator_run_sqa.fit_time,
             gen_time=generator_run_sqa.gen_time,
-            # pyre-fixme[6]: Expected `Optional[Tuple[Arm, Optional[Tuple[Dict[str,
-            #  float], Optional[Dict[str, Dict[str, float]]]]]]]` for 7th param but got
-            #  `Optional[Tuple[Arm, Tuple[Any, ...]]]`.
-            best_arm_predictions=best_arm_predictions,
+            best_arm_predictions=best_arm_predictions,  # pyre-ignore[6]
             model_predictions=model_predictions,
             model_key=generator_run_sqa.model_key,
-            model_kwargs=object_from_json(generator_run_sqa.model_kwargs),
-            bridge_kwargs=object_from_json(generator_run_sqa.bridge_kwargs),
-            gen_metadata=object_from_json(generator_run_sqa.gen_metadata),
-            model_state_after_gen=object_from_json(
-                generator_run_sqa.model_state_after_gen
-            ),
+            model_kwargs=None
+            if reduced_state
+            else object_from_json(generator_run_sqa.model_kwargs),
+            bridge_kwargs=None
+            if reduced_state
+            else object_from_json(generator_run_sqa.bridge_kwargs),
+            gen_metadata=None
+            if reduced_state
+            else object_from_json(generator_run_sqa.gen_metadata),
+            model_state_after_gen=None
+            if reduced_state
+            else object_from_json(generator_run_sqa.model_state_after_gen),
             generation_step_index=generator_run_sqa.generation_step_index,
             candidate_metadata_by_arm_signature=object_from_json(
                 generator_run_sqa.candidate_metadata_by_arm_signature
@@ -656,33 +680,54 @@ class Decoder:
             enum=self.config.generator_run_type_enum,
         )
         generator_run._index = generator_run_sqa.index
+        generator_run.db_id = generator_run_sqa.id
         return generator_run
 
     def generation_strategy_from_sqa(
-        self, gs_sqa: SQAGenerationStrategy
+        self,
+        gs_sqa: SQAGenerationStrategy,
+        experiment: Optional[Experiment] = None,
+        reduced_state: bool = False,
     ) -> GenerationStrategy:
         """Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""
         steps = object_from_json(gs_sqa.steps)
         gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
         gs._curr = gs._steps[gs_sqa.curr_index]
-        gs._generator_runs = [
-            self.generator_run_from_sqa(gr) for gr in gs_sqa.generator_runs
-        ]
+        if reduced_state and gs_sqa.generator_runs:
+            # Only fully load the last of the generator runs, load the rest with
+            # reduced state.
+            gs._generator_runs = [
+                self.generator_run_from_sqa(generator_run_sqa=gr, reduced_state=True)
+                for gr in gs_sqa.generator_runs[:-1]
+            ]
+            gs._generator_runs.append(
+                self.generator_run_from_sqa(
+                    generator_run_sqa=gs_sqa.generator_runs[-1], reduced_state=False
+                )
+            )
+        else:
+            gs._generator_runs = [
+                self.generator_run_from_sqa(gr) for gr in gs_sqa.generator_runs
+            ]
         if len(gs._generator_runs) > 0:
             # Generation strategy had an initialized model.
-            # pyre-ignore[16]: SQAGenerationStrategy does not have `experiment` attr.
-            gs._experiment = self.experiment_from_sqa(gs_sqa.experiment)
+            if experiment is None:
+                raise SQADecodeError(
+                    "Cannot decode a generation strategy with a non-zero number of "
+                    "generator runs without an experiment."
+                )
+            gs._experiment = experiment
             # If model in the current step was not directly from the `Models` enum,
             # pass its type to `restore_model_from_generator_run`, which will then
             # attempt to use this type to recreate the model.
             if type(gs._curr.model) != Models:
                 models_enum = type(gs._curr.model)
-                assert issubclass(models_enum, Models)
+                assert issubclass(models_enum, ModelRegistryBase)
                 # pyre-ignore[6]: `models_enum` typing hackiness
                 gs._restore_model_from_generator_run(models_enum=models_enum)
             else:
                 gs._restore_model_from_generator_run()
-        gs._db_id = gs_sqa.id
+        gs.db_id = gs_sqa.id
         return gs
 
     def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
@@ -694,11 +739,22 @@ class Decoder:
                 f"is an invalid type."
             )
         args = runner_class.deserialize_init_args(args=runner_sqa.properties or {})
-        # pyre-fixme[45]: Cannot instantiate abstract class `Runner`.
-        return runner_class(**args)
+        # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
+        runner = runner_class(**args)
+        runner.db_id = runner_sqa.id
+        return runner
 
-    def trial_from_sqa(self, trial_sqa: SQATrial, experiment: Experiment) -> BaseTrial:
-        """Convert SQLAlchemy Trial to Ax Trial."""
+    def trial_from_sqa(
+        self, trial_sqa: SQATrial, experiment: Experiment, reduced_state: bool = False
+    ) -> BaseTrial:
+        """Convert SQLAlchemy Trial to Ax Trial.
+
+        Args:
+            trial_sqa: `SQATrial` to decode.
+            reduced_state: Whether to load trial's generator run(s) with a slightly
+            reduced state (without model state, search space, and optimization config).
+
+        """
         if trial_sqa.is_batch:
             trial = BatchTrial(
                 experiment=experiment,
@@ -709,7 +765,8 @@ class Decoder:
             generator_run_structs = [
                 GeneratorRunStruct(
                     generator_run=self.generator_run_from_sqa(
-                        generator_run_sqa=generator_run_sqa
+                        generator_run_sqa=generator_run_sqa,
+                        reduced_state=reduced_state,
                     ),
                     weight=generator_run_sqa.weight or 1.0,
                 )
@@ -729,12 +786,13 @@ class Decoder:
                         new_generator_run_structs.append(struct)
                 generator_run_structs = new_generator_run_structs
             trial._generator_run_structs = generator_run_structs
-            trial._abandoned_arms_metadata = {
-                abandoned_arm_sqa.name: self.abandoned_arm_from_sqa(
-                    abandoned_arm_sqa=abandoned_arm_sqa
-                )
-                for abandoned_arm_sqa in trial_sqa.abandoned_arms
-            }
+            if not reduced_state:
+                trial._abandoned_arms_metadata = {
+                    abandoned_arm_sqa.name: self.abandoned_arm_from_sqa(
+                        abandoned_arm_sqa=abandoned_arm_sqa
+                    )
+                    for abandoned_arm_sqa in trial_sqa.abandoned_arms
+                }
         else:
             trial = Trial(
                 experiment=experiment,
@@ -748,7 +806,8 @@ class Decoder:
                         "but has more than one generator run."
                     )
                 trial._generator_run = self.generator_run_from_sqa(
-                    generator_run_sqa=trial_sqa.generator_runs[0]
+                    generator_run_sqa=trial_sqa.generator_runs[0],
+                    reduced_state=reduced_state,
                 )
         trial._trial_type = trial_sqa.trial_type
         # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
@@ -778,14 +837,16 @@ class Decoder:
         )
         trial._generation_step_index = trial_sqa.generation_step_index
         trial._properties = trial_sqa.properties or {}
+        trial.db_id = trial_sqa.id
         return trial
 
     def data_from_sqa(self, data_sqa: SQAData) -> Data:
         """Convert SQLAlchemy Data to AE Data."""
-
-        # Need dtype=False, otherwise infers arm_names like "4_1" should be int 41
-        return Data(
+        dat = Data(
             description=data_sqa.description,
-            # pyre-fixme[16]: Module `pd` has no attribute `read_json`.
+            # NOTE: Need dtype=False, otherwise infers arm_names like
+            # "4_1" should be int 41.
             df=pd.read_json(data_sqa.data_json, dtype=False),
         )
+        dat.db_id = data_sqa.id
+        return dat

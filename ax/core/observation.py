@@ -198,7 +198,6 @@ class Observation(Base):
 
 def _observations_from_dataframe(
     experiment: Experiment,
-    # pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
     df: pd.DataFrame,
     cols: List[str],
     arm_name_only: bool,

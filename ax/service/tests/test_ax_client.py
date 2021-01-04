@@ -24,7 +24,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import DataRequiredError, UnsupportedPlotError
 from ax.metrics.branin import branin
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
@@ -697,7 +697,7 @@ class TestAxClient(TestCase):
             ax_client.get_contour_plot(
                 param_x="x", param_y="y", metric_name="nonexistent"
             )
-        with self.assertRaisesRegex(ValueError, "Could not obtain contour"):
+        with self.assertRaisesRegex(UnsupportedPlotError, "Could not obtain contour"):
             ax_client.get_contour_plot(
                 param_x="x", param_y="y", metric_name="objective"
             )

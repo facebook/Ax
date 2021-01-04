@@ -24,6 +24,7 @@ from ax.exceptions.generation_strategy import (
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import (
     Models,
+    ModelRegistryBase,
     _combine_model_kwargs_and_state,
     get_model_from_generator_run,
 )
@@ -103,7 +104,7 @@ class GenerationStep(NamedTuple):
 
     """
 
-    model: Union[Models, Callable[..., ModelBridge]]
+    model: Union[ModelRegistryBase, Callable[..., ModelBridge]]
     num_trials: int
     min_trials_observed: int = 0
     max_parallelism: Optional[int] = None
@@ -120,8 +121,8 @@ class GenerationStep(NamedTuple):
     def model_name(self) -> str:
         # Model can be defined as member of Models enum or as a factory function,
         # so we use Models member (str) value if former and function name if latter.
-        if isinstance(self.model, Models):
-            return checked_cast(str, checked_cast(Models, self.model).value)
+        if isinstance(self.model, ModelRegistryBase):
+            return checked_cast(str, checked_cast(ModelRegistryBase, self.model).value)
         if callable(self.model):
             return self.model.__name__  # pyre-fixme[16]: union has no attr __name__
         raise TypeError(  # pragma: no cover
@@ -184,7 +185,7 @@ class GenerationStrategy(Base):
             elif step.num_trials < 1:  # pragma: no cover
                 raise ValueError("`num_trials` must be positive or -1 for all models.")
             self._steps[idx] = step._replace(index=idx)
-            if not isinstance(step.model, Models):
+            if not isinstance(step.model, ModelRegistryBase):
                 self._uses_registered_models = False
         if not self._uses_registered_models:
             logger.info(
@@ -280,7 +281,6 @@ class GenerationStrategy(Base):
         return trial_indices_by_step
 
     @property
-    # pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
     def trials_as_df(self) -> Optional[pd.DataFrame]:
         """Puts information on individual trials into a data frame for easy
         viewing. For example:
@@ -310,7 +310,6 @@ class GenerationStrategy(Base):
             for step_idx, trials in self.trial_indices_by_step.items()
             for trial_idx in trials
         ]
-        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         return pd.DataFrame.from_records(records).reindex(
             columns=[
                 "Generation Step",
@@ -470,7 +469,12 @@ class GenerationStrategy(Base):
             )
 
         model = not_none(self.model)
-        generator_runs = []
+        # TODO[T79183560]: Cloning generator runs here is a temporary measure
+        # to ensure a 1-to-1 correspondence between user-facing generator runs
+        # and their stored SQL counterparts. This will be no longer needed soon
+        # as we move to use foreign keys to avoid storing generotor runs on both
+        # experiment and generation strategy like we do now.
+        generator_run_clones = []
         for _ in range(num_generator_runs):
             try:
                 generator_run = model.gen(
@@ -481,17 +485,18 @@ class GenerationStrategy(Base):
                     ),
                 )
                 generator_run._generation_step_index = self._curr.index
-                generator_runs.append(generator_run)
+                self._generator_runs.append(generator_run)
+                generator_run_clones.append(generator_run.clone())
             except DataRequiredError as err:
                 # Model needs more data, so we log the error and return
                 # as many generator runs as we were able to produce, unless
                 # no trials were produced at all (in which case its safe to raise).
-                if len(generator_runs) == 0:
+                if len(generator_run_clones) == 0:
                     raise
                 logger.debug(f"Model required more data: {err}.")
+                break
 
-        self._generator_runs.extend(generator_runs)
-        return generator_runs
+        return generator_run_clones
 
     # ------------------------- Model selection logic helpers. -------------------------
 
@@ -563,6 +568,18 @@ class GenerationStrategy(Base):
                 # implement `fetch_experiment_data`). We avoid fetching data for
                 # trials with statuses other than `COMPLETED`, by fetching specifically
                 # for `COMPLETED` trials.
+                avail_while_running_metrics = {
+                    m.name
+                    for m in self.experiment.metrics.values()
+                    if m.is_available_while_running()
+                }
+                if avail_while_running_metrics:
+                    raise NotImplementedError(
+                        f"Metrics {avail_while_running_metrics} are available while "
+                        "trial is running, but use of `update` functionality in "
+                        "generation strategy relies on new data being available upon "
+                        "trial completion."
+                    )
                 data = self.experiment.fetch_trials_data(
                     self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
                 )
@@ -586,7 +603,7 @@ class GenerationStrategy(Base):
                 "implement fetching logic (check your metrics) or no data was "
                 "attached to experiment for completed trials."
             )
-        if isinstance(self._curr.model, Models):
+        if isinstance(self._curr.model, ModelRegistryBase):
             self._set_current_model_from_models_enum(data=data, **model_kwargs)
         else:
             # If model was not specified as Models member, it was specified as a
@@ -651,7 +668,7 @@ class GenerationStrategy(Base):
         )
 
     def _restore_model_from_generator_run(
-        self, models_enum: Optional[Type[Models]] = None
+        self, models_enum: Optional[Type[ModelRegistryBase]] = None
     ) -> None:
         """Reinstantiates the most recent model on this generation strategy
         from the last generator run it produced.

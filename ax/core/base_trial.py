@@ -97,6 +97,7 @@ class TrialStatus(int, Enum):
         """True if this trial is a running one."""
         return self == TrialStatus.RUNNING
 
+    # pyre-fixme[14]: `__format__` overrides method defined in `object` inconsistently.
     def __format__(self, fmt: str) -> str:
         """Define `__format__` to avoid pulling the `__format__` from the `int`
         mixin (since its better for statuses to show up as `RUNNING` than as
@@ -510,11 +511,6 @@ class BaseTrial(ABC, Base):
 
     def mark_completed(self) -> BaseTrial:
         """Mark trial as completed.
-
-        Args:
-            allow_repeat_completion: If set to True, this function will not raise an
-                error is a trial that has already been marked as completed is
-                being marked as completed again.
 
         Returns:
             The trial instance.

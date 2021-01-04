@@ -5,9 +5,9 @@
 [![Build Status](https://img.shields.io/pypi/v/ax-platform.svg)](https://pypi.org/project/ax-platform/)
 [![Build Status](https://img.shields.io/pypi/pyversions/ax-platform.svg)](https://pypi.org/project/ax-platform/)
 [![Build Status](https://img.shields.io/pypi/wheel/ax-platform.svg)](https://pypi.org/project/ax-platform/)
-[![Build Status](https://travis-ci.com/facebook/Ax.svg?token=m8nxq4QpA9U383aZWDyF&branch=master)](https://travis-ci.com/facebook/Ax)
+[![Build Status](https://github.com/facebook/Ax/workflows/Build%20and%20Test%20Workflow/badge.svg)](https://github.com/facebook/Ax/actions?query=workflow%3A%22Build+and+Test+Workflow%22)
 [![codecov](https://codecov.io/gh/facebook/Ax/branch/master/graph/badge.svg)](https://codecov.io/gh/facebook/Ax)
-[![Build Status](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
+[![Build Status](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Ax is an accessible, general-purpose platform for understanding, managing,
 deploying, and automating adaptive experiments.

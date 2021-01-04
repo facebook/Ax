@@ -6,7 +6,7 @@
 
 import typing  # noqa F401, this is to enable type-checking
 
-from ax.exceptions.core import AxError
+from ax.exceptions.core import AxError, OptimizationComplete
 
 
 class MaxParallelismReachedException(AxError):
@@ -26,7 +26,7 @@ class MaxParallelismReachedException(AxError):
         )
 
 
-class GenerationStrategyCompleted(AxError):
+class GenerationStrategyCompleted(OptimizationComplete):
     """Special exception indicating that the generation strategy has been
     completed.
     """

@@ -194,7 +194,7 @@ class ListSurrogateTest(TestCase):
         mock_fit_gpytorch.reset_mock()
         # Should `load_state_dict` when `state_dict` is not `None`
         # and `refit` is `False`.
-        state_dict = {}
+        state_dict = {"state_attribute": "value"}
         surrogate.fit(
             training_data=self.training_data,
             bounds=self.bounds,

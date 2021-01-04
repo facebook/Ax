@@ -6,4 +6,6 @@ ax
 
 .. automodule:: ax
   :members:
+  :noindex:
+
 .. currentmodule:: ax

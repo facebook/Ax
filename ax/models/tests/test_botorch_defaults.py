@@ -7,11 +7,16 @@
 from unittest import mock
 
 import torch
-from ax.models.torch.botorch_defaults import _get_model, get_and_fit_model
+from ax.models.torch.botorch_defaults import (
+    _get_model,
+    get_and_fit_model,
+    get_warping_transform,
+)
 from ax.utils.common.testutils import TestCase
 from botorch.models import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.transforms.input import Warp
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
 from gpytorch.priors.prior import Prior
@@ -149,3 +154,10 @@ class BotorchDefaultsTest(TestCase):
                 state_dict=None,
                 refit_model=False,
             )
+
+    def test_get_warping_transform(self):
+        warp_tf = get_warping_transform(d=4)
+        self.assertIsInstance(warp_tf, Warp)
+        self.assertEqual(warp_tf.indices.tolist(), list(range(4)))
+        warp_tf = get_warping_transform(d=4, task_feature=2)
+        self.assertEqual(warp_tf.indices.tolist(), [0, 1, 3])

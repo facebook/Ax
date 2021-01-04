@@ -10,8 +10,6 @@ from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 from ax.core.types import TParameterization
 from ax.utils.common.serialization import named_tuple_to_dict
-
-# pyre-fixme[21]: Could not find name `utils` in `plotly`.
 from plotly import utils
 
 
@@ -47,7 +45,6 @@ class AxPlotConfig(_AxPlotConfigBase):
         # Convert data to json-encodable form (strips out NamedTuple and numpy
         # array). This is a lossy conversion.
         dict_data = json.loads(
-            # pyre-fixme[16]: Module `plotly` has no attribute `utils`.
             json.dumps(named_tuple_to_dict(data), cls=utils.PlotlyJSONEncoder)
         )
         # pyre-fixme[7]: Expected `AxPlotConfig` but got `NamedTuple`.

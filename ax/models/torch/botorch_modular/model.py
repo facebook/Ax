@@ -4,7 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from copy import deepcopy
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import torch
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
@@ -28,12 +29,12 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.utils.containers import TrainingData
 from torch import Tensor
 
 
 class BoTorchModel(TorchModel, Base):
-    """
-    **All classes in 'botorch_modular' directory are under
+    """**All classes in 'botorch_modular' directory are under
     construction, incomplete, and should be treated as alpha
     versions only.**
 
@@ -58,18 +59,28 @@ class BoTorchModel(TorchModel, Base):
             applied.
         surrogate_options: Optional dict of kwargs for `Surrogate`
             (used if no pre-instantiated Surrogate via is passed via `surrogate`).
-        surrogate_fit_options: Optional dict of kwargs, passed to
-            `Surrogate.fit`, including:
-                - state_dict: `state_dict` for the underlying BoTorch
-                  `Model`,
-                - refit_on_update: Whether to re-fit the underlying
-                  BoTorch `Model` when updating it with new data.
+            Can include:
+            - model_options: Dict of options to surrogate's underlying
+            BoTorch `Model`,
+            - submodel_options or submodel_options_per_outcome:
+            Options for submodels in `ListSurrogate`, see documentation
+            for `ListSurrogate`.
+        refit_on_update: Whether to reoptimize model parameters during call
+            to `BoTorchModel.update`. If false, training data for the model
+            (used for inference) is still swapped for new training data, but
+            model parameters are not reoptimized.
+        refit_on_cv: Whether to reoptimize model parameters during call to
+            `BoTorchmodel.cross_validate`.
+        warm_start_refit: Whether to load parameters from either the provided
+            state dict or the state dict of the current BoTorch `Model` during
+            refitting. If False, model parameters will be reoptimized from
+            scratch on refit. NOTE: This setting is ignored during `update` or
+            `cross_validate` if the corresponding `refit_on_...` is False.
     """
 
     acquisition_class: Type[Acquisition]
     acquisition_options: Dict[str, Any]
     surrogate_options: Dict[str, Any]
-    surrogate_fit_options: Dict[str, Any]
     _surrogate: Optional[Surrogate]
     _botorch_acqf_class: Optional[Type[AcquisitionFunction]]
 
@@ -80,7 +91,9 @@ class BoTorchModel(TorchModel, Base):
         botorch_acqf_class: Optional[Type[AcquisitionFunction]] = None,
         surrogate: Optional[Surrogate] = None,
         surrogate_options: Optional[Dict[str, Any]] = None,
-        surrogate_fit_options: Optional[Dict[str, Any]] = None,
+        refit_on_update: bool = True,
+        refit_on_cv: bool = False,
+        warm_start_refit: bool = True,
     ) -> None:
         self._surrogate = surrogate
         if surrogate and surrogate_options:
@@ -90,7 +103,6 @@ class BoTorchModel(TorchModel, Base):
                 " arguments is expected."
             )
         self.surrogate_options = surrogate_options or {}
-        self.surrogate_fit_options = surrogate_fit_options or {}
         self.acquisition_class = acquisition_class or Acquisition
         # `_botorch_acqf_class` can be set to `None` here. If so,
         # `Model.gen` will set it with `choose_botorch_acqf_class`.
@@ -98,6 +110,9 @@ class BoTorchModel(TorchModel, Base):
             botorch_acqf_class or self.acquisition_class.default_botorch_acqf_class
         )
         self.acquisition_options = acquisition_options or {}
+        self.refit_on_update = refit_on_update
+        self.refit_on_cv = refit_on_cv
+        self.warm_start_refit = warm_start_refit
 
     @property
     def surrogate(self) -> Surrogate:
@@ -122,8 +137,9 @@ class BoTorchModel(TorchModel, Base):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
-        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        state_dict: Optional[Dict[str, Tensor]] = None,
+        refit: bool = True,
     ) -> None:
         # Ensure that parts of data all have equal lengths.
         validate_data_format(Xs=Xs, Ys=Ys, Yvars=Yvars, metric_names=metric_names)
@@ -139,30 +155,60 @@ class BoTorchModel(TorchModel, Base):
                 metric_names=metric_names,
             )
 
-        if isinstance(self.surrogate, ListSurrogate):
-            training_data = construct_training_data_list(Xs=Xs, Ys=Ys, Yvars=Yvars)
-        else:
-            training_data = construct_single_training_data(Xs=Xs, Ys=Ys, Yvars=Yvars)
-
-        # Fit the model.
-        if self.surrogate_fit_options.get(
-            Keys.REFIT_ON_UPDATE, True
-        ) and not self.surrogate_fit_options.get(Keys.WARM_START_REFITTING, True):
-            self.surrogate_fit_options[Keys.STATE_DICT] = None
         self.surrogate.fit(
             # pyre-ignore[6]: Base `Surrogate` expects only single `TrainingData`,
-            # but `ListSurrogate` expects a list of them, to `training_data` here is
+            # but `ListSurrogate` expects a list of them, so `training_data` here is
             # a union of the two.
-            training_data=training_data,
+            training_data=self._mk_training_data(Xs=Xs, Ys=Ys, Yvars=Yvars),
             bounds=bounds,
             task_features=task_features,
             feature_names=feature_names,
             fidelity_features=fidelity_features,
-            target_fidelities=target_fidelities,
             metric_names=metric_names,
             candidate_metadata=candidate_metadata,
-            state_dict=self.surrogate_fit_options.get(Keys.STATE_DICT, None),
-            refit=self.surrogate_fit_options.get(Keys.REFIT_ON_UPDATE, True),
+            state_dict=state_dict,
+            refit=refit,
+        )
+
+    @copy_doc(TorchModel.update)
+    def update(
+        self,
+        Xs: List[Tensor],
+        Ys: List[Tensor],
+        Yvars: List[Tensor],
+        bounds: List[Tuple[float, float]],
+        task_features: List[int],
+        feature_names: List[str],
+        metric_names: List[str],
+        fidelity_features: List[int],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+    ) -> None:
+        if not self._surrogate:
+            raise ValueError("Cannot update model that has not been fitted.")
+
+        # Sometimes the model fit should be restarted from scratch on update, for models
+        # that are prone to overfitting. In those cases, `self.warm_start_refit` should
+        # be false and `Surrogate.update` will not receive a state dict and will not
+        # pass it to the underlying `Surrogate.fit`.
+        state_dict = (
+            None
+            if self.refit_on_update and not self.warm_start_refit
+            else self.surrogate.model.state_dict()
+        )
+
+        self.surrogate.update(
+            # pyre-ignore[6]: Base `Surrogate` expects only single `TrainingData`,
+            # but `ListSurrogate` expects a list of them, so `training_data` here is
+            # a union of the two.
+            training_data=self._mk_training_data(Xs=Xs, Ys=Ys, Yvars=Yvars),
+            bounds=bounds,
+            task_features=task_features,
+            feature_names=feature_names,
+            metric_names=metric_names,
+            fidelity_features=fidelity_features,
+            candidate_metadata=candidate_metadata,
+            state_dict=state_dict,
+            refit=self.refit_on_update,
         )
 
     @copy_doc(TorchModel.predict)
@@ -253,6 +299,54 @@ class BoTorchModel(TorchModel, Base):
         )
         return acqf.evaluate(X=X)
 
+    def cross_validate(
+        self,
+        Xs_train: List[Tensor],
+        Ys_train: List[Tensor],
+        Yvars_train: List[Tensor],
+        X_test: Tensor,
+        bounds: List[Tuple[float, float]],
+        task_features: List[int],
+        feature_names: List[str],
+        metric_names: List[str],
+        fidelity_features: List[int],
+    ) -> Tuple[Tensor, Tensor]:
+        current_surrogate = self.surrogate
+        # If we should be refitting but not warm-starting the refit, set
+        # `state_dict` to None to avoid loading it.
+        state_dict = (
+            None
+            if self.refit_on_cv and not self.warm_start_refit
+            else deepcopy(current_surrogate.model.state_dict())
+        )
+
+        # Temporarily set `_surrogate` to cloned surrogate to set
+        # the training data on cloned surrogate to train set and
+        # use it to predict the test point.
+        surrogate_clone = self.surrogate.clone_reset()
+        self._surrogate = surrogate_clone
+
+        try:
+            self.fit(
+                Xs=Xs_train,
+                Ys=Ys_train,
+                Yvars=Yvars_train,
+                bounds=bounds,
+                task_features=task_features,
+                feature_names=feature_names,
+                metric_names=metric_names,
+                fidelity_features=fidelity_features,
+                state_dict=state_dict,
+                refit=self.refit_on_cv,
+            )
+            X_test_prediction = self.predict(X=X_test)
+        finally:
+            # Reset the surrogate back to this model's surrogate, make
+            # sure the cloned surrogate doesn't stay around if fit or
+            # predict fail.
+            self._surrogate = current_surrogate
+        return X_test_prediction
+
     def _autoset_surrogate(
         self,
         Xs: List[Tensor],
@@ -286,7 +380,7 @@ class BoTorchModel(TorchModel, Base):
             }
             self._surrogate = ListSurrogate(
                 botorch_submodel_class_per_outcome=botorch_submodel_class_per_outcome,
-                **self.surrogate_options
+                **self.surrogate_options,
             )
         else:
             # Using regular `Surrogate`, so botorch model picked at the beginning
@@ -327,3 +421,13 @@ class BoTorchModel(TorchModel, Base):
             target_fidelities=target_fidelities,
             options=acq_options,
         )
+
+    def _mk_training_data(
+        self,
+        Xs: List[Tensor],
+        Ys: List[Tensor],
+        Yvars: List[Tensor],
+    ) -> Union[TrainingData, List[TrainingData]]:
+        if isinstance(self.surrogate, ListSurrogate):
+            return construct_training_data_list(Xs=Xs, Ys=Ys, Yvars=Yvars)
+        return construct_single_training_data(Xs=Xs, Ys=Ys, Yvars=Yvars)

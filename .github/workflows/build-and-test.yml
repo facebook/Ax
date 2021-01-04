@@ -1,0 +1,84 @@
+name: Build and Test Workflow
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  tests-and-coverage:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8]
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        # use master Botorch
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -q -e .[dev,mysql,notebook]
+    - name: Tests and coverage
+      run: |
+        pytest -ra --cov=ax
+
+  lint:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        pip install black
+        pip install flake8
+    - name: Black
+      run: |
+        black --check --diff .
+    - name: Flake8
+      # run even if previous step (Black) failed
+      if: ${{ always() }}
+      run: |
+        # don't use .flake8 config for now, since don't need custom plugin
+        flake8 --isolated --ignore=T484,T499,W503,E704,E231,E203 --max-line-length=88
+
+  docs:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        # use master Botorch
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -q -e .[dev,mysql,notebook]
+    - name: Validate Sphinx
+      run: |
+        python scripts/validate_sphinx.py -p "${pwd}"
+    - name: Run Sphinx
+      # run even if previous step (validate Sphinx) failed
+      if: ${{ always() }}
+      run: |
+        # warnings treated as errors
+        sphinx-build -WT sphinx/source sphinx/build
+        # since -W flag breaks on first error, re-run without it to print all
+        sphinx-build sphinx/source sphinx/build

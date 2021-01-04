@@ -198,6 +198,7 @@ class BaseModelBridgeTest(TestCase):
             cv_training_data=cv_training_data, cv_test_points=cv_test_points
         )
         modelbridge._cross_validate.assert_called_with(
+            search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             obs_feats=[get_observation2trans().features],
             obs_data=[get_observation2trans().data],
             cv_test_points=[get_observation1().features],  # untransformed after

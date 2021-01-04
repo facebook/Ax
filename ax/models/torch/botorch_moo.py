@@ -202,6 +202,8 @@ class MultiObjectiveBotorchModel(BotorchModel):
         refit_on_cv: bool = False,
         refit_on_update: bool = True,
         warm_start_refitting: bool = False,
+        use_input_warping: bool = False,
+        use_loocv_pseudo_likelihood: bool = False,
         **kwargs: Any,
     ) -> None:
         self.model_constructor = model_constructor
@@ -214,6 +216,8 @@ class MultiObjectiveBotorchModel(BotorchModel):
         self.refit_on_cv = refit_on_cv
         self.refit_on_update = refit_on_update
         self.warm_start_refitting = warm_start_refitting
+        self.use_input_warping = use_input_warping
+        self.use_loocv_pseudo_likelihood = use_loocv_pseudo_likelihood
         self.model: Optional[Model] = None
         self.Xs = []
         self.Ys = []

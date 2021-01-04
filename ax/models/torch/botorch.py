@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
@@ -239,6 +241,8 @@ class BotorchModel(TorchModel):
         refit_on_cv: bool = False,
         refit_on_update: bool = True,
         warm_start_refitting: bool = True,
+        use_input_warping: bool = False,
+        use_loocv_pseudo_likelihood: bool = False,
         **kwargs: Any,
     ) -> None:
         self.model_constructor = model_constructor
@@ -250,6 +254,8 @@ class BotorchModel(TorchModel):
         self.refit_on_cv = refit_on_cv
         self.refit_on_update = refit_on_update
         self.warm_start_refitting = warm_start_refitting
+        self.use_input_warping = use_input_warping
+        self.use_loocv_pseudo_likelihood = use_loocv_pseudo_likelihood
         self.model: Optional[Model] = None
         self.Xs = []
         self.Ys = []
@@ -289,6 +295,8 @@ class BotorchModel(TorchModel):
             task_features=self.task_features,
             fidelity_features=self.fidelity_features,
             metric_names=self.metric_names,
+            use_input_warping=self.use_input_warping,
+            use_loocv_pseudo_likelihood=self.use_loocv_pseudo_likelihood,
             **self._kwargs,
         )
 
@@ -342,27 +350,52 @@ class BotorchModel(TorchModel):
         bounds_ = bounds_.transpose(0, 1)
 
         botorch_rounding_func = get_rounding_func(rounding_func)
-        acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
-            model=model,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
-            X_pending=X_pending,
-            **acf_options,
-        )
-        acquisition_function = checked_cast(AcquisitionFunction, acquisition_function)
-        # pyre-ignore: [28]
-        candidates, expected_acquisition_value = self.acqf_optimizer(
-            acq_function=checked_cast(AcquisitionFunction, acquisition_function),
-            bounds=bounds_,
-            n=n,
-            inequality_constraints=_to_inequality_constraints(
-                linear_constraints=linear_constraints
-            ),
-            fixed_features=fixed_features,
-            rounding_func=botorch_rounding_func,
-            **optimizer_options,
-        )
+
+        # The following logic is to work around the limitation of PyTorch's Sobol
+        # sampler to <1111 dimensions.
+        # TODO: Remove once https://github.com/pytorch/pytorch/issues/41489 is resolved.
+
+        from botorch.exceptions.errors import UnsupportedError
+
+        def make_and_optimize_acqf(override_qmc: bool = False) -> Tuple[Tensor, Tensor]:
+            add_kwargs = {"qmc": False} if override_qmc else {}
+            acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
+                model=model,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_observed,
+                X_pending=X_pending,
+                **acf_options,
+                **add_kwargs,
+            )
+            acquisition_function = checked_cast(
+                AcquisitionFunction, acquisition_function
+            )
+            # pyre-ignore: [28]
+            candidates, expected_acquisition_value = self.acqf_optimizer(
+                acq_function=checked_cast(AcquisitionFunction, acquisition_function),
+                bounds=bounds_,
+                n=n,
+                inequality_constraints=_to_inequality_constraints(
+                    linear_constraints=linear_constraints
+                ),
+                fixed_features=fixed_features,
+                rounding_func=botorch_rounding_func,
+                **optimizer_options,
+            )
+            return candidates, expected_acquisition_value
+
+        try:
+            candidates, expected_acquisition_value = make_and_optimize_acqf()
+        except UnsupportedError as e:
+            if "SobolQMCSampler only supports dimensions q * o <= 1111" in str(e):
+                # dimension too large for Sobol, let's use IID
+                candidates, expected_acquisition_value = make_and_optimize_acqf(
+                    override_qmc=True
+                )
+            else:
+                raise e
+
         return (
             candidates.detach().cpu(),
             torch.ones(n, dtype=self.dtype),
@@ -394,12 +427,13 @@ class BotorchModel(TorchModel):
         )
 
     @copy_doc(TorchModel.cross_validate)
-    def cross_validate(
-        self,
+    def cross_validate(  # pyre-ignore[14]: Some `TorchModel.cross_validate` kwargs
+        self,  # are not needed here and therefore we just use `**kwargs` catchall.
         Xs_train: List[Tensor],
         Ys_train: List[Tensor],
         Yvars_train: List[Tensor],
         X_test: Tensor,
+        **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         if self.model is None:
             raise RuntimeError("Cannot cross-validate model that has not been fitted")
@@ -415,17 +449,21 @@ class BotorchModel(TorchModel):
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
             metric_names=self.metric_names,
+            refit_model=self.refit_on_cv,
+            use_input_warping=self.use_input_warping,
+            use_loocv_pseudo_likelihood=self.use_loocv_pseudo_likelihood,
             **self._kwargs,
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
     @copy_doc(TorchModel.update)
-    def update(
-        self,
+    def update(  # pyre-ignore[14]: Some `TorchModel.update` kwargs are not
+        self,  # needed here and therefore we just use `**kwargs` catchall.
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        **kwargs: Any,
     ) -> None:
         if self.model is None:
             raise RuntimeError("Cannot update model that has not been fitted")
@@ -445,6 +483,8 @@ class BotorchModel(TorchModel):
             fidelity_features=self.fidelity_features,
             metric_names=self.metric_names,
             refit_model=self.refit_on_update,
+            use_input_warping=self.use_input_warping,
+            use_loocv_pseudo_likelihood=self.use_loocv_pseudo_likelihood,
             **self._kwargs,
         )
 

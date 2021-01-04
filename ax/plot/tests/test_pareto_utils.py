@@ -13,28 +13,42 @@ from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class ParetoUtilsTest(TestCase):
-    def testOODStatusQuo(self):
-        # An OOD status quo arm without a trial index will raise an error
+    def setUp(self):
         experiment = get_branin_experiment()
         experiment.add_tracking_metric(
             BraninMetric(name="m2", param_names=["x1", "x2"])
         )
-        metrics = list(experiment.metrics.values())
         sobol = Models.SOBOL(experiment.search_space)
         a = sobol.gen(5)
         experiment.new_batch_trial(generator_run=a).run()
-        # Experiments with batch trials must specify a trial index
+        self.experiment = experiment
+        self.metrics = list(experiment.metrics.values())
+
+    def testComputeParetoFrontierByTrial(self):
+        # Experiments with batch trials must specify trial_index or data
         with self.assertRaises(UnsupportedError):
             compute_pareto_frontier(
-                experiment,
-                metrics[0],
-                metrics[1],
-                absolute_metrics=[m.name for m in metrics],
+                self.experiment,
+                self.metrics[0],
+                self.metrics[1],
+                absolute_metrics=[m.name for m in self.metrics],
             )
         compute_pareto_frontier(
-            experiment,
-            metrics[0],
-            metrics[1],
+            self.experiment,
+            self.metrics[0],
+            self.metrics[1],
             trial_index=0,
-            absolute_metrics=[m.name for m in metrics],
+            absolute_metrics=[m.name for m in self.metrics],
+            num_points=2,
+        )
+
+    def testComputeParetoFrontierByData(self):
+        # Experiments with batch trials must specify trial_index or data
+        compute_pareto_frontier(
+            self.experiment,
+            self.metrics[0],
+            self.metrics[1],
+            data=self.experiment.fetch_data(),
+            absolute_metrics=[m.name for m in self.metrics],
+            num_points=2,
         )

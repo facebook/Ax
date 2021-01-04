@@ -227,7 +227,10 @@ class DiscreteModelBridgeTest(TestCase):
         ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
         observation_data = ma._cross_validate(
-            self.observation_features, self.observation_data, self.observation_features
+            search_space=self.search_space,
+            obs_feats=self.observation_features,
+            obs_data=self.observation_data,
+            cv_test_points=self.observation_features,
         )
         Xs = [
             [[0, "foo", True], [1, "foo", True], [1, "bar", True]],

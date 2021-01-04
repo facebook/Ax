@@ -34,9 +34,9 @@ try:  # We don't require SQLAlchemy by default.
         _update_generation_strategy,
         _update_trials,
     )
+    from ax.storage.sqa_store.structs import DBSettings
     from sqlalchemy.exc import OperationalError
     from sqlalchemy.orm.exc import StaleDataError
-    from ax.storage.sqa_store.structs import DBSettings
 
     # We retry on `OperationalError` if saving to DB.
     RETRY_EXCEPTION_TYPES = (OperationalError, StaleDataError)
@@ -161,7 +161,9 @@ class WithDBSettingsBase:
         return saved_exp, saved_gs
 
     def _load_experiment_and_generation_strategy(
-        self, experiment_name: str
+        self,
+        experiment_name: str,
+        reduced_state: bool = False,
     ) -> Tuple[Optional[Experiment], Optional[GenerationStrategy]]:
         """Loads experiment and its corresponding generation strategy from database
         if DB settings are set on this `WithDBSettingsBase` instance.
@@ -169,6 +171,11 @@ class WithDBSettingsBase:
         Args:
             experiment_name: Name of the experiment to load, used as unique
                 identifier by which to find the experiment.
+            reduced_state: Whether to load experiment and generation strategy
+                with a slightly reduced state (without abandoned arms on experiment
+                and model state on each generator run in experiment and generation
+                strategy; last generator run on generation strategy will still
+                have its model state).
 
         Returns:
             - Tuple of `None` and `None` if `DBSettings` are set and no experiment
@@ -181,9 +188,16 @@ class WithDBSettingsBase:
         if not self.db_settings_set:
             raise ValueError("Cannot load from DB in absence of DB settings.")
 
-        logger.info("Loading experiment and generation strategy...")
+        logger.info(
+            "Loading experiment and generation strategy (with reduced state: "
+            f"{reduced_state})..."
+        )
         start_time = time.time()
-        experiment = _load_experiment(experiment_name, decoder=self.db_settings.decoder)
+        experiment = _load_experiment(
+            experiment_name,
+            decoder=self.db_settings.decoder,
+            reduced_state=reduced_state,
+        )
         if not isinstance(experiment, Experiment) or experiment.is_simple_experiment:
             raise ValueError("Service API only supports `Experiment`.")
         logger.info(
@@ -194,7 +208,10 @@ class WithDBSettingsBase:
         try:
             start_time = time.time()
             generation_strategy = _load_generation_strategy_by_experiment_name(
-                experiment_name=experiment_name, decoder=self.db_settings.decoder
+                experiment_name=experiment_name,
+                decoder=self.db_settings.decoder,
+                experiment=experiment,
+                reduced_state=reduced_state,
             )
             logger.info(
                 f"Loaded generation strategy for experiment {experiment_name} in "

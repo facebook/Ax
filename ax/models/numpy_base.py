@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
@@ -183,6 +183,7 @@ class NumpyModel(Model):
         Ys: List[np.ndarray],
         Yvars: List[np.ndarray],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        **kwargs: Any,
     ) -> None:
         """Update the model.
 

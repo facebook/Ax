@@ -56,6 +56,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.equality import datetime_equals
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger = get_logger(__name__)
@@ -110,35 +111,46 @@ class Encoder:
         except KeyError:
             raise SQAEncodeError(f"Value {value} is invalid for enum {enum}.")
 
-    def experiment_to_sqa(self, experiment: Experiment) -> SQAExperiment:
-        """Convert Ax Experiment to SQLAlchemy.
+    def experiment_to_sqa(
+        self, experiment: Experiment
+    ) -> Tuple[SQAExperiment, T_OBJ_TO_SQA]:
+        """Convert Ax Experiment to SQLAlchemy and compile a list of (object,
+        sqa_counterpart) tuples to set `db_id` on user-facing classes after
+        the conversion is complete and the SQL session is flushed (SQLAlchemy
+        classes receive their `id` attributes during `session.flush()`).
 
         In addition to creating and storing a new Experiment object, we need to
         create and store copies of the Trials, Metrics, Parameters,
         ParameterConstraints, and Runner owned by this Experiment.
         """
-        optimization_metrics = self.optimization_config_to_sqa(
+        obj_to_sqa = []
+
+        optimization_metrics, _obj_to_sqa = self.optimization_config_to_sqa(
             experiment.optimization_config
         )
-        tracking_metrics = [
-            self.metric_to_sqa(metric)
-            for metric in experiment._tracking_metrics.values()
-        ]
-        parameters, parameter_constraints = self.search_space_to_sqa(
+        obj_to_sqa.extend(_obj_to_sqa)
+
+        tracking_metrics = []
+        for metric in experiment._tracking_metrics.values():
+            tracking_metrics.append(self.metric_to_sqa(metric))
+            obj_to_sqa.append((metric, tracking_metrics[-1]))
+
+        parameters, parameter_constraints, _obj_to_sqa = self.search_space_to_sqa(
             experiment.search_space
         )
+        obj_to_sqa.extend(_obj_to_sqa)
 
         status_quo_name = None
         status_quo_parameters = None
         if experiment.status_quo is not None:
-            # pyre-fixme[16]: `Optional` has no attribute `name`.
-            status_quo_name = experiment.status_quo.name
-            # pyre-fixme[16]: `Optional` has no attribute `parameters`.
-            status_quo_parameters = experiment.status_quo.parameters
+            status_quo_name = not_none(experiment.status_quo).name
+            status_quo_parameters = not_none(experiment.status_quo).parameters
 
-        trials = [
-            self.trial_to_sqa(trial=trial) for trial in experiment.trials.values()
-        ]
+        trials = []
+        for trial in experiment.trials.values():
+            trial_sqa, _obj_to_sqa = self.trial_to_sqa(trial=trial)
+            trials.append(trial_sqa)
+            obj_to_sqa.extend(_obj_to_sqa)
 
         experiment_data = []
         for trial_index, data_by_timestamp in experiment.data_by_trial.items():
@@ -148,41 +160,39 @@ class Encoder:
                         data=data, trial_index=trial_index, timestamp=timestamp
                     )
                 )
+                obj_to_sqa.append((data, experiment_data[-1]))
 
         experiment_type = self.get_enum_value(
             value=experiment.experiment_type, enum=self.config.experiment_type_enum
         )
 
         properties = experiment._properties
+        runners = []
         if isinstance(experiment, MultiTypeExperiment):
             properties[Keys.SUBCLASS] = "MultiTypeExperiment"
-            runners = [
-                self.runner_to_sqa(runner, trial_type)
-                for trial_type, runner in experiment._trial_type_to_runner.items()
-            ]
+            for trial_type, runner in experiment._trial_type_to_runner.items():
+                runner_sqa = self.runner_to_sqa(runner, trial_type)
+                runners.append(runner_sqa)
+                obj_to_sqa.append((runner, runner_sqa))
+
             for metric in tracking_metrics:
                 metric.trial_type = experiment._metric_to_trial_type[metric.name]
                 if metric.name in experiment._metric_to_canonical_name:
                     metric.canonical_name = experiment._metric_to_canonical_name[
                         metric.name
                     ]
-        else:
-            runners = (
-                # pyre-fixme[6]: Expected `Runner` for 1st param but got
-                #  `Optional[Runner]`.
-                [self.runner_to_sqa(experiment.runner)]
-                if experiment.runner
-                else []
-            )
+        elif experiment.runner:
+            runners.append(self.runner_to_sqa(not_none(experiment.runner)))
+            obj_to_sqa.append((experiment.runner, runners[-1]))
 
         if isinstance(experiment, SimpleExperiment):
             properties[Keys.SUBCLASS] = "SimpleExperiment"
 
-        # pyre-fixme: Expected `Base` for 1st...yping.Type[Experiment]`.
+        # pyre-ignore[9]: Expected `Base` for 1st...yping.Type[Experiment]`.
         experiment_class: Type[SQAExperiment] = self.config.class_to_sqa_class[
             Experiment
         ]
-        return experiment_class(
+        exp_sqa = experiment_class(
             description=experiment.description,
             is_test=experiment.is_test,
             name=experiment.name,
@@ -199,6 +209,8 @@ class Encoder:
             properties=properties,
             default_trial_type=experiment.default_trial_type,
         )
+        obj_to_sqa.append((experiment, exp_sqa))
+        return exp_sqa, obj_to_sqa
 
     def parameter_to_sqa(self, parameter: Parameter) -> SQAParameter:
         """Convert Ax Parameter to SQLAlchemy."""
@@ -277,22 +289,28 @@ class Encoder:
 
     def search_space_to_sqa(
         self, search_space: Optional[SearchSpace]
-    ) -> Tuple[List[SQAParameter], List[SQAParameterConstraint]]:
+    ) -> Tuple[List[SQAParameter], List[SQAParameterConstraint], T_OBJ_TO_SQA]:
         """Convert Ax SearchSpace to a list of SQLAlchemy Parameters and
-        ParameterConstraints.
+        ParameterConstraints and compile a list of (object,
+        sqa_counterpart) tuples to set `db_id` on user-facing classes after
+        the conversion is complete and the SQL session is flushed (SQLAlchemy
+        classes receive their `id` attributes during `session.flush()`).
         """
-        if search_space is None:
-            return [], []
+        parameters, parameter_constraints, obj_to_sqa = [], [], []
+        if search_space is not None:
+            for parameter in search_space.parameters.values():
+                parameters.append(self.parameter_to_sqa(parameter=parameter))
+                obj_to_sqa.append((parameter, parameters[-1]))
 
-        parameters = [
-            self.parameter_to_sqa(parameter=parameter)
-            for parameter in search_space.parameters.values()
-        ]
-        parameter_constraints = [
-            self.parameter_constraint_to_sqa(parameter_constraint=parameter_constraint)
-            for parameter_constraint in search_space.parameter_constraints
-        ]
-        return parameters, parameter_constraints
+            for parameter_constraint in search_space.parameter_constraints:
+                parameter_constraints.append(
+                    self.parameter_constraint_to_sqa(
+                        parameter_constraint=parameter_constraint
+                    )
+                )
+                obj_to_sqa.append((parameter_constraint, parameter_constraints[-1]))
+
+        return parameters, parameter_constraints, obj_to_sqa
 
     def get_metric_type_and_properties(
         self, metric: Metric
@@ -329,134 +347,148 @@ class Encoder:
             lower_is_better=metric.lower_is_better,
         )
 
-    def objective_to_sqa(self, objective: Objective) -> SQAMetric:
-        """Convert Ax Objective to SQLAlchemy."""
-
+    def objective_to_sqa(self, objective: Objective) -> Tuple[SQAMetric, T_OBJ_TO_SQA]:
+        """Convert Ax Objective to SQLAlchemy and compile a list of (object,
+        sqa_counterpart) tuples to set `db_id` on user-facing classes after
+        the conversion is complete and the SQL session is flushed (SQLAlchemy
+        classes receive their `id` attributes during `session.flush()`).
+        """
         if isinstance(objective, ScalarizedObjective):
-            return self.scalarized_objective_to_sqa(objective)
-        if isinstance(objective, MultiObjective):
-            return self.multi_objective_to_sqa(objective)
+            objective_sqa, obj_to_sqa = self.scalarized_objective_to_sqa(objective)
 
-        metric = objective.metric
-        metric_type, properties = self.get_metric_type_and_properties(metric=metric)
+        elif isinstance(objective, MultiObjective):
+            objective_sqa, obj_to_sqa = self.multi_objective_to_sqa(objective)
 
-        # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
-        metric_class: SQAMetric = self.config.class_to_sqa_class[Metric]
-        # pyre-fixme[29]: `SQAMetric` is not a function.
-        return metric_class(
-            name=metric.name,
-            metric_type=metric_type,
-            intent=MetricIntent.OBJECTIVE,
-            minimize=objective.minimize,
-            properties=properties,
-            lower_is_better=metric.lower_is_better,
-        )
+        else:
+            metric_type, properties = self.get_metric_type_and_properties(
+                metric=objective.metric
+            )
+            metric_class = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+            objective_sqa = (
+                metric_class(  # pyre-ignore[29]: `SQAMetric` is not a function.
+                    name=objective.metric.name,
+                    metric_type=metric_type,
+                    intent=MetricIntent.OBJECTIVE,
+                    minimize=objective.minimize,
+                    properties=properties,
+                    lower_is_better=objective.metric.lower_is_better,
+                )
+            )
+            obj_to_sqa = [
+                (
+                    checked_cast(Base, objective.metric),
+                    checked_cast(SQABase, objective_sqa),
+                )
+            ]
 
-    def multi_objective_to_sqa(self, objective: MultiObjective) -> SQAMetric:
-        """Convert Ax Multi Objective to SQLAlchemy. Returns a parent
-        SQAMetric, whose children are the SQAMetrics corresponding to
-        metrics attribute of MultiObjective. The parent is used as a placeholder
-        for storage purposes."""
-        metrics = objective.metrics
+        return checked_cast(SQAMetric, objective_sqa), obj_to_sqa
 
-        # pyre-fixme[9]: Expected SQABase type of an attribute;
-        # re-defined to be SQAMetric.
-        metrics_by_name: Dict[
-            str, Tuple[Metric, SQAMetric, Tuple[int, Dict[str, Any]]]
-        ] = {
+    def multi_objective_to_sqa(
+        self, objective: MultiObjective
+    ) -> Tuple[SQAMetric, T_OBJ_TO_SQA]:
+        """Convert Ax Multi Objective to SQLAlchemy and compile a list of (object,
+        sqa_counterpart) tuples to set `db_id` on user-facing classes after
+        the conversion is complete and the SQL session is flushed (SQLAlchemy
+        classes receive their `id` attributes during `session.flush()`).
+
+        Returns: A parent `SQAMetric`, whose children are the `SQAMetric`-s
+            corresponding to `metrics` attribute of `MultiObjective`.
+            NOTE: The parent is used as a placeholder for storage purposes.
+        """
+        metrics_by_name = {
             metric.name: (
                 metric,
-                self.config.class_to_sqa_class[Metric],
+                cast(SQAMetric, self.config.class_to_sqa_class[Metric]),
                 self.get_metric_type_and_properties(metric=metric),
             )
-            for metric in metrics
+            for metric in objective.metrics
         }
 
-        # Constructing children SQAMetric classes
-        children_metrics = [
-            # pyre-fixme[29]: `SQAMetric` is not a function.
-            metric_class(
-                name=metric.name,
-                metric_type=metrics_type_and_properties[0],
-                intent=MetricIntent.OBJECTIVE,
-                minimize=objective.minimize,
-                properties=metrics_type_and_properties[1],
-                lower_is_better=metric.lower_is_better,
+        # Constructing children SQAMetric classes (these are the real metrics in
+        # the `MultiObjective`).
+        children_metrics, obj_to_sqa = [], []
+        for metric_name in metrics_by_name:
+            metric, metric_cls, type_and_properties = metrics_by_name[metric_name]
+            children_metrics.append(
+                metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a function.
+                    name=metric.name,
+                    metric_type=type_and_properties[0],
+                    intent=MetricIntent.OBJECTIVE,
+                    minimize=objective.minimize,
+                    properties=type_and_properties[1],
+                    lower_is_better=metric.lower_is_better,
+                )
             )
-            for metric_name, (
-                metric,
-                metric_class,
-                metrics_type_and_properties,
-            ) in metrics_by_name.items()
-        ]
+            obj_to_sqa.append((metric, children_metrics[-1]))
 
-        # Constructing a parent SQAMetric class
-        # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
-        parent_metric: SQAMetric = self.config.class_to_sqa_class[Metric]
-        # pyre-fixme[29]: `SQAMetric` is not a function.
-        parent_metric = parent_metric(
-            name="scalarized_objective",
-            metric_type=METRIC_REGISTRY[Metric],
-            intent=MetricIntent.MULTI_OBJECTIVE,
-            minimize=objective.minimize,
-            lower_is_better=objective.minimize,
-            scalarized_objective_children_metrics=children_metrics,
+        # Constructing a parent SQAMetric class (not a real metric, only a placeholder
+        # to group the metrics together).
+        parent_metric_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+        parent_metric = (
+            parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
+                name="scalarized_objective",
+                metric_type=METRIC_REGISTRY[Metric],
+                intent=MetricIntent.MULTI_OBJECTIVE,
+                minimize=objective.minimize,
+                lower_is_better=objective.minimize,
+                scalarized_objective_children_metrics=children_metrics,
+            )
         )
+        # NOTE: No need to append parent metric to `obj_to_sqa`, because it does not
+        # have a corresponding user-facing `Metric` object.
 
-        return parent_metric
+        return parent_metric, obj_to_sqa
 
-    def scalarized_objective_to_sqa(self, objective: ScalarizedObjective) -> SQAMetric:
-        """Convert Ax Scalarized Objective to SQLAlchemy. Returns a parent
-        SQAMetric, whose children are the SQAMetrics corresponding to
-        metrics attribute of Scalarized Objective. The parent is used as a placeholder
-        for storage purposes."""
+    def scalarized_objective_to_sqa(
+        self, objective: ScalarizedObjective
+    ) -> Tuple[SQAMetric, T_OBJ_TO_SQA]:
+        """Convert Ax Scalarized Objective to SQLAlchemy and compile a list of
+        (object, sqa_counterpart) tuples to set `db_id` on user-facing classes after
+        the conversion is complete and the SQL session is flushed (SQLAlchemy
+        classes receive their `id` attributes during `session.flush()`).
+
+        Returns: A parent `SQAMetric`, whose children are the `SQAMetric`-s
+            corresponding to `metrics` attribute of `ScalarizedObjective`.
+            NOTE: The parent is used as a placeholder for storage purposes.
+        """
         metrics, weights = objective.metrics, objective.weights
+        if (not (metrics and weights)) or len(metrics) != len(weights):
+            raise SQAEncodeError(  # pragma: no cover
+                "Metrics and weights in scalarized objective "
+                "must be lists of equal length."
+            )
 
-        if metrics is None or weights is None or len(metrics) != len(weights):
-            raise SQAEncodeError(
-                "Metrics and weights in scalarized objective \
-                must be lists of equal length."
-            )  # pragma: no cover
-
-        # pyre-fixme[9]: Expected SQABase type of an attribute;
-        # re-defined to be SQAMetric.
-        metrics_by_name: Dict[
-            str, Tuple[Metric, float, SQAMetric, Tuple[int, Dict[str, Any]]]
-        ] = {
+        metrics_by_name = {
             metric.name: (
                 metric,
                 weight,
-                self.config.class_to_sqa_class[Metric],
+                cast(SQAMetric, self.config.class_to_sqa_class[Metric]),
                 self.get_metric_type_and_properties(metric=metric),
             )
             for (metric, weight) in zip(metrics, weights)
         }
 
-        # Constructing children SQAMetric classes
-        children_metrics = [
-            # pyre-fixme[29]: `SQAMetric` is not a function.
-            metric_class(
-                name=metric_name,
-                metric_type=metrics_type_and_properties[0],
-                intent=MetricIntent.OBJECTIVE,
-                minimize=objective.minimize,
-                properties=metrics_type_and_properties[1],
-                lower_is_better=metric.lower_is_better,
-                scalarized_objective_weight=weight,
+        # Constructing children SQAMetric classes (these are the real metrics in
+        # the `ScalarizedObjective`).
+        children_metrics, obj_to_sqa = [], []
+        for metric_name in metrics_by_name:
+            m, w, metric_cls, type_and_properties = metrics_by_name[metric_name]
+            children_metrics.append(
+                metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a function.
+                    name=metric_name,
+                    metric_type=type_and_properties[0],
+                    intent=MetricIntent.OBJECTIVE,
+                    minimize=objective.minimize,
+                    properties=type_and_properties[1],
+                    lower_is_better=m.lower_is_better,
+                    scalarized_objective_weight=w,
+                )
             )
-            for metric_name, (
-                metric,
-                weight,
-                metric_class,
-                metrics_type_and_properties,
-            ) in metrics_by_name.items()
-        ]
+            obj_to_sqa.append((m, children_metrics[-1]))
 
         # Constructing a parent SQAMetric class
-        # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
-        parent_metric: SQAMetric = self.config.class_to_sqa_class[Metric]
-        # pyre-fixme[29]: `SQAMetric` is not a function.
-        parent_metric = parent_metric(
+        parent_metric_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+        parent_metric = parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` not a func.
             name="scalarized_objective",
             metric_type=METRIC_REGISTRY[Metric],
             intent=MetricIntent.SCALARIZED_OBJECTIVE,
@@ -464,8 +496,10 @@ class Encoder:
             lower_is_better=objective.minimize,
             scalarized_objective_children_metrics=children_metrics,
         )
+        # NOTE: No need to append parent metric to `obj_to_sqa`, because it does not
+        # have a corresponding user-facing `Metric` object.
 
-        return parent_metric
+        return parent_metric, obj_to_sqa
 
     def outcome_constraint_to_sqa(
         self, outcome_constraint: OutcomeConstraint
@@ -511,24 +545,36 @@ class Encoder:
 
     def optimization_config_to_sqa(
         self, optimization_config: Optional[OptimizationConfig]
-    ) -> List[SQAMetric]:
-        """Convert Ax OptimizationConfig to a list of SQLAlchemy Metrics."""
+    ) -> Tuple[List[SQAMetric], T_OBJ_TO_SQA]:
+        """Convert Ax OptimizationConfig to a list of SQLAlchemy Metrics
+        and compile a list of (object, sqa_counterpart) tuples to set `db_id`
+        on user-facing classes after the conversion is complete and the SQL
+        session is flushed (SQLAlchemy classes receive their `id` attributes
+        during `session.flush()`).
+        """
         if optimization_config is None:
-            return []
+            return [], []
 
-        objective_sqa = self.objective_to_sqa(objective=optimization_config.objective)
-        outcome_constraints_sqa = [
-            self.outcome_constraint_to_sqa(outcome_constraint=constraint)
-            for constraint in optimization_config.outcome_constraints
-        ]
+        metrics_sqa, obj_to_sqa = [], []
+        obj_sqa, _obj_to_sqa = self.objective_to_sqa(
+            objective=optimization_config.objective
+        )
+        metrics_sqa.append(obj_sqa)
+        obj_to_sqa.extend(_obj_to_sqa)
+        for constraint in optimization_config.outcome_constraints:
+            constraint_sqa = self.outcome_constraint_to_sqa(
+                outcome_constraint=constraint
+            )
+            metrics_sqa.append(constraint_sqa)
+            obj_to_sqa.append((constraint.metric, constraint_sqa))
         if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
-            objective_thresholds_sqa = [
-                self.objective_threshold_to_sqa(objective_threshold=threshold)
-                for threshold in optimization_config.objective_thresholds
-            ]
-        else:
-            objective_thresholds_sqa = []
-        return [objective_sqa] + outcome_constraints_sqa + objective_thresholds_sqa
+            for threshold in optimization_config.objective_thresholds:
+                threshold_sqa = self.objective_threshold_to_sqa(
+                    objective_threshold=threshold
+                )
+                metrics_sqa.append(threshold_sqa)
+                obj_to_sqa.append((threshold.metric, threshold_sqa))
+        return metrics_sqa, obj_to_sqa
 
     def arm_to_sqa(self, arm: Arm, weight: Optional[float] = 1.0) -> SQAArm:
         """Convert Ax Arm to SQLAlchemy."""
@@ -553,22 +599,29 @@ class Encoder:
 
     def generator_run_to_sqa(
         self, generator_run: GeneratorRun, weight: Optional[float] = None
-    ) -> SQAGeneratorRun:
-        """Convert Ax GeneratorRun to SQLAlchemy.
+    ) -> Tuple[SQAGeneratorRun, T_OBJ_TO_SQA]:
+        """Convert Ax GeneratorRun to SQLAlchemy and compile a list of (object,
+        sqa_counterpart) tuples to set `db_id` on user-facing classes after
+        the conversion is complete and the SQL session is flushed (SQLAlchemy
+        classes receive their `id` attributes during `session.flush()`).
 
         In addition to creating and storing a new GeneratorRun object, we need to
         create and store copies of the Arms, Metrics, Parameters, and
         ParameterConstraints owned by this GeneratorRun.
         """
-        arms = [
-            self.arm_to_sqa(arm=arm, weight=weight)
-            for (arm, weight) in generator_run.arm_weights.items()
-        ]
+        arms, obj_to_sqa = [], []
+        for arm, arm_weight in generator_run.arm_weights.items():
+            arms.append(self.arm_to_sqa(arm=arm, weight=arm_weight))
+            obj_to_sqa.append((arm, arms[-1]))
 
-        metrics = self.optimization_config_to_sqa(generator_run.optimization_config)
-        parameters, parameter_constraints = self.search_space_to_sqa(
+        metrics, _obj_to_sqa = self.optimization_config_to_sqa(
+            generator_run.optimization_config
+        )
+        obj_to_sqa.extend(_obj_to_sqa)
+        parameters, parameter_constraints, _obj_to_sqa = self.search_space_to_sqa(
             generator_run.search_space
         )
+        obj_to_sqa.extend(_obj_to_sqa)
 
         best_arm_name = None
         best_arm_parameters = None
@@ -597,8 +650,7 @@ class Encoder:
         generator_run_class: SQAGeneratorRun = self.config.class_to_sqa_class[
             GeneratorRun
         ]
-        # pyre-fixme[29]: `SQAGeneratorRun` is not a function.
-        return generator_run_class(
+        gr_sqa = generator_run_class(  # pyre-ignore[29]: `SQAGeneratorRun` not a func.
             arms=arms,
             metrics=metrics,
             parameters=parameters,
@@ -623,10 +675,12 @@ class Encoder:
                 generator_run._candidate_metadata_by_arm_signature
             ),
         )
+        obj_to_sqa.append((generator_run, gr_sqa))
+        return gr_sqa, obj_to_sqa
 
     def generation_strategy_to_sqa(
         self, generation_strategy: GenerationStrategy, experiment_id: Optional[int]
-    ) -> SQAGenerationStrategy:
+    ) -> Tuple[SQAGenerationStrategy, T_OBJ_TO_SQA]:
         """Convert an Ax `GenerationStrategy` to SQLAlchemy, preserving its state,
         so that the restored generation strategy can be resumed from the point
         at which it was interrupted and stored.
@@ -635,17 +689,23 @@ class Encoder:
         gs_class: SQAGenerationStrategy = self.config.class_to_sqa_class[
             cast(Type[Base], GenerationStrategy)
         ]
+        generator_runs_sqa = []
+        obj_to_sqa = []
+        for gr in generation_strategy._generator_runs:
+            gr_sqa, _obj_to_sqa = self.generator_run_to_sqa(gr)
+            generator_runs_sqa.append(gr_sqa)
+            obj_to_sqa.extend(_obj_to_sqa)
+
         # pyre-fixme[29]: `SQAGenerationStrategy` is not a function.
-        return gs_class(
+        gs_sqa = gs_class(
             name=generation_strategy.name,
             steps=object_to_json(generation_strategy._steps),
             curr_index=generation_strategy._curr.index,
-            generator_runs=[
-                self.generator_run_to_sqa(gr)
-                for gr in generation_strategy._generator_runs
-            ],
+            generator_runs=generator_runs_sqa,
             experiment_id=experiment_id,
         )
+        obj_to_sqa.append((generation_strategy, gs_sqa))
+        return gs_sqa, obj_to_sqa
 
     def runner_to_sqa(
         self, runner: Runner, trial_type: Optional[str] = None
@@ -669,30 +729,45 @@ class Encoder:
             runner_type=runner_type, properties=properties, trial_type=trial_type
         )
 
-    def trial_to_sqa(self, trial: BaseTrial) -> SQATrial:
-        """Convert Ax Trial to SQLAlchemy.
+    def trial_to_sqa(self, trial: BaseTrial) -> Tuple[SQATrial, T_OBJ_TO_SQA]:
+        """Convert Ax Trial to SQLAlchemy and compile a list of (object,
+        sqa_counterpart) tuples to set `db_id` on user-facing classes after
+        the conversion is complete and the SQL session is flushed (SQLAlchemy
+        classes receive their `id` attributes during `session.flush()`).
 
         In addition to creating and storing a new Trial object, we need to
         create and store the GeneratorRuns and Runner that it owns.
         """
-        # pyre-fixme[6]: Expected `Runner` for 1st param but got `Optional[Runner]`.
-        runner = self.runner_to_sqa(runner=trial.runner) if trial.runner else None
+        obj_to_sqa = []
+        runner = None
+        if trial.runner:
+            runner = self.runner_to_sqa(runner=not_none(trial.runner))
+            obj_to_sqa.append((trial.runner, runner))
+
         abandoned_arms = []
         generator_runs = []
         status_quo_name = None
         optimize_for_power = None
-        if isinstance(trial, BatchTrial):
-            abandoned_arms = [
-                self.abandoned_arm_to_sqa(abandoned_arm=abandoned_arm)
-                for abandoned_arm in trial.abandoned_arms_metadata
-            ]
-            generator_runs = [
-                self.generator_run_to_sqa(
+
+        if isinstance(trial, Trial) and trial.generator_run:
+            gr_sqa, _obj_to_sqa = self.generator_run_to_sqa(
+                generator_run=not_none(trial.generator_run)
+            )
+            generator_runs.append(gr_sqa)
+            obj_to_sqa.extend(_obj_to_sqa)
+
+        elif isinstance(trial, BatchTrial):
+            for abandoned_arm in trial.abandoned_arms_metadata:
+                abandoned_arms.append(
+                    self.abandoned_arm_to_sqa(abandoned_arm=abandoned_arm)
+                )
+            for struct in trial.generator_run_structs:
+                gr_sqa, _obj_to_sqa = self.generator_run_to_sqa(
                     generator_run=struct.generator_run, weight=struct.weight
                 )
-                for struct in trial.generator_run_structs
-            ]
-            # appease pyre
+                generator_runs.append(gr_sqa)
+                obj_to_sqa.extend(_obj_to_sqa)
+
             trial_status_quo = trial.status_quo
             trial_status_quo_weight_override = trial._status_quo_weight_override
             if (
@@ -704,33 +779,25 @@ class Encoder:
                     weights=[trial_status_quo_weight_override],
                     type=GeneratorRunType.STATUS_QUO.name,
                 )
-                # this is a hack necessary to get equality tests passing;
-                # otherwise you can encode same object and get two different results
+                # This is a hack necessary to get equality tests passing;
+                # otherwise you can encode same object and get two different results.
                 status_quo_generator_run._time_created = trial.time_created
-                generator_runs.append(
-                    self.generator_run_to_sqa(generator_run=status_quo_generator_run)
+                gr_sqa, _obj_to_sqa = self.generator_run_to_sqa(
+                    generator_run=status_quo_generator_run
                 )
+                obj_to_sqa.extend(_obj_to_sqa)
+                generator_runs.append(gr_sqa)
                 status_quo_name = trial_status_quo.name
-            if hasattr(trial, "optimize_for_power"):
-                optimize_for_power = trial.optimize_for_power
-            else:
-                optimize_for_power = None
+
+            optimize_for_power = getattr(trial, "optimize_for_power", None)
+            if optimize_for_power is None:
                 logger.warning(
                     f"optimize_for_power not present in BatchTrial: {trial.__dict__}"
                 )
 
-        elif isinstance(trial, Trial):
-            if trial.generator_run:
-                generator_runs = [
-                    # pyre-fixme[6]: Expected `GeneratorRun` for 1st param but got
-                    #  `Optional[GeneratorRun]`.
-                    self.generator_run_to_sqa(generator_run=trial.generator_run)
-                ]
-
-        # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[Trial]`.
+        # pyre-ignore[9]: Expected `Base` for 1st...ot `typing.Type[Trial]`.
         trial_class: SQATrial = self.config.class_to_sqa_class[Trial]
-        # pyre-fixme[29]: `SQATrial` is not a function.
-        return trial_class(
+        trial_sqa = trial_class(  # pyre-fixme[29]: `SQATrial` is not a function.
             abandoned_reason=trial.abandoned_reason,
             deployed_name=trial.deployed_name,
             index=trial.index,
@@ -752,6 +819,8 @@ class Encoder:
             generation_step_index=trial._generation_step_index,
             properties=trial._properties,
         )
+        obj_to_sqa.append((trial, trial_sqa))
+        return trial_sqa, obj_to_sqa
 
     def data_to_sqa(
         self, data: Data, trial_index: Optional[int], timestamp: int

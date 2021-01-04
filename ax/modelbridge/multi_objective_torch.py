@@ -120,6 +120,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             )
         else:
             objective_thresholds = np.array([])
+        # pyre-fixme[35]: Target cannot be annotated.
         objective_thresholds: Optional[np.ndarray] = (
             objective_thresholds if len(objective_thresholds) else None
         )

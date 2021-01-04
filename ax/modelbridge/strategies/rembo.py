@@ -196,6 +196,7 @@ class REMBOStrategy(GenerationStrategy):
         gr = m.gen(n=n)
         self.X_d_by_proj[i].extend(not_none(m.model).X_d_gen)  # pyre-ignore[16]
         self.arms_by_proj[i].update(a.signature for a in gr.arms)
+        self._generator_runs.append(gr)
         return gr
 
     def clone_reset(self) -> "REMBOStrategy":

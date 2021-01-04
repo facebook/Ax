@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import copy
 from collections import OrderedDict
 from datetime import datetime
@@ -291,7 +293,6 @@ class GeneratorRun(Base):
         return self._candidate_metadata_by_arm_signature
 
     @property
-    # pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
     def param_df(self) -> pd.DataFrame:
         """
         Constructs a Pandas dataframe with the parameter values for each arm.
@@ -301,66 +302,16 @@ class GeneratorRun(Base):
         Returns:
             pd.DataFrame: a dataframe with the generator run's arms.
         """
-        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         return pd.DataFrame.from_dict(
             {a.name_or_short_signature: a.parameters for a in self.arms}, orient="index"
         )
 
-    def clone(self) -> "GeneratorRun":
+    def clone(self) -> GeneratorRun:
         """Return a deep copy of a GeneratorRun."""
-        return self._clone_with_arms(arms=self.arms, weights=self.weights)
-
-    def split_by_arm(self, populate_all_fields: bool = False) -> List["GeneratorRun"]:
-        """Return a list of generator runs, each with all the metadata of
-        generator run, but only with one of its arms. Useful when splitting
-        a single generator run into multiple 1-arm trials.
-
-        Args:
-            populate_all_fields: By default, `split_by_arm` only sets some
-                fields on the new, 'split' generator runs, in order to avoid
-                creating multiple large objects and increasing the size of
-                an experiment object. To force-populate all fields of the
-                'split' generator runs, set 'populate_all_fields' to True.
-        """
-        return [
-            self._clone_with_arms(
-                arms=[a],
-                weights=[w],
-                cherrypick_fields_to_clone=not populate_all_fields,
-            )
-            for a, w in self.arm_weights.items()
-        ]
-
-    def _clone_with_arms(
-        self,
-        arms: List[Arm],
-        weights: Optional[List[float]],
-        cherrypick_fields_to_clone: bool = False,
-    ) -> "GeneratorRun":
-        """Return a deep copy of a GeneratorRun with specified arms and
-        weights.
-
-        Args:
-            arms: Arms to put into the clone generator run.
-            weights: Weights to put into the clone generator run.
-            cherrypick_fields_to_clone: If specified, only some properties
-                of the generator run by the given names will be cloned.
-                The 'cherrypicked' properties are: type, model key, and
-                the generation step index.
-        """
-        if cherrypick_fields_to_clone:
-            return GeneratorRun(
-                arms=[a.clone() for a in arms],
-                weights=weights[:] if weights is not None else None,
-                type=self.generator_run_type,
-                model_key=self._model_key,
-                generation_step_index=self._generation_step_index,
-            )
-        # Cloning all fields of the generator run.
         cand_metadata = self.candidate_metadata_by_arm_signature
         generator_run = GeneratorRun(
-            arms=[a.clone() for a in arms],
-            weights=weights[:] if weights is not None else None,
+            arms=[a.clone() for a in self.arms],
+            weights=self.weights[:] if self.weights is not None else None,
             # pyre-fixme[16]: `Optional` has no attribute `clone`.
             optimization_config=self.optimization_config.clone()
             if self.optimization_config is not None

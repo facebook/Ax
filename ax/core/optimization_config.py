@@ -22,7 +22,6 @@ logger = get_logger(__name__)
 
 TRefPoint = List[ObjectiveThreshold]
 
-MAX_OBJECTIVES: int = 4
 OC_TEMPLATE: str = (
     "OptimizationConfig(objective={objective}, outcome_constraints=[{constraints}])"
 )
@@ -314,10 +313,11 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             outcome_constraints: Constraints to validate.
         """
         if not isinstance(objective, MultiObjective):
-            raise ValueError(
+            raise TypeError(
                 (
-                    "MultiObjectiveOptimizationConfig only not supports "
-                    " MultiObjective. Use OptimizationConfig instead."
+                    "`MultiObjectiveOptimizationConfig` requires an objective "
+                    "of type `MultiObjective`. Use `OptimizationConfig` instead "
+                    "if using a single-metric objective."
                 )
             )
         outcome_constraints = outcome_constraints or []
@@ -327,11 +327,6 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         objective_metrics_by_name = {
             metric.name: metric for metric in objective.metrics
         }
-        if len(objective_metrics_by_name) > MAX_OBJECTIVES:
-            raise ValueError(
-                f"Objective: {objective} optimizes more than the maximum allowed "
-                f"{MAX_OBJECTIVES} metrics."
-            )
         # Warn if thresholds on objective_metrics bound from the wrong direction.
         for threshold in objective_thresholds:
             metric_name = threshold.metric.name

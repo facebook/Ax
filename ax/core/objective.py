@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import warnings
 from typing import Any, Iterable, List, Optional, Tuple
 
@@ -70,7 +72,7 @@ class Objective(Base):
         """Get a list of objective metrics."""
         return [self._metric]
 
-    def clone(self) -> "Objective":
+    def clone(self) -> Objective:
         """Create a copy of the objective."""
         return Objective(self.metric.clone(), self.minimize)
 
@@ -137,7 +139,7 @@ class MultiObjective(Objective):
         """Get the objective metrics."""
         return self._metrics
 
-    def clone(self) -> "Objective":
+    def clone(self) -> Objective:
         """Create a copy of the objective."""
         return MultiObjective(
             metrics=[m.clone() for m in self.metrics], minimize=self.minimize
@@ -185,7 +187,7 @@ class ScalarizedObjective(MultiObjective):
         super().__init__(metrics, minimize)
         self.weights = weights
 
-    def clone(self) -> "Objective":
+    def clone(self) -> Objective:
         """Create a copy of the objective."""
         return ScalarizedObjective(
             metrics=[m.clone() for m in self.metrics],

@@ -127,8 +127,11 @@ class TorchModelBridge(ArrayModelBridge):
     ) -> None:
         self.model = model
         # Convert numpy arrays to torch tensors
+        # pyre-fixme[35]: Target cannot be annotated.
         Xs: List[Tensor] = self._array_list_to_tensors(Xs)
+        # pyre-fixme[35]: Target cannot be annotated.
         Ys: List[Tensor] = self._array_list_to_tensors(Ys)
+        # pyre-fixme[35]: Target cannot be annotated.
         Yvars: List[Tensor] = self._array_list_to_tensors(Yvars)
         # pyre-fixme[16]: `Optional` has no attribute `fit`.
         self.model.fit(
@@ -148,16 +151,35 @@ class TorchModelBridge(ArrayModelBridge):
         Xs: List[np.ndarray],
         Ys: List[np.ndarray],
         Yvars: List[np.ndarray],
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]],
+        bounds: List[Tuple[float, float]],
+        task_features: List[int],
+        feature_names: List[str],
+        metric_names: List[str],
+        fidelity_features: List[int],
+        target_fidelities: Optional[Dict[int, float]],
     ) -> None:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_update"))
+        # pyre-fixme[35]: Target cannot be annotated.
         Xs: List[Tensor] = self._array_list_to_tensors(Xs)
+        # pyre-fixme[35]: Target cannot be annotated.
         Ys: List[Tensor] = self._array_list_to_tensors(Ys)
+        # pyre-fixme[35]: Target cannot be annotated.
         Yvars: List[Tensor] = self._array_list_to_tensors(Yvars)
         # pyre-fixme[16]: `Optional` has no attribute `update`.
         self.model.update(
-            Xs=Xs, Ys=Ys, Yvars=Yvars, candidate_metadata=candidate_metadata
+            Xs=Xs,
+            Ys=Ys,
+            Yvars=Yvars,
+            candidate_metadata=candidate_metadata,
+            bounds=bounds,
+            task_features=task_features,
+            feature_names=self.parameters,
+            metric_names=self.outcomes,
+            fidelity_features=list(target_fidelities.keys())
+            if target_fidelities
+            else None,
         )
 
     def _model_predict(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -254,16 +276,33 @@ class TorchModelBridge(ArrayModelBridge):
         Ys_train: List[np.ndarray],
         Yvars_train: List[np.ndarray],
         X_test: np.ndarray,
+        bounds: List[Tuple[float, float]],
+        task_features: List[int],
+        feature_names: List[str],
+        metric_names: List[str],
+        fidelity_features: List[int],
     ) -> Tuple[np.ndarray, np.ndarray]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_cross_validate"))
+        # pyre-fixme[35]: Target cannot be annotated.
         Xs_train: List[Tensor] = self._array_list_to_tensors(Xs_train)
+        # pyre-fixme[35]: Target cannot be annotated.
         Ys_train: List[Tensor] = self._array_list_to_tensors(Ys_train)
+        # pyre-fixme[35]: Target cannot be annotated.
         Yvars_train: List[Tensor] = self._array_list_to_tensors(Yvars_train)
+        # pyre-fixme[35]: Target cannot be annotated.
         X_test: Tensor = self._array_to_tensor(X_test)
         # pyre-fixme[16]: `Optional` has no attribute `cross_validate`.
         f_test, cov_test = self.model.cross_validate(
-            Xs_train=Xs_train, Ys_train=Ys_train, Yvars_train=Yvars_train, X_test=X_test
+            Xs_train=Xs_train,
+            Ys_train=Ys_train,
+            Yvars_train=Yvars_train,
+            X_test=X_test,
+            bounds=bounds,
+            task_features=task_features,
+            feature_names=feature_names,
+            metric_names=metric_names,
+            fidelity_features=fidelity_features,
         )
         return (
             f_test.detach().cpu().clone().numpy(),
@@ -271,7 +310,7 @@ class TorchModelBridge(ArrayModelBridge):
         )
 
     def _array_to_tensor(self, array: Union[np.ndarray, List[float]]) -> Tensor:
-        return torch.tensor(array, dtype=self.dtype, device=self.device)
+        return torch.as_tensor(array, dtype=self.dtype, device=self.device)
 
     def _array_list_to_tensors(self, arrays: List[np.ndarray]) -> List[Tensor]:
         return [self._array_to_tensor(x) for x in arrays]

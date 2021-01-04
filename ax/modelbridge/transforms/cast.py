@@ -27,7 +27,7 @@ class Cast(Transform):
         observation_data: Optional[List[ObservationData]] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        self.search_space = search_space
+        self.search_space = search_space.clone()
 
     def untransform_observation_features(
         self, observation_features: List[ObservationFeatures]

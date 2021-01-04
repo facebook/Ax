@@ -102,6 +102,7 @@ class RandomModel(Model):
                 #  for 1st param but got
                 #  `Union[botorch.acquisition.acquisition.AcquisitionFunction, float,
                 #  int, str]`.
+                # pyre-fixme[35]: Target cannot be annotated.
                 max_draws: int = int(max_draws)
         # Always rejection sample, but this only rejects if there are
         # constraints or actual duplicates and deduplicate is specified.

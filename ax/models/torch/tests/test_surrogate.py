@@ -106,7 +106,7 @@ class SurrogateTest(TestCase):
             self.botorch_model_class(**self.surrogate_kwargs)
         )
         self.assertIsInstance(surrogate.model, self.botorch_model_class)
-        self.assertFalse(surrogate._should_reconstruct)
+        self.assertTrue(surrogate._constructed_manually)
 
     @patch(f"{CURRENT_PATH}.SingleTaskGP.__init__", return_value=None)
     def test_construct(self, mock_GP):
@@ -120,6 +120,7 @@ class SurrogateTest(TestCase):
             training_data=self.training_data, fidelity_features=self.fidelity_features
         )
         mock_GP.assert_called_with(train_X=self.Xs[0], train_Y=self.Ys[0])
+        self.assertFalse(self.surrogate._constructed_manually)
 
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
@@ -140,7 +141,6 @@ class SurrogateTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             refit=self.refit,
         )
         mock_state_dict.assert_not_called()
@@ -151,7 +151,7 @@ class SurrogateTest(TestCase):
         mock_fit_gpytorch.reset_mock()
         # Should `load_state_dict` when `state_dict` is not `None`
         # and `refit` is `False`.
-        state_dict = {}
+        state_dict = {"state_attribute": "value"}
         surrogate.fit(
             training_data=self.training_data,
             bounds=self.bounds,
@@ -159,7 +159,6 @@ class SurrogateTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             refit=False,
             state_dict=state_dict,
         )
@@ -268,6 +267,7 @@ class SurrogateTest(TestCase):
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
             refit=self.refit,
+            state_dict={"key": "val"},
         )
         mock_fit.assert_called_with(
             training_data=self.training_data,
@@ -277,14 +277,12 @@ class SurrogateTest(TestCase):
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
             candidate_metadata=None,
-            state_dict=self.surrogate.model.state_dict,
             refit=self.refit,
+            state_dict={"key": "val"},
         )
         # If should not be reconstructed, raise Error
-        self.surrogate._should_reconstruct = False
-        with self.assertRaisesRegex(
-            NotImplementedError, ".* models that should not be re-constructed"
-        ):
+        self.surrogate._constructed_manually = True
+        with self.assertRaisesRegex(NotImplementedError, ".* constructed manually"):
             self.surrogate.update(
                 training_data=self.training_data,
                 bounds=self.bounds,

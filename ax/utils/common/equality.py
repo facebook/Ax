@@ -71,14 +71,12 @@ def datetime_equals(dt1: Optional[datetime], dt2: Optional[datetime]) -> bool:
     return dt1.replace(microsecond=0) == dt2.replace(microsecond=0)
 
 
-# pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
 def dataframe_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
     """Compare equality of two pandas dataframes."""
     try:
         if df1.empty and df2.empty:
             equal = True
         else:
-            # pyre-fixme[16]: Module `pd` has no attribute `testing`.
             pd.testing.assert_frame_equal(
                 df1.sort_index(axis=1), df2.sort_index(axis=1), check_exact=False
             )
@@ -106,7 +104,10 @@ def object_attribute_dicts_equal(
 
 
 def object_attribute_dicts_find_unequal_fields(
-    one_dict: Dict[str, Any], other_dict: Dict[str, Any], fast_return: bool = True
+    one_dict: Dict[str, Any],
+    other_dict: Dict[str, Any],
+    fast_return: bool = True,
+    skip_db_id_check: bool = False,
 ) -> Tuple[Dict[str, Tuple[Any, Any]], Dict[str, Tuple[Any, Any]]]:
     """Utility for finding out what attributes of two objects' attribute dicts
     are unequal.
@@ -138,6 +139,11 @@ def object_attribute_dicts_find_unequal_fields(
         if field == "_experiment":
             # prevent infinite loop when checking equality of Trials
             equal = one_val is other_val is None or (one_val._name == other_val._name)
+        elif field == "analysis_scheduler":
+            # prevent infinite loop when checking equality of analysis runs
+            equal = one_val is other_val is None or (one_val.db_id == other_val.db_id)
+        elif field == "_db_id":
+            equal = skip_db_id_check or one_val == other_val
         elif field == "_model":  # pragma: no cover (tested in modelbridge)
             # TODO[T52643706]: replace with per-`ModelBridge` method like
             # `equivalent_models`, to compare models more meaningfully.
@@ -161,7 +167,6 @@ def object_attribute_dicts_find_unequal_fields(
             equal = datetime_equals(one_val, other_val)
         elif isinstance(one_val, float):
             equal = np.isclose(one_val, other_val)
-        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         elif isinstance(one_val, pd.DataFrame):
             equal = dataframe_equals(one_val, other_val)
         else:

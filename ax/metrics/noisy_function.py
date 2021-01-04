@@ -66,7 +66,6 @@ class NoisyFunctionMetric(Metric):
             arm_names.append(name)
             x = np.array([arm.parameters[p] for p in self.param_names])
             mean.append(self.f(x) + np.random.randn() * noise_sd)
-        # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
         df = pd.DataFrame(
             {
                 "arm_name": arm_names,

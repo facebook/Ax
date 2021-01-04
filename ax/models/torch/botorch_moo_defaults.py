@@ -4,9 +4,21 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+References
+
+.. [Daulton2020qehvi]
+    S. Daulton, M. Balandat, and E. Bakshy. Differentiable Expected Hypervolume
+    Improvement for Parallel Multi-Objective Bayesian Optimization. Advances in Neural
+    Information Processing Systems 33, 2020.
+
+"""
+
+import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
+from ax.exceptions.core import AxWarning
 from ax.models.torch.utils import (  # noqa F40
     _to_inequality_constraints,
     get_outcome_constraint_transforms,
@@ -127,7 +139,7 @@ def get_EHVI(
         cons_tfs = None
     else:
         cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
-
+    num_objectives = objective_thresholds.shape[0]
     return get_acquisition_function(
         acquisition_function_name="qEHVI",
         model=model,
@@ -141,6 +153,9 @@ def get_EHVI(
         constraints=cons_tfs,
         mc_samples=kwargs.get("mc_samples", DEFAULT_EHVI_MC_SAMPLES),
         qmc=kwargs.get("qmc", True),
+        alpha=kwargs.get(
+            "alpha", get_default_partitioning_alpha(num_objectives=num_objectives)
+        ),
         seed=torch.randint(1, 10000, (1,)).item(),
         ref_point=objective_thresholds.tolist(),
         Y=Y_tensor,
@@ -283,3 +298,17 @@ def pareto_frontier_evaluator(
     Y_frontier = Y[frontier_mask]
     Yvar_frontier = Yvar[frontier_mask]
     return Y_frontier, Yvar_frontier
+
+
+def get_default_partitioning_alpha(num_objectives: int) -> float:
+    """Adaptively selects a reasonable partitioning based on the number of objectives.
+
+    This strategy is derived from the results in [Daulton2020qehvi]_, which suggest
+    that this heuristic provides a reasonable trade-off between the closed-loop
+    performance and the wall time required for the partitioning.
+    """
+    if num_objectives == 2:
+        return 0.0
+    elif num_objectives > 6:
+        warnings.warn("EHVI works best for less than 7 objectives.", AxWarning)
+    return 10 ** (-8 + num_objectives)

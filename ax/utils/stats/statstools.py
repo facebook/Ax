@@ -227,7 +227,6 @@ def relativize(
 
 
 def agresti_coull_sem(
-    # pyre-fixme[11]: Annotation `Series` is not defined as a type.
     n_numer: Union[pd.Series, np.ndarray, int],
     n_denom: Union[pd.Series, np.ndarray, int],
     prior_successes: int = 2,
@@ -250,7 +249,6 @@ def agresti_coull_sem(
     return sem
 
 
-# pyre-fixme[11]: Annotation `DataFrame` is not defined as a type.
 def marginal_effects(df: pd.DataFrame) -> pd.DataFrame:
     """
     This method calculates the relative (in %) change in the outcome achieved
@@ -293,7 +291,6 @@ def marginal_effects(df: pd.DataFrame) -> pd.DataFrame:
             formatted_vals.append(
                 {"Name": cov, "Level": name, "Beta": effect, "SE": effect_sem}
             )
-    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
     return pd.DataFrame(formatted_vals)[["Name", "Level", "Beta", "SE"]]
 
 
@@ -339,11 +336,9 @@ def relativize_data(
             as_percent=as_percent,
         )
         dfs.append(
-            # pyre-fixme[16]: Module `pd` has no attribute `concat`.
             pd.concat(
                 [
                     subgroup_df.drop(["mean", "sem"], axis=1),
-                    # pyre-fixme[16]: Module `pd` has no attribute `DataFrame`.
                     pd.DataFrame(
                         np.array([means_rel, sems_rel]).T,
                         columns=["mean", "sem"],
@@ -353,7 +348,6 @@ def relativize_data(
                 axis=1,
             )
         )
-    # pyre-fixme[16]: Module `pd` has no attribute `concat`.
     df_rel = pd.concat(dfs, axis=0)
     if include_sq:
         df_rel.loc[df_rel["arm_name"] == status_quo_name, "sem"] = 0.0

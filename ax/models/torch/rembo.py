@@ -234,6 +234,7 @@ class REMBO(BotorchModel):
         Ys_train: List[Tensor],
         Yvars_train: List[Tensor],
         X_test: Tensor,
+        **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         X_D = _get_single_X(Xs_train)
         X_train_d = self.project_down(X_D)
@@ -252,6 +253,7 @@ class REMBO(BotorchModel):
         Ys: List[Tensor],
         Yvars: List[Tensor],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        **kwargs: Any,
     ) -> None:
         X_D = _get_single_X(Xs)
         X_d = self.project_down(X_D)
