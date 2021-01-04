@@ -133,7 +133,6 @@ class BoTorchModelTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             candidate_metadata=self.candidate_metadata,
         )
         # `choose_model_class` is called.
@@ -150,7 +149,6 @@ class BoTorchModelTest(TestCase):
             task_features=self.task_features,
             feature_names=self.feature_names,
             fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             metric_names=self.metric_names,
             candidate_metadata=self.candidate_metadata,
             state_dict=None,
@@ -165,7 +163,6 @@ class BoTorchModelTest(TestCase):
             "feature_names": self.feature_names,
             "metric_names": self.metric_names,
             "fidelity_features": self.fidelity_features,
-            "target_fidelities": self.target_fidelities,
             "candidate_metadata": self.candidate_metadata,
         }
         self.model.fit(
@@ -415,7 +412,6 @@ class BoTorchModelTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names_for_list_surrogate,
             fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             candidate_metadata=self.candidate_metadata,
         )
         mock_init.assert_called_with(
@@ -447,7 +443,6 @@ class BoTorchModelTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names_for_list_surrogate,
             fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             candidate_metadata=self.candidate_metadata,
         )
         # A list surrogate should be chosen, since Xs are not all the same.

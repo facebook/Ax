@@ -137,7 +137,6 @@ class BoTorchModel(TorchModel, Base):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
-        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
@@ -165,7 +164,6 @@ class BoTorchModel(TorchModel, Base):
             task_features=task_features,
             feature_names=feature_names,
             fidelity_features=fidelity_features,
-            target_fidelities=target_fidelities,
             metric_names=metric_names,
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
@@ -183,7 +181,6 @@ class BoTorchModel(TorchModel, Base):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
-        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         if not self._surrogate:
@@ -209,7 +206,6 @@ class BoTorchModel(TorchModel, Base):
             feature_names=feature_names,
             metric_names=metric_names,
             fidelity_features=fidelity_features,
-            target_fidelities=target_fidelities,
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=self.refit_on_update,
