@@ -24,6 +24,7 @@ from ax.exceptions.generation_strategy import (
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import (
     Models,
+    ModelRegistryBase,
     _combine_model_kwargs_and_state,
     get_model_from_generator_run,
 )
@@ -103,7 +104,7 @@ class GenerationStep(NamedTuple):
 
     """
 
-    model: Union[Models, Callable[..., ModelBridge]]
+    model: Union[ModelRegistryBase, Callable[..., ModelBridge]]
     num_trials: int
     min_trials_observed: int = 0
     max_parallelism: Optional[int] = None
@@ -120,8 +121,8 @@ class GenerationStep(NamedTuple):
     def model_name(self) -> str:
         # Model can be defined as member of Models enum or as a factory function,
         # so we use Models member (str) value if former and function name if latter.
-        if isinstance(self.model, Models):
-            return checked_cast(str, checked_cast(Models, self.model).value)
+        if isinstance(self.model, ModelRegistryBase):
+            return checked_cast(str, checked_cast(ModelRegistryBase, self.model).value)
         if callable(self.model):
             return self.model.__name__  # pyre-fixme[16]: union has no attr __name__
         raise TypeError(  # pragma: no cover
@@ -184,7 +185,7 @@ class GenerationStrategy(Base):
             elif step.num_trials < 1:  # pragma: no cover
                 raise ValueError("`num_trials` must be positive or -1 for all models.")
             self._steps[idx] = step._replace(index=idx)
-            if not isinstance(step.model, Models):
+            if not isinstance(step.model, ModelRegistryBase):
                 self._uses_registered_models = False
         if not self._uses_registered_models:
             logger.info(
@@ -602,7 +603,7 @@ class GenerationStrategy(Base):
                 "implement fetching logic (check your metrics) or no data was "
                 "attached to experiment for completed trials."
             )
-        if isinstance(self._curr.model, Models):
+        if isinstance(self._curr.model, ModelRegistryBase):
             self._set_current_model_from_models_enum(data=data, **model_kwargs)
         else:
             # If model was not specified as Models member, it was specified as a
@@ -667,7 +668,7 @@ class GenerationStrategy(Base):
         )
 
     def _restore_model_from_generator_run(
-        self, models_enum: Optional[Type[Models]] = None
+        self, models_enum: Optional[Type[ModelRegistryBase]] = None
     ) -> None:
         """Reinstantiates the most recent model on this generation strategy
         from the last generator run it produced.

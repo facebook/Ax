@@ -35,7 +35,7 @@ from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Models, ModelRegistryBase
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
 from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
@@ -722,7 +722,7 @@ class Decoder:
             # attempt to use this type to recreate the model.
             if type(gs._curr.model) != Models:
                 models_enum = type(gs._curr.model)
-                assert issubclass(models_enum, Models)
+                assert issubclass(models_enum, ModelRegistryBase)
                 # pyre-ignore[6]: `models_enum` typing hackiness
                 gs._restore_model_from_generator_run(models_enum=models_enum)
             else:

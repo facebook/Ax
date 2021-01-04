@@ -33,7 +33,11 @@ from ax.core.simple_experiment import (
 )
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models, _decode_callables_from_references
+from ax.modelbridge.registry import (
+    Models,
+    ModelRegistryBase,
+    _decode_callables_from_references,
+)
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
 from ax.storage.json_store.registry import CLASS_DECODER_REGISTRY, DECODER_REGISTRY
 from ax.utils.common.typeutils import not_none, torch_type_from_str
@@ -389,7 +393,7 @@ def generation_strategy_from_json(
         # attempt to use this type to recreate the model.
         if type(gs._curr.model) != Models:
             models_enum = type(gs._curr.model)
-            assert issubclass(models_enum, Models)
+            assert issubclass(models_enum, ModelRegistryBase)
             # pyre-ignore[6]: `models_enum` typing hackiness
             gs._restore_model_from_generator_run(models_enum=models_enum)
             return gs
