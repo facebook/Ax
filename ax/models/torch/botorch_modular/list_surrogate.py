@@ -176,6 +176,39 @@ class ListSurrogate(Surrogate):
         state_dict: Optional[Dict[str, torch.Tensor]] = None,
         refit: bool = True,
     ) -> None:
+        """Fits the underlying BoTorch `Model` to `m` outcomes.
+
+        NOTE: `state_dict` and `refit` keyword arguments control how the
+        undelying BoTorch `Model` will be fit: whether its parameters will
+        be reoptimized and whether it will be warm-started from a given state.
+        There are three possbilities:
+        1. `fit(state_dict=None)`: fit model from stratch (optimize model
+           parameters and set its training data used for inference),
+        2. `fit(state_dict=some_state_dict, refit=True)`: warm-start refit
+           with a state dict of parameters (still re-optimize model parameters
+           and set the training data),
+        3. `fit(state_dict=some_state_dict, refit=False)`: load model parameters
+           without refitting, but set new training data (used in cross-validation,
+           for example).
+
+        Args:
+            training data: List of BoTorch `TrainingData` container (with Xs,
+                Ys, and possibly Yvars), one per outcome, in order corresponding
+                to the order of outcome names in `metric_names`. Each `TrainingData`
+                from this list will be passed to `Model.construct_inputs` method
+                of the corresponding submodel in `ModelListGP`.
+            bounds: A list of d (lower, upper) tuples for each column of X.
+            task_features: Columns of X that take integer values and should be
+                treated as task parameters.
+            feature_names: Names of each column of X.
+            metric_names: Names of each outcome Y in Ys.
+            fidelity_features: Columns of X that should be treated as fidelity
+                parameters.
+            candidate_metadata: Model-produced metadata for candidates, in
+                the order corresponding to the Xs.
+            state_dict: Optional state dict to load.
+            refit: Whether to re-optimize model parameters.
+        """
         super().fit(
             # pyre-ignore[6]: `Surrogate.fit` expects single training data
             # and in `ListSurrogate` we use a list of training data.
