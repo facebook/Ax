@@ -656,7 +656,7 @@ class ALEBO(BotorchModel):
                 "B": self.B,
             },
         }
-        Xd_opt, w, _gen_metadata, _candidate_metadata = super().gen(
+        Xd_opt, w, gen_metadata, candidate_metadata = super().gen(
             n=n,
             bounds=[(-1e8, 1e8)] * self.B.shape[0],
             objective_weights=objective_weights,
@@ -674,7 +674,7 @@ class ALEBO(BotorchModel):
         # pyre-fixme[7]: Expected `Tuple[Tensor, Tensor, Dict[str, typing.Any],
         #  List[Optional[Dict[str, typing.Any]]]]` but got `Tuple[typing.Any, Tensor,
         #  Dict[str, typing.Any], None]`.
-        return Xopt, w, {}, None
+        return Xopt, w, gen_metadata, candidate_metadata
 
     @copy_doc(TorchModel.update)
     def update(
