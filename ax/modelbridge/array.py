@@ -145,6 +145,7 @@ class ArrayModelBridge(ModelBridge):
             feature_names=self.parameters,
             metric_names=self.outcomes,
             fidelity_features=list(target_fidelities.keys()),
+            target_fidelities=target_fidelities,
         )
 
     def _model_update(
@@ -158,6 +159,7 @@ class ArrayModelBridge(ModelBridge):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        target_fidelities: Optional[Dict[int, float]],
     ) -> None:
         self.model.update(
             Xs=Xs,
@@ -168,7 +170,9 @@ class ArrayModelBridge(ModelBridge):
             task_features=task_features,
             feature_names=self.parameters,
             metric_names=self.outcomes,
-            fidelity_features=fidelity_features,
+            fidelity_features=list(target_fidelities.keys())
+            if target_fidelities
+            else None,
         )
 
     def _predict(

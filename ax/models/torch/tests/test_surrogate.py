@@ -141,6 +141,7 @@ class SurrogateTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
+            target_fidelities=self.target_fidelities,
             refit=self.refit,
         )
         mock_state_dict.assert_not_called()
@@ -159,6 +160,7 @@ class SurrogateTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
+            target_fidelities=self.target_fidelities,
             refit=False,
             state_dict=state_dict,
         )
@@ -266,6 +268,7 @@ class SurrogateTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
+            target_fidelities=self.target_fidelities,
             refit=self.refit,
             state_dict={"key": "val"},
         )
@@ -276,6 +279,7 @@ class SurrogateTest(TestCase):
             feature_names=self.feature_names,
             metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
+            target_fidelities=self.target_fidelities,
             candidate_metadata=None,
             refit=self.refit,
             state_dict={"key": "val"},
