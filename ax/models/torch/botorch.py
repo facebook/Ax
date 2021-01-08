@@ -32,6 +32,8 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
+from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.models.multitask import MultiTaskGP
 from torch import Tensor
 
 
@@ -493,9 +495,18 @@ class BotorchModel(TorchModel):
             raise RuntimeError(
                 "Cannot calculate feature_importances without a fitted model"
             )
+        elif isinstance(self.model, ModelListGP):
+            models = self.model.models
         else:
-            ls = self.model.covar_module.base_kernel.lengthscale  # pyre-ignore: [16]
-            return cast(Tensor, (1 / ls)).detach().cpu().numpy()
+            models = [self.model]
+        lengthscales = []
+        for m in models:
+            ls = m.covar_module.base_kernel.lengthscale  # pyre-ignore: [16]
+            if ls.ndim == 2:
+                ls = ls.unsqueeze(0)
+            lengthscales.append(ls)
+        lengthscales = torch.cat(lengthscales, dim=0)
+        return cast(Tensor, (1 / lengthscales)).detach().cpu().numpy()
 
 
 def get_rounding_func(
