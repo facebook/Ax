@@ -55,8 +55,8 @@ class TutorialHome extends React.Component {
                 <a href="raytune_pytorch_cnn.html">
                   Hyperparameter Optimization via Raytune
                 </a>
-                &nbsp; provides an example of hyperparameter optimization with
-                Ax + Raytune.
+                &nbsp; provides an example of parallelized hyperparameter optimization
+                using Ax + Raytune.
               </li>
             </ul>
             <ul>
