@@ -211,6 +211,7 @@ class TorchModel(Model):
         feature_names: List[str],
         metric_names: List[str],
         fidelity_features: List[int],
+        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         """Update the model.
@@ -232,6 +233,8 @@ class TorchModel(Model):
             metric_names: Names of each outcome Y in Ys.
             fidelity_features: Columns of X that should be treated as fidelity
                 parameters.
+            target_fidelities: Target values for fidelity parameters, representing
+                full-fidelity value.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
         """
