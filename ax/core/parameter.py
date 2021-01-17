@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABCMeta, abstractmethod, abstractproperty
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
@@ -91,12 +93,12 @@ class Parameter(Base, metaclass=ABCMeta):
     def name(self) -> str:
         pass  # pragma: no cover
 
-    def clone(self) -> "Parameter":
+    def clone(self) -> Parameter:
         pass  # pragma: no cover
 
 
 class RangeParameter(Parameter):
-    """Parameter object that specifies a continuous numerical range of values."""
+    """Parameter object that specifies a range of values."""
 
     def __init__(
         self,
@@ -208,7 +210,7 @@ class RangeParameter(Parameter):
 
     def update_range(
         self, lower: Optional[float] = None, upper: Optional[float] = None
-    ) -> "RangeParameter":
+    ) -> RangeParameter:
         """Set the range to the given values.
 
         If lower or upper is not provided, it will be left at its current value.
@@ -231,7 +233,7 @@ class RangeParameter(Parameter):
         self._upper = cast_upper
         return self
 
-    def set_digits(self, digits: int) -> "RangeParameter":
+    def set_digits(self, digits: int) -> RangeParameter:
         self._digits = digits
 
         # Re-scale min and max to new digits definition
@@ -248,7 +250,7 @@ class RangeParameter(Parameter):
         self._upper = cast_upper
         return self
 
-    def set_log_scale(self, log_scale: bool) -> "RangeParameter":
+    def set_log_scale(self, log_scale: bool) -> RangeParameter:
         self._log_scale = log_scale
         return self
 
@@ -285,7 +287,7 @@ class RangeParameter(Parameter):
             return isinstance(value, int) or float(value).is_integer()
         return True
 
-    def clone(self) -> "RangeParameter":
+    def clone(self) -> RangeParameter:
         return RangeParameter(
             name=self._name,
             parameter_type=self._parameter_type,
@@ -388,7 +390,7 @@ class ChoiceParameter(Parameter):
     def name(self) -> str:
         return self._name
 
-    def set_values(self, values: List[TParamValue]) -> "ChoiceParameter":
+    def set_values(self, values: List[TParamValue]) -> ChoiceParameter:
         """Set the list of allowed values for parameter.
 
         Cast all input values to the parameter type.
@@ -402,7 +404,7 @@ class ChoiceParameter(Parameter):
         self._values = self._cast_values(values)
         return self
 
-    def add_values(self, values: List[TParamValue]) -> "ChoiceParameter":
+    def add_values(self, values: List[TParamValue]) -> ChoiceParameter:
         """Add input list to the set of allowed values for parameter.
 
         Cast all input values to the parameter type.
@@ -427,7 +429,7 @@ class ChoiceParameter(Parameter):
     def _cast_values(self, values: List[TParamValue]) -> List[TParamValue]:
         return [self.cast(value) for value in values]
 
-    def clone(self) -> "ChoiceParameter":
+    def clone(self) -> ChoiceParameter:
         return ChoiceParameter(
             name=self._name,
             parameter_type=self._parameter_type,
@@ -498,7 +500,7 @@ class FixedParameter(Parameter):
     def name(self) -> str:
         return self._name
 
-    def set_value(self, value: TParamValue) -> "FixedParameter":
+    def set_value(self, value: TParamValue) -> FixedParameter:
         self._value = self.cast(value)
         return self
 
@@ -513,7 +515,7 @@ class FixedParameter(Parameter):
         """
         return value == self._value
 
-    def clone(self) -> "FixedParameter":
+    def clone(self) -> FixedParameter:
         return FixedParameter(
             name=self._name,
             parameter_type=self._parameter_type,
