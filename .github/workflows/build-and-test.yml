@@ -79,6 +79,4 @@ jobs:
       if: ${{ always() }}
       run: |
         # warnings treated as errors
-        sphinx-build -WT sphinx/source sphinx/build
-        # since -W flag breaks on first error, re-run without it to print all
-        sphinx-build sphinx/source sphinx/build
+        sphinx-build -WT --keep-going sphinx/source sphinx/build
