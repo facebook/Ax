@@ -263,7 +263,7 @@ class Branin(SyntheticFunction):
     _domain = [(-5, 10), (0, 15)]
     _minimums = [(-np.pi, 12.275), (np.pi, 2.275), (9.42478, 2.475)]
     _fmin = 0.397887
-    _fmax = 294.0
+    _fmax = 308.129
 
     @copy_doc(SyntheticFunction._f)
     def _f(self, X: np.ndarray) -> float:
@@ -283,7 +283,7 @@ class Aug_Branin(SyntheticFunction):
     _domain = [(-5, 10), (0, 15), (0, 1)]
     _minimums = [(-np.pi, 12.275, 1), (np.pi, 2.275, 1), (9.42478, 2.475, 1)]
     _fmin = 0.397887
-    _fmax = 294.0
+    _fmax = 308.129
 
     @copy_doc(SyntheticFunction._f)
     def _f(self, X: np.ndarray) -> float:
