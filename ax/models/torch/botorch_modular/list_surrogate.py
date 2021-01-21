@@ -25,25 +25,25 @@ logger = get_logger(__name__)
 
 
 class ListSurrogate(Surrogate):
-    """Special type of `Surrogate` that wraps a set of submodels into
-    `ModelListGP` under the hood for multi-outcome or multi-task
+    """Special type of ``Surrogate`` that wraps a set of submodels into
+    ``ModelListGP`` under the hood for multi-outcome or multi-task
     models.
 
     Args:
         botorch_submodel_class_per_outcome: Mapping from metric name to
             BoTorch model class that should be used as surrogate model for
-            that metric. Use instead of `botorch_submodel_class`.
-        botorch_submodel_class: BoTorch `Model` class, shortcut for when
-            all submodels of this surrogate's underlying `ModelListGP` are
-            of the same type. Use instead of `botorch_submodel_class_per_
-            outcome`.
+            that metric. Use instead of ``botorch_submodel_class``.
+        botorch_submodel_class: BoTorch ``Model`` class, shortcut for when
+            all submodels of this surrogate's underlying ``ModelListGP`` are
+            of the same type.
+            Use instead of ``botorch_submodel_class_per_outcome``.
         submodel_options_per_outcome: Optional mapping from metric name to
             dictionary of kwargs for the submodel for that outcome.
         submodel_options: Optional dictionary of kwargs, shared between all
             submodels.
-            NOTE: kwargs for submodel are `submodel_options` (shared) +
-            `submodel_outions_per_outcome[submodel_outcome]` (individual).
-        mll_class: `MarginalLogLikelihood` class to use for model-fitting.
+            NOTE: kwargs for submodel are ``submodel_options`` (shared) +
+            ``submodel_outions_per_outcome[submodel_outcome]`` (individual).
+        mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
     """
 
     botorch_submodel_class_per_outcome: Dict[str, Type[Model]]
@@ -106,20 +106,21 @@ class ListSurrogate(Surrogate):
     # pyre-ignore[14]: `construct` takes in list of training data in list surrogate,
     # whereas it takes just a single training data in base surrogate.
     def construct(self, training_data: List[TrainingData], **kwargs: Any) -> None:
-        """Constructs the underlying BoTorch `Model` using the training data.
+        """Constructs the underlying BoTorch ``Model`` using the training data.
 
         Args:
-            training_data: List of `TrainingData` for the submodels of `ModelListGP`.
-                Each training data is for one outcome, and the order of outcomes
-                should match the order of metrics in `metric_names` argument.
+            training_data: List of ``TrainingData`` for the submodels of
+                ``ModelListGP``. Each training data is for one outcome,
+                and the order of outcomes should match the order of metrics
+                in ``metric_names`` argument.
             **kwargs: Keyword arguments, accepts:
-                - `metric_names` (required): Names of metrics, in the same order
-                as training data (so if training data is `[tr_A, tr_B]`, the metrics
-                would be `["A" and "B"]`). These are used to match training data
-                with correct submodels of `ModelListGP`,
-                - `fidelity_features`: Indices of columns in X that represent
+                - ``metric_names`` (required): Names of metrics, in the same order
+                as training data (so if training data is ``[tr_A, tr_B]``, the
+                metrics are ``["A" and "B"]``). These are used to match training data
+                with correct submodels of ``ModelListGP``,
+                - ``fidelity_features``: Indices of columns in X that represent
                 fidelity,
-                - `task_features`: Indices of columns in X that represent tasks.
+                - ``task_features``: Indices of columns in X that represent tasks.
         """
         metric_names = kwargs.get(Keys.METRIC_NAMES)
         fidelity_features = kwargs.get(Keys.FIDELITY_FEATURES, [])
@@ -177,27 +178,29 @@ class ListSurrogate(Surrogate):
         state_dict: Optional[Dict[str, torch.Tensor]] = None,
         refit: bool = True,
     ) -> None:
-        """Fits the underlying BoTorch `Model` to `m` outcomes.
+        """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
 
-        NOTE: `state_dict` and `refit` keyword arguments control how the
-        undelying BoTorch `Model` will be fit: whether its parameters will
+        NOTE: ``state_dict`` and ``refit`` keyword arguments control how the
+        underlying BoTorch ``Model`` will be fit: whether its parameters will
         be reoptimized and whether it will be warm-started from a given state.
-        There are three possbilities:
-        1. `fit(state_dict=None)`: fit model from stratch (optimize model
-           parameters and set its training data used for inference),
-        2. `fit(state_dict=some_state_dict, refit=True)`: warm-start refit
-           with a state dict of parameters (still re-optimize model parameters
-           and set the training data),
-        3. `fit(state_dict=some_state_dict, refit=False)`: load model parameters
-           without refitting, but set new training data (used in cross-validation,
-           for example).
+
+        There are three possibilities:
+
+        * ``fit(state_dict=None)``: fit model from stratch (optimize model
+          parameters and set its training data used for inference),
+        * ``fit(state_dict=some_state_dict, refit=True)``: warm-start refit
+          with a state dict of parameters (still re-optimize model parameters
+          and set the training data),
+        * ``fit(state_dict=some_state_dict, refit=False)``: load model parameters
+          without refitting, but set new training data (used in cross-validation,
+          for example).
 
         Args:
-            training data: List of BoTorch `TrainingData` container (with Xs,
+            training data: List of BoTorch ``TrainingData`` container (with Xs,
                 Ys, and possibly Yvars), one per outcome, in order corresponding
-                to the order of outcome names in `metric_names`. Each `TrainingData`
-                from this list will be passed to `Model.construct_inputs` method
-                of the corresponding submodel in `ModelListGP`.
+                to the order of outcome names in ``metric_names``. Each ``TrainingData``
+                from this list will be passed to ``Model.construct_inputs`` method
+                of the corresponding submodel in ``ModelListGP``.
             bounds: A list of d (lower, upper) tuples for each column of X.
             task_features: Columns of X that take integer values and should be
                 treated as task parameters.
