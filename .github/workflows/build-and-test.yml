@@ -80,5 +80,9 @@ jobs:
       run: |
         # warnings treated as errors
         sphinx-build -WT sphinx/source sphinx/build
-        # since -W flag breaks on first error, re-run without it to print all
+    - name: Print all Sphinx warnings
+      # run even if previous step (Sphinx with warnings treated as errors) failed
+      if: ${{ always() }}
+      run: |
+        # since -W flag breaks on first error, run without it to print all
         sphinx-build sphinx/source sphinx/build
