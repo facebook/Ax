@@ -46,21 +46,21 @@ class Surrogate(Base):
     construction, incomplete, and should be treated as alpha
     versions only.**
 
-    Ax wrapper for BoTorch `Model`, subcomponent of `BoTorchModel`
+    Ax wrapper for BoTorch ``Model``, subcomponent of ``BoTorchModel``
     and is not meant to be used outside of it.
 
     Args:
-        botorch_model_class: `Model` class to be used as the underlying
+        botorch_model_class: ``Model`` class to be used as the underlying
             BoTorch model.
-        mll_class: `MarginalLogLikelihood` class to use for model-fitting.
+        mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
         model_options: Dictionary of options / kwargs for the BoTorch
-            `Model` constructed during `Surrogate.fit`.
-        kernel_class: `Kernel` class, not yet used. Will be used to
-            construct custom BoTorch `Model` in the future.
+            ``Model`` constructed during ``Surrogate.fit``.
+        kernel_class: ``Kernel`` class, not yet used. Will be used to
+            construct custom BoTorch ``Model`` in the future.
         kernel_options: Kernel kwargs, not yet used. Will be used to
-            construct custom BoTorch `Model` in the future.
-        likelihood: `Likelihood` class, not yet used. Will be used to
-            construct custom BoTorch `Model` in the future.
+            construct custom BoTorch ``Model`` in the future.
+        likelihood: ``Likelihood`` class, not yet used. Will be used to
+            construct custom BoTorch ``Model`` in the future.
     """
 
     botorch_model_class: Type[Model]
@@ -144,11 +144,11 @@ class Surrogate(Base):
         return self.__class__(**self._serialize_attributes_as_kwargs())
 
     def construct(self, training_data: TrainingData, **kwargs: Any) -> None:
-        """Constructs the underlying BoTorch `Model` using the training data.
+        """Constructs the underlying BoTorch ``Model`` using the training data.
 
         Args:
             training_data: Training data for the model (for one outcome for
-                the default `Surrogate`, with the exception of batched
+                the default ``Surrogate``, with the exception of batched
                 multi-output case, where training data is formatted with just
                 one X and concatenated Ys).
             **kwargs: Optional keyword arguments, expects any of:
@@ -185,24 +185,26 @@ class Surrogate(Base):
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
     ) -> None:
-        """Fits the underlying BoTorch `Model` to `m` outcomes.
+        """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
 
-        NOTE: `state_dict` and `refit` keyword arguments control how the
-        undelying BoTorch `Model` will be fit: whether its parameters will
+        NOTE: ``state_dict`` and ``refit`` keyword arguments control how the
+        undelying BoTorch ``Model`` will be fit: whether its parameters will
         be reoptimized and whether it will be warm-started from a given state.
-        There are three possbilities:
-        1. `fit(state_dict=None)`: fit model from stratch (optimize model
-           parameters and set its training data used for inference),
-        2. `fit(state_dict=some_state_dict, refit=True)`: warm-start refit
-           with a state dict of parameters (still re-optimize model parameters
-           and set the training data),
-        3. `fit(state_dict=some_state_dict, refit=False)`: load model parameters
-           without refitting, but set new training data (used in cross-validation,
-           for example).
+
+        There are three possibilities:
+
+        * ``fit(state_dict=None)``: fit model from stratch (optimize model
+          parameters and set its training data used for inference),
+        * ``fit(state_dict=some_state_dict, refit=True)``: warm-start refit
+          with a state dict of parameters (still re-optimize model parameters
+          and set the training data),
+        * ``fit(state_dict=some_state_dict, refit=False)``: load model parameters
+          without refitting, but set new training data (used in cross-validation,
+          for example).
 
         Args:
-            training data: BoTorch `TrainingData` container with Xs, Ys, and
-                possibly Yvars, to be passed to `Model.construct_inputs` in
+            training data: BoTorch ``TrainingData`` container with Xs, Ys, and
+                possibly Yvars, to be passed to ``Model.construct_inputs`` in
                 BoTorch.
             bounds: A list of d (lower, upper) tuples for each column of X.
             task_features: Columns of X that take integer values and should be
@@ -244,11 +246,11 @@ class Surrogate(Base):
 
         Args:
             model: A botorch Model.
-            X: A `n x d` tensor of input parameters.
+            X: A ``n x d`` tensor of input parameters.
 
         Returns:
-            Tensor: The predicted posterior mean as an `n x o`-dim tensor.
-            Tensor: The predicted posterior covariance as a `n x o x o`-dim tensor.
+            Tensor: The predicted posterior mean as an ``n x o``-dim tensor.
+            Tensor: The predicted posterior covariance as a ``n x o x o``-dim tensor.
         """
         return predict_from_model(model=self.model, X=X)
 
@@ -351,10 +353,10 @@ class Surrogate(Base):
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
     ) -> None:
-        """Updates the surrogate model with new data. In the base `Surrogate`,
-        just calls `fit` after checking that this surrogate was not created
-        via `Surrogate.from_BoTorch` (in which case the `Model` comes premade,
-        constructed manually and then supplied to `Surrogate).
+        """Updates the surrogate model with new data. In the base ``Surrogate``,
+        just calls ``fit`` after checking that this surrogate was not created
+        via ``Surrogate.from_BoTorch`` (in which case the ``Model`` comes premade,
+        constructed manually and then supplied to ``Surrogate``).
 
         NOTE: Expects `training_data` to be all available data,
         not just the new data since the last time the model was updated.

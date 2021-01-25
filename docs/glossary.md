@@ -40,7 +40,7 @@ Dispatch abstraction that defines how a given [trial](glossary.md#trial) is to b
 ### Search space
 Continuous, discrete or mixed design space that defines the set of [parameters](glossary.md#parameter) to be tuned in the optimization, and optionally [parameter constraints](glossary.md#parameter-constraint) on these parameters. The parameters of the [arms](glossary.md#arm) to be evaluated in the optimization are drawn from a search space. [```[SearchSpace]```](/api/core.html#module-ax.core.search_space)
 ### SEM
-[Standard error](https://en.wikipedia.org/wiki/Standard_error) of the [metric](glossary.md#metric)'s mean, 0.0 for noiseless measurements.
+[Standard error](https://en.wikipedia.org/wiki/Standard_error) of the [metric](glossary.md#metric)'s mean, 0.0 for noiseless measurements. If no value is provided, defaults to `np.nan`, in which case Ax infers its value using the measurements collected during experimentation.
 ### Simple experiment
 Subclass of [experiment](glossary.md#experiment) that assumes synchronous evaluation (uses an evaluation function to get data for [trials](glossary.md#trial) right after they are suggested). Abstracts away certain details, and allows for faster instantiation. [```[SimpleExperiment]```](/api/core.html#module-ax.core.simple_experiment)
 ### Status quo

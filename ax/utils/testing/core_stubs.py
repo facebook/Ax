@@ -163,6 +163,34 @@ def get_multi_type_experiment(
     return experiment
 
 
+def get_multi_type_experiment_with_multi_objective(
+    add_trials: bool = False,
+) -> MultiTypeExperiment:
+    oc = get_branin_multi_objective_optimization_config()
+    experiment = MultiTypeExperiment(
+        name="test_exp",
+        search_space=get_branin_search_space(),
+        default_trial_type="type1",
+        default_runner=SyntheticRunner(dummy_metadata="dummy1"),
+        optimization_config=oc,
+    )
+    experiment.add_trial_type(
+        trial_type="type2", runner=SyntheticRunner(dummy_metadata="dummy2")
+    )
+
+    if add_trials:
+        generator = get_sobol(experiment.search_space)
+        gr = generator.gen(10)
+        t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
+        t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
+        t1.set_status_quo_with_weight(status_quo=t1.arms[0], weight=0.5)
+        t2.set_status_quo_with_weight(status_quo=t2.arms[0], weight=0.5)
+        t1.run()
+        t2.run()
+
+    return experiment
+
+
 def get_factorial_experiment(
     has_optimization_config: bool = True,
     with_batch: bool = False,

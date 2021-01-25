@@ -22,13 +22,13 @@ best_parameters, values, experiment, model = optimize(
             "type": "range",
             "bounds": [-5.0, 10.0],
         },
-        {  
+        {
             "name": "x2",
             "type": "range",
             "bounds": [0.0, 10.0],
         },
     ],
-    evaluation_function=lambda p: branin(p["x1"], p["x2"]),
+    evaluation_function=lambda p: (branin(p["x1"], p["x2"]), 0.0),
     minimize=True,
 )
 ```
@@ -82,7 +82,7 @@ branin_search_space = SearchSpace(
 exp = SimpleExperiment(
     name="test_branin",
     search_space=branin_search_space,
-    evaluation_function=lambda p: branin(p["x1"], p["x2"]),
+    evaluation_function=lambda p: (branin(p["x1"], p["x2"]), 0.0),
     objective_name="branin",
     minimize=True,
 )

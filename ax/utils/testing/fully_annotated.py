@@ -24,6 +24,14 @@ def check_annotation(m: ModuleInfo, fn: FunctionType) -> None:
     # annotated as it breaks sphinx-autodoc-typehints
     if fn.__name__ == "_type_safe_equals":
         return
+    # Certain decorators (e.g. dataclass) can set callables without
+    # proper annotations. Let's check if the function's source isn't
+    # Ax (raised an error) before running through the annotation checks
+    try:
+        inspect.getsource(fn)
+    except OSError:
+        return
+
     sig = inspect.signature(fn)
     untyped_args = []
     for x in sig.parameters.values():

@@ -196,12 +196,14 @@ class SimpleExperiment(Experiment):
             # pyre-fixme[16]: `Optional` has no attribute `objective`.
             return {self.optimization_config.objective.metric.name: evaluation}
         elif isinstance(evaluation, (float, int)):
-            return {self.optimization_config.objective.metric.name: (evaluation, 0.0)}
+            return {
+                self.optimization_config.objective.metric.name: (evaluation, np.nan)
+            }
         elif isinstance(evaluation, (np.float32, np.float64, np.int32, np.int64)):
             return {
                 self.optimization_config.objective.metric.name: (
                     numpy_type_to_python_type(evaluation),
-                    0.0,
+                    np.nan,
                 )
             }
         raise Exception(  # pragma: no cover
