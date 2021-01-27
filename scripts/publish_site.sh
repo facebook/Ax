@@ -141,11 +141,13 @@ if [[ $VERSION == false ]]; then
   cp versions.html Ax-gh-pages/versions/latest/versions.html
   cp versions.html Ax-gh-pages/versions/latest/en/versions.html
 
-  # Push changes to gh-pages
+  # erase git history then force push to overwrite
   cd Ax-gh-pages || exit
-  git add .
+  rm -rf .git
+  git init
+  git add --all
   git commit -m 'Update latest version of site'
-  git push
+  git push --force "https://github.com/facebook/Ax" master:gh-pages
 
 else
   echo "-----------------------------------------"

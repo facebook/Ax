@@ -90,9 +90,14 @@ When contributing to Ax, we recommend cloning the [repository](https://github.co
 pip3 install git+https://github.com/cornellius-gp/gpytorch.git
 pip3 install git+https://github.com/pytorch/botorch.git
 
-git clone https://github.com/facebook/ax.git
+git clone https://github.com/facebook/ax.git --depth 1
 cd ax
 pip3 install -e .[notebook,mysql,dev]
 ```
 
 See recommendation for installing PyTorch for MacOS users above.
+
+The above example limits the cloned directory size via the
+[`--depth`](https://git-scm.com/docs/git-clone#Documentation/git-clone.txt---depthltdepthgt)
+argument to `git clone`. If you require the entire commit history you may remove this
+argument.
