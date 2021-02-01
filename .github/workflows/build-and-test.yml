@@ -30,6 +30,9 @@ jobs:
     - name: Tests and coverage
       run: |
         pytest -ra --cov=ax
+    - name: Upload coverage
+      run: |
+        bash <(curl -s https://codecov.io/bash)
 
   lint:
 
