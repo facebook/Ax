@@ -49,6 +49,30 @@ class WinsorizeTransformTest(TestCase):
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
             config={"winsorization_lower": 0.2},
         )
+        self.t3 = Winsorize(
+            search_space=None,
+            observation_features=None,
+            observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
+            config={
+                "winsorization_upper": 0.6,
+                "percentile_bounds": {
+                    "m1": (None, None),
+                    "m2": (None, 1.9),
+                },
+            },
+        )
+        self.t4 = Winsorize(
+            search_space=None,
+            observation_features=None,
+            observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
+            config={
+                "winsorization_lower": 0.8,
+                "percentile_bounds": {
+                    "m1": (None, None),
+                    "m2": (0.3, None),
+                },
+            },
+        )
 
     def testInit(self):
         self.assertEqual(self.t.percentiles["m1"], (0.0, 2.0))
@@ -74,6 +98,42 @@ class WinsorizeTransformTest(TestCase):
         )[0]
         self.assertListEqual(list(observation_data.means), [0.0, 0.0, 1.0])
         observation_data = self.t2.transform_observation_data(
+            [deepcopy(self.obsd2)], []
+        )[0]
+        self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
+
+    def testInitPercentileBounds(self):
+        self.assertEqual(self.t3.percentiles["m1"], (0.0, 1.0))
+        self.assertEqual(self.t3.percentiles["m2"], (0.0, 1.9))
+        self.assertEqual(self.t4.percentiles["m1"], (1.0, 2.0))
+        self.assertEqual(self.t4.percentiles["m2"], (0.3, 2.0))
+
+    def testValueError(self):
+        with self.assertRaises(ValueError):
+            Winsorize(
+                search_space=None,
+                observation_features=None,
+                observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
+                config={
+                    "winsorization_lower": 0.8,
+                    "percentile_bounds": {"m1": (0.1, 0.2, 0.3)},  # Too many inputs..
+                },
+            )
+
+    def testTransformObservationsPercentileBounds(self):
+        observation_data = self.t3.transform_observation_data(
+            [deepcopy(self.obsd1)], []
+        )[0]
+        self.assertListEqual(list(observation_data.means), [0.0, 0.0, 1.0])
+        observation_data = self.t3.transform_observation_data(
+            [deepcopy(self.obsd2)], []
+        )[0]
+        self.assertListEqual(list(observation_data.means), [1.0, 1.0, 1.9, 1.0])
+        observation_data = self.t4.transform_observation_data(
+            [deepcopy(self.obsd1)], []
+        )[0]
+        self.assertListEqual(list(observation_data.means), [1.0, 0.3, 1.0])
+        observation_data = self.t4.transform_observation_data(
             [deepcopy(self.obsd2)], []
         )[0]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
