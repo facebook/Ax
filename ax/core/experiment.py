@@ -603,6 +603,13 @@ class Experiment(Base):
         }
 
     @property
+    def trials_expecting_data(self) -> List[BaseTrial]:
+        """List[BaseTrial]: the list of all trials for which data has arrived
+        or is expected to arrive.
+        """
+        return [trial for trial in self.trials.values() if trial.status.expecting_data]
+
+    @property
     def trial_indices_by_status(self) -> Dict[TrialStatus, Set[int]]:
         """Indices of trials associated with the experiment, grouped by trial
         status.
@@ -820,11 +827,3 @@ class Experiment(Base):
         with multiple trial types, use the MultiTypeExperiment class.
         """
         return trial_type is None
-
-    @property
-    def trials_expecting_data(self) -> List[BaseTrial]:
-        """List[BaseTrial]: the list of all trials for which data has arrived
-        or is expected to arrive.
-
-        """
-        return [trial for trial in self.trials.values() if trial.status.expecting_data]
