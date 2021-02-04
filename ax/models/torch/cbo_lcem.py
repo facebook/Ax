@@ -49,8 +49,18 @@ class LCEMBO(BotorchModel):
             Xs: List of X data, one tensor per outcome.
             Ys: List of Y data, one tensor per outcome.
             Yvars:List of Noise variance of Yvar data, one tensor per outcome.
-        Returns: Fitted multi-task contextual GP model.
+            task_features: List of columns of X that are tasks.
+        Returns: ModeListGP that each model is a fitted LCEM GP model.
         """
+
+        if len(task_features) == 1:
+            task_feature = task_features[0]
+        elif len(task_features) > 1:
+            raise NotImplementedError(
+                f"LCEMBO only supports 1 task feature (got {task_features})"
+            )
+        else:
+            raise ValueError("LCEMBO requires context input as task features")
 
         models = []
         for i, X in enumerate(Xs):
@@ -62,7 +72,7 @@ class LCEMBO(BotorchModel):
                 gp_m = LCEMGP(
                     train_X=X,
                     train_Y=Ys[i],
-                    task_feature=task_features[i],
+                    task_feature=task_feature,
                     context_cat_feature=self.context_cat_feature,
                     context_emb_feature=self.context_emb_feature,
                     embs_dim_list=self.embs_dim_list,
@@ -72,7 +82,7 @@ class LCEMBO(BotorchModel):
                     train_X=X,
                     train_Y=Ys[i],
                     train_Yvar=Yvar,
-                    task_feature=task_features[i],
+                    task_feature=task_feature,
                     context_cat_feature=self.context_cat_feature,
                     context_emb_feature=self.context_emb_feature,
                     embs_dim_list=self.embs_dim_list,
