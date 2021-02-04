@@ -25,29 +25,23 @@ class SobolGeneratorTest(TestCase):
         generator = SobolGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=3, n_fixed=0)
         generated_points, weights = generator.gen(n=3, bounds=bounds)
-
-        expected_points = np.array(
-            [
-                [0.63552922, 0.17165081, 0.85513169],
-                [0.92333341, 0.75570321, 0.72268772],
-                [0.21601909, 0.48894, 0.11520141],
-            ]
-        )
-        self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
-        self.assertTrue(np.allclose(expected_points, generated_points))
+        self.assertEqual(np.shape(generated_points), (3, 3))
+        np_bounds = np.array(bounds)
+        self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
+        self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
         self.assertTrue(np.all(weights == 1.0))
         self.assertEqual(generator._get_state(), {"init_position": 3})
 
     def testSobolGeneratorFixedSpace(self):
         generator = SobolGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=0, n_fixed=2)
-        n = 3
         generated_points, _ = generator.gen(
             n=3, bounds=bounds, fixed_features={0: 1, 1: 2}
         )
-        expected_points = np.tile(np.array([[1, 2]]), (n, 1))
-        self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
-        self.assertTrue(np.allclose(expected_points, generated_points))
+        self.assertEqual(np.shape(generated_points), (3, 2))
+        np_bounds = np.array(bounds)
+        self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
+        self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
 
     def testSobolGeneratorNoScramble(self):
         generator = SobolGenerator(scramble=False)
@@ -56,33 +50,31 @@ class SobolGeneratorTest(TestCase):
         generated_points, weights = generator.gen(
             n=3, bounds=bounds, fixed_features={fixed_param_index: 1}
         )
-        expected_points = np.array(
-            [[0.5, 0.5, 0.5, 1.0], [0.75, 0.25, 0.75, 1.0], [0.25, 0.75, 0.25, 1.0]]
-        )
-        self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
-        self.assertTrue(np.allclose(generated_points, expected_points))
+        self.assertEqual(np.shape(generated_points), (3, 4))
+        np_bounds = np.array(bounds)
+        self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
+        self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
 
     def testSobolGeneratorOnline(self):
         # Verify that the generator will return the expected arms if called
         # one at a time.
+        bulk_generator = SobolGenerator(seed=0)
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
         bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
-
-        n = 3
-        expected_points = np.array(
-            [
-                [0.63552922, 0.17165081, 0.85513169, 1],
-                [0.92333341, 0.75570321, 0.72268772, 1],
-                [0.21601909, 0.48894, 0.11520141, 1],
-            ]
+        bulk_generated_points, bulk_weights = bulk_generator.gen(
+            n=3, bounds=bounds, fixed_features={fixed_param_index: 1}
         )
-        for i in range(n):
+        np_bounds = np.array(bounds)
+        for expected_points in bulk_generated_points:
             generated_points, weights = generator.gen(
                 n=1, bounds=bounds, fixed_features={fixed_param_index: 1}
             )
             self.assertEqual(weights, [1])
-            self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
+            self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
+            self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
+            self.assertTrue(generated_points[..., -1] == 1)
+            self.assertTrue(np.array_equal(expected_points, generated_points.flatten()))
 
     def testSobolGeneratorWithOrderConstraints(self):
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
@@ -90,25 +82,22 @@ class SobolGeneratorTest(TestCase):
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
         bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        A = np.array([[1, -1, 0, 0], [0, 1, -1, 0], [0, 0, 1, -1]])
+        b = np.array([0, 0, 0])
         generated_points, weights = generator.gen(
             n=3,
             bounds=bounds,
-            linear_constraints=(
-                np.array([[1, -1, 0, 0], [0, 1, -1, 0], [0, 0, 1, -1]]),
-                np.array([0, 0, 0]),
-            ),
+            linear_constraints=(A, b),
             fixed_features={fixed_param_index: 0.5},
         )
-
-        expected_points = np.array(
-            [
-                [0.0625397, 0.18969421, 0.38985136, 0.5],
-                [0.14849217, 0.26198292, 0.47683588, 0.5],
-                [0.04088604, 0.08176377, 0.49635732, 0.5],
-            ]
+        self.assertEqual(np.shape(generated_points), (3, 4))
+        self.assertTrue(np.alltrue(generated_points[..., -1] == 0.5))
+        self.assertTrue(
+            np.array_equal(
+                np.sort(generated_points[..., :-1], axis=-1),
+                generated_points[..., :-1],
+            )
         )
-        self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
-        self.assertTrue(np.allclose(expected_points, generated_points))
 
     def testSobolGeneratorWithLinearConstraints(self):
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
@@ -116,24 +105,21 @@ class SobolGeneratorTest(TestCase):
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
         bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        A = np.array([[1, 1, 0, 0], [0, 1, 1, 0]])
+        b = np.array([1, 1])
+
         generated_points, weights = generator.gen(
             n=3,
             bounds=bounds,
             linear_constraints=(
-                np.array([[1, 1, 0, 0], [0, 1, 1, 0]]),
-                np.array([1, 1]),
+                A,
+                b,
             ),
             fixed_features={fixed_param_index: 1},
         )
-        expected_points = np.array(
-            [
-                [0.21601909, 0.48894, 0.11520141, 1.0],
-                [0.28908476, 0.00287463, 0.54073817, 1.0],
-                [0.0625397, 0.18969421, 0.38985136, 1.0],
-            ]
-        )
-        self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
-        self.assertTrue(np.allclose(expected_points, generated_points))
+        self.assertTrue(np.shape(generated_points) == (3, 4))
+        self.assertTrue(np.alltrue(generated_points[..., -1] == 1))
+        self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
 
     def testSobolGeneratorOnlineRestart(self):
         # Ensure a single batch generation can also equivalently done by
