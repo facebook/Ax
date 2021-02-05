@@ -18,7 +18,6 @@ from botorch.utils import (
     get_outcome_constraint_transforms,
 )
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
-from botorch.utils.transforms import squeeze_last_dim
 from torch import Tensor
 
 
@@ -59,7 +58,7 @@ def get_PosteriorMean(
     if kwargs.get("chebyshev_scalarization", False):
         obj_tf = get_chebyshev_scalarization(
             weights=objective_weights,
-            Y=squeeze_last_dim(torch.stack(kwargs.get("Ys")).transpose(0, 1)),
+            Y=torch.stack(kwargs.get("Ys")).transpose(0, 1).squeeze(-1),
         )
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
