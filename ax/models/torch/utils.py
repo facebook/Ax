@@ -331,10 +331,14 @@ def get_botorch_objective(
                 "= True. Creating ConstrainedMCObjective."
             )
         obj_tf = get_objective_weights_transform(objective_weights)
+
+        def objective(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
+            return obj_tf(samples)
+
         con_tfs = get_outcome_constraint_transforms(outcome_constraints)
         inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
         return ConstrainedMCObjective(
-            objective=obj_tf, constraints=con_tfs or [], infeasible_cost=inf_cost
+            objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
         )
     elif use_scalarized_objective:
         return ScalarizedObjective(weights=objective_weights)
