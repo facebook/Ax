@@ -223,13 +223,17 @@ def get_NEI(
         obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y_tensor)
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
+
+    def objective(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
+        return obj_tf(samples)
+
     if outcome_constraints is None:
-        objective = GenericMCObjective(objective=obj_tf)
+        objective = GenericMCObjective(objective=objective)
     else:
         con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
+        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=objective)
         objective = ConstrainedMCObjective(
-            objective=obj_tf, constraints=con_tfs or [], infeasible_cost=inf_cost
+            objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
         )
     return get_acquisition_function(
         acquisition_function_name="qNEI",

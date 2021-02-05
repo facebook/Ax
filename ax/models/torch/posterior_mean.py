@@ -62,13 +62,17 @@ def get_PosteriorMean(
         )
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
+
+    def obj_fn(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
+        return obj_tf(samples)
+
     if outcome_constraints is None:
-        objective = GenericMCObjective(objective=obj_tf)
+        objective = GenericMCObjective(objective=obj_fn)
     else:
         con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
+        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_fn)
         objective = ConstrainedMCObjective(
-            objective=obj_tf, constraints=con_tfs or [], infeasible_cost=inf_cost
+            objective=obj_fn, constraints=con_tfs or [], infeasible_cost=inf_cost
         )
     # Use qSimpleRegret, not analytic posterior, to handle arbitrary objective fns.
     acq_func = qSimpleRegret(model, objective=objective)
