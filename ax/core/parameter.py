@@ -167,7 +167,10 @@ class RangeParameter(Parameter):
         # pyre-fixme[58]: `>=` is not supported for operand types `Union[None, bool,
         #  float, int, str]` and `Union[None, bool, float, int, str]`.
         if lower >= upper:
-            raise UserInputError("max must be strictly larger than min.")
+            raise UserInputError(
+                f"Upper bound of {self.name} must be strictly larger than lower."
+                f"Got: ({lower}, {upper})."
+            )
         # pyre-fixme[58]: `<=` is not supported for operand types `Union[None, bool,
         #  float, int, str]` and `int`.
         if log_scale and lower <= 0:
