@@ -346,12 +346,26 @@ class AxClient(WithDBSettingsBase):
         Completes the trial with given metric values and adds optional metadata
         to it.
 
+        NOTE: When ``raw_data`` does not specify SEM for a given metric, Ax
+        will default to the assumption that the data is noisy (specifically,
+        corrupted by additive zero-mean Gaussian noise) and that the
+        level of noise should be inferred by the optimization model. To
+        indicate that the data is noiseless, set SEM to 0.0, for example:
+
+        .. code-block:: python
+
+          ax_client.complete_trial(
+              trial_index=0,
+              raw_data={"my_objective": (objective_mean_value, 0.0)}
+          )
+
         Args:
             trial_index: Index of trial within the experiment.
             raw_data: Evaluation data for the trial. Can be a mapping from
                 metric name to a tuple of mean and SEM, just a tuple of mean and
-                SEM if only one metric in optimization, or just the mean if there
-                is no SEM.  Can also be a list of (fidelities, mapping from
+                SEM if only one metric in optimization, or just the mean if SEM is
+                unknown (then Ax will infer observation noise level).
+                Can also be a list of (fidelities, mapping from
                 metric name to a tuple of mean and SEM).
             metadata: Additional metadata to track about this run.
             sample_size: Number of samples collected for the underlying arm,
