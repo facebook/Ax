@@ -46,6 +46,14 @@ PARAMETER_PYTHON_TYPE_MAP: Dict[ParameterType, TParameterType] = {
 }
 
 
+def _get_parameter_type(python_type: Type) -> ParameterType:
+    """Given a Python type, retrieve corresponding Ax ``ParameterType``."""
+    for param_type, py_type in PARAMETER_PYTHON_TYPE_MAP.items():
+        if py_type == python_type:
+            return param_type
+    raise ValueError(f"No Ax parameter type corresponding to {python_type}.")
+
+
 class Parameter(Base, metaclass=ABCMeta):
     _is_fidelity: bool = False
     _name: str

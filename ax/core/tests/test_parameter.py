@@ -9,6 +9,7 @@ from ax.core.parameter import (
     FixedParameter,
     ParameterType,
     RangeParameter,
+    _get_parameter_type,
 )
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
@@ -136,6 +137,14 @@ class RangeParameterTest(TestCase):
 
         param_clone._lower = 2.0
         self.assertNotEqual(self.param1.lower, param_clone.lower)
+
+    def test_get_parameter_type(self):
+        self.assertEqual(_get_parameter_type(float), ParameterType.FLOAT)
+        self.assertEqual(_get_parameter_type(int), ParameterType.INT)
+        self.assertEqual(_get_parameter_type(bool), ParameterType.BOOL)
+        self.assertEqual(_get_parameter_type(str), ParameterType.STRING)
+        with self.assertRaises(ValueError):
+            _get_parameter_type(dict)
 
 
 class ChoiceParameterTest(TestCase):
