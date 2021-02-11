@@ -194,6 +194,9 @@ class BatchTrialTest(TestCase):
         with self.assertRaises(ValueError):
             batch = self.experiment.new_batch_trial(optimize_for_power=True)
 
+        batch.add_arms_and_weights(arms=[])
+        self.assertTrue(batch._status_quo_weight_override, 1)
+
         batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
         expected_status_quo_weight = math.sqrt(sum(self.weights))
         self.assertTrue(

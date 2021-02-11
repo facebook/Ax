@@ -324,7 +324,9 @@ class BatchTrial(BaseTrial):
             1) status quo is the only arm to compare against,
             2) all other arms are of equal interest.
         """
-        if len(self.arms) == 0:
+
+        status_quo_is_only_arm = len(self.arms) == 1 and self._status_quo is not None
+        if len(self.arms) == 0 or status_quo_is_only_arm:
             # If status quo is the only arm, just set its weight to 1
             # Can't use logic below, because it will choose 0
             self.set_status_quo_with_weight(status_quo=status_quo, weight=1)
