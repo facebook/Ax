@@ -477,7 +477,6 @@ def get_observed(
             np.where(as_array(outcome_constraints)[0] != 0)[1]
         )
     outcome_list = list(used_outcomes)
-    # pyre-fixme[16]: `Tensor` has no attribute `__iter__`.
     X_obs_set = {tuple(float(x_i) for x_i in x) for x in Xs[outcome_list[0]]}
     for _, idx in enumerate(outcome_list, start=1):
         X_obs_set = X_obs_set.intersection(
