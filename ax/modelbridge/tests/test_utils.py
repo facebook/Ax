@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import numpy as np
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
@@ -65,6 +66,32 @@ class TestModelbridgeUtils(TestCase):
             ),
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
+        # When a trial is abandoned, it should appear in pending features whether
+        # or not there is data for it.
+        self.trial._status = TrialStatus.ABANDONED  # Cannot re-mark a failed trial.
+        self.assertEqual(
+            get_pending_observation_features(
+                self.experiment, include_failed_as_pending=True
+            ),
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
+        )
+        # Checking with data for all metrics.
+        with patch.object(
+            self.trial,
+            "fetch_data",
+            return_value=Data.from_evaluations(
+                {self.trial.arm.name: {"m1": (1, 0), "m2": (1, 0), "tracking": (1, 0)}},
+                trial_index=self.trial.index,
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(self.experiment),
+                {
+                    "tracking": [self.obs_feat],
+                    "m2": [self.obs_feat],
+                    "m1": [self.obs_feat],
+                },
+            )
 
     def test_get_pending_observation_features_batch_trial(self):
         # Check the same functionality for batched trials.

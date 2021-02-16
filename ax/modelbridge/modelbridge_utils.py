@@ -390,7 +390,7 @@ def get_pending_observation_features(
                 pending_features[metric_name] = []
             include_since_failed = include_failed_as_pending and trial.status.is_failed
             if isinstance(trial, BatchTrial):
-                if (
+                if trial.status.is_abandoned or (
                     (trial.status.is_deployed or include_since_failed)
                     and metric_name not in dat.df.metric_name.values
                     and trial.arms is not None
@@ -402,7 +402,7 @@ def get_pending_observation_features(
                             )
                         )
             if isinstance(trial, Trial):
-                if (
+                if trial.status.is_abandoned or (
                     (trial.status.is_deployed or include_since_failed)
                     and metric_name not in dat.df.metric_name.values
                     and trial.arm is not None
