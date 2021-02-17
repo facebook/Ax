@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import torch
+from ax.core.observation import ObservationFeatures
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.parameter import RangeParameter
 from ax.modelbridge.discrete import DiscreteModelBridge
@@ -16,6 +18,7 @@ from ax.modelbridge.factory import (
     get_GPMES,
     get_MOO_EHVI,
     get_MOO_PAREGO,
+    get_MTGP_PAREGO,
     get_MOO_RS,
     get_MTGP,
     get_sobol,
@@ -31,10 +34,12 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
+    get_multi_type_experiment_with_multi_objective,
     get_branin_optimization_config,
     get_factorial_experiment,
     get_multi_type_experiment,
 )
+from botorch.models.multitask import MultiTaskGP
 
 
 class ModelBridgeFactoryTest(TestCase):
@@ -297,3 +302,78 @@ class ModelBridgeFactoryTest(TestCase):
         self.assertIsInstance(moo_ehvi, MultiObjectiveTorchModelBridge)
         moo_ehvi_run = moo_ehvi.gen(n=1)
         self.assertEqual(len(moo_ehvi_run.arms), 1)
+
+    def test_MTGP_PAREGO(self):
+        """Tests MTGP ParEGO instantiation."""
+        # Test Multi-type MTGP
+        single_obj_exp = get_branin_experiment(with_batch=True)
+        metrics = single_obj_exp.optimization_config.objective.metrics
+        metrics[0].lower_is_better = True
+        objective_thresholds = [
+            ObjectiveThreshold(metric=metrics[0], bound=0.0, relative=False)
+        ]
+        with self.assertRaises(ValueError):
+            get_MTGP_PAREGO(
+                experiment=single_obj_exp,
+                data=single_obj_exp.fetch_data(),
+                objective_thresholds=objective_thresholds,
+            )
+
+        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        metrics = multi_obj_exp.optimization_config.objective.metrics
+        multi_objective_thresholds = [
+            ObjectiveThreshold(
+                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            ),
+            ObjectiveThreshold(
+                metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            ),
+        ]
+        with self.assertRaises(ValueError):
+            get_MTGP_PAREGO(
+                experiment=multi_obj_exp,
+                data=multi_obj_exp.fetch_data(),
+                objective_thresholds=multi_objective_thresholds,
+            )
+
+        multi_obj_exp.trials[0].run()
+        sobol_generator = get_sobol(search_space=multi_obj_exp.search_space)
+        sobol_run = sobol_generator.gen(n=3)
+        multi_obj_exp.new_batch_trial(optimize_for_power=False).add_generator_run(
+            sobol_run
+        )
+        multi_obj_exp.trials[1].run()
+        mt_ehvi = get_MTGP_PAREGO(
+            experiment=multi_obj_exp,
+            data=multi_obj_exp.fetch_data(),
+            objective_thresholds=multi_objective_thresholds,
+            trial_index=1,
+        )
+        self.assertIsInstance(mt_ehvi, MultiObjectiveTorchModelBridge)
+        self.assertIsInstance(mt_ehvi.model.model.models[0], MultiTaskGP)
+        task_covar_factor = mt_ehvi.model.model.models[0].task_covar_module.covar_factor
+        self.assertEqual(task_covar_factor.shape, torch.Size([2, 2]))
+        mt_ehvi_run = mt_ehvi.gen(
+            n=1, fixed_features=ObservationFeatures(parameters={}, trial_index=1)
+        )
+        self.assertEqual(len(mt_ehvi_run.arms), 1)
+
+        # Bad index given
+        with self.assertRaises(ValueError):
+            get_MTGP_PAREGO(
+                experiment=multi_obj_exp,
+                data=multi_obj_exp.fetch_data(),
+                objective_thresholds=multi_objective_thresholds,
+                trial_index=999,
+            )
+
+        # Multi-type + multi-objective experiment
+        multi_type_multi_obj_exp = get_multi_type_experiment_with_multi_objective(
+            add_trials=True
+        )
+        data = multi_type_multi_obj_exp.fetch_data()
+        mt_ehvi = get_MTGP_PAREGO(
+            experiment=multi_type_multi_obj_exp,
+            data=data,
+            objective_thresholds=multi_objective_thresholds,
+        )
