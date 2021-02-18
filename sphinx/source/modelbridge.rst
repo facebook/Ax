@@ -242,6 +242,13 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
+`ax.modelbridge.transforms.power\_transform\_y`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.power_transform_y
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 `ax.modelbridge.transforms.remove\_fixed`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -303,6 +310,14 @@ Transforms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.unit_x
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+`ax.modelbridge.transforms.utils`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.utils
     :members:
     :undoc-members:
     :show-inheritance:

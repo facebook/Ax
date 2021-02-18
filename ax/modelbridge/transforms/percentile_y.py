@@ -11,6 +11,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.utils import get_data
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from scipy import stats
@@ -34,11 +35,7 @@ class PercentileY(Transform):
             raise ValueError(
                 "Percentile transform requires non-empty observation data."
             )
-        metric_names = {x for obsd in observation_data for x in obsd.metric_names}
-        metric_values = {metric_name: [] for metric_name in metric_names}
-        for obsd in observation_data:
-            for i, metric_name in enumerate(obsd.metric_names):
-                metric_values[metric_name].append(obsd.means[i])
+        metric_values = get_data(observation_data=observation_data)
         self.percentiles = {
             metric_name: vals for metric_name, vals in metric_values.items()
         }

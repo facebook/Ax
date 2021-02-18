@@ -4,14 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from math import isnan
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional
 
-import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.utils import match_ci_width_truncated
 from ax.utils.common.logger import get_logger
 from scipy.stats import norm
 
@@ -58,7 +57,7 @@ class InverseGaussianCdfY(Transform):
                     )
                 var = float(obsd.covariance[idx, idx])
                 transformed_mean, transformed_var = match_ci_width_truncated(
-                    mean, var, self._map
+                    mean, var, self._map, lower_bound=0.0, upper_bound=1.0
                 )
                 obsd.means[idx] = transformed_mean
                 obsd.covariance[idx, idx] = transformed_var
@@ -67,24 +66,3 @@ class InverseGaussianCdfY(Transform):
     def _map(self, val: float) -> float:
         mapped_val = self.dist.ppf(val)
         return mapped_val
-
-
-def match_ci_width_truncated(
-    mean: float,
-    variance: float,
-    transform: Callable[[float], float],
-    level: float = 0.95,
-    margin: float = 0.001,
-) -> Tuple[float, float]:
-    """Estimate a transformed variance using the match ci width method.
-
-    See log_y transform for the original. Here, bounds are forced to lie
-    within a [0,1] interval after transformation."""
-    fac = norm.ppf(1 - (1 - level) / 2)
-    d = fac * np.sqrt(variance)
-    upper_bound = min(mean + d, 1.0 - margin)
-    lower_bound = max(mean - d, margin)
-    width_asym = transform(upper_bound) - transform(lower_bound)
-    new_mean = transform(mean)
-    new_variance = float("nan") if isnan(variance) else (width_asym / 2 / fac) ** 2
-    return new_mean, new_variance
