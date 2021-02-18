@@ -19,6 +19,7 @@ from ax.utils.common.typeutils import not_none
 
 
 RETRY_EXCEPTION_TYPES: Tuple[Type[Exception], ...] = ()
+
 try:  # We don't require SQLAlchemy by default.
     from ax.storage.sqa_store.db import init_engine_and_session_factory
     from ax.storage.sqa_store.load import (
@@ -252,6 +253,47 @@ class WithDBSettingsBase:
             )
             return True
         return False
+
+    def _save_and_update_trials_and_generation_strategy_if_possible(
+        self,
+        experiment: Experiment,
+        new_trials: List[BaseTrial],
+        trials_to_update: List[BaseTrial],
+        generation_strategy: GenerationStrategy,
+        new_generator_runs: List[GeneratorRun],
+        suppress_all_errors: bool = False,
+    ) -> None:
+        """Saves new trials (and updates existing ones) on given experiment
+        and updates the given generation strategy, if DB settings are set on
+        this `WithDBSettingsBase` instance.
+
+        Args:
+            experiment: Experiment, on which to save new trials in DB.
+            new_trials: Newly added trials to save.
+            trials_to_update: Updated trials to update in DB.
+            generation_strategy: Generation strategy to update in DB.
+            new_generator_runs: Generator runs to add to generation strategy.
+            suppress_all_errors: Flag for `retry_on_exception` that makes
+                the decorator suppress the thrown exception even if it
+                occurred in all the retries (exception is still logged).
+        """
+        logger.debug(f"Saving {len(new_trials)} trials to DB.")
+        self._save_new_trials_to_db_if_possible(
+            experiment=experiment, trials=new_trials
+        )
+        logger.debug(f"Updating {len(trials_to_update)} in DB.")
+        self._save_updated_trials_to_db_if_possible(
+            experiment=experiment, trials=trials_to_update
+        )
+        logger.debug(
+            "Updating generation strategy in DB with "
+            f"{len(new_generator_runs)} generator runs."
+        )
+        self._update_generation_strategy_in_db_if_possible(
+            generation_strategy=generation_strategy,
+            new_generator_runs=new_generator_runs,
+        )
+        return
 
     @retry_on_exception(
         retries=3,
