@@ -16,6 +16,7 @@ from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.one_hot import OneHot
 from ax.modelbridge.transforms.ordered_choice_encode import OrderedChoiceEncode
+from ax.modelbridge.transforms.power_transform_y import PowerTransformY
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
@@ -60,6 +61,7 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     UnitX: 15,
     Winsorize: 16,
     CapParameter: 17,
+    PowerTransformY: 18,
 }
 
 

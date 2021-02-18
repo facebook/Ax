@@ -4,7 +4,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from collections import defaultdict
 from typing import TYPE_CHECKING, DefaultDict, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -13,6 +12,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig, TParamValue
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.utils import get_data
 from ax.utils.common.logger import get_logger
 
 
@@ -41,15 +41,8 @@ class StandardizeY(Transform):
             raise ValueError(
                 "StandardizeY transform requires non-empty observation data."
             )
+        Ys = get_data(observation_data=observation_data)
         # Compute means and SDs
-        Ys: DefaultDict[str, List[float]] = defaultdict(list)
-        for obsd in observation_data:
-            for i, m in enumerate(obsd.metric_names):
-                Ys[m].append(obsd.means[i])
-        # Expected `DefaultDict[Union[str, typing.Tuple[str, Optional[Union[bool, float,
-        # str]]]], List[float]]` for 1st anonymous parameter to call
-        # `ax.modelbridge.transforms.standardize_y.compute_standardization_parameters`
-        # but got `DefaultDict[str, List[float]]`.
         # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
         self.Ymean, self.Ystd = compute_standardization_parameters(Ys)
 
