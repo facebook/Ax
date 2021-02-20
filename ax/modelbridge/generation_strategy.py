@@ -16,6 +16,7 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import DataRequiredError, NoDataError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
@@ -370,6 +371,7 @@ class GenerationStrategy(Base):
         experiment: Experiment,
         data: Optional[Data] = None,
         n: int = 1,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
         **kwargs: Any,
     ) -> GeneratorRun:
         """Produce the next points in the experiment. Additional kwargs passed to
@@ -397,9 +399,17 @@ class GenerationStrategy(Base):
                 the `n` and produce a model-determined number of arms. In that
                 case this method will also output a generator run with number of
                 arms that can differ from `n`.
+            pending_observations: A map from metric name to pending
+                observations for that metric, used by some models to avoid
+                resuggesting points that are currently being evaluated.
         """
         return self._gen_multiple(
-            experiment=experiment, num_generator_runs=1, data=data, n=n, **kwargs
+            experiment=experiment,
+            num_generator_runs=1,
+            data=data,
+            n=n,
+            pending_observations=pending_observations,
+            **kwargs,
         )[0]
 
     def clone_reset(self) -> "GenerationStrategy":
@@ -428,6 +438,7 @@ class GenerationStrategy(Base):
         num_generator_runs: int,
         data: Optional[Data] = None,
         n: int = 1,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
         **kwargs: Any,
     ) -> List[GeneratorRun]:
         """Produce multiple generator runs at once, to be made into multiple
@@ -440,6 +451,26 @@ class GenerationStrategy(Base):
         of them into running trials, generation strategy cannot enforce that it only
         produces as many generator runs as are allowed by the paralellism
         limit and the limit on number of trials in current step.
+
+        Args:
+            experiment: Experiment, for which the generation strategy is producing
+                a new generator run in the course of `gen`, and to which that
+                generator run will be added as trial(s). Information stored on the
+                experiment (e.g., trial statuses) is used to determine which model
+                will be used to produce the generator run returned from this method.
+            data: Optional data to be passed to the underlying model's `gen`, which
+                is called within this method and actually produces the resulting
+                generator run. By default, data is all data on the `experiment` if
+                `use_update` is False and only the new data since the last call to
+                this method if `use_update` is True.
+            n: Integer representing how many arms should be in the generator run
+                produced by this method. NOTE: Some underlying models may ignore
+                the `n` and produce a model-determined number of arms. In that
+                case this method will also output a generator run with number of
+                arms that can differ from `n`.
+            pending_observations: A map from metric name to pending
+                observations for that metric, used by some models to avoid
+                resuggesting points that are currently being evaluated.
         """
         self.experiment = experiment
         self._set_or_update_model(data=data)
@@ -479,6 +510,7 @@ class GenerationStrategy(Base):
             try:
                 generator_run = model.gen(
                     n=n,
+                    pending_observations=pending_observations,
                     **consolidate_kwargs(
                         kwargs_iterable=[self._curr.model_gen_kwargs, kwargs],
                         keywords=get_function_argument_names(model.gen),
