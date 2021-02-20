@@ -141,6 +141,8 @@ class REMBOStrategy(GenerationStrategy):
         """Generator changes every iteration with rotating strategy"""
         return list(range(self.current_iteration))
 
+    # pyre-fixme[14]: `gen` overrides method defined in `GenerationStrategy`
+    #  inconsistently.
     def gen(
         self,
         experiment: Experiment,
