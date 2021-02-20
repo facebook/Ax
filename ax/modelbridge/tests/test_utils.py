@@ -110,6 +110,41 @@ class TestModelbridgeUtils(TestCase):
             },
         )
 
+    def test_get_pending_observation_features_based_on_trial_status(self):
+        # Pending observations should be none if there aren't any as trial is
+        # candidate.
+        self.assertTrue(self.trial.status.is_candidate)
+        self.assertIsNone(get_pending_observation_features(self.experiment))
+        self.trial.mark_staged()
+        # Now that the trial is staged, it should become a pending trial on the
+        # experiment and appear as pending for all metrics.
+        self.assertEqual(
+            get_pending_observation_features(self.experiment),
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
+        )
+        # Same should be true for running trial.
+        # NOTE: Can't mark a staged trial running unless it uses a runner that
+        # specifically requires staging; hacking around that here since the marking
+        # logic does not matter for this test.
+        self.trial._status = TrialStatus.RUNNING
+        # Now that the trial is staged, it should become a pending trial on the
+        # experiment and appear as pending for all metrics.
+        self.assertEqual(
+            get_pending_observation_features(self.experiment),
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
+        )
+        # When a trial is marked failed, it should no longer appear in pending.
+        self.trial.mark_failed()
+        self.assertIsNone(get_pending_observation_features(self.experiment))
+        # And if the trial is abandoned, it should always appear in pending features.
+        self.trial._status = TrialStatus.ABANDONED  # Cannot re-mark a failed trial.
+        self.assertEqual(
+            get_pending_observation_features(
+                self.experiment, include_failed_as_pending=True
+            ),
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
+        )
+
     def test_pending_observations_as_array(self):
         # Mark a trial dispatched so that there are pending observations.
         self.trial.mark_running(no_runner_required=True)

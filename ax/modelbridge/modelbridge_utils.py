@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from functools import partial
 from typing import (
     TYPE_CHECKING,
@@ -20,6 +21,7 @@ from typing import (
 
 import numpy as np
 import torch
+from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -413,6 +415,53 @@ def get_pending_observation_features(
                         )
                     )
     return pending_features if any(x for x in pending_features.values()) else None
+
+
+def get_pending_observation_features_based_on_trial_status(
+    experiment: Experiment,
+) -> Optional[Dict[str, List[ObservationFeatures]]]:
+    """A faster analogue of ``get_pending_observation_features`` that makes
+    assumptions about trials in experiment in order to speed up extraction
+    of pending points.
+
+    Assumptions:
+
+    * All arms in all trials in ``STAGED,`` ``RUNNING`` and ``ABANDONED`` statuses
+      are to be considered pending for all outcomes.
+    * All arms in all trials in other statuses are to be considered not pending for
+      all outcomes.
+
+    This entails:
+
+    * No actual data-fetching for trials to determine whether arms in them are pending
+      for specific outcomes.
+    * Even if data is present for some outcomes in ``RUNNING`` trials, their arms will
+      still be considered pending for those outcomes.
+
+    NOTE: This function should not be used to extract pending features in field
+    experiments, where arms in running trials should not be considered pending if
+    there is data for those arms.
+
+    Args:
+        experiment: Experiment, pending features on which we seek to compute.
+
+    Returns:
+        An optional mapping from metric names to a list of observation features,
+        pending for that metric (i.e. do not have evaluation data for that metric).
+        If there are no pending features for any of the metrics, return is None.
+    """
+    pending_features = defaultdict(list)
+    for status in [TrialStatus.STAGED, TrialStatus.RUNNING, TrialStatus.ABANDONED]:
+        for trial in experiment.trials_by_status[status]:
+            for metric_name in experiment.metrics:
+                pending_features[metric_name].extend(
+                    ObservationFeatures.from_arm(
+                        arm=arm, trial_index=np.int64(trial.index)
+                    )
+                    for arm in trial.arms
+                )
+
+    return dict(pending_features) if any(x for x in pending_features.values()) else None
 
 
 def clamp_observation_features(
