@@ -824,6 +824,8 @@ class Decoder:
         trial._abandoned_reason = trial_sqa.abandoned_reason
         # pyre-fixme[9]: _run_metadata has type `Dict[str, Any]`; used as
         #  `Optional[Dict[str, Any]]`.
+        # pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as
+        #  `Optional[typing.Dict[Variable[_KT], Variable[_VT]]]`.
         trial._run_metadata = (
             # pyre-fixme[6]: Expected `Mapping[Variable[_KT], Variable[_VT]]` for
             #  1st param but got `Optional[Dict[str, typing.Any]]`.
