@@ -20,11 +20,13 @@ Key terms used:
 
 """
 
+import random
 import time
 from types import FunctionType
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import torch
 from ax.benchmark import utils
 from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
 from ax.core.data import Data
@@ -39,7 +41,6 @@ from ax.service.ax_client import AxClient
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from ax.utils.measurement.synthetic_functions import SyntheticFunction
-
 
 logger = get_logger(__name__)
 
@@ -123,6 +124,9 @@ def benchmark_replication(  # One optimization loop.
         failed_trials_tolerated: How many trials can fail before a replication is
             considered failed and aborted. Defaults to 5.
     """
+    torch.manual_seed(replication_index)
+    np.random.seed(replication_index)
+    random.seed(replication_index)
     trial_exceptions = []
     experiment_name = f"{method.name}_on_{problem.name}"
     if replication_index is not None:
