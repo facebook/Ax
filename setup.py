@@ -3,11 +3,11 @@
 
 from setuptools import find_packages, setup
 
-
-MIN_BOTORCH_VERSION = "0.3.3"
+# TODO: read pinned Botorch version from a shared source
+PINNED_BOTORCH_VERSION = "0.4.0"
 
 REQUIRES = [
-    f"botorch>={MIN_BOTORCH_VERSION}",
+    f"botorch=={PINNED_BOTORCH_VERSION}",
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
