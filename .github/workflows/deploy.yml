@@ -58,6 +58,7 @@ jobs:
         pip install torchvision  # required for tutorials
         pip install ray  # Required for building RayTune tutorial notebook.
         pip install tabulate  # Required for building RayTune tutorial notebook.
+        pip install tensorboardX  # Required for building RayTune tutorial notebook.
         pip install matplotlib  # Required for building Multi-objective tutorial notebook.
     - name: Publish latest website
       env:
