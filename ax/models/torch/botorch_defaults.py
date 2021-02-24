@@ -188,11 +188,33 @@ def get_NEI(
     X_pending: Optional[Tensor] = None,
     **kwargs: Any,
 ) -> AcquisitionFunction:
-    r"""Instantiates a qNoisyExpectedImprovement acquisition function.
+    r"""Instantiates a qNoisyExpectedImprovement acquisition function."""
+    return _get_acqusition_func(
+        model=model,
+        acquisition_function_name="qNEI",
+        objective_weights=objective_weights,
+        outcome_constraints=outcome_constraints,
+        X_observed=X_observed,
+        X_pending=X_pending,
+        **kwargs,
+    )
+
+
+def _get_acqusition_func(
+    model: Model,
+    acquisition_function_name: str,
+    objective_weights: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    X_observed: Optional[Tensor] = None,
+    X_pending: Optional[Tensor] = None,
+    **kwargs: Any,
+) -> AcquisitionFunction:
+    r"""Instantiates a acquisition function.
 
     Args:
         model: The underlying model which the acqusition function uses
             to estimate acquisition values of candidates.
+        acquisition_function_name: Name of the acquisition function.
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
@@ -211,7 +233,7 @@ def get_NEI(
         chebyshev_scalarization: Use augmented Chebyshev scalarization.
 
     Returns:
-        qNoisyExpectedImprovement: The instantiated acquisition function.
+        The instantiated acquisition function.
     """
     if X_observed is None:
         raise ValueError("There are no feasible observed points.")
@@ -236,7 +258,7 @@ def get_NEI(
             objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
         )
     return get_acquisition_function(
-        acquisition_function_name="qNEI",
+        acquisition_function_name=acquisition_function_name,
         model=model,
         objective=objective,
         X_observed=X_observed,
