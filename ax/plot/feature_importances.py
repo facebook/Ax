@@ -66,9 +66,10 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
     df = df.reindex(columns=(["index"] + [a for a in df.columns if a != "index"]))
 
     plot_fi = plot_feature_importance(df, "Absolute Feature Importances by Metric")
-    num_subplots = len(df.columns) - 1  # one column is the index
+    num_subplots = len(df.columns)
     num_features = len(df)
-    plot_fi.data["layout"]["height"] = num_subplots * num_features * 50
+    # Include per-subplot margin for subplot titles (feature names).
+    plot_fi.data["layout"]["height"] = num_subplots * (num_features + 1) * 50
     return plot_fi
 
 
@@ -172,7 +173,7 @@ def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
     ]
     layout = go.Layout(
         margin=go.layout.Margin(l=250),  # noqa E741
-        barmode="grouped",
+        barmode="group",
         yaxis={"title": ""},
         xaxis={"title": "Relative Feature importance"},
         showlegend=False,
