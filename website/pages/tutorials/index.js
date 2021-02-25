@@ -66,6 +66,15 @@ class TutorialHome extends React.Component {
                 constrained synthetic Hartmann6 problem.
               </li>
             </ul>
+            <ul>
+              <li>
+                <a href="multiobjtive_optimization.html">
+                  Multi-Objective Optimization
+                </a>
+                &nbsp; demonstrates Multi-Objective Bayesian Optimization on a
+                synthetic Branin-Currin test function.
+              </li>
+            </ul>
             {/* <ul>
               <li>
                 <a href="benchmarking_suite_example.html">Benchmarking Suite</a>
