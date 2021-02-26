@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+import time
 from unittest.mock import Mock
 
 from ax.utils.common.executils import retry_on_exception
@@ -146,6 +147,40 @@ class TestRetryDecorator(TestCase):
 
         decorator_tester = DecoratorTester()
         self.assertEqual("SUCCESS", decorator_tester.error_throwing_function())
+
+    def test_retry_with_wait(self):
+        """
+        Tests if the decorator retries sufficient number of times
+        """
+
+        class DecoratorTester:
+            def __init__(self):
+                self.start_time = time.time()
+
+            @retry_on_exception(retries=4, initial_wait_seconds=1)
+            def error_throwing_function(self):
+                # The call below will succeed only on the 3rd try
+                return self.succeed_after_five_seconds()
+
+            @retry_on_exception(retries=4)
+            def no_wait_error_throwing_function(self):
+                # The call below will succeed only on the 3rd try
+                return self.succeed_after_five_seconds()
+
+            def succeed_after_five_seconds(self):
+                if time.time() - self.start_time < 5:
+                    raise Exception(
+                        "This error surfacing means enough retries were not done"
+                    )
+                else:
+                    return "SUCCESS"
+
+        decorator_tester = DecoratorTester()
+        self.assertEqual("SUCCESS", decorator_tester.error_throwing_function())
+
+        decorator_tester = DecoratorTester()
+        with self.assertRaises(Exception):
+            decorator_tester.no_wait_error_throwing_function()
 
     def test_retry_mechanism_fail(self):
         """

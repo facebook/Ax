@@ -5,8 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 import functools
+import time
 from logging import Logger
 from typing import Any, List, Optional, Tuple, Type
+
+
+MAX_WAIT_SECONDS: int = 600
 
 
 def retry_on_exception(
@@ -18,6 +22,7 @@ def retry_on_exception(
     logger: Optional[Logger] = None,
     default_return_on_suppression: Optional[Any] = None,
     wrap_error_message_in: Optional[str] = None,
+    initial_wait_seconds: Optional[int] = None,
 ) -> Optional[Any]:
     """
     A decorator for instance methods or standalone functions that makes them
@@ -62,6 +67,10 @@ def retry_on_exception(
             "<wrap_error_message_in>: <original_error_type>: <original_error_msg>",
             with the stack trace of the original message.
 
+        initial_wait_seconds: Initial length of time to wait between failures,
+            doubled after each failure up to a maximum of 10 minutes. If unspecified
+            then there is no wait between retries.
+
     """
 
     def func_wrapper(func):
@@ -95,6 +104,11 @@ def retry_on_exception(
 
             for i in range(retries):
                 try:
+                    if i > 0 and initial_wait_seconds is not None:
+                        wait_interval = min(
+                            MAX_WAIT_SECONDS, initial_wait_seconds * 2 ** (i - 1)
+                        )
+                        time.sleep(wait_interval)
                     return func(*args, **kwargs)
                 except no_retry_on_exception_types or ():
                     raise
