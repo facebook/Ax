@@ -18,7 +18,7 @@ from ax.core.observation import (
     observations_from_data,
 )
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import FixedParameter, ParameterType
+from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge, gen_arms, unwrap_observation_data
 from ax.modelbridge.transforms.log import Log
@@ -230,6 +230,50 @@ class BaseModelBridgeTest(TestCase):
         ) as mock_tr:
             modelbridge.transform_observation_features([get_observation2().features])
         mock_tr.assert_called_with(modelbridge, [get_observation2trans().features])
+
+    @mock.patch(
+        "ax.modelbridge.base.observations_from_data",
+        autospec=True,
+        return_value=([get_observation1(), get_observation2()]),
+    )
+    def test_ood_gen(self, _):
+        # Test fit_out_of_design by returning OOD candidats
+        exp = get_experiment_for_value()
+        ss = SearchSpace([RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0)])
+        modelbridge = ModelBridge(
+            search_space=ss,
+            model=Model(),
+            transforms=[],
+            experiment=exp,
+            data=0,
+            fit_out_of_design=True,
+        )
+        obs = ObservationFeatures(parameters={"x": 3.0})
+        modelbridge._gen = mock.MagicMock(
+            "ax.modelbridge.base.ModelBridge._gen",
+            autospec=True,
+            return_value=([obs], [2], None, {}),
+        )
+        gr = modelbridge.gen(n=1)
+        self.assertEqual(gr.arms[0].parameters, obs.parameters)
+
+        # Test clamping arms by setting fit_out_of_design=False
+        modelbridge = ModelBridge(
+            search_space=ss,
+            model=Model(),
+            transforms=[],
+            experiment=exp,
+            data=0,
+            fit_out_of_design=False,
+        )
+        obs = ObservationFeatures(parameters={"x": 3.0})
+        modelbridge._gen = mock.MagicMock(
+            "ax.modelbridge.base.ModelBridge._gen",
+            autospec=True,
+            return_value=([obs], [2], None, {}),
+        )
+        gr = modelbridge.gen(n=1)
+        self.assertEqual(gr.arms[0].parameters, {"x": 1.0})
 
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",

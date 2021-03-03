@@ -633,7 +633,6 @@ class ModelBridge(ABC):
             fixed_features=fixed_features,
             model_gen_options=model_gen_options,
         )
-
         # Apply reverse transforms
         for t in reversed(self.transforms.values()):  # noqa T484
             observation_features = t.untransform_observation_features(
@@ -642,13 +641,16 @@ class ModelBridge(ABC):
             if best_obsf is not None:
                 best_obsf = t.untransform_observation_features([best_obsf])[0]
 
-        # Clamp the untransformed data to the original search space
-        observation_features = clamp_observation_features(
-            observation_features, orig_search_space
-        )
-        if best_obsf is not None:
-            best_obsf = clamp_observation_features([best_obsf], orig_search_space)[0]
-
+        # Clamp the untransformed data to the original search space if
+        # we don't fit/gen OOD points
+        if not self._fit_out_of_design:
+            observation_features = clamp_observation_features(
+                observation_features, orig_search_space
+            )
+            if best_obsf is not None:
+                best_obsf = clamp_observation_features([best_obsf], orig_search_space)[
+                    0
+                ]
         best_point_predictions = None
         try:
             model_predictions = self.predict(observation_features)
