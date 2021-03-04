@@ -442,6 +442,7 @@ class Experiment(Base):
                 "this experiment, and none were passed in to `fetch_data`."
             )
         if not any(t.status.expecting_data for t in trials):
+            logger.info("No trials are in a state expecting data. Returning empty data")
             return Data()
         metrics_to_fetch = list(metrics or self.metrics.values())
         metrics_by_class = self._metrics_by_class(metrics=metrics_to_fetch)
