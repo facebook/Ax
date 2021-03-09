@@ -112,6 +112,9 @@ def _get_X_pending_and_observed(
 ) -> Tuple[Optional[Tensor], Optional[Tensor]]:
     r"""Get pending and observed points.
 
+    If all points would otherwise be filtered, remove `linear_constraints`
+    and `fixed_features` from filter and retry.
+
     Args:
         Xs: The input tensors of a model.
         pending_observations:  A list of m (k_i x d) feature tensors X
@@ -146,7 +149,7 @@ def _get_X_pending_and_observed(
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
         )
-    X_observed = _filter_X_observed(
+    filtered_X_observed = _filter_X_observed(
         Xs=Xs,
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
@@ -154,7 +157,16 @@ def _get_X_pending_and_observed(
         linear_constraints=linear_constraints,
         fixed_features=fixed_features,
     )
-    return X_pending, X_observed
+    if filtered_X_observed is not None and len(filtered_X_observed) > 0:
+        return X_pending, filtered_X_observed
+    else:
+        unfiltered_X_observed = _filter_X_observed(
+            Xs=Xs,
+            objective_weights=objective_weights,
+            bounds=bounds,
+            outcome_constraints=outcome_constraints,
+        )
+        return X_pending, unfiltered_X_observed
 
 
 def _generate_sobol_points(
