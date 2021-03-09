@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict
 
@@ -20,7 +22,7 @@ class Runner(Base, ABC):
     """Abstract base class for custom runner classes"""
 
     @classmethod
-    def serialize_init_args(cls, runner: "Runner") -> Dict[str, Any]:
+    def serialize_init_args(cls, runner: Runner) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the runner.
         Used for storage.
         """
@@ -34,7 +36,7 @@ class Runner(Base, ABC):
         return extract_init_args(args=args, class_=cls)
 
     @abstractmethod
-    def run(self, trial: "core.base_trial.BaseTrial") -> Dict[str, Any]:
+    def run(self, trial: core.base_trial.BaseTrial) -> Dict[str, Any]:
         """Deploys a trial based on custom runner subclass implementation.
 
         Args:
@@ -45,7 +47,7 @@ class Runner(Base, ABC):
         """
         pass  # pragma: no cover
 
-    def stop(self, trial: "core.base_trial.BaseTrial") -> None:
+    def stop(self, trial: core.base_trial.BaseTrial) -> None:
         """Stop a trial based on custom runner subclass implementation.
 
         Optional to implement
