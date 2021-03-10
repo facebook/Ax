@@ -269,7 +269,6 @@ def _get_acqusition_func(
         # pyre-fixme[6]: Expected `Optional[int]` for 9th param but got
         #  `Union[float, int]`.
         seed=torch.randint(1, 10000, (1,)).item(),
-        marginalize_dim=kwargs.get("marginalize_dim"),
     )
 
 
