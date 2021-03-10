@@ -74,25 +74,30 @@ class FrontierEvaluatorTest(TestCase):
             )
 
     def test_pareto_frontier_evaluator_raw(self):
+        Yvar = torch.diag_embed(self.Yvar)
         Y, cov = pareto_frontier_evaluator(
             model=self.model,
             objective_weights=self.objective_weights,
             objective_thresholds=self.objective_thresholds,
             Y=self.Y,
-            Yvar=self.Yvar,
+            Yvar=Yvar,
         )
         pred = self.Y[2:4]
         self.assertTrue(torch.allclose(Y, pred), f"{Y} does not match {pred}")
+        expected_cov = Yvar[2:4]
+        self.assertTrue(torch.allclose(expected_cov, cov))
 
         # Omit objective_thresholds
         Y, cov = pareto_frontier_evaluator(
             model=self.model,
             objective_weights=self.objective_weights,
             Y=self.Y,
-            Yvar=self.Yvar,
+            Yvar=Yvar,
         )
         pred = self.Y[2:]
         self.assertTrue(torch.allclose(Y, pred), f"{Y} does not match {pred}")
+        expected_cov = Yvar[2:]
+        self.assertTrue(torch.allclose(expected_cov, cov))
 
         # Change objective_weights so goal is to minimize b
         Y, cov = pareto_frontier_evaluator(
@@ -100,12 +105,25 @@ class FrontierEvaluatorTest(TestCase):
             objective_weights=torch.tensor([1.0, -1.0]),
             objective_thresholds=self.objective_thresholds,
             Y=self.Y,
-            Yvar=self.Yvar,
+            Yvar=Yvar,
         )
         pred = self.Y[[0, 4]]
         self.assertTrue(
             torch.allclose(Y, pred), f"actual {Y} does not match pred {pred}"
         )
+        expected_cov = Yvar[[0, 4]]
+        self.assertTrue(torch.allclose(expected_cov, cov))
+
+        # test no points better than reference point
+        Y, cov = pareto_frontier_evaluator(
+            model=self.model,
+            objective_weights=self.objective_weights,
+            objective_thresholds=torch.full_like(self.objective_thresholds, 100.0),
+            Y=self.Y,
+            Yvar=Yvar,
+        )
+        self.assertTrue(torch.equal(Y, self.Y[:0]))
+        self.assertTrue(torch.equal(cov, torch.zeros(0, 3, 3)))
 
     def test_pareto_frontier_evaluator_predict(self):
         Y, cov = pareto_frontier_evaluator(
