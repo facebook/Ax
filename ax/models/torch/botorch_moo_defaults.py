@@ -238,7 +238,7 @@ def pareto_frontier_evaluator(
             dominate the objective_thresholds contribute nothing to hypervolume.
         X: A `n x d` tensor of features to evaluate.
         Y: A `n x m` tensor of outcomes to use instead of predictions.
-        Yvar: A `n x m` tensor of input variances (NaN if unobserved).
+        Yvar: A `n x m x m` tensor of input covariances (NaN if unobserved).
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b.
@@ -290,6 +290,10 @@ def pareto_frontier_evaluator(
         Yvar = Yvar[feas]
         Y_obj = Y_obj[feas]
 
+    if Y.shape[0] == 0:
+        # if there are no feasible points that are better than the reference point
+        # return empty tensors
+        return Y, Yvar
     # calculate pareto front with only objective outcomes:
     frontier_mask = is_non_dominated(Y_obj)
 
