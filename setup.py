@@ -12,7 +12,7 @@ if os.environ.get("ALLOW_BOTORCH_LATEST"):
     # allows installing using a more recent botorch dev version
     botorch_req = "botorch"
 else:
-    f"botorch=={PINNED_BOTORCH_VERSION}"
+    botorch_req = f"botorch=={PINNED_BOTORCH_VERSION}"
 
 
 REQUIRES = [
