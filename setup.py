@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import os
+
 from setuptools import find_packages, setup
 
 # TODO: read pinned Botorch version from a shared source
 PINNED_BOTORCH_VERSION = "0.4.0"
 
+if os.environ.get("ALLOW_BOTORCH_MASTER"):
+    # allows installing using a more recent botorch dev version
+    botorch_req = "botorch"
+else:
+    f"botorch=={PINNED_BOTORCH_VERSION}"
+
+
 REQUIRES = [
-    f"botorch=={PINNED_BOTORCH_VERSION}",
+    botorch_req,
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",

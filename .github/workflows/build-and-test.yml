@@ -22,11 +22,13 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
+      env:
+        ALLOW_BOTORCH_MASTER: true
       run: |
         # use master Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -q -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook]
     - name: Tests and coverage
       run: |
         pytest -ra --cov=ax
@@ -69,11 +71,13 @@ jobs:
       with:
         python-version: 3.7
     - name: Install dependencies
+      env:
+        ALLOW_BOTORCH_MASTER: true
       run: |
         # use master Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -q -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook]
     - name: Validate Sphinx
       run: |
         python scripts/validate_sphinx.py -p "${pwd}"

@@ -24,13 +24,13 @@ jobs:
     - name: Install dependencies (stable Botorch)
       run: |
         # will automatically install latest stable Botorch
-        pip install -q -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook]
       if: matrix.botorch == 'stable'
     - name: Install dependencies (pinned Botorch)
       run: |
         # TODO: read pinned Botorch version from a shared source
         pip install botorch==0.4.0
-        pip install -q -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook]
       if: matrix.botorch == 'pinned'
     - name: Import Ax
       run: |
@@ -53,7 +53,7 @@ jobs:
     - name: Install dependencies
       run: |
         # use stable Botorch
-        pip install -q -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook]
         pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
         pip install torchvision  # required for tutorials
         pip install ray  # Required for building RayTune tutorial notebook.
@@ -80,7 +80,7 @@ jobs:
     - name: Install dependencies
       run: |
         # use stable Botorch
-        pip install -q -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook]
         pip install wheel
     - name: Fetch all history for all tags and branches
       run: git fetch --prune --unshallow
