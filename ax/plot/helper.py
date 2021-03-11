@@ -28,6 +28,16 @@ RawData = List[Dict[str, Union[str, float]]]
 TNullableGeneratorRunsDict = Optional[Dict[str, GeneratorRun]]
 
 
+def extend_range(lower: float, upper: float, percent: int = 20) -> Tuple[float, float]:
+    up = (100 + percent) / 100
+    down = (100 - percent) / 100
+
+    lower = lower * up if lower < 0 else lower * down
+    upper = upper * down if upper < 0 else upper * up
+
+    return lower, upper
+
+
 def _format_dict(param_dict: TParameterization, name: str = "Parameterization") -> str:
     """Format a dictionary for labels.
 
