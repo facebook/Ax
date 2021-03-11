@@ -11,11 +11,15 @@ from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric
 from ax.core.observation import ObservationFeatures
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
+from ax.core.types import ComparisonOp
 from ax.modelbridge.modelbridge_utils import (
     clamp_observation_features,
     get_pending_observation_features,
     pending_observations_as_array,
+    extract_outcome_constraints,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment
@@ -238,3 +242,32 @@ class TestModelbridgeUtils(TestCase):
         for obs_ft, expected_obs_ft in cases:
             actual_obs_ft = clamp_observation_features([obs_ft], search_space)
             self.assertEqual(actual_obs_ft[0], expected_obs_ft)
+
+    def test_extract_outcome_constraints(self):
+        outcomes = ["m1", "m2", "m3"]
+        # pass no outcome constraints
+        self.assertIsNone(extract_outcome_constraints([], outcomes))
+
+        outcome_constraints = [
+            OutcomeConstraint(metric=Metric("m1"), op=ComparisonOp.LEQ, bound=0)
+        ]
+        res = extract_outcome_constraints(outcome_constraints, outcomes)
+        self.assertEqual(res[0].shape, (1, 3))
+        self.assertListEqual(list(res[0][0]), [1, 0, 0])
+        self.assertEqual(res[1][0][0], 0)
+
+        outcome_constraints = [
+            OutcomeConstraint(metric=Metric("m1"), op=ComparisonOp.LEQ, bound=0),
+            ScalarizedOutcomeConstraint(
+                metrics=[Metric("m2"), Metric("m3")],
+                weights=[0.5, 0.5],
+                op=ComparisonOp.GEQ,
+                bound=1,
+            ),
+        ]
+        res = extract_outcome_constraints(outcome_constraints, outcomes)
+        self.assertEqual(res[0].shape, (2, 3))
+        self.assertListEqual(list(res[0][0]), [1, 0, 0])
+        self.assertListEqual(list(res[0][1]), [0, -0.5, -0.5])
+        self.assertEqual(res[1][0][0], 0)
+        self.assertEqual(res[1][1][0], -1)

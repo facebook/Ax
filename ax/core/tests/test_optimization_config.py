@@ -10,7 +10,11 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.outcome_constraint import (
+    ObjectiveThreshold,
+    OutcomeConstraint,
+    ScalarizedOutcomeConstraint,
+)
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 
@@ -18,7 +22,9 @@ from ax.utils.common.testutils import TestCase
 OC_STR = (
     'OptimizationConfig(objective=Objective(metric_name="m1", minimize=False), '
     "outcome_constraints=[OutcomeConstraint(m2 >= -0.25%), "
-    "OutcomeConstraint(m2 <= 0.25%)])"
+    "OutcomeConstraint(m2 <= 0.25%), "
+    "ScalarizedOutcomeConstraint(metric_names=['m1', 'm2'], "
+    "weights=[0.5, 0.5], >= -0.25%)])"
 )
 
 MOOC_STR = (
@@ -46,9 +52,16 @@ class OptimizationConfigTest(TestCase):
         self.additional_outcome_constraint = OutcomeConstraint(
             metric=self.metrics["m2"], op=ComparisonOp.LEQ, bound=0.25
         )
+        self.scalarized_outcome_constraint = ScalarizedOutcomeConstraint(
+            metrics=[self.metrics["m1"], self.metrics["m2"]],
+            weights=[0.5, 0.5],
+            op=ComparisonOp.GEQ,
+            bound=-0.25,
+        )
         self.outcome_constraints = [
             self.outcome_constraint,
             self.additional_outcome_constraint,
+            self.scalarized_outcome_constraint,
         ]
 
     def testInit(self):

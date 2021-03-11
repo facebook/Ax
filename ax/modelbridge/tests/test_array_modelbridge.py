@@ -13,6 +13,8 @@ from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.types import ComparisonOp
 from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.transforms.base import Transform
@@ -170,6 +172,24 @@ class ArrayModelBridgeTest(TestCase):
         # test check that optimization config is required
         with self.assertRaises(ValueError):
             run = modelbridge.gen(n=1, optimization_config=None)
+
+        # test optimization config validation - raise error when
+        # ScalarizedOutcomeConstraint contains a metric that is not in the outcomes
+        with self.assertRaises(ValueError):
+            run = modelbridge.gen(
+                n=1,
+                optimization_config=OptimizationConfig(
+                    objective=Objective(metric=Metric("a"), minimize=False),
+                    outcome_constraints=[
+                        ScalarizedOutcomeConstraint(
+                            metrics=[Metric("wrong_metric_name")],
+                            weights=[1.0],
+                            op=ComparisonOp.LEQ,
+                            bound=0,
+                        )
+                    ],
+                ),
+            )
 
     @patch(
         f"{ModelBridge.__module__}.observations_from_data",

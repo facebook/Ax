@@ -30,6 +30,7 @@ from ax.utils.testing.core_stubs import (
     get_optimization_config,
     get_search_space,
     get_status_quo,
+    get_scalarized_outcome_constraint,
 )
 
 
@@ -140,6 +141,21 @@ class ExperimentTest(TestCase):
         self.assertEqual(
             len(get_optimization_config().metrics) + 1, len(self.experiment.metrics)
         )
+
+        # Add optimization config with 1 scalarized constraint composed of 2 metrics
+        opt_config = get_optimization_config()
+        opt_config.outcome_constraints = opt_config.outcome_constraints + [
+            get_scalarized_outcome_constraint()
+        ]
+        self.experiment.optimization_config = opt_config
+
+        # Verify total metrics size is the same.
+        self.assertEqual(len(opt_config.metrics) + 1, len(self.experiment.metrics))
+        self.assertEqual(
+            len(get_optimization_config().metrics) + 3, len(self.experiment.metrics)
+        )
+        # set back
+        self.experiment.optimization_config = get_optimization_config()
 
         # Test adding new tracking metric
         self.experiment.add_tracking_metric(Metric(name="m4"))

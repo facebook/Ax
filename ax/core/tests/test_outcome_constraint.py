@@ -13,6 +13,7 @@ from ax.core.outcome_constraint import (
     UPPER_BOUND_MISMATCH,
     ObjectiveThreshold,
     OutcomeConstraint,
+    ScalarizedOutcomeConstraint,
 )
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
@@ -111,3 +112,86 @@ class ObjectiveThresholdTest(TestCase):
             mock_warning.debug.assert_called_once_with(
                 CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH)
             )
+
+
+class ScalarizedOutcomeConstraintTest(TestCase):
+    def setUp(self):
+        self.metrics = [
+            Metric(name="m1", lower_is_better=True),
+            Metric(name="m2", lower_is_better=True),
+            Metric(name="m3", lower_is_better=True),
+        ]
+        self.weights = [0.1, 0.3, 0.6]
+        self.bound = 0
+        self.constraint = ScalarizedOutcomeConstraint(
+            metrics=self.metrics,
+            weights=self.weights,
+            op=ComparisonOp.GEQ,
+            bound=self.bound,
+        )
+
+    def testInit(self):
+        self.assertListEqual(self.constraint.metrics, self.metrics)
+        self.assertListEqual(self.constraint.weights, self.weights)
+        self.assertEqual(len(list(self.constraint.metric_weights)), len(self.metrics))
+        self.assertEqual(
+            str(self.constraint),
+            (
+                "ScalarizedOutcomeConstraint(metric_names=['m1', 'm2', 'm3'], "
+                "weights=[0.1, 0.3, 0.6], >= 0%)"
+            ),
+        )
+        # check that weights are set uniformly by default
+        con = ScalarizedOutcomeConstraint(
+            metrics=[
+                Metric(name="m1", lower_is_better=True),
+                Metric(name="m2", lower_is_better=True),
+            ],
+            op=ComparisonOp.LEQ,
+            bound=self.bound,
+        )
+        self.assertListEqual(con.weights, [0.5, 0.5])
+
+    def testEq(self):
+        constraint1 = ScalarizedOutcomeConstraint(
+            metrics=self.metrics,
+            weights=self.weights,
+            op=ComparisonOp.GEQ,
+            bound=self.bound,
+        )
+        self.assertEqual(constraint1, self.constraint)
+
+        constraint2 = ScalarizedOutcomeConstraint(
+            metrics=self.metrics,
+            weights=[0.2, 0.2, 0.6],
+            op=ComparisonOp.LEQ,
+            bound=self.bound,
+        )
+        self.assertNotEqual(constraint2, self.constraint)
+
+    def testClone(self):
+        self.assertEqual(self.constraint, self.constraint.clone())
+
+    def testValidMutations(self):
+        # updating constraint metric is ok as long as lower_is_better is compatible.
+        self.constraint.metrics = [
+            Metric(name="m2"),
+            Metric(name="m4"),
+        ]
+        self.constraint.op = ComparisonOp.LEQ
+
+    def testRaiseError(self):
+        # set a wrong weights
+        with self.assertRaises(ValueError):
+            ScalarizedOutcomeConstraint(
+                metrics=self.metrics,
+                weights=[0.2, 0.8],
+                op=ComparisonOp.LEQ,
+                bound=self.bound,
+            )
+
+        with self.assertRaises(NotImplementedError):
+            return self.constraint.metric
+
+        with self.assertRaises(NotImplementedError):
+            self.constraint.metric = self.metrics[0]

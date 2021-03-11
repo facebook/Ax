@@ -11,6 +11,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     OptimizationConfig,
 )
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.base import ModelBridge
@@ -547,7 +548,14 @@ def validate_optimization_config(
     for c in optimization_config.outcome_constraints:
         if c.relative:
             raise ValueError(f"{c} is a relative constraint.")
-        if c.metric.name not in outcomes:  # pragma: no cover
+        if isinstance(c, ScalarizedOutcomeConstraint):
+            for c_metric in c.metrics:
+                if c_metric.name not in outcomes:  # pragma: no cover
+                    raise ValueError(
+                        f"Scalarized constraint metric component {c.metric.name} "
+                        + "not found in fitted data."
+                    )
+        elif c.metric.name not in outcomes:  # pragma: no cover
             raise ValueError(
                 f"Outcome constraint metric {c.metric.name} not found in fitted data."
             )

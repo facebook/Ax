@@ -24,7 +24,11 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.outcome_constraint import (
+    ObjectiveThreshold,
+    OutcomeConstraint,
+    ScalarizedOutcomeConstraint,
+)
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -682,6 +686,15 @@ def get_objective_threshold() -> ObjectiveThreshold:
 
 def get_outcome_constraint() -> OutcomeConstraint:
     return OutcomeConstraint(metric=Metric(name="m2"), op=ComparisonOp.GEQ, bound=-0.25)
+
+
+def get_scalarized_outcome_constraint() -> ScalarizedOutcomeConstraint:
+    return ScalarizedOutcomeConstraint(
+        metrics=[Metric(name="oc_m3"), Metric(name="oc_m4")],
+        weights=[0.2, 0.8],
+        op=ComparisonOp.GEQ,
+        bound=-0.25,
+    )
 
 
 def get_branin_outcome_constraint() -> OutcomeConstraint:

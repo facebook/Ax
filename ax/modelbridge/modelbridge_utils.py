@@ -27,7 +27,11 @@ from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig, TRefPoint
-from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
+from ax.core.outcome_constraint import (
+    ComparisonOp,
+    OutcomeConstraint,
+    ScalarizedOutcomeConstraint,
+)
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
@@ -177,8 +181,13 @@ def extract_outcome_constraints(
         b = np.zeros((len(outcome_constraints), 1))
         for i, c in enumerate(outcome_constraints):
             s = 1 if c.op == ComparisonOp.LEQ else -1
-            j = outcomes.index(c.metric.name)
-            A[i, j] = s
+            if isinstance(c, ScalarizedOutcomeConstraint):
+                for c_metric, c_weight in c.metric_weights:
+                    j = outcomes.index(c_metric.name)
+                    A[i, j] = s * c_weight
+            else:
+                j = outcomes.index(c.metric.name)
+                A[i, j] = s
             b[i, 0] = s * c.bound
         outcome_constraint_bounds: TBounds = (A, b)
     else:

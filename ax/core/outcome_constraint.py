@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Iterable, Tuple
 
 from ax.core.metric import Metric
 from ax.core.types import ComparisonOp
@@ -157,3 +157,103 @@ class ObjectiveThreshold(OutcomeConstraint):
         op = ">=" if self.op == ComparisonOp.GEQ else "<="
         relative = "%" if self.relative else ""
         return f"ObjectiveThreshold({self.metric.name} {op} {self.bound}{relative})"
+
+
+class ScalarizedOutcomeConstraint(OutcomeConstraint):
+    """Class for presenting outcome constraints composed of a linear
+    scalarization of metrics.
+
+    Attributes:
+        metrics: List of metrics.
+        weights: Weights for scalarization; default to 1.0 / len(metrics).
+        op: Specifies whether metric should be greater or equal
+            to, or less than or equal to, some bound.
+        bound: The bound in the constraint.
+        relative: Whether you want to bound on an absolute or relative
+            scale. If relative, bound is the acceptable percent change.
+    """
+
+    weights: List[float]
+
+    def __init__(
+        self,
+        metrics: List[Metric],
+        op: ComparisonOp,
+        bound: float,
+        relative: bool = True,
+        weights: Optional[List[float]] = None,
+    ) -> None:
+        for metric in metrics:
+            self._validate_metric_constraint(metric=metric, op=op)
+
+        if weights is None:
+            weights = [1.0 / len(metrics)] * len(metrics)
+        elif len(weights) != len(metrics):
+            raise ValueError("Length of weights must equal length of metrics")
+        self._metrics = metrics
+        self.weights = weights
+        self._op = op
+        self.bound = bound
+        self.relative = relative
+
+    @property
+    def metric_weights(self) -> Iterable[Tuple[Metric, float]]:
+        """Get the objective metrics and weights."""
+        return zip(self.metrics, self.weights)
+
+    @property
+    def metrics(self) -> List[Metric]:
+        return self._metrics
+
+    @metrics.setter
+    def metrics(self, metrics: List[Metric]) -> None:
+        for metric in metrics:
+            self._validate_metric_constraint(metric=metric, op=self.op)
+        self._metrics = metrics
+
+    @property
+    def metric(self) -> Metric:
+        """Override base method to error."""
+        raise NotImplementedError(
+            f"{type(self).__name__} is composed of multiple metrics"
+        )
+
+    @metric.setter
+    def metric(self, metric: Metric) -> None:
+        """Override base method to error."""
+        raise NotImplementedError(
+            f"{type(self).__name__} is composed of multiple metrics"
+        )
+
+    @property
+    def op(self) -> ComparisonOp:
+        return self._op
+
+    @op.setter
+    def op(self, op: ComparisonOp) -> None:
+        for metric in self.metrics:
+            self._validate_metric_constraint(metric=metric, op=op)
+        self._op = op
+
+    def clone(self) -> ScalarizedOutcomeConstraint:
+        """Create a copy of this ScalarizedOutcomeConstraint."""
+        return ScalarizedOutcomeConstraint(
+            metrics=[m.clone() for m in self.metrics],
+            op=self.op,
+            bound=self.bound,
+            relative=self.relative,
+            weights=self.weights.copy(),
+        )
+
+    def __repr__(self) -> str:
+        op = ">=" if self.op == ComparisonOp.GEQ else "<="
+        relative = "%" if self.relative else ""
+        return (
+            "ScalarizedOutcomeConstraint(metric_names={}, weights={}, {} {}{})".format(
+                [metric.name for metric in self.metrics],
+                self.weights,
+                op,
+                self.bound,
+                relative,
+            )
+        )
