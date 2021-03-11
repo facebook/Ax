@@ -4,13 +4,18 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import plotly.graph_objs as go
+from ax.core.data import Data
 from ax.plot.base import CI_OPACITY, DECIMALS, AxPlotConfig, AxPlotTypes
-from ax.plot.helper import _format_CI, _format_dict
-from ax.plot.pareto_utils import COLORS, ParetoFrontierResults, rgba
+from ax.plot.color import COLORS, rgba
+from ax.plot.helper import extend_range, _format_CI, _format_dict
+from ax.plot.pareto_utils import (
+    ParetoFrontierResults,
+    observed_pareto_frontier,
+)
 from scipy.stats import norm
 
 
@@ -27,6 +32,106 @@ def _make_label(
         if Z is None
         else _format_CI(estimate=mean, sd=sem, relative=is_relative, zval=Z),
         perc="%" if is_relative else "",
+    )
+
+
+def scatter_plot_with_pareto_frontier_plotly(
+    data: Data,
+    metric_x: str,
+    metric_y: str,
+    reference_point: Tuple[float, float],
+) -> go.Figure:
+    """Plots a scatter of all points in ``Data`` for ``metric_x`` and ``metric_y``
+    with a reference point and Pareto frontier.
+
+    Points in the scatter are colored in a gradient representing their trial index,
+    with metric_x on x-axis and metric_y on y-axis. Reference point is represented
+    as a star and Pareto frontier –– as a line. The frontier connects to the reference
+    point via projection lines.
+    """
+    Y_pareto, Y = observed_pareto_frontier(
+        data=data, reference_point=reference_point, metric_x=metric_x, metric_y=metric_y
+    )
+    Xs = Y[:, 0]
+    Ys = Y[:, 1]
+
+    experimental_points_scatter = go.Scatter(
+        x=Xs,
+        y=Ys,
+        mode="markers",
+        marker={
+            "color": np.linspace(0, 100, int(len(Xs) * 1.05)),
+            "colorscale": "magma",
+            "colorbar": {
+                "tickvals": [0, 50, 100],
+                "ticktext": ["1", "iteration", f"{len(Xs)}"],
+            },
+        },
+        name="Experimental points",
+    )
+    reference_point_star = go.Scatter(
+        x=[reference_point[1]],
+        y=[reference_point[0]],
+        mode="markers",
+        marker={"color": rgba(COLORS.STEELBLUE.value), "size": 25, "symbol": "star"},
+    )
+    reference_point_line_1 = go.Scatter(
+        x=[min(Y_pareto[:, 0]), reference_point[1]],
+        y=[reference_point[0], reference_point[0]],
+        mode="lines",
+        marker={"color": rgba(COLORS.STEELBLUE.value)},
+    )
+    reference_point_line_2 = go.Scatter(
+        x=[reference_point[1], reference_point[1]],
+        y=[min(Y_pareto[:, 1]), reference_point[0]],
+        mode="lines",
+        marker={"color": rgba(COLORS.STEELBLUE.value)},
+    )
+    pareto_step = go.Scatter(
+        x=Y_pareto[:, 0],
+        y=Y_pareto[:, 1],
+        mode="lines",
+        marker={"color": rgba(COLORS.STEELBLUE.value)},
+    )
+
+    layout = go.Layout(
+        title="Observed points with Pareto frontier",
+        showlegend=False,
+        xaxis={
+            "title": metric_x,
+            "range": extend_range(lower=min(Xs), upper=reference_point[0]),
+        },
+        yaxis={
+            "title": metric_y,
+            "range": extend_range(lower=min(Ys), upper=reference_point[1]),
+        },
+    )
+    return go.Figure(
+        layout=layout,
+        data=[
+            experimental_points_scatter,
+            reference_point_star,
+            reference_point_line_1,
+            reference_point_line_2,
+            pareto_step,
+        ],
+    )
+
+
+def scatter_plot_with_pareto_frontier(
+    data: Data,
+    metric_x: str,
+    metric_y: str,
+    reference_point: Tuple[float, float],
+) -> AxPlotConfig:
+    return AxPlotConfig(
+        data=scatter_plot_with_pareto_frontier_plotly(
+            data=data,
+            metric_x=metric_x,
+            metric_y=metric_y,
+            reference_point=reference_point,
+        ),
+        plot_type=AxPlotTypes.GENERIC,
     )
 
 

@@ -4,10 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import enum
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
+import torch
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -22,6 +22,7 @@ from ax.modelbridge.registry import Models
 from ax.models.torch.posterior_mean import get_PosteriorMean
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
+from botorch.utils.multi_objective import is_non_dominated
 
 
 # type aliases
@@ -29,16 +30,41 @@ Mu = Dict[str, List[float]]
 Cov = Dict[str, Dict[str, List[float]]]
 
 
-class COLORS(enum.Enum):
-    STEELBLUE = (128, 177, 211)
-    CORAL = (251, 128, 114)
-    TEAL = (141, 211, 199)
-    PINK = (188, 128, 189)
-    LIGHT_PURPLE = (190, 186, 218)
-    ORANGE = (253, 180, 98)
-
-
 logger = get_logger(__name__)
+
+
+def observed_pareto_frontier(
+    data: Data, reference_point: Tuple[float, float], metric_x: str, metric_y: str
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Compute the Pareto frontier (assumes minimization).
+
+    Args:
+        data: Data, in which to find the Pareto frontier.
+        reference_point: Reference point for the Pareto frontier computation.
+        metric_x: First metric in the frontier.
+        metric_y: Second metric in the frontier.
+
+    Returns: Tuple of two tensors: Y_pareto and Y. Former is points on
+        the Pareto frontier for ``metric_x`` and ``metric_y``among ``Data``
+        and latter is a tensor of all (metric_x, metric_y) points in ``Data``.
+    """
+    tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
+    dfp = data.df.pivot_table(
+        index="trial_index", columns="metric_name", aggfunc=np.mean
+    )["mean"]
+    ref_point = torch.tensor([reference_point[1], reference_point[0]], **tkwargs)
+
+    Y_np = np.vstack((dfp[metric_x].values, dfp[metric_y])).T
+    Y = torch.from_numpy(Y_np).to(**tkwargs)
+    Y_pareto = Y[is_non_dominated(-1 * Y), :]
+    Y_pareto = Y_pareto[torch.all(Y_pareto < ref_point, axis=1), :]
+    Y_pareto = Y_pareto[torch.argsort(Y_pareto[:, 0]), :]
+    y1 = torch.tensor([Y_pareto[0, 0], ref_point[1]], **tkwargs)
+    yn = torch.tensor([ref_point[0], Y_pareto[-1, 1]], **tkwargs)
+    Y_pareto = torch.cat((y1.unsqueeze(0), Y_pareto, yn.unsqueeze(0)))
+
+    assert Y_pareto.shape[1] == 2  # Y_pareto should have two outcomes.
+    return Y_pareto, Y
 
 
 def rgba(rgb_tuple: Tuple[float], alpha: float = 1) -> str:
