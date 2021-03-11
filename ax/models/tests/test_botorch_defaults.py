@@ -161,3 +161,7 @@ class BotorchDefaultsTest(TestCase):
         self.assertEqual(warp_tf.indices.tolist(), list(range(4)))
         warp_tf = get_warping_transform(d=4, task_feature=2)
         self.assertEqual(warp_tf.indices.tolist(), [0, 1, 3])
+        warp_tf = get_warping_transform(d=4, batch_shape=torch.Size([2]))
+        self.assertIsInstance(warp_tf, Warp)
+        self.assertEqual(warp_tf.indices.tolist(), list(range(4)))
+        self.assertEqual(warp_tf.batch_shape, torch.Size([2]))
