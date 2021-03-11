@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        botorch: ['stable', 'latest']
+        botorch: ['stable', 'latest']  # 'stable' is pinned BoTorch version
       fail-fast: false
 
     steps:
@@ -29,7 +29,7 @@ jobs:
         # will automatically install latest stable Botorch (pinned in setup.py)
         pip install -e .[dev,mysql,notebook]
       if: matrix.botorch == 'stable'
-    - name: Install dependencies (pinned Botorch)
+    - name: Install dependencies (Botorch master)
       env:
         ALLOW_BOTORCH_LATEST: true
       run: |
