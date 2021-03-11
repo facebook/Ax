@@ -530,6 +530,7 @@ def _get_model(
         warp_tf = get_warping_transform(
             d=X.shape[-1],
             task_feature=task_feature,
+            batch_shape=X.shape[:-2],  # pyre-ignore [6]
         )
     else:
         warp_tf = None
@@ -603,13 +604,15 @@ def _get_model(
 
 def get_warping_transform(
     d: int,
+    batch_shape: Optional[torch.Size] = None,
     task_feature: Optional[int] = None,
 ) -> Warp:
     """Construct input warping transform.
 
     Args:
         d: The dimension of the input, including task features
-        task_feature: the index of the task feature
+        batch_shape: The batch_shape of the model
+        task_feature: The index of the task feature
 
     Returns:
         The input warping transform.
@@ -624,5 +627,6 @@ def get_warping_transform(
         # prior with a median of 1
         concentration1_prior=LogNormalPrior(0.0, 0.75 ** 0.5),
         concentration0_prior=LogNormalPrior(0.0, 0.75 ** 0.5),
+        batch_shape=batch_shape,
     )
     return tf
