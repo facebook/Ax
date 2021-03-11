@@ -47,7 +47,7 @@ from sqlalchemy.orm import backref, relationship
 ONLY_ONE_FIELDS = ["experiment_id", "generator_run_id"]
 
 
-ONLY_ONE_METRIC_FIELDS = ["scalarized_objective_id"]
+ONLY_ONE_METRIC_FIELDS = ["scalarized_objective_id", "scalarized_outcome_constraint_id"]
 
 
 class SQAParameter(Base):
@@ -175,13 +175,29 @@ class SQAMetric(Base):
     # join_depth argument: used for loading self-referential relationships
     # https://docs.sqlalchemy.org/en/13/orm/self_referential.html#configuring-self-referential-eager-loading
     scalarized_objective_children_metrics = relationship(
-        "SQAMetric", cascade="all, delete-orphan", lazy="selectin", join_depth=5
+        "SQAMetric",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        join_depth=5,
+        foreign_keys=[scalarized_objective_id],
     )
 
     # Attribute only defined for the children of Scalarized Objective
     # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
     #  `Column[decimal.Decimal]`.
     scalarized_objective_weight: Optional[float] = Column(Float)
+
+    scalarized_outcome_constraint_id = Column(Integer, ForeignKey("metric_v2.id"))
+    scalarized_outcome_constraint_children_metrics = relationship(
+        "SQAMetric",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        join_depth=5,
+        foreign_keys=[scalarized_outcome_constraint_id],
+    )
+    # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
+    #  `Column[decimal.Decimal]`.
+    scalarized_outcome_constraint_weight: Optional[float] = Column(Float)
 
 
 class SQAArm(Base):

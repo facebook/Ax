@@ -349,6 +349,26 @@ def get_experiment_with_scalarized_objective() -> Experiment:
     )
 
 
+def get_experiment_with_scalarized_outcome_constraint() -> Experiment:
+    objective = get_objective()
+    outcome_constraints = [
+        get_outcome_constraint(),
+        get_scalarized_outcome_constraint(),
+    ]
+    optimization_config = OptimizationConfig(
+        objective=objective, outcome_constraints=outcome_constraints
+    )
+    return Experiment(
+        name="test_experiment_scalarized_constraint",
+        search_space=get_search_space(),
+        optimization_config=optimization_config,
+        status_quo=get_status_quo(),
+        description="test experiment with scalarized constraint",
+        tracking_metrics=[Metric(name="tracking")],
+        is_test=True,
+    )
+
+
 ##############################
 # Search Spaces
 ##############################

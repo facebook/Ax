@@ -20,7 +20,11 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.outcome_constraint import (
+    ObjectiveThreshold,
+    OutcomeConstraint,
+    ScalarizedOutcomeConstraint,
+)
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
@@ -347,6 +351,19 @@ class Encoder:
             lower_is_better=metric.lower_is_better,
         )
 
+    def get_children_metrics_by_name(
+        self, metrics: List[Metric], weights: List[float]
+    ) -> Dict[str, Tuple[Metric, float, SQAMetric, Tuple[int, Dict[str, Any]]]]:
+        return {
+            metric.name: (
+                metric,
+                weight,
+                cast(SQAMetric, self.config.class_to_sqa_class[Metric]),
+                self.get_metric_type_and_properties(metric=metric),
+            )
+            for (metric, weight) in zip(metrics, weights)
+        }
+
     def objective_to_sqa(self, objective: Objective) -> Tuple[SQAMetric, T_OBJ_TO_SQA]:
         """Convert Ax Objective to SQLAlchemy and compile a list of (object,
         sqa_counterpart) tuples to set `db_id` on user-facing classes after
@@ -457,16 +474,9 @@ class Encoder:
                 "Metrics and weights in scalarized objective "
                 "must be lists of equal length."
             )
-
-        metrics_by_name = {
-            metric.name: (
-                metric,
-                weight,
-                cast(SQAMetric, self.config.class_to_sqa_class[Metric]),
-                self.get_metric_type_and_properties(metric=metric),
-            )
-            for (metric, weight) in zip(metrics, weights)
-        }
+        metrics_by_name = self.get_children_metrics_by_name(
+            metrics=metrics, weights=weights
+        )
 
         # Constructing children SQAMetric classes (these are the real metrics in
         # the `ScalarizedObjective`).
@@ -503,15 +513,18 @@ class Encoder:
 
     def outcome_constraint_to_sqa(
         self, outcome_constraint: OutcomeConstraint
-    ) -> SQAMetric:
+    ) -> Tuple[SQAMetric, T_OBJ_TO_SQA]:
         """Convert Ax OutcomeConstraint to SQLAlchemy."""
+        if isinstance(outcome_constraint, ScalarizedOutcomeConstraint):
+            return self.scalarized_outcome_constraint_to_sqa(outcome_constraint)
+
         metric = outcome_constraint.metric
         metric_type, properties = self.get_metric_type_and_properties(metric=metric)
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
         metric_class: SQAMetric = self.config.class_to_sqa_class[Metric]
         # pyre-fixme[29]: `SQAMetric` is not a function.
-        return metric_class(
+        constraint_sqa = metric_class(
             name=metric.name,
             metric_type=metric_type,
             intent=MetricIntent.OUTCOME_CONSTRAINT,
@@ -521,6 +534,57 @@ class Encoder:
             properties=properties,
             lower_is_better=metric.lower_is_better,
         )
+        return constraint_sqa, [(outcome_constraint.metric, constraint_sqa)]
+
+    def scalarized_outcome_constraint_to_sqa(
+        self, outcome_constraint: ScalarizedOutcomeConstraint
+    ) -> Tuple[SQAMetric, T_OBJ_TO_SQA]:
+        """Convert Ax SCalarized OutcomeConstraint to SQLAlchemy."""
+        metrics, weights = outcome_constraint.metrics, outcome_constraint.weights
+
+        if metrics is None or weights is None or len(metrics) != len(weights):
+            raise SQAEncodeError(
+                "Metrics and weights in scalarized OutcomeConstraint \
+                must be lists of equal length."
+            )  # pragma: no cover
+
+        metrics_by_name = self.get_children_metrics_by_name(
+            metrics=metrics, weights=weights
+        )
+        # Constructing children SQAMetric classes (these are the real metrics in
+        # the `ScalarizedObjective`).
+        children_metrics, con_to_sqa = [], []
+        for metric_name in metrics_by_name:
+            m, w, metric_cls, type_and_properties = metrics_by_name[metric_name]
+            children_metrics.append(
+                metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a function.
+                    name=metric_name,
+                    metric_type=type_and_properties[0],
+                    intent=MetricIntent.OUTCOME_CONSTRAINT,
+                    properties=type_and_properties[1],
+                    lower_is_better=m.lower_is_better,
+                    scalarized_outcome_constraint_weight=w,
+                    bound=outcome_constraint.bound,
+                    op=outcome_constraint.op,
+                    relative=outcome_constraint.relative,
+                )
+            )
+            con_to_sqa.append((m, children_metrics[-1]))
+
+        # Constructing a parent SQAMetric class
+        parent_metric_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+        parent_metric = parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` not a func.
+            name="scalarized_outcome_constraint",
+            metric_type=METRIC_REGISTRY[Metric],
+            intent=MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT,
+            bound=outcome_constraint.bound,
+            op=outcome_constraint.op,
+            relative=outcome_constraint.relative,
+            scalarized_outcome_constraint_children_metrics=children_metrics,
+        )
+        # NOTE: No need to append parent metric to `obj_to_sqa`, because it does not
+        # have a corresponding user-facing `Metric` object.
+        return parent_metric, con_to_sqa
 
     def objective_threshold_to_sqa(
         self, objective_threshold: ObjectiveThreshold
@@ -562,11 +626,11 @@ class Encoder:
         metrics_sqa.append(obj_sqa)
         obj_to_sqa.extend(_obj_to_sqa)
         for constraint in optimization_config.outcome_constraints:
-            constraint_sqa = self.outcome_constraint_to_sqa(
+            constraint_sqa, _obj_to_sqa = self.outcome_constraint_to_sqa(
                 outcome_constraint=constraint
             )
             metrics_sqa.append(constraint_sqa)
-            obj_to_sqa.append((constraint.metric, constraint_sqa))
+            obj_to_sqa.extend(_obj_to_sqa)
         if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
             for threshold in optimization_config.objective_thresholds:
                 threshold_sqa = self.objective_threshold_to_sqa(

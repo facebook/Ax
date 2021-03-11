@@ -82,6 +82,8 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_batch_trial,
     get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective,
+    get_experiment_with_scalarized_outcome_constraint,
+    get_scalarized_outcome_constraint,
     get_fixed_parameter,
     get_generator_run,
     get_multi_objective_optimization_config,
@@ -210,6 +212,7 @@ class SQAStoreTest(TestCase):
             self.experiment,
             get_experiment_with_multi_objective(),
             get_experiment_with_scalarized_objective(),
+            get_experiment_with_scalarized_outcome_constraint(),
         ]:
             self.assertIsNone(exp.db_id)
             save_experiment(exp)
@@ -654,6 +657,19 @@ class SQAStoreTest(TestCase):
         save_experiment(experiment)
         self.assertEqual(
             get_session().query(SQAMetric).count(), len(experiment.metrics)
+        )
+
+        # add a scalarized outcome constraint
+        outcome_constraint3 = get_scalarized_outcome_constraint()
+        optimization_config.outcome_constraints = [
+            outcome_constraint,
+            outcome_constraint3,
+        ]
+        experiment.optimization_config = optimization_config
+        save_experiment(experiment)
+        # one more for `scalarized_outcome_constraint`
+        self.assertEqual(
+            get_session().query(SQAMetric).count(), len(experiment.metrics) + 1
         )
 
         # remove outcome constraint

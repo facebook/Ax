@@ -20,6 +20,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_data,
     get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective,
+    get_experiment_with_scalarized_outcome_constraint,
     get_factorial_metric,
     get_fixed_parameter,
     get_generator_run,
@@ -32,6 +33,7 @@ from ax.utils.testing.core_stubs import (
     get_parameter_constraint,
     get_range_parameter,
     get_scalarized_objective,
+    get_scalarized_outcome_constraint,
     get_simple_experiment_with_batch_trial,
     get_sum_constraint1,
     get_sum_constraint2,
@@ -99,6 +101,12 @@ TEST_CASES = [
         Decoder.experiment_from_sqa,
     ),
     (
+        "Experiment",
+        get_experiment_with_scalarized_outcome_constraint,
+        Encoder.experiment_to_sqa,
+        Decoder.experiment_from_sqa,
+    ),
+    (
         "FixedParameter",
         get_fixed_parameter,
         Encoder.parameter_to_sqa,
@@ -149,14 +157,14 @@ TEST_CASES = [
         Decoder.metric_from_sqa,
     ),
     (
-        "ScalarizedObjective",
-        get_scalarized_objective,
-        Encoder.objective_to_sqa,
+        "OutcomeConstraint",
+        get_outcome_constraint,
+        Encoder.outcome_constraint_to_sqa,
         Decoder.metric_from_sqa,
     ),
     (
-        "OutcomeConstraint",
-        get_outcome_constraint,
+        "ScalarizedOutcomeConstraint",
+        get_scalarized_outcome_constraint,
         Encoder.outcome_constraint_to_sqa,
         Decoder.metric_from_sqa,
     ),
@@ -201,6 +209,8 @@ ENCODE_DECODE_FIELD_MAPS = {
         encoded_only={
             "scalarized_objective_children_metrics",
             "scalarized_objective_weight",
+            "scalarized_outcome_constraint_children_metrics",
+            "scalarized_outcome_constraint_weight",
         }
     ),
     "AbandonedArm": EncodeDecodeFieldsMap(
@@ -237,6 +247,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "canonical_name",
             "scalarized_objective_children_metrics",
             "scalarized_objective_weight",
+            "scalarized_outcome_constraint_children_metrics",
+            "scalarized_outcome_constraint_weight",
         ],
     ),
     "BraninOutcomeConstraint": EncodeDecodeFieldsMap(
@@ -252,6 +264,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "canonical_name",
             "scalarized_objective_children_metrics",
             "scalarized_objective_weight",
+            "scalarized_outcome_constraint_children_metrics",
+            "scalarized_outcome_constraint_weight",
         ],
     ),
     "ChoiceParameter": EncodeDecodeFieldsMap(
@@ -339,6 +353,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "canonical_name",
             "scalarized_objective_children_metrics",
             "scalarized_objective_weight",
+            "scalarized_outcome_constraint_children_metrics",
+            "scalarized_outcome_constraint_weight",
         ],
     ),
     "MultiObjective": EncodeDecodeFieldsMap(
@@ -354,6 +370,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "trial_type",
             "canonical_name",
             "scalarized_objective_weight",
+            "scalarized_outcome_constraint_children_metrics",
+            "scalarized_outcome_constraint_weight",
         ],
         python_only=["weights"],
         python_to_encoded={"metrics": "scalarized_objective_children_metrics"},
@@ -370,6 +388,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "bound",
             "trial_type",
             "canonical_name",
+            "scalarized_outcome_constraint_children_metrics",
+            "scalarized_outcome_constraint_weight",
         ],
         python_to_encoded={
             "metrics": "scalarized_objective_children_metrics",
@@ -393,7 +413,27 @@ ENCODE_DECODE_FIELD_MAPS = {
             "canonical_name",
             "scalarized_objective_children_metrics",
             "scalarized_objective_weight",
+            "scalarized_outcome_constraint_children_metrics",
+            "scalarized_outcome_constraint_weight",
         ],
+    ),
+    "ScalarizedOutcomeConstraint": EncodeDecodeFieldsMap(
+        encoded_only=[
+            "metric_type",
+            "intent",
+            "name",
+            "lower_is_better",
+            "properties",
+            "minimize",
+            "trial_type",
+            "canonical_name",
+            "scalarized_objective_children_metrics",
+            "scalarized_objective_weight",
+        ],
+        python_to_encoded={
+            "metrics": "scalarized_outcome_constraint_children_metrics",
+            "weights": "scalarized_outcome_constraint_weight",
+        },
     ),
     "ParameterConstraint": EncodeDecodeFieldsMap(encoded_only=["type"]),
     "RangeParameter": EncodeDecodeFieldsMap(
