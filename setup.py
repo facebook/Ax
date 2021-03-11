@@ -8,7 +8,7 @@ from setuptools import find_packages, setup
 # TODO: read pinned Botorch version from a shared source
 PINNED_BOTORCH_VERSION = "0.4.0"
 
-if os.environ.get("ALLOW_BOTORCH_MASTER"):
+if os.environ.get("ALLOW_BOTORCH_LATEST"):
     # allows installing using a more recent botorch dev version
     botorch_req = "botorch"
 else:

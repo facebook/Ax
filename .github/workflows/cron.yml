@@ -31,7 +31,7 @@ jobs:
       if: matrix.botorch == 'stable'
     - name: Install dependencies (pinned Botorch)
       env:
-        ALLOW_BOTORCH_MASTER: true
+        ALLOW_BOTORCH_LATEST: true
       run: |
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
@@ -58,7 +58,7 @@ jobs:
         python-version: 3.7
     - name: Install dependencies
       env:
-        ALLOW_BOTORCH_MASTER: true
+        ALLOW_BOTORCH_LATEST: true
       run: |
         # use master Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
@@ -90,7 +90,7 @@ jobs:
         python-version: 3.7
     - name: Install dependencies
       env:
-        ALLOW_BOTORCH_MASTER: true
+        ALLOW_BOTORCH_LATEST: true
       run: |
         # use master Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
