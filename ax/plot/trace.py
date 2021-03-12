@@ -193,7 +193,7 @@ def model_transitions_scatter(
     return data
 
 
-def optimization_trace_single_method(
+def optimization_trace_single_method_plotly(
     y: np.ndarray,
     optimum: Optional[float] = None,
     model_transitions: Optional[List[int]] = None,
@@ -206,7 +206,7 @@ def optimization_trace_single_method(
     optimization_direction: Optional[str] = "passthrough",
     plot_trial_points: bool = False,
     trial_points_color: Tuple[int] = COLORS.LIGHT_PURPLE.value,
-) -> AxPlotConfig:
+) -> go.Figure:
     """Plots an optimization trace with mean and 2 SEMs
 
     Args:
@@ -232,16 +232,16 @@ def optimization_trace_single_method(
         trial_points_color: tuple of 3 int values representing an RGB color for
             plotting trial points. Defaults to light purple.
     Returns:
-        AxPlotConfig: plot of the optimization trace with IQR
+        go.Figure: plot of the optimization trace with IQR
     """
     if optimization_direction not in {"minimize", "maximize", "passthrough", None}:
         raise ValueError(
             'optimization_direction must be "minimize", "maximize", "passthrough", or '
             "None"
         )
-    if not (plot_trial_points or optimization_direction is not None):
+    if (not plot_trial_points) and (optimization_direction is None):
         raise ValueError(
-            "If plot_trial_points is False, optimization_direction must be specified."
+            "If plot_trial_points is False, optimization_direction must not be None."
         )
     data = []
     if plot_trial_points:
@@ -304,8 +304,66 @@ def optimization_trace_single_method(
         xaxis={"title": "Iteration"},
     )
 
+    return go.Figure(layout=layout, data=data)
+
+
+def optimization_trace_single_method(
+    y: np.ndarray,
+    optimum: Optional[float] = None,
+    model_transitions: Optional[List[int]] = None,
+    title: str = "",
+    ylabel: str = "",
+    hover_labels: Optional[List[str]] = None,
+    trace_color: Tuple[int] = COLORS.STEELBLUE.value,
+    optimum_color: Tuple[int] = COLORS.ORANGE.value,
+    generator_change_color: Tuple[int] = COLORS.TEAL.value,
+    optimization_direction: Optional[str] = "passthrough",
+    plot_trial_points: bool = False,
+    trial_points_color: Tuple[int] = COLORS.LIGHT_PURPLE.value,
+) -> AxPlotConfig:
+    """Plots an optimization trace with mean and 2 SEMs
+
+    Args:
+        y: (r x t) array; result to plot, with r runs and t trials
+        optimum: value of the optimal objective
+        model_transitions: iterations, before which generators
+            changed
+        title: title for this plot.
+        ylabel: label for the Y-axis.
+        hover_labels: optional, text to show on hover; list where the i-th value
+            corresponds to the i-th value in the value of the `y` argument.
+        trace_color: tuple of 3 int values representing an RGB color for plotting
+            running optimum. Defaults to orange.
+        optimum_color: tuple of 3 int values representing an RGB color.
+            Defaults to orange.
+        generator_change_color: tuple of 3 int values representing
+            an RGB color. Defaults to orange.
+        optimization_direction: str, "minimize" will plot running minimum,
+            "maximize" will plot running maximum, default None does not plot running
+            optimum)
+        plot_trial_points: bool, whether to plot the objective for each trial, as
+            supplied in y (default False for backward compatibility)
+        trial_points_color: tuple of 3 int values representing an RGB color for
+            plotting trial points. Defaults to light purple.
+    Returns:
+        AxPlotConfig: plot of the optimization trace with IQR
+    """
     return AxPlotConfig(
-        data=go.Figure(layout=layout, data=data), plot_type=AxPlotTypes.GENERIC
+        data=optimization_trace_single_method_plotly(
+            y=y,
+            optimum=optimum,
+            model_transitions=model_transitions,
+            title=title,
+            ylabel=ylabel,
+            hover_labels=hover_labels,
+            trace_color=trace_color,
+            optimum_color=optimum_color,
+            generator_change_color=generator_change_color,
+            optimization_direction=optimization_direction,
+            plot_trial_points=plot_trial_points,
+            trial_points_color=trial_points_color,
+        ),
+        plot_type=AxPlotTypes.GENERIC,
     )
 
 

@@ -104,7 +104,7 @@ def _get_contour_predictions(
     return plot_data, f_plt, sd_plt, grid_x, grid_y, scales
 
 
-def plot_contour(
+def plot_contour_plotly(
     model: ModelBridge,
     param_x: str,
     param_y: str,
@@ -116,7 +116,7 @@ def plot_contour(
     lower_is_better: bool = False,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
-) -> AxPlotConfig:
+) -> go.Figure:
     """Plot predictions for a 2-d slice of the parameter space.
 
     Args:
@@ -136,6 +136,9 @@ def plot_contour(
         fixed_features: An ObservationFeatures object containing the values of
             features (including non-parameter features like context) to be set
             in the slice.
+
+    Returns:
+        go.Figure: contour plot of objective vs. parameter values
     """
     if param_x == param_y:
         raise ValueError("Please select different parameters for x- and y-dimensions.")
@@ -269,12 +272,13 @@ def plot_contour(
         },
     }
 
-    fig = go.Figure(data=traces, layout=layout)
-    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+    return go.Figure(data=traces, layout=layout)
 
 
-def interact_contour(
+def plot_contour(
     model: ModelBridge,
+    param_x: str,
+    param_y: str,
     metric_name: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
@@ -284,6 +288,58 @@ def interact_contour(
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
 ) -> AxPlotConfig:
+    """Plot predictions for a 2-d slice of the parameter space.
+
+    Args:
+        model: ModelBridge that contains model for predictions
+        param_x: Name of parameter that will be sliced on x-axis
+        param_y: Name of parameter that will be sliced on y-axis
+        metric_name: Name of metric to plot
+        generator_runs_dict: A dictionary {name: generator run} of generator runs
+            whose arms will be plotted, if they lie in the slice.
+        relative: Predictions relative to status quo
+        density: Number of points along slice to evaluate predictions.
+        slice_values: A dictionary {name: val} for the fixed values of the
+            other parameters. If not provided, then the status quo values will
+            be used if there is a status quo, otherwise the mean of numeric
+            parameters or the mode of choice parameters.
+        lower_is_better: Lower values for metric are better.
+        fixed_features: An ObservationFeatures object containing the values of
+            features (including non-parameter features like context) to be set
+            in the slice.
+
+    Returns:
+        AxPlotConfig: contour plot of objective vs. parameter values
+    """
+    return AxPlotConfig(
+        data=plot_contour_plotly(
+            model=model,
+            param_x=param_x,
+            param_y=param_y,
+            metric_name=metric_name,
+            generator_runs_dict=generator_runs_dict,
+            relative=relative,
+            density=density,
+            slice_values=slice_values,
+            lower_is_better=lower_is_better,
+            fixed_features=fixed_features,
+            trial_index=trial_index,
+        ),
+        plot_type=AxPlotTypes.GENERIC,
+    )
+
+
+def interact_contour_plotly(
+    model: ModelBridge,
+    metric_name: str,
+    generator_runs_dict: TNullableGeneratorRunsDict = None,
+    relative: bool = False,
+    density: int = 50,
+    slice_values: Optional[Dict[str, Any]] = None,
+    lower_is_better: bool = False,
+    fixed_features: Optional[ObservationFeatures] = None,
+    trial_index: Optional[int] = None,
+) -> go.Figure:
     """Create interactive plot with predictions for a 2-d slice of the parameter
     space.
 
@@ -302,6 +358,9 @@ def interact_contour(
         fixed_features: An ObservationFeatures object containing the values of
             features (including non-parameter features like context) to be set
             in the slice.
+
+    Returns:
+        go.Figure: interactive plot of objective vs. parameters
     """
     if trial_index is not None:
         if slice_values is None:
@@ -772,6 +831,54 @@ def interact_contour(
         },
     }
 
-    fig = go.Figure(data=traces, layout=layout)
-    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+    return go.Figure(data=traces, layout=layout)
     # return AxPlotConfig(config, plot_type=AxPlotTypes.INTERACT_CONTOUR)
+
+
+def interact_contour(
+    model: ModelBridge,
+    metric_name: str,
+    generator_runs_dict: TNullableGeneratorRunsDict = None,
+    relative: bool = False,
+    density: int = 50,
+    slice_values: Optional[Dict[str, Any]] = None,
+    lower_is_better: bool = False,
+    fixed_features: Optional[ObservationFeatures] = None,
+    trial_index: Optional[int] = None,
+) -> AxPlotConfig:
+    """Create interactive plot with predictions for a 2-d slice of the parameter
+    space.
+
+    Args:
+        model: ModelBridge that contains model for predictions
+        metric_name: Name of metric to plot
+        generator_runs_dict: A dictionary {name: generator run} of generator runs
+            whose arms will be plotted, if they lie in the slice.
+        relative: Predictions relative to status quo
+        density: Number of points along slice to evaluate predictions.
+        slice_values: A dictionary {name: val} for the fixed values of the
+            other parameters. If not provided, then the status quo values will
+            be used if there is a status quo, otherwise the mean of numeric
+            parameters or the mode of choice parameters.
+        lower_is_better: Lower values for metric are better.
+        fixed_features: An ObservationFeatures object containing the values of
+            features (including non-parameter features like context) to be set
+            in the slice.
+
+    Returns:
+        AxPlotConfig: interactive plot of objective vs. parameters
+    """
+    return AxPlotConfig(
+        data=interact_contour_plotly(
+            model=model,
+            metric_name=metric_name,
+            generator_runs_dict=generator_runs_dict,
+            relative=relative,
+            density=density,
+            slice_values=slice_values,
+            lower_is_better=lower_is_better,
+            fixed_features=fixed_features,
+            trial_index=trial_index,
+        ),
+        plot_type=AxPlotTypes.GENERIC,
+    )

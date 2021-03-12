@@ -121,7 +121,7 @@ def _get_slice_predictions(
     )
 
 
-def plot_slice(
+def plot_slice_plotly(
     model: ModelBridge,
     param_name: str,
     metric_name: str,
@@ -131,7 +131,7 @@ def plot_slice(
     slice_values: Optional[Dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
-) -> AxPlotConfig:
+) -> go.Figure:
     """Plot predictions for a 1-d slice of the parameter space.
 
     Args:
@@ -150,6 +150,9 @@ def plot_slice(
         fixed_features: An ObservationFeatures object containing the values of
             features (including non-parameter features like context) to be set
             in the slice.
+
+    Returns:
+        go.Figure: plot of objective vs. parameter value
     """
     pd, cntp, f_plt, rd, grid, _, _, _, fv, sd_plt, ls = _get_slice_predictions(
         model=model,
@@ -229,11 +232,59 @@ def plot_slice(
         },
     }
 
-    fig = go.Figure(data=traces, layout=layout)
-    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+    return go.Figure(data=traces, layout=layout)
 
 
-def interact_slice(
+def plot_slice(
+    model: ModelBridge,
+    param_name: str,
+    metric_name: str,
+    generator_runs_dict: TNullableGeneratorRunsDict = None,
+    relative: bool = False,
+    density: int = 50,
+    slice_values: Optional[Dict[str, Any]] = None,
+    fixed_features: Optional[ObservationFeatures] = None,
+    trial_index: Optional[int] = None,
+) -> AxPlotConfig:
+    """Plot predictions for a 1-d slice of the parameter space.
+
+    Args:
+        model: ModelBridge that contains model for predictions
+        param_name: Name of parameter that will be sliced
+        metric_name: Name of metric to plot
+        generator_runs_dict: A dictionary {name: generator run} of generator runs
+            whose arms will be plotted, if they lie in the slice.
+        relative: Predictions relative to status quo
+        density: Number of points along slice to evaluate predictions.
+        slice_values: A dictionary {name: val} for the fixed values of the
+            other parameters. If not provided, then the status quo values will
+            be used if there is a status quo, otherwise the mean of numeric
+            parameters or the mode of choice parameters. Ignored if
+            fixed_features is specified.
+        fixed_features: An ObservationFeatures object containing the values of
+            features (including non-parameter features like context) to be set
+            in the slice.
+
+    Returns:
+        AxPlotConfig: plot of objective vs. parameter value
+    """
+    return AxPlotConfig(
+        data=plot_slice_plotly(
+            model=model,
+            param_name=param_name,
+            metric_name=metric_name,
+            generator_runs_dict=generator_runs_dict,
+            relative=relative,
+            density=density,
+            slice_values=slice_values,
+            fixed_features=fixed_features,
+            trial_index=trial_index,
+        ),
+        plot_type=AxPlotTypes.GENERIC,
+    )
+
+
+def interact_slice_plotly(
     model: ModelBridge,
     param_name: str,
     metric_name: str = "",
@@ -243,7 +294,7 @@ def interact_slice(
     slice_values: Optional[Dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
-) -> AxPlotConfig:
+) -> go.Figure:
     """Create interactive plot with predictions for a 1-d slice of the parameter
     space.
 
@@ -263,6 +314,9 @@ def interact_slice(
         fixed_features: An ObservationFeatures object containing the values of
             features (including non-parameter features like context) to be set
             in the slice.
+
+    Returns:
+        go.Figure: interactive plot of objective vs. parameter
     """
     if generator_runs_dict is None:
         generator_runs_dict = {}
@@ -415,5 +469,55 @@ def interact_slice(
         },
     }
 
-    fig = go.Figure(data=traces, layout=layout)
-    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+    return go.Figure(data=traces, layout=layout)
+
+
+def interact_slice(
+    model: ModelBridge,
+    param_name: str,
+    metric_name: str = "",
+    generator_runs_dict: TNullableGeneratorRunsDict = None,
+    relative: bool = False,
+    density: int = 50,
+    slice_values: Optional[Dict[str, Any]] = None,
+    fixed_features: Optional[ObservationFeatures] = None,
+    trial_index: Optional[int] = None,
+) -> AxPlotConfig:
+    """Create interactive plot with predictions for a 1-d slice of the parameter
+    space.
+
+    Args:
+        model: ModelBridge that contains model for predictions
+        param_name: Name of parameter that will be sliced
+        metric_name: Name of metric to plot
+        generator_runs_dict: A dictionary {name: generator run} of generator runs
+            whose arms will be plotted, if they lie in the slice.
+        relative: Predictions relative to status quo
+        density: Number of points along slice to evaluate predictions.
+        slice_values: A dictionary {name: val} for the fixed values of the
+            other parameters. If not provided, then the status quo values will
+            be used if there is a status quo, otherwise the mean of numeric
+            parameters or the mode of choice parameters. Ignored if
+            fixed_features is specified.
+        fixed_features: An ObservationFeatures object containing the values of
+            features (including non-parameter features like context) to be set
+            in the slice.
+
+    Returns:
+        AxPlotConfig: interactive plot of objective vs. parameter
+    """
+
+    return AxPlotConfig(
+        data=interact_slice_plotly(
+            model=model,
+            param_name=param_name,
+            metric_name=metric_name,
+            generator_runs_dict=generator_runs_dict,
+            relative=relative,
+            density=density,
+            slice_values=slice_values,
+            fixed_features=fixed_features,
+            trial_index=trial_index,
+        ),
+        plot_type=AxPlotTypes.GENERIC,
+    )
