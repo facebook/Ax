@@ -6,8 +6,10 @@
 
 from typing import TYPE_CHECKING, Optional
 
+import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.modelbridge.base import unwrap_observation_data
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.ivw import ivw_metric_merge
@@ -70,7 +72,17 @@ class Derelativize(Transform):
         # Plug in the status quo value to each relative constraint.
         for c in optimization_config.all_constraints:
             if c.relative:
-                # Compute new bound.
-                c.bound = (1 + c.bound / 100.0) * f[c.metric.name][0]
+                if isinstance(c, ScalarizedOutcomeConstraint):
+                    # The sq_val of scalarized outcome is the weighted
+                    # sum of its component metrics
+                    sq_val = np.sum(
+                        [
+                            c.weights[i] * f[metric.name][0]
+                            for i, metric in enumerate(c.metrics)
+                        ]
+                    )
+                else:
+                    sq_val = f[c.metric.name][0]
+                c.bound = (1 + c.bound / 100.0) * sq_val
                 c.relative = False
         return optimization_config

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, DefaultDict, Dict, List, Optional, Tuple, Unio
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig, TParamValue
 from ax.modelbridge.transforms.base import Transform
@@ -70,9 +71,30 @@ class StandardizeY(Transform):
                 raise ValueError(
                     f"StandardizeY transform does not support relative constraint {c}"
                 )
-            c.bound = float(
-                (c.bound - self.Ymean[c.metric.name]) / self.Ystd[c.metric.name]
-            )
+            if isinstance(c, ScalarizedOutcomeConstraint):
+                # transform \sum (wi * yi) <= C to
+                # \sum (wi * si * zi) <= C - \sum (wi * mu_i) that zi = (yi - mu_i) / si
+
+                # update bound C to new c = C.bound - sum_i (wi * mu_i)
+                agg_mean = np.sum(
+                    [
+                        c.weights[i] * self.Ymean[metric.name]
+                        for i, metric in enumerate(c.metrics)
+                    ]
+                )
+                c.bound = float(c.bound - agg_mean)
+
+                # update the weights in the scalarized constraint
+                # new wi = wi * si
+                new_weight = [
+                    c.weights[i] * self.Ystd[metric.name]
+                    for i, metric in enumerate(c.metrics)
+                ]
+                c.weights = new_weight
+            else:
+                c.bound = float(
+                    (c.bound - self.Ymean[c.metric.name]) / self.Ystd[c.metric.name]
+                )
         return optimization_config
 
     def untransform_observation_data(

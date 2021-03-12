@@ -13,7 +13,7 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
@@ -102,7 +102,14 @@ class DerelativizeTransformTest(TestCase):
             outcome_constraints=[
                 OutcomeConstraint(
                     Metric("a"), ComparisonOp.LEQ, bound=2, relative=False
-                )
+                ),
+                ScalarizedOutcomeConstraint(
+                    metrics=[Metric("a"), Metric("b")],
+                    op=ComparisonOp.LEQ,
+                    bound=2,
+                    weights=[0.5, 0.5],
+                    relative=False,
+                ),
             ],
         )
         oc2 = t.transform_optimization_config(oc, g, None)
@@ -118,6 +125,13 @@ class DerelativizeTransformTest(TestCase):
                 OutcomeConstraint(
                     Metric("b"), ComparisonOp.LEQ, bound=-10, relative=True
                 ),
+                ScalarizedOutcomeConstraint(
+                    metrics=[Metric("a"), Metric("b")],
+                    weights=[0.0, 1.0],
+                    op=ComparisonOp.LEQ,
+                    bound=-10,
+                    relative=True,
+                ),
             ],
         )
         oc = t.transform_optimization_config(oc, g, None)
@@ -129,6 +143,13 @@ class DerelativizeTransformTest(TestCase):
                 ),
                 OutcomeConstraint(
                     Metric("b"), ComparisonOp.LEQ, bound=4.5, relative=False
+                ),
+                ScalarizedOutcomeConstraint(
+                    metrics=[Metric("a"), Metric("b")],
+                    weights=[0.0, 1.0],
+                    op=ComparisonOp.LEQ,
+                    bound=4.5,
+                    relative=False,
                 ),
             ]
         )
@@ -155,6 +176,13 @@ class DerelativizeTransformTest(TestCase):
                 OutcomeConstraint(
                     Metric("b"), ComparisonOp.LEQ, bound=-10, relative=True
                 ),
+                ScalarizedOutcomeConstraint(
+                    metrics=[Metric("a"), Metric("b")],
+                    weights=[0.0, 1.0],
+                    op=ComparisonOp.LEQ,
+                    bound=-10,
+                    relative=True,
+                ),
             ],
         )
         oc = t.transform_optimization_config(oc, g, None)
@@ -166,6 +194,13 @@ class DerelativizeTransformTest(TestCase):
                 ),
                 OutcomeConstraint(
                     Metric("b"), ComparisonOp.LEQ, bound=3.6, relative=False
+                ),
+                ScalarizedOutcomeConstraint(
+                    metrics=[Metric("a"), Metric("b")],
+                    weights=[0.0, 1.0],
+                    op=ComparisonOp.LEQ,
+                    bound=3.6,
+                    relative=False,
                 ),
             ]
         )

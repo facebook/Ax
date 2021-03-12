@@ -11,7 +11,7 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationData
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.utils.common.testutils import TestCase
@@ -74,6 +74,13 @@ class StandardizeYTransformTest(TestCase):
             OutcomeConstraint(
                 metric=m2, op=ComparisonOp.LEQ, bound=3.5, relative=False
             ),
+            ScalarizedOutcomeConstraint(
+                metrics=[m1, m2],
+                weights=[0.5, 0.5],
+                op=ComparisonOp.LEQ,
+                bound=3.5,
+                relative=False,
+            ),
         ]
         oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
         oc = self.t.transform_optimization_config(oc, None, None)
@@ -83,6 +90,13 @@ class StandardizeYTransformTest(TestCase):
             ),
             OutcomeConstraint(
                 metric=m2, op=ComparisonOp.LEQ, bound=4.0, relative=False
+            ),
+            ScalarizedOutcomeConstraint(
+                metrics=[m1, m2],
+                weights=[0.5, 0.25],  # [0.5*1.0, 0.5*0.5]
+                op=ComparisonOp.LEQ,
+                bound=2.25,  # 3.5 - (0.5* 1.0 + 0.5*1.5)
+                relative=False,
             ),
         ]
         self.assertTrue(oc.outcome_constraints == cons_t)
