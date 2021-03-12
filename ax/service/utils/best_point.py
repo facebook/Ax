@@ -55,6 +55,7 @@ def get_best_raw_objective_point(
         best_row = _get_best_row_for_scalarized_objective(dat.df, objective)
     else:
         best_row = _get_best_row_for_single_objective(dat.df, objective)
+    # pyre-fixme[6]: Expected `str` for 1st param but got `Series`.
     best_arm = experiment.arms_by_name[best_row["arm_name"]]
     best_trial_index = best_row["trial_index"]
     objective_rows = dat.df.loc[
@@ -155,6 +156,8 @@ def _get_best_row_for_scalarized_objective(
     df: pd.DataFrame,
     objective: ScalarizedObjective,
 ) -> pd.DataFrame:
+    # pyre-fixme[9]: df has type `DataFrame`; used as
+    #  `Union[pd.core.frame.DataFrame, pd.core.series.Series]`.
     df = df.copy()
     # First, add a weight column, setting 0.0 if the metric is not part
     # of the objective

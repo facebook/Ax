@@ -60,4 +60,5 @@ def exp_to_df(
         [{"arm_name": name, **arm.parameters} for name, arm in exp.arms_by_name.items()]
     )
     exp_df = pd.merge(metric_and_metadata, arm_names_and_params, on="arm_name")
+    # pyre-fixme[16]: `Optional` has no attribute `sort_values`.
     return exp_df.drop(key_col, axis=1).sort_values(key_components)

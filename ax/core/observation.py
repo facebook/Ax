@@ -58,7 +58,6 @@ class ObservationFeatures(Base):
         self,
         parameters: TParameterization,
         trial_index: Optional[np.int64] = None,
-        # pyre-fixme[11]: Annotation `Timestamp` is not defined as a type.
         start_time: Optional[pd.Timestamp] = None,
         end_time: Optional[pd.Timestamp] = None,
         random_split: Optional[np.int64] = None,

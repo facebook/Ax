@@ -104,6 +104,7 @@ def plot_feature_importance_by_feature(
                 name="Importance",
                 orientation="h",
                 visible=i == 0,
+                # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
                 x=df["Importance"],
                 y=df["Factor"],
             )

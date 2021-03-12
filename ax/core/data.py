@@ -76,6 +76,7 @@ class Data(Base):
             extra_columns = columns - set(self.column_data_types())
             if extra_columns:
                 raise ValueError(f"Columns {list(extra_columns)} are not supported.")
+            # pyre-fixme[16]: `Optional` has no attribute `reset_index`.
             df = df.dropna(axis=0, how="all").reset_index(drop=True)
             df = self._safecast_df(df=df)
 
@@ -107,6 +108,8 @@ class Data(Base):
                 and df.loc[:, col].isnull().any()
             )
         }
+        # pyre-fixme[7]: Expected `DataFrame` but got
+        #  `Union[pd.core.frame.DataFrame, pd.core.series.Series]`.
         return df.astype(dtype=dtype)
 
     @staticmethod
@@ -302,6 +305,8 @@ def clone_without_metrics(data: Data, excluded_metric_names: Iterable[str]) -> D
         new version of the original data without specified metrics.
     """
     return Data(
+        # pyre-fixme[6]: Expected `Optional[pd.core.frame.DataFrame]` for 1st param
+        #  but got `Union[pd.core.frame.DataFrame, pd.core.series.Series]`.
         df=data.df[
             data.df["metric_name"].apply(lambda n: n not in excluded_metric_names)
         ].copy()

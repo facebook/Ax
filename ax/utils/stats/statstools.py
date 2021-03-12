@@ -270,7 +270,9 @@ def marginal_effects(df: pd.DataFrame) -> pd.DataFrame:
     covariates = [col for col in df.columns if col not in ["mean", "sem"]]
     formatted_vals = []
     overall_mean, overall_sem = inverse_variance_weight(
-        df["mean"], np.power(df["sem"], 2)
+        # pyre-fixme[6]: Expected `ndarray` for 1st param but got `Series`.
+        df["mean"],
+        np.power(df["sem"], 2),
     )
     for cov in covariates:
         if len(df[cov].unique()) <= 1:
