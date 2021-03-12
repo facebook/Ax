@@ -98,6 +98,43 @@ def sem_range_scatter(
     )
 
 
+def mean_markers_scatter(
+    y: np.ndarray,
+    marker_color: Tuple[int] = COLORS.LIGHT_PURPLE.value,
+    legend_label: str = "",
+    hover_labels: Optional[List[str]] = None,
+) -> go.Scatter:
+    """Creates a graph object for trace of the mean of the given series across
+    runs, with errorbars.
+
+    Args:
+        y: (r x t) array with results from  r runs and t trials.
+        trace_color: tuple of 3 int values representing an RGB color.
+            Defaults to light purple.
+        legend_label: label for this trace.
+        hover_labels: optional, text to show on hover; list where the i-th value
+            corresponds to the i-th value in the value of the `y` argument.
+
+    Returns:
+        go.Scatter: plotly graph object
+    """
+    mean = np.mean(y, axis=0)
+    sem = np.std(y, axis=0) / np.sqrt(y.shape[0])
+    return go.Scatter(
+        name=legend_label,
+        x=np.arange(1, y.shape[1] + 1),
+        y=mean,
+        error_y={
+            "type": "data",
+            "array": sem,
+            "visible": True,
+        },
+        mode="markers",
+        marker={"color": rgba(marker_color)},
+        text=hover_labels,
+    )
+
+
 def optimum_objective_scatter(
     optimum: float, num_iterations: int, optimum_color: Tuple[int] = COLORS.ORANGE.value
 ) -> go.Scatter:
@@ -166,6 +203,9 @@ def optimization_trace_single_method(
     trace_color: Tuple[int] = COLORS.STEELBLUE.value,
     optimum_color: Tuple[int] = COLORS.ORANGE.value,
     generator_change_color: Tuple[int] = COLORS.TEAL.value,
+    optimization_direction: Optional[str] = "passthrough",
+    plot_trial_points: bool = False,
+    trial_points_color: Tuple[int] = COLORS.LIGHT_PURPLE.value,
 ) -> AxPlotConfig:
     """Plots an optimization trace with mean and 2 SEMs
 
@@ -178,27 +218,58 @@ def optimization_trace_single_method(
         ylabel: label for the Y-axis.
         hover_labels: optional, text to show on hover; list where the i-th value
             corresponds to the i-th value in the value of the `y` argument.
-        trace_color: tuple of 3 int values representing an RGB color.
-            Defaults to orange.
+        trace_color: tuple of 3 int values representing an RGB color for plotting
+            running optimum. Defaults to blue.
         optimum_color: tuple of 3 int values representing an RGB color.
             Defaults to orange.
         generator_change_color: tuple of 3 int values representing
-            an RGB color. Defaults to orange.
-
+            an RGB color. Defaults to teal.
+        optimization_direction: str, "minimize" will plot running minimum,
+            "maximize" will plot running maximum, "passthrough" (default) will plot
+            y as lines, None does not plot running optimum)
+        plot_trial_points: bool, whether to plot the objective for each trial, as
+            supplied in y (default False for backward compatibility)
+        trial_points_color: tuple of 3 int values representing an RGB color for
+            plotting trial points. Defaults to light purple.
     Returns:
         AxPlotConfig: plot of the optimization trace with IQR
     """
-    trace = mean_trace_scatter(y=y, trace_color=trace_color, hover_labels=hover_labels)
-    lower, upper = sem_range_scatter(y=y, trace_color=trace_color)
+    if optimization_direction not in {"minimize", "maximize", "passthrough", None}:
+        raise ValueError(
+            'optimization_direction must be "minimize", "maximize", "passthrough", or '
+            "None"
+        )
+    if not (plot_trial_points or optimization_direction is not None):
+        raise ValueError(
+            "If plot_trial_points is False, optimization_direction must be specified."
+        )
+    data = []
+    if plot_trial_points:
+        markers = mean_markers_scatter(
+            y=y,
+            marker_color=trial_points_color,
+            hover_labels=hover_labels,
+            legend_label="objective value",
+        )
+        data.extend([markers])
 
-    layout = go.Layout(
-        title=title,
-        showlegend=True,
-        yaxis={"title": ylabel},
-        xaxis={"title": "Iteration"},
-    )
-
-    data = [lower, trace, upper]
+    if optimization_direction is not None:
+        legend_label = "best objective so far"
+        if optimization_direction == "minimize":
+            y_running_optimum = np.minimum.accumulate(y, axis=1)
+        elif optimization_direction == "maximize":
+            y_running_optimum = np.maximum.accumulate(y, axis=1)
+        else:
+            y_running_optimum = y
+            legend_label = "objective value"
+        trace = mean_trace_scatter(
+            y=y_running_optimum,
+            trace_color=trace_color,
+            hover_labels=hover_labels,
+            legend_label=legend_label,
+        )
+        lower, upper = sem_range_scatter(y=y_running_optimum, trace_color=trace_color)
+        data.extend([lower, trace, upper])
 
     if optimum is not None:
         data.append(
@@ -208,8 +279,12 @@ def optimization_trace_single_method(
         )
 
     if model_transitions is not None:  # pragma: no cover
-        y_lower = np.min(np.percentile(y, 25, axis=0))
-        y_upper = np.max(np.percentile(y, 75, axis=0))
+        if plot_trial_points:
+            y_lower = np.percentile(y, 25, axis=0).min()
+            y_upper = np.percentile(y, 75, axis=0).max()
+        else:
+            y_lower = np.percentile(y_running_optimum, 25, axis=0).min()
+            y_upper = np.percentile(y_running_optimum, 75, axis=0).max()
         if optimum is not None and optimum < y_lower:
             y_lower = optimum
         if optimum is not None and optimum > y_upper:
@@ -221,6 +296,13 @@ def optimization_trace_single_method(
                 generator_change_color=generator_change_color,
             )
         )
+
+    layout = go.Layout(
+        title=title,
+        showlegend=True,
+        yaxis={"title": ylabel},
+        xaxis={"title": "Iteration"},
+    )
 
     return AxPlotConfig(
         data=go.Figure(layout=layout, data=data), plot_type=AxPlotTypes.GENERIC
