@@ -46,6 +46,15 @@ Instantiation
     :show-inheritance:
 
 
+Reporting
+~~~~~~~~~~~~~~
+
+.. automodule:: ax.service.utils.report_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 WithDBSettingsBase
 ~~~~~~~~~~~~~~~~~~
 
