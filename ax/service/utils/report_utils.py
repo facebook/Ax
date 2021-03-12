@@ -10,16 +10,16 @@ from logging import Logger
 from typing import Dict, List, Optional
 
 import numpy as np
+import plotly.graph_objects as go
 from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.random import RandomModelBridge
-from ax.plot.base import AxPlotConfig
-from ax.plot.contour import interact_contour
-from ax.plot.slice import plot_slice
-from ax.plot.trace import optimization_trace_single_method
+from ax.plot.contour import interact_contour_plotly
+from ax.plot.slice import plot_slice_plotly
+from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -32,11 +32,12 @@ def _get_objective_trace_plot(
     metric_name: str,
     model_transitions: List[int],
     optimization_direction: Optional[str] = None,
-) -> Optional[AxPlotConfig]:
+    # pyre-ignore[11]: Annotation `go.Figure` is not defined as a type.
+) -> Optional[go.Figure]:
     best_objectives = np.array(
         [[checked_cast(Trial, t).objective_mean for t in trials.values()]]
     )
-    return optimization_trace_single_method(
+    return optimization_trace_single_method_plotly(
         y=best_objectives,
         title="Best objective found vs. # of iterations",
         ylabel=metric_name,
@@ -51,11 +52,11 @@ def _get_objective_v_param_plot(
     model: ModelBridge,
     metric_name: str,
     trials: Dict[int, BaseTrial],
-) -> Optional[AxPlotConfig]:
+) -> Optional[go.Figure]:
     range_params = list(search_space.range_parameters.keys())
     if len(range_params) == 1:
         # individual parameter slice plot
-        output_slice_plot = plot_slice(
+        output_slice_plot = plot_slice_plotly(
             model=not_none(model),
             param_name=range_params[0],
             metric_name=metric_name,
@@ -67,7 +68,7 @@ def _get_objective_v_param_plot(
         return output_slice_plot
     if len(range_params) > 1:
         # contour plot
-        output_contour_plot = interact_contour(
+        output_contour_plot = interact_contour_plotly(
             model=not_none(model),
             metric_name=metric_name,
         )
@@ -76,7 +77,7 @@ def _get_objective_v_param_plot(
 
 def get_standard_plots(
     experiment: Experiment, generation_strategy: GenerationStrategy
-) -> List[AxPlotConfig]:
+) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
     TODO: Describe specific logic here on what happens depending on search space

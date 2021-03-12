@@ -333,14 +333,14 @@ def optimization_trace_single_method(
         hover_labels: optional, text to show on hover; list where the i-th value
             corresponds to the i-th value in the value of the `y` argument.
         trace_color: tuple of 3 int values representing an RGB color for plotting
-            running optimum. Defaults to orange.
+            running optimum. Defaults to blue.
         optimum_color: tuple of 3 int values representing an RGB color.
             Defaults to orange.
         generator_change_color: tuple of 3 int values representing
-            an RGB color. Defaults to orange.
+            an RGB color. Defaults to teal.
         optimization_direction: str, "minimize" will plot running minimum,
-            "maximize" will plot running maximum, default None does not plot running
-            optimum)
+            "maximize" will plot running maximum, "passthrough" (default) will plot
+            y as lines, None does not plot running optimum)
         plot_trial_points: bool, whether to plot the objective for each trial, as
             supplied in y (default False for backward compatibility)
         trial_points_color: tuple of 3 int values representing an RGB color for
