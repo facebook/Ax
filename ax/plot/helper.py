@@ -28,6 +28,26 @@ RawData = List[Dict[str, Union[str, float]]]
 TNullableGeneratorRunsDict = Optional[Dict[str, GeneratorRun]]
 
 
+def extend_range(
+    lower: float, upper: float, percent: int = 10, log_scale: bool = False
+) -> Tuple[float, float]:
+    """Given a range of minimum and maximum values taken by values on a given axis,
+    extend it in both directions by a given percentage to have some margin within
+    the plot around its meaningful part.
+    """
+    if upper <= lower:
+        raise ValueError(
+            f"`upper` should be greater than `lower`, got: {upper} (<= {lower})."
+        )
+
+    if log_scale:
+        raise NotImplementedError("Log scale not yet supported.")
+
+    margin = (upper - lower) * percent / 100
+
+    return lower - margin, upper + margin
+
+
 def _format_dict(param_dict: TParameterization, name: str = "Parameterization") -> str:
     """Format a dictionary for labels.
 
