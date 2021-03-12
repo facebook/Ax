@@ -31,9 +31,8 @@ try:  # We don't require SQLAlchemy by default.
     from ax.storage.sqa_store.save import (
         _save_experiment,
         _save_generation_strategy,
-        _save_new_trials,
+        _save_or_update_trials,
         _update_generation_strategy,
-        _update_trials,
     )
     from ax.storage.sqa_store.structs import DBSettings
     from sqlalchemy.exc import OperationalError
@@ -349,7 +348,7 @@ class WithDBSettingsBase:
         """
         if self.db_settings_set:
             start_time = time.time()
-            _save_new_trials(
+            _save_or_update_trials(
                 experiment=experiment, trials=trials, encoder=self.db_settings.encoder
             )
             logger.debug(
@@ -413,7 +412,7 @@ class WithDBSettingsBase:
         """
         if self.db_settings_set:
             start_time = time.time()
-            _update_trials(
+            _save_or_update_trials(
                 experiment=experiment, trials=trials, encoder=self.db_settings.encoder
             )
             logger.debug(

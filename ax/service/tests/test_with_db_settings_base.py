@@ -20,7 +20,7 @@ from ax.storage.sqa_store.load import (
 from ax.storage.sqa_store.save import (
     _save_experiment,
     _save_generation_strategy,
-    _save_new_trials,
+    _save_or_update_trials,
 )
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
@@ -197,7 +197,7 @@ class TestWithDBSettingsBase(TestCase):
             experiment.name, decoder=self.with_db_settings.db_settings.decoder
         )
         trial = exp.new_trial()
-        _save_new_trials(
+        _save_or_update_trials(
             experiment=experiment,
             trials=[trial],
             encoder=self.with_db_settings.db_settings.encoder,

@@ -45,9 +45,9 @@ from ax.storage.sqa_store.load import (
 from ax.storage.sqa_store.save import (
     save_experiment,
     save_generation_strategy,
-    save_new_trial,
+    save_or_update_trial,
+    save_or_update_trials,
     update_generation_strategy,
-    update_trial,
 )
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -314,77 +314,69 @@ class SQAStoreTest(TestCase):
         self.assertEqual(len(loaded_experiment.trials), 2)
 
     def testExperimentNewTrial(self):
+        # Create a new trial without data
         save_experiment(self.experiment)
         trial = self.experiment.new_batch_trial()
-        save_new_trial(experiment=self.experiment, trial=trial)
+        save_or_update_trial(experiment=self.experiment, trial=trial)
 
         loaded_experiment = load_experiment(self.experiment.name)
-        self.assertEqual(len(loaded_experiment.trials), 2)
-        self.assertEqual(trial, loaded_experiment.trials[1])
+        self.assertEqual(self.experiment, loaded_experiment)
 
+        # Create a new trial with data
         trial = self.experiment.new_batch_trial(generator_run=get_generator_run())
-        save_new_trial(experiment=self.experiment, trial=trial)
+        self.experiment.attach_data(get_data(trial_index=trial.index))
+        save_or_update_trial(experiment=self.experiment, trial=trial)
 
         loaded_experiment = load_experiment(self.experiment.name)
-        self.assertEqual(len(loaded_experiment.trials), 3)
-        self.assertEqual(trial, loaded_experiment.trials[2])
+        self.assertEqual(self.experiment, loaded_experiment)
 
     def testExperimentNewTrialValidation(self):
         trial = self.experiment.new_batch_trial()
 
         with self.assertRaises(ValueError):
             # must save experiment first
-            save_new_trial(experiment=self.experiment, trial=trial)
-
-        save_experiment(self.experiment)
-
-        with self.assertRaises(ValueError):
-            # can't save new trial twice
-            save_new_trial(experiment=self.experiment, trial=trial)
+            save_or_update_trial(experiment=self.experiment, trial=trial)
 
     def testExperimentUpdateTrial(self):
         save_experiment(self.experiment)
 
         trial = self.experiment.trials[0]
         trial.mark_staged()
-        update_trial(experiment=self.experiment, trial=trial)
+        save_or_update_trial(experiment=self.experiment, trial=trial)
 
-        loaded_experiment = load_experiment(self.experiment.name)
-        self.assertEqual(trial, loaded_experiment.trials[0])
-
+        # Update a trial by changing metadata
         trial._run_metadata = {"foo": "bar"}
-        update_trial(experiment=self.experiment, trial=trial)
-
-        loaded_experiment = load_experiment(self.experiment.name)
-        self.assertEqual(trial, loaded_experiment.trials[0])
-
-        self.experiment.attach_data(get_data(trial_index=trial.index))
-        update_trial(experiment=self.experiment, trial=trial)
+        save_or_update_trial(experiment=self.experiment, trial=trial)
 
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(self.experiment, loaded_experiment)
 
-        trial = self.experiment.new_batch_trial(generator_run=get_generator_run())
-        save_new_trial(experiment=self.experiment, trial=trial)
+        # Update a trial by attaching data
         self.experiment.attach_data(get_data(trial_index=trial.index))
-        update_trial(experiment=self.experiment, trial=trial)
+        save_or_update_trial(experiment=self.experiment, trial=trial)
 
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(self.experiment, loaded_experiment)
 
-    def testExperimentUpdateTrialValidation(self):
-        trial = self.experiment.trials[0]
+        # Update a trial by attaching data again
+        self.experiment.attach_data(get_data(trial_index=trial.index))
+        save_or_update_trial(experiment=self.experiment, trial=trial)
 
-        with self.assertRaises(ValueError):
-            # must save experiment first
-            update_trial(experiment=self.experiment, trial=trial)
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(self.experiment, loaded_experiment)
 
+    def testExperimentSaveAndUpdateTrial(self):
         save_experiment(self.experiment)
-        trial._index = 1
 
-        with self.assertRaises(ValueError):
-            # has bad index
-            update_trial(experiment=self.experiment, trial=trial)
+        existing_trial = self.experiment.trials[0]
+        existing_trial.mark_staged()
+        new_trial = self.experiment.new_batch_trial(generator_run=get_generator_run())
+        save_or_update_trials(
+            experiment=self.experiment, trials=[existing_trial, new_trial]
+        )
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(self.experiment, loaded_experiment)
 
     def testSaveValidation(self):
         with self.assertRaises(ValueError):
