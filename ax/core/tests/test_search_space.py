@@ -22,6 +22,7 @@ from ax.utils.common.testutils import TestCase
 
 TOTAL_PARAMS = 6
 TUNABLE_PARAMS = 4
+RANGE_PARAMS = 3
 
 
 class SearchSpaceTest(TestCase):
@@ -101,6 +102,8 @@ class SearchSpaceTest(TestCase):
         self.assertTrue("a" in self.ss1.parameters)
         self.assertTrue(len(self.ss1.tunable_parameters), TUNABLE_PARAMS)
         self.assertFalse("d" in self.ss1.tunable_parameters)
+        self.assertTrue(len(self.ss1.range_parameters), RANGE_PARAMS)
+        self.assertFalse("c" in self.ss1.range_parameters)
         self.assertTrue(len(self.ss1.parameter_constraints) == 0)
         self.assertTrue(len(self.ss2.parameter_constraints) == 1)
 

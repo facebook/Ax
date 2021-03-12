@@ -9,7 +9,7 @@
 from typing import Dict, List, Optional
 
 from ax.core.arm import Arm
-from ax.core.parameter import FixedParameter, Parameter
+from ax.core.parameter import FixedParameter, Parameter, RangeParameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
     ParameterConstraint,
@@ -54,6 +54,14 @@ class SearchSpace(Base):
     @property
     def parameter_constraints(self) -> List[ParameterConstraint]:
         return self._parameter_constraints
+
+    @property
+    def range_parameters(self) -> Dict[str, Parameter]:
+        return {
+            name: parameter
+            for name, parameter in self._parameters.items()
+            if isinstance(parameter, RangeParameter)
+        }
 
     @property
     def tunable_parameters(self) -> Dict[str, Parameter]:
