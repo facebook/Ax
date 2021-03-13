@@ -570,7 +570,7 @@ def pareto_frontier(
     obj_t = array_to_tensor(objective_thresholds_arr)
     frontier_evaluator = get_default_frontier_evaluator()
     # pyre-ignore[28]: Unexpected keyword `modelbridge` to anonymous call
-    f, cov = frontier_evaluator(
+    f, cov, indx = frontier_evaluator(
         model=modelbridge.model,
         X=X,
         Y=Y,

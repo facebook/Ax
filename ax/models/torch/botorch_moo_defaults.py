@@ -38,7 +38,8 @@ DEFAULT_EHVI_MC_SAMPLES = 128
 
 
 # Callable that takes tensors of observations and model parameters,
-# then returns means of observations that make up a pareto frontier.
+# then returns means of observations that make up a pareto frontier,
+# along with their covariances and their index in the input observations.
 TFrontierEvaluator = Callable[
     [
         TorchModel,
@@ -49,7 +50,7 @@ TFrontierEvaluator = Callable[
         Optional[Tensor],
         Optional[Tuple[Tensor, Tensor]],
     ],
-    Tuple[Tensor, Tensor],
+    Tuple[Tensor, Tensor, Tensor],
 ]
 
 
@@ -223,7 +224,7 @@ def pareto_frontier_evaluator(
     Y: Optional[Tensor] = None,
     Yvar: Optional[Tensor] = None,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[Tensor, Tensor, Tensor]:
     """Return outcomes predicted to lie on a pareto frontier.
 
     Given a model and a points to evaluate use the model to predict which points
@@ -244,12 +245,13 @@ def pareto_frontier_evaluator(
             A f(x) <= b.
 
     Returns:
-        2-element tuple containing
+        3-element tuple containing
 
         - A `j x m` tensor of outcome on the pareto frontier. j is the number
             of frontier points.
         - A `j x m x m` tensor of predictive covariances.
             cov[j, m1, m2] is Cov[m1@j, m2@j].
+        - A `j` tensor of the index of each frontier point in the input Y.
     """
     if X is not None:
         Y, Yvar = model.predict(X)
@@ -273,6 +275,7 @@ def pareto_frontier_evaluator(
         ),
     )
     Y_obj = obj(Y)
+    indx_frontier = torch.arange(Y.shape[0], dtype=torch.long, device=Y.device)
 
     # Filter Y, Yvar, Y_obj to items that dominate all objective thresholds
     if objective_thresholds is not None:
@@ -280,6 +283,7 @@ def pareto_frontier_evaluator(
         Y = Y[objective_thresholds_mask]
         Yvar = Yvar[objective_thresholds_mask]
         Y_obj = Y_obj[objective_thresholds_mask]
+        indx_frontier = indx_frontier[objective_thresholds_mask]
 
     # Get feasible points that do not violate outcome_constraints
     if outcome_constraints is not None:
@@ -289,18 +293,21 @@ def pareto_frontier_evaluator(
         Y = Y[feas]
         Yvar = Yvar[feas]
         Y_obj = Y_obj[feas]
+        indx_frontier = indx_frontier[feas]
 
     if Y.shape[0] == 0:
         # if there are no feasible points that are better than the reference point
         # return empty tensors
-        return Y, Yvar
+        return Y, Yvar, indx_frontier
+
     # calculate pareto front with only objective outcomes:
     frontier_mask = is_non_dominated(Y_obj)
 
     # Apply masks
     Y_frontier = Y[frontier_mask]
     Yvar_frontier = Yvar[frontier_mask]
-    return Y_frontier, Yvar_frontier
+    indx_frontier = indx_frontier[frontier_mask]
+    return Y_frontier, Yvar_frontier, indx_frontier
 
 
 def get_default_partitioning_alpha(num_objectives: int) -> float:
