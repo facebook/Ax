@@ -206,6 +206,7 @@ class TestAxClient(TestCase):
                     "bounds": [0.001, 0.1],
                     "value_type": "float",
                     "log_scale": True,
+                    "digits": 6,
                 },
                 {
                     "name": "y",
@@ -249,6 +250,7 @@ class TestAxClient(TestCase):
                 lower=0.001,
                 upper=0.1,
                 log_scale=True,
+                digits=6,
             ),
         )
         self.assertEqual(

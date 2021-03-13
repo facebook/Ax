@@ -70,6 +70,7 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
     "is_fidelity",
     "is_ordered",
     "is_task",
+    "digits",
 }
 
 
@@ -119,8 +120,9 @@ def _make_range_param(
         lower=checked_cast_to_tuple((float, int), bounds[0]),
         upper=checked_cast_to_tuple((float, int), bounds[1]),
         log_scale=checked_cast(bool, representation.get("log_scale", False)),
+        digits=representation.get("digits", None),  # pyre-ignore[6]
         is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
-        target_value=representation.get("target_value", None),  # pyre-ignore[6]
+        target_value=representation.get("target_value", None),
     )
 
 
@@ -496,8 +498,9 @@ def make_experiment(
             take; expects "float", "int", "bool" or "str"),
             3. "is_fidelity" (bool) and "target_value" (float) for fidelity
             parameters,
-            4. "is_ordered" (bool) for choice parameters, and
-            5. "is_task" (bool) for task parameters.
+            4. "is_ordered" (bool) for choice parameters,
+            5. "is_task" (bool) for task parameters, and
+            6. "digits" (int) for float-valued range parameters.
         name: Name of the experiment to be created.
         parameter_constraints: List of string representation of parameter
             constraints, such as "x3 >= x4" or "-x3 + 2*x4 - 3.5*x5 >= 2". For
