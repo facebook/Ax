@@ -170,7 +170,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 modelbridge=modelbridge, objective_thresholds=objective_thresholds
             )
             wrapped_frontier_evaluator.assert_called_once()
-            self.assertIsNone(wrapped_frontier_evaluator.call_args.kwargs["X"])
+            self.assertIsNone(wrapped_frontier_evaluator.call_args[1]["X"])
             self.assertEqual(1, len(observed_frontier))
             self.assertEqual(observed_frontier[0].arm_name, "0_0")
 
@@ -224,7 +224,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             wrapped_frontier_evaluator.assert_called_once()
             self.assertTrue(
                 torch.equal(
-                    wrapped_frontier_evaluator.call_args.kwargs["X"],
+                    wrapped_frontier_evaluator.call_args[1]["X"],
                     torch.tensor([[1.0, 4.0], [4.0, 1.0]]),
                 )
             )
@@ -240,10 +240,10 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 use_model_predictions=False,
             )
             wrapped_frontier_evaluator.assert_called_once()
-            self.assertIsNone(wrapped_frontier_evaluator.call_args.kwargs["X"])
+            self.assertIsNone(wrapped_frontier_evaluator.call_args[1]["X"])
             self.assertTrue(
                 torch.equal(
-                    wrapped_frontier_evaluator.call_args.kwargs["Y"],
+                    wrapped_frontier_evaluator.call_args[1]["Y"],
                     torch.tensor([[9.0, 4.0], [16.0, 25.0]]),
                 )
             )
