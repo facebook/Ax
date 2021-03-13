@@ -7,9 +7,11 @@
 from unittest.mock import patch
 
 import numpy as np
-from ax.core.observation import ObservationFeatures
+import torch
+from ax.core.observation import ObservationFeatures, ObservationData
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.modelbridge.modelbridge_utils import (
+    pareto_frontier,
     predicted_hypervolume,
     predicted_pareto_frontier,
     observed_hypervolume,
@@ -164,11 +166,13 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
             modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
-            observed_frontier_data = observed_pareto_frontier(
+            observed_frontier = observed_pareto_frontier(
                 modelbridge=modelbridge, objective_thresholds=objective_thresholds
             )
             wrapped_frontier_evaluator.assert_called_once()
-            self.assertEqual(1, len(observed_frontier_data))
+            self.assertIsNone(wrapped_frontier_evaluator.call_args.kwargs["X"])
+            self.assertEqual(1, len(observed_frontier))
+            self.assertEqual(observed_frontier[0].arm_name, "0_0")
 
         with self.assertRaises(ValueError):
             predicted_pareto_frontier(
@@ -177,16 +181,72 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 observation_features=[],
             )
 
+        predicted_frontier = predicted_pareto_frontier(
+            modelbridge=modelbridge,
+            objective_thresholds=objective_thresholds,
+            observation_features=None,
+        )
+        self.assertEqual(predicted_frontier[0].arm_name, "0_0")
+
         observation_features = [
             ObservationFeatures(parameters={"x1": 0.0, "x2": 1.0}),
             ObservationFeatures(parameters={"x1": 1.0, "x2": 0.0}),
         ]
-        predicted_frontier_data = predicted_pareto_frontier(
+        observation_data = [
+            ObservationData(
+                metric_names=["branin_b", "branin_a"],
+                means=np.array([1.0, 2.0]),
+                covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
+            ),
+            ObservationData(
+                metric_names=["branin_a", "branin_b"],
+                means=np.array([3.0, 4.0]),
+                covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
+            ),
+        ]
+        predicted_frontier = predicted_pareto_frontier(
             modelbridge=modelbridge,
             objective_thresholds=objective_thresholds,
             observation_features=observation_features,
         )
-        self.assertTrue(len(predicted_frontier_data) <= 2)
+        self.assertTrue(len(predicted_frontier) <= 2)
+        self.assertIsNone(predicted_frontier[0].arm_name, None)
+
+        with patch(
+            PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
+        ) as wrapped_frontier_evaluator:
+            observed_frontier = pareto_frontier(
+                modelbridge=modelbridge,
+                objective_thresholds=objective_thresholds,
+                observation_features=observation_features,
+                observation_data=observation_data,
+            )
+            wrapped_frontier_evaluator.assert_called_once()
+            self.assertTrue(
+                torch.equal(
+                    wrapped_frontier_evaluator.call_args.kwargs["X"],
+                    torch.tensor([[1.0, 4.0], [4.0, 1.0]]),
+                )
+            )
+
+        with patch(
+            PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
+        ) as wrapped_frontier_evaluator:
+            observed_frontier = pareto_frontier(
+                modelbridge=modelbridge,
+                objective_thresholds=objective_thresholds,
+                observation_features=observation_features,
+                observation_data=observation_data,
+                use_model_predictions=False,
+            )
+            wrapped_frontier_evaluator.assert_called_once()
+            self.assertIsNone(wrapped_frontier_evaluator.call_args.kwargs["X"])
+            self.assertTrue(
+                torch.equal(
+                    wrapped_frontier_evaluator.call_args.kwargs["Y"],
+                    torch.tensor([[9.0, 4.0], [16.0, 25.0]]),
+                )
+            )
 
     @patch(
         # Mocking `BraninMetric` as not available while running, so it will

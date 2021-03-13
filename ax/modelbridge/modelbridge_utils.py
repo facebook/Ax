@@ -25,7 +25,7 @@ from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig, TRefPoint
 from ax.core.outcome_constraint import (
     ComparisonOp,
@@ -504,24 +504,27 @@ def clamp_observation_features(
 
 def pareto_frontier(
     modelbridge: modelbridge_module.array.ArrayModelBridge,
-    objective_thresholds: Optional[TRefPoint] = None,
-    observation_features: Optional[List[ObservationFeatures]] = None,
+    observation_features: List[ObservationFeatures],
     observation_data: Optional[List[ObservationData]] = None,
+    objective_thresholds: Optional[TRefPoint] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
-) -> List[ObservationData]:
+    arm_names: Optional[List[Optional[str]]] = None,
+    use_model_predictions: bool = True,
+) -> List[Observation]:
     """Helper that applies transforms and calls frontier_evaluator."""
     array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
     X = (
         modelbridge.transform_observation_features(observation_features)
-        if observation_features
+        if use_model_predictions
         else None
     )
     X = array_to_tensor(X) if X is not None else None
     Y, Yvar = (None, None)
-    if observation_data:
+    if observation_data is not None:
         Y, Yvar = modelbridge.transform_observation_data(observation_data)
-    if Y is not None and Yvar is not None:
         Y, Yvar = (array_to_tensor(Y), array_to_tensor(Yvar))
+    if arm_names is None:
+        arm_names = [None] * len(observation_features)
 
     # Optimization_config
     mooc = optimization_config or checked_cast_optional(
@@ -580,6 +583,7 @@ def pareto_frontier(
         outcome_constraints=oc_c,
     )
     f, cov = f.detach().cpu().clone().numpy(), cov.detach().cpu().clone().numpy()
+    indx = indx.tolist()
     frontier_observation_data = array_to_observation_data(
         f=f, cov=cov, outcomes=not_none(modelbridge.outcomes)
     )
@@ -588,7 +592,17 @@ def pareto_frontier(
         frontier_observation_data = t.untransform_observation_data(
             frontier_observation_data, []
         )
-    return frontier_observation_data
+    # Construct observations
+    frontier_observations = []
+    for i, obsd in enumerate(frontier_observation_data):
+        frontier_observations.append(
+            Observation(
+                features=observation_features[indx[i]],
+                data=obsd,
+                arm_name=arm_names[indx[i]],
+            )
+        )
+    return frontier_observations
 
 
 def predicted_pareto_frontier(
@@ -596,7 +610,7 @@ def predicted_pareto_frontier(
     objective_thresholds: Optional[TRefPoint] = None,
     observation_features: Optional[List[ObservationFeatures]] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
-) -> List[ObservationData]:
+) -> List[Observation]:
     """Generate a pareto frontier based on the posterior means of given
     observation features.
 
@@ -612,13 +626,16 @@ def predicted_pareto_frontier(
         optimization_config: Optimization config
 
     Returns:
-        Data representing points on the pareto frontier.
+        Observations representing points on the pareto frontier.
     """
-    observation_features = (
-        observation_features
-        if observation_features is not None
-        else [obs.features for obs in modelbridge.get_training_data()]
-    )
+    if observation_features is None:
+        observation_features = []
+        arm_names = []
+        for obs in modelbridge.get_training_data():
+            observation_features.append(obs.features)
+            arm_names.append(obs.arm_name)
+    else:
+        arm_names = None
     if not observation_features:
         raise ValueError(
             "Must receive observation_features as input or the model must "
@@ -630,6 +647,7 @@ def predicted_pareto_frontier(
         objective_thresholds=objective_thresholds,
         observation_features=observation_features,
         optimization_config=optimization_config,
+        arm_names=arm_names,
     )
 
 
@@ -637,7 +655,7 @@ def observed_pareto_frontier(
     modelbridge: modelbridge_module.array.ArrayModelBridge,
     objective_thresholds: Optional[TRefPoint] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
-) -> List[ObservationData]:
+) -> List[Observation]:
     """Generate a pareto frontier based on observed data.
 
     Given observed data, return those outcomes in the pareto frontier.
@@ -652,34 +670,46 @@ def observed_pareto_frontier(
         Data representing points on the pareto frontier.
     """
     # Get observation_data from current training data
-    observation_data = [obs.data for obs in modelbridge.get_training_data()]
+    observation_data = []
+    observation_features = []
+    arm_names = []
+    for obs in modelbridge.get_training_data():
+        observation_data.append(obs.data)
+        observation_features.append(obs.features)
+        arm_names.append(obs.arm_name)
 
     return pareto_frontier(
         modelbridge=modelbridge,
         objective_thresholds=objective_thresholds,
         observation_data=observation_data,
+        observation_features=observation_features,
         optimization_config=optimization_config,
+        arm_names=arm_names,
+        use_model_predictions=False,
     )
 
 
 def hypervolume(
     modelbridge: modelbridge_module.array.ArrayModelBridge,
+    observation_features: List[ObservationFeatures],
     objective_thresholds: Optional[TRefPoint] = None,
-    observation_features: Optional[List[ObservationFeatures]] = None,
     observation_data: Optional[List[ObservationData]] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+    use_model_predictions: bool = True,
 ) -> float:
     """Helper function that computes hypervolume of a given list of outcomes."""
     array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
 
     # Extract a tensor of outcome means from observation data.
-    observation_data = pareto_frontier(
+    observations = pareto_frontier(
         modelbridge=modelbridge,
         objective_thresholds=objective_thresholds,
         observation_features=observation_features,
         observation_data=observation_data,
         optimization_config=optimization_config,
+        use_model_predictions=use_model_predictions,
     )
+    observation_data = [obs.data for obs in observations]
     if not observation_data:
         # The hypervolume of an empty set is always 0.
         return 0
@@ -784,12 +814,15 @@ def observed_hypervolume(
     """
     # Get observation_data from current training data.
     observation_data = [obs.data for obs in modelbridge.get_training_data()]
+    observation_features = [obs.features for obs in modelbridge.get_training_data()]
 
     return hypervolume(
         modelbridge=modelbridge,
         objective_thresholds=objective_thresholds,
+        observation_features=observation_features,
         observation_data=observation_data,
         optimization_config=optimization_config,
+        use_model_predictions=False,
     )
 
 
