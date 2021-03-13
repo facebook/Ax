@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import enum
+from itertools import combinations
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
@@ -18,8 +19,14 @@ from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError
+from ax.modelbridge.modelbridge_utils import observed_pareto_frontier
 from ax.modelbridge.registry import Models
+from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.transforms.derelativize import Derelativize
+from ax.modelbridge.transforms.one_hot import OneHot
+from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.models.torch.posterior_mean import get_PosteriorMean
+from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
 
@@ -47,7 +54,24 @@ def rgba(rgb_tuple: Tuple[float], alpha: float = 1) -> str:
 
 
 class ParetoFrontierResults(NamedTuple):
-    """Container for results from Pareto frontier computation."""
+    """Container for results from Pareto frontier computation.
+
+    Fields are:
+    - param_dicts: The parameter dicts of the points generated on the Pareto Frontier.
+    - means: The posterior mean predictions of the model for each metric (same order as
+        the param dicts). These must be as a percent change relative to status quo for
+        any metric not listed in absolute_metrics.
+    - sems: The posterior sem predictions of the model for each metric (same order as
+        the param dicts). Also must be relativized wrt status quo for any metric not
+        listed in absolute_metrics.
+    - primary_metric: The name of the primary metric.
+    - secondary_metric: The name of the secondary metric.
+    - absolute_metrics: List of outcome metrics that are NOT be relativized w.r.t. the
+        status quo. All other metrics are assumed to be given here as % relative to
+        status_quo.
+    - outcome_constraints: Outcome constraints.
+    - arm_names: Optional list of arm names for each parameterization.
+    """
 
     param_dicts: List[TParameterization]
     means: Dict[str, List[float]]
@@ -56,9 +80,114 @@ class ParetoFrontierResults(NamedTuple):
     secondary_metric: str
     absolute_metrics: List[str]
     outcome_constraints: Optional[List[OutcomeConstraint]]
+    arm_names: Optional[List[Optional[str]]]
 
 
-def compute_pareto_frontier(
+def get_observed_pareto_frontiers(
+    experiment: Experiment,
+    data: Optional[Data] = None,
+    rel: bool = True,
+) -> List[ParetoFrontierResults]:
+    """
+    Find all Pareto points from an experiment.
+
+    Uses only values as observed in the data; no modeling is involved. Makes no
+    assumption about the search space or types of parameters. If "data" is provided will
+    use that, otherwise will use all data attached to the experiment.
+
+    Uses all arms present in data; does not filter according to experiment
+    search space.
+
+    Assumes experiment has a multiobjective optimization config from which the
+    objectives and outcome constraints will be extracted.
+
+    Will generate a ParetoFrontierResults for every pair of metrics in the experiment's
+    multiobjective optimization config.
+    """
+    if data is None:
+        data = experiment.fetch_data()
+    if experiment.optimization_config is None:
+        raise ValueError("Experiment must have an optimization config")
+    # Make a dummy model for converting things to tensors.
+    # Transforms is the minimal set that will work for converting any search
+    # space to tensors.
+    mb = TorchModelBridge(
+        experiment=experiment,
+        search_space=experiment.search_space,
+        data=data,
+        model=TorchModel(),
+        transforms=[Derelativize, SearchSpaceToChoice, OneHot],
+        transform_configs={"Derelativize": {"use_raw_status_quo": True}},
+        fit_out_of_design=True,
+    )
+    pareto_observations = observed_pareto_frontier(modelbridge=mb)
+    # Convert to ParetoFrontierResults
+    metric_names = [
+        metric.name
+        for metric in experiment.optimization_config.objective.metrics  # pyre-ignore
+    ]
+    pfr_means = {name: [] for name in metric_names}
+    pfr_sems = {name: [] for name in metric_names}
+
+    for obs in pareto_observations:
+        for i, name in enumerate(obs.data.metric_names):
+            pfr_means[name].append(obs.data.means[i])
+            pfr_sems[name].append(np.sqrt(obs.data.covariance[i, i]))
+
+    # Relativize as needed
+    if rel and experiment.status_quo is not None:
+        # Get status quo values
+        sq_df = data.df[
+            data.df["arm_name"] == experiment.status_quo.name  # pyre-ignore
+        ]
+        sq_df = sq_df.to_dict(orient="list")  # pyre-ignore
+        sq_means = {}
+        sq_sems = {}
+        for i, metric in enumerate(sq_df["metric_name"]):
+            sq_means[metric] = sq_df["mean"][i]
+            sq_sems[metric] = sq_df["sem"][i]
+        # Relativize
+        for name in metric_names:
+            if np.isnan(sq_sems[name]) or np.isnan(pfr_sems[name]).any():
+                # Just relativize means
+                pfr_means[name] = [
+                    (mu / sq_means[name] - 1) * 100 for mu in pfr_means[name]
+                ]
+            else:
+                # Use delta method
+                pfr_means[name], pfr_sems[name] = relativize(
+                    means_t=pfr_means[name],
+                    sems_t=pfr_sems[name],
+                    mean_c=sq_means[name],
+                    sem_c=sq_sems[name],
+                    as_percent=True,
+                )
+        absolute_metrics = []
+    else:
+        absolute_metrics = metric_names
+
+    # Construct ParetoFrontResults for each pair
+    pfr_list = []
+    param_dicts = [obs.features.parameters for obs in pareto_observations]
+    arm_names = [obs.arm_name for obs in pareto_observations]
+
+    for metric_a, metric_b in combinations(metric_names, 2):
+        pfr_list.append(
+            ParetoFrontierResults(
+                param_dicts=param_dicts,
+                means=pfr_means,
+                sems=pfr_sems,
+                primary_metric=metric_a,
+                secondary_metric=metric_b,
+                absolute_metrics=absolute_metrics,
+                outcome_constraints=None,
+                arm_names=arm_names,
+            )
+        )
+    return pfr_list
+
+
+def compute_posterior_pareto_frontier(
     experiment: Experiment,
     primary_objective: Metric,
     secondary_objective: Metric,
@@ -71,6 +200,9 @@ def compute_pareto_frontier(
 ) -> ParetoFrontierResults:
     """Compute the Pareto frontier between two objectives. For experiments
     with batch trials, a trial index or data object must be provided.
+
+    This is done by fitting a GP and finding the pareto front according to the
+    GP posterior mean.
 
     Args:
         experiment: The experiment to compute a pareto frontier for.
@@ -256,6 +388,7 @@ def _extract_pareto_frontier_results(
         secondary_metric=secondary_metric,
         absolute_metrics=absolute_metrics,
         outcome_constraints=outcome_constraints,
+        arm_names=None,
     )
 
 

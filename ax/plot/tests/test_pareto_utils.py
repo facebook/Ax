@@ -4,10 +4,19 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import numpy as np
+from ax.core.data import Data
+from ax.core.objective import MultiObjective
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.outcome_constraint import ObjectiveThreshold
+from ax.core.types import ComparisonOp
 from ax.exceptions.core import UnsupportedError
-from ax.metrics.branin import BraninMetric
+from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.modelbridge.registry import Models
-from ax.plot.pareto_utils import compute_pareto_frontier
+from ax.plot.pareto_utils import (
+    compute_posterior_pareto_frontier,
+    get_observed_pareto_frontiers,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
@@ -24,16 +33,16 @@ class ParetoUtilsTest(TestCase):
         self.experiment = experiment
         self.metrics = list(experiment.metrics.values())
 
-    def testComputeParetoFrontierByTrial(self):
+    def testComputePosteriorParetoFrontierByTrial(self):
         # Experiments with batch trials must specify trial_index or data
         with self.assertRaises(UnsupportedError):
-            compute_pareto_frontier(
+            compute_posterior_pareto_frontier(
                 self.experiment,
                 self.metrics[0],
                 self.metrics[1],
                 absolute_metrics=[m.name for m in self.metrics],
             )
-        compute_pareto_frontier(
+        pfr = compute_posterior_pareto_frontier(
             self.experiment,
             self.metrics[0],
             self.metrics[1],
@@ -41,10 +50,11 @@ class ParetoUtilsTest(TestCase):
             absolute_metrics=[m.name for m in self.metrics],
             num_points=2,
         )
+        self.assertIsNone(pfr.arm_names)
 
-    def testComputeParetoFrontierByData(self):
+    def testComputePosteriorParetoFrontierByData(self):
         # Experiments with batch trials must specify trial_index or data
-        compute_pareto_frontier(
+        compute_posterior_pareto_frontier(
             self.experiment,
             self.metrics[0],
             self.metrics[1],
@@ -52,3 +62,70 @@ class ParetoUtilsTest(TestCase):
             absolute_metrics=[m.name for m in self.metrics],
             num_points=2,
         )
+
+    def testObservedParetoFrontiers(self):
+        experiment = get_branin_experiment(
+            with_batch=True, has_optimization_config=False, with_status_quo=True
+        )
+
+        # Optimization config is not optional
+        with self.assertRaises(ValueError):
+            get_observed_pareto_frontiers(experiment=experiment, data=Data())
+
+        metrics = [
+            BraninMetric(name="m1", param_names=["x1", "x2"], lower_is_better=True),
+            NegativeBraninMetric(
+                name="m2", param_names=["x1", "x2"], lower_is_better=True
+            ),
+            BraninMetric(name="m3", param_names=["x1", "x2"], lower_is_better=True),
+        ]
+        bounds = [0, -100, 0]
+        objective_thresholds = [
+            ObjectiveThreshold(
+                metric=metric,
+                bound=bounds[i],
+                relative=True,
+                op=ComparisonOp.LEQ,
+            )
+            for i, metric in enumerate(metrics)
+        ]
+        objective = MultiObjective(metrics=metrics, minimize=True)
+        optimization_config = MultiObjectiveOptimizationConfig(
+            objective=objective,
+            objective_thresholds=objective_thresholds,
+        )
+        experiment.optimization_config = optimization_config
+        experiment.trials[0].run()
+
+        # For the check below, compute which arms are better than SQ
+        df = experiment.fetch_data().df
+        df["sem"] = np.nan
+        data = Data(df)
+        sq_val = df[(df["arm_name"] == "status_quo") & (df["metric_name"] == "m1")][
+            "mean"
+        ].values[0]
+        pareto_arms = sorted(
+            df[(df["mean"] <= sq_val) & (df["metric_name"] == "m1")]["arm_name"]
+            .unique()
+            .tolist()
+        )
+
+        pfrs = get_observed_pareto_frontiers(experiment=experiment, data=data)
+        # We have all pairs of metrics
+        self.assertEqual(len(pfrs), 3)
+        true_pairs = [("m1", "m2"), ("m1", "m3"), ("m2", "m3")]
+        for i, pfr in enumerate(pfrs):
+            self.assertEqual(pfr.primary_metric, true_pairs[i][0])
+            self.assertEqual(pfr.secondary_metric, true_pairs[i][1])
+            self.assertEqual(pfr.absolute_metrics, [])
+            self.assertEqual(list(pfr.means.keys()), ["m1", "m2", "m3"])
+            self.assertEqual(len(pfr.means["m1"]), len(pareto_arms))
+            self.assertTrue(np.isnan(pfr.sems["m1"]).all())
+            self.assertEqual(len(pfr.arm_names), len(pareto_arms))
+            arm_idx = np.argsort(pfr.arm_names)
+            for i, idx in enumerate(arm_idx):
+                name = pareto_arms[i]
+                self.assertEqual(pfr.arm_names[idx], name)
+                self.assertEqual(
+                    pfr.param_dicts[idx], experiment.arms_by_name[name].parameters
+                )

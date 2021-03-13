@@ -27,6 +27,11 @@ class Derelativize(Transform):
     If status quo is in-design, uses model estimate at status quo. If not, uses
     raw observation at status quo.
 
+    Will raise an error if status quo is in-design and model fails to predict
+    for it, unless the flag "use_raw_status_quo" is set to True in the
+    transform config, in which case it will fall back to using the observed
+    value in the training data.
+
     Transform is done in-place.
     """
 
@@ -36,6 +41,7 @@ class Derelativize(Transform):
         modelbridge: Optional["modelbridge_module.base.ModelBridge"],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
+        use_raw_sq = self.config.get("use_raw_status_quo", False)
         has_relative_constraint = any(
             c.relative for c in optimization_config.all_constraints
         )
@@ -55,7 +61,7 @@ class Derelativize(Transform):
             f, _ = modelbridge.predict([modelbridge.status_quo.features])
         except Exception:
             # Check if it is out-of-design.
-            if not modelbridge.model_space.check_membership(
+            if use_raw_sq or not modelbridge.model_space.check_membership(
                 modelbridge.status_quo.features.parameters
             ):
                 # Out-of-design: use the raw observation

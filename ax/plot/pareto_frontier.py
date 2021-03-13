@@ -20,14 +20,16 @@ DEFAULT_CI_LEVEL: float = 0.9
 def _make_label(
     mean: float, sem: float, name: str, is_relative: bool, Z: Optional[float]
 ) -> str:
-    return "{name}: {estimate}{perc} {ci}<br>".format(
-        name=name,
-        estimate=round(mean, DECIMALS),
-        ci=""
-        if Z is None
-        else _format_CI(estimate=mean, sd=sem, relative=is_relative, zval=Z),
-        perc="%" if is_relative else "",
+    estimate = str(round(mean, DECIMALS))
+    perc = "%" if is_relative else ""
+    ci = (
+        ""
+        if (Z is None or np.isnan(sem))
+        else _format_CI(
+            estimate=mean, sd=sem, relative=is_relative, zval=Z  # pyre-ignore
+        )
     )
+    return f"{name}: {estimate}{perc} {ci}<br>"
 
 
 def plot_pareto_frontier(
@@ -53,6 +55,11 @@ def plot_pareto_frontier(
     secondary_means = frontier.means[frontier.secondary_metric]
     secondary_sems = frontier.sems[frontier.secondary_metric]
     absolute_metrics = frontier.absolute_metrics
+    all_metrics = frontier.means.keys()
+    if frontier.arm_names is None:
+        arm_names = [f"Parameterization {i}" for i in range(len(frontier.param_dicts))]
+    else:
+        arm_names = [f"Arm {name}" for name in frontier.arm_names]
 
     if CI_level is not None:
         Z = 0.5 * norm.ppf(1 - (1 - CI_level) / 2)
@@ -64,31 +71,24 @@ def plot_pareto_frontier(
     rel_y = frontier.primary_metric not in absolute_metrics
 
     for i, param_dict in enumerate(frontier.param_dicts):
-        heading = "<b>Parameterization {}</b><br>".format(i + 1)
-        x_lab = _make_label(
-            mean=secondary_means[i],
-            sem=secondary_sems[i],
-            name=frontier.secondary_metric,
-            is_relative=rel_x,
-            Z=Z,
-        )
-        y_lab = _make_label(
-            mean=primary_means[i],
-            sem=primary_sems[i],
-            name=frontier.primary_metric,
-            is_relative=rel_y,
-            Z=Z,
-        )
+        label = f"<b>{arm_names[i]}</b><br>"
+        for metric in all_metrics:
+            metric_lab = _make_label(
+                mean=frontier.means[metric][i],
+                sem=frontier.sems[metric][i],
+                name=metric,
+                is_relative=metric not in absolute_metrics,
+                Z=Z,
+            )
+            label += metric_lab
+
         parameterization = (
             _format_dict(param_dict, "Parameterization")
             if show_parameterization_on_hover
             else ""
         )
-        labels.append(
-            "{heading}<br>{xlab}{ylab}{param_blob}".format(
-                heading=heading, xlab=x_lab, ylab=y_lab, param_blob=parameterization
-            )
-        )
+        label += parameterization
+        labels.append(label)
 
     traces = [
         go.Scatter(

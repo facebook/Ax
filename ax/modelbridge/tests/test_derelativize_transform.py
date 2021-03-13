@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from copy import deepcopy
 from unittest import mock
 
 import numpy as np
@@ -207,7 +208,14 @@ class DerelativizeTransformTest(TestCase):
         self.assertEqual(mock_predict.call_count, 2)
 
         # Raises error if predict fails with in-design status quo
-        g = ModelBridge(search_space, None, [], status_quo_name="1_1")
+        g = ModelBridge(
+            search_space=search_space,
+            model=None,
+            transforms=[],
+            experiment=Experiment(search_space, "test"),
+            data=Data(),
+            status_quo_name="1_1",
+        )
         oc = OptimizationConfig(
             objective=objective,
             outcome_constraints=[
@@ -222,9 +230,23 @@ class DerelativizeTransformTest(TestCase):
         with self.assertRaises(Exception):
             oc = t.transform_optimization_config(oc, g, None)
 
+        # Bypasses error if use_raw_sq
+        t2 = Derelativize(
+            search_space=None,
+            observation_features=None,
+            observation_data=None,
+            config={"use_raw_status_quo": True},
+        )
+        oc2 = t2.transform_optimization_config(deepcopy(oc), g, None)
+
         # Raises error with relative constraint, no status quo
-        exp = Experiment(search_space, "name")
-        g = ModelBridge(search_space, None, [], exp)
+        g = ModelBridge(
+            search_space=search_space,
+            model=None,
+            transforms=[],
+            experiment=Experiment(search_space, "test"),
+            data=Data(),
+        )
         with self.assertRaises(ValueError):
             oc = t.transform_optimization_config(oc, g, None)
 
