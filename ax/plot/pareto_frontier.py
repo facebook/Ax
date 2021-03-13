@@ -9,8 +9,9 @@ from typing import List, Optional
 import numpy as np
 import plotly.graph_objs as go
 from ax.plot.base import CI_OPACITY, DECIMALS, AxPlotConfig, AxPlotTypes
+from ax.plot.color import COLORS, rgba
 from ax.plot.helper import _format_CI, _format_dict
-from ax.plot.pareto_utils import COLORS, ParetoFrontierResults, rgba
+from ax.plot.pareto_utils import ParetoFrontierResults
 from scipy.stats import norm
 
 
@@ -66,6 +67,16 @@ def plot_pareto_frontier(
     else:
         Z = None
 
+    primary_threshold = None
+    secondary_threshold = None
+    if frontier.objective_thresholds is not None:
+        primary_threshold = frontier.objective_thresholds.get(
+            frontier.primary_metric, None
+        )
+        secondary_threshold = frontier.objective_thresholds.get(
+            frontier.secondary_metric, None
+        )
+
     labels = []
     rel_x = frontier.secondary_metric not in absolute_metrics
     rel_y = frontier.primary_metric not in absolute_metrics
@@ -112,6 +123,34 @@ def plot_pareto_frontier(
         )
     ]
 
+    shapes = []
+    if primary_threshold is not None:
+        shapes.append(
+            {
+                "type": "line",
+                "xref": "paper",
+                "x0": 0.0,
+                "x1": 1.0,
+                "yref": "y",
+                "y0": primary_threshold,
+                "y1": primary_threshold,
+                "line": {"color": rgba(COLORS.CORAL.value), "width": 3},
+            }
+        )
+    if secondary_threshold is not None:
+        shapes.append(
+            {
+                "type": "line",
+                "yref": "paper",
+                "y0": 0.0,
+                "y1": 1.0,
+                "xref": "x",
+                "x0": secondary_threshold,
+                "x1": secondary_threshold,
+                "line": {"color": rgba(COLORS.CORAL.value), "width": 3},
+            }
+        )
+
     layout = go.Layout(
         title="Pareto Frontier",
         xaxis={
@@ -129,6 +168,7 @@ def plot_pareto_frontier(
         width=750,
         height=500,
         margin=go.layout.Margin(pad=4, l=225, b=75, t=75),  # noqa E741
+        shapes=shapes,
     )
 
     fig = go.Figure(data=traces, layout=layout)
@@ -144,14 +184,17 @@ def interact_pareto_frontier(
     if not frontier_list:
         raise ValueError("Must receive a non-empty list of pareto frontiers to plot.")
 
-    traces = [
-        plot_pareto_frontier(
+    traces = []
+    shapes = []
+    for frontier in frontier_list:
+        config = plot_pareto_frontier(
             frontier=frontier,
             CI_level=CI_level,
             show_parameterization_on_hover=show_parameterization_on_hover,
-        ).data["data"][0]
-        for frontier in frontier_list
-    ]
+        )
+        traces.append(config.data["data"][0])
+        shapes.append(config.data["layout"].get("shapes", []))
+
     for i, trace in enumerate(traces):
         if i == 0:  # Only the first trace is initially set to visible
             trace["visible"] = True
@@ -180,6 +223,7 @@ def interact_pareto_frontier(
                         "xaxis.title": secondary_metric,
                         "yaxis.ticksuffix": "%" if rel_y else "",
                         "xaxis.ticksuffix": "%" if rel_x else "",
+                        "shapes": shapes[i],
                     },
                 ],
                 "label": f"{primary_metric} vs {secondary_metric}",
@@ -219,6 +263,7 @@ def interact_pareto_frontier(
         width=750,
         height=500,
         margin=go.layout.Margin(pad=4, l=225, b=75, t=75),  # noqa E741
+        shapes=shapes[0],
     )
 
     fig = go.Figure(data=traces, layout=layout)

@@ -4,7 +4,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import enum
 from itertools import combinations
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
@@ -36,21 +35,7 @@ Mu = Dict[str, List[float]]
 Cov = Dict[str, Dict[str, List[float]]]
 
 
-class COLORS(enum.Enum):
-    STEELBLUE = (128, 177, 211)
-    CORAL = (251, 128, 114)
-    TEAL = (141, 211, 199)
-    PINK = (188, 128, 189)
-    LIGHT_PURPLE = (190, 186, 218)
-    ORANGE = (253, 180, 98)
-
-
 logger = get_logger(__name__)
-
-
-def rgba(rgb_tuple: Tuple[float], alpha: float = 1) -> str:
-    """Convert RGB tuple to an RGBA string."""
-    return "rgba({},{},{},{alpha})".format(*rgb_tuple, alpha=alpha)
 
 
 class ParetoFrontierResults(NamedTuple):
@@ -69,7 +54,9 @@ class ParetoFrontierResults(NamedTuple):
     - absolute_metrics: List of outcome metrics that are NOT be relativized w.r.t. the
         status quo. All other metrics are assumed to be given here as % relative to
         status_quo.
-    - outcome_constraints: Outcome constraints.
+    - objective_thresholds: Threshold for each objective. Must be on the same scale as
+        means, so if means is relativized it should be the relative value, otherwise it
+        should be absolute.
     - arm_names: Optional list of arm names for each parameterization.
     """
 
@@ -79,7 +66,7 @@ class ParetoFrontierResults(NamedTuple):
     primary_metric: str
     secondary_metric: str
     absolute_metrics: List[str]
-    outcome_constraints: Optional[List[OutcomeConstraint]]
+    objective_thresholds: Optional[Dict[str, float]]
     arm_names: Optional[List[Optional[str]]]
 
 
@@ -166,6 +153,17 @@ def get_observed_pareto_frontiers(
     else:
         absolute_metrics = metric_names
 
+    objective_thresholds = {}
+    if experiment.optimization_config.objective_thresholds is not None:  # pyre-ignore
+        for objth in experiment.optimization_config.objective_thresholds:
+            is_rel = objth.metric.name not in absolute_metrics
+            if objth.relative != is_rel:
+                raise ValueError(
+                    f"Objective threshold for {objth.metric.name} has "
+                    f"rel={objth.relative} but was specified here as rel={is_rel}"
+                )
+            objective_thresholds[objth.metric.name] = objth.bound
+
     # Construct ParetoFrontResults for each pair
     pfr_list = []
     param_dicts = [obs.features.parameters for obs in pareto_observations]
@@ -180,7 +178,7 @@ def get_observed_pareto_frontiers(
                 primary_metric=metric_a,
                 secondary_metric=metric_b,
                 absolute_metrics=absolute_metrics,
-                outcome_constraints=None,
+                objective_thresholds=objective_thresholds,
                 arm_names=arm_names,
             )
         )
@@ -221,18 +219,7 @@ def compute_posterior_pareto_frontier(
             when computing Pareto Frontier points.
 
     Returns:
-        ParetoFrontierResults: A NamedTuple with the following fields:
-            - param_dicts: The parameter dicts of the
-                points generated on the Pareto Frontier.
-            - means: The posterior mean predictions of
-                the model for each metric (same order as the param dicts).
-            - sems: The posterior sem predictions of
-                the model for each metric (same order as the param dicts).
-            - primary_metric: The name of the primary metric.
-            - secondary_metric: The name of the secondary metric.
-            - absolute_metrics: List of outcome metrics that
-                are NOT be relativized w.r.t. the status quo (all other metrics
-                are in % relative to status_quo).
+        ParetoFrontierResults: A NamedTuple with fields listed in its definition.
     """
     # TODO(jej): Implement using MultiObjectiveTorchModelBridge's _pareto_frontier
     model_gen_options = {
@@ -387,7 +374,7 @@ def _extract_pareto_frontier_results(
         primary_metric=primary_metric,
         secondary_metric=secondary_metric,
         absolute_metrics=absolute_metrics,
-        outcome_constraints=outcome_constraints,
+        objective_thresholds=None,
         arm_names=None,
     )
 
