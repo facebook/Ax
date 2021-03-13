@@ -683,7 +683,7 @@ def hypervolume(
     if not observation_data:
         # The hypervolume of an empty set is always 0.
         return 0
-    means, _ = modelbridge._transform_observation_data(observation_data)
+    means, _ = modelbridge.transform_observation_data(observation_data)
 
     # Extract objective_weights and objective_thresholds
     if optimization_config is None:
@@ -818,6 +818,7 @@ def array_to_observation_data(
 
 
 def observation_data_to_array(
+    outcomes: List[str],
     observation_data: List[ObservationData],
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Convert a list of Observation data to arrays.
@@ -830,9 +831,13 @@ def observation_data_to_array(
             - f: An (n x m) array
             - cov: An (n x m x m) array
     """
-    means = np.array([obsd.means for obsd in observation_data])
-    covs = np.array([obsd.covariance for obsd in observation_data])
-    return means, covs
+    means = []
+    cov = []
+    for obsd in observation_data:
+        metric_idxs = np.array([outcomes.index(m) for m in obsd.metric_names])
+        means.append(obsd.means[metric_idxs])
+        cov.append(obsd.covariance[metric_idxs][:, metric_idxs])
+    return np.array(means), np.array(cov)
 
 
 def observation_features_to_array(

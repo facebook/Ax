@@ -457,7 +457,9 @@ class ArrayModelBridge(ModelBridge):
             - an (n x m x m) array of covariances
         """
         try:
-            return observation_data_to_array(observation_data=observation_data)
+            return observation_data_to_array(
+                outcomes=self.outcomes, observation_data=observation_data
+            )
         except (KeyError, TypeError):  # pragma: no cover
             raise ValueError("Invalid formatting of observation data.")
 

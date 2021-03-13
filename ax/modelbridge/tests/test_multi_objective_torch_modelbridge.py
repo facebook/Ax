@@ -225,7 +225,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
             optimization_config=optimization_config,
-            transforms=[t1, t2],
+            transforms=[],
             experiment=exp,
             data=exp.fetch_data(),
             objective_thresholds=objective_thresholds,
