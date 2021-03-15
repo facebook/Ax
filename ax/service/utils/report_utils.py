@@ -121,6 +121,7 @@ def exp_to_df(
     exp: Experiment,
     metrics: Optional[List[Metric]] = None,
     key_components: Optional[List[str]] = None,
+    run_metadata_fields: Optional[List[str]] = None,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Transforms an experiment to a DataFrame. Only supports Experiment and
@@ -135,12 +136,21 @@ def exp_to_df(
         key_components: fields that combine to make a unique key corresponding
             to rows, similar to the list of fields passed to a GROUP BY.
             Defaults to ['arm_name', 'trial_index'].
+        run_metadata_fields: fields to extract from trial.run_metadata for trial
+            in experiment.trials. If there are multiple arms per trial, these
+            fields will be replicated across the arms of a trial.
         **kwargs: Custom named arguments, useful for passing complex
             objects from call-site to the `fetch_data` callback.
 
     Returns:
         DataFrame: A dataframe of inputs and metrics by trial and arm.
     """
+
+    def prep_return(
+        df: pd.DataFrame, drop_col: str, sort_by: List[str]
+    ) -> pd.DataFrame:
+        return not_none(not_none(df.drop(drop_col, axis=1)).sort_values(sort_by))
+
     key_components = key_components or ["trial_index", "arm_name"]
 
     # Accept Experiment and SimpleExperiment
@@ -164,5 +174,32 @@ def exp_to_df(
     arm_names_and_params = pd.DataFrame(
         [{"arm_name": name, **arm.parameters} for name, arm in exp.arms_by_name.items()]
     )
+
     exp_df = pd.merge(metric_and_metadata, arm_names_and_params, on="arm_name")
-    return not_none(not_none(exp_df.drop(key_col, axis=1)).sort_values(key_components))
+    trials = exp.trials.items()
+    trial_to_status = {index: trial.status.name for index, trial in trials}
+    exp_df["trial_status"] = [trial_to_status[key] for key in exp_df.trial_index]
+
+    if run_metadata_fields is None:
+        return prep_return(exp_df, key_col, key_components)
+    if not isinstance(run_metadata_fields, list):
+        raise ValueError("run_metadata_fields must be List[str] or None.")
+
+    for field in run_metadata_fields:
+        trial_to_metadata_field = {
+            index: (trial.run_metadata[field] if field in trial.run_metadata else None)
+            for index, trial in trials
+        }
+        if any(trial_to_metadata_field.values()):  # field present for any trial
+            if not all(trial_to_metadata_field.values()):  # not present for all trials
+                logger.warning(
+                    f"Field {field} missing for some trials' run_metadata. "
+                    "Returning None when missing."
+                )
+            exp_df[field] = [trial_to_metadata_field[key] for key in exp_df.trial_index]
+        else:
+            logger.warning(
+                f"Field {field} missing for all trials' run_metadata. "
+                "Not appending column."
+            )
+    return prep_return(exp_df, key_col, key_components)
