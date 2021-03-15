@@ -8,6 +8,7 @@ from itertools import combinations
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
+import torch
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -28,6 +29,7 @@ from ax.models.torch.posterior_mean import get_PosteriorMean
 from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
+from botorch.utils.multi_objective import is_non_dominated
 
 
 # type aliases
@@ -36,6 +38,29 @@ Cov = Dict[str, Dict[str, List[float]]]
 
 
 logger = get_logger(__name__)
+
+
+def _extract_observed_pareto_2d(
+    Y: torch.Tensor, reference_point: Tuple[float, float], minimize: bool = True
+) -> torch.Tensor:
+    if Y.shape[1] != 2:
+        raise NotImplementedError("Currently only the 2-dim case is handled.")
+    ref_point = torch.tensor(reference_point, dtype=Y.dtype)
+    Y_pareto = Y[is_non_dominated(-1 * Y if minimize else Y)]
+    Y_pareto = (
+        Y_pareto[torch.all(Y_pareto < ref_point, dim=1)]
+        if minimize
+        else Y_pareto[torch.all(Y_pareto > ref_point, dim=1)]
+    )
+    Y_pareto = Y_pareto[torch.argsort(Y_pareto[:, 0])]
+    if Y_pareto.shape[0] == 0:
+        better = "below" if minimize else "above"
+        raise ValueError(
+            f"No Pareto-optimal points in `Y` were {better} the reference point."
+        )
+
+    assert Y_pareto.shape[1] == 2  # Y_pareto should have two outcomes.
+    return Y_pareto
 
 
 class ParetoFrontierResults(NamedTuple):

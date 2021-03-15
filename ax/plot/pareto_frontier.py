@@ -4,13 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import plotly.graph_objs as go
 from ax.plot.base import CI_OPACITY, DECIMALS, AxPlotConfig, AxPlotTypes
 from ax.plot.color import COLORS, rgba
-from ax.plot.helper import _format_CI, _format_dict
+from ax.plot.helper import extend_range, _format_CI, _format_dict
 from ax.plot.pareto_utils import ParetoFrontierResults
 from scipy.stats import norm
 
@@ -31,6 +31,143 @@ def _make_label(
         )
     )
     return f"{name}: {estimate}{perc} {ci}<br>"
+
+
+def _filter_outliers(Y: np.ndarray, m: float = 2.0) -> np.ndarray:
+    std_filter = abs(Y - np.median(Y, axis=0)) < m * np.std(Y, axis=0)
+    return Y[np.all(abs(std_filter), axis=1)]
+
+
+def scatter_plot_with_pareto_frontier_plotly(
+    Y: np.ndarray,
+    Y_pareto: np.ndarray,
+    metric_x: str,
+    metric_y: str,
+    reference_point: Tuple[float, float],
+    minimize: bool = True,
+) -> go.Figure:
+    """Plots a scatter of all points in ``Y`` for ``metric_x`` and ``metric_y``
+    with a reference point and Pareto frontier from ``Y_pareto``.
+
+    Points in the scatter are colored in a gradient representing their trial index,
+    with metric_x on x-axis and metric_y on y-axis. Reference point is represented
+    as a star and Pareto frontier –– as a line. The frontier connects to the reference
+    point via projection lines.
+
+    NOTE: Both metrics should have the same minimization setting, passed as `minimize`.
+
+    Args:
+        Y: Array of outcomes, of which the first two will be plotted.
+        Y_pareto: Array of Pareto-optimal points, first two outcomes in which will be
+            plotted.
+        metric_x: Name of first outcome in ``Y``.
+        metric_Y: Name of second outcome in ``Y``.
+        reference_point: Reference point for ``metric_x`` and ``metric_y``.
+        minimize: Whether the two metrics in the plot are being minimized or maximized.
+    """
+    Xs = Y[:, 0]
+    Ys = Y[:, 1]
+
+    experimental_points_scatter = go.Scatter(
+        x=Xs,
+        y=Ys,
+        mode="markers",
+        marker={
+            "color": np.linspace(0, 100, int(len(Xs) * 1.05)),
+            "colorscale": "magma",
+            "colorbar": {
+                "tickvals": [0, 50, 100],
+                "ticktext": [
+                    1,
+                    "iteration",
+                    len(Xs),
+                ],
+            },
+        },
+        name="Experimental points",
+    )
+    reference_point_star = go.Scatter(
+        x=[reference_point[0]],
+        y=[reference_point[1]],
+        mode="markers",
+        marker={"color": rgba(COLORS.STEELBLUE.value), "size": 25, "symbol": "star"},
+    )
+    extra_point_x = min(Y_pareto[:, 0]) if minimize else max(Y_pareto[:, 0])
+    reference_point_line_1 = go.Scatter(
+        x=[extra_point_x, reference_point[0]],
+        y=[reference_point[1], reference_point[1]],
+        mode="lines",
+        marker={"color": rgba(COLORS.STEELBLUE.value)},
+    )
+    extra_point_y = min(Y_pareto[:, 1]) if minimize else max(Y_pareto[:, 1])
+    reference_point_line_2 = go.Scatter(
+        x=[reference_point[0], reference_point[0]],
+        y=[extra_point_y, reference_point[1]],
+        mode="lines",
+        marker={"color": rgba(COLORS.STEELBLUE.value)},
+    )
+    Y_pareto_with_extra = np.concatenate(
+        (
+            [[extra_point_x, reference_point[1]]],
+            Y_pareto,
+            [[reference_point[0], extra_point_y]],
+        ),
+        axis=0,
+    )
+    pareto_step = go.Scatter(
+        x=Y_pareto_with_extra[:, 0],
+        y=Y_pareto_with_extra[:, 1],
+        mode="lines",
+        marker={"color": rgba(COLORS.STEELBLUE.value)},
+    )
+
+    Y_no_outliers = _filter_outliers(Y=Y)
+    range_x = (
+        extend_range(lower=min(Y_no_outliers[:, 0]), upper=reference_point[0])
+        if minimize
+        else extend_range(lower=reference_point[0], upper=max(Y_no_outliers[:, 0]))
+    )
+    range_y = (
+        extend_range(lower=min(Y_no_outliers[:, 1]), upper=reference_point[1])
+        if minimize
+        else extend_range(lower=reference_point[1], upper=max(Y_no_outliers[:, 1]))
+    )
+    layout = go.Layout(
+        title="Observed points with Pareto frontier",
+        showlegend=False,
+        xaxis={"title": metric_x, "range": range_x},
+        yaxis={"title": metric_y, "range": range_y},
+    )
+    return go.Figure(
+        layout=layout,
+        data=[
+            pareto_step,
+            reference_point_line_1,
+            reference_point_line_2,
+            experimental_points_scatter,
+            reference_point_star,
+        ],
+    )
+
+
+def scatter_plot_with_pareto_frontier(
+    Y: np.ndarray,
+    Y_pareto: np.ndarray,
+    metric_x: str,
+    metric_y: str,
+    reference_point: Tuple[float, float],
+    minimize: bool = True,
+) -> AxPlotConfig:
+    return AxPlotConfig(
+        data=scatter_plot_with_pareto_frontier_plotly(
+            Y=Y,
+            Y_pareto=Y_pareto,
+            metric_x=metric_x,
+            metric_y=metric_y,
+            reference_point=reference_point,
+        ),
+        plot_type=AxPlotTypes.GENERIC,
+    )
 
 
 def plot_pareto_frontier(
