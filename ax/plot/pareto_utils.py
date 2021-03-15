@@ -44,19 +44,19 @@ class ParetoFrontierResults(NamedTuple):
     Fields are:
     - param_dicts: The parameter dicts of the points generated on the Pareto Frontier.
     - means: The posterior mean predictions of the model for each metric (same order as
-        the param dicts). These must be as a percent change relative to status quo for
-        any metric not listed in absolute_metrics.
+    the param dicts). These must be as a percent change relative to status quo for
+    any metric not listed in absolute_metrics.
     - sems: The posterior sem predictions of the model for each metric (same order as
-        the param dicts). Also must be relativized wrt status quo for any metric not
-        listed in absolute_metrics.
+    the param dicts). Also must be relativized wrt status quo for any metric not
+    listed in absolute_metrics.
     - primary_metric: The name of the primary metric.
     - secondary_metric: The name of the secondary metric.
     - absolute_metrics: List of outcome metrics that are NOT be relativized w.r.t. the
-        status quo. All other metrics are assumed to be given here as % relative to
-        status_quo.
+    status quo. All other metrics are assumed to be given here as % relative to
+    status_quo.
     - objective_thresholds: Threshold for each objective. Must be on the same scale as
-        means, so if means is relativized it should be the relative value, otherwise it
-        should be absolute.
+    means, so if means is relativized it should be the relative value, otherwise it
+    should be absolute.
     - arm_names: Optional list of arm names for each parameterization.
     """
 
