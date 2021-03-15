@@ -33,7 +33,6 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
-from ax.plot.exp_utils import exp_to_df
 from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict, _get_in_sample_arms
 from ax.plot.trace import optimization_trace_single_method
@@ -42,6 +41,7 @@ from ax.service.utils.instantiation import (
     make_experiment,
     raw_data_to_evaluation,
 )
+from ax.service.utils.report_utils import exp_to_df
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,

@@ -120,11 +120,6 @@ Plotting Utilities
     :undoc-members:
     :show-inheritance:
 
-.. automodule:: ax.plot.exp_utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 .. automodule:: ax.plot.helper
     :members:
     :undoc-members:
