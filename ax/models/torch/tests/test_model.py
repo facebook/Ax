@@ -68,6 +68,7 @@ class BoTorchModelTest(TestCase):
         self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
         self.model_gen_options = {Keys.OPTIMIZER_KWARGS: self.optimizer_options}
         self.objective_weights = torch.tensor([1.0])
+        self.objective_thresholds = None
         self.outcome_constraints = None
         self.linear_constraints = None
         self.fixed_features = None
@@ -350,6 +351,7 @@ class BoTorchModelTest(TestCase):
             botorch_acqf_class=model.botorch_acqf_class,
             bounds=self.bounds,
             objective_weights=self.objective_weights,
+            objective_thresholds=self.objective_thresholds,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,

@@ -94,6 +94,7 @@ class Acquisition(Base):
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
+        objective_thresholds: Optional[Tensor] = None,
     ) -> None:
         if not botorch_acqf_class and not self.default_botorch_acqf_class:
             raise ValueError(
@@ -136,6 +137,7 @@ class Acquisition(Base):
         objective = self._get_botorch_objective(
             model=model,
             objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
         )
@@ -158,6 +160,7 @@ class Acquisition(Base):
         self._instantiate_acqf(
             model=model,
             objective=objective,
+            objective_thresholds=objective_thresholds,
             model_dependent_kwargs=model_deps,
             X_pending=X_pending,
             X_baseline=X_baseline,
@@ -281,6 +284,7 @@ class Acquisition(Base):
         self,
         model: Model,
         objective_weights: Tensor,
+        objective_thresholds: Optional[Tensor] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         X_observed: Optional[Tensor] = None,
     ) -> AcquisitionObjective:
@@ -299,6 +303,7 @@ class Acquisition(Base):
         model: Model,
         objective: AcquisitionObjective,
         model_dependent_kwargs: Dict[str, Any],
+        objective_thresholds: Optional[Tensor] = None,
         X_pending: Optional[Tensor] = None,
         X_baseline: Optional[Tensor] = None,
     ) -> None:
