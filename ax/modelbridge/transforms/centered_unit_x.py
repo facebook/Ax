@@ -60,7 +60,9 @@ class CenteredUnitX(Transform):
                 p.update_range(lower=-1.0, upper=1.0)
             if p.target_value is not None:
                 l, u = self.bounds[p_name]
-                new_tval = -1 + 2 * (p.target_value - l) / (u - l)  # pyre-ignore [16]
+                # pyre-fixme[58]: `-` is not supported for operand types
+                #  `Union[None, bool, float, int, str]` and `float`.
+                new_tval = -1 + 2 * (p.target_value - l) / (u - l)
                 p._target_value = new_tval
         for c in search_space.parameter_constraints:
             for p_name in c.constraint_dict:
