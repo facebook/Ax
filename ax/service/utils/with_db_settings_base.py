@@ -93,7 +93,7 @@ class WithDBSettingsBase:
             return None, None
 
         exp_id = _get_experiment_id(
-            experiment_name=experiment_name, decoder=self.db_settings.decoder
+            experiment_name=experiment_name, config=self.db_settings.decoder.config
         )
         if not exp_id:
             return None, None

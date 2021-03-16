@@ -115,11 +115,11 @@ def _get_experiment_sqa_reduced_state(
     return sqa_experiment
 
 
-def _get_experiment_id(experiment_name: str, decoder: Decoder) -> Optional[int]:
+def _get_experiment_id(experiment_name: str, config: SQAConfig) -> Optional[int]:
     """Get DB ID of the experiment by the given name if its in DB,
     return None otherwise.
     """
-    exp_sqa_class = decoder.config.class_to_sqa_class[Experiment]
+    exp_sqa_class = config.class_to_sqa_class[Experiment]
     with session_scope() as session:
         sqa_experiment_id = (
             session.query(exp_sqa_class.id)  # pyre-ignore

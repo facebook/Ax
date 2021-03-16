@@ -12,13 +12,12 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.storage.sqa_store.db import SQABase, optional_session_scope, session_scope
+from ax.storage.sqa_store.db import SQABase, session_scope
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
-from sqlalchemy.orm import Session
 
 
 logger = get_logger(__name__)
@@ -119,17 +118,18 @@ def _save_generation_strategy(
 ) -> int:
     # If the generation strategy has not yet generated anything, there will be no
     # experiment set on it.
-    if generation_strategy._experiment is None:
+    experiment = generation_strategy._experiment
+    if experiment is None:
         experiment_id = None
     else:
         # Experiment was set on the generation strategy, so need to check whether
         # if has been saved and create a relationship b/w GS and experiment if so.
-        experiment_id = _get_experiment_id(
-            # pyre-fixme[6]: Expected `Experiment` for 1st param but got
-            #  `Optional[Experiment]`.
-            experiment=generation_strategy._experiment,
-            encoder=encoder,
-        )
+        experiment_id = experiment.db_id
+        if experiment_id is None:
+            raise ValueError(  # pragma: no cover
+                f"Experiment {experiment.name} should be saved before "
+                "generation strategy."
+            )
 
     gs_sqa, obj_to_sqa = encoder.generation_strategy_to_sqa(
         generation_strategy=generation_strategy, experiment_id=experiment_id
@@ -159,22 +159,6 @@ def _save_generation_strategy(
     _set_db_ids(obj_to_sqa=obj_to_sqa)
 
     return not_none(generation_strategy.db_id)
-
-
-def _get_experiment_id(
-    experiment: Experiment, encoder: Encoder, session: Optional[Session] = None
-) -> int:
-    exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
-    with optional_session_scope(session=session) as _session:
-        sqa_experiment_id = (
-            _session.query(exp_sqa_class.id)  # pyre-ignore
-            .filter_by(name=experiment.name)
-            .one_or_none()
-        )
-
-    if sqa_experiment_id is None:  # pragma: no cover (this is technically unreachable)
-        raise ValueError("No corresponding experiment found.")
-    return sqa_experiment_id[0]
 
 
 def save_or_update_trial(
@@ -320,11 +304,15 @@ def _update_generation_strategy(
     if gs_id is None:
         raise ValueError("GenerationStrategy must be saved before being updated.")
 
+    experiment_id = generation_strategy.experiment.db_id
+    if experiment_id is None:
+        raise ValueError(  # pragma: no cover
+            f"Experiment {generation_strategy.experiment.name} "
+            "should be saved before generation strategy."
+        )
+
     obj_to_sqa = []
     with session_scope() as session:
-        experiment_id = _get_experiment_id(
-            experiment=generation_strategy.experiment, encoder=encoder, session=session
-        )
         session.query(gs_sqa_class).filter_by(id=gs_id).update(
             {
                 "curr_index": generation_strategy._curr.index,
