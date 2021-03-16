@@ -10,6 +10,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import SQABase, session_scope
@@ -339,3 +340,30 @@ def _update_generation_strategy(
         session.add_all(generator_runs_sqa)
 
     _set_db_ids(obj_to_sqa=obj_to_sqa)
+
+
+def update_runner_on_experiment(
+    experiment: Experiment, old_runner: Runner, new_runner: Runner, encoder: Encoder
+) -> None:
+    runner_sqa_class = encoder.config.class_to_sqa_class[Runner]
+
+    exp_id = experiment.db_id
+    if exp_id is None:
+        raise ValueError("Experiment must be saved before being updated.")
+
+    old_runner_id = old_runner.db_id
+
+    new_runner_sqa = encoder.runner_to_sqa(runner=new_runner)
+    new_runner_sqa.experiment_id = exp_id
+
+    with session_scope() as session:
+        if old_runner_id is not None:
+            old_runner_sqa = (
+                session.query(runner_sqa_class)
+                .filter_by(id=old_runner.db_id)
+                .one_or_none()
+            )
+            session.delete(old_runner_sqa)
+        session.add(new_runner_sqa)
+
+    _set_db_ids(obj_to_sqa=[(new_runner, new_runner_sqa)])  # pyre-ignore[6]
