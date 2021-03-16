@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
@@ -17,7 +17,7 @@ from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger = get_logger(__name__)
@@ -52,7 +52,12 @@ def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) 
     _save_experiment(experiment=experiment, encoder=encoder)
 
 
-def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
+def _save_experiment(
+    experiment: Experiment,
+    encoder: Encoder,
+    return_sqa: bool = False,
+    validation_kwargs: Optional[Dict[str, Any]] = None,
+) -> Optional[SQABase]:
     """Save experiment, using given Encoder instance.
 
     1) Convert Ax object to SQLAlchemy object.
@@ -75,6 +80,7 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
         #  `Optional[ax.storage.sqa_store.sqa_classes.SQAExperiment]` for 2nd param but
         #  got `Optional[ax.storage.sqa_store.db.SQABase]`.
         existing_sqa_experiment=existing_sqa_experiment,
+        **(validation_kwargs or {}),
     )
     new_sqa_experiment, obj_to_sqa = encoder.experiment_to_sqa(experiment)
 
@@ -92,6 +98,8 @@ def _save_experiment(experiment: Experiment, encoder: Encoder) -> None:
         session.flush()
 
     _set_db_ids(obj_to_sqa=obj_to_sqa)
+
+    return checked_cast(SQABase, new_sqa_experiment) if return_sqa else None
 
 
 def save_generation_strategy(
