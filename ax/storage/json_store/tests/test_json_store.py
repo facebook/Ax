@@ -38,6 +38,7 @@ from ax.utils.testing.benchmark_stubs import (
     get_sum_simple_benchmark_problem,
 )
 from ax.utils.testing.core_stubs import (
+    get_abandoned_arm,
     get_acquisition_function_type,
     get_acquisition_type,
     get_arm,
@@ -89,6 +90,7 @@ from botorch.test_functions.synthetic import Ackley
 
 
 TEST_CASES = [
+    ("AbandonedArm", get_abandoned_arm),
     ("Arm", get_arm),
     ("AugmentedBraninMetric", get_augmented_branin_metric),
     ("AugmentedHartmannMetric", get_augmented_hartmann_metric),

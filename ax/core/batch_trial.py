@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict, defaultdict
+from dataclasses import dataclass
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
@@ -14,7 +15,6 @@ from typing import (
     Dict,
     List,
     MutableMapping,
-    NamedTuple,
     Optional,
     Union,
 )
@@ -25,6 +25,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
 from ax.core.types import TCandidateMetadata
+from ax.utils.common.base import Base
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import get_logger
@@ -39,8 +40,9 @@ if TYPE_CHECKING:
     from ax import core  # noqa F401  # pragma: no cover
 
 
-class AbandonedArm(NamedTuple):
-    """Tuple storing metadata of arm that has been abandoned within
+@dataclass
+class AbandonedArm(Base):
+    """Class storing metadata of arm that has been abandoned within
     a BatchTrial.
     """
 
@@ -57,7 +59,8 @@ class AbandonedArm(NamedTuple):
         )
 
 
-class GeneratorRunStruct(NamedTuple):
+@dataclass
+class GeneratorRunStruct(Base):
     """Stores GeneratorRun object as well as the weight with which it was added."""
 
     generator_run: GeneratorRun
