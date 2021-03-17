@@ -239,6 +239,7 @@ class TestAxClient(TestCase):
             minimize=True,
             outcome_constraints=["some_metric >= 3", "some_metric <= 4.0"],
             parameter_constraints=["x4 <= x6"],
+            tracking_metric_names=["test_tracking_metric"],
         )
         assert ax_client._experiment is not None
         self.assertEqual(ax_client._experiment, ax_client.experiment)
@@ -299,6 +300,10 @@ class TestAxClient(TestCase):
             ),
         )
         self.assertTrue(ax_client._experiment.optimization_config.objective.minimize)
+        self.assertDictEqual(
+            ax_client._experiment._tracking_metrics,
+            {"test_tracking_metric": Metric(name="test_tracking_metric")},
+        )
 
     def test_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""

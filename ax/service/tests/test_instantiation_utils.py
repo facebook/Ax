@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from ax.core.metric import Metric
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.exceptions.core import UnsupportedError
 from ax.service.utils.instantiation import (
@@ -97,6 +98,23 @@ class TestInstantiationtUtils(TestCase):
                 objective_name="branin",
                 objectives={"branin": "minimize", "currin": "maximize"},
             )
+
+    def test_add_tracking_metrics(self):
+        experiment = make_experiment(
+            parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
+            tracking_metric_names=None,
+        )
+        self.assertDictEqual(experiment._tracking_metrics, {})
+
+        metrics_names = ["metric_1", "metric_2"]
+        experiment = make_experiment(
+            parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
+            tracking_metric_names=metrics_names,
+        )
+        self.assertDictEqual(
+            experiment._tracking_metrics,
+            {metric_name: Metric(name=metric_name) for metric_name in metrics_names},
+        )
 
     def test_make_objectives(self):
         with self.assertRaisesRegex(ValueError, "specify 'minimize' or 'maximize'"):

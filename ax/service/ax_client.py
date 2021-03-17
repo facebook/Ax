@@ -168,6 +168,7 @@ class AxClient(WithDBSettingsBase):
         status_quo: Optional[TParameterization] = None,
         overwrite_existing_experiment: bool = False,
         experiment_type: Optional[str] = None,
+        tracking_metric_names: Optional[List[str]] = None,
         choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
@@ -211,6 +212,8 @@ class AxClient(WithDBSettingsBase):
                 To protect experiments in production, one cannot overwrite existing
                 experiments if the experiment is already stored in the database,
                 regardless of the value of `overwrite_existing_experiment`.
+            tracking_metric_names: Names of additional tracking metrics not used for
+                optimization.
             choose_generation_strategy_kwargs: Keyword arguments to pass to
                 `choose_generation_strategy` function which determines what
                 generation strategy should be used when none was specified on init.
@@ -257,6 +260,7 @@ class AxClient(WithDBSettingsBase):
             outcome_constraints=outcome_constraints,
             status_quo=status_quo,
             experiment_type=experiment_type,
+            tracking_metric_names=tracking_metric_names,
         )
 
         try:

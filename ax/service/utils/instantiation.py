@@ -471,6 +471,7 @@ def make_experiment(
     outcome_constraints: Optional[List[str]] = None,
     status_quo: Optional[TParameterization] = None,
     experiment_type: Optional[str] = None,
+    tracking_metric_names: Optional[List[str]] = None,
     # Single-objective optimization arguments:
     objective_name: Optional[str] = None,
     minimize: bool = False,
@@ -517,6 +518,8 @@ def make_experiment(
             test configurations.
         experiment_type: String indicating type of the experiment (e.g. name of
             a product in which it is used), if any.
+        tracking_metric_names: Names of additional tracking metrics not used for
+            optimization.
         objective_name: Name of the metric used as objective in this experiment,
             if experiment is single-objective optimization.
         minimize: Whether this experiment represents a minimization problem, if
@@ -560,12 +563,19 @@ def make_experiment(
             status_quo_arm is not None,
         )
 
+    tracking_metrics = (
+        None
+        if tracking_metric_names is None
+        else [Metric(name=metric_name) for metric_name in tracking_metric_names]
+    )
+
     return Experiment(
         name=name,
         search_space=make_search_space(parameters, parameter_constraints or []),
         optimization_config=optimization_config,
         status_quo=status_quo_arm,
         experiment_type=experiment_type,
+        tracking_metrics=tracking_metrics,
     )
 
 
