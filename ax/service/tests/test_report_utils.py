@@ -5,7 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 import pandas as pd
-from ax.service.utils.report_utils import exp_to_df, get_best_trial
+from ax.service.utils.report_utils import (
+    _get_shortest_unique_suffix_dict,
+    exp_to_df,
+    get_best_trial,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
@@ -27,3 +31,17 @@ class ReportUtilsTest(TestCase):
         df = exp_to_df(exp)
         best_trial = get_best_trial(exp)
         pd.testing.assert_frame_equal(df.sort_values("branin").head(1), best_trial)
+
+    def test_get_shortest_unique_suffix_dict(self):
+        expected_output = {
+            "abc.123": "abc.123",
+            "asdf.abc.123": "asdf.abc.123",
+            "def.123": "def.123",
+            "abc.456": "456",
+            "": "",
+            "no_delimiter": "no_delimiter",
+        }
+        actual_output = _get_shortest_unique_suffix_dict(
+            ["abc.123", "abc.456", "def.123", "asdf.abc.123", "", "no_delimiter"]
+        )
+        self.assertDictEqual(expected_output, actual_output)
