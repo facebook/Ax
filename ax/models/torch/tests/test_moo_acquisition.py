@@ -5,9 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Any
+from unittest import mock
 from unittest.mock import patch
 
-import mock
 import torch
 from ax.exceptions.core import UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition

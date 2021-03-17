@@ -235,6 +235,15 @@ ax.models.torch.botorch_modular.model module
     :undoc-members:
     :show-inheritance:
 
+ax.models.torch.botorch_modular.moo_acquisition module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.moo_acquisition
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 ax.models.torch.botorch_modular.multi_fidelity module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
