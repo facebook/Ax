@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
+from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
 from ax.modelbridge import ModelBridge
@@ -203,3 +204,66 @@ def exp_to_df(
                 "Not appending column."
             )
     return prep_return(exp_df, key_col, key_components)
+
+
+def get_best_trial(
+    exp: Experiment,
+    additional_metrics: Optional[List[Metric]] = None,
+    key_components: Optional[List[str]] = None,
+    run_metadata_fields: Optional[List[str]] = None,
+    **kwargs: Any,
+) -> Optional[pd.DataFrame]:
+    """Finds the optimal trial given an experiment, based on raw objective value.
+
+    Returns a 1-row dataframe. Should match the row of ``exp_to_df`` with the best
+    raw objective value, given the same arguments.
+
+    Args:
+        exp: An Experiment that may have pending trials.
+        additional_metrics: List of metrics to return in addition to the objective
+            metric. Return all metrics if None.
+        key_components: fields that combine to make a unique key corresponding
+            to rows, similar to the list of fields passed to a GROUP BY.
+            Defaults to ['arm_name', 'trial_index'].
+        run_metadata_fields: fields to extract from trial.run_metadata for trial
+            in experiment.trials. If there are multiple arms per trial, these
+            fields will be replicated across the arms of a trial.
+        **kwargs: Custom named arguments, useful for passing complex
+            objects from call-site to the `fetch_data` callback.
+
+    Returns:
+        DataFrame: A dataframe of inputs and metrics of the optimal trial.
+    """
+    objective = not_none(exp.optimization_config).objective
+    if isinstance(objective, MultiObjective):
+        logger.warning(
+            "No best trial is available for MultiObjective optimization. "
+            "Returning None for best trial."
+        )
+        return None
+    if isinstance(objective, ScalarizedObjective):
+        logger.warning(
+            "No best trial is available for ScalarizedObjective optimization. "
+            "Returning None for best trial."
+        )
+        return None
+    if (additional_metrics is not None) and (
+        objective.metric not in additional_metrics
+    ):
+        additional_metrics.append(objective.metric)
+    trials_df = exp_to_df(
+        exp=exp,
+        metrics=additional_metrics,
+        key_components=key_components,
+        run_metadata_fields=run_metadata_fields,
+        **kwargs,
+    )
+    if len(trials_df.index) == 0:
+        logger.warning("exp_to_df returned 0 trials. Returning None for best trial.")
+        return None
+    metric_name = objective.metric.name
+    minimize = objective.minimize
+    metric_optimum = (
+        trials_df[metric_name].min() if minimize else trials_df[metric_name].max()
+    )
+    return pd.DataFrame(trials_df[trials_df[metric_name] == metric_optimum].head(1))
