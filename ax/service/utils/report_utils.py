@@ -78,6 +78,13 @@ def _get_objective_v_param_plot(
             metric_name=metric_name,
         )
         return output_contour_plot
+    # explicitly cover
+    else:
+        logger.warning(
+            "_get_objective_v_param_plot requires a search space with at least one "
+            "RangeParameter. Returning None."
+        )
+        return None
 
 
 def _get_suffix(input_str: str, delim: str = ".", n_chunks: int = 1) -> str:
@@ -150,9 +157,41 @@ def get_standard_plots(
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
-    TODO: Describe specific logic here on what happens depending on search space
-    and generation strategy attributes.
+    Extracts a list of plots from an Experiment and GenerationStrategy of general
+    interest to an Ax user. Currently not supported are
+        - TODO: multi-objective optimization
+        - TODO: ChoiceParameter plots
+
+    Args:
+        - experiment: the Experiment from which to obtain standard plots.
+        - generation_strategy: the GenerationStrategy used to suggest trial parameters
+          in experiment
+
+    Returns:
+        List of plots:
+            - a plot of objective value vs. trial index, to show experiment progression
+            - a plot of objective value vs. range parameter values, only included if the
+              model associated with generation_strategy can create predictions. This
+              consists of:
+                - a plot_slice plot if the search space contains one range parameter
+                - an interact_contour plot if the search space contains multiple
+                  range parameters
+
     """
+    objective = not_none(experiment.optimization_config).objective
+    if isinstance(objective, MultiObjective):
+        logger.warning(
+            "get_standard_plots does not currently support MultiObjective "
+            "optimization experiments. Returning an empty list."
+        )
+        return None
+    if isinstance(objective, ScalarizedObjective):
+        logger.warning(
+            "get_standard_plots does not currently support ScalarizedObjective "
+            "optimization experiments. Returning an empty list."
+        )
+        return None
+
     output_plot_list = []
     output_plot_list.append(
         _get_objective_trace_plot(
