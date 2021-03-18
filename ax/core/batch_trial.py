@@ -140,6 +140,12 @@ class BatchTrial(BaseTrial):
             # It will not be included in arm_weights
             self._status_quo = status_quo
 
+        # Trial status quos are stored in the DB as a generator run
+        # with one arm; thus we need to store two `db_id` values
+        # for this object instead of one
+        self._status_quo_generator_run_db_id: Optional[int] = None
+        self._status_quo_arm_db_id: Optional[int] = None
+
     @property
     def experiment(self) -> core.experiment.Experiment:
         """The experiment this batch belongs to."""

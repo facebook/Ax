@@ -468,11 +468,13 @@ class Decoder:
                 self.metric_from_sqa_util(child) for child in metrics_sqa_children
             ]
 
-            return MultiObjective(
+            multi_objective = MultiObjective(
                 metrics=list(metrics),
                 # pyre-fixme[6]: Expected `bool` for 2nd param but got `Optional[bool]`.
                 minimize=metric_sqa.minimize,
             )
+            multi_objective.db_id = metric_sqa.id
+            return multi_objective
         elif (
             metric_sqa.intent == MetricIntent.SCALARIZED_OBJECTIVE
         ):  # metric_sqa is a parent whose children are individual
@@ -499,12 +501,14 @@ class Decoder:
                     for child in metrics_sqa_children
                 ]
             )
-            return ScalarizedObjective(
+            scalarized_objective = ScalarizedObjective(
                 metrics=list(metrics),
                 weights=list(weights),
                 # pyre-fixme[6]: Expected `bool` for 3nd param but got `Optional[bool]`.
                 minimize=metric_sqa.minimize,
             )
+            scalarized_objective.db_id = metric_sqa.id
+            return scalarized_objective
         elif metric_sqa.intent == MetricIntent.OUTCOME_CONSTRAINT:
             if (
                 metric_sqa.bound is None
@@ -552,7 +556,7 @@ class Decoder:
                     for child in metrics_sqa_children
                 ]
             )
-            return ScalarizedOutcomeConstraint(
+            scalarized_outcome_constraint = ScalarizedOutcomeConstraint(
                 metrics=list(metrics),
                 weights=list(weights),
                 # pyre-fixme[6]: Expected `float` for 2nd param but got
@@ -561,7 +565,8 @@ class Decoder:
                 op=metric_sqa.op,
                 relative=metric_sqa.relative,
             )
-
+            scalarized_outcome_constraint.db_id = metric_sqa.id
+            return scalarized_outcome_constraint
         elif metric_sqa.intent == MetricIntent.OBJECTIVE_THRESHOLD:
             if metric_sqa.bound is None or metric_sqa.relative is None:
                 raise SQADecodeError(  # pragma: no cover
@@ -628,11 +633,13 @@ class Decoder:
         self, abandoned_arm_sqa: SQAAbandonedArm
     ) -> AbandonedArm:
         """Convert SQLAlchemy AbandonedArm to Ax AbandonedArm."""
-        return AbandonedArm(
+        arm = AbandonedArm(
             name=abandoned_arm_sqa.name,
             reason=abandoned_arm_sqa.abandoned_reason,
             time=abandoned_arm_sqa.time_abandoned,
         )
+        arm.db_id = abandoned_arm_sqa.id
+        return arm
 
     def generator_run_from_sqa(
         self, generator_run_sqa: SQAGeneratorRun, reduced_state: bool = False
@@ -825,6 +832,10 @@ class Decoder:
                         status_quo_weight = struct.generator_run.weights[0]
                         trial._status_quo = struct.generator_run.arms[0]
                         trial._status_quo_weight_override = status_quo_weight
+                        trial._status_quo_generator_run_db_id = (
+                            struct.generator_run.db_id
+                        )
+                        trial._status_quo_arm_db_id = struct.generator_run.arms[0].db_id
                     else:
                         new_generator_run_structs.append(struct)
                 generator_run_structs = new_generator_run_structs
