@@ -18,7 +18,6 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.metric import Metric
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
