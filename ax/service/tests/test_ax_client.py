@@ -418,7 +418,7 @@ class TestAxClient(TestCase):
             ax_client.update_trial_data(trial_index=idx, raw_data=1.0)
         ax_client.update_trial_data(trial_index=idx, raw_data={"m1": (1, 0.0)})
         metrics_in_data = ax_client.experiment.fetch_data().df["metric_name"].values
-        self.assertIn("m1", metrics_in_data)
+        self.assertNotIn("m1", metrics_in_data)
         self.assertIn("objective", metrics_in_data)
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         params2, idy = ax_client.get_next_trial()
@@ -981,22 +981,6 @@ class TestAxClient(TestCase):
                 parameterization={k: v + 1.0 for k, v in params.items()},
             )
         )
-
-    def test_tracking_metric_addition(self):
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            name="test_experiment",
-            parameters=[
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-            minimize=True,
-            objective_name="a",
-        )
-        params, trial_idx = ax_client.get_next_trial()
-        self.assertEqual(list(ax_client.experiment.metrics.keys()), ["a"])
-        ax_client.complete_trial(trial_index=trial_idx, raw_data={"a": 1.0, "b": 2.0})
-        self.assertEqual(list(ax_client.experiment.metrics.keys()), ["b", "a"])
 
     @patch(
         "ax.core.experiment.Experiment.new_trial",

@@ -1051,9 +1051,13 @@ class AxClient(WithDBSettingsBase):
             if metric_name not in self.experiment.metrics:
                 logger.info(
                     f"Data was logged for metric {metric_name} that was not yet "
-                    "tracked on the experiment. Adding it as tracking metric."
+                    "tracked on the experiment. Please specify `tracking_metric_"
+                    "names` argument in AxClient.create_experiment to add tracking "
+                    "metrics to the experiment. Without those, all data users "
+                    "specify is still attached to the experiment, but will not be "
+                    "fetched in `experiment.fetch_data()`, but you can still use "
+                    "`experiment.lookup_data_for_trial` to get all attached data."
                 )
-                self.experiment.add_tracking_metric(Metric(name=metric_name))
 
     # -------- Backward-compatibility with old save / load method names. -------
 
