@@ -155,7 +155,7 @@ def benchmark_replication(  # One optimization loop.
         verbose_logging=verbose_logging,
         failed_trials_tolerated=failed_trials_tolerated,
     )
-
+    experiment.fetch_data()
     trial_exceptions.extend(exceptions)
     return experiment
 
