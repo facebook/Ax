@@ -651,7 +651,6 @@ class Encoder:
         """Convert Ax AbandonedArm to SQLAlchemy."""
         # pyre-fixme[9]: abandoned_arm_class is ....sqa_store.db.SQABase]`.
         abandoned_arm_class: SQAAbandonedArm = self.config.class_to_sqa_class[
-            # pyre-fixme[6]: Expected `typing.Type[B...ing.Type[AbandonedArm]`.
             AbandonedArm
         ]
         # pyre-fixme[29]: `SQAAbandonedArm` is not a function.

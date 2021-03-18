@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 import datetime
 import enum
 from collections import OrderedDict
@@ -62,9 +63,14 @@ def object_to_json(obj: Any) -> Any:
     elif _type is dict:
         return {k: object_to_json(v) for k, v in obj.items()}
     elif _is_named_tuple(obj):
-        return {
+        return {  # pragma: no cover
             "__type": _type.__name__,
             **{k: object_to_json(v) for k, v in obj._asdict().items()},
+        }
+    elif dataclasses.is_dataclass(obj):
+        return {
+            "__type": _type.__name__,
+            **{k: object_to_json(v) for k, v in dataclasses.asdict(obj).items()},
         }
 
     # Types from libraries, commonly used in Ax (e.g., numpy, pandas, torch)
