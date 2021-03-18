@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from ax.storage.json_store import load, save
+from ax.storage.json_store import load as json_load, save as json_save
 
 
-__all__ = ["save", "load"]
+__all__ = ["json_save", "json_load"]

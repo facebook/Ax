@@ -33,7 +33,7 @@ from ax.core import (
 )
 from ax.modelbridge import Models
 from ax.service import OptimizationLoop, optimize
-from ax.storage import load, save
+from ax.storage import json_load, json_save
 
 
 try:
@@ -71,6 +71,6 @@ __all__ = [
     "SumConstraint",
     "Trial",
     "optimize",
-    "save",
-    "load",
+    "json_save",
+    "json_load",
 ]
