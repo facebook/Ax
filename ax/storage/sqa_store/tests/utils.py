@@ -229,7 +229,12 @@ ENCODE_DECODE_FIELD_MAPS = {
             # which BatchTrial inherits)
             "BaseTrial__status": "status",
         },
-        python_only=["experiment", "status_quo", "status_quo_weight_override"],
+        python_only=[
+            "experiment",
+            "status_quo",
+            "status_quo_weight_override",
+            "arms_by_name",
+        ],
         encoded_only=["is_batch", "status_quo_name", "deployed_name", "properties"],
     ),
     "BraninObjective": EncodeDecodeFieldsMap(

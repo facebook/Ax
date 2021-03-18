@@ -116,6 +116,7 @@ class BatchTrial(BaseTrial):
             ttl_seconds=ttl_seconds,
             index=index,
         )
+        self._arms_by_name: Dict[str, Arm] = {}
         self._generator_run_structs: List[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
         self._status_quo: Optional[Arm] = None
@@ -264,6 +265,7 @@ class BatchTrial(BaseTrial):
         self._set_generation_step_index(
             generation_step_index=generator_run._generation_step_index
         )
+        self._refresh_arms_by_name()
         return self
 
     @property
@@ -282,6 +284,7 @@ class BatchTrial(BaseTrial):
     def unset_status_quo(self) -> None:
         """Set the status quo to None."""
         self._status_quo = None
+        self._refresh_arms_by_name()
 
     @immutable_once_run
     def set_status_quo_with_weight(self, status_quo: Arm, weight: float) -> BatchTrial:
@@ -303,6 +306,7 @@ class BatchTrial(BaseTrial):
             )
         self._status_quo = status_quo
         self._status_quo_weight_override = weight
+        self._refresh_arms_by_name()
         return self
 
     @immutable_once_run
@@ -356,14 +360,16 @@ class BatchTrial(BaseTrial):
     @property
     def arms_by_name(self) -> Dict[str, Arm]:
         """Map from arm name to object for all arms in trial."""
-        arms_by_name = {}
+        return self._arms_by_name
+
+    def _refresh_arms_by_name(self) -> None:
+        self._arms_by_name = {}
         for arm in self.arms:
             if not arm.has_name:
                 raise ValueError(  # pragma: no cover
                     "Arms attached to a trial must have a name."
                 )
-            arms_by_name[arm.name] = arm
-        return arms_by_name
+            self._arms_by_name[arm.name] = arm
 
     @property
     def abandoned_arms(self) -> List[Arm]:

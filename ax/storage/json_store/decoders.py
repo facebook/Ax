@@ -73,6 +73,7 @@ def batch_trial_from_json(
     batch.optimize_for_power = optimize_for_power
     batch._generation_step_index = generation_step_index
     batch._properties = properties
+    batch._refresh_arms_by_name()  # Trigger cache build
     return batch
 
 

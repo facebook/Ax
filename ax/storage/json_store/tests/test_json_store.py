@@ -154,7 +154,8 @@ ENCODE_DECODE_FIELD_MAPS = {
         ]
     ),
     "BatchTrial": EncodeDecodeFieldsMap(
-        python_only=["experiment"], python_to_encoded={"BaseTrial__status": "status"}
+        python_only=["experiment", "arms_by_name"],
+        python_to_encoded={"BaseTrial__status": "status"},
     ),
     "SimpleBenchmarkProblem": EncodeDecodeFieldsMap(encoded_only=["function_name"]),
     "GenerationStrategy": EncodeDecodeFieldsMap(

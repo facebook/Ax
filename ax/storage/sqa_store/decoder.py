@@ -836,6 +836,7 @@ class Decoder:
                     )
                     for abandoned_arm_sqa in trial_sqa.abandoned_arms
                 }
+            trial._refresh_arms_by_name()  # Trigger cache build
         else:
             trial = Trial(
                 experiment=experiment,

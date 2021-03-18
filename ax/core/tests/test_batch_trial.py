@@ -55,8 +55,6 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.index, 0)
         self.assertEqual(self.batch.status, TrialStatus.CANDIDATE)
         self.assertIsNotNone(self.batch.time_created)
-        self.assertEqual(self.batch.arms_by_name["0_0"], self.batch.arms[0])
-        self.assertEqual(self.batch.arms_by_name["0_1"], self.batch.arms[1])
         self.assertEqual(
             self.batch.generator_run_structs[0].generator_run.generator_run_type,
             GeneratorRunType.MANUAL.name,
@@ -206,6 +204,33 @@ class BatchTrialTest(TestCase):
             math.isclose(
                 batch.arm_weights[batch.status_quo], expected_status_quo_weight
             )
+        )
+
+    def testArmsByName(self):
+        # Initializes empty
+        newbatch = self.experiment.new_batch_trial()
+        self.assertEqual(newbatch.arms_by_name, {})
+
+        # Correct when arms have been added
+        self.assertEqual(self.batch.arms_by_name["0_0"], self.batch.arms[0])
+        self.assertEqual(self.batch.arms_by_name["0_1"], self.batch.arms[1])
+
+        # Refreshed when arm is added
+        newbatch.add_arm(self.batch.arms[0])
+        self.assertEqual(newbatch.arms_by_name, {"0_0": self.batch.arms[0]})
+
+        # Refreshed when status quo is set
+        newbatch.set_status_quo_with_weight(self.batch.arms[1], 1.0)
+        self.assertEqual(
+            newbatch.arms_by_name,
+            {"0_0": self.batch.arms[0], "0_1": self.batch.arms[1]},
+        )
+
+        # Refreshed when status quo is unset
+        newbatch.unset_status_quo()
+        self.assertEqual(
+            newbatch.arms_by_name,
+            {"0_0": self.batch.arms[0]},
         )
 
     def testBatchLifecycle(self):
