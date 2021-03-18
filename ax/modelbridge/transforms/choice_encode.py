@@ -13,17 +13,21 @@ from ax.core.types import TConfig, TParamValue
 from ax.modelbridge.transforms.base import Transform
 
 
-class OrderedChoiceEncode(Transform):
-    """Convert ordered ChoiceParameters to unit length RangeParameters.
+class ChoiceEncode(Transform):
+    """Convert ChoiceParameters to integer RangeParameters.
 
-    Parameters will be transformed to an integer RangeParameter,
-    mapped from the original choice domain to a contiguous range from [0, n_choices].
-    Does not transform task parameters.
+    Parameters will be transformed to an integer RangeParameter, mapped from the
+    original choice domain to a contiguous range `0, 1, ..., n_choices - 1`
+    of integers. Does not transform task parameters.
 
     In the inverse transform, parameters will be mapped back onto the original domain.
 
+    In order to only encode ordered ChoiceParameters, use OrderedChoiceEncode instead.
+
     Transform is done in-place.
     """
+
+    encode_ordered_choices_only = False
 
     def __init__(
         self,
@@ -35,11 +39,12 @@ class OrderedChoiceEncode(Transform):
         # Identify parameters that should be transformed
         self.encoded_parameters: Dict[str, Dict[TParamValue, int]] = {}
         for p in search_space.parameters.values():
-            if isinstance(p, ChoiceParameter) and p.is_ordered and not p.is_task:
-                self.encoded_parameters[p.name] = {
-                    original_value: transformed_value
-                    for transformed_value, original_value in enumerate(p.values)
-                }
+            if isinstance(p, ChoiceParameter) and not p.is_task:
+                if p.is_ordered or not self.encode_ordered_choices_only:
+                    self.encoded_parameters[p.name] = {
+                        original_value: transformed_value
+                        for transformed_value, original_value in enumerate(p.values)
+                    }
         self.encoded_parameters_inverse: Dict[str, Dict[int, TParamValue]] = {
             p_name: {
                 transformed_value: original_value
@@ -96,3 +101,21 @@ class OrderedChoiceEncode(Transform):
                 pval: int = obsf.parameters[p_name]
                 obsf.parameters[p_name] = reverse_transform[pval]
         return observation_features
+
+
+class OrderedChoiceEncode(ChoiceEncode):
+    """Convert ordered ChoiceParameters to integer RangeParameters.
+
+    Parameters will be transformed to an integer RangeParameter, mapped from the
+    original choice domain to a contiguous range `0, 1, ..., n_choices - 1`
+    of integers. Does not transform task parameters.
+
+    In the inverse transform, parameters will be mapped back onto the original domain.
+
+    In order to encode all ChoiceParameters (not just ordered ChoiceParameters),
+    use ChoiceEncode instead.
+
+    Transform is done in-place.
+    """
+
+    encode_ordered_choices_only = True

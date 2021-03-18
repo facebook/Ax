@@ -10,11 +10,11 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.transforms.ordered_choice_encode import OrderedChoiceEncode
+from ax.modelbridge.transforms.choice_encode import ChoiceEncode, OrderedChoiceEncode
 from ax.utils.common.testutils import TestCase
 
 
-class OrderedChoiceEncodeTransformTest(TestCase):
+class ChoiceEncodeTransformTest(TestCase):
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -42,38 +42,38 @@ class OrderedChoiceEncodeTransformTest(TestCase):
                 ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5)
             ],
         )
-        self.t = OrderedChoiceEncode(
+        self.t = ChoiceEncode(
             search_space=self.search_space,
             observation_features=None,
             observation_data=None,
         )
-
-    def testInit(self):
-        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
-
-    def testTransformObservationFeatures(self):
-        observation_features = [
+        self.observation_features = [
             ObservationFeatures(
                 parameters={"x": 2.2, "a": 2, "b": 10.0, "c": 100.0, "d": "r"}
             )
         ]
+        # expected parameters after transform
+        self.expected_transformed_params = {
+            "x": 2.2,
+            "a": 2,
+            # float choice originally; transformed to int index.
+            "b": 1,
+            # float choice originally; transformed to int index.
+            "c": 1,
+            # string choice originally; transformed to int index.
+            "d": 0,
+        }
+
+    def testInit(self):
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c", "d"])
+
+    def testTransformObservationFeatures(self):
+        observation_features = self.observation_features
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
         self.assertEqual(
             obs_ft2,
-            [
-                ObservationFeatures(
-                    parameters={
-                        "x": 2.2,
-                        "a": 2,
-                        # Index originally; int in RangeParameter.
-                        "b": 1,
-                        # Index originally; int in RangeParameter.
-                        "c": 1,
-                        "d": "r",
-                    }
-                )
-            ],
+            [ObservationFeatures(parameters=self.expected_transformed_params)],
         )
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
@@ -88,11 +88,71 @@ class OrderedChoiceEncodeTransformTest(TestCase):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
-        # Parameter type fixed.
+        for p in ("x", "a", "b", "c", "d"):
+            self.assertIsInstance(ss2.parameters[p], RangeParameter)
         self.assertEqual(ss2.parameters["x"].parameter_type, ParameterType.FLOAT)
-        self.assertEqual(ss2.parameters["a"].parameter_type, ParameterType.INT)
-        self.assertEqual(ss2.parameters["b"].parameter_type, ParameterType.INT)
-        self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.INT)
+        for p in ("a", "b", "c", "d"):
+            self.assertEqual(ss2.parameters[p].parameter_type, ParameterType.INT)
+
+        self.assertEqual(ss2.parameters["b"].lower, 0)
+        self.assertEqual(ss2.parameters["b"].upper, 2)
+        self.assertEqual(ss2.parameters["c"].lower, 0)
+        self.assertEqual(ss2.parameters["c"].upper, 2)
+        self.assertEqual(ss2.parameters["d"].lower, 0)
+        self.assertEqual(ss2.parameters["d"].upper, 2)
+
+        # Ensure we error if we try to transform a fidelity parameter
+        ss3 = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    "b",
+                    parameter_type=ParameterType.FLOAT,
+                    values=[1.0, 10.0, 100.0],
+                    is_ordered=True,
+                    is_fidelity=True,
+                    target_value=100.0,
+                )
+            ]
+        )
+        t = OrderedChoiceEncode(
+            search_space=ss3, observation_features=None, observation_data=None
+        )
+        with self.assertRaises(ValueError):
+            t.transform_search_space(ss3)
+
+
+class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
+    def setUp(self):
+        super().setUp()
+        self.t = OrderedChoiceEncode(
+            search_space=self.search_space,
+            observation_features=None,
+            observation_data=None,
+        )
+        # expected parameters after transform
+        self.expected_transformed_params = {
+            "x": 2.2,
+            "a": 2,
+            # float choice originally; transformed to int index.
+            "b": 1,
+            # float choice originally; transformed to int index.
+            "c": 1,
+            "d": "r",
+        }
+
+    def testInit(self):
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
+
+    def testTransformSearchSpace(self):
+        ss2 = deepcopy(self.search_space)
+        ss2 = self.t.transform_search_space(ss2)
+
+        for p in ("x", "a", "b", "c"):
+            self.assertIsInstance(ss2.parameters[p], RangeParameter)
+        self.assertIsInstance(ss2.parameters["d"], ChoiceParameter)
+        self.assertEqual(ss2.parameters["x"].parameter_type, ParameterType.FLOAT)
+        for p in ("a", "b", "c"):
+            self.assertEqual(ss2.parameters[p].parameter_type, ParameterType.INT)
         self.assertEqual(ss2.parameters["d"].parameter_type, ParameterType.STRING)
 
         self.assertEqual(ss2.parameters["b"].lower, 0)
