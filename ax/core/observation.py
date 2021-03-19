@@ -264,8 +264,8 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
     feature_cols = list(OBS_COLS.intersection(data.df.columns))
     observations = []
     arm_name_only = len(feature_cols) == 1  # there will always be an arm name
-    # One DataFrame where all rows are complete.
-    isnull = data.df.isnull()
+    # One DataFrame where all rows have all features.
+    isnull = data.df[feature_cols].isnull()
     isnull_any = isnull.any(axis=1)
     incomplete_df_cols = isnull[isnull_any].any()
 
@@ -274,9 +274,14 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
         OBS_COLS.intersection(incomplete_df_cols.index[~incomplete_df_cols])
     )
 
-    grouped = data.df.groupby(by=complete_feature_cols)
-    complete_df = grouped.filter(lambda r: ~r.isnull().any().any())
-    incomplete_df = grouped.filter(lambda r: r.isnull().any().any())
+    if set(feature_cols) == set(complete_feature_cols):
+        complete_df = data.df
+        incomplete_df = None
+    else:
+        # The groupby and filter is expensive, so do it only if we have to.
+        grouped = data.df.groupby(by=complete_feature_cols)
+        complete_df = grouped.filter(lambda r: ~r[feature_cols].isnull().any().any())
+        incomplete_df = grouped.filter(lambda r: r[feature_cols].isnull().any().any())
 
     # Get Observations from complete_df
     observations.extend(
@@ -287,15 +292,16 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
             arm_name_only=arm_name_only,
         )
     )
-    # Get Observations from incomplete_df
-    observations.extend(
-        _observations_from_dataframe(
-            experiment=experiment,
-            df=incomplete_df,
-            cols=complete_feature_cols,
-            arm_name_only=arm_name_only,
+    if incomplete_df is not None:
+        # Get Observations from incomplete_df
+        observations.extend(
+            _observations_from_dataframe(
+                experiment=experiment,
+                df=incomplete_df,
+                cols=complete_feature_cols,
+                arm_name_only=arm_name_only,
+            )
         )
-    )
     return observations
 
 
