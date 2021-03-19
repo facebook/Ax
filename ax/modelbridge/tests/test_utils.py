@@ -12,14 +12,20 @@ from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
+from ax.core.objective import Objective, MultiObjective
 from ax.core.observation import ObservationFeatures
-from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
+from ax.core.outcome_constraint import (
+    OutcomeConstraint,
+    ScalarizedOutcomeConstraint,
+    ObjectiveThreshold,
+)
 from ax.core.types import ComparisonOp
 from ax.modelbridge.modelbridge_utils import (
     clamp_observation_features,
     get_pending_observation_features,
     pending_observations_as_array,
     extract_outcome_constraints,
+    extract_objective_thresholds,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment
@@ -271,3 +277,64 @@ class TestModelbridgeUtils(TestCase):
         self.assertListEqual(list(res[0][1]), [0, -0.5, -0.5])
         self.assertEqual(res[1][0][0], 0)
         self.assertEqual(res[1][1][0], -1)
+
+    def test_extract_objective_thresholds(self):
+        outcomes = ["m1", "m2", "m3", "m4"]
+        objective = MultiObjective(metrics=[Metric(name) for name in outcomes[:3]])
+        objective_thresholds = [
+            ObjectiveThreshold(
+                metric=Metric(name), op=ComparisonOp.LEQ, bound=float(i + 2)
+            )
+            for i, name in enumerate(outcomes[:3])
+        ]
+
+        # None of no thresholds
+        self.assertIsNone(
+            extract_objective_thresholds(
+                objective_thresholds=[], objective=objective, outcomes=outcomes
+            )
+        )
+
+        # Working case
+        obj_t = extract_objective_thresholds(
+            objective_thresholds=objective_thresholds,
+            objective=objective,
+            outcomes=outcomes,
+        )
+        self.assertTrue(np.array_equal(obj_t, np.array([2.0, 3.0, 4.0, 0.0])))
+
+        # Fails if threshold not provided for all objective metrics
+        with self.assertRaises(ValueError):
+            extract_objective_thresholds(
+                objective_thresholds=objective_thresholds[:2],
+                objective=objective,
+                outcomes=outcomes,
+            )
+
+        # Fails if number of thresholds doesn't equal number of objectives
+        objective2 = Objective(Metric("m1"))
+        with self.assertRaises(ValueError):
+            extract_objective_thresholds(
+                objective_thresholds=objective_thresholds,
+                objective=objective2,
+                outcomes=outcomes,
+            )
+
+        # Works with a single objective, single threshold
+        obj_t = extract_objective_thresholds(
+            objective_thresholds=objective_thresholds[:1],
+            objective=objective2,
+            outcomes=outcomes,
+        )
+        self.assertTrue(np.array_equal(obj_t, np.array([2.0, 0.0, 0.0, 0.0])))
+
+        # Fails if relative
+        objective_thresholds[2] = ObjectiveThreshold(
+            metric=Metric("m3"), op=ComparisonOp.LEQ, bound=3, relative=True
+        )
+        with self.assertRaises(ValueError):
+            extract_objective_thresholds(
+                objective_thresholds=objective_thresholds,
+                objective=objective,
+                outcomes=outcomes,
+            )

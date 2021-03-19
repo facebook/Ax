@@ -116,14 +116,11 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
             objective_thresholds = extract_objective_thresholds(
                 objective_thresholds=optimization_config.objective_thresholds,
+                objective=optimization_config.objective,
                 outcomes=self.outcomes,
             )
         else:
-            objective_thresholds = np.array([])
-        # pyre-fixme[35]: Target cannot be annotated.
-        objective_thresholds: Optional[np.ndarray] = (
-            objective_thresholds if len(objective_thresholds) else None
-        )
+            objective_thresholds = None
         if objective_thresholds is not None:
             extra_kwargs_dict["objective_thresholds"] = objective_thresholds
         return extra_kwargs_dict
@@ -140,7 +137,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
         target_fidelities: Optional[Dict[int, float]],
-        objective_thresholds: Optional[np.ndarray] = None,
+        objective_thresholds: Optional[torch.Tensor] = None,
     ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata, List[TCandidateMetadata]]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
@@ -150,11 +147,6 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             linear_constraints=linear_constraints,
             pending_observations=pending_observations,
             final_transform=self._array_to_tensor,
-        )
-        obj_t = (
-            self._array_to_tensor(objective_thresholds)
-            if objective_thresholds is not None
-            else None
         )
         tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
         augmented_model_gen_options = {
@@ -167,7 +159,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             bounds=bounds,
             objective_weights=obj_w,
             outcome_constraints=oc_c,
-            objective_thresholds=obj_t,
+            objective_thresholds=objective_thresholds,
             linear_constraints=l_c,
             fixed_features=fixed_features,
             pending_observations=pend_obs,

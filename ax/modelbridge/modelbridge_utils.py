@@ -111,29 +111,55 @@ def get_bounds_and_task(
 
 
 def extract_objective_thresholds(
-    objective_thresholds: TRefPoint, outcomes: List[str]
-) -> np.ndarray:
+    objective_thresholds: TRefPoint, objective: Objective, outcomes: List[str]
+) -> Optional[torch.Tensor]:
     """Extracts objective thresholds' values, in the order of `outcomes`.
 
-    The extracted array will be no greater than the number of values in the
-    objective_thresholds, typically the same as number of objectives being
-    optimized.
+    Will return None if no objective thresholds, otherwise the extracted tensor
+    will be the same length as `outcomes`.
+
+    If one objective threshold is specified, they must be specified for every
+    metric in the objective.
+
+    Outcomes that are not part of an objective will be given a threshold of 0
+    in this tensor, under the assumption that its value will not be used. Note
+    that setting it to 0 for an outcome that is part of the objective would be
+    incorrect, hence we validate that all objective metrics are represented.
 
     Args:
-        objective_thresholds: Reference Point to extract values from.
+        objective_thresholds: Objective thresholds to extract values from.
+        objective: The corresponding Objective, for validation purposes.
         outcomes: n-length list of names of metrics.
 
     Returns:
-        len(objective_thresholds)-length list of reference point coordinates
+        (n,) tensor of thresholds
     """
-    objective_threshold_dict = {ot.metric.name: ot.bound for ot in objective_thresholds}
-    return np.array(
-        [
-            objective_threshold_dict[name]
-            for name in outcomes
-            if name in objective_threshold_dict
-        ]
-    )
+    if len(objective_thresholds) == 0:
+        return None
+
+    objective_threshold_dict = {}
+    for ot in objective_thresholds:
+        if ot.relative:
+            raise ValueError(
+                f"Objective {ot.metric.name} has a relative threshold that is not "
+                f"supported here."
+            )
+        objective_threshold_dict[ot.metric.name] = ot.bound
+
+    if len(objective_threshold_dict) != len(objective.metrics):
+        raise ValueError(
+            "Objective thresholds do not match number of objective metrics."
+        )
+
+    obj_t = torch.zeros(len(outcomes))
+    for metric in objective.metrics:
+        if metric.name not in objective_threshold_dict:
+            raise ValueError(
+                f"Objective threshold not specified for {metric.name}. Thresholds must "
+                f"be specified for all objective metrics or for none."
+            )
+        obj_t[outcomes.index(metric.name)] = objective_threshold_dict[metric.name]
+    return obj_t
 
 
 def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.ndarray:
@@ -502,7 +528,7 @@ def clamp_observation_features(
     return observation_features
 
 
-def pareto_frontier(
+def get_pareto_frontier_and_transformed_configs(
     modelbridge: modelbridge_module.array.ArrayModelBridge,
     observation_features: List[ObservationFeatures],
     observation_data: Optional[List[ObservationData]] = None,
@@ -510,8 +536,34 @@ def pareto_frontier(
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
     arm_names: Optional[List[Optional[str]]] = None,
     use_model_predictions: bool = True,
-) -> List[Observation]:
-    """Helper that applies transforms and calls frontier_evaluator."""
+) -> Tuple[List[Observation], Tensor, Tensor, Optional[Tensor]]:
+    """Helper that applies transforms and calls frontier_evaluator.
+
+    Returns transformed configs in addition to the Pareto observations.
+
+    Args:
+        modelbridge: Modelbridge used to predict metrics outcomes.
+        observation_features: observation features to predict, if provided and
+            use_model_predictions is True.
+        observation_data: data for computing the Pareto front, unless features
+            are provided and model_predictions is True.
+        objective_thresholds: metric values bounding the region of interest in
+            the objective outcome space.
+        optimization_config: Optimization config.
+        arm_names: Arm names for each observation.
+        use_model_predictions: If True, will use model predictions at
+            observation_features to compute Pareto front, if provided. If False,
+            will use observation_data directly to compute Pareto front, regardless
+            of whether observation_features are provided.
+
+    Returns:
+        frontier_observations: Observations of points on the pareto frontier.
+        f: n x m tensor representation of the Pareto frontier values where n is the
+            length of frontier_observations and m is the number of metrics.
+        obj_w: m tensor of objective weights.
+        obj_t: m tensor of objective thresholds corresponding to Y, or None if no
+            objective thresholds used.
+    """
     array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
     X = (
         modelbridge.transform_observation_features(observation_features)
@@ -558,8 +610,9 @@ def pareto_frontier(
         outcome_constraints=optimization_config.outcome_constraints,
         outcomes=modelbridge.outcomes,
     )
-    objective_thresholds_arr = extract_objective_thresholds(
+    obj_t = extract_objective_thresholds(
         objective_thresholds=optimization_config.objective_thresholds,
+        objective=optimization_config.objective,
         outcomes=modelbridge.outcomes,
     )
     # Transform to tensors.
@@ -570,7 +623,6 @@ def pareto_frontier(
         pending_observations=None,
         final_transform=array_to_tensor,
     )
-    obj_t = array_to_tensor(objective_thresholds_arr)
     frontier_evaluator = get_default_frontier_evaluator()
     # pyre-ignore[28]: Unexpected keyword `modelbridge` to anonymous call
     f, cov, indx = frontier_evaluator(
@@ -582,10 +634,10 @@ def pareto_frontier(
         objective_weights=obj_w,
         outcome_constraints=oc_c,
     )
-    f, cov = f.detach().cpu().clone().numpy(), cov.detach().cpu().clone().numpy()
+    f, cov = f.detach().cpu().clone(), cov.detach().cpu().clone()
     indx = indx.tolist()
     frontier_observation_data = array_to_observation_data(
-        f=f, cov=cov, outcomes=not_none(modelbridge.outcomes)
+        f=f.numpy(), cov=cov.numpy(), outcomes=not_none(modelbridge.outcomes)
     )
     # Untransform observations
     for t in reversed(modelbridge.transforms.values()):  # noqa T484
@@ -602,7 +654,47 @@ def pareto_frontier(
                 arm_name=arm_names[indx[i]],
             )
         )
-    return frontier_observations
+    return frontier_observations, f, obj_w, obj_t
+
+
+def pareto_frontier(
+    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    observation_features: List[ObservationFeatures],
+    observation_data: Optional[List[ObservationData]] = None,
+    objective_thresholds: Optional[TRefPoint] = None,
+    optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+    arm_names: Optional[List[Optional[str]]] = None,
+    use_model_predictions: bool = True,
+) -> List[Observation]:
+    """Helper that applies transforms and calls frontier_evaluator.
+
+    Args:
+        modelbridge: Modelbridge used to predict metrics outcomes.
+        observation_features: observation features to predict, if provided and
+            use_model_predictions is True.
+        observation_data: data for computing the Pareto front, unless features
+            are provided and model_predictions is True.
+        objective_thresholds: metric values bounding the region of interest in
+            the objective outcome space.
+        optimization_config: Optimization config.
+        arm_names: Arm names for each observation.
+        use_model_predictions: If True, will use model predictions at
+            observation_features to compute Pareto front, if provided. If False,
+            will use observation_data directly to compute Pareto front, regardless
+            of whether observation_features are provided.
+
+    Returns:
+        frontier_observations: Observations of points on the pareto frontier.
+    """
+    return get_pareto_frontier_and_transformed_configs(
+        modelbridge=modelbridge,
+        observation_features=observation_features,
+        observation_data=observation_data,
+        objective_thresholds=objective_thresholds,
+        optimization_config=optimization_config,
+        arm_names=arm_names,
+        use_model_predictions=use_model_predictions,
+    )[0]
 
 
 def predicted_pareto_frontier(
@@ -642,13 +734,14 @@ def predicted_pareto_frontier(
             "have training data."
         )
 
-    return pareto_frontier(
+    pareto_observations = pareto_frontier(
         modelbridge=modelbridge,
         objective_thresholds=objective_thresholds,
         observation_features=observation_features,
         optimization_config=optimization_config,
         arm_names=arm_names,
     )
+    return pareto_observations
 
 
 def observed_pareto_frontier(
@@ -678,7 +771,7 @@ def observed_pareto_frontier(
         observation_features.append(obs.features)
         arm_names.append(obs.arm_name)
 
-    return pareto_frontier(
+    pareto_observations = pareto_frontier(
         modelbridge=modelbridge,
         objective_thresholds=objective_thresholds,
         observation_data=observation_data,
@@ -687,6 +780,7 @@ def observed_pareto_frontier(
         arm_names=arm_names,
         use_model_predictions=False,
     )
+    return pareto_observations
 
 
 def hypervolume(
@@ -698,10 +792,8 @@ def hypervolume(
     use_model_predictions: bool = True,
 ) -> float:
     """Helper function that computes hypervolume of a given list of outcomes."""
-    array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
-
-    # Extract a tensor of outcome means from observation data.
-    observations = pareto_frontier(
+    # Get Pareto front
+    observations, f, obj_w, obj_t = get_pareto_frontier_and_transformed_configs(
         modelbridge=modelbridge,
         objective_thresholds=objective_thresholds,
         observation_features=observation_features,
@@ -709,44 +801,17 @@ def hypervolume(
         optimization_config=optimization_config,
         use_model_predictions=use_model_predictions,
     )
-    observation_data = [obs.data for obs in observations]
-    if not observation_data:
-        # The hypervolume of an empty set is always 0.
-        return 0
-    means, _ = modelbridge.transform_observation_data(observation_data)
-
-    # Extract objective_weights and objective_thresholds
-    if optimization_config is None:
-        optimization_config = (
-            # pyre-ignore[16]: Optional has undefined attr `_optimization_config`
-            modelbridge._optimization_config.clone()
-            if modelbridge._optimization_config is not None
-            else None
+    if obj_t is None:
+        raise ValueError(
+            "Cannot compute hypervolume without having objective thresholds specified."
         )
-    else:
-        # pyre-ignore[9]: declared as type `Optional[...]` but used as type `...`
-        optimization_config = optimization_config.clone()
-
-    if objective_thresholds is not None:
-        optimization_config = optimization_config.clone_with_args(
-            objective_thresholds=objective_thresholds
-        )
-
-    obj_w = extract_objective_weights(
-        objective=optimization_config.objective, outcomes=modelbridge.outcomes
-    )
-    obj_w = array_to_tensor(obj_w)
-    objective_thresholds_arr = extract_objective_thresholds(
-        objective_thresholds=optimization_config.objective_thresholds,
-        outcomes=modelbridge.outcomes,
-    )
-    obj_t = array_to_tensor(objective_thresholds_arr)
+    # Apply appropriate weights and thresholds
     obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
         objective_weights=obj_w, objective_thresholds=obj_t
     )
-    means = obj(means)
+    f_t = obj(f)
     hv = Hypervolume(ref_point=obj_t)
-    return hv.compute(means)
+    return hv.compute(f_t)
 
 
 def predicted_hypervolume(

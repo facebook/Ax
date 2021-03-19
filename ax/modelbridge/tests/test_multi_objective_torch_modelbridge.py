@@ -11,6 +11,7 @@ import torch
 from ax.core.observation import ObservationFeatures, ObservationData
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.modelbridge.modelbridge_utils import (
+    get_pareto_frontier_and_transformed_configs,
     pareto_frontier,
     predicted_hypervolume,
     predicted_pareto_frontier,
@@ -215,7 +216,12 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
-            observed_frontier = pareto_frontier(
+            (
+                observed_frontier,
+                f,
+                obj_w,
+                obj_t,
+            ) = get_pareto_frontier_and_transformed_configs(
                 modelbridge=modelbridge,
                 objective_thresholds=objective_thresholds,
                 observation_features=observation_features,
@@ -228,11 +234,26 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                     torch.tensor([[1.0, 4.0], [4.0, 1.0]]),
                 )
             )
+            self.assertEqual(f.shape, (1, 2))
+            self.assertTrue(torch.equal(obj_w, torch.tensor([1.0, 1.0])))
+            self.assertTrue(torch.equal(obj_t, torch.tensor([0.0, 0.0])))
+            observed_frontier2 = pareto_frontier(
+                modelbridge=modelbridge,
+                objective_thresholds=objective_thresholds,
+                observation_features=observation_features,
+                observation_data=observation_data,
+            )
+            self.assertEqual(observed_frontier, observed_frontier2)
 
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
-            observed_frontier = pareto_frontier(
+            (
+                observed_frontier,
+                f,
+                obj_w,
+                obj_t,
+            ) = get_pareto_frontier_and_transformed_configs(
                 modelbridge=modelbridge,
                 objective_thresholds=objective_thresholds,
                 observation_features=observation_features,
@@ -241,12 +262,14 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             )
             wrapped_frontier_evaluator.assert_called_once()
             self.assertIsNone(wrapped_frontier_evaluator.call_args[1]["X"])
+            true_Y = torch.tensor([[9.0, 4.0], [16.0, 25.0]])
             self.assertTrue(
                 torch.equal(
                     wrapped_frontier_evaluator.call_args[1]["Y"],
-                    torch.tensor([[9.0, 4.0], [16.0, 25.0]]),
+                    true_Y,
                 )
             )
+            self.assertTrue(torch.equal(f, true_Y[1:, :]))
 
     @patch(
         # Mocking `BraninMetric` as not available while running, so it will
