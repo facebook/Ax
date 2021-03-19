@@ -446,12 +446,7 @@ class SQAStoreTest(TestCase):
                 # encoding we only care about the first.
                 sqa_object = sqa_object[0]
 
-            if isinstance(
-                original_object, AbandonedArm
-            ):  # handle NamedTuple differently
-                object_keys = original_object._asdict().keys()
-            else:
-                object_keys = original_object.__dict__.keys()
+            object_keys = original_object.__dict__.keys()
             object_keys = {remove_prefix(key, "_") for key in object_keys}
             sqa_keys = {
                 remove_prefix(key, "_")
