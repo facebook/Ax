@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, Mock, patch
 
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
-from ax.core.batch_trial import AbandonedArm
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective

@@ -277,9 +277,7 @@ def create_mysql_engine_from_url(
         Engine: SQLAlchemy engine with connection to MySQL DB.
 
     """
-    return create_engine(
-        name_or_url=url, pool_recycle=pool_recycle, echo=echo, **kwargs
-    )
+    return create_engine(url, pool_recycle=pool_recycle, echo=echo, **kwargs)
 
 
 def create_test_engine(path: Optional[str] = None, echo: bool = True) -> Engine:
