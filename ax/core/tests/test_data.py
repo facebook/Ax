@@ -6,7 +6,6 @@
 
 import pandas as pd
 from ax.core.data import (
-    REQUIRED_COLUMNS,
     Data,
     clone_without_metrics,
     custom_data_class,
@@ -100,7 +99,7 @@ class DataTest(TestCase):
     def testEmptyData(self):
         df = Data().df
         self.assertTrue(df.empty)
-        self.assertTrue(set(df.columns == REQUIRED_COLUMNS))
+        self.assertTrue(set(df.columns == Data.REQUIRED_COLUMNS))
         self.assertTrue(Data.from_multiple_data([]).df.empty)
 
     def testSetSingleBatch(self):

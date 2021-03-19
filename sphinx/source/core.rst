@@ -11,6 +11,14 @@ ax.core
 Core Classes
 -------------
 
+`AbstractData`
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.core.abstract_data
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `Arm`
 ~~~~~~~~~~~~~~~~~~~~~~~
 

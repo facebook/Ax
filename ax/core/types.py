@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import enum
-from typing import Any, DefaultDict, Dict, List, Optional, Tuple, Union
+from typing import Any, DefaultDict, Dict, Hashable, List, Optional, Tuple, Union
 
 import numpy as np
 from botorch.acquisition import AcquisitionFunction
@@ -31,6 +31,9 @@ TTrialEvaluation = Dict[str, Tuple[float, Optional[float]]]
 
 # 1-arm evaluation data with trace fidelities
 TFidelityTrialEvaluation = List[Tuple[TParameterization, TTrialEvaluation]]
+
+# 1-arm evaluation data with arbitrary partial results
+TMapTrialEvaluation = List[Tuple[Tuple[Hashable, ...], TTrialEvaluation]]
 
 # Format for trasmitting evaluation data to Ax is either:
 # 1) {metric_name -> (mean, standard error)} (TTrialEvaluation)

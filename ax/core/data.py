@@ -12,32 +12,14 @@ from typing import Dict, Iterable, Optional, Set, Type
 
 import numpy as np
 import pandas as pd
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
-from ax.utils.common.base import Base
 
 
 TPdTimestamp = pd.Timestamp
 
-COLUMN_DATA_TYPES = {
-    "arm_name": str,
-    "metric_name": str,
-    "mean": np.float64,
-    "sem": np.float64,
-    "trial_index": np.int64,
-    "start_time": TPdTimestamp,
-    "end_time": TPdTimestamp,
-    "n": np.int64,
-    "frac_nonnull": np.float64,
-    "random_split": np.int64,
-    "fidelities": str,  # Dictionary stored as json
-}
-# Note: Although the SEM (standard error of the mean) is a required column in data,
-# downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
-# either in your Metric class or in Data explicitly.
-REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
 
-
-class Data(Base):
+class Data(AbstractDataFrameData):
     """Class storing data for an experiment.
 
     The dataframe is retrieved via the `df` property. The data can be stored
@@ -50,6 +32,25 @@ class Data(Base):
         description: Human-readable description of data.
 
     """
+
+    # Note: Although the SEM (standard error of the mean) is a required column in data,
+    # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
+    # either in your Metric class or in Data explicitly.
+    REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
+    # pyre-ignore[15]: Inconsistent override. Adds FieldExperiment-specific fields
+    COLUMN_DATA_TYPES = {
+        "arm_name": str,
+        "metric_name": str,
+        "mean": np.float64,
+        "sem": np.float64,
+        "trial_index": np.int64,
+        "start_time": TPdTimestamp,
+        "end_time": TPdTimestamp,
+        "n": np.int64,
+        "frac_nonnull": np.float64,
+        "random_split": np.int64,
+        "fidelities": str,  # Dictionary stored as json
+    }
 
     def __init__(
         self,
@@ -83,46 +84,10 @@ class Data(Base):
             # Reorder the columns for easier viewing
             col_order = [c for c in self.column_data_types() if c in df.columns]
             self._df = df[col_order]
-        self.description = description
-
-    @classmethod
-    def _safecast_df(cls, df: pd.DataFrame) -> pd.DataFrame:
-        """Function for safely casting df to standard data types.
-
-        Needed because numpy does not support NaNs in integer arrays.
-
-        Args:
-            df: DataFrame to safe-cast.
-
-        Returns:
-            safe_df: DataFrame cast to standard dtypes.
-
-        """
-        dtype = {
-            # Pandas timestamp handlng is weird
-            col: "datetime64[ns]" if coltype is TPdTimestamp else coltype
-            for col, coltype in cls.column_data_types().items()
-            if col in df.columns.values
-            and not (
-                cls.column_data_types()[col] is np.int64
-                and df.loc[:, col].isnull().any()
-            )
-        }
-        # pyre-fixme[7]: Expected `DataFrame` but got
-        #  `Union[pd.core.frame.DataFrame, pd.core.series.Series]`.
-        return df.astype(dtype=dtype)
+        super().__init__(description=description)
 
     @staticmethod
-    def required_columns() -> Set[str]:
-        """Names of required columns."""
-        return REQUIRED_COLUMNS
-
-    @staticmethod
-    def column_data_types() -> Dict[str, Type]:
-        """Type specification for all supported columns."""
-        return COLUMN_DATA_TYPES
-
-    @staticmethod
+    # pyre-ignore [14]: `Iterable[Data]` not a supertype of overridden parameter.
     def from_multiple_data(
         data: Iterable[Data], subset_metrics: Optional[Iterable[str]] = None
     ) -> Data:
@@ -251,35 +216,6 @@ class Data(Base):
                 record["n"] = sample_sizes[str(record["arm_name"])]
         return Data(df=pd.DataFrame(records))
 
-    @property
-    def df(self) -> pd.DataFrame:
-        return self._df
-
-    @property
-    def df_hash(self) -> str:
-        """Compute hash of pandas DataFrame.
-
-        This first serializes the DataFrame and computes the md5 hash on the
-        resulting string. Note that this may cause performance issue for very large
-        DataFrames.
-
-        Args:
-            df: The DataFrame for which to compute the hash.
-
-        Returns
-            str: The hash of the DataFrame.
-
-        """
-        # pyre-fixme[16]: `Optional` has no attribute `encode`.
-        return md5(self.df.to_json().encode("utf-8")).hexdigest()
-
-    @property
-    def metric_names(self) -> Set[str]:
-        """Set of metric names that appear in the underlying dataframe of
-        this `Data` object.
-        """
-        return set() if self.df.empty else set(self.df["metric_name"].values)
-
 
 def set_single_trial(data: Data) -> Data:
     """Returns a new Data object where we set all rows to have the same
@@ -333,12 +269,16 @@ def custom_data_class(
     """
 
     class CustomData(Data):
-        @staticmethod
-        def required_columns() -> Set[str]:
-            return (required_columns or set()).union(REQUIRED_COLUMNS)
+        @classmethod
+        def required_columns(cls) -> Set[str]:
+            return (required_columns or set()).union(Data.REQUIRED_COLUMNS)
 
-        @staticmethod
-        def column_data_types() -> Dict[str, Type]:
-            return {**(column_data_types or {}), **COLUMN_DATA_TYPES}
+        @classmethod
+        def column_data_types(
+            cls, extra_column_types: Optional[Dict[str, Type]] = None
+        ) -> Dict[str, Type]:
+            return super().column_data_types(
+                {**(extra_column_types or {}), **(column_data_types or {})}
+            )
 
     return CustomData
