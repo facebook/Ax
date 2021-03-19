@@ -22,8 +22,9 @@ from ax.exceptions.core import AxError, UnsupportedError
 from ax.modelbridge.modelbridge_utils import observed_pareto_frontier
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode
 from ax.modelbridge.transforms.derelativize import Derelativize
-from ax.modelbridge.transforms.one_hot import OneHot
+from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.models.torch.posterior_mean import get_PosteriorMean
 from ax.models.torch_base import TorchModel
@@ -120,18 +121,7 @@ def get_observed_pareto_frontiers(
         data = experiment.fetch_data()
     if experiment.optimization_config is None:
         raise ValueError("Experiment must have an optimization config")
-    # Make a dummy model for converting things to tensors.
-    # Transforms is the minimal set that will work for converting any search
-    # space to tensors.
-    mb = TorchModelBridge(
-        experiment=experiment,
-        search_space=experiment.search_space,
-        data=data,
-        model=TorchModel(),
-        transforms=[Derelativize, SearchSpaceToChoice, OneHot],
-        transform_configs={"Derelativize": {"use_raw_status_quo": True}},
-        fit_out_of_design=True,
-    )
+    mb = get_tensor_converter_model(experiment=experiment, data=data)
     pareto_observations = observed_pareto_frontier(modelbridge=mb)
     # Convert to ParetoFrontierResults
     metric_names = [
@@ -208,6 +198,38 @@ def get_observed_pareto_frontiers(
             )
         )
     return pfr_list
+
+
+def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchModelBridge:
+    """
+    Constructs a minimal model for converting things to tensors.
+
+    Model fitting will instantiate all of the transforms but will not do any
+    expensive (i.e. GP) fitting beyond that. The model will raise an error if
+    it is used for predicting or generating.
+
+    Will work for any search space regardless of types of parameters.
+
+    Args:
+        experiment: Experiment.
+        data: Data for fitting the model.
+
+    Returns: A torch modelbridge with transforms set.
+    """
+    # Transforms is the minimal set that will work for converting any search
+    # space to tensors.
+    return TorchModelBridge(
+        experiment=experiment,
+        search_space=experiment.search_space,
+        data=data,
+        model=TorchModel(),
+        transforms=[Derelativize, SearchSpaceToChoice, OrderedChoiceEncode, IntToFloat],
+        transform_configs={
+            "Derelativize": {"use_raw_status_quo": True},
+            "SearchSpaceToChoice": {"use_ordered": True},
+        },
+        fit_out_of_design=True,
+    )
 
 
 def compute_posterior_pareto_frontier(

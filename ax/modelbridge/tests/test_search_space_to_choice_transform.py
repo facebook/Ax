@@ -61,6 +61,12 @@ class SearchSpaceToChoiceTest(TestCase):
             observation_features=[self.observation_features[0]],
             observation_data=None,
         )
+        self.t3 = SearchSpaceToChoice(
+            search_space=self.search_space,
+            observation_features=self.observation_features,
+            observation_data=None,
+            config={"use_ordered": True},
+        )
 
     def testTransformSearchSpace(self):
         ss2 = self.search_space.clone()
@@ -70,6 +76,18 @@ class SearchSpaceToChoiceTest(TestCase):
             name="arms",
             parameter_type=ParameterType.STRING,
             values=list(self.t.signature_to_parameterization.keys()),
+        )
+        self.assertEqual(ss2.parameters.get("arms"), expected_parameter)
+
+        # With use_ordered
+        ss2 = self.search_space.clone()
+        ss2 = self.t3.transform_search_space(ss2)
+        self.assertEqual(len(ss2.parameters), 1)
+        expected_parameter = ChoiceParameter(
+            name="arms",
+            parameter_type=ParameterType.STRING,
+            values=list(self.t.signature_to_parameterization.keys()),
+            is_ordered=True,
         )
         self.assertEqual(ss2.parameters.get("arms"), expected_parameter)
 

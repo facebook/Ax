@@ -12,6 +12,7 @@ from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
+from ax.utils.common.typeutils import checked_cast
 
 
 class SearchSpaceToChoice(Transform):
@@ -19,6 +20,9 @@ class SearchSpaceToChoice(Transform):
     are the signatures of the arms observed in the data.
 
     This transform is meant to be used with ThompsonSampler.
+
+    Choice parameter will be unordered unless config["use_ordered"] specifies
+    otherwise.
 
     Transform is done in-place.
     """
@@ -30,6 +34,12 @@ class SearchSpaceToChoice(Transform):
         observation_data: List[ObservationData],
         config: Optional[TConfig] = None,
     ) -> None:
+        super().__init__(
+            search_space=search_space,
+            observation_features=observation_features,
+            observation_data=observation_data,
+            config=config,
+        )
         if any(p.is_fidelity for p in search_space.parameters.values()):
             raise ValueError(
                 "Cannot perform SearchSpaceToChoice conversion if fidelity "
@@ -48,6 +58,7 @@ class SearchSpaceToChoice(Transform):
                 name=self.parameter_name,
                 parameter_type=ParameterType.STRING,
                 values=values,
+                is_ordered=checked_cast(bool, self.config.get("use_ordered", False)),
             )
         else:
             parameter = FixedParameter(
