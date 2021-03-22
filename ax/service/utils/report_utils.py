@@ -21,7 +21,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.random import RandomModelBridge
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.slice import plot_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
@@ -78,13 +77,12 @@ def _get_objective_v_param_plot(
             metric_name=metric_name,
         )
         return output_contour_plot
-    # explicitly cover
-    else:
-        logger.warning(
-            "_get_objective_v_param_plot requires a search space with at least one "
-            "RangeParameter. Returning None."
-        )
-        return None
+    # if search space contains no range params
+    logger.warning(
+        "_get_objective_v_param_plot requires a search space with at least one "
+        "RangeParameter. Returning None."
+    )
+    return None
 
 
 def _get_suffix(input_str: str, delim: str = ".", n_chunks: int = 1) -> str:
@@ -206,19 +204,20 @@ def get_standard_plots(
         )
     )
 
-    # TODO: Replace this check with a check of whether the model
-    # implements `predict`.
-    if isinstance(generation_strategy.model, RandomModelBridge):
-        return output_plot_list
-
-    output_plot_list.append(
-        _get_objective_v_param_plot(
-            search_space=experiment.search_space,
-            model=not_none(generation_strategy.model),
-            metric_name=not_none(experiment.optimization_config).objective.metric.name,
-            trials=experiment.trials,
+    try:
+        output_plot_list.append(
+            _get_objective_v_param_plot(
+                search_space=experiment.search_space,
+                model=not_none(generation_strategy.model),
+                metric_name=not_none(
+                    experiment.optimization_config
+                ).objective.metric.name,
+                trials=experiment.trials,
+            )
         )
-    )
+    except NotImplementedError:
+        # Model does not implement `predict` method.
+        pass
 
     return [plot for plot in output_plot_list if plot is not None]
 
