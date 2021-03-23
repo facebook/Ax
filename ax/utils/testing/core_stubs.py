@@ -81,12 +81,12 @@ logger = get_logger(__name__)
 ##############################
 
 
-def get_experiment() -> Experiment:
+def get_experiment(with_status_quo: bool = True) -> Experiment:
     return Experiment(
         name="test",
         search_space=get_search_space(),
         optimization_config=get_optimization_config(),
-        status_quo=get_status_quo(),
+        status_quo=get_status_quo() if with_status_quo else None,
         description="test description",
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
@@ -332,25 +332,8 @@ def get_branin_experiment_with_multi_objective(
     return exp
 
 
-def get_experiment_with_scalarized_objective() -> Experiment:
+def get_experiment_with_scalarized_objective_and_outcome_constraint() -> Experiment:
     objective = get_scalarized_objective()
-    outcome_constraints = [get_outcome_constraint()]
-    optimization_config = OptimizationConfig(
-        objective=objective, outcome_constraints=outcome_constraints
-    )
-    return Experiment(
-        name="test_experiment_scalarized_objective",
-        search_space=get_search_space(),
-        optimization_config=optimization_config,
-        status_quo=get_status_quo(),
-        description="test experiment with scalarized objective",
-        tracking_metrics=[Metric(name="tracking")],
-        is_test=True,
-    )
-
-
-def get_experiment_with_scalarized_outcome_constraint() -> Experiment:
-    objective = get_objective()
     outcome_constraints = [
         get_outcome_constraint(),
         get_scalarized_outcome_constraint(),
@@ -359,11 +342,11 @@ def get_experiment_with_scalarized_outcome_constraint() -> Experiment:
         objective=objective, outcome_constraints=outcome_constraints
     )
     return Experiment(
-        name="test_experiment_scalarized_constraint",
+        name="test_experiment_scalarized_objective and outcome constraint",
         search_space=get_search_space(),
         optimization_config=optimization_config,
         status_quo=get_status_quo(),
-        description="test experiment with scalarized constraint",
+        description="test experiment with scalarized objective and outcome constraint",
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
     )

@@ -47,7 +47,7 @@ class TrialTest(TestCase):
         self.assertTrue(self.trial.status.is_candidate)
         self.assertIsNotNone(self.trial.time_created)
         self.assertEqual(self.trial.arms_by_name["0_0"], self.trial.arm)
-        self.assertEqual(self.trial.arms, [self.arm])
+        self.assertEqual(self.trial.arms[0].signature, self.arm.signature)
         self.assertEqual(self.trial.abandoned_arms, [])
         self.assertEqual(
             self.trial.generator_run.generator_run_type, GeneratorRunType.MANUAL.name
@@ -74,7 +74,7 @@ class TrialTest(TestCase):
         )
         with self.assertRaises(ValueError):
             self.experiment.new_trial(generator_run=GeneratorRun(arms=get_arms()))
-        self.assertEqual(new_trial.arms_by_name["1_0"], new_arm)
+        self.assertEqual(new_trial.arms_by_name["1_0"].signature, new_arm.signature)
         with self.assertRaises(KeyError):
             self.trial.arms_by_name["1_0"]
         self.assertEqual(

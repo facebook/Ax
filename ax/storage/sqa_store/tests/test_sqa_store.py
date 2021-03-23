@@ -79,10 +79,10 @@ from ax.utils.testing.core_stubs import (
     get_branin_metric,
     get_choice_parameter,
     get_data,
+    get_experiment,
     get_experiment_with_batch_trial,
     get_experiment_with_multi_objective,
-    get_experiment_with_scalarized_objective,
-    get_experiment_with_scalarized_outcome_constraint,
+    get_experiment_with_scalarized_objective_and_outcome_constraint,
     get_scalarized_outcome_constraint,
     get_fixed_parameter,
     get_generator_run,
@@ -211,8 +211,7 @@ class SQAStoreTest(TestCase):
         for exp in [
             self.experiment,
             get_experiment_with_multi_objective(),
-            get_experiment_with_scalarized_objective(),
-            get_experiment_with_scalarized_outcome_constraint(),
+            get_experiment_with_scalarized_objective_and_outcome_constraint(),
         ]:
             self.assertIsNone(exp.db_id)
             save_experiment(exp)
@@ -492,7 +491,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(experiment, loaded_experiment)
 
     def testExperimentParameterUpdates(self):
-        experiment = get_experiment_with_batch_trial()
+        experiment = get_experiment(with_status_quo=False)
         save_experiment(experiment)
         self.assertEqual(
             get_session().query(SQAParameter).count(),
@@ -1287,11 +1286,8 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-
-        self.assertEqual(
-            generation_strategy._curr.index, loaded_generation_strategy._curr.index, 1
-        )
-        self.assertEqual(len(loaded_generation_strategy._generator_runs), 7)
+        generation_strategy._save_seen_trial_indices()
+        self.assertEqual(generation_strategy, loaded_generation_strategy)
 
     def testUpdateRunner(self):
         experiment = get_branin_experiment()
