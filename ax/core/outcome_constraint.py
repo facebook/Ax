@@ -11,7 +11,7 @@ from typing import Dict, Optional, List, Iterable, Tuple
 
 from ax.core.metric import Metric
 from ax.core.types import ComparisonOp
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 
 
@@ -25,7 +25,7 @@ LOWER_BOUND_MISMATCH: Dict[str, str] = {"bound": "Lower", "is_better": "lower"}
 UPPER_BOUND_MISMATCH: Dict[str, str] = {"bound": "Upper", "is_better": "higher"}
 
 
-class OutcomeConstraint(Base):
+class OutcomeConstraint(SortableBase):
     """Base class for representing outcome constraints.
 
     Outcome constraints may of the form metric >= bound or metric <= bound,
@@ -101,6 +101,10 @@ class OutcomeConstraint(Base):
         op = ">=" if self.op == ComparisonOp.GEQ else "<="
         relative = "%" if self.relative else ""
         return f"OutcomeConstraint({self.metric.name} {op} {self.bound}{relative})"
+
+    @property
+    def _unique_id(self) -> str:
+        return str(self)
 
 
 class ObjectiveThreshold(OutcomeConstraint):

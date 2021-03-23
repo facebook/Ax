@@ -146,6 +146,15 @@ class RangeParameterTest(TestCase):
         with self.assertRaises(ValueError):
             _get_parameter_type(dict)
 
+    def testSortable(self):
+        param2 = RangeParameter(
+            name="z",
+            parameter_type=ParameterType.FLOAT,
+            lower=0,
+            upper=1,
+        )
+        self.assertTrue(self.param1 < param2)
+
 
 class ChoiceParameterTest(TestCase):
     def setUp(self):

@@ -22,7 +22,7 @@ from ax.core.types import (
     TModelPredict,
     TModelPredictArm,
 )
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
 
 
@@ -66,7 +66,7 @@ def extract_arm_predictions(
     return (means_per_arm, covar_per_arm)
 
 
-class GeneratorRun(Base):
+class GeneratorRun(SortableBase):
     """An object that represents a single run of a generator.
 
     This object is created each time the ``gen`` method of a generator is
@@ -357,3 +357,15 @@ class GeneratorRun(Base):
         num_arms = len(self.arms)
         total_weight = sum(self.weights)
         return f"{class_name}({num_arms} arms, total weight {total_weight})"
+
+    @property
+    def _unique_id(self) -> str:
+        if self.index is not None:
+            return str(self.index)
+        elif self._generation_step_index is not None:
+            return str(self._generation_step_index)
+        else:
+            raise ValueError(
+                "GeneratorRuns only have a unique id if attached "
+                "to a Trial or GenerationStrategy."
+            )

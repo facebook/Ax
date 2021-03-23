@@ -25,7 +25,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
 from ax.core.types import TCandidateMetadata
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import get_logger
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class AbandonedArm(Base):
+class AbandonedArm(SortableBase):
     """Class storing metadata of arm that has been abandoned within
     a BatchTrial.
     """
@@ -58,13 +58,21 @@ class AbandonedArm(Base):
             and datetime_equals(self.time, other.time)
         )
 
+    @property
+    def _unique_id(self) -> str:
+        return self.name
+
 
 @dataclass
-class GeneratorRunStruct(Base):
+class GeneratorRunStruct(SortableBase):
     """Stores GeneratorRun object as well as the weight with which it was added."""
 
     generator_run: GeneratorRun
     weight: float
+
+    @property
+    def _unique_id(self) -> str:
+        return self.generator_run._unique_id + ":" + str(self.weight)
 
 
 class BatchTrial(BaseTrial):

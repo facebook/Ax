@@ -162,3 +162,16 @@ class GeneratorRunTest(TestCase):
             gen_metadata=gm,
         )
         self.assertEqual(generator_run.gen_metadata, gm)
+
+    def testSortable(self):
+        generator_run1 = GeneratorRun(
+            arms=self.arms,
+            weights=self.weights,
+        )
+        generator_run2 = GeneratorRun(
+            arms=self.arms,
+            weights=self.weights,
+        )
+        generator_run1.index = 1
+        generator_run2.index = 2
+        self.assertTrue(generator_run1 < generator_run2)

@@ -59,3 +59,8 @@ class ArmTest(TestCase):
         self.assertFalse(arm1 is arm2)
         self.assertEqual(arm1, arm2)
         self.assertFalse(arm1.parameters is arm2.parameters)
+
+    def testSortable(self):
+        arm1 = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75})
+        arm2 = Arm(parameters={"z": 0, "x": 0, "y": 0})
+        self.assertTrue(arm1 < arm2)

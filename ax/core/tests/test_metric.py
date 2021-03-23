@@ -30,3 +30,8 @@ class MetricTest(TestCase):
     def testClone(self):
         metric1 = Metric(name="m1", lower_is_better=False)
         self.assertEqual(metric1, metric1.clone())
+
+    def testSortable(self):
+        metric1 = Metric(name="m1", lower_is_better=False)
+        metric2 = Metric(name="m2", lower_is_better=False)
+        self.assertTrue(metric1 < metric2)

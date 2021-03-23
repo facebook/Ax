@@ -12,10 +12,10 @@ from typing import Dict, List, Union
 
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.types import ComparisonOp
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 
 
-class ParameterConstraint(Base):
+class ParameterConstraint(SortableBase):
     """Base class for linear parameter constraints.
 
     Constraints are expressed using a map from parameter name to weight
@@ -92,9 +92,15 @@ class ParameterConstraint(Base):
     def __repr__(self) -> str:
         return (
             "ParameterConstraint("
-            + " + ".join("{}*{}".format(v, k) for k, v in self.constraint_dict.items())
+            + " + ".join(
+                "{}*{}".format(v, k) for k, v in sorted(self.constraint_dict.items())
+            )
             + " <= {})".format(self._bound)
         )
+
+    @property
+    def _unique_id(self) -> str:
+        return str(self)
 
 
 class OrderConstraint(ParameterConstraint):

@@ -69,6 +69,15 @@ class OutcomeConstraintTest(TestCase):
                 CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH)
             )
 
+    def testSortable(self):
+        constraint1 = OutcomeConstraint(
+            metric=Metric(name="foo"), op=ComparisonOp.LEQ, bound=self.bound
+        )
+        constraint2 = OutcomeConstraint(
+            metric=Metric(name="foo"), op=ComparisonOp.GEQ, bound=self.bound
+        )
+        self.assertTrue(constraint1 < constraint2)
+
 
 class ObjectiveThresholdTest(TestCase):
     def setUp(self):

@@ -74,6 +74,15 @@ class ParameterConstraintTest(TestCase):
         constraint_clone._bound = 7.0
         self.assertNotEqual(self.constraint.bound, constraint_clone.bound)
 
+    def testSortable(self):
+        constraint1 = ParameterConstraint(
+            constraint_dict={"x": 2.0, "y": -3.0}, bound=1.0
+        )
+        constraint2 = ParameterConstraint(
+            constraint_dict={"y": -3.0, "x": 2.0}, bound=6.0
+        )
+        self.assertTrue(constraint1 < constraint2)
+
 
 class OrderConstraintTest(TestCase):
     def setUp(self):

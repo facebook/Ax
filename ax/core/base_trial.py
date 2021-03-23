@@ -17,7 +17,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.core.types import TCandidateMetadata
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
 
 
@@ -129,7 +129,7 @@ def immutable_once_run(func: Callable) -> Callable:
     return _immutable_once_run
 
 
-class BaseTrial(ABC, Base):
+class BaseTrial(ABC, SortableBase):
     """Base class for representing trials.
 
     Trials are containers for arms that are deployed together. There are
@@ -608,3 +608,7 @@ class BaseTrial(ABC, Base):
             self._experiment._trial_indices_by_status[self._status].remove(self.index)
         self._experiment._trial_indices_by_status[trial_status].add(self.index)
         self.__status = trial_status
+
+    @property
+    def _unique_id(self) -> str:
+        return str(self.index)

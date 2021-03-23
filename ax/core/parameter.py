@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Type, Union
 
 from ax.core.types import TParamValue
 from ax.exceptions.core import UserInputError
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 
 
 FIXED_CHOICE_PARAM_ERROR = (
@@ -54,7 +54,7 @@ def _get_parameter_type(python_type: Type) -> ParameterType:
     raise ValueError(f"No Ax parameter type corresponding to {python_type}.")
 
 
-class Parameter(Base, metaclass=ABCMeta):
+class Parameter(SortableBase, metaclass=ABCMeta):
     _is_fidelity: bool = False
     _name: str
     _target_value: Optional[TParamValue] = None
@@ -103,6 +103,10 @@ class Parameter(Base, metaclass=ABCMeta):
 
     def clone(self) -> Parameter:
         pass  # pragma: no cover
+
+    @property
+    def _unique_id(self) -> str:
+        return str(self)
 
 
 class RangeParameter(Parameter):

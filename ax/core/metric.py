@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type
 
 from ax.core.data import Data
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 from ax.utils.common.serialization import extract_init_args, serialize_init_args
 
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ax import core  # noqa F401
 
 
-class Metric(Base):
+class Metric(SortableBase):
     """Base class for representing metrics.
 
     The `fetch_trial_data` method is the essential method to override when
@@ -240,3 +240,7 @@ class Metric(Base):
         return "{class_name}('{metric_name}')".format(
             class_name=self.__class__.__name__, metric_name=self.name
         )
+
+    @property
+    def _unique_id(self) -> str:
+        return str(self)

@@ -11,12 +11,12 @@ import json
 from typing import Optional
 
 from ax.core.types import TParameterization
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.typeutils import numpy_type_to_python_type
 
 
-class Arm(Base):
+class Arm(SortableBase):
     """Base class for defining arms.
 
     Randomization in experiments assigns units to a given arm. Thus, the arm
@@ -127,6 +127,10 @@ class Arm(Base):
 
     def __hash__(self) -> int:
         return int(self.signature, 16)
+
+    @property
+    def _unique_id(self) -> str:
+        return self.signature
 
 
 def _numpy_types_to_python_types(
