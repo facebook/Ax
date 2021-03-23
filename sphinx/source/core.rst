@@ -68,6 +68,15 @@ Core Classes
     :undoc-members:
     :show-inheritance:
 
+`MapData`
+~~~~~~~~~~~~~~
+
+.. automodule:: ax.core.map_data
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :noindex:
+
 `Metric`
 ~~~~~~~~~~~~~~
 
