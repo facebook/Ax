@@ -318,9 +318,6 @@ def scipy_optimizer(
         sequential = False
     else:
         sequential = True
-        # use SLSQP by default for small problems since it yields faster wall times
-        if "method" not in kwargs:
-            kwargs["method"] = "SLSQP"
     X, expected_acquisition_value = optimize_acqf(
         acq_function=acq_function,
         bounds=bounds,
