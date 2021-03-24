@@ -15,9 +15,6 @@ from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
 
 
-TPdTimestamp = pd.Timestamp
-
-
 class Data(AbstractDataFrameData):
     """Class storing data for an experiment.
 
@@ -43,8 +40,8 @@ class Data(AbstractDataFrameData):
         "mean": np.float64,
         "sem": np.float64,
         "trial_index": np.int64,
-        "start_time": TPdTimestamp,
-        "end_time": TPdTimestamp,
+        "start_time": pd.Timestamp,
+        "end_time": pd.Timestamp,
         "n": np.int64,
         "frac_nonnull": np.float64,
         "random_split": np.int64,
@@ -73,7 +70,7 @@ class Data(AbstractDataFrameData):
                 raise ValueError(
                     f"Dataframe must contain required columns {list(missing_columns)}."
                 )
-            extra_columns = columns - set(self.column_data_types())
+            extra_columns = columns - self.supported_columns()
             if extra_columns:
                 raise ValueError(f"Columns {list(extra_columns)} are not supported.")
             # pyre-fixme[16]: `Optional` has no attribute `reset_index`.

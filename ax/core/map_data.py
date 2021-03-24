@@ -34,7 +34,7 @@ class MapData(AbstractDataFrameData):
     # Note: Although the SEM (standard error of the mean) is a required column in data,
     # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
     # either in your Metric class or in Data explicitly.
-    REQUIRED_COLUMNS = {"mean", "sem"}
+    REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
 
     def __init__(
         self,
@@ -70,8 +70,8 @@ class MapData(AbstractDataFrameData):
                 raise ValueError(
                     f"Dataframe must contain required columns {list(missing_columns)}."
                 )
-            extra_columns = columns - set(
-                self.column_data_types(extra_column_types=self.map_key_types)
+            extra_columns = columns - self.supported_columns(
+                extra_column_names=self.map_keys
             )
             if extra_columns:
                 raise ValueError(f"Columns {list(extra_columns)} are not supported.")

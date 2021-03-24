@@ -298,3 +298,26 @@ class MapDataTest(TestCase):
                 },
                 trial_index=0,
             )
+
+    def testCopyStructureWithDF(self):
+        map_data = MapData(df=self.df, map_keys=self.map_keys)
+        small_df = pd.DataFrame(
+            [
+                {
+                    "arm_name": "0_1",
+                    "mean": 3.7,
+                    "sem": 0.5,
+                    "metric_name": "b",
+                    "epoch": 0,
+                },
+                {
+                    "arm_name": "0_1",
+                    "mean": 3.7,
+                    "sem": 0.5,
+                    "metric_name": "b",
+                    "epoch": 1,
+                },
+            ]
+        )
+        new_map_data = map_data.copy_structure_with_df(df=small_df)
+        self.assertEqual(new_map_data.map_keys, ["epoch"])

@@ -8,13 +8,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from hashlib import md5
-from typing import Any, Dict, Iterable, Optional, Set, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Type
 
 import numpy as np
 import pandas as pd
 from ax.utils.common.base import Base
+from ax.utils.common.serialization import serialize_init_args, extract_init_args
 
-TPdTimestamp = pd.Timestamp
+if TYPE_CHECKING:
+    from ax.core.observation import ObservationData
 
 
 class AbstractData(ABC, Base):
@@ -58,6 +60,11 @@ class AbstractData(ABC, Base):
         """Set of metrics contained in this data."""
         pass  # pragma: no cover
 
+    @abstractmethod
+    def to_observation_data(self) -> List["ObservationData"]:
+        """Convert to ObservationData"""
+        pass  # pragma: no cover
+
 
 class AbstractDataFrameData(AbstractData, Base):
     """Abstract Base Class for storing `DataFrame`-backed Data for an experiment.
@@ -79,6 +86,7 @@ class AbstractDataFrameData(AbstractData, Base):
 
     def __init__(
         self,
+        df: Optional[pd.DataFrame] = None,
         description: Optional[str] = None,
     ) -> None:
         """Init Data.
@@ -110,7 +118,7 @@ class AbstractDataFrameData(AbstractData, Base):
         extra_column_types = extra_column_types or {}
         dtype = {
             # Pandas timestamp handlng is weird
-            col: "datetime64[ns]" if coltype is TPdTimestamp else coltype
+            col: "datetime64[ns]" if coltype is pd.Timestamp else coltype
             for col, coltype in cls.column_data_types(
                 extra_column_types=extra_column_types
             ).items()
@@ -129,6 +137,17 @@ class AbstractDataFrameData(AbstractData, Base):
     def required_columns(cls) -> Set[str]:
         """Names of required columns."""
         return cls.REQUIRED_COLUMNS
+
+    @classmethod
+    def supported_columns(
+        cls, extra_column_names: Optional[Iterable[str]] = None
+    ) -> Set[str]:
+        """Names of columns supported (but not necessarily required) by this class."""
+        extra_column_names = set(extra_column_names or [])
+        extra_column_types: Dict[str, Any] = {name: Any for name in extra_column_names}
+        return cls.REQUIRED_COLUMNS.union(
+            cls.column_data_types(extra_column_types=extra_column_types)
+        )
 
     @classmethod
     def column_data_types(
@@ -168,3 +187,51 @@ class AbstractDataFrameData(AbstractData, Base):
         this object.
         """
         return set() if self.df.empty else set(self.df["metric_name"].values)
+
+    def get_filtered_results(self, **filters: Dict[str, Any]) -> pd.DataFrame:
+        """Return filtered subset of data.
+
+        Args:
+            filter: Column names and values they must match.
+
+        Returns
+            df: The filtered DataFrame.
+        """
+        df = self.df.copy()
+        columns = df.columns
+        for colname, value in filters.items():
+            if colname not in columns:
+                raise ValueError(
+                    f"{colname} not in the set of columns: {columns}"
+                    f"in this data object of type: {str(type(self))}."
+                )
+            df = df[df[colname] == value]
+        return df
+
+    def to_observation_data(self) -> List["ObservationData"]:
+        """Convert to ObservationData"""
+        raise NotImplementedError()  # pragma: no cover
+
+    @classmethod
+    def serialize_init_args(cls, data: AbstractDataFrameData) -> Dict[str, Any]:
+        """Serialize the class-dependent properties needed to initialize this Data.
+        Used for storage and to help construct new similar Data. All kwargs
+        other than "dataframe" and "description" are considered structural.
+        """
+        return serialize_init_args(object=data, exclude_fields=["df", "description"])
+
+    @classmethod
+    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Given a dictionary, extract the properties needed to initialize the metric.
+        Used for storage.
+        """
+        return extract_init_args(args=args, class_=cls)
+
+    def copy_structure_with_df(self, df: pd.DataFrame) -> AbstractDataFrameData:
+        """Serialize the structural properties needed to initialize this Data.
+        Used for storage and to help construct new similar Data. All kwargs
+        other than "dataframe" and "description" are considered structural.
+        """
+        cls = type(self)
+        # pyre-ignore[45]: Cannot insantiate abstract class
+        return cls(df=df, **cls.serialize_init_args(self))

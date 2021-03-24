@@ -302,3 +302,26 @@ class DataTest(TestCase):
                 )
             )
             Data.from_multiple_data([data_elt_A, data_elt_B])
+
+    def testGetFilteredResults(self):
+        data = Data(df=self.df)
+        actual_filtered = data.get_filtered_results(arm_name="0_0", metric_name="a")
+        # Create new Data to replicate timestamp casting.
+        expected_filtered = Data(
+            pd.DataFrame(
+                [
+                    {
+                        "arm_name": "0_0",
+                        "metric_name": "a",
+                        "mean": 2.0,
+                        "sem": 0.2,
+                        "trial_index": 1,
+                        "start_time": "2018-01-01",
+                        "end_time": "2018-01-02",
+                    },
+                ]
+            )
+        ).df
+        print(actual_filtered)
+        print(expected_filtered)
+        self.assertTrue(actual_filtered.equals(expected_filtered))
