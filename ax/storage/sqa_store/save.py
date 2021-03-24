@@ -77,10 +77,10 @@ def _save_experiment(
         )
     encoder.validate_experiment_metadata(
         experiment,
-        # pyre-fixme[6]: Expected
-        #  `Optional[ax.storage.sqa_store.sqa_classes.SQAExperiment]` for 2nd param but
-        #  got `Optional[ax.storage.sqa_store.db.SQABase]`.
-        existing_sqa_experiment=existing_sqa_experiment,
+        # pyre-ignore Undefined attribute [16]: `SQABase` has no attribute `id`
+        existing_sqa_experiment_id=existing_sqa_experiment.id
+        if existing_sqa_experiment is not None
+        else None,
         **(validation_kwargs or {}),
     )
     new_sqa_experiment, obj_to_sqa = encoder.experiment_to_sqa(experiment)

@@ -58,7 +58,6 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
-from ax.utils.common.equality import datetime_equals
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -84,21 +83,28 @@ class Encoder:
     def validate_experiment_metadata(
         cls,
         experiment: Experiment,
-        existing_sqa_experiment: Optional[SQAExperiment],
-        owners: Optional[List[str]] = None,
+        existing_sqa_experiment_id: Optional[int],
     ) -> None:
-        """Validates required experiment metadata.
-
-        Does *not* expect owners kwarg, present for use in subclasses.
-        """
-        if owners:
-            raise ValueError("Owners for experiment unexpectedly provided.")
-        if existing_sqa_experiment is not None and not datetime_equals(
-            existing_sqa_experiment.time_created, experiment.time_created
-        ):
-            raise Exception(
-                f"An experiment already exists with the name {experiment.name}."
-            )
+        """Validates required experiment metadata."""
+        if experiment.db_id is not None:
+            if existing_sqa_experiment_id is None:
+                raise Exception(
+                    f"Experiment with ID {experiment.db_id} was already saved to the "
+                    "database with a different name. Changing the name of an "
+                    "experiment is not allowed."
+                )
+            elif experiment.db_id != existing_sqa_experiment_id:
+                raise Exception(
+                    f"experiment.db_id = {experiment.db_id} but the experiment in the "
+                    f"database with the name {experiment.name} has the id "
+                    f"{existing_sqa_experiment_id}."
+                )
+        else:
+            # experiment.db_id is None
+            if existing_sqa_experiment_id is not None:
+                raise Exception(
+                    f"An experiment already exists with the name {experiment.name}."
+                )
 
     def get_enum_value(
         self, value: Optional[str], enum: Optional[Enum]
@@ -848,6 +854,7 @@ class Encoder:
                 gr_sqa, _obj_to_sqa = self.generator_run_to_sqa(
                     generator_run=status_quo_generator_run
                 )
+
                 obj_to_sqa.extend(_obj_to_sqa)
                 generator_runs.append(gr_sqa)
                 status_quo_name = trial_status_quo.name

@@ -1320,3 +1320,29 @@ class SQAStoreTest(TestCase):
         self.assertNotEqual(experiment.runner.db_id, old_runner.db_id)
         loaded_experiment = load_experiment(experiment_name=experiment.name)
         self.assertEqual(loaded_experiment.runner.db_id, new_runner.db_id)
+
+    def testExperimentValidation(self):
+        exp = get_experiment()
+        exp.name = "test1"
+        save_experiment(exp)
+
+        exp2 = get_experiment()
+        exp2.name = "test2"
+        save_experiment(exp2)
+
+        # changing the name of an experiment is not allowed
+        exp.name = "new name"
+        with self.assertRaisesRegex(Exception, ".* Changing the name .*"):
+            save_experiment(exp)
+
+        # changing the name to an experiment that already exists
+        # is also not allowed
+        exp.name = "test2"
+        with self.assertRaisesRegex(Exception, ".* database with the name .*"):
+            save_experiment(exp)
+
+        # can't use a name that's already been used
+        exp3 = get_experiment()
+        exp3.name = "test1"
+        with self.assertRaisesRegex(Exception, ".* experiment already exists .*"):
+            save_experiment(exp3)
