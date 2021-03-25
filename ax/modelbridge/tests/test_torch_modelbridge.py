@@ -9,6 +9,7 @@ from unittest import mock
 import numpy as np
 import torch
 from ax.core.observation import ObservationFeatures
+from ax.core.search_space import SearchSpaceDigest
 from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
@@ -47,11 +48,8 @@ class TorchModelBridgeTest(TestCase):
             Xs=[X],
             Ys=[Y],
             Yvars=[var],
-            bounds=None,
-            feature_names=[],
+            search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             metric_names=[],
-            task_features=[],
-            fidelity_features=[],
             candidate_metadata=[],
         )
         model_fit_args = model.fit.mock_calls[0][2]
@@ -80,13 +78,9 @@ class TorchModelBridgeTest(TestCase):
             Xs=[X],
             Ys=[Y],
             Yvars=[var],
-            candidate_metadata=[],
-            bounds=None,
-            feature_names=[],
+            search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             metric_names=[],
-            task_features=[],
-            fidelity_features=[],
-            target_fidelities=[],
+            candidate_metadata=[],
         )
         model_update_args = model.update.mock_calls[0][2]
         self.assertTrue(
@@ -177,11 +171,11 @@ class TorchModelBridgeTest(TestCase):
             Ys_train=[Y],
             Yvars_train=[var],
             X_test=X,
-            bounds=[(0, 1)],
-            task_features=[],
-            feature_names=[],
+            search_space_digest=SearchSpaceDigest(
+                feature_names=[],
+                bounds=[(0, 1)],
+            ),
             metric_names=[],
-            fidelity_features=[],
         )
         model_cv_args = model.cross_validate.mock_calls[0][2]
         self.assertTrue(

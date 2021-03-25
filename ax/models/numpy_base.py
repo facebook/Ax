@@ -7,6 +7,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.base import Model
 
@@ -23,11 +24,8 @@ class NumpyModel(Model):
         Xs: List[np.ndarray],
         Ys: List[np.ndarray],
         Yvars: List[np.ndarray],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         """Fit model to m outcomes.
@@ -38,13 +36,9 @@ class NumpyModel(Model):
             Ys: The corresponding list of m (k_i x 1) outcome arrays Y, for
                 each outcome.
             Yvars: The variances of each entry in Ys, same shape.
-            bounds: A list of d (lower, upper) tuples for each column of X.
-            task_features: Columns of X that take integer values and should be
-                treated as task parameters.
-            feature_names: Names of each column of X.
+            search_space_digest: A SearchSpaceDigest object containing
+                metadata on the features in X.
             metric_names: Names of each outcome Y in Ys.
-            fidelity_features: Columns of X that should be treated as fidelity
-                parameters.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
         """

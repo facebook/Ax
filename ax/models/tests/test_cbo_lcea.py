@@ -7,6 +7,7 @@
 from unittest import mock
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.cbo_lcea import LCEABO
 from ax.utils.common.testutils import TestCase
 from botorch.models.contextual import LCEAGP
@@ -36,11 +37,11 @@ class LCEABOTest(TestCase):
             Xs=[train_X],
             Ys=[train_Y],
             Yvars=[train_Yvar],
-            bounds=[(0.0, 1.0) for _ in range(4)],
-            task_features=[],
-            feature_names=["0", "1", "2", "3"],
+            search_space_digest=SearchSpaceDigest(
+                feature_names=["0", "1", "2", "3"],
+                bounds=[(0.0, 1.0) for _ in range(4)],
+            ),
             metric_names=["y"],
-            fidelity_features=[],
         )
         self.assertIsInstance(m1.model, LCEAGP)
 
@@ -76,11 +77,11 @@ class LCEABOTest(TestCase):
             Xs=[train_X],
             Ys=[train_Y],
             Yvars=[train_Yvar],
-            bounds=[(0.0, 1.0) for _ in range(4)],
-            task_features=[],
-            feature_names=["x1", "x2", "x3", "x4"],
+            search_space_digest=SearchSpaceDigest(
+                feature_names=["x1", "x2", "x3", "x4"],
+                bounds=[(0.0, 1.0) for _ in range(4)],
+            ),
             metric_names=["y"],
-            fidelity_features=[],
         )
         self.assertDictEqual(m2.model.decomposition, {"1": [0, 2], "2": [1, 3]})
 
@@ -91,11 +92,11 @@ class LCEABOTest(TestCase):
                 Xs=[train_X],
                 Ys=[train_Y],
                 Yvars=[train_Yvar],
-                bounds=[(0.0, 1.0) for _ in range(4)],
-                task_features=[],
-                feature_names=[],
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[],
+                    bounds=[(0.0, 1.0) for _ in range(4)],
+                ),
                 metric_names=[],
-                fidelity_features=[],
             )
 
         # pass wrong feature names
@@ -104,9 +105,9 @@ class LCEABOTest(TestCase):
                 Xs=[train_X],
                 Ys=[train_Y],
                 Yvars=[train_Yvar],
-                bounds=[(0.0, 1.0) for _ in range(4)],
-                task_features=[],
-                feature_names=["x0", "x1", "x2", "x3"],
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=["x0", "x1", "x2", "x3"],
+                    bounds=[(0.0, 1.0) for _ in range(4)],
+                ),
                 metric_names=["y"],
-                fidelity_features=[],
             )

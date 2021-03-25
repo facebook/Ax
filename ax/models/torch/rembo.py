@@ -7,6 +7,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch_base import TorchModel
@@ -56,16 +57,13 @@ class REMBO(BotorchModel):
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
-        assert len(task_features) == 0
-        assert len(fidelity_features) == 0
-        for b in bounds:
+        assert len(search_space_digest.task_features) == 0
+        assert len(search_space_digest.fidelity_features) == 0
+        for b in search_space_digest.bounds:
             # REMBO assumes the input space is [-1, 1]^D
             assert b == (-1, 1)
         self.num_outputs = len(Xs)
@@ -77,11 +75,13 @@ class REMBO(BotorchModel):
             Xs=[self.to_01(X_d)] * self.num_outputs,
             Ys=Ys,
             Yvars=Yvars,
-            bounds=[(0.0, 1.0)] * len(self.bounds_d),
-            task_features=task_features,
-            feature_names=[f"x{i}" for i in range(self.A.shape[1])],
+            search_space_digest=SearchSpaceDigest(
+                feature_names=[f"x{i}" for i in range(self.A.shape[1])],
+                bounds=[(0.0, 1.0)] * len(self.bounds_d),
+                task_features=search_space_digest.task_features,
+                fidelity_features=search_space_digest.fidelity_features,
+            ),
             metric_names=metric_names,
-            fidelity_features=fidelity_features,
             candidate_metadata=candidate_metadata,
         )
 

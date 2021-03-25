@@ -8,6 +8,7 @@ from unittest import mock
 
 import numpy as np
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.alebo import (
     ALEBO,
     ALEBOGP,
@@ -278,11 +279,11 @@ class ALEBOTest(TestCase):
             Xs=[train_X, train_X],
             Ys=[train_Y, train_Y],
             Yvars=[train_Yvar, train_Yvar],
-            bounds=[(-1, 1)] * 5,
-            task_features=[],
-            feature_names=[],
+            search_space_digest=SearchSpaceDigest(
+                feature_names=[],
+                bounds=[(-1, 1)] * 5,
+            ),
             metric_names=[],
-            fidelity_features=[],
         )
         self.assertIsInstance(m.model, ModelListGP)
         self.assertTrue(torch.allclose(m.Xs[0], (B @ train_X.t()).t()))

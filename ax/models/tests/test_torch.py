@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import numpy as np
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch_base import TorchModel
 from ax.utils.common.testutils import TestCase
 
@@ -19,11 +20,11 @@ class TorchModelTest(TestCase):
             Xs=[np.array(0)],
             Ys=[np.array(0)],
             Yvars=[np.array(1)],
-            bounds=[(0, 1)],
-            task_features=[],
-            feature_names=["x1"],
+            search_space_digest=SearchSpaceDigest(
+                feature_names=["x1"],
+                bounds=[(0, 1)],
+            ),
             metric_names=["y"],
-            fidelity_features=[],
         )
 
     def testTorchModelPredict(self):
@@ -49,23 +50,17 @@ class TorchModelTest(TestCase):
                 Ys_train=[np.array([1])],
                 Yvars_train=[np.array([1])],
                 X_test=np.array([1]),
-                bounds=[],
-                task_features=[],
-                fidelity_features=[],
-                feature_names=[],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
                 metric_names=[],
             )
 
     def testTorchModelUpdate(self):
-        numpy_model = TorchModel()
+        model = TorchModel()
         with self.assertRaises(NotImplementedError):
-            numpy_model.update(
+            model.update(
                 Xs=[np.array(0)],
                 Ys=[np.array(0)],
                 Yvars=[np.array(1)],
-                bounds=[],
-                task_features=[],
-                fidelity_features=[],
-                feature_names=[],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
                 metric_names=[],
             )

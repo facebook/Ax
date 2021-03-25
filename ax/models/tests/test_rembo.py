@@ -7,6 +7,7 @@
 from unittest import mock
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.rembo import REMBO
 from ax.utils.common.testutils import TestCase
 
@@ -37,11 +38,11 @@ class REMBOTest(TestCase):
                 Xs=Xs,
                 Ys=Ys,
                 Yvars=Yvars,
-                bounds=[(0, 1)] * 4,
-                task_features=[],
-                feature_names=[],
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[],
+                    bounds=[(0, 1)] * 4,
+                ),
                 metric_names=my_metric_names,
-                fidelity_features=[],
             )
 
         with mock.patch(
@@ -51,11 +52,11 @@ class REMBOTest(TestCase):
                 Xs=Xs,
                 Ys=Ys,
                 Yvars=Yvars,
-                bounds=bounds,
-                task_features=[],
-                feature_names=[],
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[],
+                    bounds=bounds,
+                ),
                 metric_names=my_metric_names,
-                fidelity_features=[],
             )
         # Check was fit with the low-d data.
         for x in m.Xs:

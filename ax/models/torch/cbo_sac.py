@@ -4,8 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch_base import TorchModel
@@ -49,25 +50,19 @@ class SACBO(BotorchModel):
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
-        if len(feature_names) == 0:
+        if len(search_space_digest.feature_names) == 0:
             raise ValueError("feature names are required for SACBO")
-        self.feature_names = feature_names
+        self.feature_names = search_space_digest.feature_names
         super().fit(
             Xs=Xs,
             Ys=Ys,
             Yvars=Yvars,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
+            search_space_digest=search_space_digest,
             metric_names=metric_names,
-            fidelity_features=fidelity_features,
         )
 
     def get_and_fit_model(

@@ -7,6 +7,7 @@
 from typing import List, Optional, Tuple, Type
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import checked_cast
@@ -45,7 +46,8 @@ def use_model_list(Xs: List[Tensor], botorch_model_class: Type[Model]) -> bool:
 
 
 def choose_model_class(
-    Yvars: List[Tensor], task_features: List[int], fidelity_features: List[int]
+    Yvars: List[Tensor],
+    search_space_digest: SearchSpaceDigest,
 ) -> Type[Model]:
     """Chooses a BoTorch `Model` using the given data (currently just Yvars)
     and its properties (information about task and fidelity features).
@@ -59,15 +61,17 @@ def choose_model_class(
     Returns:
         A BoTorch `Model` class.
     """
-    if len(fidelity_features) > 1:
+    if len(search_space_digest.fidelity_features) > 1:
         raise NotImplementedError(
-            f"Only a single fidelity feature supported (got: {fidelity_features})."
+            "Only a single fidelity feature supported "
+            f"(got: {search_space_digest.fidelity_features})."
         )
-    if len(task_features) > 1:
+    if len(search_space_digest.task_features) > 1:
         raise NotImplementedError(
-            f"Only a single task feature supported (got: {task_features})."
+            f"Only a single task feature supported "
+            f"(got: {search_space_digest.task_features})."
         )
-    if task_features and fidelity_features:
+    if search_space_digest.task_features and search_space_digest.fidelity_features:
         raise NotImplementedError(
             "Multi-task multi-fidelity optimization not yet supported."
         )
@@ -82,15 +86,15 @@ def choose_model_class(
         )
 
     # Multi-task cases (when `task_features` specified).
-    if task_features and all_nan_Yvar:
+    if search_space_digest.task_features and all_nan_Yvar:
         return MultiTaskGP  # Unknown observation noise.
-    elif task_features:
+    elif search_space_digest.task_features:
         return FixedNoiseMultiTaskGP  # Known observation noise.
 
     # Single-task multi-fidelity cases.
-    if fidelity_features and all_nan_Yvar:
+    if search_space_digest.fidelity_features and all_nan_Yvar:
         return SingleTaskMultiFidelityGP  # Unknown observation noise.
-    elif fidelity_features:
+    elif search_space_digest.fidelity_features:
         return FixedNoiseMultiFidelityGP  # Known observation noise.
 
     # Single-task single-fidelity cases.

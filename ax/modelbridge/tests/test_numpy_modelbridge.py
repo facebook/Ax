@@ -19,7 +19,7 @@ from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import OrderConstraint, SumConstraint
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.modelbridge_utils import get_bounds_and_task
+from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.modelbridge.numpy import NumpyModelBridge
 from ax.models.numpy_base import NumpyModel
 from ax.utils.common.testutils import TestCase
@@ -112,8 +112,11 @@ class NumpyModelBridgeTest(TestCase):
             self.assertTrue(np.array_equal(y, Ys[ma.outcomes[i]]))
         for i, v in enumerate(model_fit_args["Yvars"]):
             self.assertTrue(np.array_equal(v, Yvars[ma.outcomes[i]]))
-        self.assertEqual(model_fit_args["bounds"], bounds)
-        self.assertEqual(model_fit_args["feature_names"], ["x", "y", "z"])
+
+        self.assertEqual(model_fit_args["search_space_digest"].bounds, bounds)
+        self.assertEqual(
+            model_fit_args["search_space_digest"].feature_names, ["x", "y", "z"]
+        )
 
         # And update
         ma._update(
@@ -349,34 +352,32 @@ class NumpyModelBridgeTest(TestCase):
         for i, od in enumerate(observation_data):
             self.assertEqual(od, self.observation_data[i])
 
-    def testGetBoundsAndTask(self):
-        bounds, task_features, target_fidelities = get_bounds_and_task(
+    def testExtractSearchSpaceDigest(self):
+        search_space_digest = extract_search_space_digest(
             self.search_space, ["x", "y", "z"]
         )
-        self.assertEqual(bounds, [(0.0, 1.0), (1.0, 2.0), (0.0, 5.0)])
-        self.assertEqual(task_features, [])
-        self.assertEqual(target_fidelities, {1: 2.0})
-        bounds, task_features, target_fidelities = get_bounds_and_task(
-            self.search_space, ["x", "z"]
+        self.assertEqual(
+            search_space_digest.bounds, [(0.0, 1.0), (1.0, 2.0), (0.0, 5.0)]
         )
-        self.assertEqual(target_fidelities, {})
+        self.assertEqual(search_space_digest.task_features, [])
+        self.assertEqual(search_space_digest.target_fidelities, {1: 2.0})
+        search_space_digest = extract_search_space_digest(self.search_space, ["x", "z"])
+        self.assertEqual(search_space_digest.target_fidelities, {})
         # Test that Int param is treated as task feature
         search_space = SearchSpace(self.parameters)
         search_space._parameters["x"] = RangeParameter(
             "x", ParameterType.INT, lower=1, upper=4
         )
-        bounds, task_features, target_fidelities = get_bounds_and_task(
-            search_space, ["x", "y", "z"]
-        )
-        self.assertEqual(task_features, [0])
+        search_space_digest = extract_search_space_digest(search_space, ["x", "y", "z"])
+        self.assertEqual(search_space_digest.task_features, [0])
         # Test validation
         search_space._parameters["x"] = ChoiceParameter(
             "x", ParameterType.FLOAT, [0.1, 0.4]
         )
         with self.assertRaises(ValueError):
-            get_bounds_and_task(search_space, ["x", "y", "z"])
+            extract_search_space_digest(search_space, ["x", "y", "z"])
         search_space._parameters["x"] = RangeParameter(
             "x", ParameterType.FLOAT, lower=1.0, upper=4.0, log_scale=True
         )
         with self.assertRaises(ValueError):
-            get_bounds_and_task(search_space, ["x", "y", "z"])
+            extract_search_space_digest(search_space, ["x", "y", "z"])

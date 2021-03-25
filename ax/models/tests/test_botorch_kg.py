@@ -7,6 +7,7 @@
 from unittest import mock
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_kg import KnowledgeGradient, _instantiate_KG
 from ax.models.torch.utils import get_botorch_objective
 from ax.utils.common.testutils import TestCase
@@ -64,11 +65,11 @@ class KnowledgeGradientTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            bounds=self.bounds,
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+            ),
             metric_names=self.metric_names,
-            task_features=[],
-            fidelity_features=[],
         )
 
         n = 2
@@ -168,11 +169,11 @@ class KnowledgeGradientTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            bounds=self.bounds,
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+            ),
             metric_names=self.metric_names,
-            task_features=[],
-            fidelity_features=[],
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
@@ -185,11 +186,11 @@ class KnowledgeGradientTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            bounds=self.bounds,
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+            ),
             metric_names=self.metric_names,
-            task_features=[],
-            fidelity_features=[],
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
@@ -199,11 +200,12 @@ class KnowledgeGradientTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            bounds=self.bounds,
-            task_features=[],
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+                fidelity_features=[2],
+            ),
             metric_names=["L2NormMetric"],
-            fidelity_features=[2],
         )
 
         # Check best point selection within bounds (some numerical tolerance)
@@ -265,11 +267,12 @@ class KnowledgeGradientTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            bounds=self.bounds,
-            task_features=[],
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+                fidelity_features=[2],
+            ),
             metric_names=["L2NormMetric"],
-            fidelity_features=[2],
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
@@ -282,11 +285,12 @@ class KnowledgeGradientTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            bounds=self.bounds,
-            task_features=[],
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+                fidelity_features=[2],
+            ),
             metric_names=["L2NormMetric"],
-            fidelity_features=[2],
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
@@ -297,11 +301,11 @@ class KnowledgeGradientTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            bounds=self.bounds,
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+            ),
             metric_names=self.metric_names,
-            task_features=[],
-            fidelity_features=[],
         )
 
         # test _instantiate_KG
@@ -407,11 +411,12 @@ class KnowledgeGradientTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            bounds=self.bounds,
-            task_features=[],
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+                fidelity_features=[-1],
+            ),
             metric_names=self.metric_names,
-            fidelity_features=[-1],
         )
 
         acq_function = _instantiate_KG(

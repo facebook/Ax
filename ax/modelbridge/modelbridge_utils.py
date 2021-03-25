@@ -32,9 +32,9 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata
 from ax.modelbridge.transforms.base import Transform
@@ -51,7 +51,6 @@ from ax.utils.common.typeutils import (
 )
 from botorch.utils.multi_objective.hypervolume import Hypervolume
 from torch import Tensor
-
 
 logger = get_logger(__name__)
 
@@ -78,36 +77,53 @@ def extract_parameter_constraints(
     return linear_constraints
 
 
-def get_bounds_and_task(
+def extract_search_space_digest(
     search_space: SearchSpace, param_names: List[str]
-) -> Tuple[List[Tuple[float, float]], List[int], Dict[int, float]]:
-    """Extract box bounds from a search space in the usual Scipy format.
-    Identify integer parameters as task features.
-    """
-    bounds: List[Tuple[float, float]] = []
+) -> SearchSpaceDigest:
+    """Extract basic parameter prpoerties from a search space."""
+    bounds: List[Tuple[Union[int, float], Union[int, float]]] = []
+    ordinal_features: List[int] = []
+    categorical_features: List[int] = []
     task_features: List[int] = []
-    target_fidelities: Dict[int, float] = {}
+    fidelity_features: List[int] = []
+    target_fidelities: Dict[int, Union[int, float]] = {}
+
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
-        # Validation
-        if not isinstance(p, RangeParameter):
-            raise ValueError(f"{p} not RangeParameter")
-        elif p.log_scale:
-            raise ValueError(f"{p} is log scale")
-        # Set value
-        bounds.append((p.lower, p.upper))
-        if p.parameter_type == ParameterType.INT:
-            task_features.append(i)
+        if isinstance(p, ChoiceParameter):
+            if p.parameter_type != ParameterType.INT:
+                raise ValueError(f"Choice parameter {p} not of integer type")
+            if p.is_task:
+                task_features.append(i)
+            elif p.is_ordered:
+                ordinal_features.append(i)
+            else:
+                categorical_features.append(i)
+            bounds.append((int(p.values[0]), int(p.values[-1])))  # pyre-ignore [6]
+        elif isinstance(p, RangeParameter):
+            if p.log_scale:
+                raise ValueError(f"{p} is log scale")
+            if p.parameter_type == ParameterType.INT:
+                task_features.append(i)
+                # TODO: modify to ordinal_features.append(i) and adjust models
+                # that rely on the current behavior
+            bounds.append((p.lower, p.upper))
+        else:
+            raise ValueError(f"Unknown parameter type {type(p)}")
         if p.is_fidelity:
             if not isinstance(not_none(p.target_value), (int, float)):
-                raise NotImplementedError(
-                    "Only numerical target values currently supported."
-                )
-            target_fidelities[i] = float(
-                checked_cast_to_tuple((int, float), p.target_value)
-            )
+                raise NotImplementedError("Only numerical target values are supported.")
+            target_fidelities[i] = checked_cast_to_tuple((int, float), p.target_value)
 
-    return bounds, task_features, target_fidelities
+    return SearchSpaceDigest(
+        feature_names=param_names,
+        bounds=bounds,
+        ordinal_features=ordinal_features,
+        categorical_features=categorical_features,
+        task_features=task_features,
+        fidelity_features=fidelity_features,
+        target_fidelities=target_fidelities,
+    )
 
 
 def extract_objective_thresholds(

@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.posterior_mean import get_PosteriorMean
@@ -44,11 +45,11 @@ class PosteriorMeanTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            bounds=self.bounds,
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+            ),
             metric_names=self.metric_names,
-            task_features=[],
-            fidelity_features=[],
         )
 
         # test model.gen() with no outcome_constraints. Analytic.
@@ -77,11 +78,11 @@ class PosteriorMeanTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            bounds=self.bounds,
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+            ),
             metric_names=self.metric_names,
-            task_features=[],
-            fidelity_features=[],
         )
         new_X_dummy = torch.rand(1, 1, 3, dtype=self.dtype, device=self.device)
         Xgen, w, _, __ = model.gen(

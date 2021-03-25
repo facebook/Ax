@@ -7,6 +7,7 @@
 from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.base import Model
 from torch import Tensor
@@ -29,11 +30,8 @@ class TorchModel(Model):
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         """Fit model to m outcomes.
@@ -44,13 +42,9 @@ class TorchModel(Model):
             Ys: The corresponding list of m (k_i x 1) outcome tensors Y, for
                 each outcome.
             Yvars: The variances of each entry in Ys, same shape.
-            bounds: A list of d (lower, upper) tuples for each column of X.
-            task_features: Columns of X that take integer values and should be
-                treated as task parameters.
-            feature_names: Names of each column of X.
+            search_space_digest: A SearchSpaceDigest object containing
+                metadata on the features in X.
             metric_names: Names of each outcome Y in Ys.
-            fidelity_features: Columns of X that should be treated as fidelity
-                parameters.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
         """
@@ -166,11 +160,8 @@ class TorchModel(Model):
         Ys_train: List[Tensor],
         Yvars_train: List[Tensor],
         X_test: Tensor,
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
     ) -> Tuple[Tensor, Tensor]:
         """Do cross validation with the given training and test sets.
 
@@ -184,13 +175,9 @@ class TorchModel(Model):
                 for each outcome.
             Yvars_train: The variances of each entry in Ys, same shape.
             X_test: (j x d) tensor of the j points at which to make predictions.
-            bounds: A list of d (lower, upper) tuples for each column of X.
-            task_features: Columns of X that take integer values and should be
-                treated as task parameters.
-            feature_names: Names of each column of X.
+            search_space_digest: A SearchSpaceDigest object containing
+                metadata on the features in X.
             metric_names: Names of each outcome Y in Ys.
-            fidelity_features: Columns of X that should be treated as fidelity
-                parameters.
 
         Returns:
             2-element tuple containing
@@ -206,12 +193,8 @@ class TorchModel(Model):
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
-        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         """Update the model.
@@ -226,15 +209,9 @@ class TorchModel(Model):
                 in the same format as for `fit`.
             Yvars: Existing + additional data for the model,
                 in the same format as for `fit`.
-            bounds: A list of d (lower, upper) tuples for each column of X.
-            task_features: Columns of X that take integer values and should be
-                treated as task parameters.
-            feature_names: Names of each column of X.
+            search_space_digest: A SearchSpaceDigest object containing
+                metadata on the features in X.
             metric_names: Names of each outcome Y in Ys.
-            fidelity_features: Columns of X that should be treated as fidelity
-                parameters.
-            target_fidelities: Target values for fidelity parameters, representing
-                full-fidelity value.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
         """
