@@ -8,6 +8,7 @@ from itertools import chain, product
 from unittest import mock
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
@@ -54,11 +55,12 @@ class BotorchModelTest(TestCase):
                 Xs=Xs1 + Xs2,
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=[0],
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=[0],
+                ),
                 metric_names=["y", "w"],
-                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 
@@ -88,11 +90,12 @@ class BotorchModelTest(TestCase):
                 Xs=Xs1 + Xs2,
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=[0],
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=[0],
+                ),
                 metric_names=["y", "w"],
-                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 
@@ -135,11 +138,12 @@ class BotorchModelTest(TestCase):
                         Xs=Xs1 + Xs2_diff,
                         Ys=Ys1 + Ys2,
                         Yvars=Yvars1 + Yvars2,
-                        bounds=bounds,
-                        task_features=tfs,
-                        feature_names=fns,
+                        search_space_digest=SearchSpaceDigest(
+                            feature_names=fns,
+                            bounds=bounds,
+                            task_features=tfs,
+                        ),
                         metric_names=mns,
-                        fidelity_features=[],
                     )
                     _mock_fit_model.assert_called_once()
                     if use_loocv_pseudo_likelihood:
@@ -184,11 +188,12 @@ class BotorchModelTest(TestCase):
                     Xs=Xs1 + Xs2,
                     Ys=Ys1 + Ys2,
                     Yvars=Yvars1 + Yvars2,
-                    bounds=bounds,
-                    task_features=tfs,
-                    feature_names=fns,
+                    search_space_digest=SearchSpaceDigest(
+                        feature_names=fns,
+                        bounds=bounds,
+                        task_features=tfs,
+                    ),
                     metric_names=mns,
-                    fidelity_features=[],
                 )
                 _mock_fit_model.assert_called_once()
 
@@ -477,11 +482,12 @@ class BotorchModelTest(TestCase):
                 Xs=Xs1 + Xs2_diff,
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=tfs,
+                ),
                 metric_names=mns,
-                fidelity_features=[],
             )
         with self.assertRaises(RuntimeError):
             xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
@@ -513,11 +519,12 @@ class BotorchModelTest(TestCase):
                     Xs=Xs1,
                     Ys=Ys1,
                     Yvars=Yvars1,
-                    bounds=bounds,
-                    task_features=tfs,
-                    feature_names=fns,
+                    search_space_digest=SearchSpaceDigest(
+                        feature_names=fns,
+                        bounds=bounds,
+                        task_features=tfs,
+                    ),
                     metric_names=mns[0],
-                    fidelity_features=[],
                 )
                 _mock_fit_model.assert_called_once()
                 if use_loocv_pseudo_likelihood:
@@ -557,11 +564,12 @@ class BotorchModelTest(TestCase):
                 Xs=Xs1 + Xs2,
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=tfs,
+                ),
                 metric_names=mns,
-                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 

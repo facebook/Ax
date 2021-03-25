@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
+
 from ax.core.arm import Arm
 from ax.core.parameter import (
     ChoiceParameter,
@@ -16,7 +18,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.utils.common.testutils import TestCase
 
 
@@ -330,3 +332,33 @@ class SearchSpaceTest(TestCase):
         # Test constructing an arm with a bad param name
         with self.assertRaises(ValueError):
             self.ss1.construct_arm({"a": "notafloat"})
+
+
+class SearchSpaceDigestTest(TestCase):
+    def setUp(self):
+        self.kwargs = {
+            "feature_names": ["a", "b", "c"],
+            "bounds": [(0.0, 1.0), (0, 2), (0, 4)],
+            "ordinal_features": [1],
+            "categorical_features": [2],
+            "task_features": [3],
+            "fidelity_features": [0],
+            "target_fidelities": {0: 1.0},
+        }
+
+    def testSearchSpaceDigest(self):
+        # test required fields
+        with self.assertRaises(TypeError):
+            SearchSpaceDigest(bounds=[])
+        with self.assertRaises(TypeError):
+            SearchSpaceDigest(feature_names=[])
+        # test instantiation
+        ssd = SearchSpaceDigest(**self.kwargs)
+        self.assertEqual(dataclasses.asdict(ssd), self.kwargs)
+        # test default instatiation
+        for arg in self.kwargs:
+            if arg in {"feature_names", "bounds"}:
+                continue
+            ssd = SearchSpaceDigest(
+                **{k: v for k, v in self.kwargs.items() if k != arg}
+            )

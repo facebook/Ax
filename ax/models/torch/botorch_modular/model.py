@@ -8,6 +8,7 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch import get_rounding_func
 from ax.models.torch.botorch_modular.acquisition import Acquisition
@@ -132,11 +133,8 @@ class BoTorchModel(TorchModel, Base):
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
@@ -151,8 +149,7 @@ class BoTorchModel(TorchModel, Base):
                 Xs=Xs,
                 Ys=Ys,
                 Yvars=Yvars,
-                task_features=task_features,
-                fidelity_features=fidelity_features,
+                search_space_digest=search_space_digest,
                 metric_names=metric_names,
             )
 
@@ -161,11 +158,7 @@ class BoTorchModel(TorchModel, Base):
             # but `ListSurrogate` expects a list of them, so `training_data` here is
             # a union of the two.
             training_data=self._mk_training_data(Xs=Xs, Ys=Ys, Yvars=Yvars),
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
-            fidelity_features=fidelity_features,
-            target_fidelities=target_fidelities,
+            search_space_digest=search_space_digest,
             metric_names=metric_names,
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
@@ -178,12 +171,8 @@ class BoTorchModel(TorchModel, Base):
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
-        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         if not self._surrogate:
@@ -204,12 +193,8 @@ class BoTorchModel(TorchModel, Base):
             # but `ListSurrogate` expects a list of them, so `training_data` here is
             # a union of the two.
             training_data=self._mk_training_data(Xs=Xs, Ys=Ys, Yvars=Yvars),
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
+            search_space_digest=search_space_digest,
             metric_names=metric_names,
-            fidelity_features=fidelity_features,
-            target_fidelities=target_fidelities,
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=self.refit_on_update,
@@ -313,11 +298,8 @@ class BoTorchModel(TorchModel, Base):
         Ys_train: List[Tensor],
         Yvars_train: List[Tensor],
         X_test: Tensor,
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
     ) -> Tuple[Tensor, Tensor]:
         current_surrogate = self.surrogate
         # If we should be refitting but not warm-starting the refit, set
@@ -339,11 +321,8 @@ class BoTorchModel(TorchModel, Base):
                 Xs=Xs_train,
                 Ys=Ys_train,
                 Yvars=Yvars_train,
-                bounds=bounds,
-                task_features=task_features,
-                feature_names=feature_names,
+                search_space_digest=search_space_digest,
                 metric_names=metric_names,
-                fidelity_features=fidelity_features,
                 state_dict=state_dict,
                 refit=self.refit_on_cv,
             )
@@ -360,8 +339,7 @@ class BoTorchModel(TorchModel, Base):
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
-        task_features: List[int],
-        fidelity_features: List[int],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
     ) -> None:
         """Sets a default surrogate on this model if one was not explicitly
@@ -372,8 +350,7 @@ class BoTorchModel(TorchModel, Base):
         # be chosen given the Yvars and the properties of data.
         botorch_model_class = choose_model_class(
             Yvars=Yvars,
-            task_features=task_features,
-            fidelity_features=fidelity_features,
+            search_space_digest=search_space_digest,
         )
         if use_model_list(Xs=Xs, botorch_model_class=botorch_model_class):
             # If using `ListSurrogate` / `ModelListGP`, pick submodels for each
@@ -381,8 +358,7 @@ class BoTorchModel(TorchModel, Base):
             botorch_submodel_class_per_outcome = {
                 metric_name: choose_model_class(
                     Yvars=[Yvar],
-                    task_features=task_features,
-                    fidelity_features=fidelity_features,
+                    search_space_digest=search_space_digest,
                 )
                 for Yvar, metric_name in zip(Yvars, metric_names)
             }

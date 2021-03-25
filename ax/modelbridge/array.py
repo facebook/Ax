@@ -20,13 +20,14 @@ from ax.modelbridge.modelbridge_utils import (
     extract_objective_weights,
     extract_outcome_constraints,
     extract_parameter_constraints,
-    get_bounds_and_task,
+    extract_search_space_digest,
     get_fixed_features,
     observation_data_to_array,
     observation_features_to_array,
     parse_observation_features,
     pending_observations_as_array,
     transform_callback,
+    SearchSpaceDigest,
 )
 from ax.utils.common.typeutils import not_none
 
@@ -40,9 +41,16 @@ FIT_MODEL_ERROR = "Model must be fit before {action}."
 class ArrayModelBridge(ModelBridge):
     """A model bridge for using array-based models.
 
-    Requires that all non-task parameters have been transformed to
-    RangeParameters with float type and no log scale. Task parameters must be
-    transformed to RangeParameters with int type.
+    Requires that all non-task parameters have been transformed to RangeParameters.
+
+    If there are any (non-task) discrete parameters (e.g. as obtained via a
+    ChoiceEncode transform), those need to be of integer type with parameter
+    space normalized to `{0, 1, ..., num_choices-1}`. The `num_choices` information
+    is passed to the model and optimization needs to take this into account and return
+    only candidates that take values in this parameter space (specifically, there is
+    no relaxation and no rounding is applied).
+
+    All other parameters need to be of float type on a regular (non-log) scale.
 
     This will convert all parameter types to float and put data into arrays.
     """
@@ -71,22 +79,18 @@ class ArrayModelBridge(ModelBridge):
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
-        # Extract bounds and task features
-        bounds, task_features, target_fidelities = get_bounds_and_task(
+        # Get all relevant information on the parameters
+        search_space_digest = extract_search_space_digest(
             search_space=search_space, param_names=self.parameters
         )
-
         # Fit
         self._model_fit(
             model=model,
             Xs=Xs_array,
             Ys=Ys_array,
             Yvars=Yvars_array,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=self.parameters,
+            search_space_digest=search_space_digest,
             metric_names=self.outcomes,
-            fidelity_features=list(target_fidelities.keys()),
             candidate_metadata=candidate_metadata,
         )
 
@@ -96,11 +100,8 @@ class ArrayModelBridge(ModelBridge):
         Xs: List[np.ndarray],
         Ys: List[np.ndarray],
         Yvars: List[np.ndarray],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]],
     ) -> None:
         """Fit the model, given numpy types."""
@@ -109,11 +110,8 @@ class ArrayModelBridge(ModelBridge):
             Xs=Xs,
             Ys=Ys,
             Yvars=Yvars,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
+            search_space_digest=search_space_digest,
             metric_names=metric_names,
-            fidelity_features=fidelity_features,
             candidate_metadata=candidate_metadata,
         )
 
@@ -130,23 +128,17 @@ class ArrayModelBridge(ModelBridge):
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
-
-        bounds, task_features, target_fidelities = get_bounds_and_task(
+        search_space_digest = extract_search_space_digest(
             search_space=search_space, param_names=self.parameters
         )
-
         # Update in-design status for these new points.
         self._model_update(
             Xs=Xs_array,
             Ys=Ys_array,
             Yvars=Yvars_array,
-            candidate_metadata=candidate_metadata,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=self.parameters,
+            search_space_digest=search_space_digest,
             metric_names=self.outcomes,
-            fidelity_features=list(target_fidelities.keys()),
-            target_fidelities=target_fidelities,
+            candidate_metadata=candidate_metadata,
         )
 
     def _model_update(
@@ -154,26 +146,17 @@ class ArrayModelBridge(ModelBridge):
         Xs: List[np.ndarray],
         Ys: List[np.ndarray],
         Yvars: List[np.ndarray],
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
-        target_fidelities: Optional[Dict[int, float]],
+        candidate_metadata: Optional[List[List[TCandidateMetadata]]],
     ) -> None:
         self.model.update(
             Xs=Xs,
             Ys=Ys,
             Yvars=Yvars,
-            candidate_metadata=candidate_metadata,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=self.parameters,
+            search_space_digest=search_space_digest,
             metric_names=self.outcomes,
-            fidelity_features=list(target_fidelities.keys())
-            if target_fidelities
-            else None,
+            candidate_metadata=candidate_metadata,
         )
 
     def _predict(
@@ -216,12 +199,10 @@ class ArrayModelBridge(ModelBridge):
         # Validation
         if not self.parameters:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
-        # Extract bounds
-        bounds, _, target_fidelities = get_bounds_and_task(
+        # Extract search space info
+        search_space_digest = extract_search_space_digest(
             search_space=search_space, param_names=self.parameters
         )
-        target_fidelities = {i: float(v) for i, v in target_fidelities.items()}
-
         if optimization_config is None:
             raise ValueError(
                 "ArrayModelBridge requires an OptimizationConfig to be specified"
@@ -250,7 +231,7 @@ class ArrayModelBridge(ModelBridge):
         # Generate the candidates
         X, w, gen_metadata, candidate_metadata = self._model_gen(
             n=n,
-            bounds=bounds,
+            bounds=search_space_digest.bounds,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
@@ -258,7 +239,7 @@ class ArrayModelBridge(ModelBridge):
             pending_observations=pending_array,
             model_gen_options=model_gen_options,
             rounding_func=transform_callback(self.parameters, self.transforms),
-            target_fidelities=target_fidelities,
+            target_fidelities=search_space_digest.target_fidelities,
             **extra_model_gen_kwargs,
         )
         # Transform array to observations
@@ -266,13 +247,13 @@ class ArrayModelBridge(ModelBridge):
             X=X, param_names=self.parameters, candidate_metadata=candidate_metadata
         )
         xbest = self._model_best_point(
-            bounds=bounds,
+            bounds=search_space_digest.bounds,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features_dict,
             model_gen_options=model_gen_options,
-            target_fidelities=target_fidelities,
+            target_fidelities=search_space_digest.target_fidelities,
         )
         best_obsf = (
             None
@@ -356,10 +337,9 @@ class ArrayModelBridge(ModelBridge):
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
-        bounds, task_features, target_fidelities = get_bounds_and_task(
+        search_space_digest = extract_search_space_digest(
             search_space=search_space, param_names=self.parameters
         )
-
         X_test = np.array(
             [[obsf.parameters[p] for p in self.parameters] for obsf in cv_test_points]
         )
@@ -369,11 +349,8 @@ class ArrayModelBridge(ModelBridge):
             Ys_train=Ys_train,
             Yvars_train=Yvars_train,
             X_test=X_test,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=self.parameters,
+            search_space_digest=search_space_digest,
             metric_names=self.outcomes,
-            fidelity_features=list(target_fidelities.keys()),
         )
         # Convert array back to ObservationData
         return array_to_observation_data(f=f_test, cov=cov_test, outcomes=self.outcomes)
@@ -384,22 +361,16 @@ class ArrayModelBridge(ModelBridge):
         Ys_train: List[np.ndarray],
         Yvars_train: List[np.ndarray],
         X_test: np.ndarray,
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
     ) -> Tuple[np.ndarray, np.ndarray]:  # pragma: no cover
         return self.model.cross_validate(
             Xs_train=Xs_train,
             Ys_train=Ys_train,
             Yvars_train=Yvars_train,
             X_test=X_test,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
+            search_space_digest=search_space_digest,
             metric_names=metric_names,
-            fidelity_features=fidelity_features,
         )
 
     def _evaluate_acquisition_function(

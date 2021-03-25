@@ -15,7 +15,7 @@ from ax.core.types import TConfig, TGenMetadata
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,
-    get_bounds_and_task,
+    extract_search_space_digest,
     get_fixed_features,
     parse_observation_features,
     transform_callback,
@@ -75,7 +75,7 @@ class RandomModelBridge(ModelBridge):
     ]:
         """Generate new candidates according to a search_space."""
         # Extract parameter values
-        bounds, _, _ = get_bounds_and_task(search_space, self.parameters)
+        search_space_digest = extract_search_space_digest(search_space, self.parameters)
         # Get fixed features
         fixed_features_dict = get_fixed_features(fixed_features, self.parameters)
         # Extract param constraints
@@ -85,7 +85,7 @@ class RandomModelBridge(ModelBridge):
         # Generate the candidates
         X, w = self.model.gen(
             n=n,
-            bounds=bounds,
+            bounds=search_space_digest.bounds,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features_dict,
             model_gen_options=model_gen_options,

@@ -6,6 +6,7 @@
 
 from typing import Any, Dict, List, Optional, Tuple
 
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TConfig
 from ax.models.torch.alebo import ei_or_nei
 from ax.models.torch.botorch import BotorchModel
@@ -102,25 +103,19 @@ class LCEABO(BotorchModel):
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
-        if len(feature_names) == 0:
+        if len(search_space_digest.feature_names) == 0:
             raise ValueError("feature names are required for LCEABO")
-        self.feature_names = feature_names
+        self.feature_names = search_space_digest.feature_names
         super().fit(
             Xs=Xs,
             Ys=Ys,
             Yvars=Yvars,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
+            search_space_digest=search_space_digest,
             metric_names=metric_names,
-            fidelity_features=fidelity_features,
         )
 
     @copy_doc(TorchModel.best_point)

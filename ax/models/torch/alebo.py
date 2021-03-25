@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, MutableMapping, Optional, Tuple, U
 import gpytorch
 import numpy as np
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.botorch import BotorchModel
@@ -575,16 +576,13 @@ class ALEBO(BotorchModel):
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
-        assert len(task_features) == 0
-        assert len(fidelity_features) == 0
-        for b in bounds:
+        assert len(search_space_digest.task_features) == 0
+        assert len(search_space_digest.fidelity_features) == 0
+        for b in search_space_digest.bounds:
             assert b == (-1, 1)
         # GP is fit in the low-d space, so project Xs down.
         self.Xs = [(self.B @ X.t()).t() for X in Xs]

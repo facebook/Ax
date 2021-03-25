@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
@@ -34,7 +35,6 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from torch import Tensor
-
 
 logger = get_logger(__name__)
 
@@ -275,11 +275,8 @@ class BotorchModel(TorchModel):
         Xs: List[Tensor],
         Ys: List[Tensor],
         Yvars: List[Tensor],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         self.dtype = Xs[0].dtype
@@ -287,9 +284,12 @@ class BotorchModel(TorchModel):
         self.Xs = Xs
         self.Ys = Ys
         self.Yvars = Yvars
-        # ensure indices are non-negative
-        self.task_features = normalize_indices(task_features, d=Xs[0].size(-1))
-        self.fidelity_features = normalize_indices(fidelity_features, d=Xs[0].size(-1))
+        self.task_features = normalize_indices(
+            search_space_digest.task_features, d=Xs[0].size(-1)
+        )
+        self.fidelity_features = normalize_indices(
+            search_space_digest.fidelity_features, d=Xs[0].size(-1)
+        )
         self.metric_names = metric_names
         self.model = self.model_constructor(  # pyre-ignore [28]
             Xs=Xs,

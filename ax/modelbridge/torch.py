@@ -15,7 +15,10 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.array import FIT_MODEL_ERROR, ArrayModelBridge
-from ax.modelbridge.modelbridge_utils import validate_and_apply_final_transform
+from ax.modelbridge.modelbridge_utils import (
+    validate_and_apply_final_transform,
+    SearchSpaceDigest,
+)
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchModel
 from ax.utils.common.typeutils import not_none
@@ -118,11 +121,8 @@ class TorchModelBridge(ArrayModelBridge):
         Xs: List[np.ndarray],
         Ys: List[np.ndarray],
         Yvars: List[np.ndarray],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]],
     ) -> None:
         self.model = model
@@ -138,11 +138,8 @@ class TorchModelBridge(ArrayModelBridge):
             Xs=Xs,
             Ys=Ys,
             Yvars=Yvars,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
+            search_space_digest=search_space_digest,
             metric_names=metric_names,
-            fidelity_features=fidelity_features,
             candidate_metadata=candidate_metadata,
         )
 
@@ -151,13 +148,9 @@ class TorchModelBridge(ArrayModelBridge):
         Xs: List[np.ndarray],
         Ys: List[np.ndarray],
         Yvars: List[np.ndarray],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
         metric_names: List[str],
-        fidelity_features: List[int],
-        target_fidelities: Optional[Dict[int, float]],
     ) -> None:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_update"))
@@ -172,14 +165,9 @@ class TorchModelBridge(ArrayModelBridge):
             Xs=Xs,
             Ys=Ys,
             Yvars=Yvars,
-            candidate_metadata=candidate_metadata,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=self.parameters,
+            search_space_digest=search_space_digest,
             metric_names=self.outcomes,
-            fidelity_features=list(target_fidelities.keys())
-            if target_fidelities
-            else None,
+            candidate_metadata=candidate_metadata,
         )
 
     def _model_predict(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -276,11 +264,8 @@ class TorchModelBridge(ArrayModelBridge):
         Ys_train: List[np.ndarray],
         Yvars_train: List[np.ndarray],
         X_test: np.ndarray,
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
     ) -> Tuple[np.ndarray, np.ndarray]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_cross_validate"))
@@ -298,11 +283,8 @@ class TorchModelBridge(ArrayModelBridge):
             Ys_train=Ys_train,
             Yvars_train=Yvars_train,
             X_test=X_test,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
+            search_space_digest=search_space_digest,
             metric_names=metric_names,
-            fidelity_features=fidelity_features,
         )
         return (
             f_test.detach().cpu().clone().numpy(),

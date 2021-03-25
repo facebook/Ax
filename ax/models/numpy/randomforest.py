@@ -7,6 +7,7 @@
 from typing import List, Optional, Tuple
 
 import numpy as np
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.models.numpy_base import NumpyModel
 from ax.utils.common.docutils import copy_doc
@@ -42,11 +43,8 @@ class RandomForest(NumpyModel):
         Xs: List[np.ndarray],
         Ys: List[np.ndarray],
         Yvars: List[np.ndarray],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         for i, X in enumerate(Xs):

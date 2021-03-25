@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import numpy as np
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.numpy_base import NumpyModel
 from ax.utils.common.testutils import TestCase
 
@@ -19,11 +20,11 @@ class NumpyModelTest(TestCase):
             Xs=[np.array(0)],
             Ys=[np.array(0)],
             Yvars=[np.array(1)],
-            bounds=[(0, 1)],
-            task_features=[],
-            feature_names=["x"],
+            search_space_digest=SearchSpaceDigest(
+                feature_names=["x"],
+                bounds=[(0, 1)],
+            ),
             metric_names=["y"],
-            fidelity_features=[],
         )
 
     def testNumpyModelFeatureImportances(self):

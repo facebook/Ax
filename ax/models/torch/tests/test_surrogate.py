@@ -7,6 +7,7 @@
 from unittest.mock import patch
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
@@ -45,11 +46,12 @@ class SurrogateTest(TestCase):
         self.surrogate = Surrogate(
             botorch_model_class=self.botorch_model_class, mll_class=self.mll_class
         )
-        self.task_features = []
-        self.feature_names = ["x1", "x2"]
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=["x1", "x2"],
+            bounds=self.bounds,
+            target_fidelities={1: 1.0},
+        )
         self.metric_names = ["y"]
-        self.fidelity_features = []
-        self.target_fidelities = {1: 1.0}
         self.fixed_features = {1: 2.0}
         self.refit = True
         self.objective_weights = torch.tensor(
@@ -91,13 +93,15 @@ class SurrogateTest(TestCase):
 
     def test_dtype_property(self):
         self.surrogate.construct(
-            training_data=self.training_data, fidelity_features=self.fidelity_features
+            training_data=self.training_data,
+            fidelity_features=self.search_space_digest.fidelity_features,
         )
         self.assertEqual(self.dtype, self.surrogate.dtype)
 
     def test_device_property(self):
         self.surrogate.construct(
-            training_data=self.training_data, fidelity_features=self.fidelity_features
+            training_data=self.training_data,
+            fidelity_features=self.search_space_digest.fidelity_features,
         )
         self.assertEqual(self.device, self.surrogate.device)
 
@@ -114,10 +118,11 @@ class SurrogateTest(TestCase):
             # Base `Model` does not implement `construct_inputs`.
             Surrogate(botorch_model_class=Model).construct(
                 training_data=self.training_data,
-                fidelity_features=self.fidelity_features,
+                fidelity_features=self.search_space_digest.fidelity_features,
             )
         self.surrogate.construct(
-            training_data=self.training_data, fidelity_features=self.fidelity_features
+            training_data=self.training_data,
+            fidelity_features=self.search_space_digest.fidelity_features,
         )
         mock_GP.assert_called_with(train_X=self.Xs[0], train_Y=self.Ys[0])
         self.assertFalse(self.surrogate._constructed_manually)
@@ -136,12 +141,8 @@ class SurrogateTest(TestCase):
         # is `None`.
         surrogate.fit(
             training_data=self.training_data,
-            bounds=self.bounds,
-            task_features=self.task_features,
-            feature_names=self.feature_names,
+            search_space_digest=self.search_space_digest,
             metric_names=self.metric_names,
-            fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             refit=self.refit,
         )
         mock_state_dict.assert_not_called()
@@ -155,12 +156,8 @@ class SurrogateTest(TestCase):
         state_dict = {"state_attribute": "value"}
         surrogate.fit(
             training_data=self.training_data,
-            bounds=self.bounds,
-            task_features=self.task_features,
-            feature_names=self.feature_names,
+            search_space_digest=self.search_space_digest,
             metric_names=self.metric_names,
-            fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             refit=False,
             state_dict=state_dict,
         )
@@ -171,14 +168,16 @@ class SurrogateTest(TestCase):
     @patch(f"{SURROGATE_PATH}.predict_from_model")
     def test_predict(self, mock_predict):
         self.surrogate.construct(
-            training_data=self.training_data, fidelity_features=self.fidelity_features
+            training_data=self.training_data,
+            fidelity_features=self.search_space_digest.fidelity_features,
         )
         self.surrogate.predict(X=self.Xs[0])
         mock_predict.assert_called_with(model=self.surrogate.model, X=self.Xs[0])
 
     def test_best_in_sample_point(self):
         self.surrogate.construct(
-            training_data=self.training_data, fidelity_features=self.fidelity_features
+            training_data=self.training_data,
+            fidelity_features=self.search_space_digest.fidelity_features,
         )
         # `best_in_sample_point` requires `objective_weights`
         with patch(
@@ -223,7 +222,8 @@ class SurrogateTest(TestCase):
         self, mock_best_point_util, mock_acqf_optimize, mock_acqf_init
     ):
         self.surrogate.construct(
-            training_data=self.training_data, fidelity_features=self.fidelity_features
+            training_data=self.training_data,
+            fidelity_features=self.search_space_digest.fidelity_features,
         )
         # currently cannot use function with fixed features
         with self.assertRaisesRegex(NotImplementedError, "Fixed features"):
@@ -237,8 +237,8 @@ class SurrogateTest(TestCase):
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
-            fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
+            fidelity_features=self.search_space_digest.fidelity_features,
+            target_fidelities=self.search_space_digest.target_fidelities,
             options=self.options,
         )
         mock_acqf_init.assert_called_with(
@@ -249,7 +249,7 @@ class SurrogateTest(TestCase):
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=None,
-            target_fidelities=self.target_fidelities,
+            target_fidelities=self.search_space_digest.target_fidelities,
             options={Keys.SAMPLER: SobolQMCNormalSampler},
         )
         self.assertTrue(torch.equal(candidate, torch.tensor([0.0])))
@@ -258,28 +258,21 @@ class SurrogateTest(TestCase):
     @patch(f"{SURROGATE_PATH}.Surrogate.fit")
     def test_update(self, mock_fit):
         self.surrogate.construct(
-            training_data=self.training_data, fidelity_features=self.fidelity_features
+            training_data=self.training_data,
+            fidelity_features=self.search_space_digest.fidelity_features,
         )
         # Call `fit` by default
         self.surrogate.update(
             training_data=self.training_data,
-            bounds=self.bounds,
-            task_features=self.task_features,
-            feature_names=self.feature_names,
+            search_space_digest=self.search_space_digest,
             metric_names=self.metric_names,
-            fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             refit=self.refit,
             state_dict={"key": "val"},
         )
         mock_fit.assert_called_with(
             training_data=self.training_data,
-            bounds=self.bounds,
-            task_features=self.task_features,
-            feature_names=self.feature_names,
+            search_space_digest=self.search_space_digest,
             metric_names=self.metric_names,
-            fidelity_features=self.fidelity_features,
-            target_fidelities=self.target_fidelities,
             candidate_metadata=None,
             refit=self.refit,
             state_dict={"key": "val"},
@@ -289,11 +282,8 @@ class SurrogateTest(TestCase):
         with self.assertRaisesRegex(NotImplementedError, ".* constructed manually"):
             self.surrogate.update(
                 training_data=self.training_data,
-                bounds=self.bounds,
-                task_features=self.task_features,
-                feature_names=self.feature_names,
+                search_space_digest=self.search_space_digest,
                 metric_names=self.metric_names,
-                fidelity_features=self.fidelity_features,
                 refit=self.refit,
             )
 

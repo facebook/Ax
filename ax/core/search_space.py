@@ -6,7 +6,8 @@
 
 # pyre-strict
 
-from typing import Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple, Union
 
 from ax.core.arm import Arm
 from ax.core.parameter import FixedParameter, Parameter, RangeParameter
@@ -324,3 +325,40 @@ class SearchSpace(Base):
             "parameters=" + repr(list(self._parameters.values())) + ", "
             "parameter_constraints=" + repr(self._parameter_constraints) + ")"
         )
+
+
+@dataclass
+class SearchSpaceDigest:
+    """Container for lightweight representation of search space properties.
+
+    This is used for communicating between modelbridge and models. This is
+    an ephemeral object and not meant to be stored / serialized.
+
+    Attributes:
+        feature_names: A list of parameter names.
+        bounds: A list [(l_0, u_0), ..., (l_d, u_d)] of tuples representing the
+            lower and upper bounds on the respective parameter (both inclusive).
+        ordinal_features: A list of indices corresponding to the parameters
+            to be considered as ordinal discrete parameters. The corresponding
+            bounds are assumed to be integers, and parameter `i` is assumed
+            to take on values `l_i, l_i+1, ..., u_i`.
+        categorical_features: A list of indices corresponding to the parameters
+            to be considered as categorical discrete parameters. The corresponding
+            bounds are assumed to be integers, and parameter `i` is assumed
+            to take on values `l_i, l_i+1, ..., u_i`.
+        task_features: A list of parameter indices to be considered as
+            task parameters.
+        fidelity_features: A list of parameter indices to be considered as
+            fidelity parameters.
+        target_fidelities: A dict mapping parameter indices (of fidelity
+            parameters) to their respective target fidelity value. Only used
+            when generating candidates.
+    """
+
+    feature_names: List[str]
+    bounds: List[Tuple[Union[int, float], Union[int, float]]]
+    ordinal_features: List[int] = field(default_factory=list)
+    categorical_features: List[int] = field(default_factory=list)
+    task_features: List[int] = field(default_factory=list)
+    fidelity_features: List[int] = field(default_factory=list)
+    target_fidelities: Dict[int, Union[int, float]] = field(default_factory=dict)

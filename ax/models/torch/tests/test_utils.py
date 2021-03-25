@@ -6,6 +6,7 @@
 
 import numpy as np
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
     choose_model_class,
@@ -46,25 +47,44 @@ class BoTorchModelUtilsTest(TestCase):
             NotImplementedError, "Only a single fidelity feature"
         ):
             choose_model_class(
-                Yvars=self.Yvars, task_features=[], fidelity_features=[1, 2]
+                Yvars=self.Yvars,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[], bounds=[], fidelity_features=[1, 2]
+                ),
             )
         # No support for non-empty task & fidelity features yet.
         with self.assertRaisesRegex(NotImplementedError, "Multi-task multi-fidelity"):
             choose_model_class(
-                Yvars=self.Yvars, task_features=[1], fidelity_features=[1]
+                Yvars=self.Yvars,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[],
+                    bounds=[],
+                    task_features=[1],
+                    fidelity_features=[1],
+                ),
             )
         # With fidelity features and unknown variances, use SingleTaskMultiFidelityGP.
         self.assertEqual(
             SingleTaskMultiFidelityGP,
             choose_model_class(
-                Yvars=self.none_Yvars, task_features=[], fidelity_features=[2]
+                Yvars=self.none_Yvars,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[],
+                    bounds=[],
+                    fidelity_features=[2],
+                ),
             ),
         )
         # With fidelity features and known variances, use FixedNoiseMultiFidelityGP.
         self.assertEqual(
             FixedNoiseMultiFidelityGP,
             choose_model_class(
-                Yvars=self.Yvars, task_features=[], fidelity_features=[2]
+                Yvars=self.Yvars,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[],
+                    bounds=[],
+                    fidelity_features=[2],
+                ),
             ),
         )
 
@@ -72,20 +92,29 @@ class BoTorchModelUtilsTest(TestCase):
         # Only a single task feature can be used.
         with self.assertRaisesRegex(NotImplementedError, "Only a single task feature"):
             choose_model_class(
-                Yvars=self.Yvars, task_features=[1, 2], fidelity_features=[]
+                Yvars=self.Yvars,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[], bounds=[], task_features=[1, 2]
+                ),
             )
         # With fidelity features and unknown variances, use SingleTaskMultiFidelityGP.
         self.assertEqual(
             MultiTaskGP,
             choose_model_class(
-                Yvars=self.none_Yvars, task_features=[1], fidelity_features=[]
+                Yvars=self.none_Yvars,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[], bounds=[], task_features=[1]
+                ),
             ),
         )
         # With fidelity features and known variances, use FixedNoiseMultiFidelityGP.
         self.assertEqual(
             FixedNoiseMultiTaskGP,
             choose_model_class(
-                Yvars=self.Yvars, task_features=[1], fidelity_features=[]
+                Yvars=self.Yvars,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[], bounds=[], task_features=[1]
+                ),
             ),
         )
 
@@ -96,14 +125,20 @@ class BoTorchModelUtilsTest(TestCase):
         ):
             choose_model_class(
                 Yvars=[torch.tensor([[0.0], [np.nan]])],
-                task_features=[],
-                fidelity_features=[],
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[],
+                    bounds=[],
+                ),
             )
         # Without fidelity/task features but with Yvar specifications, use FixedNoiseGP.
         self.assertEqual(
             FixedNoiseGP,
             choose_model_class(
-                Yvars=self.Yvars, task_features=[], fidelity_features=[]
+                Yvars=self.Yvars,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[],
+                    bounds=[],
+                ),
             ),
         )
         # W/out fidelity/task features and w/out Yvar specifications, use SingleTaskGP.
@@ -111,8 +146,10 @@ class BoTorchModelUtilsTest(TestCase):
             SingleTaskGP,
             choose_model_class(
                 Yvars=[torch.tensor([[float("nan")], [float("nan")]])],
-                task_features=[],
-                fidelity_features=[],
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[],
+                    bounds=[],
+                ),
             ),
         )
 

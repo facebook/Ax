@@ -7,6 +7,7 @@
 from unittest.mock import patch
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import (
     NOT_YET_FIT_MSG,
@@ -33,19 +34,22 @@ class ListSurrogateTest(TestCase):
         self.outcomes = ["outcome_1", "outcome_2"]
         self.mll_class = SumMarginalLogLikelihood
         self.dtype = torch.float
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=[], bounds=[], task_features=[0]
+        )
         self.task_features = [0]
         Xs1, Ys1, Yvars1, bounds, _, _, _ = get_torch_test_data(
-            dtype=self.dtype, task_features=self.task_features
+            dtype=self.dtype, task_features=self.search_space_digest.task_features
         )
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
-            dtype=self.dtype, task_features=self.task_features
+            dtype=self.dtype, task_features=self.search_space_digest.task_features
         )
         self.botorch_submodel_class_per_outcome = {
             self.outcomes[0]: choose_model_class(
-                Yvars=Yvars1, task_features=self.task_features, fidelity_features=[]
+                Yvars=Yvars1, search_space_digest=self.search_space_digest
             ),
             self.outcomes[1]: choose_model_class(
-                Yvars=Yvars2, task_features=self.task_features, fidelity_features=[]
+                Yvars=Yvars2, search_space_digest=self.search_space_digest
             ),
         }
         self.expected_submodel_type = FixedNoiseMultiTaskGP
@@ -180,11 +184,12 @@ class ListSurrogateTest(TestCase):
         # is `None`.
         surrogate.fit(
             training_data=self.training_data,
-            bounds=self.bounds,
-            task_features=self.task_features,
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+                task_features=self.task_features,
+            ),
             metric_names=self.outcomes,
-            fidelity_features=[],
         )
         mock_state_dict.assert_not_called()
         mock_MLL.assert_called_once()
@@ -197,11 +202,12 @@ class ListSurrogateTest(TestCase):
         state_dict = {"state_attribute": "value"}
         surrogate.fit(
             training_data=self.training_data,
-            bounds=self.bounds,
-            task_features=self.task_features,
-            feature_names=self.feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+                task_features=self.task_features,
+            ),
             metric_names=self.outcomes,
-            fidelity_features=[],
             refit=False,
             state_dict=state_dict,
         )

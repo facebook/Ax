@@ -8,6 +8,7 @@ import warnings
 from unittest import mock
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_defaults import get_NEI
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
@@ -16,7 +17,6 @@ from ax.models.torch.botorch_moo_defaults import (
     get_default_partitioning_alpha,
 )
 from ax.utils.common.testutils import TestCase
-
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
 
@@ -56,11 +56,11 @@ class FrontierEvaluatorTest(TestCase):
                 Xs=[self.X],
                 Ys=[self.Y],
                 Yvars=[self.Yvar],
-                bounds=bounds,
-                task_features=[],
-                feature_names=["x1", "x2"],
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=["x1", "x2"],
+                    bounds=bounds,
+                ),
                 metric_names=["a", "b", "c"],
-                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 

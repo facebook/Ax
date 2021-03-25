@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Type
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.models.torch.botorch_modular.surrogate import NOT_YET_FIT_MSG, Surrogate
 from ax.utils.common.constants import Keys
@@ -168,12 +169,8 @@ class ListSurrogate(Surrogate):
     def fit(
         self,
         training_data: List[TrainingData],
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
-        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, torch.Tensor]] = None,
         refit: bool = True,
@@ -201,13 +198,9 @@ class ListSurrogate(Surrogate):
                 to the order of outcome names in ``metric_names``. Each ``TrainingData``
                 from this list will be passed to ``Model.construct_inputs`` method
                 of the corresponding submodel in ``ModelListGP``.
-            bounds: A list of d (lower, upper) tuples for each column of X.
-            task_features: Columns of X that take integer values and should be
-                treated as task parameters.
-            feature_names: Names of each column of X.
+            search_space_digest: A SearchSpaceDigest object containing
+                metadata on the features in the training data.
             metric_names: Names of each outcome Y in Ys.
-            fidelity_features: Columns of X that should be treated as fidelity
-                parameters.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
             state_dict: Optional state dict to load.
@@ -217,12 +210,8 @@ class ListSurrogate(Surrogate):
             # pyre-ignore[6]: `Surrogate.fit` expects single training data
             # and in `ListSurrogate` we use a list of training data.
             training_data=training_data,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
+            search_space_digest=search_space_digest,
             metric_names=metric_names,
-            fidelity_features=fidelity_features,
-            target_fidelities=target_fidelities,
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=refit,

@@ -8,6 +8,7 @@ from typing import Dict
 from unittest import mock
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_defaults import get_NEI
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import get_EHVI
@@ -17,7 +18,6 @@ from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
 from botorch.models import ModelListGP
 from botorch.models.transforms.input import Warp
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
-
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
 SAMPLE_SIMPLEX_UTIL_PATH = "ax.models.torch.utils.sample_simplex"
@@ -94,11 +94,12 @@ class BotorchMOOModelTest(TestCase):
                 Xs=Xs1 + Xs2,
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=tfs,
+                ),
                 metric_names=mns,
-                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 
@@ -154,11 +155,12 @@ class BotorchMOOModelTest(TestCase):
             Xs=Xs1 + Xs2,
             Ys=Ys1 + Ys2,
             Yvars=Yvars1 + Yvars2,
-            bounds=bounds,
-            task_features=tfs,
-            feature_names=fns,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=fns,
+                bounds=bounds,
+                task_features=tfs,
+            ),
             metric_names=mns,
-            fidelity_features=[],
         )
         self.assertTrue(model.use_input_warping)
         self.assertIsInstance(model.model, ModelListGP)
@@ -176,11 +178,12 @@ class BotorchMOOModelTest(TestCase):
             Xs=Xs1 + Xs2,
             Ys=Ys1 + Ys2,
             Yvars=Yvars1 + Yvars2,
-            bounds=bounds,
-            task_features=tfs,
-            feature_names=fns,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=fns,
+                bounds=bounds,
+                task_features=tfs,
+            ),
             metric_names=mns,
-            fidelity_features=[],
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
@@ -209,11 +212,12 @@ class BotorchMOOModelTest(TestCase):
                 Xs=Xs1 + Xs2,
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=tfs,
+                ),
                 metric_names=mns,
-                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 
@@ -258,11 +262,12 @@ class BotorchMOOModelTest(TestCase):
                 Xs=Xs1 + Xs2,
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=tfs,
+                ),
                 metric_names=mns,
-                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 
@@ -292,11 +297,12 @@ class BotorchMOOModelTest(TestCase):
                 Xs=Xs1 + Xs2 + Xs2,
                 Ys=Ys1 + Ys2 + Ys2,
                 Yvars=Yvars1 + Yvars2 + Yvars2,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=tfs,
+                ),
                 metric_names=mns,
-                fidelity_features=[],
             )
 
         with mock.patch(
@@ -342,11 +348,12 @@ class BotorchMOOModelTest(TestCase):
                 Xs=Xs1 + Xs2,
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=tfs,
+                ),
                 metric_names=mns,
-                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 
@@ -398,11 +405,12 @@ class BotorchMOOModelTest(TestCase):
                 Xs=Xs1 + Xs2,
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=tfs,
+                ),
                 metric_names=mns,
-                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 
@@ -453,11 +461,12 @@ class BotorchMOOModelTest(TestCase):
                 Xs=Xs1 + Xs2,
                 Ys=Ys1 + Ys2,
                 Yvars=Yvars1 + Yvars2,
-                bounds=bounds,
-                task_features=tfs,
-                feature_names=fns,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=tfs,
+                ),
                 metric_names=mns,
-                fidelity_features=[],
             )
             _mock_fit_model.assert_called_once()
 

@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import numpy as np
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.numpy.randomforest import RandomForest
 from ax.utils.common.testutils import TestCase
 
@@ -20,11 +21,11 @@ class RandomForestTest(TestCase):
             Xs=Xs,
             Ys=Ys,
             Yvars=Yvars,
-            bounds=[(0, 1)] * 2,
-            task_features=[],
-            feature_names=["x1", "x2"],
+            search_space_digest=SearchSpaceDigest(
+                feature_names=["x1", "x2"],
+                bounds=[(0, 1)] * 2,
+            ),
             metric_names=["y"],
-            fidelity_features=[],
         )
         self.assertEqual(len(m.models), 2)
         self.assertEqual(len(m.models[0].estimators_), 5)

@@ -6,10 +6,12 @@
 
 from __future__ import annotations
 
+import dataclasses
 from logging import Logger
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TConfig
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.utils import (
@@ -148,7 +150,7 @@ class Surrogate(Base):
 
         Args:
             training_data: Training data for the model (for one outcome for
-                the default ``Surrogate``, with the exception of batched
+                the default `Surrogate`, with the exception of batched
                 multi-output case, where training data is formatted with just
                 one X and concatenated Ys).
             **kwargs: Optional keyword arguments, expects any of:
@@ -166,8 +168,7 @@ class Surrogate(Base):
         self._training_data = training_data
 
         formatted_model_inputs = self.botorch_model_class.construct_inputs(
-            training_data=self.training_data,
-            fidelity_features=kwargs.get(Keys.FIDELITY_FEATURES),
+            training_data=self.training_data, **kwargs
         )
         # pyre-ignore[45]: Py raises informative msg if `model_cls` abstract.
         self._model = self.botorch_model_class(**formatted_model_inputs)
@@ -175,12 +176,8 @@ class Surrogate(Base):
     def fit(
         self,
         training_data: TrainingData,
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
-        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
@@ -206,13 +203,9 @@ class Surrogate(Base):
             training data: BoTorch ``TrainingData`` container with Xs, Ys, and
                 possibly Yvars, to be passed to ``Model.construct_inputs`` in
                 BoTorch.
-            bounds: A list of d (lower, upper) tuples for each column of X.
-            task_features: Columns of X that take integer values and should be
-                treated as task parameters.
-            feature_names: Names of each column of X.
+            search_space_digest: A SearchSpaceDigest object containing
+                metadata on the features in the trainig data.
             metric_names: Names of each outcome Y in Ys.
-            fidelity_features: Columns of X that should be treated as fidelity
-                parameters.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
             state_dict: Optional state dict to load.
@@ -227,10 +220,8 @@ class Surrogate(Base):
         if self._model is None and not self._constructed_manually:
             self.construct(
                 training_data=training_data,
-                fidelity_features=fidelity_features,
-                # Kwargs below are unused in base `Surrogate`, but used in subclasses.
                 metric_names=metric_names,
-                task_features=task_features,
+                **dataclasses.asdict(search_space_digest)
             )
         if state_dict:
             self.model.load_state_dict(not_none(state_dict))
@@ -343,12 +334,8 @@ class Surrogate(Base):
     def update(
         self,
         training_data: TrainingData,
-        bounds: List[Tuple[float, float]],
-        task_features: List[int],
-        feature_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         metric_names: List[str],
-        fidelity_features: List[int],
-        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
@@ -364,15 +351,9 @@ class Surrogate(Base):
         Args:
             training_data: Surrogate training_data containing all the data the model
                 should use for inference.
-            bounds: A list of d (lower, upper) tuples for each column of X.
-            task_features: Columns of X that take integer values and should be
-                treated as task parameters.
-            feature_names: Names of each column of X.
+            search_space_digest: A SearchSpaceDigest object containing
+                metadata on the features in the training data.
             metric_names: Names of each outcome Y in Ys.
-            fidelity_features: Columns of X that should be treated as fidelity
-                parameters.
-            target_fidelities: Target values for fidelity parameters, representing
-                full-fidelity value.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
             state_dict: Optional state dict to load.
@@ -390,12 +371,8 @@ class Surrogate(Base):
             )
         self.fit(
             training_data=training_data,
-            bounds=bounds,
-            task_features=task_features,
-            feature_names=feature_names,
+            search_space_digest=search_space_digest,
             metric_names=metric_names,
-            fidelity_features=fidelity_features,
-            target_fidelities=target_fidelities,
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=refit,
