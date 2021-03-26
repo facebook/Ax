@@ -15,8 +15,9 @@ import torch
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
-from ax.core.experiment import Experiment
+from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -90,6 +91,19 @@ def get_experiment(with_status_quo: bool = True) -> Experiment:
         description="test description",
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
+    )
+
+
+def get_experiment_with_map_data():
+    return Experiment(
+        name="test",
+        search_space=get_search_space(),
+        optimization_config=get_optimization_config(),
+        status_quo=get_status_quo(),
+        description="test description",
+        tracking_metrics=[Metric(name="tracking")],
+        is_test=True,
+        default_data_type=DataType.MAP_DATA,
     )
 
 
@@ -937,6 +951,34 @@ def get_data(trial_index: int = 0) -> Data:
         "n": [100, 100, 100, 100, 100],
     }
     return Data(df=pd.DataFrame.from_records(df_dict))
+
+
+def get_map_data(trial_index: int = 0) -> MapData:
+    evaluations = {
+        "status_quo": [
+            ({"epoch": 1}, {"ax_test_metric": (1.0, 0.5)}),
+            ({"epoch": 2}, {"ax_test_metric": (2.0, 0.5)}),
+            ({"epoch": 3}, {"ax_test_metric": (3.0, 0.5)}),
+            ({"epoch": 4}, {"ax_test_metric": (4.0, 0.5)}),
+        ],
+        "0_0": [
+            ({"epoch": 1}, {"ax_test_metric": (3.7, 0.5)}),
+            ({"epoch": 2}, {"ax_test_metric": (3.8, 0.5)}),
+            ({"epoch": 3}, {"ax_test_metric": (3.9, 0.5)}),
+            ({"epoch": 4}, {"ax_test_metric": (4.0, 0.5)}),
+        ],
+        "0_1": [
+            ({"epoch": 1}, {"ax_test_metric": (3.0, 0.5)}),
+            ({"epoch": 2}, {"ax_test_metric": (5.0, 0.5)}),
+            ({"epoch": 3}, {"ax_test_metric": (6.0, 0.5)}),
+            ({"epoch": 4}, {"ax_test_metric": (1.0, 0.5)}),
+        ],
+    }
+    return MapData.from_map_evaluations(
+        evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
+        trial_index=0,
+        map_keys=["epoch"],
+    )
 
 
 def get_branin_data(

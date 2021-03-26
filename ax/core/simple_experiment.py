@@ -12,7 +12,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.experiment import Experiment
+from ax.core.experiment import DataType, Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
@@ -62,6 +62,7 @@ class SimpleExperiment(Experiment):
             if any.
         status_quo: Arm representing existing "control" arm.
         properties: Dictionary of this experiment's properties.
+        default_data_type: Enum representing the data type this experiment uses.
     """
 
     _evaluation_function: TEvaluationFunction
@@ -76,6 +77,7 @@ class SimpleExperiment(Experiment):
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
         status_quo: Optional[Arm] = None,
         properties: Optional[Dict[str, Any]] = None,
+        default_data_type: Optional[DataType] = None,
     ) -> None:
         optimization_config = OptimizationConfig(
             objective=Objective(
@@ -90,6 +92,7 @@ class SimpleExperiment(Experiment):
             optimization_config=optimization_config,
             status_quo=status_quo,
             properties=properties,
+            default_data_type=default_data_type,
         )
         self._evaluation_function = evaluation_function
 

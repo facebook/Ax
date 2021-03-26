@@ -11,7 +11,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
-from ax.core.experiment import Experiment
+from ax.core.experiment import DataType, Experiment
 from ax.core.metric import Metric
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
@@ -27,6 +27,8 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_data,
     get_experiment,
+    get_experiment_with_map_data,
+    get_map_data,
     get_optimization_config,
     get_search_space,
     get_status_quo,
@@ -604,3 +606,19 @@ class ExperimentTest(TestCase):
             # All fetched data should get cached, so no fetch should happen next time.
             exp.fetch_data()
             mock_fetch_exp_data_multi.assert_not_called()
+
+
+class ExperimentWithMapDataTest(TestCase):
+    def setUp(self):
+        self.experiment = get_experiment_with_map_data()
+
+    def testEmptyMetrics(self):
+        empty_experiment = Experiment(
+            name="test_experiment",
+            search_space=get_search_space(),
+            default_data_type=DataType.MAP_DATA,
+        )
+        self.assertEqual(empty_experiment.num_trials, 0)
+        empty_experiment.add_tracking_metric(Metric(name="ax_test_metric"))
+        self.assertTrue(empty_experiment.fetch_data().df.empty)
+        empty_experiment.attach_data(get_map_data())

@@ -7,15 +7,18 @@
 import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
+from enum import Enum
 from functools import reduce
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pandas as pd
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
@@ -33,6 +36,16 @@ from ax.utils.common.timeutils import current_timestamp_in_millis
 logger: logging.Logger = get_logger(__name__)
 
 
+class DataType(Enum):
+    DATA = 1
+    MAP_DATA = 2
+
+
+DATA_TYPE_LOOKUP: Dict[DataType, Type] = {
+    DataType.DATA: Data,
+    DataType.MAP_DATA: MapData,
+}
+
 # pyre-fixme[13]: Attribute `_search_space` is never initialized.
 class Experiment(Base):
     """Base class for defining an experiment."""
@@ -49,6 +62,7 @@ class Experiment(Base):
         is_test: bool = False,
         experiment_type: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
+        default_data_type: Optional[DataType] = None,
     ) -> None:
         """Inits Experiment.
 
@@ -63,6 +77,7 @@ class Experiment(Base):
             is_test: Convenience metadata tracker for the user to mark test experiments.
             experiment_type: The class of experiments this one belongs to.
             properties: Dictionary of this experiment's properties.
+            default_data_type: Enum representing the data type this experiment uses.
         """
         # appease pyre
         self._search_space: SearchSpace
@@ -73,13 +88,14 @@ class Experiment(Base):
         self.runner = runner
         self.is_test = is_test
 
-        self._data_by_trial: Dict[int, OrderedDict[int, Data]] = {}
+        self._data_by_trial: Dict[int, OrderedDict[int, AbstractDataFrameData]] = {}
         self._experiment_type: Optional[str] = experiment_type
         self._optimization_config = None
         self._tracking_metrics: Dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
         self._properties: Dict[str, Any] = properties or {}
+        self._default_data_type = default_data_type or DataType.DATA
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
@@ -378,7 +394,9 @@ class Experiment(Base):
             metrics_by_class[metric.fetch_multi_group_by_metric].append(metric)
         return metrics_by_class
 
-    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
+    def fetch_data(
+        self, metrics: Optional[List[Metric]] = None, **kwargs: Any
+    ) -> AbstractDataFrameData:
         """Fetches data for all trials on this experiment and for either the
         specified metrics or all metrics currently on the experiment, if `metrics`
         argument is not specified.
@@ -406,7 +424,7 @@ class Experiment(Base):
         trial_indices: Iterable[int],
         metrics: Optional[List[Metric]] = None,
         **kwargs: Any,
-    ) -> Data:
+    ) -> AbstractDataFrameData:
         """Fetches data for specific trials on the experiment.
 
         NOTE: For metrics that are not available while trial is running, the data
@@ -435,7 +453,7 @@ class Experiment(Base):
         trials: List[BaseTrial],
         metrics: Optional[Iterable[Metric]] = None,
         **kwargs: Any,
-    ) -> Data:
+    ) -> AbstractDataFrameData:
         if not self.metrics and not metrics:
             raise ValueError(
                 "No metrics to fetch data for, as no metrics are defined for "
@@ -443,7 +461,7 @@ class Experiment(Base):
             )
         if not any(t.status.expecting_data for t in trials):
             logger.info("No trials are in a state expecting data. Returning empty data")
-            return Data()
+            return self.default_data_constructor()
         metrics_to_fetch = list(metrics or self.metrics.values())
         metrics_by_class = self._metrics_by_class(metrics=metrics_to_fetch)
         data_list = []
@@ -456,18 +474,20 @@ class Experiment(Base):
                     **kwargs,
                 )
             )
-        return Data.from_multiple_data(data=data_list)
+        return self.default_data_constructor.from_multiple_data(data=data_list)
 
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
-    ) -> Data:
+    ) -> AbstractDataFrameData:
         trial = self.trials[trial_index]
         return self._lookup_or_fetch_trials_data(
             trials=[trial], metrics=metrics, **kwargs
         )
 
-    def attach_data(self, data: Data, combine_with_last_data: bool = False) -> int:
+    def attach_data(
+        self, data: AbstractDataFrameData, combine_with_last_data: bool = False
+    ) -> int:
         """Attach data to experiment. Stores data in `experiment._data_by_trial`,
         to be looked up via `experiment.lookup_data_for_trial`.
 
@@ -476,7 +496,7 @@ class Experiment(Base):
             combine_with_last_data: By default, when attaching data, it's identified
                 by its timestamp, and `experiment.lookup_data_for_trial` returns
                 data by most recent timestamp. In some cases, however, the goal
-                is to combine all data attached for a trial into a single `Data`
+                is to combine all data attached for a trial into a single Data
                 object. To achieve that goal, every call to `attach_data` after
                 the initial data is attached to trials, should be set to `True`.
                 Then, the newly attached data will be appended to existing data,
@@ -489,6 +509,8 @@ class Experiment(Base):
         Returns:
             Timestamp of storage in millis.
         """
+        data_type = type(data)
+        data_init_args = data.serialize_init_args(data)
         if data.df.empty:
             raise ValueError("Data to attach is empty.")
         metrics_not_on_exp = set(data.df["metric_name"].values) - set(
@@ -523,16 +545,23 @@ class Experiment(Base):
                         f"Last data for trial {trial_index} already contained an "
                         f"observation for metric {merged.head()['metric_name']}."
                     )
-                current_trial_data[cur_time_millis] = Data.from_multiple_data(
-                    [last_data, Data(trial_df)]
+                last_data_type = type(last_data)
+                current_trial_data[cur_time_millis] = last_data_type.from_multiple_data(
+                    [
+                        last_data,
+                        last_data_type(trial_df, **data_init_args),
+                    ]
                 )
             else:
-                current_trial_data[cur_time_millis] = Data(trial_df)
+                # pyre-ignore [45]: Cannot instantiate `AbstractDataFrameData`.
+                current_trial_data[cur_time_millis] = data_type(
+                    trial_df, **data_init_args
+                )
             self._data_by_trial[trial_index] = current_trial_data
 
         return cur_time_millis
 
-    def lookup_data_for_ts(self, timestamp: int) -> Data:
+    def lookup_data_for_ts(self, timestamp: int) -> AbstractDataFrameData:
         """Collect data for all trials stored at this timestamp.
 
         Useful when many trials' data was fetched and stored simultaneously
@@ -552,9 +581,11 @@ class Experiment(Base):
             if timestamp in ts_to_data:
                 trial_datas.append(ts_to_data[timestamp])
 
-        return Data.from_multiple_data(trial_datas)
+        return self.default_data_constructor.from_multiple_data(trial_datas)
 
-    def lookup_data_for_trial(self, trial_index: int) -> Tuple[Data, int]:
+    def lookup_data_for_trial(
+        self, trial_index: int
+    ) -> Tuple[AbstractDataFrameData, int]:
         """Lookup stored data for a specific trial.
 
         Returns latest data object, and its storage timestamp, present for this trial.
@@ -569,10 +600,10 @@ class Experiment(Base):
         try:
             trial_data_dict = self._data_by_trial[trial_index]
         except KeyError:
-            return (Data(), -1)
+            return (self.default_data_constructor(), -1)
 
         if len(trial_data_dict) == 0:
-            return (Data(), -1)
+            return (self.default_data_constructor(), -1)
 
         storage_time = max(trial_data_dict.keys())
         trial_data = trial_data_dict[storage_time]
@@ -617,6 +648,14 @@ class Experiment(Base):
         """
         self._check_TTL_on_running_trials()  # Marks past-TTL trials as failed.
         return self._trial_indices_by_status
+
+    @property
+    def default_data_type(self) -> DataType:
+        return self._default_data_type
+
+    @property
+    def default_data_constructor(self) -> Type:
+        return DATA_TYPE_LOOKUP[self.default_data_type]
 
     def new_trial(
         self,
