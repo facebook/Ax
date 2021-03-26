@@ -15,8 +15,8 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.base_trial import BaseTrial
-from ax.core.data import Data  # noqa F401
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -235,7 +235,7 @@ def trials_from_json(
 
 def data_from_json(
     data_by_trial_json: Dict[str, Any]
-) -> Dict[int, "OrderedDict[int, Data]"]:
+) -> Dict[int, "OrderedDict[int, AbstractDataFrameData]"]:
     """Load Ax Data from JSON."""
     data_by_trial = object_from_json(data_by_trial_json)
     # hack necessary because Python's json module converts dictionary

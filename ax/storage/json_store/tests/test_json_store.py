@@ -54,9 +54,11 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_data,
     get_experiment_with_trial_with_ttl,
+    get_experiment_with_map_data,
     get_factorial_metric,
     get_fixed_parameter,
     get_generator_run,
+    get_map_data,
     get_hartmann_metric,
     get_list_surrogate,
     get_metric,
@@ -103,12 +105,14 @@ TEST_CASES = [
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("Experiment", get_experiment_with_trial_with_ttl),
     ("Experiment", get_experiment_with_data),
+    ("Experiment", get_experiment_with_map_data),
     ("FactorialMetric", get_factorial_metric),
     ("FixedParameter", get_fixed_parameter),
     ("Hartmann6Metric", get_hartmann_metric),
     ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
     ("GeneratorRun", get_generator_run),
     ("ListSurrogate", get_list_surrogate),
+    ("MapData", get_map_data),
     ("Metric", get_metric),
     ("MultiObjective", get_multi_objective),
     ("MultiObjectiveOptimizationConfig", get_multi_objective_optimization_config),
@@ -349,7 +353,10 @@ class JSONStoreTest(TestCase):
             self.assertEqual(
                 object_keys,
                 json_keys,
-                msg=f"Mismatch between Python and JSON representation in {class_}.",
+                msg=(
+                    f"Mismatch between Python and JSON representation in {class_}."
+                    f"Python: {object_keys} does not match JSON: {json_keys}."
+                ),
             )
 
     def testEncodeDecodeTorchTensor(self):
