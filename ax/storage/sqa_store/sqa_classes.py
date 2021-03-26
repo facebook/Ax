@@ -30,7 +30,7 @@ from ax.storage.sqa_store.json import (
 )
 from ax.storage.sqa_store.sqa_enum import IntEnum, StringEnum
 from ax.storage.sqa_store.timestamp import IntTimestamp
-from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.storage.utils import DataType, DomainType, MetricIntent, ParameterConstraintType
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -361,6 +361,8 @@ class SQAData(Base):
     generation_strategy_id: Optional[int] = Column(
         Integer, ForeignKey("generation_strategy.id")
     )
+    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
+    structure_metadata_json: str = Column(Text(LONGTEXT_BYTES), nullable=True)
 
     unique_id = "time_created"
 
@@ -483,6 +485,8 @@ class SQAExperiment(Base):
     time_created: datetime = Column(IntTimestamp, nullable=False)
     # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
     default_trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    # pyre-fixme[8]: Attribute has type `DataType`; used as `Column[typing.Any]`.
+    default_data_type: DataType = Column(IntEnum(DataType), nullable=True)
 
     # relationships
     # Trials and experiments are mutable, so the children relationships need

@@ -7,7 +7,6 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 from ax.core.base_trial import BaseTrial
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
@@ -205,7 +204,9 @@ def _save_or_update_trials(
     if experiment_id is None:
         raise ValueError("Must save experiment first.")
 
-    data_sqa_class = encoder.config.class_to_sqa_class[Data]
+    data_sqa_class = encoder.config.class_to_sqa_class[
+        experiment.default_data_constructor
+    ]
     trial_sqa_class = encoder.config.class_to_sqa_class[Trial]
     obj_to_sqa = []
     with session_scope() as session:

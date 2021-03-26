@@ -81,6 +81,7 @@ from ax.utils.testing.core_stubs import (
     get_data,
     get_experiment,
     get_experiment_with_batch_trial,
+    get_experiment_with_map_data,
     get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective_and_outcome_constraint,
     get_scalarized_outcome_constraint,
@@ -210,6 +211,7 @@ class SQAStoreTest(TestCase):
     def testExperimentSaveAndLoad(self):
         for exp in [
             self.experiment,
+            get_experiment_with_map_data(),
             get_experiment_with_multi_objective(),
             get_experiment_with_scalarized_objective_and_outcome_constraint(),
         ]:
@@ -469,7 +471,10 @@ class SQAStoreTest(TestCase):
             self.assertEqual(
                 object_keys,
                 sqa_keys,
-                msg=f"Mismatch between Python and SQA representation in {class_}.",
+                msg=(
+                    f"Mismatch between Python and SQA representation in {class_}."
+                    f"Python: {object_keys} does not match SQA: {sqa_keys}."
+                ),
             )
 
     def testExperimentUpdates(self):

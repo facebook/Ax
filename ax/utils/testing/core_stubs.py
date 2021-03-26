@@ -96,7 +96,7 @@ def get_experiment(with_status_quo: bool = True) -> Experiment:
 
 def get_experiment_with_map_data():
     return Experiment(
-        name="test",
+        name="test_map_data",
         search_space=get_search_space(),
         optimization_config=get_optimization_config(),
         status_quo=get_status_quo(),

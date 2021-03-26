@@ -7,6 +7,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
@@ -218,6 +219,7 @@ class Encoder:
             data=experiment_data,
             properties=properties,
             default_trial_type=experiment.default_trial_type,
+            default_data_type=experiment.default_data_type,
         )
         obj_to_sqa.append((experiment, exp_sqa))
         return exp_sqa, obj_to_sqa
@@ -893,15 +895,20 @@ class Encoder:
         return trial_sqa, obj_to_sqa
 
     def data_to_sqa(
-        self, data: Data, trial_index: Optional[int], timestamp: int
+        self, data: AbstractDataFrameData, trial_index: Optional[int], timestamp: int
     ) -> SQAData:
-        """Convert AE data to SQLAlchemy."""
-        # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[Data]`.
-        data_class: SQAData = self.config.class_to_sqa_class[Data]
+        """Convert Ax data to SQLAlchemy."""
+        # pyre-ignore[9]: Expected `Base` for 1st...ot `typing.Type[Trial]`.
+        data_class: SQAData = self.config.class_to_sqa_class[type(data)]
+        import json
+
         # pyre-fixme[29]: `SQAData` is not a function.
         return data_class(
             data_json=data.df.to_json(),
             description=data.description,
             time_created=timestamp,
             trial_index=trial_index,
+            structure_metadata_json=json.dumps(
+                object_to_json(data.serialize_init_args(data))
+            ),
         )

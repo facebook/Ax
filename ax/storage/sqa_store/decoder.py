@@ -6,9 +6,10 @@
 
 from collections import OrderedDict, defaultdict
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Type, Union
 
 import pandas as pd
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
@@ -130,6 +131,7 @@ class Decoder:
         # Remove 'subclass' from experiment's properties, since its only
         # used for decoding to the correct experiment subclass in storage.
         subclass = properties.pop(Keys.SUBCLASS, None)
+        default_data_type = experiment_sqa.default_data_type
         if subclass == "SimpleExperiment":
             if opt_config is None:
                 raise SQADecodeError(  # pragma: no cover
@@ -143,6 +145,7 @@ class Decoder:
                 outcome_constraints=opt_config.outcome_constraints,
                 status_quo=status_quo,
                 properties=properties,
+                default_data_type=default_data_type,
             )
             experiment.description = experiment_sqa.description
             experiment.is_test = experiment_sqa.is_test
@@ -157,6 +160,7 @@ class Decoder:
                 status_quo=status_quo,
                 is_test=experiment_sqa.is_test,
                 properties=properties,
+                default_data_type=default_data_type,
             )
         return experiment
 
@@ -196,6 +200,7 @@ class Decoder:
             # Remove 'subclass' from experiment's properties, since its only
             # used for decoding to the correct experiment subclass in storage.
             properties.pop(Keys.SUBCLASS, None)
+        default_data_type = experiment_sqa.default_data_type
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,
             description=experiment_sqa.description,
@@ -205,6 +210,7 @@ class Decoder:
             optimization_config=opt_config,
             status_quo=status_quo,
             properties=properties,
+            default_data_type=default_data_type,
         )
         experiment._trial_type_to_runner = trial_type_to_runner
         sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
@@ -244,8 +250,10 @@ class Decoder:
         for data_sqa in experiment_sqa.data:
             trial_index = data_sqa.trial_index
             timestamp = data_sqa.time_created
+            # TODO: Use metrics-like Data type field in Data instead.
+            default_data_constructor = experiment.default_data_constructor
             data_by_trial[trial_index][timestamp] = self.data_from_sqa(
-                data_sqa=data_sqa
+                data_sqa=data_sqa, data_constructor=default_data_constructor
             )
         data_by_trial = {
             trial_index: OrderedDict(sorted(data_by_timestamp.items()))
@@ -886,9 +894,16 @@ class Decoder:
         trial.db_id = trial_sqa.id
         return trial
 
-    def data_from_sqa(self, data_sqa: SQAData) -> Data:
+    def data_from_sqa(
+        self,
+        data_sqa: SQAData,
+        data_constructor: Optional[Type[AbstractDataFrameData]] = None,
+    ) -> AbstractDataFrameData:
         """Convert SQLAlchemy Data to AE Data."""
-        dat = Data(
+        # TODO: extract data type from SQAData after DataRegistry added.
+        data_constructor = data_constructor or Data
+        # pyre-ignore[45]: Cannot instantiate abstract class. But this is concrete.
+        dat = data_constructor(
             description=data_sqa.description,
             # NOTE: Need dtype=False, otherwise infers arm_names like
             # "4_1" should be int 41.

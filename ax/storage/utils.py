@@ -7,6 +7,8 @@
 import enum
 from typing import Dict, List, NamedTuple
 
+from ax.core.experiment import DataType  # noqa F401
+
 
 class DomainType(enum.Enum):
     """Class for enumerating domain types."""
