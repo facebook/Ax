@@ -222,6 +222,8 @@ class Metric(SortableBase):
                 fetched_trial_data = Data()
 
             final_data = Data.from_multiple_data(
+                # pyre-fixme [6]: Incompatible paramtype: Expected `Data`
+                #   but got `AbstractDataFrameData`.
                 [cached_trial_data, fetched_trial_data]
             )
             if not final_data.df.empty:

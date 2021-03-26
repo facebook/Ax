@@ -546,9 +546,13 @@ class Experiment(Base):
                         f"observation for metric {merged.head()['metric_name']}."
                     )
                 last_data_type = type(last_data)
+                # pyre-ignore [6]: 2nd Param is `AbstractData`,
+                #   but we know class is concrete.
                 current_trial_data[cur_time_millis] = last_data_type.from_multiple_data(
                     [
                         last_data,
+                        # pyre-ignore [45]: Cannot instantiate abstract class.
+                        #   But we know the class is concrete.
                         last_data_type(trial_df, **data_init_args),
                     ]
                 )

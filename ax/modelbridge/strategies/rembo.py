@@ -151,13 +151,18 @@ class REMBOStrategy(GenerationStrategy):
         **kwargs: Any,
     ) -> GeneratorRun:
         """Generate new points, rotating through projections each time."""
-        # Use all data in experiment if none is supplied
-        data = data or experiment.fetch_data()
-
+        if data is None:
+            data = experiment.fetch_data()
+        if not isinstance(data, Data):
+            raise ValueError(
+                "Data fetched from experiment not an instance of PTS-supporting `Data`"
+            )
         # Get the next model in the rotation
         i = self.current_iteration % self.k
         data_by_proj = self._filter_data_to_projection(
-            experiment=experiment, data=data, arm_sigs=self.arms_by_proj[i]
+            experiment=experiment,
+            data=data,
+            arm_sigs=self.arms_by_proj[i],
         )
         lgr = self.last_generator_run
         # NOTE: May need to `model_class.deserialize_model_state` in the

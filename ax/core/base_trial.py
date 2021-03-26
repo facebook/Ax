@@ -369,6 +369,8 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             Data for this trial.
         """
+        # TODO(jej)[T87591836] Support non-`Data` data types.
+        # pyre-fixme [7]: Return Type: Expect `Data` got `AbstractDataFrameData`
         return self.experiment._fetch_trial_data(
             trial_index=self.index, metrics=metrics, **kwargs
         )

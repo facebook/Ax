@@ -630,11 +630,14 @@ class GenerationStrategy(Base):
                 "implement fetching logic (check your metrics) or no data was "
                 "attached to experiment for completed trials."
             )
+        # TODO(jej)[T87591836] Support non-`Data` data types.
         if isinstance(self._curr.model, ModelRegistryBase):
+            # pyre-fixme [6]: Incompat param: Expect `Data` got `AbstractDataFrameData`
             self._set_current_model_from_models_enum(data=data, **model_kwargs)
         else:
             # If model was not specified as Models member, it was specified as a
             # factory function.
+            # pyre-fixme [6]: Incompat param: Expect `Data` got `AbstractDataFrameData`
             self._set_current_model_from_factory_function(data=data, **model_kwargs)
 
     def _update_current_model(self, data: Optional[Data]) -> None:
@@ -670,6 +673,7 @@ class GenerationStrategy(Base):
         # We definitely have non-empty new data by now.
         trial_indices_in_new_data = sorted(new_data.df["trial_index"].unique())
         logger.info(f"Updating model with data for trials: {trial_indices_in_new_data}")
+        # pyre-fixme [6]: Incompat param: Expected `Data` got `AbstractDataFrameData`
         not_none(self._model).update(experiment=self.experiment, new_data=new_data)
 
     def _set_current_model_from_models_enum(self, data: Data, **kwargs: Any) -> None:
@@ -713,6 +717,7 @@ class GenerationStrategy(Base):
         self._model = get_model_from_generator_run(
             generator_run=generator_run,
             experiment=self.experiment,
+            # pyre-fixme [6]: Incompat param: Expect `Data` got `AbstractDataFrameData`
             data=self.experiment.fetch_data(),
             models_enum=models_enum,
         )

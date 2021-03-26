@@ -119,6 +119,10 @@ def get_observed_pareto_frontiers(
     """
     if data is None:
         data = experiment.fetch_data()
+    if not isinstance(data, Data):
+        raise TypeError(
+            "Data fetched from experiment not an instance of PTS-supporting `Data`"
+        )
     if experiment.optimization_config is None:
         raise ValueError("Experiment must have an optimization config")
     mb = get_tensor_converter_model(experiment=experiment, data=data)
@@ -299,11 +303,17 @@ def compute_posterior_pareto_frontier(
     # build posterior mean model
     if not data:
         try:
-            data = (
+            # TODO(jej)[T87591836] Clean up pyre-fixmes
+            data = (  # pyre-fixme [9]: Declared `AbstractDataFrameData` used as `Data`
                 experiment.trials[trial_index].fetch_data()
                 if trial_index
                 else experiment.fetch_data()
             )
+            if not isinstance(data, Data):
+                raise TypeError(
+                    "Data passed as arg or fetched from experiment is not "
+                    "an instance of PTS-supporting `Data`"
+                )
         except Exception as e:
             logger.info(f"Could not fetch data from experiment or trial: {e}")
 

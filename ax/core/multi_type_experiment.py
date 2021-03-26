@@ -7,6 +7,7 @@
 import logging
 from typing import Any, Dict, List, Optional, Set
 
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
@@ -198,7 +199,7 @@ class MultiTypeExperiment(Experiment):
     @copy_doc(Experiment._fetch_trial_data)
     def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
-    ) -> Data:
+    ) -> AbstractDataFrameData:
         trial = self.trials[trial_index]
         metrics = [
             metric
