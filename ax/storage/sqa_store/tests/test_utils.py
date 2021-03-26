@@ -26,35 +26,28 @@ class SQAStoreUtilsTest(TestCase):
 
     def testCopyDBIDsBatchTrialExp(self):
         exp1 = get_experiment_with_batch_trial()
-        exp2 = get_experiment_with_batch_trial()
+        save_experiment(exp1)
+        exp2 = load_experiment(exp1.name)
         self.assertEqual(exp1, exp2)
 
-        save_experiment(exp1)
-        # exp1 has db_ids now, but exp2 does not
-        self.assertNotEqual(exp1, exp2)
+        # empty some of exp2 db_ids
+        exp2.trials[0].db_id = None
+        exp2.trials[0].generator_runs[0].arms[0].db_id = None
 
         # copy db_ids from exp1 to exp2
         copy_db_ids(exp1, exp2)
         self.assertEqual(exp1, exp2)
 
-        loaded_exp1 = load_experiment(exp1.name)
-        self.assertEqual(loaded_exp1, exp2)
-
     def testCopyDBIDsDataExp(self):
         exp1 = get_experiment_with_data()
-        exp2 = get_experiment_with_data()
-        # need to copy this over, otherwise timestamps won't be equal
-        exp2._data_by_trial = dict(exp1._data_by_trial)
+        save_experiment(exp1)
+        exp2 = load_experiment(exp1.name)
         self.assertEqual(exp1, exp2)
 
-        save_experiment(exp1)
-        self.assertNotEqual(exp1, exp2)
+        # empty some of exp2 db_ids
+        data, _ = exp2.lookup_data_for_trial(0)
+        data.db_id = None
 
+        # copy db_ids from exp1 to exp2
         copy_db_ids(exp1, exp2)
         self.assertEqual(exp1, exp2)
-
-        data, _ = exp2.lookup_data_for_trial(0)
-        self.assertIsNotNone(data._db_id)
-
-        loaded_exp1 = load_experiment(exp1.name)
-        self.assertEqual(loaded_exp1, exp2)
