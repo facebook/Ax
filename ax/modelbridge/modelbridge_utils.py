@@ -553,33 +553,6 @@ def get_pareto_frontier_and_transformed_configs(
     arm_names: Optional[List[Optional[str]]] = None,
     use_model_predictions: bool = True,
 ) -> Tuple[List[Observation], Tensor, Tensor, Optional[Tensor]]:
-    """Helper that applies transforms and calls frontier_evaluator.
-
-    Returns transformed configs in addition to the Pareto observations.
-
-    Args:
-        modelbridge: Modelbridge used to predict metrics outcomes.
-        observation_features: observation features to predict, if provided and
-            use_model_predictions is True.
-        observation_data: data for computing the Pareto front, unless features
-            are provided and model_predictions is True.
-        objective_thresholds: metric values bounding the region of interest in
-            the objective outcome space.
-        optimization_config: Optimization config.
-        arm_names: Arm names for each observation.
-        use_model_predictions: If True, will use model predictions at
-            observation_features to compute Pareto front, if provided. If False,
-            will use observation_data directly to compute Pareto front, regardless
-            of whether observation_features are provided.
-
-    Returns:
-        frontier_observations: Observations of points on the pareto frontier.
-        f: n x m tensor representation of the Pareto frontier values where n is the
-            length of frontier_observations and m is the number of metrics.
-        obj_w: m tensor of objective weights.
-        obj_t: m tensor of objective thresholds corresponding to Y, or None if no
-            objective thresholds used.
-    """
     array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
     X = (
         modelbridge.transform_observation_features(observation_features)
