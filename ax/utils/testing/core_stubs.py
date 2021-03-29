@@ -317,6 +317,7 @@ def get_experiment_with_multi_objective() -> Experiment:
 
 def get_branin_experiment_with_multi_objective(
     has_optimization_config: bool = True,
+    has_objective_thresholds: bool = False,
     with_batch: bool = False,
     with_status_quo: bool = False,
     with_fidelity_parameter: bool = False,
@@ -326,7 +327,9 @@ def get_branin_experiment_with_multi_objective(
         search_space=get_branin_search_space(
             with_fidelity_parameter=with_fidelity_parameter
         ),
-        optimization_config=get_branin_multi_objective_optimization_config()
+        optimization_config=get_branin_multi_objective_optimization_config(
+            has_objective_thresholds=has_objective_thresholds
+        )
         if has_optimization_config
         else None,
         runner=SyntheticRunner(),
@@ -800,8 +803,25 @@ def get_branin_optimization_config(minimize: bool = False) -> OptimizationConfig
     return OptimizationConfig(objective=get_branin_objective(minimize=minimize))
 
 
-def get_branin_multi_objective_optimization_config() -> OptimizationConfig:
-    return MultiObjectiveOptimizationConfig(objective=get_branin_multi_objective())
+def get_branin_multi_objective_optimization_config(
+    has_objective_thresholds: bool = False,
+) -> OptimizationConfig:
+    objective_thresholds = (
+        [
+            ObjectiveThreshold(
+                metric=get_branin_metric(name="branin_a"), bound=10, op=ComparisonOp.GEQ
+            ),
+            ObjectiveThreshold(
+                metric=get_branin_metric(name="branin_b"), bound=20, op=ComparisonOp.GEQ
+            ),
+        ]
+        if has_objective_thresholds
+        else None
+    )
+    return MultiObjectiveOptimizationConfig(
+        objective=get_branin_multi_objective(),
+        objective_thresholds=objective_thresholds,
+    )
 
 
 def get_augmented_branin_optimization_config() -> OptimizationConfig:
