@@ -152,7 +152,7 @@ class SimpleExperiment(Experiment):
 
         # TODO(jej)[T87591836] Support non-`Data` data types.
         return Data.from_multiple_data(
-            [   # pyre-fixme [6]: Incompatible paramtype: Expected `Data`
+            [  # pyre-fixme [6]: Incompatible paramtype: Expected `Data`
                 #   but got `AbstractDataFrameData`.
                 self.eval_trial(trial)
                 for trial in self.trials.values()
