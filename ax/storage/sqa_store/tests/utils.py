@@ -227,6 +227,8 @@ ENCODE_DECODE_FIELD_MAPS = {
             "status_quo",
             "status_quo_weight_override",
             "arms_by_name",
+            "status_quo_generator_run_db_id",
+            "status_quo_arm_db_id",
         ],
         encoded_only=["is_batch", "status_quo_name", "deployed_name", "properties"],
     ),

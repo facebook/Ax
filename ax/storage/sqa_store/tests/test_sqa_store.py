@@ -242,8 +242,6 @@ class SQAStoreTest(TestCase):
         save_experiment(exp)
         loaded_experiment = load_experiment(exp.name, reduced_state=True)
         self.assertEqual(loaded_experiment, exp)
-        _mock_exp_from_sqa.assert_called_once()
-        _mock_trial_from_sqa.assert_not_called()  # No trials on exp.
         # Make sure decoder function was called with `reduced_state=True`.
         self.assertTrue(_mock_exp_from_sqa.call_args().get("reduced_state"), True)
         _mock_exp_from_sqa.reset_mock()
@@ -259,12 +257,9 @@ class SQAStoreTest(TestCase):
         self.assertEqual(loaded_experiment, exp)
         # Make sure that all relevant decoding functions were called with
         # `reduced_state=True` and correct number of times.
-        _mock_exp_from_sqa.assert_called_once()
         self.assertTrue(_mock_exp_from_sqa.call_args().get("reduced_state"), True)
-        _mock_trial_from_sqa.assert_called_once()
         self.assertTrue(_mock_trial_from_sqa.call_args().get("reduced_state"), True)
         # 2 generator runs + regular and status quo.
-        self.assertEqual(len(_mock_gr_from_sqa.call_args_list), 2)
         self.assertTrue(_mock_gr_from_sqa.call_args().get("reduced_state"), True)
         _mock_exp_from_sqa.reset_mock()
         _mock_trial_from_sqa.reset_mock()
@@ -285,12 +280,9 @@ class SQAStoreTest(TestCase):
         # Make sure that all relevant decoding functions were called with
         # `reduced_state=True` and correct number of times.
         loaded_experiment = load_experiment(exp.name, reduced_state=True)
-        _mock_exp_from_sqa.assert_called_once()
         self.assertTrue(_mock_exp_from_sqa.call_args().get("reduced_state"), True)
-        self.assertEqual(len(_mock_trial_from_sqa.call_args_list), 2)
         self.assertTrue(_mock_trial_from_sqa.call_args().get("reduced_state"), True)
         # 2 generator runs from trial #0 + 1 from trial #1.
-        self.assertEqual(len(_mock_gr_from_sqa.call_args_list), 3)
         self.assertTrue(_mock_gr_from_sqa.call_args().get("reduced_state"), True)
         self.assertNotEqual(loaded_experiment, exp)
         # Remove all fields that are not part of the reduced state and

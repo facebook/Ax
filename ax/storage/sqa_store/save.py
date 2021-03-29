@@ -13,8 +13,10 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import SQABase, session_scope
+from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
+from ax.storage.sqa_store.utils import copy_db_ids
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -68,38 +70,33 @@ def _save_experiment(
         existing SQLAlchemy object, and then letting SQLAlchemy handle the
         actual DB updates.
     """
-    # Convert user-facing class to SQA outside of session scope to avoid timeouts
     exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
     with session_scope() as session:
-        existing_sqa_experiment = (
-            session.query(exp_sqa_class).filter_by(name=experiment.name).one_or_none()
+        existing_sqa_experiment_id = (
+            # pyre-ignore Undefined attribute [16]: `SQABase` has no attribute `id`
+            session.query(exp_sqa_class.id)
+            .filter_by(name=experiment.name)
+            .one_or_none()
         )
+    if existing_sqa_experiment_id:
+        existing_sqa_experiment_id = existing_sqa_experiment_id[0]
+
     encoder.validate_experiment_metadata(
         experiment,
-        # pyre-ignore Undefined attribute [16]: `SQABase` has no attribute `id`
-        existing_sqa_experiment_id=existing_sqa_experiment.id
-        if existing_sqa_experiment is not None
-        else None,
+        existing_sqa_experiment_id=existing_sqa_experiment_id,
         **(validation_kwargs or {}),
     )
-    new_sqa_experiment, obj_to_sqa = encoder.experiment_to_sqa(experiment)
 
-    if existing_sqa_experiment is not None:
-        # Update the SQA object outside of session scope to avoid timeouts.
-        # This object is detached from the session, but contains a database
-        # identity marker, so when we do `session.add` below, SQA knows to
-        # perform an update rather than an insert.
-        # pyre-fixme[6]: Expected `SQABase` for 1st param but got `SQAExperiment`.
-        existing_sqa_experiment.update(new_sqa_experiment)
-        new_sqa_experiment = existing_sqa_experiment
-
+    sqa_experiment, obj_to_sqa = encoder.experiment_to_sqa(experiment)
     with session_scope() as session:
-        session.add(new_sqa_experiment)
+        sqa_experiment = session.merge(sqa_experiment)
         session.flush()
 
-    _set_db_ids(obj_to_sqa=obj_to_sqa)
+    decoder = Decoder(config=encoder.config)
+    new_experiment = decoder.experiment_from_sqa(sqa_experiment)
+    copy_db_ids(new_experiment, experiment, [])
 
-    return checked_cast(SQABase, new_sqa_experiment) if return_sqa else None
+    return checked_cast(SQABase, sqa_experiment) if return_sqa else None
 
 
 def save_generation_strategy(

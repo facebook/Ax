@@ -160,7 +160,12 @@ ENCODE_DECODE_FIELD_MAPS = {
         ]
     ),
     "BatchTrial": EncodeDecodeFieldsMap(
-        python_only=["experiment", "arms_by_name"],
+        python_only=[
+            "experiment",
+            "arms_by_name",
+            "status_quo_arm_db_id",
+            "status_quo_generator_run_db_id",
+        ],
         python_to_encoded={"BaseTrial__status": "status"},
     ),
     "SimpleBenchmarkProblem": EncodeDecodeFieldsMap(encoded_only=["function_name"]),
