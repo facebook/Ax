@@ -574,7 +574,10 @@ def get_pareto_frontier_and_transformed_configs(
     Returns:
         frontier_observations: Observations of points on the pareto frontier.
         f: n x m tensor representation of the Pareto frontier values where n is the
-            length of frontier_observations and m is the number of metrics.
+        length of frontier_observations and m is the number of metrics.
+        obj_w: m tensor of objective weights.
+        obj_t: m tensor of objective thresholds corresponding to Y, or None if no
+        objective thresholds used.
     """
     
     array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
