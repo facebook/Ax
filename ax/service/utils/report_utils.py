@@ -157,8 +157,8 @@ def get_standard_plots(
 
     Extracts a list of plots from an Experiment and GenerationStrategy of general
     interest to an Ax user. Currently not supported are
-        - TODO: multi-objective optimization
-        - TODO: ChoiceParameter plots
+    - TODO: multi-objective optimization
+    - TODO: ChoiceParameter plots
 
     Args:
         - experiment: the Experiment from which to obtain standard plots.
@@ -174,8 +174,8 @@ def get_standard_plots(
                 - a plot_slice plot if the search space contains one range parameter
                 - an interact_contour plot if the search space contains multiple
                   range parameters
-
     """
+    
     objective = not_none(experiment.optimization_config).objective
     if isinstance(objective, MultiObjective):
         logger.warning(
