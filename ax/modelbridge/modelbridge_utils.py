@@ -555,8 +555,6 @@ def get_pareto_frontier_and_transformed_configs(
 ) -> Tuple[List[Observation], Tensor, Tensor, Optional[Tensor]]:
     """Helper that applies transforms and calls frontier_evaluator.
 
-    Returns transformed configs in addition to the Pareto observations.
-
     Args:
         modelbridge: Modelbridge used to predict metrics outcomes.
         observation_features: observation features to predict, if provided and
