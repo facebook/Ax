@@ -571,15 +571,8 @@ def get_pareto_frontier_and_transformed_configs(
             observation_features to compute Pareto front, if provided. If False,
             will use observation_data directly to compute Pareto front, regardless
             of whether observation_features are provided.
-
-    Returns:
-        frontier_observations: Observations of points on the pareto frontier.
-        f: n x m tensor representation of the Pareto frontier values where n is the
-            length of frontier_observations and m is the number of metrics.
-        obj_w: m tensor of objective weights.
-        obj_t: m tensor of objective thresholds corresponding to Y, or None if no
-            objective thresholds used.
     """
+    
     array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
     X = (
         modelbridge.transform_observation_features(observation_features)
