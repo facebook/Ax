@@ -580,6 +580,7 @@ def get_pareto_frontier_and_transformed_configs(
         obj_t: m tensor of objective thresholds corresponding to Y, or None if no
             objective thresholds used.
     """
+
     array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
     X = (
         modelbridge.transform_observation_features(observation_features)
