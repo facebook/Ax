@@ -167,13 +167,14 @@ def get_standard_plots(
 
     Returns:
         List of plots:
-            - a plot of objective value vs. trial index, to show experiment progression
-            - a plot of objective value vs. range parameter values, only included if the
-            model associated with generation_strategy can create predictions. This
-            consists of:
-                - a plot_slice plot if the search space contains one range parameter
-                - an interact_contour plot if the search space contains multiple
-                  range parameters
+        - a plot of objective value vs. trial index, to show experiment progression
+        - a plot of objective value vs. range parameter values, only included if the
+          model associated with generation_strategy can create predictions. This
+          consists of:
+            - a plot_slice plot if the search space contains one range parameter
+            - an interact_contour plot if the search space contains multiple
+              range parameters
+
     """
     
     objective = not_none(experiment.optimization_config).objective
