@@ -311,6 +311,8 @@ class Decoder:
                 values=parameter_sqa.choice_values,
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
+                is_ordered=parameter_sqa.is_ordered,
+                is_task=parameter_sqa.is_task,
             )
         elif parameter_sqa.domain_type == DomainType.FIXED:
             # Don't throw an error if parameter_sqa.fixed_value is None;

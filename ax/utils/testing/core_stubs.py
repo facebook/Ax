@@ -614,6 +614,30 @@ def get_choice_parameter() -> ChoiceParameter:
     )
 
 
+def get_ordered_choice_parameter() -> ChoiceParameter:
+    return ChoiceParameter(
+        name="y",
+        parameter_type=ParameterType.INT,
+        # Expected `List[typing.Optional[typing.Union[bool, float, str]]]` for 4th
+        # parameter `values` to call
+        # `ax.core.parameter.ChoiceParameter.__init__` but got `List[str]`.
+        values=[1, 2, 3],
+        is_ordered=True,
+    )
+
+
+def get_task_choice_parameter() -> ChoiceParameter:
+    return ChoiceParameter(
+        name="y",
+        parameter_type=ParameterType.INT,
+        # Expected `List[typing.Optional[typing.Union[bool, float, str]]]` for 4th
+        # parameter `values` to call
+        # `ax.core.parameter.ChoiceParameter.__init__` but got `List[str]`.
+        values=[1, 2, 3],
+        is_task=True,
+    )
+
+
 def get_fixed_parameter() -> FixedParameter:
     return FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
 
