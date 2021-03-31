@@ -46,6 +46,7 @@ DATA_TYPE_LOOKUP: Dict[DataType, Type] = {
     DataType.MAP_DATA: MapData,
 }
 
+
 # pyre-fixme[13]: Attribute `_search_space` is never initialized.
 class Experiment(Base):
     """Base class for defining an experiment."""
