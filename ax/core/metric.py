@@ -236,7 +236,10 @@ class Metric(SortableBase):
 
     def clone(self) -> "Metric":
         """Create a copy of this Metric."""
-        return Metric(name=self.name, lower_is_better=self.lower_is_better)
+        cls = type(self)
+        return cls(
+            **serialize_init_args(self),
+        )
 
     def __repr__(self) -> str:
         return "{class_name}('{metric_name}')".format(

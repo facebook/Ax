@@ -48,14 +48,6 @@ class NoisyFunctionMetric(Metric):
     def is_available_while_running(cls) -> bool:
         return True
 
-    def clone(self) -> "NoisyFunctionMetric":
-        return self.__class__(
-            name=self._name,
-            param_names=self.param_names,
-            noise_sd=self.noise_sd,
-            lower_is_better=self.lower_is_better,
-        )
-
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
     ) -> Data:

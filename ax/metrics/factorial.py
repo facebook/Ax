@@ -51,11 +51,6 @@ class FactorialMetric(Metric):
         # fabricated from parameterizations.
         return True
 
-    def clone(self) -> "FactorialMetric":
-        return FactorialMetric(
-            self.name, self.coefficients, self.batch_size, self.noise_var
-        )
-
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> Data:
         if not isinstance(trial, BatchTrial):
             raise ValueError("Factorial metric can only fetch data for batch trials.")
