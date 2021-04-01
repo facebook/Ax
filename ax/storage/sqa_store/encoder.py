@@ -103,7 +103,10 @@ class Encoder:
             # experiment.db_id is None
             if existing_sqa_experiment_id is not None:
                 raise Exception(
-                    f"An experiment already exists with the name {experiment.name}."
+                    f"An experiment already exists with the name {experiment.name}. "
+                    "If you need to override this existing experiment, first delete it "
+                    "via `delete_experiment` in ax/utils/storage/sqa/delete.py, "
+                    "and then resave."
                 )
 
     def get_enum_value(
