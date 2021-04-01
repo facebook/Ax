@@ -38,10 +38,11 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
         return
 
     if type(source) != type(target):
-        raise SQADecodeError(
-            error_message_prefix + "Encountered two objects of different "
-            f"types: {type(source)} and {type(target)}."
-        )
+        if not issubclass(type(target), type(source)):
+            raise SQADecodeError(
+                error_message_prefix + "Encountered two objects of different "
+                f"types: {type(source)} and {type(target)}."
+            )
 
     if isinstance(source, Base):
         for attr, val in source.__dict__.items():
