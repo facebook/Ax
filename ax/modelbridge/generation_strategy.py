@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
+from dataclasses import dataclass
 from inspect import signature
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Set, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Type, Union
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -29,7 +30,7 @@ from ax.modelbridge.registry import (
     _combine_model_kwargs_and_state,
     get_model_from_generator_run,
 )
-from ax.utils.common.base import Base
+from ax.utils.common.base import Base, SortableBase
 from ax.utils.common.equality import equality_typechecker, object_attribute_dicts_equal
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -49,7 +50,8 @@ def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
     return {k: v for k, v in kwargs.items() if k in signature(function).parameters}
 
 
-class GenerationStep(NamedTuple):
+@dataclass
+class GenerationStep(SortableBase):
     """One step in the generation strategy, corresponds to a single model.
     Describes the model, how many trials will be generated with this model, what
     minimum number of observations is required to proceed to the next model, etc.
@@ -115,7 +117,6 @@ class GenerationStep(NamedTuple):
     model_kwargs: Optional[Dict[str, Any]] = None
     # Kwargs to pass into the Model's `.gen` function.
     model_gen_kwargs: Optional[Dict[str, Any]] = None
-    # pyre-ignore[15]: inconsistent override
     index: int = -1  # Index of this step, set internally.
 
     @property
@@ -130,11 +131,9 @@ class GenerationStep(NamedTuple):
             "`model` was not a member of `Models` or a callable."
         )
 
-    @equality_typechecker
-    def __eq__(self, other: GenerationStep) -> bool:
-        return object_attribute_dicts_equal(
-            one_dict=self._asdict(), other_dict=other._asdict()
-        )
+    @property
+    def _unique_id(self) -> str:
+        return str(self.index)
 
 
 class GenerationStrategy(Base):
@@ -185,7 +184,7 @@ class GenerationStrategy(Base):
                     )
             elif step.num_trials < 1:  # pragma: no cover
                 raise ValueError("`num_trials` must be positive or -1 for all models.")
-            self._steps[idx] = step._replace(index=idx)
+            step.index = idx
             if not isinstance(step.model, ModelRegistryBase):
                 self._uses_registered_models = False
         if not self._uses_registered_models:
@@ -425,7 +424,7 @@ class GenerationStrategy(Base):
                 f"{step.num_trials}" if step.num_trials != -1 else remaining_trials
             )
             if isinstance(step.model, Models):
-                repr += f"{step.model.value} for {num_trials} trials, "
+                repr += f"{step.model_name} for {num_trials} trials, "
         repr = repr[:-2]
         repr += "])"
         return repr
