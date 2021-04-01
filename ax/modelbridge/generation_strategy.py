@@ -31,7 +31,6 @@ from ax.modelbridge.registry import (
     get_model_from_generator_run,
 )
 from ax.utils.common.base import Base, SortableBase
-from ax.utils.common.equality import equality_typechecker, object_attribute_dicts_equal
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
