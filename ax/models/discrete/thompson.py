@@ -116,7 +116,7 @@ class ThompsonSampler(DiscreteModel):
                 (x * len(top_weights)) / sum(top_weights) for x in top_weights
             ]
 
-        return top_arms, top_weights, {}
+        return top_arms, top_weights, {"arms_to_weights": zip(arms, weights)}
 
     @copy_doc(DiscreteModel.predict)
     def predict(self, X: List[TParamValueList]) -> Tuple[np.ndarray, np.ndarray]:
