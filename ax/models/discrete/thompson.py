@@ -108,10 +108,15 @@ class ThompsonSampler(DiscreteModel):
         top_arms = [arm for _, _, arm in top_weighted_arms]
         top_weights = [weight for weight, _, _ in top_weighted_arms]
 
+        # N TS arms should have total weight N
         if self.uniform_weights:
-            top_weights = [1 / len(top_arms) for _ in top_arms]
+            top_weights = [1.0 for _ in top_weights]
+        else:
+            top_weights = [
+                (x * len(top_weights)) / sum(top_weights) for x in top_weights
+            ]
 
-        return top_arms, [x / sum(top_weights) for x in top_weights], {}
+        return top_arms, top_weights, {}
 
     @copy_doc(DiscreteModel.predict)
     def predict(self, X: List[TParamValueList]) -> Tuple[np.ndarray, np.ndarray]:

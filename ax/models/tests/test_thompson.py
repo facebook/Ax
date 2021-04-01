@@ -39,7 +39,9 @@ class ThompsonSamplerTest(TestCase):
             n=3, parameter_values=self.parameter_values, objective_weights=np.ones(1)
         )
         self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
-        for weight, expected_weight in zip(weights, [0.725, 0.225, 0.05]):
+        for weight, expected_weight in zip(
+            weights, [3 * i for i in [0.725, 0.225, 0.05]]
+        ):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
     def testThompsonSamplerValidation(self):
@@ -91,7 +93,9 @@ class ThompsonSamplerTest(TestCase):
             n=5, parameter_values=self.parameter_values, objective_weights=np.ones(1)
         )
         self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
-        for weight, expected_weight in zip(weights, [0.725, 0.225, 0.05]):
+        for weight, expected_weight in zip(
+            weights, [3 * i for i in [0.725, 0.225, 0.05]]
+        ):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
     def testThompsonSamplerUniformWeights(self):
@@ -107,7 +111,7 @@ class ThompsonSamplerTest(TestCase):
             n=3, parameter_values=self.parameter_values, objective_weights=np.ones(1)
         )
         self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
-        for weight, expected_weight in zip(weights, [0.33, 0.33, 0.33]):
+        for weight, expected_weight in zip(weights, [1.0, 1.0, 1.0]):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
     def testThompsonSamplerInfeasible(self):
@@ -147,8 +151,10 @@ class ThompsonSamplerTest(TestCase):
             ),
         )
         self.assertEqual(arms, [[3, 3], [4, 4], [2, 2], [1, 1]])
-        for weight, expected_weight in zip(weights, [0.4, 0.4, 0.15, 0.05]):
-            self.assertAlmostEqual(weight, expected_weight, 1)
+        for weight, expected_weight in zip(
+            weights, [4 * i for i in [0.4, 0.4, 0.15, 0.05]]
+        ):
+            self.assertAlmostEqual(weight, expected_weight, delta=0.1)
 
     def testThompsonSamplerOutcomeConstraintsInfeasible(self):
         generator = ThompsonSampler(min_weight=0.0)
