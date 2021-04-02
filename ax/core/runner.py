@@ -61,3 +61,11 @@ class Runner(Base, ABC):
     def staging_required(self) -> bool:
         """Whether the trial goes to staged or running state once deployed."""
         return False
+
+    def clone(self) -> "Runner":
+        """Create a copy of this Runner."""
+        cls = type(self)
+        # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
+        return cls(
+            **serialize_init_args(self),
+        )

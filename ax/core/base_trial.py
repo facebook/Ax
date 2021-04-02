@@ -306,7 +306,9 @@ class BaseTrial(ABC, SortableBase):
 
     def assign_runner(self) -> BaseTrial:
         """Assigns default experiment runner if trial doesn't already have one."""
-        self._runner = self._runner or self.experiment.runner_for_trial(self)
+        runner = self._runner or self.experiment.runner_for_trial(self)
+        if runner is not None:
+            self._runner = runner.clone()
         return self
 
     def update_run_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
