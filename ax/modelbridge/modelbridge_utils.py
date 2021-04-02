@@ -114,6 +114,7 @@ def extract_search_space_digest(
             if not isinstance(not_none(p.target_value), (int, float)):
                 raise NotImplementedError("Only numerical target values are supported.")
             target_fidelities[i] = checked_cast_to_tuple((int, float), p.target_value)
+            fidelity_features.append(i)
 
     return SearchSpaceDigest(
         feature_names=param_names,

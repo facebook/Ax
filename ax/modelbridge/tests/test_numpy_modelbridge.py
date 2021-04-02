@@ -359,6 +359,7 @@ class NumpyModelBridgeTest(TestCase):
         self.assertEqual(
             search_space_digest.bounds, [(0.0, 1.0), (1.0, 2.0), (0.0, 5.0)]
         )
+        self.assertEqual(search_space_digest.fidelity_features, [1])
         self.assertEqual(search_space_digest.task_features, [])
         self.assertEqual(search_space_digest.target_fidelities, {1: 2.0})
         search_space_digest = extract_search_space_digest(self.search_space, ["x", "z"])
