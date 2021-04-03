@@ -950,7 +950,7 @@ def observation_data_to_array(
     means = []
     cov = []
     for obsd in observation_data:
-        metric_idxs = np.array([outcomes.index(m) for m in obsd.metric_names])
+        metric_idxs = np.array([obsd.metric_names.index(m) for m in outcomes])
         means.append(obsd.means[metric_idxs])
         cov.append(obsd.covariance[metric_idxs][:, metric_idxs])
     return np.array(means), np.array(cov)

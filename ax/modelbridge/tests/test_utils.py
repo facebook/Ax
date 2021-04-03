@@ -13,7 +13,7 @@ from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective, MultiObjective
-from ax.core.observation import ObservationFeatures
+from ax.core.observation import ObservationFeatures, ObservationData
 from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
@@ -26,6 +26,7 @@ from ax.modelbridge.modelbridge_utils import (
     pending_observations_as_array,
     extract_outcome_constraints,
     extract_objective_thresholds,
+    observation_data_to_array,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment
@@ -338,3 +339,16 @@ class TestModelbridgeUtils(TestCase):
                 objective=objective,
                 outcomes=outcomes,
             )
+
+    def testObservationDataToArray(self):
+        outcomes = ["a", "b", "c"]
+        obsd = ObservationData(
+            metric_names=["c", "a", "b"],
+            means=np.array([1, 2, 3]),
+            covariance=np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
+        )
+        Y, Ycov = observation_data_to_array(outcomes=outcomes, observation_data=[obsd])
+        self.assertTrue(np.array_equal(Y, np.array([[2, 3, 1]])))
+        self.assertTrue(
+            np.array_equal(Ycov, np.array([[[5, 6, 4], [8, 9, 7], [2, 3, 1]]]))
+        )
