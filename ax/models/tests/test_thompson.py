@@ -35,7 +35,7 @@ class ThompsonSamplerTest(TestCase):
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
-        arms, weights, _ = generator.gen(
+        arms, weights, gen_metadata = generator.gen(
             n=3, parameter_values=self.parameter_values, objective_weights=np.ones(1)
         )
         self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
@@ -43,6 +43,7 @@ class ThompsonSamplerTest(TestCase):
             weights, [3 * i for i in [0.725, 0.225, 0.05]]
         ):
             self.assertAlmostEqual(weight, expected_weight, 1)
+        self.assertEqual(len(gen_metadata["arms_to_weights"]), 4)
 
     def testThompsonSamplerValidation(self):
         generator = ThompsonSampler(min_weight=0.01)
