@@ -105,7 +105,7 @@ class Encoder:
                 raise Exception(
                     f"An experiment already exists with the name {experiment.name}. "
                     "If you need to override this existing experiment, first delete it "
-                    "via `delete_experiment` in ax/utils/storage/sqa/delete.py, "
+                    "via `delete_experiment` in ax/ax/storage/sqa_store/delete.py, "
                     "and then resave."
                 )
 

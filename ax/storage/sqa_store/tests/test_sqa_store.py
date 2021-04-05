@@ -35,6 +35,7 @@ from ax.storage.sqa_store.db import (
     session_scope,
 )
 from ax.storage.sqa_store.decoder import Decoder
+from ax.storage.sqa_store.delete import delete_experiment
 from ax.storage.sqa_store.encoder import T_OBJ_TO_SQA, Encoder
 from ax.storage.sqa_store.load import (
     load_experiment,
@@ -1343,3 +1344,17 @@ class SQAStoreTest(TestCase):
         exp3.name = "test1"
         with self.assertRaisesRegex(Exception, ".* experiment already exists .*"):
             save_experiment(exp3)
+
+    def testExperimentSaveAndDelete(self):
+        for exp in [
+            self.experiment,
+            get_experiment_with_map_data(),
+            get_experiment_with_multi_objective(),
+            get_experiment_with_scalarized_objective_and_outcome_constraint(),
+        ]:
+            exp_name = exp.name
+            self.assertIsNone(exp.db_id)
+            save_experiment(exp)
+            delete_experiment(exp_name)
+            with self.assertRaises(ValueError):
+                load_experiment(exp_name)
