@@ -18,6 +18,7 @@ Core Classes
     :members:
     :undoc-members:
     :show-inheritance:
+    :noindex:
 
 `Arm`
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -159,6 +160,7 @@ Objective
     :members:
     :undoc-members:
     :show-inheritance:
+    :noindex:
 
 `SimpleExperiment`
 ~~~~~~~~~~~~~~~~~~~
