@@ -56,10 +56,9 @@ def get_PosteriorMean(
         raise ValueError("There are no feasible observed points.")
     # construct Objective module
     if kwargs.get("chebyshev_scalarization", False):
-        obj_tf = get_chebyshev_scalarization(
-            weights=objective_weights,
-            Y=torch.stack(kwargs.get("Ys")).transpose(0, 1).squeeze(-1),
-        )
+        with torch.no_grad():
+            Y = model.posterior(X_observed).mean
+        obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y)
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
 

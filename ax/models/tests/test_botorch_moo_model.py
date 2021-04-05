@@ -7,11 +7,12 @@
 from typing import Dict
 from unittest import mock
 
+import ax.models.torch.botorch_moo as botorch_moo
 import torch
 from ax.core.search_space import SearchSpaceDigest
+from ax.exceptions.core import AxError
 from ax.models.torch.botorch_defaults import get_NEI
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
-from ax.models.torch.botorch_moo_defaults import get_EHVI
 from ax.models.torch.utils import HYPERSPHERE
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
@@ -84,6 +85,7 @@ class BotorchMOOModelTest(TestCase):
         )
         n = 3
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
+        obj_t = torch.tensor([1.0, 1.0], **tkwargs)
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
         acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
@@ -108,13 +110,14 @@ class BotorchMOOModelTest(TestCase):
             autospec=True,
             return_value=torch.tensor([0.7, 0.3], **tkwargs),
         ) as _mock_sample_simplex, mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
+            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
             return_value=(X_dummy, acqfv_dummy),
         ) as _:
             model.gen(
                 n,
                 bounds,
                 objective_weights,
+                objective_thresholds=obj_t,
                 model_gen_options={
                     "acquisition_function_kwargs": {"random_scalarization": True},
                     "optimizer_kwargs": _get_optimizer_kwargs(),
@@ -128,13 +131,14 @@ class BotorchMOOModelTest(TestCase):
             autospec=True,
             return_value=torch.tensor([0.6, 0.8], **tkwargs),
         ) as _mock_sample_hypersphere, mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
+            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
             return_value=(X_dummy, acqfv_dummy),
         ) as _:
             model.gen(
                 n,
                 bounds,
                 objective_weights,
+                objective_thresholds=obj_t,
                 model_gen_options={
                     "acquisition_function_kwargs": {
                         "random_scalarization": True,
@@ -202,6 +206,7 @@ class BotorchMOOModelTest(TestCase):
         )
         n = 3
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
+        obj_t = torch.tensor([1.0, 1.0], **tkwargs)
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
         acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
@@ -224,13 +229,14 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch(
             CHEBYSHEV_SCALARIZATION_PATH, wraps=get_chebyshev_scalarization
         ) as _mock_chebyshev_scalarization, mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
+            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
             return_value=(X_dummy, acqfv_dummy),
         ) as _:
             model.gen(
                 n,
                 bounds,
                 objective_weights,
+                objective_thresholds=obj_t,
                 model_gen_options={
                     "acquisition_function_kwargs": {"chebyshev_scalarization": True},
                     "optimizer_kwargs": _get_optimizer_kwargs(),
@@ -252,7 +258,8 @@ class BotorchMOOModelTest(TestCase):
         )
         n = 3
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
-        model = MultiObjectiveBotorchModel(acqf_constructor=get_EHVI)
+        obj_t = torch.tensor([1.0, 1.0], **tkwargs)
+        model = MultiObjectiveBotorchModel()
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
         acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
@@ -283,8 +290,8 @@ class BotorchMOOModelTest(TestCase):
                 n,
                 bounds,
                 objective_weights,
+                objective_thresholds=obj_t,
                 model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
-                objective_thresholds=torch.tensor([1.0, 1.0]),
             )
             # the EHVI acquisition function should be created only once.
             self.assertEqual(1, _mock_ehvi_acqf.call_count)
@@ -318,7 +325,7 @@ class BotorchMOOModelTest(TestCase):
                 bounds,
                 torch.tensor([1.0, 1.0, 1.0], **tkwargs),
                 model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
-                objective_thresholds=torch.tensor([1.0, 1.0, 1.0]),
+                objective_thresholds=torch.tensor([1.0, 1.0, 1.0], **tkwargs),
             )
             # check partitioning strategy
             self.assertEqual(_mock_partitioning.call_args[1]["alpha"], 1e-5)
@@ -338,6 +345,7 @@ class BotorchMOOModelTest(TestCase):
         )
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
+        obj_t = torch.tensor([1.0, 1.0], **tkwargs)
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
@@ -362,7 +370,7 @@ class BotorchMOOModelTest(TestCase):
             autospec=True,
             return_value=torch.tensor([0.7, 0.3], **tkwargs),
         ) as _mock_sample_simplex, mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
+            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
             return_value=(X_dummy, acqfv_dummy),
         ) as _:
             model.gen(
@@ -377,6 +385,7 @@ class BotorchMOOModelTest(TestCase):
                     "acquisition_function_kwargs": {"random_scalarization": True},
                     "optimizer_kwargs": _get_optimizer_kwargs(),
                 },
+                objective_thresholds=obj_t,
             )
             self.assertEqual(n, _mock_sample_simplex.call_count)
 
@@ -395,6 +404,7 @@ class BotorchMOOModelTest(TestCase):
         )
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
+        obj_t = torch.tensor([1.0, 1.0], **tkwargs)
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
@@ -417,7 +427,7 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch(
             CHEBYSHEV_SCALARIZATION_PATH, wraps=get_chebyshev_scalarization
         ) as _mock_chebyshev_scalarization, mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
+            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
             return_value=(X_dummy, acqfv_dummy),
         ) as _:
             model.gen(
@@ -432,6 +442,7 @@ class BotorchMOOModelTest(TestCase):
                     "acquisition_function_kwargs": {"chebyshev_scalarization": True},
                     "optimizer_kwargs": _get_optimizer_kwargs(),
                 },
+                objective_thresholds=obj_t,
             )
             # get_chebyshev_scalarization should be called once for generated candidate.
             self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
@@ -449,18 +460,22 @@ class BotorchMOOModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
+        Xs3, Ys3, Yvars3, _, _, _, _ = _get_torch_test_data(
+            dtype=dtype, cuda=cuda, constant_noise=True
+        )
         n = 3
-        objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
-        model = MultiObjectiveBotorchModel(acqf_constructor=get_EHVI)
+        objective_weights = torch.tensor([1.0, 1.0, 0.0], **tkwargs)
+        obj_t = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
+        model = MultiObjectiveBotorchModel()
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
         acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                Xs=Xs1 + Xs2 + Xs3,
+                Ys=Ys1 + Ys2 + Ys3,
+                Yvars=Yvars1 + Yvars2 + Yvars3,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
@@ -470,22 +485,72 @@ class BotorchMOOModelTest(TestCase):
             )
             _mock_fit_model.assert_called_once()
 
-        with mock.patch(
-            EHVI_ACQF_PATH, wraps=moo_monte_carlo.qExpectedHypervolumeImprovement
-        ) as _mock_ehvi_acqf, mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
-            return_value=(X_dummy, acqfv_dummy),
-        ) as _:
+        # test wrong number of objective thresholds
+        with self.assertRaises(AxError):
             model.gen(
                 n,
                 bounds,
                 objective_weights,
-                outcome_constraints=(
-                    torch.tensor([[1.0, 1.0]], **tkwargs),
-                    torch.tensor([[10.0]], **tkwargs),
-                ),
-                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
                 objective_thresholds=torch.tensor([1.0, 1.0]),
             )
-            # the EHVI acquisition function should be created only once.
-            self.assertEqual(1, _mock_ehvi_acqf.call_count)
+        # test that objective thresholds and weights are properly subsetted
+        obj_t = torch.tensor([1.0, 1.0, 1.0])
+        with mock.patch.object(
+            model,
+            "acqf_constructor",
+            wraps=botorch_moo.get_EHVI,
+        ) as mock_get_ehvi, mock.patch(
+            "ax.models.torch.botorch_defaults.optimize_acqf",
+            return_value=(X_dummy, acqfv_dummy),
+        ):
+            model.gen(
+                n,
+                bounds,
+                objective_weights,
+                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
+                objective_thresholds=obj_t,
+            )
+            mock_get_ehvi.assert_called_once()
+            _, ckwargs = mock_get_ehvi.call_args
+            self.assertEqual(ckwargs["model"].num_outputs, 2)
+            self.assertTrue(
+                torch.equal(ckwargs["objective_weights"], objective_weights[:-1])
+            )
+            self.assertTrue(torch.equal(ckwargs["objective_thresholds"], obj_t[:-1]))
+            self.assertIsNone(ckwargs["outcome_constraints"])
+            # the second datapoint is out of bounds
+            self.assertTrue(torch.equal(ckwargs["X_observed"], Xs1[0][:1]))
+            self.assertIsNone(ckwargs["X_pending"])
+        # test that outcome constraints are passed properly
+        oc = (
+            torch.tensor([[0.0, 0.0, 1.0]], **tkwargs),
+            torch.tensor([[10.0]], **tkwargs),
+        )
+        with mock.patch.object(
+            model,
+            "acqf_constructor",
+            wraps=botorch_moo.get_EHVI,
+        ) as mock_get_ehvi, mock.patch(
+            "ax.models.torch.botorch_defaults.optimize_acqf",
+            return_value=(X_dummy, acqfv_dummy),
+        ):
+            model.gen(
+                n,
+                bounds,
+                objective_weights,
+                outcome_constraints=oc,
+                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
+                objective_thresholds=obj_t,
+            )
+            mock_get_ehvi.assert_called_once()
+            _, ckwargs = mock_get_ehvi.call_args
+            self.assertEqual(ckwargs["model"].num_outputs, 3)
+            self.assertTrue(
+                torch.equal(ckwargs["objective_weights"], objective_weights)
+            )
+            self.assertTrue(torch.equal(ckwargs["objective_thresholds"], obj_t))
+            self.assertTrue(torch.equal(ckwargs["outcome_constraints"][0], oc[0]))
+            self.assertTrue(torch.equal(ckwargs["outcome_constraints"][1], oc[1]))
+            # the second datapoint is out of bounds
+            self.assertTrue(torch.equal(ckwargs["X_observed"], Xs1[0][:1]))
+            self.assertIsNone(ckwargs["X_pending"])

@@ -302,7 +302,10 @@ class TestModelbridgeUtils(TestCase):
             objective=objective,
             outcomes=outcomes,
         )
-        self.assertTrue(np.array_equal(obj_t, np.array([2.0, 3.0, 4.0, 0.0])))
+        expected_obj_t_not_nan = np.array([2.0, 3.0, 4.0])
+        self.assertTrue(np.array_equal(obj_t[:3], expected_obj_t_not_nan[:3]))
+        self.assertTrue(np.isnan(obj_t[-1]))
+        self.assertEqual(obj_t.shape[0], 4)
 
         # Fails if threshold not provided for all objective metrics
         with self.assertRaises(ValueError):
@@ -327,7 +330,9 @@ class TestModelbridgeUtils(TestCase):
             objective=objective2,
             outcomes=outcomes,
         )
-        self.assertTrue(np.array_equal(obj_t, np.array([2.0, 0.0, 0.0, 0.0])))
+        self.assertEqual(obj_t[0], 2.0)
+        self.assertTrue(np.all(np.isnan(obj_t[1:])))
+        self.assertEqual(obj_t.shape[0], 4)
 
         # Fails if relative
         objective_thresholds[2] = ObjectiveThreshold(

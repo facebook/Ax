@@ -191,7 +191,7 @@ class TorchModelBridge(ArrayModelBridge):
     ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata, List[TCandidateMetadata]]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
-        obj_w, oc_c, l_c, pend_obs = validate_and_apply_final_transform(
+        obj_w, oc_c, l_c, pend_obs, _ = validate_and_apply_final_transform(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
@@ -235,7 +235,7 @@ class TorchModelBridge(ArrayModelBridge):
     ) -> Optional[np.ndarray]:  # pragma: no cover
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
-        obj_w, oc_c, l_c, _ = validate_and_apply_final_transform(
+        obj_w, oc_c, l_c, _, _ = validate_and_apply_final_transform(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,

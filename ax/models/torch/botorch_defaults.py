@@ -239,10 +239,9 @@ def _get_acqusition_func(
         raise ValueError("There are no feasible observed points.")
     # construct Objective module
     if kwargs.get("chebyshev_scalarization", False):
-        if "Ys" not in kwargs:
-            raise ValueError("Chebyshev Scalarization requires Ys argument")
-        Y_tensor = torch.cat(kwargs.get("Ys"), dim=-1)
-        obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y_tensor)
+        with torch.no_grad():
+            Y = model.posterior(X_observed).mean
+        obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y)
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
 

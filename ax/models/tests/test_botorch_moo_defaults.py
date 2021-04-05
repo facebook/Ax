@@ -5,18 +5,31 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
+from contextlib import ExitStack
 from unittest import mock
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.models.torch.botorch_defaults import get_NEI
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
     get_EHVI,
     pareto_frontier_evaluator,
     get_default_partitioning_alpha,
+    get_weighted_mc_objective_and_objective_thresholds,
+    get_outcome_constraint_transforms,
 )
 from ax.utils.common.testutils import TestCase
+from botorch.utils.sampling import manual_seed
+from botorch.utils.testing import MockModel, MockPosterior
+
+GET_ACQF_PATH = "ax.models.torch.botorch_moo_defaults.get_acquisition_function"
+GET_CONSTRAINT_PATH = (
+    "ax.models.torch.botorch_moo_defaults.get_outcome_constraint_transforms"
+)
+GET_OBJ_PATH = (
+    "ax.models.torch.botorch_moo_defaults."
+    "get_weighted_mc_objective_and_objective_thresholds"
+)
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
 
@@ -158,39 +171,15 @@ class FrontierEvaluatorTest(TestCase):
 
 
 class BotorchMOODefaultsTest(TestCase):
-    def test_get_NEI_with_chebyshev_and_missing_Ys_error(self):
-        model = MultiObjectiveBotorchModel()
-        x = torch.zeros(2, 2)
-        weights = torch.ones(2)
-        with self.assertRaisesRegex(
-            ValueError, "Chebyshev Scalarization requires Ys argument"
-        ):
-            get_NEI(
-                model=model,
-                X_observed=x,
-                objective_weights=weights,
-                chebyshev_scalarization=True,
-            )
-
     def test_get_EHVI_input_validation_errors(self):
-        model = MultiObjectiveBotorchModel()
-        x = torch.zeros(2, 2)
         weights = torch.ones(2)
         objective_thresholds = torch.zeros(2)
+        mm = MockModel(MockPosterior())
         with self.assertRaisesRegex(
             ValueError, "There are no feasible observed points."
         ):
             get_EHVI(
-                model=model,
-                objective_weights=weights,
-                objective_thresholds=objective_thresholds,
-            )
-        with self.assertRaisesRegex(
-            ValueError, "Expected Hypervolume Improvement requires Ys argument"
-        ):
-            get_EHVI(
-                model=model,
-                X_observed=x,
+                model=mm,
                 objective_weights=weights,
                 objective_thresholds=objective_thresholds,
             )
@@ -202,3 +191,61 @@ class BotorchMOODefaultsTest(TestCase):
         with warnings.catch_warnings(record=True) as ws:
             self.assertEqual(0.1, get_default_partitioning_alpha(7))
         self.assertEqual(len(ws), 1)
+
+    def test_get_weighted_mc_objective_and_objective_thresholds(self):
+        objective_weights = torch.tensor([0.0, 1.0, 0.0, 1.0])
+        objective_thresholds = torch.arange(4, dtype=torch.float)
+        (
+            weighted_obj,
+            new_obj_thresholds,
+        ) = get_weighted_mc_objective_and_objective_thresholds(
+            objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
+        )
+        self.assertTrue(torch.equal(weighted_obj.weights, objective_weights[[1, 3]]))
+        self.assertEqual(weighted_obj.outcomes.tolist(), [1, 3])
+        self.assertTrue(torch.equal(new_obj_thresholds, objective_thresholds[[1, 3]]))
+
+    def test_get_ehvi(self):
+        weights = torch.tensor([0.0, 1.0, 1.0])
+        X_observed = torch.rand(4, 3)
+        X_pending = torch.rand(1, 3)
+        constraints = (torch.tensor([1.0, 0.0, 0.0]), torch.tensor([[10.0]]))
+        Y = torch.rand(4, 3)
+        mm = MockModel(MockPosterior(mean=Y))
+        objective_thresholds = torch.arange(3, dtype=torch.float)
+        obj_and_obj_t = get_weighted_mc_objective_and_objective_thresholds(
+            objective_weights=weights,
+            objective_thresholds=objective_thresholds,
+        )
+        (weighted_obj, new_obj_thresholds) = obj_and_obj_t
+        cons_tfs = get_outcome_constraint_transforms(constraints)
+        with manual_seed(0):
+            seed = torch.randint(1, 10000, (1,)).item()
+        with ExitStack() as es:
+            mock_get_acqf = es.enter_context(mock.patch(GET_ACQF_PATH))
+            es.enter_context(mock.patch(GET_CONSTRAINT_PATH, return_value=cons_tfs))
+            es.enter_context(mock.patch(GET_OBJ_PATH, return_value=obj_and_obj_t))
+            es.enter_context(manual_seed(0))
+            get_EHVI(
+                model=mm,
+                objective_weights=weights,
+                outcome_constraints=constraints,
+                objective_thresholds=objective_thresholds,
+                X_observed=X_observed,
+                X_pending=X_pending,
+            )
+            mock_get_acqf.assert_called_once_with(
+                acquisition_function_name="qEHVI",
+                model=mm,
+                objective=weighted_obj,
+                X_observed=X_observed,
+                X_pending=X_pending,
+                constraints=cons_tfs,
+                mc_samples=128,
+                qmc=True,
+                alpha=0.0,
+                seed=seed,
+                ref_point=new_obj_thresholds.tolist(),
+                Y=Y,
+            )
