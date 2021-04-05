@@ -501,6 +501,7 @@ class Encoder:
 
         # Constructing children SQAMetric classes (these are the real metrics in
         # the `ScalarizedObjective`).
+        # Children metrics will not have experiment_id set
         children_metrics, obj_to_sqa = [], []
         for metric_name in metrics_by_name:
             m, w, metric_cls, type_and_properties = metrics_by_name[metric_name]
