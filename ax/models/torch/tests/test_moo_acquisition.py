@@ -5,9 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Any
-from unittest import mock
 from unittest.mock import patch
 
+import ax.models.torch.botorch_modular.acquisition as acquisition
 import torch
 from ax.exceptions.core import UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
@@ -22,7 +22,12 @@ from botorch.acquisition.multi_objective.monte_carlo import (
 )
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.models.gp_regression import SingleTaskGP
+from botorch.sampling.samplers import SobolQMCNormalSampler
+from botorch.utils import get_outcome_constraint_transforms
 from botorch.utils.containers import TrainingData
+from botorch.utils.multi_objective.box_decompositions.box_decomposition import (
+    BoxDecomposition,
+)
 
 
 ACQUISITION_PATH = Acquisition.__module__
@@ -46,28 +51,30 @@ class MOOAcquisitionTest(TestCase):
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
-        self.Y = torch.tensor([[3.0, 4.0], [4.0, 3.0]])
-        self.Yvar = torch.tensor([[0.0, 2.0], [2.0, 0.0]])
+        self.Y = torch.tensor([[3.0, 4.0, 2.0], [4.0, 3.0, 1.0]])
+        self.Yvar = torch.tensor([[0.0, 2.0, 1.0], [2.0, 0.0, 1.0]])
         self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
         self.fidelity_features = [2]
         self.surrogate.construct(training_data=self.training_data)
 
         self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
         self.botorch_acqf_class = DummyACQFClass
-        self.objective_weights = torch.tensor([1.0, 1.0])
-        self.objective_thresholds = torch.tensor([2.0, 2.0])
+        self.objective_weights = torch.tensor([1.0, -1.0, 0.0])
+        self.objective_thresholds = torch.tensor([2.0, 1.0, float("nan")])
         self.pending_observations = [
             torch.tensor([[1.0, 3.0, 4.0]]),
-            torch.tensor([[2.0, 6.0, 8.0]]),
+            torch.tensor([[1.0, 3.0, 4.0]]),
+            torch.tensor([[1.0, 3.0, 4.0]]),
         ]
         self.outcome_constraints = (
-            torch.tensor([[1.0, 0.5]]),
-            torch.tensor([[0.5, 1.0]]),
+            torch.tensor([[1.0, 0.5, 0.5]]),
+            torch.tensor([[0.5]]),
         )
+        self.con_tfs = get_outcome_constraint_transforms(self.outcome_constraints)
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
         self.target_fidelities = {2: 1.0}
-        self.options = {"best_f": 0.0}
+        self.options = {}
         self.acquisition = MOOAcquisition(
             surrogate=self.surrogate,
             bounds=self.bounds,
@@ -88,11 +95,12 @@ class MOOAcquisitionTest(TestCase):
         self.rounding_func = lambda x: x
         self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
 
+    @patch(f"{MOO_ACQUISITION_PATH}.get_outcome_constraint_transforms")
+    @patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
     @patch(
-        f"{ACQUISITION_PATH}._get_X_pending_and_observed",
-        return_value=(torch.tensor([2.0]), torch.tensor([3.0])),
+        f"{ACQUISITION_PATH}.subset_model",
+        wraps=acquisition.subset_model,
     )
-    @patch(f"{ACQUISITION_PATH}.subset_model", return_value=(None, None, None, None))
     @patch(f"{CURRENT_PATH}.MOOAcquisition._get_botorch_objective")
     @patch(f"{DummyACQFClass.__module__}.DummyACQFClass.__init__", return_value=None)
     def test_init(
@@ -101,11 +109,14 @@ class MOOAcquisitionTest(TestCase):
         mock_get_objective,
         mock_subset_model,
         mock_get_X,
+        mock_get_constraints,
     ):
         botorch_objective = WeightedMCMultiOutputObjective(
-            weights=self.objective_weights, outcomes=[0, 1]
+            weights=self.objective_weights[:2], outcomes=[0, 1]
         )
         mock_get_objective.return_value = botorch_objective
+        mock_get_constraints.return_value = self.con_tfs
+        mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         acquisition = MOOAcquisition(
             surrogate=self.surrogate,
             bounds=self.bounds,
@@ -122,7 +133,7 @@ class MOOAcquisitionTest(TestCase):
 
         # Check `_get_X_pending_and_observed` kwargs
         mock_get_X.assert_called_with(
-            Xs=[self.training_data.X, self.training_data.X],
+            Xs=[self.training_data.X, self.training_data.X, self.training_data.X],
             pending_observations=self.pending_observations,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
@@ -135,8 +146,10 @@ class MOOAcquisitionTest(TestCase):
             acquisition.surrogate.model,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
+            objective_thresholds=self.objective_thresholds,
         )
         mock_subset_model.reset_mock()
+        mock_botorch_acqf_class.reset_mock()
         self.options[Keys.SUBSET_MODEL] = False
         acquisition = MOOAcquisition(
             surrogate=self.surrogate,
@@ -153,15 +166,18 @@ class MOOAcquisitionTest(TestCase):
         )
         mock_subset_model.assert_not_called()
         # Check final `acqf` creation
-        mock_botorch_acqf_class.assert_called_with(
-            model=self.acquisition.surrogate.model,
-            objective=botorch_objective,
-            X_pending=torch.tensor([2.0]),
-            ref_point=self.objective_thresholds.tolist(),
-            partitioning=mock.ANY,
-            constraints=mock.ANY,
-            sampler=mock.ANY,
+        mock_botorch_acqf_class.assert_called_once()
+        _, ckwargs = mock_botorch_acqf_class.call_args
+        self.assertIs(ckwargs["model"], self.acquisition.surrogate.model)
+        self.assertIs(ckwargs["objective"], botorch_objective)
+        self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))
+        self.assertEqual(
+            ckwargs["ref_point"],
+            (self.objective_thresholds[:2] * self.objective_weights[:2]).tolist(),
         )
+        self.assertIsInstance(ckwargs["partitioning"], BoxDecomposition)
+        self.assertIs(ckwargs["constraints"], self.con_tfs)
+        self.assertIsInstance(ckwargs["sampler"], SobolQMCNormalSampler)
 
         # qNoisyExpectedImprovement not supported.
         with self.assertRaisesRegex(

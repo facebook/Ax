@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from itertools import chain
 from typing import Any
 from unittest.mock import patch
 
@@ -50,10 +51,7 @@ class AcquisitionTest(TestCase):
         self.botorch_acqf_class = DummyACQFClass
         self.objective_weights = torch.tensor([1.0])
         self.objective_thresholds = None
-        self.pending_observations = [
-            torch.tensor([[1.0, 3.0, 4.0]]),
-            torch.tensor([[2.0, 6.0, 8.0]]),
-        ]
+        self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]])]
         self.outcome_constraints = (torch.tensor([[1.0]]), torch.tensor([[0.5]]))
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
@@ -79,10 +77,7 @@ class AcquisitionTest(TestCase):
         self.rounding_func = lambda x: x
         self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
 
-    @patch(
-        f"{ACQUISITION_PATH}._get_X_pending_and_observed",
-        return_value=(torch.tensor([2.0]), torch.tensor([3.0])),
-    )
+    @patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
     @patch(f"{ACQUISITION_PATH}.subset_model", return_value=(None, None, None, None))
     @patch(f"{ACQUISITION_PATH}.get_botorch_objective")
     @patch(
@@ -110,6 +105,7 @@ class AcquisitionTest(TestCase):
 
         botorch_objective = LinearMCObjective(weights=torch.tensor([1.0]))
         mock_get_objective.return_value = botorch_objective
+        mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         acquisition = Acquisition(
             surrogate=self.surrogate,
             bounds=self.bounds,
@@ -138,8 +134,11 @@ class AcquisitionTest(TestCase):
             acquisition.surrogate.model,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
+            objective_thresholds=self.objective_thresholds,
         )
         mock_subset_model.reset_mock()
+        mock_get_objective.reset_mock()
+        mock_botorch_acqf_class.reset_mock()
         self.options[Keys.SUBSET_MODEL] = False
         acquisition = Acquisition(
             surrogate=self.surrogate,
@@ -155,23 +154,22 @@ class AcquisitionTest(TestCase):
         )
         mock_subset_model.assert_not_called()
         # Check `get_botorch_objective` kwargs
-        mock_get_objective.assert_called_with(
-            model=self.acquisition.surrogate.model,
-            objective_weights=self.objective_weights,
-            outcome_constraints=self.outcome_constraints,
-            X_observed=torch.tensor([3.0]),
-            use_scalarized_objective=False,
-        )
+        mock_get_objective.assert_called_once()
+        _, ckwargs = mock_get_objective.call_args
+        self.assertIs(ckwargs["model"], self.acquisition.surrogate.model)
+        self.assertIs(ckwargs["objective_weights"], self.objective_weights)
+        self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
+        self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
+        self.assertFalse(ckwargs["use_scalarized_objective"])
         # Check final `acqf` creation
         model_deps = {Keys.CURRENT_VALUE: 1.2}
-        mock_botorch_acqf_class.assert_called_with(
-            model=self.acquisition.surrogate.model,
-            objective=botorch_objective,
-            X_pending=torch.tensor([2.0]),
-            X_baseline=torch.tensor([3.0]),
-            **self.options,
-            **model_deps,
-        )
+        mock_botorch_acqf_class.assert_called_once()
+        _, ckwargs = mock_botorch_acqf_class.call_args
+        self.assertIs(ckwargs["model"], self.acquisition.surrogate.model)
+        self.assertIs(ckwargs["objective"], botorch_objective)
+        self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))
+        for k, v in chain(self.options.items(), model_deps.items()):
+            self.assertEqual(ckwargs[k], v)
 
     @patch(f"{ACQUISITION_PATH}.optimize_acqf")
     def test_optimize(self, mock_optimize_acqf):

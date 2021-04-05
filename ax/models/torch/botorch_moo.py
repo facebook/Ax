@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
+from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
     BotorchModel,
     TAcqfConstructor,
@@ -251,6 +252,14 @@ class MultiObjectiveBotorchModel(BotorchModel):
             raise NotImplementedError(
                 "target_fidelities not implemented for base BotorchModel"
             )
+        if (
+            objective_thresholds is not None
+            and objective_weights.shape[0] != objective_thresholds.shape[0]
+        ):
+            raise AxError(
+                "Objective weights and thresholds most both contain an element for"
+                " each modeled metric."
+            )
 
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,
@@ -266,14 +275,17 @@ class MultiObjectiveBotorchModel(BotorchModel):
 
         # subset model only to the outcomes we need for the optimization
         if options.get(Keys.SUBSET_MODEL, True):
-            model, objective_weights, outcome_constraints, Ys = subset_model(
+            (
+                model,
+                objective_weights,
+                outcome_constraints,
+                objective_thresholds,
+            ) = subset_model(
                 model=model,  # pyre-ignore [6]
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
-                Ys=self.Ys,
+                objective_thresholds=objective_thresholds,
             )
-        else:
-            Ys = self.Ys
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
@@ -294,7 +306,6 @@ class MultiObjectiveBotorchModel(BotorchModel):
                     outcome_constraints=outcome_constraints,
                     X_observed=X_observed,
                     X_pending=X_pending,
-                    Ys=Ys,  # Required for chebyshev scalarization calculations.
                     **acf_options,
                 )
                 for objective_weights in objective_weights_list
@@ -324,7 +335,6 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 outcome_constraints=outcome_constraints,
                 X_observed=X_observed,
                 X_pending=X_pending,
-                Ys=self.Ys,  # Required for qEHVI calculations.
                 **acf_options,
             )
             acquisition_function = checked_cast(

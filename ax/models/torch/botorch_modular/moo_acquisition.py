@@ -17,8 +17,6 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_moo_defaults import DEFAULT_EHVI_MC_SAMPLES
 from ax.models.torch.botorch_moo_defaults import get_default_partitioning_alpha
-from ax.models.torch.utils import subset_model
-from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition import monte_carlo  # noqa F401
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -30,7 +28,6 @@ from botorch.models.model import Model
 from botorch.sampling.samplers import IIDNormalSampler
 from botorch.sampling.samplers import SobolQMCNormalSampler
 from botorch.utils import get_outcome_constraint_transforms
-from botorch.utils.containers import TrainingData
 from botorch.utils.multi_objective.box_decompositions.non_dominated import (
     NondominatedPartitioning,
 )
@@ -64,27 +61,6 @@ class MOOAcquisition(Acquisition):
                 "Only qExpectedHypervolumeImprovement is currently supported as "
                 f"a MOOAcquisition botorch_acqf_class. Got: {botorch_acqf_class}."
             )
-
-        # Calculate `Y` and inject into options.
-        # NOTE: Ideally we would do this in `compute_model_dependencies` and not need a
-        # separate `__init__` for `MOOAcquisition`, but the obstacle is currently that
-        # in that case `Y` would not be `subset` along with the model. This should be
-        # revisited in the future.
-        trd = self._extract_training_data(surrogate=surrogate)
-        Ys = [trd.Y] if isinstance(trd, TrainingData) else [i.Y for i in trd.values()]
-        options = options or {}
-
-        # subset model only to the outcomes we need for the optimization
-        if options.get(Keys.SUBSET_MODEL, True):
-            _, _, _, Ys = subset_model(
-                model=surrogate.model,
-                objective_weights=objective_weights,
-                Ys=Ys,
-            )
-
-        # pyre-ignore [6]: pyre wrong that `Ys` is not optional
-        Y = torch.stack(Ys).transpose(0, 1).squeeze()
-        options["Y"] = Y
 
         super().__init__(
             surrogate=surrogate,
@@ -153,7 +129,6 @@ class MOOAcquisition(Acquisition):
         """
         return {
             "outcome_constraints": outcome_constraints,
-            "Y": self.options.get("Y"),
         }
 
     def _get_botorch_objective(
@@ -186,11 +161,10 @@ class MOOAcquisition(Acquisition):
         X_observed = X_baseline
         if X_observed is None:
             raise ValueError("There are no feasible observed points.")
-        Y = model_dependent_kwargs.get("Y")
-        if Y is None:
-            raise ValueError("Expected Hypervolume Improvement requires Y argument")
         if objective_thresholds is None:
             raise ValueError("Objective Thresholds required")
+        with torch.no_grad():
+            Y = model.posterior(X_observed).mean
 
         # For EHVI acquisition functions we pass the constraint transform directly.
         if outcome_constraints is None:
@@ -205,7 +179,9 @@ class MOOAcquisition(Acquisition):
             "alpha",
             get_default_partitioning_alpha(num_objectives=num_objectives),
         )
-        ref_point = objective_thresholds.tolist()
+        # this selects the objectives (a subset of the outcomes) and set each
+        # objective threhsold to have the proper optimization direction
+        ref_point = objective(objective_thresholds).tolist()
 
         # initialize the sampler
         seed = int(torch.randint(1, 10000, (1,)).item())

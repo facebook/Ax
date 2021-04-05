@@ -75,21 +75,25 @@ class PosteriorMeanTest(TestCase):
         # test model.gen() works with chebyshev scalarization.
         model = MultiObjectiveBotorchModel(acqf_constructor=get_PosteriorMean)
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            Xs=self.Xs * 2,
+            Ys=self.Ys * 2,
+            Yvars=self.Yvars * 2,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
             ),
-            metric_names=self.metric_names,
+            metric_names=["m1", "m2"],
         )
         new_X_dummy = torch.rand(1, 1, 3, dtype=self.dtype, device=self.device)
         Xgen, w, _, __ = model.gen(
             n=1,
             bounds=self.bounds,
-            objective_weights=self.objective_weights,
-            outcome_constraints=self.outcome_constraints,
+            objective_weights=torch.ones(2, dtype=self.dtype, device=self.device),
+            outcome_constraints=(
+                torch.tensor([[1.0, 0.0]], dtype=self.dtype, device=self.device),
+                torch.tensor([[5.0]], dtype=self.dtype, device=self.device),
+            ),
+            objective_thresholds=torch.zeros(2, dtype=self.dtype, device=self.device),
             linear_constraints=None,
             model_gen_options={
                 "acquisition_function_kwargs": {"chebyshev_scalarization": True}

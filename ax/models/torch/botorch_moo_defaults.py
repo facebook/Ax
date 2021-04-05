@@ -80,6 +80,7 @@ def get_weighted_mc_objective_and_objective_thresholds(
     # pyre-ignore [16]
     nonzero_idcs = objective_weights.nonzero(as_tuple=False).view(-1)
     objective_weights = objective_weights[nonzero_idcs]
+    objective_thresholds = objective_thresholds[nonzero_idcs]
     objective = WeightedMCMultiOutputObjective(
         weights=objective_weights, outcomes=nonzero_idcs.tolist()
     )
@@ -131,9 +132,8 @@ def get_EHVI(
     ) = get_weighted_mc_objective_and_objective_thresholds(
         objective_weights=objective_weights, objective_thresholds=objective_thresholds
     )
-    if "Ys" not in kwargs:
-        raise ValueError("Expected Hypervolume Improvement requires Ys argument")
-    Y_tensor = torch.stack(kwargs.get("Ys")).transpose(0, 1).squeeze(-1)
+    with torch.no_grad():
+        Y = model.posterior(X_observed).mean
     # For EHVI acquisition functions we pass the constraint transform directly.
     if outcome_constraints is None:
         cons_tfs = None
@@ -158,7 +158,7 @@ def get_EHVI(
         ),
         seed=torch.randint(1, 10000, (1,)).item(),
         ref_point=objective_thresholds.tolist(),
-        Y=Y_tensor,
+        Y=Y,
     )
 
 

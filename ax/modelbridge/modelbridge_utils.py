@@ -128,8 +128,10 @@ def extract_search_space_digest(
 
 
 def extract_objective_thresholds(
-    objective_thresholds: TRefPoint, objective: Objective, outcomes: List[str]
-) -> Optional[torch.Tensor]:
+    objective_thresholds: TRefPoint,
+    objective: Objective,
+    outcomes: List[str],
+) -> Optional[np.ndarray]:
     """Extracts objective thresholds' values, in the order of `outcomes`.
 
     Will return None if no objective thresholds, otherwise the extracted tensor
@@ -149,7 +151,7 @@ def extract_objective_thresholds(
         outcomes: n-length list of names of metrics.
 
     Returns:
-        (n,) tensor of thresholds
+        (n,) array of thresholds
     """
     if len(objective_thresholds) == 0:
         return None
@@ -167,8 +169,9 @@ def extract_objective_thresholds(
         raise ValueError(
             "Objective thresholds do not match number of objective metrics."
         )
-
-    obj_t = torch.zeros(len(outcomes))
+    # Initialize these to be nan to make sure that objective thresholds for
+    # non-objective metrics are never used
+    obj_t = np.full(len(outcomes), float("nan"))
     for metric in objective.metrics:
         if metric.name not in objective_threshold_dict:
             raise ValueError(
@@ -243,13 +246,17 @@ def validate_and_apply_final_transform(
     outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
     linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
     pending_observations: Optional[List[np.ndarray]],
+    objective_thresholds: Optional[np.ndarray] = None,
     final_transform: Callable[[np.ndarray], Tensor] = torch.tensor,
 ) -> Tuple[
     Tensor,
     Optional[Tuple[Tensor, Tensor]],
     Optional[Tuple[Tensor, Tensor]],
     Optional[List[Tensor]],
+    Optional[Tensor],
 ]:
+    # TODO: use some container down the road (similar to
+    # SearchSpaceDigest) to limit the return arguments
     # pyre-fixme[35]: Target cannot be annotated.
     objective_weights: Tensor = final_transform(objective_weights)
     if outcome_constraints is not None:  # pragma: no cover
@@ -269,11 +276,15 @@ def validate_and_apply_final_transform(
         pending_observations: List[Tensor] = [
             final_transform(pending_obs) for pending_obs in pending_observations
         ]
+    if objective_thresholds is not None:
+        # pyre-fixme[35]: Target cannot be annotated.
+        objective_thresholds: Tensor = final_transform(objective_thresholds)
     return (
         objective_weights,
         outcome_constraints,
         linear_constraints,
         pending_observations,
+        objective_thresholds,
     )
 
 
@@ -633,8 +644,9 @@ def get_pareto_frontier_and_transformed_configs(
         objective=optimization_config.objective,
         outcomes=modelbridge.outcomes,
     )
+    obj_t = array_to_tensor(obj_t)
     # Transform to tensors.
-    obj_w, oc_c, _, _ = validate_and_apply_final_transform(
+    obj_w, oc_c, _, _, _ = validate_and_apply_final_transform(
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
         linear_constraints=None,
