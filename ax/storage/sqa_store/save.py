@@ -149,28 +149,23 @@ def _save_generation_strategy(
         generation_strategy=generation_strategy, experiment_id=experiment_id
     )
 
-    if generation_strategy._db_id is not None:
-        gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
-        with session_scope() as session:
-            existing_gs_sqa = session.query(gs_sqa_class).get(
-                generation_strategy._db_id
-            )
-
-        # pyre-fixme[16]: `Optional` has no attribute `update`.
-        existing_gs_sqa.update(gs_sqa)
-        # our update logic ignores foreign keys, i.e. fields ending in _id,
-        # because we want SQLAlchemy to handle those relationships for us
-        # however, generation_strategy.experiment_id is an exception, so we
-        # need to update that manually
-        # pyre-fixme[16]: `Optional` has no attribute `experiment_id`.
-        existing_gs_sqa.experiment_id = gs_sqa.experiment_id
-        gs_sqa = existing_gs_sqa
-
     with session_scope() as session:
-        session.add(gs_sqa)
-        session.flush()  # Ensures generation strategy id is set.
+        gs_sqa = session.merge(gs_sqa)
+        session.flush()
 
-    _set_db_ids(obj_to_sqa=obj_to_sqa)
+    decoder = Decoder(config=encoder.config)
+    new_generation_strategy = decoder.generation_strategy_from_sqa(
+        gs_sqa=gs_sqa, experiment=experiment
+    )
+
+    try:
+        copy_db_ids(new_generation_strategy, generation_strategy, [])
+    except SQADecodeError as e:
+        logger.warning(
+            "Error encountered when copying db_ids back to user-facing object. "
+            "This might cause issues if you re-save this experiment. "
+            f"Exception: {e}"
+        )
 
     return not_none(generation_strategy.db_id)
 

@@ -54,9 +54,10 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
             # skip over:
             # * doubly private attributes
             # * _experiment (to prevent infinite loops)
-            # * most generator run metadata (since no Base objects are nested in there,
-            #   and we don't have guarantees about the structure of that data, so the
-            #   recursion could fail somewhere)
+            # * most generator run and generation strategy metadata
+            #   (since no Base objects are nested in there,
+            #   and we don't have guarantees about the structure of some
+            #   of that data, so the recursion could fail somewhere)
             if attr.startswith("__") or attr in {
                 "_experiment",
                 "_gen_metadata",
@@ -66,6 +67,10 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
                 "_bridge_kwargs",
                 "_model_state_after_gen",
                 "_candidate_metadata_by_arm_signature",
+                "_curr",
+                "_model",
+                "_seen_trial_indices_by_status",
+                "_steps",
             }:
                 continue
 
@@ -80,8 +85,7 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
                 error_message_prefix + "Encountered lists of different lengths."
             )
 
-        # Safe to skip over lists of types (e.g. transforms)
-        if len(source) == 0 or isinstance(source[0], type):
+        if len(source) == 0:
             return
 
         if isinstance(source[0], Base) and not isinstance(source[0], SortableBase):
