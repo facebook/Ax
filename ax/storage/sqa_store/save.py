@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ax.core.base_trial import BaseTrial
@@ -383,6 +384,9 @@ def _merge_into_session(
     try:
         copy_db_ids(new_obj, obj, [])
     except SQADecodeError as e:
+        # Raise these warnings in unittests only
+        if os.environ.get("TESTENV"):
+            raise e
         logger.warning(
             "Error encountered when copying db_ids back to user-facing object. "
             "This might cause issues if you re-save this experiment. "
