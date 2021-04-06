@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
@@ -88,24 +88,14 @@ def _save_experiment(
         **(validation_kwargs or {}),
     )
 
-    sqa_experiment, obj_to_sqa = encoder.experiment_to_sqa(experiment)
-    with session_scope() as session:
-        sqa_experiment = session.merge(sqa_experiment)
-        session.flush()
-
     decoder = Decoder(config=encoder.config)
-    new_experiment = decoder.experiment_from_sqa(sqa_experiment)
+    experiment_sqa = _merge_into_session(
+        obj=experiment,
+        encode_func=encoder.experiment_to_sqa,
+        decode_func=decoder.experiment_from_sqa,
+    )
 
-    try:
-        copy_db_ids(new_experiment, experiment, [])
-    except SQADecodeError as e:
-        logger.warning(
-            "Error encountered when copying db_ids back to user-facing object. "
-            "This might cause issues if you re-save this experiment. "
-            f"Exception: {e}"
-        )
-
-    return checked_cast(SQABase, sqa_experiment) if return_sqa else None
+    return checked_cast(SQABase, experiment_sqa) if return_sqa else None
 
 
 def save_generation_strategy(
@@ -145,27 +135,14 @@ def _save_generation_strategy(
                 "generation strategy."
             )
 
-    gs_sqa, obj_to_sqa = encoder.generation_strategy_to_sqa(
-        generation_strategy=generation_strategy, experiment_id=experiment_id
-    )
-
-    with session_scope() as session:
-        gs_sqa = session.merge(gs_sqa)
-        session.flush()
-
     decoder = Decoder(config=encoder.config)
-    new_generation_strategy = decoder.generation_strategy_from_sqa(
-        gs_sqa=gs_sqa, experiment=experiment
+    _merge_into_session(
+        obj=generation_strategy,
+        encode_func=encoder.generation_strategy_to_sqa,
+        decode_func=decoder.generation_strategy_from_sqa,
+        encode_args={"experiment_id": experiment_id},
+        decode_args={"experiment": experiment},
     )
-
-    try:
-        copy_db_ids(new_generation_strategy, generation_strategy, [])
-    except SQADecodeError as e:
-        logger.warning(
-            "Error encountered when copying db_ids back to user-facing object. "
-            "This might cause issues if you re-save this experiment. "
-            f"Exception: {e}"
-        )
 
     return not_none(generation_strategy.db_id)
 
@@ -372,3 +349,44 @@ def update_runner_on_experiment(
         session.add(new_runner_sqa)
 
     _set_db_ids(obj_to_sqa=[(new_runner, new_runner_sqa)])  # pyre-ignore[6]
+
+
+def _merge_into_session(
+    obj: Base,
+    encode_func: Callable,
+    decode_func: Callable,
+    encode_args: Optional[Dict[str, Any]] = None,
+    decode_args: Optional[Dict[str, Any]] = None,
+) -> SQABase:
+    """Given a user-facing object (that may or may not correspond to an
+    existing DB object), perform the following steps to either create or
+    update the necessary DB objects, and ensure the user-facing object
+    is annotated with the appropriate db_ids:
+
+    1.  Convert the user-facing object `obj` to a sqa object `sqa`
+    2.  Merge `sqa` into the session
+        Note: if `sqa` and its children contain ids, they will be merged into
+        those corresponding DB objects. If not, new DB objects will be created.
+    3. `session.merge` returns `new_sqa`, which is the same as `sqa` but
+        but annotated ids.
+    4. Decode `new_sqa` into a new user-facing object `new_obj`
+    5. Copy db_ids from `new_obj` to the originally passed-in `obj`
+    """
+    sqa, _ = encode_func(obj, **(encode_args or {}))
+
+    with session_scope() as session:
+        new_sqa = session.merge(sqa)
+        session.flush()
+
+    new_obj = decode_func(new_sqa, **(decode_args or {}))
+
+    try:
+        copy_db_ids(new_obj, obj, [])
+    except SQADecodeError as e:
+        logger.warning(
+            "Error encountered when copying db_ids back to user-facing object. "
+            "This might cause issues if you re-save this experiment. "
+            f"Exception: {e}"
+        )
+
+    return new_sqa
