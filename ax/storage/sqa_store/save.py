@@ -11,6 +11,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
 from ax.core.trial import Trial
+from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import SQABase, session_scope
 from ax.storage.sqa_store.decoder import Decoder
@@ -94,7 +95,15 @@ def _save_experiment(
 
     decoder = Decoder(config=encoder.config)
     new_experiment = decoder.experiment_from_sqa(sqa_experiment)
-    copy_db_ids(new_experiment, experiment, [])
+
+    try:
+        copy_db_ids(new_experiment, experiment, [])
+    except SQADecodeError as e:
+        logger.warning(
+            "Error encountered when copying db_ids back to user-facing object. "
+            "This might cause issues if you re-save this experiment. "
+            f"Exception: {e}"
+        )
 
     return checked_cast(SQABase, sqa_experiment) if return_sqa else None
 

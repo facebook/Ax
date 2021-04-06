@@ -77,8 +77,14 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
                 "sorting is only defined on instances of SortableBase."
             )
 
-        source = sorted(source)
-        target = sorted(target)
+        try:
+            source = sorted(source)
+            target = sorted(target)
+        except TypeError as e:
+            raise SQADecodeError(
+                error_message_prefix + f"TypeError encountered during sorting: {e}"
+            )
+
         for index, x in enumerate(source):
             copy_db_ids(x, target[index], path + [str(index)])
 
