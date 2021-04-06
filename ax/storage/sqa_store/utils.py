@@ -51,9 +51,22 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
                 setattr(target, attr, val)
                 continue
 
-            # skip over _experiment to prevent infinite loops,
-            # and ignore doubly private attributes
-            if attr == "_experiment" or attr.startswith("__"):
+            # skip over:
+            # * doubly private attributes
+            # * _experiment (to prevent infinite loops)
+            # * most generator run metadata (since no Base objects are nested in there,
+            #   and we don't have guarantees about the structure of that data, so the
+            #   recursion could fail somewhere)
+            if attr.startswith("__") or attr in {
+                "_experiment",
+                "_gen_metadata",
+                "_model_predictions",
+                "_best_arm_predictions",
+                "_model_kwargs",
+                "_bridge_kwargs",
+                "_model_state_after_gen",
+                "_candidate_metadata_by_arm_signature",
+            }:
                 continue
 
             copy_db_ids(val, getattr(target, attr), path + [attr])
