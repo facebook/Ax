@@ -54,12 +54,14 @@ def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) 
 
     config = config or SQAConfig()
     encoder = Encoder(config=config)
-    _save_experiment(experiment=experiment, encoder=encoder)
+    decoder = Decoder(config=config)
+    _save_experiment(experiment=experiment, encoder=encoder, decoder=decoder)
 
 
 def _save_experiment(
     experiment: Experiment,
     encoder: Encoder,
+    decoder: Decoder,
     return_sqa: bool = False,
     validation_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Optional[SQABase]:
@@ -90,7 +92,6 @@ def _save_experiment(
         **(validation_kwargs or {}),
     )
 
-    decoder = Decoder(config=encoder.config)
     experiment_sqa = _merge_into_session(
         obj=experiment,
         encode_func=encoder.experiment_to_sqa,
@@ -113,14 +114,15 @@ def save_generation_strategy(
     # Start up SQA encoder.
     config = config or SQAConfig()
     encoder = Encoder(config=config)
+    decoder = Decoder(config=config)
 
     return _save_generation_strategy(
-        generation_strategy=generation_strategy, encoder=encoder
+        generation_strategy=generation_strategy, encoder=encoder, decoder=decoder
     )
 
 
 def _save_generation_strategy(
-    generation_strategy: GenerationStrategy, encoder: Encoder
+    generation_strategy: GenerationStrategy, encoder: Encoder, decoder: Decoder
 ) -> int:
     # If the generation strategy has not yet generated anything, there will be no
     # experiment set on it.
@@ -137,7 +139,6 @@ def _save_generation_strategy(
                 "generation strategy."
             )
 
-    decoder = Decoder(config=encoder.config)
     _merge_into_session(
         obj=generation_strategy,
         encode_func=encoder.generation_strategy_to_sqa,
@@ -156,14 +157,19 @@ def save_or_update_trial(
     (using default SQAConfig)."""
     config = config or SQAConfig()
     encoder = Encoder(config=config)
-    _save_or_update_trial(experiment=experiment, trial=trial, encoder=encoder)
+    decoder = Decoder(config=config)
+    _save_or_update_trial(
+        experiment=experiment, trial=trial, encoder=encoder, decoder=decoder
+    )
 
 
 def _save_or_update_trial(
-    experiment: Experiment, trial: BaseTrial, encoder: Encoder
+    experiment: Experiment, trial: BaseTrial, encoder: Encoder, decoder: Decoder
 ) -> None:
     """Add new trial to the experiment, or update if already exists."""
-    _save_or_update_trials(experiment=experiment, trials=[trial], encoder=encoder)
+    _save_or_update_trials(
+        experiment=experiment, trials=[trial], encoder=encoder, decoder=decoder
+    )
 
 
 def save_or_update_trials(
@@ -173,18 +179,19 @@ def save_or_update_trials(
     (using default SQAConfig)."""
     config = config or SQAConfig()
     encoder = Encoder(config=config)
-    _save_or_update_trials(experiment=experiment, trials=trials, encoder=encoder)
+    decoder = Decoder(config=config)
+    _save_or_update_trials(
+        experiment=experiment, trials=trials, encoder=encoder, decoder=decoder
+    )
 
 
 def _save_or_update_trials(
-    experiment: Experiment, trials: List[BaseTrial], encoder: Encoder
+    experiment: Experiment, trials: List[BaseTrial], encoder: Encoder, decoder: Decoder
 ) -> None:
     """Add new trials to the experiment, or update if they already exist."""
     experiment_id = experiment._db_id
     if experiment_id is None:
         raise ValueError("Must save experiment first.")
-
-    decoder = Decoder(config=encoder.config)
 
     def add_experiment_id(sqa: Union[SQATrial, SQAData]):
         sqa.experiment_id = experiment_id

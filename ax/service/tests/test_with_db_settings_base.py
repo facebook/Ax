@@ -44,11 +44,14 @@ class TestWithDBSettingsBase(TestCase):
             db_settings=DBSettings(url="sqlite://")
         )
         _save_experiment(
-            self.experiment, encoder=self.with_db_settings.db_settings.encoder
+            self.experiment,
+            encoder=self.with_db_settings.db_settings.encoder,
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         _save_generation_strategy(
             generation_strategy=self.generation_strategy,
             encoder=self.with_db_settings.db_settings.encoder,
+            decoder=self.with_db_settings.db_settings.decoder,
         )
 
     def get_random_experiment(self) -> Experiment:
@@ -78,12 +81,15 @@ class TestWithDBSettingsBase(TestCase):
 
         if save_experiment:
             _save_experiment(
-                experiment, encoder=self.with_db_settings.db_settings.encoder
+                experiment,
+                encoder=self.with_db_settings.db_settings.encoder,
+                decoder=self.with_db_settings.db_settings.decoder,
             )
         if save_generation_strategy:
             _save_generation_strategy(
                 generation_strategy=generation_strategy,
                 encoder=self.with_db_settings.db_settings.encoder,
+                decoder=self.with_db_settings.db_settings.decoder,
             )
         return experiment, generation_strategy
 
@@ -155,7 +161,9 @@ class TestWithDBSettingsBase(TestCase):
 
         simple_experiment = get_simple_experiment()
         _save_experiment(
-            simple_experiment, encoder=self.with_db_settings.db_settings.encoder
+            simple_experiment,
+            encoder=self.with_db_settings.db_settings.encoder,
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         with self.assertRaisesRegex(ValueError, "Service API only"):
             self.with_db_settings._load_experiment_and_generation_strategy(
@@ -201,6 +209,7 @@ class TestWithDBSettingsBase(TestCase):
             experiment=experiment,
             trials=[trial],
             encoder=self.with_db_settings.db_settings.encoder,
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         self.assertEqual(trial.status, TrialStatus.CANDIDATE)
 

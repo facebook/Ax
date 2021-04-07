@@ -245,7 +245,11 @@ class WithDBSettingsBase:
         """
         if self.db_settings_set:
             start_time = time.time()
-            _save_experiment(experiment, encoder=self.db_settings.encoder)
+            _save_experiment(
+                experiment,
+                encoder=self.db_settings.encoder,
+                decoder=self.db_settings.decoder,
+            )
             logger.debug(
                 f"Saved experiment {experiment.name} in "
                 f"{_round_floats_for_logging(time.time() - start_time)} seconds."
@@ -349,7 +353,10 @@ class WithDBSettingsBase:
         if self.db_settings_set:
             start_time = time.time()
             _save_or_update_trials(
-                experiment=experiment, trials=trials, encoder=self.db_settings.encoder
+                experiment=experiment,
+                trials=trials,
+                encoder=self.db_settings.encoder,
+                decoder=self.db_settings.decoder,
             )
             logger.debug(
                 f"Saved trials {[trial.index for trial in trials]} in "
@@ -413,7 +420,10 @@ class WithDBSettingsBase:
         if self.db_settings_set:
             start_time = time.time()
             _save_or_update_trials(
-                experiment=experiment, trials=trials, encoder=self.db_settings.encoder
+                experiment=experiment,
+                trials=trials,
+                encoder=self.db_settings.encoder,
+                decoder=self.db_settings.decoder,
             )
             logger.debug(
                 f"Updated trials {[trial.index for trial in trials]} in "
@@ -447,6 +457,7 @@ class WithDBSettingsBase:
             _save_generation_strategy(
                 generation_strategy=generation_strategy,
                 encoder=self.db_settings.encoder,
+                decoder=self.db_settings.decoder,
             )
             logger.debug(
                 f"Saved generation strategy {generation_strategy.name} in "
