@@ -17,7 +17,12 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import SQABase, session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder, T_OBJ_TO_SQA
-from ax.storage.sqa_store.sqa_classes import SQATrial, SQAData, SQAGeneratorRun
+from ax.storage.sqa_store.sqa_classes import (
+    SQATrial,
+    SQAData,
+    SQAGeneratorRun,
+    SQARunner,
+)
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import copy_db_ids
 from ax.utils.common.base import Base
@@ -277,7 +282,7 @@ def _update_generation_strategy(
 
 
 def update_runner_on_experiment(
-    experiment: Experiment, old_runner: Runner, new_runner: Runner, encoder: Encoder
+    experiment: Experiment, runner: Runner, encoder: Encoder, decoder: Decoder
 ) -> None:
     runner_sqa_class = encoder.config.class_to_sqa_class[Runner]
 
@@ -285,22 +290,18 @@ def update_runner_on_experiment(
     if exp_id is None:
         raise ValueError("Experiment must be saved before being updated.")
 
-    old_runner_id = old_runner.db_id
-
-    new_runner_sqa = encoder.runner_to_sqa(runner=new_runner)
-    new_runner_sqa.experiment_id = exp_id
-
     with session_scope() as session:
-        if old_runner_id is not None:
-            old_runner_sqa = (
-                session.query(runner_sqa_class)
-                .filter_by(id=old_runner.db_id)
-                .one_or_none()
-            )
-            session.delete(old_runner_sqa)
-        session.add(new_runner_sqa)
+        session.query(runner_sqa_class).filter_by(experiment_id=exp_id).delete()
 
-    _set_db_ids(obj_to_sqa=[(new_runner, new_runner_sqa)])  # pyre-ignore[6]
+    def add_experiment_id(sqa: SQARunner):
+        sqa.experiment_id = exp_id
+
+    _merge_into_session(
+        obj=runner,
+        encode_func=encoder.runner_to_sqa,
+        decode_func=decoder.runner_from_sqa,
+        modify_sqa=add_experiment_id,
+    )
 
 
 def _merge_into_session(

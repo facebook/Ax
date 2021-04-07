@@ -1278,15 +1278,14 @@ class SQAStoreTest(TestCase):
         with self.assertRaisesRegex(ValueError, ".* must be saved before"):
             update_runner_on_experiment(
                 experiment=experiment,
-                new_runner=None,  # These don't matter in this case
-                old_runner=None,
+                runner=None,  # This doesn't matter in this case
                 encoder=self.encoder,
+                decoder=self.decoder,
             )
         self.assertIsNone(experiment.runner.db_id)
         self.assertIsNotNone(experiment.runner)
         self.assertIsNone(experiment.runner.dummy_metadata)
         save_experiment(experiment=experiment)
-        old_runner = experiment.runner
         old_runner_db_id = experiment.runner.db_id
         self.assertIsNotNone(old_runner_db_id)
         new_runner = get_synthetic_runner()
@@ -1295,13 +1294,12 @@ class SQAStoreTest(TestCase):
         experiment.runner = new_runner
         update_runner_on_experiment(
             experiment=experiment,
-            new_runner=new_runner,
-            old_runner=old_runner,
+            runner=new_runner,
             encoder=self.encoder,
+            decoder=self.decoder,
         )
         self.assertIsNotNone(new_runner.db_id)  # New runner should be added to DB.
         self.assertEqual(experiment.runner.db_id, new_runner.db_id)
-        self.assertNotEqual(experiment.runner.db_id, old_runner.db_id)
         loaded_experiment = load_experiment(experiment_name=experiment.name)
         self.assertEqual(loaded_experiment.runner.db_id, new_runner.db_id)
 
