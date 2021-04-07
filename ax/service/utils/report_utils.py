@@ -32,15 +32,13 @@ logger: Logger = get_logger(__name__)
 
 
 def _get_objective_trace_plot(
-    trials: Dict[int, BaseTrial],
+    experiment: Experiment,
     metric_name: str,
     model_transitions: List[int],
     optimization_direction: Optional[str] = None,
     # pyre-ignore[11]: Annotation `go.Figure` is not defined as a type.
 ) -> Optional[go.Figure]:
-    best_objectives = np.array(
-        [[checked_cast(Trial, t).objective_mean for t in trials.values()]]
-    )
+    best_objectives = np.array([experiment.fetch_data().df["mean"]])
     return optimization_trace_single_method_plotly(
         y=best_objectives,
         title="Best objective found vs. # of iterations",
@@ -194,7 +192,7 @@ def get_standard_plots(
     output_plot_list = []
     output_plot_list.append(
         _get_objective_trace_plot(
-            trials=experiment.trials,
+            experiment=experiment,
             metric_name=not_none(experiment.optimization_config).objective.metric.name,
             model_transitions=generation_strategy.model_transitions,
             optimization_direction=(
