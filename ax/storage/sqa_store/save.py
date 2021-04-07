@@ -17,7 +17,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import SQABase, session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder, T_OBJ_TO_SQA
-from ax.storage.sqa_store.sqa_classes import SQATrial, SQAData
+from ax.storage.sqa_store.sqa_classes import SQATrial, SQAData, SQAGeneratorRun
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import copy_db_ids
 from ax.utils.common.base import Base
@@ -247,7 +247,6 @@ def _update_generation_strategy(
             "should be saved before generation strategy."
         )
 
-    obj_to_sqa = []
     with session_scope() as session:
         session.query(gs_sqa_class).filter_by(id=gs_id).update(
             {
@@ -256,17 +255,18 @@ def _update_generation_strategy(
             }
         )
 
-    generator_runs_sqa = []
+    decoder = Decoder(config=encoder.config)
+
+    def add_generation_strategy_id(sqa: SQAGeneratorRun):
+        sqa.generation_strategy_id = gs_id
+
     for generator_run in generator_runs:
-        gr_sqa, _obj_to_sqa = encoder.generator_run_to_sqa(generator_run=generator_run)
-        obj_to_sqa.extend(_obj_to_sqa)
-        gr_sqa.generation_strategy_id = gs_id
-        generator_runs_sqa.append(gr_sqa)
-
-    with session_scope() as session:
-        session.add_all(generator_runs_sqa)
-
-    _set_db_ids(obj_to_sqa=obj_to_sqa)
+        _merge_into_session(
+            obj=generator_run,
+            encode_func=encoder.generator_run_to_sqa,
+            decode_func=decoder.generator_run_from_sqa,
+            modify_sqa=add_generation_strategy_id,
+        )
 
 
 def update_runner_on_experiment(
