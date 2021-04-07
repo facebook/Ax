@@ -6,19 +6,18 @@
 
 import os
 from inspect import signature
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
-from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import SQABase, session_scope
 from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.encoder import Encoder
-from ax.storage.sqa_store.encoder import T_OBJ_TO_SQA
+from ax.storage.sqa_store.encoder import Encoder, T_OBJ_TO_SQA
+from ax.storage.sqa_store.sqa_classes import SQATrial, SQAData
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import copy_db_ids
 from ax.utils.common.base import Base
@@ -185,86 +184,29 @@ def _save_or_update_trials(
     if experiment_id is None:
         raise ValueError("Must save experiment first.")
 
-    data_sqa_class = encoder.config.class_to_sqa_class[
-        experiment.default_data_constructor
-    ]
-    trial_sqa_class = encoder.config.class_to_sqa_class[Trial]
-    obj_to_sqa = []
-    with session_scope() as session:
-        # Fetch the ids of all trials already saved to the experiment
-        existing_trial_ids = (
-            session.query(trial_sqa_class.id)  # pyre-ignore
-            .filter_by(experiment_id=experiment_id)
-            .all()
-        )
+    decoder = Decoder(config=encoder.config)
 
-    existing_trial_ids = {x[0] for x in existing_trial_ids}
+    def add_experiment_id(sqa: Union[SQATrial, SQAData]):
+        sqa.experiment_id = experiment_id
 
-    update_trial_ids = set()
-    update_trial_indices = set()
     for trial in trials:
-        if trial._db_id not in existing_trial_ids:
-            continue
-        update_trial_ids.add(trial._db_id)
-        update_trial_indices.add(trial.index)
-
-    # We specifically fetch the *whole* trial (and corresponding data)
-    # for old trials that we need to update.
-    # We could fetch the whole trial for all trials attached to the experiment,
-    # and therefore combine this call with the one above, but that might be
-    # unnecessarily costly if we're not updating many or any trials.
-    with session_scope() as session:
-        existing_trials = (
-            session.query(trial_sqa_class)
-            .filter(trial_sqa_class.id.in_(update_trial_ids))
-            .all()
+        _merge_into_session(
+            obj=trial,
+            encode_func=encoder.trial_to_sqa,
+            decode_func=decoder.trial_from_sqa,
+            decode_args={"experiment": experiment},
+            modify_sqa=add_experiment_id,
         )
-
-    with session_scope() as session:
-        existing_data = (
-            session.query(data_sqa_class)
-            .filter_by(experiment_id=experiment_id)
-            .filter(data_sqa_class.trial_index.in_(update_trial_indices))  # pyre-ignore
-            .all()
-        )
-
-    trial_id_to_existing_trial = {trial.id: trial for trial in existing_trials}
-    data_id_to_existing_data = {data.id: data for data in existing_data}
-
-    sqa_trials, sqa_datas = [], []
-    for trial in trials:
-        sqa_trial, _obj_to_sqa = encoder.trial_to_sqa(trial)
-        obj_to_sqa.extend(_obj_to_sqa)
-
-        existing_trial = trial_id_to_existing_trial.get(trial._db_id)
-        if existing_trial is None:
-            sqa_trial.experiment_id = experiment_id
-            sqa_trials.append(sqa_trial)
-        else:
-            existing_trial.update(sqa_trial)
-            sqa_trials.append(existing_trial)
 
         datas = experiment.data_by_trial.get(trial.index, {})
         for ts, data in datas.items():
-            sqa_data = encoder.data_to_sqa(
-                data=data, trial_index=trial.index, timestamp=ts
+            _merge_into_session(
+                obj=data,
+                encode_func=encoder.data_to_sqa,
+                decode_func=decoder.data_from_sqa,
+                encode_args={"trial_index": trial.index, "timestamp": ts},
+                modify_sqa=add_experiment_id,
             )
-            obj_to_sqa.append((data, sqa_data))
-
-            existing_data = data_id_to_existing_data.get(data._db_id)
-            if existing_data is None:
-                sqa_data.experiment_id = experiment_id
-                sqa_datas.append(sqa_data)
-            else:
-                existing_data.update(sqa_data)
-                sqa_datas.append(existing_data)
-
-    with session_scope() as session:
-        session.add_all(sqa_trials)
-        session.add_all(sqa_datas)
-        session.flush()
-
-    _set_db_ids(obj_to_sqa=obj_to_sqa)
 
 
 def update_generation_strategy(
@@ -360,25 +302,31 @@ def _merge_into_session(
     decode_func: Callable,
     encode_args: Optional[Dict[str, Any]] = None,
     decode_args: Optional[Dict[str, Any]] = None,
+    modify_sqa: Optional[Callable] = None,
 ) -> SQABase:
     """Given a user-facing object (that may or may not correspond to an
     existing DB object), perform the following steps to either create or
     update the necessary DB objects, and ensure the user-facing object
     is annotated with the appropriate db_ids:
 
-    1.  Convert the user-facing object `obj` to a sqa object `sqa`
-    2.  Merge `sqa` into the session
+    1.  Encode the user-facing object `obj` to a sqa object `sqa`
+    2.  If the `modify_sqa` argument is passed in, apply this to `sqa`
+        before continuing
+    3.  Merge `sqa` into the session
         Note: if `sqa` and its children contain ids, they will be merged into
         those corresponding DB objects. If not, new DB objects will be created.
-    3. `session.merge` returns `new_sqa`, which is the same as `sqa` but
+    4. `session.merge` returns `new_sqa`, which is the same as `sqa` but
         but annotated ids.
-    4. Decode `new_sqa` into a new user-facing object `new_obj`
-    5. Copy db_ids from `new_obj` to the originally passed-in `obj`
+    5. Decode `new_sqa` into a new user-facing object `new_obj`
+    6. Copy db_ids from `new_obj` to the originally passed-in `obj`
     """
     if encode_func_returns_obj_to_sqa(encode_func=encode_func):
         sqa, _ = encode_func(obj, **(encode_args or {}))
     else:
         sqa = encode_func(obj, **(encode_args or {}))
+
+    if modify_sqa is not None:
+        modify_sqa(sqa=sqa)
 
     with session_scope() as session:
         new_sqa = session.merge(sqa)

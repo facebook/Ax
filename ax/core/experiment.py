@@ -775,7 +775,7 @@ class Experiment(Base):
                 raise ValueError("BatchTrial already attached to experiment.")
 
         if index is not None and index in self._trials:
-            logger.warning(  # pragma: no cover
+            logger.debug(  # pragma: no cover
                 f"Trial index {index} already exists on the experiment. Overwriting."
             )
         index = (
