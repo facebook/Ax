@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+from inspect import signature
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ax.core.base_trial import BaseTrial
@@ -17,6 +18,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import SQABase, session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
+from ax.storage.sqa_store.encoder import T_OBJ_TO_SQA
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import copy_db_ids
 from ax.utils.common.base import Base
@@ -373,7 +375,10 @@ def _merge_into_session(
     4. Decode `new_sqa` into a new user-facing object `new_obj`
     5. Copy db_ids from `new_obj` to the originally passed-in `obj`
     """
-    sqa, _ = encode_func(obj, **(encode_args or {}))
+    if encode_func_returns_obj_to_sqa(encode_func=encode_func):
+        sqa, _ = encode_func(obj, **(encode_args or {}))
+    else:
+        sqa = encode_func(obj, **(encode_args or {}))
 
     with session_scope() as session:
         new_sqa = session.merge(sqa)
@@ -394,3 +399,16 @@ def _merge_into_session(
         )
 
     return new_sqa
+
+
+def encode_func_returns_obj_to_sqa(encode_func: Callable) -> bool:
+    """Some encoding functions return both the encoded object and `obj_to_sqa`,
+    with the latter being a list of tuples of form (obj, sqa_obj), used to
+    set `db_id` on Ax objects after they are saved. This function checks
+    return type of `encode_func` to determine whether `encode_func` is one
+    of such functions.
+    """
+    encode_func_return_type = signature(encode_func).return_annotation
+    return (getattr(encode_func_return_type, "_name", "") == "Tuple") and (
+        T_OBJ_TO_SQA in getattr(encode_func_return_type, "__args__", ())
+    )

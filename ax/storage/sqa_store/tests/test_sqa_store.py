@@ -5,8 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from datetime import datetime
-from inspect import signature
-from typing import Callable
 from unittest.mock import MagicMock, Mock, patch
 
 from ax.core.arm import Arm
@@ -36,13 +34,14 @@ from ax.storage.sqa_store.db import (
 )
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.delete import delete_experiment
-from ax.storage.sqa_store.encoder import T_OBJ_TO_SQA, Encoder
+from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.load import (
     load_experiment,
     load_generation_strategy_by_experiment_name,
     load_generation_strategy_by_id,
 )
 from ax.storage.sqa_store.save import (
+    encode_func_returns_obj_to_sqa,
     save_experiment,
     save_generation_strategy,
     save_or_update_trial,
@@ -101,19 +100,6 @@ from ax.utils.testing.core_stubs import (
     get_synthetic_runner,
 )
 from ax.utils.testing.modeling_stubs import get_generation_strategy
-
-
-def _encode_func_returns_obj_to_sqa(encode_func: Callable) -> bool:
-    """Some encoding functions return both the encoded object and `obj_to_sqa`,
-    with the latter being a list of tuples of form (obj, sqa_obj), used to
-    set `db_id` on Ax objects after they are saved. This function checks
-    return type of `encode_func` to determine whether `encode_func` is one
-    of such functions.
-    """
-    encode_func_return_type = signature(encode_func).return_annotation
-    return (getattr(encode_func_return_type, "_name", "") == "Tuple") and (
-        T_OBJ_TO_SQA in getattr(encode_func_return_type, "__args__", ())
-    )
 
 
 class SQAStoreTest(TestCase):
@@ -391,7 +377,7 @@ class SQAStoreTest(TestCase):
             encode_func = unbound_encode_func.__get__(self.encoder)
             decode_func = unbound_decode_func.__get__(self.decoder)
             sqa_object = encode_func(original_object)
-            if _encode_func_returns_obj_to_sqa(encode_func=encode_func):
+            if encode_func_returns_obj_to_sqa(encode_func=encode_func):
                 # Some encoding functions returns two things, of which for
                 # encoding we only care about the first.
                 sqa_object = sqa_object[0]
@@ -434,7 +420,7 @@ class SQAStoreTest(TestCase):
 
             encode_func = unbound_encode_func.__get__(self.encoder)
             sqa_object = encode_func(original_object)
-            if _encode_func_returns_obj_to_sqa(encode_func=encode_func):
+            if encode_func_returns_obj_to_sqa(encode_func=encode_func):
                 # Some encoding functions returns two things, of which for
                 # encoding we only care about the first.
                 sqa_object = sqa_object[0]
