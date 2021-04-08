@@ -8,7 +8,7 @@ from ax.core.map_metric import MapMetric
 from ax.utils.common.testutils import TestCase
 
 
-METRIC_STRING = "Metric('m1')"
+METRIC_STRING = "MapMetric('m1')"
 
 
 class MapMetricTest(TestCase):
