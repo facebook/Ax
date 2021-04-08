@@ -664,8 +664,6 @@ class GenerationStrategy(Base):
             return
         else:
             new_data = Data(
-                # pyre-fixme[6]: Expected `Optional[pd.core.frame.DataFrame]` for
-                #  1st param but got `Series`.
                 df=data.df[data.df.trial_index.isin(newly_completed_trials)]
             )
         # We definitely have non-empty new data by now.

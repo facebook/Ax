@@ -73,7 +73,6 @@ class Data(AbstractDataFrameData):
             extra_columns = columns - self.supported_columns()
             if extra_columns:
                 raise ValueError(f"Columns {list(extra_columns)} are not supported.")
-            # pyre-fixme[16]: `Optional` has no attribute `reset_index`.
             df = df.dropna(axis=0, how="all").reset_index(drop=True)
             df = self._safecast_df(df=df)
 

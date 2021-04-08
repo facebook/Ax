@@ -75,7 +75,6 @@ class MapData(AbstractDataFrameData):
             )
             if extra_columns:
                 raise ValueError(f"Columns {list(extra_columns)} are not supported.")
-            # pyre-fixme[16]: `Optional` has no attribute `reset_index`.
             df = df.dropna(axis=0, how="all").reset_index(drop=True)
             df = self._safecast_df(df=df, extra_column_types=self.map_key_types)
 

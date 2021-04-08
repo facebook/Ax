@@ -146,11 +146,14 @@ def get_observed_pareto_frontiers(
         sq_df = data.df[
             data.df["arm_name"] == experiment.status_quo.name  # pyre-ignore
         ]
-        sq_df = sq_df.to_dict(orient="list")  # pyre-ignore
+        sq_df = sq_df.to_dict(orient="list")
         sq_means = {}
         sq_sems = {}
+        # pyre-fixme[6]: Expected `_SupportsIndex` for 1st param but got `str`.
         for i, metric in enumerate(sq_df["metric_name"]):
+            # pyre-fixme[6]: Expected `_SupportsIndex` for 1st param but got `str`.
             sq_means[metric] = sq_df["mean"][i]
+            # pyre-fixme[6]: Expected `_SupportsIndex` for 1st param but got `str`.
             sq_sems[metric] = sq_df["sem"][i]
         # Relativize
         for name in metric_names:

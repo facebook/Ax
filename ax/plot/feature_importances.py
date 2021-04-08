@@ -104,7 +104,6 @@ def plot_feature_importance_by_feature(
                 name="Importance",
                 orientation="h",
                 visible=i == 0,
-                # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
                 x=df["Importance"],
                 y=df["Factor"],
             )
@@ -167,6 +166,7 @@ def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
             )
     df = pd.DataFrame(importances)
     df.set_index("index", inplace=True)
+    # pyre-fixme[29]: `Series` is not a function.
     df = df.div(df.sum(axis=1), axis=0)
     data = [
         go.Bar(y=df.index, x=df[column_name], name=column_name, orientation="h")
