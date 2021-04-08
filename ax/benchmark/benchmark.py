@@ -29,7 +29,7 @@ import numpy as np
 import torch
 from ax.benchmark import utils
 from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
-from ax.core.data import Data
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
@@ -63,7 +63,9 @@ def benchmark_trial(
     evaluation_function: Optional[Union[SyntheticFunction, FunctionType]] = None,
     experiment: Optional[Experiment] = None,
     trial_index: Optional[int] = None,
-) -> Union[Tuple[float, float], Data]:  # Mean and SEM or a Data object.
+) -> Union[
+    Tuple[float, float], AbstractDataFrameData
+]:  # Mean and SEM or a Data object.
     """Evaluates one trial from benchmarking replication (an Ax trial or batched
     trial). Evaluation requires either the `parameterization` and `evalution_
     function` parameters or the `experiment` and `trial_index` parameters.

@@ -303,16 +303,18 @@ def compute_posterior_pareto_frontier(
     # build posterior mean model
     if not data:
         try:
-            data = (
+            abstract_data = (
                 experiment.trials[trial_index].fetch_data()
                 if trial_index
                 else experiment.fetch_data()
             )
-            if not isinstance(data, Data):
+            # TODO(jej)[T87591836] Support non-`Data` data types.
+            if not isinstance(abstract_data, Data):
                 raise TypeError(
                     "Data passed as arg or fetched from experiment is not "
                     "an instance of PTS-supporting `Data`"
                 )
+            data = abstract_data
         except Exception as e:
             logger.info(f"Could not fetch data from experiment or trial: {e}")
 
