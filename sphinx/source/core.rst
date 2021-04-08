@@ -78,6 +78,15 @@ Core Classes
     :show-inheritance:
     :noindex:
 
+`MapMetric`
+~~~~~~~~~~~~~~
+
+.. automodule:: ax.core.map_metric
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :noindex:
+
 `Metric`
 ~~~~~~~~~~~~~~
 
