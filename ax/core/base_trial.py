@@ -11,8 +11,8 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
-from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.runner import Runner
@@ -359,7 +359,9 @@ class BaseTrial(ABC, SortableBase):
         self.mark_completed()
         return self
 
-    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
+    def fetch_data(
+        self, metrics: Optional[List[Metric]] = None, **kwargs: Any
+    ) -> AbstractDataFrameData:
         """Fetch data for this trial for all metrics on experiment.
 
         Args:
@@ -371,8 +373,6 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             Data for this trial.
         """
-        # TODO(jej)[T87591836] Support non-`Data` data types.
-        # pyre-fixme [7]: Return Type: Expect `Data` got `AbstractDataFrameData`
         return self.experiment._fetch_trial_data(
             trial_index=self.index, metrics=metrics, **kwargs
         )

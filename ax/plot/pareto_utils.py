@@ -303,8 +303,7 @@ def compute_posterior_pareto_frontier(
     # build posterior mean model
     if not data:
         try:
-            # TODO(jej)[T87591836] Clean up pyre-fixmes
-            data = (  # pyre-fixme [9]: Declared `AbstractDataFrameData` used as `Data`
+            data = (
                 experiment.trials[trial_index].fetch_data()
                 if trial_index
                 else experiment.fetch_data()

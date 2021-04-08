@@ -186,8 +186,10 @@ class MultiTypeExperiment(Experiment):
         return self
 
     @copy_doc(Experiment.fetch_data)
-    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
-        return Data.from_multiple_data(
+    def fetch_data(
+        self, metrics: Optional[List[Metric]] = None, **kwargs: Any
+    ) -> AbstractDataFrameData:
+        return self.default_data_constructor.from_multiple_data(
             [
                 trial.fetch_data(**kwargs, metrics=metrics)
                 if trial.status.expecting_data

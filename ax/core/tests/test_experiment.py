@@ -12,11 +12,14 @@ from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
+from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
+from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -612,6 +615,25 @@ class ExperimentWithMapDataTest(TestCase):
     def setUp(self):
         self.experiment = get_experiment_with_map_data()
 
+    def _setupBraninExperiment(self, n: int) -> Experiment:
+        exp = Experiment(
+            name="test3",
+            search_space=get_branin_search_space(),
+            tracking_metrics=[
+                BraninTimestampMapMetric(name="b", param_names=["x1", "x2"])
+            ],
+            runner=SyntheticRunner(),
+            default_data_type=DataType.MAP_DATA,
+        )
+        batch = exp.new_batch_trial()
+        batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
+        batch.run()
+
+        batch_2 = exp.new_batch_trial()
+        batch_2.add_arms_and_weights(arms=get_branin_arms(n=3 * n, seed=1))
+        batch_2.run()
+        return exp
+
     def testEmptyMetrics(self):
         empty_experiment = Experiment(
             name="test_experiment",
@@ -622,3 +644,39 @@ class ExperimentWithMapDataTest(TestCase):
         empty_experiment.add_tracking_metric(Metric(name="ax_test_metric"))
         self.assertTrue(empty_experiment.fetch_data().df.empty)
         empty_experiment.attach_data(get_map_data())
+
+    def testFetchTrialsData(self):
+        exp = self._setupBraninExperiment(n=5)
+        batch_0 = exp.trials[0]
+        batch_1 = exp.trials[1]
+        batch_0.mark_completed()
+        batch_1.mark_completed()
+        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
+        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
+        self.assertEqual(
+            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
+        )
+        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
+        self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
+        self.assertEqual(
+            set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
+        )
+        self.assertEqual(
+            exp.fetch_trials_data(trial_indices=[0, 1]),
+            MapData.from_multiple_data([batch_0_data, batch_1_data]),
+        )
+        with self.assertRaisesRegex(ValueError, ".* not associated .*"):
+            exp.fetch_trials_data(trial_indices=[2])
+        # Try to fetch data when there are only metrics and no attached data.
+        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
+        exp.add_tracking_metric(MapMetric(name="b"))  # Add unimplemented metric.
+        self.assertTrue(exp.fetch_trials_data(trial_indices=[0]).df.empty)
+        # Try fetching attached data.
+        exp.attach_data(batch_0_data)
+        exp.attach_data(batch_1_data)
+        self.assertEqual(exp.fetch_trials_data(trial_indices=[0]), batch_0_data)
+        self.assertEqual(exp.fetch_trials_data(trial_indices=[1]), batch_1_data)
+        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
+        self.assertEqual(
+            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
+        )

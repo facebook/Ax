@@ -15,6 +15,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.map_data import MapData
 from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
@@ -200,8 +201,20 @@ def _observations_from_dataframe(
     df: pd.DataFrame,
     cols: List[str],
     arm_name_only: bool,
+    map_keys: List[str],
 ) -> List[Observation]:
-    """Helper method for extracting observations grouped by `cols` from `df`."""
+    """Helper method for extracting observations grouped by `cols` from `df`.
+
+    Args:
+        experiment: Experiment with arm parameters.
+        df: DataFrame derived from experiment Data.
+        cols: columns used to group data into different observations.
+        map_keys: columns that map dict-like Data
+            e.g. `timestamp` in timeseries data, `epoch` in ML training traces.
+
+    Returns:
+        List of Observation objects.
+    """
     observations = []
     for g, d in df.groupby(by=cols):
         if arm_name_only:
@@ -231,6 +244,11 @@ def _observations_from_dataframe(
                         trial._time_completed
                     ).timestamp()
             obs_kwargs[Keys.METADATA] = metadata
+        for map_key in map_keys:
+            if map_key in obs_parameters:
+                obs_parameters[map_key] = features[map_key]
+            else:
+                obs_kwargs[Keys.METADATA][map_key] = features[map_key]
         observations.append(
             Observation(
                 features=ObservationFeatures(**obs_kwargs),
@@ -261,7 +279,11 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
     Returns:
         List of Observation objects.
     """
-    feature_cols = list(OBS_COLS.intersection(data.df.columns))
+    if isinstance(data, MapData):
+        map_keys = data.map_keys
+    else:
+        map_keys = []
+    feature_cols = list((OBS_COLS.intersection(data.df.columns)).union(map_keys))
     observations = []
     arm_name_only = len(feature_cols) == 1  # there will always be an arm name
     # One DataFrame where all rows have all features.
@@ -290,6 +312,7 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
             df=complete_df,
             cols=feature_cols,
             arm_name_only=arm_name_only,
+            map_keys=map_keys,
         )
     )
     if incomplete_df is not None:
@@ -300,6 +323,7 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
                 df=incomplete_df,
                 cols=complete_feature_cols,
                 arm_name_only=arm_name_only,
+                map_keys=map_keys,
             )
         )
     return observations
