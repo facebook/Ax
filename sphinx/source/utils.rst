@@ -154,6 +154,17 @@ Statstools
     :undoc-members:
     :show-inheritance:
 
+Storage
+---------------
+
+Deletion
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.storage.sqa.delete
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Testing
 ---------------
