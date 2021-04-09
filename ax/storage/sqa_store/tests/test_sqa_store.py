@@ -345,7 +345,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(self.experiment, loaded_experiment)
 
-    def testExperimentSaveAndUpdateTrial(self):
+    def testExperimentSaveAndUpdateTrials(self):
         save_experiment(self.experiment)
 
         existing_trial = self.experiment.trials[0]
@@ -355,6 +355,16 @@ class SQAStoreTest(TestCase):
             experiment=self.experiment, trials=[existing_trial, new_trial]
         )
 
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(self.experiment, loaded_experiment)
+
+        self.experiment.attach_data(get_data(trial_index=new_trial.index))
+        new_trial_2 = self.experiment.new_batch_trial(generator_run=get_generator_run())
+        save_or_update_trials(
+            experiment=self.experiment,
+            trials=[existing_trial, new_trial, new_trial_2],
+            batch_size=2,
+        )
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(self.experiment, loaded_experiment)
 
@@ -1265,7 +1275,31 @@ class SQAStoreTest(TestCase):
 
         save_experiment(experiment=experiment)
         update_generation_strategy(
-            generation_strategy=generation_strategy, generator_runs=generator_runs
+            generation_strategy=generation_strategy,
+            generator_runs=generator_runs,
+        )
+        loaded_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name
+        )
+        generation_strategy._save_seen_trial_indices()
+        self.assertEqual(generation_strategy, loaded_generation_strategy)
+
+        # add even more generator runs, save using batch_size, reload
+        generator_runs = []
+        for i in range(7):
+            data = get_branin_data() if i > 0 else None
+            gr = generation_strategy.gen(experiment, data=data)
+            generator_runs.append(gr)
+            trial = experiment.new_trial(generator_run=gr).mark_running(
+                no_runner_required=True
+            )
+            trial.mark_completed()
+
+        save_experiment(experiment=experiment)
+        update_generation_strategy(
+            generation_strategy=generation_strategy,
+            generator_runs=generator_runs,
+            batch_size=3,
         )
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
