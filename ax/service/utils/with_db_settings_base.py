@@ -497,6 +497,7 @@ class WithDBSettingsBase:
                 generation_strategy=generation_strategy,
                 generator_runs=new_generator_runs,
                 encoder=self.db_settings.encoder,
+                decoder=self.db_settings.decoder,
             )
             logger.debug(
                 f"Updated generation strategy {generation_strategy.name} in "

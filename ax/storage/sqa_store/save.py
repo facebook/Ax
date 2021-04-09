@@ -230,10 +230,12 @@ def update_generation_strategy(
     (using default SQAConfig)."""
     config = config or SQAConfig()
     encoder = Encoder(config=config)
+    decoder = Decoder(config=config)
     _update_generation_strategy(
         generation_strategy=generation_strategy,
         generator_runs=generator_runs,
         encoder=encoder,
+        decoder=decoder,
     )
 
 
@@ -241,6 +243,7 @@ def _update_generation_strategy(
     generation_strategy: GenerationStrategy,
     generator_runs: List[GeneratorRun],
     encoder: Encoder,
+    decoder: Decoder,
 ) -> None:
     """Update generation strategy's current step and attach generator runs."""
     gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
@@ -266,8 +269,6 @@ def _update_generation_strategy(
                 "experiment_id": experiment_id,
             }
         )
-
-    decoder = Decoder(config=encoder.config)
 
     def add_generation_strategy_id(sqa: SQAGeneratorRun):
         sqa.generation_strategy_id = gs_id
