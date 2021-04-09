@@ -6,7 +6,7 @@
 
 import os
 from inspect import signature
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
@@ -201,24 +201,29 @@ def _save_or_update_trials(
     def add_experiment_id(sqa: Union[SQATrial, SQAData]):
         sqa.experiment_id = experiment_id
 
-    for trial in trials:
-        _merge_into_session(
-            obj=trial,
-            encode_func=encoder.trial_to_sqa,
-            decode_func=decoder.trial_from_sqa,
-            decode_args={"experiment": experiment},
-            modify_sqa=add_experiment_id,
-        )
+    _bulk_merge_into_session(
+        objs=trials,
+        encode_func=encoder.trial_to_sqa,
+        decode_func=decoder.trial_from_sqa,
+        decode_args_list=[{"experiment": experiment} for _ in range(len(trials))],
+        modify_sqa=add_experiment_id,
+    )
 
-        datas = experiment.data_by_trial.get(trial.index, {})
-        for ts, data in datas.items():
-            _merge_into_session(
-                obj=data,
-                encode_func=encoder.data_to_sqa,
-                decode_func=decoder.data_from_sqa,
-                encode_args={"trial_index": trial.index, "timestamp": ts},
-                modify_sqa=add_experiment_id,
-            )
+    datas = []
+    data_encode_args = []
+    for trial in trials:
+        trial_datas = experiment.data_by_trial.get(trial.index, {})
+        for ts, data in trial_datas.items():
+            datas.append(data)
+            data_encode_args.append({"trial_index": trial.index, "timestamp": ts})
+
+    _bulk_merge_into_session(
+        objs=datas,
+        encode_func=encoder.data_to_sqa,
+        decode_func=decoder.data_from_sqa,
+        encode_args_list=data_encode_args,
+        modify_sqa=add_experiment_id,
+    )
 
 
 def update_generation_strategy(
@@ -273,13 +278,12 @@ def _update_generation_strategy(
     def add_generation_strategy_id(sqa: SQAGeneratorRun):
         sqa.generation_strategy_id = gs_id
 
-    for generator_run in generator_runs:
-        _merge_into_session(
-            obj=generator_run,
-            encode_func=encoder.generator_run_to_sqa,
-            decode_func=decoder.generator_run_from_sqa,
-            modify_sqa=add_generation_strategy_id,
-        )
+    _bulk_merge_into_session(
+        objs=generator_runs,
+        encode_func=encoder.generator_run_to_sqa,
+        decode_func=decoder.generator_run_from_sqa,
+        modify_sqa=add_generation_strategy_id,
+    )
 
 
 def update_runner_on_experiment(
@@ -329,10 +333,8 @@ def _merge_into_session(
     5. Decode `new_sqa` into a new user-facing object `new_obj`
     6. Copy db_ids from `new_obj` to the originally passed-in `obj`
     """
-    if encode_func_returns_obj_to_sqa(encode_func=encode_func):
-        sqa, _ = encode_func(obj, **(encode_args or {}))
-    else:
-        sqa = encode_func(obj, **(encode_args or {}))
+    encode_func = _standardize_encode_func(encode_func=encode_func)
+    sqa = encode_func(obj, **(encode_args or {}))
 
     if modify_sqa is not None:
         modify_sqa(sqa=sqa)
@@ -342,20 +344,52 @@ def _merge_into_session(
         session.flush()
 
     new_obj = decode_func(new_sqa, **(decode_args or {}))
-
-    try:
-        copy_db_ids(new_obj, obj, [])
-    except SQADecodeError as e:
-        # Raise these warnings in unittests only
-        if os.environ.get("TESTENV"):
-            raise e
-        logger.warning(
-            "Error encountered when copying db_ids back to user-facing object. "
-            "This might cause issues if you re-save this experiment. "
-            f"Exception: {e}"
-        )
+    _copy_db_ids_if_possible(obj=obj, new_obj=new_obj)
 
     return new_sqa
+
+
+def _bulk_merge_into_session(
+    objs: Sequence[Base],
+    encode_func: Callable,
+    decode_func: Callable,
+    encode_args_list: Optional[Union[List[None], List[Dict[str, Any]]]] = None,
+    decode_args_list: Optional[Union[List[None], List[Dict[str, Any]]]] = None,
+    modify_sqa: Optional[Callable] = None,
+) -> List[SQABase]:
+    """Bulk version of _merge_into_session.
+
+    Takes in a list of objects to merge into the session together
+    (i.e. within one session scope), along with corresponding (but optional)
+    lists of encode and decode arguments.
+    """
+    encode_func = _standardize_encode_func(encode_func=encode_func)
+    encode_args_list = encode_args_list or [None for _ in range(len(objs))]
+    decode_args_list = decode_args_list or [None for _ in range(len(objs))]
+
+    sqas = []
+    for obj, encode_args in zip(objs, encode_args_list):
+        sqa = encode_func(obj, **(encode_args or {}))
+        if modify_sqa is not None:
+            modify_sqa(sqa=sqa)
+        sqas.append(sqa)
+
+    new_sqas = []
+    with session_scope() as session:
+        for sqa in sqas:
+            new_sqa = session.merge(sqa)
+            new_sqas.append(new_sqa)
+        session.flush()
+
+    new_objs = []
+    for new_sqa, decode_args in zip(new_sqas, decode_args_list):
+        new_obj = decode_func(new_sqa, **(decode_args or {}))
+        new_objs.append(new_obj)
+
+    for obj, new_obj in zip(objs, new_objs):
+        _copy_db_ids_if_possible(obj=obj, new_obj=new_obj)
+
+    return new_sqas
 
 
 def encode_func_returns_obj_to_sqa(encode_func: Callable) -> bool:
@@ -369,3 +403,35 @@ def encode_func_returns_obj_to_sqa(encode_func: Callable) -> bool:
     return (getattr(encode_func_return_type, "_name", "") == "Tuple") and (
         T_OBJ_TO_SQA in getattr(encode_func_return_type, "__args__", ())
     )
+
+
+def _standardize_encode_func(encode_func: Callable) -> Callable:
+    """Some encoding functions return both the encoded object and `obj_to_sqa`.
+    This function checks the type of `encode_func` to determine whether
+    it is one of such functions, and if so, "converts" it into a function that
+    just returns the encoded object (and discards `obj_to_sqa`).
+    """
+    if encode_func_returns_obj_to_sqa(encode_func=encode_func):
+
+        def modified_encode_func(obj, **kwargs):
+            sqa, _ = encode_func(obj, **kwargs)
+            return sqa
+
+        return modified_encode_func
+
+    return encode_func
+
+
+def _copy_db_ids_if_possible(new_obj: Any, obj: Any) -> None:
+    """Wraps _copy_db_ids in a try/except, and logs warnings on error."""
+    try:
+        copy_db_ids(new_obj, obj, [])
+    except SQADecodeError as e:
+        # Raise these warnings in unittests only
+        if os.environ.get("TESTENV"):
+            raise e
+        logger.warning(
+            "Error encountered when copying db_ids back to user-facing object. "
+            "This might cause issues if you re-save this experiment. "
+            f"Exception: {e}"
+        )
