@@ -63,3 +63,11 @@ Noisy Function Map
     :members:
     :undoc-members:
     :show-inheritance:
+
+Sklearn
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.metrics.sklearn
+    :members:
+    :undoc-members:
+    :show-inheritance:

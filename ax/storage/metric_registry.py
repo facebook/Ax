@@ -11,6 +11,7 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.noisy_function import NoisyFunctionMetric
+from ax.metrics.sklearn import SklearnMetric
 from ax.storage.json_store.encoders import metric_to_dict
 from ax.storage.json_store.registry import DECODER_REGISTRY, ENCODER_REGISTRY
 
@@ -30,6 +31,7 @@ METRIC_REGISTRY: Dict[Type[Metric], int] = {
     BraninMetric: 2,
     NoisyFunctionMetric: 3,
     Hartmann6Metric: 4,
+    SklearnMetric: 5,
 }
 
 REVERSE_METRIC_REGISTRY: Dict[int, Type[Metric]] = {
