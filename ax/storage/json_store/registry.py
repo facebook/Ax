@@ -44,6 +44,7 @@ from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
+from ax.metrics.sklearn import SklearnMetric, SklearnDataset, SklearnModelType
 from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
@@ -117,6 +118,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,
+    SklearnMetric: metric_to_dict,
     NegativeBraninMetric: metric_to_dict,
     NoisyFunctionMetric: metric_to_dict,
     Objective: objective_to_dict,
@@ -195,6 +197,9 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "SearchSpace": SearchSpace,
     "SimpleBenchmarkProblem": SimpleBenchmarkProblem,
     "SimpleExperiment": SimpleExperiment,
+    "SklearnDataset": SklearnDataset,
+    "SklearnMetric": SklearnMetric,
+    "SklearnModelType": SklearnModelType,
     "SumConstraint": SumConstraint,
     "Surrogate": Surrogate,
     "SyntheticRunner": SyntheticRunner,

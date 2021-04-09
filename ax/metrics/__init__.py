@@ -7,6 +7,7 @@
 # flake8: noqa F401
 from ax.metrics.branin import BraninMetric
 from ax.metrics.factorial import FactorialMetric
+from ax.metrics.sklearn import SklearnMetric
 
 
-__all__ = ["BraninMetric", "FactorialMetric"]
+__all__ = ["BraninMetric", "FactorialMetric", "SklearnMetric"]
