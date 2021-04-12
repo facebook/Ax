@@ -124,11 +124,13 @@ class GenerationStep(SortableBase):
         # so we use Models member (str) value if former and function name if latter.
         if isinstance(self.model, ModelRegistryBase):
             return checked_cast(str, checked_cast(ModelRegistryBase, self.model).value)
-        if callable(self.model):
+        try:
+            # `model` is defined via a factory function.
             return self.model.__name__  # pyre-fixme[16]: union has no attr __name__
-        raise TypeError(  # pragma: no cover
-            "`model` was not a member of `Models` or a callable."
-        )
+        except Exception:
+            raise TypeError(  # pragma: no cover
+                f"`model` {self.model} was not a member of `Models` or a function."
+            )
 
     @property
     def _unique_id(self) -> str:
@@ -410,7 +412,7 @@ class GenerationStrategy(Base):
             **kwargs,
         )[0]
 
-    def clone_reset(self) -> "GenerationStrategy":
+    def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""
         return GenerationStrategy(name=self.name, steps=self._steps)
 
@@ -422,8 +424,12 @@ class GenerationStrategy(Base):
             num_trials = (
                 f"{step.num_trials}" if step.num_trials != -1 else remaining_trials
             )
-            if isinstance(step.model, Models):
-                repr += f"{step.model_name} for {num_trials} trials, "
+            try:
+                model_name = step.model_name
+            except TypeError:
+                model_name = "model with unknown name"
+
+            repr += f"{model_name} for {num_trials} trials, "
         repr = repr[:-2]
         repr += "])"
         return repr
@@ -683,7 +689,7 @@ class GenerationStrategy(Base):
         """Instantiate the current model, provided through a callable factory
         function, with the provided data and kwargs."""
         model = self._curr.model
-        assert not isinstance(model, Models) and callable(model)
+        assert not isinstance(model, ModelRegistryBase) and callable(model)
         self._model = self._curr.model(
             **_filter_kwargs(
                 self._curr.model,
