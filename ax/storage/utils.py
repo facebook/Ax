@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import enum
-from typing import Dict, List, NamedTuple
 
 from ax.core.experiment import DataType  # noqa F401
 
@@ -42,15 +41,3 @@ class ParameterConstraintType(enum.Enum):
     LINEAR: int = 0
     ORDER: int = 1
     SUM: int = 2
-
-
-class EncodeDecodeFieldsMap(NamedTuple):
-    python_only: List[str] = []
-    encoded_only: List[str] = []
-    python_to_encoded: Dict[str, str] = {}
-
-
-def remove_prefix(text, prefix):
-    if text.startswith(prefix):
-        return text[len(prefix) :]
-    return text

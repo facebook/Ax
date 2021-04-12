@@ -6,7 +6,6 @@
 
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
-from ax.storage.utils import EncodeDecodeFieldsMap
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
     get_arm,
