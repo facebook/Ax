@@ -28,7 +28,6 @@ from ax.storage.json_store.registry import CLASS_ENCODER_REGISTRY
 from ax.storage.json_store.save import save_experiment
 from ax.storage.metric_registry import register_metric
 from ax.storage.runner_registry import register_runner
-from ax.storage.utils import EncodeDecodeFieldsMap, remove_prefix
 from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import ackley, branin, from_botorch
 from ax.utils.testing.benchmark_stubs import (
@@ -143,125 +142,6 @@ TEST_CASES = [
     ("Trial", get_trial),
 ]
 
-# This map records discrepancies between Python and JSON representations,
-# so that we can validate that the JSON representation is complete
-# -- Sometimes a field appears in the Python object but not the JSON
-#    (because it is not strictly necessary to store)
-# -- Sometimes a field appears in both places but with different names
-#    (because the name used by JSON is the name used by the constructor,
-#    might not be the same used by the attribute)
-ENCODE_DECODE_FIELD_MAPS = {
-    "Experiment": EncodeDecodeFieldsMap(
-        python_only=[
-            "arms_by_signature",
-            "arms_by_name",
-            "trial_indices_by_status",
-            "trials_have_ttl",
-        ]
-    ),
-    "BatchTrial": EncodeDecodeFieldsMap(
-        python_only=[
-            "experiment",
-            "arms_by_name",
-            "status_quo_arm_db_id",
-            "status_quo_generator_run_db_id",
-        ],
-        python_to_encoded={"BaseTrial__status": "status"},
-    ),
-    "SimpleBenchmarkProblem": EncodeDecodeFieldsMap(encoded_only=["function_name"]),
-    "GenerationStrategy": EncodeDecodeFieldsMap(
-        python_only=["uses_registered_models", "seen_trial_indices_by_status"],
-        encoded_only=["had_initialized_model", "db_id"],
-        python_to_encoded={"curr": "curr_index"},
-    ),
-    "GeneratorRun": EncodeDecodeFieldsMap(
-        encoded_only=["arms", "weights"], python_only=["arm_weight_table"]
-    ),
-    "ListSurrogate": EncodeDecodeFieldsMap(
-        python_only=["model_options", "botorch_model_class"]
-    ),
-    "MultiTypeExperiment": EncodeDecodeFieldsMap(
-        python_only=[
-            "arms_by_signature",
-            "arms_by_name",
-            "metric_to_canonical_name",
-            "metric_to_trial_type",
-            "trial_indices_by_status",
-            "trials_have_ttl",
-            "trial_type_to_runner",
-        ],
-        encoded_only=[
-            "_metric_to_canonical_name",
-            "_metric_to_trial_type",
-            "_trial_type_to_runner",
-        ],
-    ),
-    "OrderConstraint": EncodeDecodeFieldsMap(
-        python_only=["bound"],
-        python_to_encoded={
-            "lower_parameter": "lower_name",
-            "upper_parameter": "upper_name",
-        },
-    ),
-    "SimpleExperiment": EncodeDecodeFieldsMap(
-        python_only=[
-            "arms_by_signature",
-            "arms_by_name",
-            "evaluation_function",
-            "trial_indices_by_status",
-            "trials_have_ttl",
-        ]
-    ),
-    "SumConstraint": EncodeDecodeFieldsMap(
-        python_only=["constraint_dict", "parameters"]
-    ),
-    "Trial": EncodeDecodeFieldsMap(
-        python_only=["experiment"], python_to_encoded={"BaseTrial__status": "status"}
-    ),
-    "Type[Acquisition]": EncodeDecodeFieldsMap(
-        python_only=["_module__", "_doc__", "default_botorch_acqf_class"],
-        encoded_only=["index", "class"],
-    ),
-    "Type[AcquisitionFunction]": EncodeDecodeFieldsMap(
-        python_only=[
-            "_module__",
-            "_doc__",
-            "_init__",
-            "_abstractmethods__",
-            "forward",
-            "abc_impl",
-        ],
-        encoded_only=["index", "class"],
-    ),
-    "Type[Model]": EncodeDecodeFieldsMap(
-        python_only=[
-            "_module__",
-            "_doc__",
-            "_init__",
-            "_abstractmethods__",
-            "forward",
-            "construct_inputs",
-            "abc_impl",
-        ],
-        encoded_only=["index", "class"],
-    ),
-    "Type[MarginalLogLikelihood]": EncodeDecodeFieldsMap(
-        python_only=["_module__", "_doc__", "_init__", "forward", "pyro_factor"],
-        encoded_only=["index", "class"],
-    ),
-    "Type[Transform]": EncodeDecodeFieldsMap(
-        python_only=[
-            "transform_observation_features",
-            "_module__",
-            "_init__",
-            "_doc__",
-            "transform_search_space",
-            "untransform_observation_features",
-        ],
-        encoded_only=["transform_type", "index_in_registry"],
-    ),
-}
-
 
 class JSONStoreTest(TestCase):
     def setUp(self):
@@ -318,50 +198,6 @@ class JSONStoreTest(TestCase):
                 original_object,
                 converted_object,
                 msg=f"Error encoding/decoding {class_}.",
-            )
-
-    def testEncoders(self):
-        for class_, fake_func in TEST_CASES:
-            original_object = fake_func()
-
-            # We can skip metrics and runners; the encoders will automatically
-            # handle the addition of new fields to these classes
-            if isinstance(original_object, Metric) or isinstance(
-                original_object, Runner
-            ):
-                continue
-
-            json_object = object_to_json(original_object)
-
-            object_keys = {
-                remove_prefix(key, "_") for key in original_object.__dict__.keys()
-            }
-            json_keys = {key for key in json_object.keys() if key != "__type"}
-
-            # Account for fields that appear in the Python object but not the JSON
-            # and for fields that appear in both places but with different names
-            if class_ in ENCODE_DECODE_FIELD_MAPS:
-                map = ENCODE_DECODE_FIELD_MAPS[class_]
-                for field in map.python_only:
-                    json_keys.add(field)
-                for field in map.encoded_only:
-                    object_keys.add(field)
-                for python, encoded in map.python_to_encoded.items():
-                    json_keys.remove(encoded)
-                    json_keys.add(python)
-            # TODO: Remove this check if able. `_slotnames__` is not a class attribute
-            # when testing locally, but it is a class attribute on Travis
-            if class_ == "Type[Model]":
-                object_keys.discard("_slotnames__")
-            if class_ == "Type[MarginalLogLikelihood]":
-                object_keys.discard("add_other_terms")
-            self.assertEqual(
-                object_keys,
-                json_keys,
-                msg=(
-                    f"Mismatch between Python and JSON representation in {class_}."
-                    f"Python: {object_keys} does not match JSON: {json_keys}."
-                ),
             )
 
     def testEncodeDecodeTorchTensor(self):
