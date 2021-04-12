@@ -60,13 +60,11 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.sqa_store.tests.utils import ENCODE_DECODE_FIELD_MAPS, TEST_CASES
-from ax.storage.sqa_store.utils import is_foreign_key_field
+from ax.storage.sqa_store.tests.utils import TEST_CASES
 from ax.storage.utils import (
     DomainType,
     MetricIntent,
     ParameterConstraintType,
-    remove_prefix,
 )
 from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
@@ -415,55 +413,6 @@ class SQAStoreTest(TestCase):
                 original_object,
                 converted_object,
                 msg=f"Error encoding/decoding {class_}.",
-            )
-
-    def testEncoders(self):
-        for class_, fake_func, unbound_encode_func, _ in TEST_CASES:
-            original_object = fake_func()
-
-            # We can skip metrics and runners; the encoders will automatically
-            # handle the addition of new fields to these classes
-            if isinstance(original_object, Metric) or isinstance(
-                original_object, Runner
-            ):
-                continue
-
-            encode_func = unbound_encode_func.__get__(self.encoder)
-            sqa_object = encode_func(original_object)
-            if encode_func_returns_obj_to_sqa(encode_func=encode_func):
-                # Some encoding functions returns two things, of which for
-                # encoding we only care about the first.
-                sqa_object = sqa_object[0]
-
-            object_keys = original_object.__dict__.keys()
-            object_keys = {remove_prefix(key, "_") for key in object_keys}
-            sqa_keys = {
-                remove_prefix(key, "_")
-                for key in sqa_object.attributes
-                if key not in ["id", "_sa_instance_state"]
-                and not is_foreign_key_field(key)
-            }
-
-            # Account for fields that appear in the Python object but not the SQA
-            # the SQA but not the Python, and for fields that appear in both places
-            # but with different names
-            if class_ in ENCODE_DECODE_FIELD_MAPS:
-                map = ENCODE_DECODE_FIELD_MAPS[class_]
-                for field in map.python_only:
-                    sqa_keys.add(field)
-                for field in map.encoded_only:
-                    object_keys.add(field)
-                for python, encoded in map.python_to_encoded.items():
-                    sqa_keys.remove(encoded)
-                    sqa_keys.add(python)
-
-            self.assertEqual(
-                object_keys,
-                sqa_keys,
-                msg=(
-                    f"Mismatch between Python and SQA representation in {class_}."
-                    f"Python: {object_keys} does not match SQA: {sqa_keys}."
-                ),
             )
 
     def testExperimentUpdates(self):
