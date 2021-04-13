@@ -328,6 +328,13 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         )
         self._objective_thresholds = objective_thresholds
 
+    @property
+    def objective_thresholds_dict(self) -> Dict[str, ObjectiveThreshold]:
+        """Get a mapping from objective metric name to the corresponding
+        threshold.
+        """
+        return {ot.metric.name: ot for ot in self._objective_thresholds}
+
     @staticmethod
     def _validate_optimization_config(
         objective: Objective,
