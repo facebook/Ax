@@ -264,31 +264,41 @@ def exp_to_df(
     results = exp.fetch_data(metrics, **kwargs).df
     if len(results.index) == 0:  # Handle empty case
         return results
+
+    # create key column from key_components
     key_col = "-".join(key_components)
     key_vals = results[key_components[0]].astype("str")
     for key in key_components[1:]:
         key_vals = key_vals + results[key].astype("str")
     results[key_col] = key_vals
 
+    # pivot dataframe from long to wide
     metric_vals = results.pivot(
         index=key_col, columns="metric_name", values="mean"
     ).reset_index()
+
+    # dedupe results by key_components
     metadata = results[key_components + [key_col]].drop_duplicates()
     metric_and_metadata = pd.merge(metric_vals, metadata, on=key_col)
+
+    # get params of each arm and merge with deduped results
     arm_names_and_params = pd.DataFrame(
         [{"arm_name": name, **arm.parameters} for name, arm in exp.arms_by_name.items()]
     )
-
     exp_df = pd.merge(metric_and_metadata, arm_names_and_params, on="arm_name")
+
+    # add trial status
     trials = exp.trials.items()
     trial_to_status = {index: trial.status.name for index, trial in trials}
     exp_df["trial_status"] = [trial_to_status[key] for key in exp_df.trial_index]
 
+    # if no run_metadata fields are requested, return exp_df so far
     if run_metadata_fields is None:
-        return prep_return(exp_df, key_col, key_components)
+        return prep_return(df=exp_df, drop_col=key_col, sort_by=key_components)
     if not isinstance(run_metadata_fields, list):
         raise ValueError("run_metadata_fields must be List[str] or None.")
 
+    # add additional run_metadata fields
     for field in run_metadata_fields:
         trial_to_metadata_field = {
             index: (trial.run_metadata[field] if field in trial.run_metadata else None)
@@ -306,7 +316,7 @@ def exp_to_df(
                 f"Field {field} missing for all trials' run_metadata. "
                 "Not appending column."
             )
-    return prep_return(exp_df, key_col, key_components)
+    return prep_return(df=exp_df, drop_col=key_col, sort_by=key_components)
 
 
 def get_best_trial(
