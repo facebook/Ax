@@ -221,40 +221,7 @@ class AxClient(WithDBSettingsBase):
                 for trials that are still running (i.e. have not been completed via
                 `ax_client.complete_trial`).
         """
-        if self.db_settings_set and not name:
-            raise ValueError(  # pragma: no cover
-                "Must give the experiment a name if `db_settings` is not None."
-            )
-        if self.db_settings_set:
-            experiment_id, _ = self._get_experiment_and_generation_strategy_db_id(
-                experiment_name=not_none(name)
-            )
-            if experiment_id:
-                raise ValueError(
-                    f"Experiment {name} already exists in the database. "
-                    "To protect experiments that are running in production, "
-                    "overwriting stored experiments is not allowed. To "
-                    "start a new experiment and store it, change the "
-                    "experiment's name."
-                )
-        if self._experiment is not None:
-            if overwrite_existing_experiment:
-                exp_name = self.experiment._name or "untitled"
-                new_exp_name = name or "untitled"
-                logger.info(
-                    f"Overwriting existing experiment ({exp_name}) on this client "
-                    f"with new experiment ({new_exp_name}) and restarting the "
-                    "generation strategy."
-                )
-                self._generation_strategy = None
-            else:
-                raise ValueError(
-                    "Experiment already created for this client instance. "
-                    "Set the `overwrite_existing_experiment` to `True` to overwrite "
-                    "with new experiment."
-                )
-
-        self._experiment = make_experiment(
+        experiment = make_experiment(
             name=name,
             parameters=parameters,
             objective_name=objective_name,
@@ -266,21 +233,10 @@ class AxClient(WithDBSettingsBase):
             tracking_metric_names=tracking_metric_names,
             support_intermediate_data=support_intermediate_data,
         )
-
-        try:
-            self._save_experiment_to_db_if_possible(
-                experiment=self.experiment,
-                suppress_all_errors=self._suppress_storage_errors,
-            )
-        except Exception:
-            # Unset the experiment on this `AxClient` instance if encountered and
-            # raising an error from saving the experiment, to avoid a case where
-            # overall `create_experiment` call fails with a storage error, but
-            # `self._experiment` is still set and user has to specify the
-            # `ooverwrite_existing_experiment` kwarg to re-attempt exp. creation.
-            self._experiment = None
-            raise
-
+        self._set_experiment(
+            experiment=experiment,
+            overwrite_existing_experiment=overwrite_existing_experiment,
+        )
         self._set_generation_strategy(
             choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
         )
@@ -956,6 +912,71 @@ class AxClient(WithDBSettingsBase):
         return str(
             _round_floats_for_logging(item=evaluations[next(iter(evaluations.keys()))])
         )
+
+    def _set_experiment(
+        self,
+        experiment: Experiment,
+        overwrite_existing_experiment: bool = False,
+    ) -> None:
+        """Sets the ``_experiment`` attribute on this `AxClient`` instance and saves the
+        experiment if this instance uses SQL storage.
+
+        NOTE: This setter **should not be used outside of this file in production**.
+        It can be leveraged in development, but all checked-in code that uses the
+        Service API should leverage ``AxClient.create_experiment`` instead and extend it
+        as needed. If using ``create_experiment`` is impossible and this setter is
+        required, please raise your use case to the AE team or on our Github.
+        """
+        name = experiment._name
+
+        if self.db_settings_set and not name:
+            raise ValueError(  # pragma: no cover
+                "Must give the experiment a name if `db_settings` is not None."
+            )
+        if self.db_settings_set:
+            experiment_id, _ = self._get_experiment_and_generation_strategy_db_id(
+                experiment_name=not_none(name)
+            )
+            if experiment_id:
+                raise ValueError(
+                    f"Experiment {name} already exists in the database. "
+                    "To protect experiments that are running in production, "
+                    "overwriting stored experiments is not allowed. To "
+                    "start a new experiment and store it, change the "
+                    "experiment's name."
+                )
+        if self._experiment is not None:
+            if overwrite_existing_experiment:
+                exp_name = self.experiment._name or "untitled"
+                new_exp_name = name or "untitled"
+                logger.info(
+                    f"Overwriting existing experiment ({exp_name}) on this client "
+                    f"with new experiment ({new_exp_name}) and restarting the "
+                    "generation strategy."
+                )
+                self._generation_strategy = None
+            else:
+                raise ValueError(
+                    "Experiment already created for this client instance. "
+                    "Set the `overwrite_existing_experiment` to `True` to overwrite "
+                    "with new experiment."
+                )
+
+        self._experiment = experiment
+
+        try:
+            self._save_experiment_to_db_if_possible(
+                experiment=self.experiment,
+                suppress_all_errors=self._suppress_storage_errors,
+            )
+        except Exception:
+            # Unset the experiment on this `AxClient` instance if encountered and
+            # raising an error from saving the experiment, to avoid a case where
+            # overall `create_experiment` call fails with a storage error, but
+            # `self._experiment` is still set and user has to specify the
+            # `ooverwrite_existing_experiment` kwarg to re-attempt exp. creation.
+            self._experiment = None
+            raise
 
     def _set_generation_strategy(
         self, choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None
