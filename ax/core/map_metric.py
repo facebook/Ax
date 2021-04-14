@@ -130,5 +130,8 @@ class MapMetric(Metric):
         available on experiment) will be attached to experiment.
         """
         return super().lookup_or_fetch_experiment_data_multi(
-            experiment=experiment, metrics=metrics, trials=trials, **kwargs
+            experiment=experiment,
+            metrics=metrics,
+            trials=trials,
+            **kwargs,
         )

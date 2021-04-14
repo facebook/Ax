@@ -338,7 +338,7 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(ValueError, "Raw data has an invalid type"):
             ax_client.update_trial_data(trial_index, raw_data="invalid_data")
 
-    def test_raw_data_format_with_fidelities(self):
+    def test_raw_data_format_with_map_results(self):
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
@@ -346,6 +346,7 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
             ],
             minimize=True,
+            support_intermediate_data=True,
         )
         for _ in range(6):
             parameterization, trial_index = ax_client.get_next_trial()
@@ -388,6 +389,58 @@ class TestAxClient(TestCase):
         self.assertFalse(ax_client.generation_strategy._steps[1].max_parallelism, None)
         for _ in range(10):
             parameterization, trial_index = ax_client.get_next_trial()
+
+    def test_update_running_trial_with_intermediate_data(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
+            ],
+            minimize=True,
+            support_intermediate_data=True,
+        )
+        parameterization, trial_index = ax_client.get_next_trial()
+        # Launch Trial and update it 3 times with additional data.
+        for t in range(3):
+            x, y = parameterization.get("x"), parameterization.get("y")
+            if t < 2:
+                ax_client.update_running_trial_with_intermediate_data(
+                    0,
+                    raw_data=[
+                        ({"t": p_t}, {"objective": (branin(x, y) + t, 0.0)})
+                        for p_t in range(t + 1)
+                    ],
+                )
+            if t == 2:
+                ax_client.complete_trial(
+                    0,
+                    raw_data=[
+                        ({"t": p_t}, {"objective": (branin(x, y) + t, 0.0)})
+                        for p_t in range(t + 1)
+                    ],
+                )
+            current_data = ax_client.experiment.fetch_data().df
+            self.assertEqual(len(current_data), 0 if t < 2 else 3)
+
+        no_intermediate_data_ax_client = AxClient()
+        no_intermediate_data_ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
+            ],
+            minimize=True,
+            support_intermediate_data=False,
+        )
+        parameterization, trial_index = no_intermediate_data_ax_client.get_next_trial()
+        with self.assertRaises(ValueError):
+            no_intermediate_data_ax_client.update_running_trial_with_intermediate_data(
+                0,
+                raw_data=[
+                    ({"t": p_t}, {"objective": (branin(x, y) + t, 0.0)})
+                    for p_t in range(t + 1)
+                ],
+            )
 
     def test_trial_completion(self):
         ax_client = AxClient()

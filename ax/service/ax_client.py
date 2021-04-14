@@ -12,11 +12,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, Type
 import ax.service.utils.best_point as best_point_utils
 import numpy as np
 import pandas as pd
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
-from ax.core.experiment import Experiment
+from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
 from ax.core.types import (
@@ -169,6 +169,7 @@ class AxClient(WithDBSettingsBase):
         experiment_type: Optional[str] = None,
         tracking_metric_names: Optional[List[str]] = None,
         choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None,
+        support_intermediate_data: Optional[bool] = False,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -216,6 +217,9 @@ class AxClient(WithDBSettingsBase):
             choose_generation_strategy_kwargs: Keyword arguments to pass to
                 `choose_generation_strategy` function which determines what
                 generation strategy should be used when none was specified on init.
+            support_intermediate_data: Whether trials may report intermediate results
+                for trials that are still running (i.e. have not been completed via
+                `ax_client.complete_trial`).
         """
         if self.db_settings_set and not name:
             raise ValueError(  # pragma: no cover
@@ -260,6 +264,7 @@ class AxClient(WithDBSettingsBase):
             status_quo=status_quo,
             experiment_type=experiment_type,
             tracking_metric_names=tracking_metric_names,
+            support_intermediate_data=support_intermediate_data,
         )
 
         try:
@@ -338,6 +343,63 @@ class AxClient(WithDBSettingsBase):
         trial = self._get_trial(trial_index=trial_index)
         trial.mark_abandoned(reason=reason)
 
+    def update_running_trial_with_intermediate_data(
+        self,
+        trial_index: int,
+        raw_data: TEvaluationOutcome,
+        metadata: Optional[Dict[str, Union[str, int]]] = None,
+        sample_size: Optional[int] = None,
+    ) -> None:
+        """
+        Updates the trial with given metric values without completing it. Also
+        adds optional metadata to it. Useful for intermediate results like
+        the metrics of a partially optimized machine learning model. In these
+        cases it should be called instead of `complete_trial` until it is
+        time to complete the trial.
+
+        NOTE: When ``raw_data`` does not specify SEM for a given metric, Ax
+        will default to the assumption that the data is noisy (specifically,
+        corrupted by additive zero-mean Gaussian noise) and that the
+        level of noise should be inferred by the optimization model. To
+        indicate that the data is noiseless, set SEM to 0.0, for example:
+
+        .. code-block:: python
+
+          ax_client.update_trial(
+              trial_index=0,
+              raw_data={"my_objective": (objective_mean_value, 0.0)}
+          )
+
+        Args:
+            trial_index: Index of trial within the experiment.
+            raw_data: Evaluation data for the trial. Can be a mapping from
+                metric name to a tuple of mean and SEM, just a tuple of mean and
+                SEM if only one metric in optimization, or just the mean if SEM is
+                unknown (then Ax will infer observation noise level).
+                Can also be a list of (fidelities, mapping from
+                metric name to a tuple of mean and SEM).
+            metadata: Additional metadata to track about this run.
+            sample_size: Number of samples collected for the underlying arm,
+                optional.
+        """
+        if not isinstance(trial_index, int):  # pragma: no cover
+            raise ValueError(f"Trial index must be an int, got: {trial_index}.")
+        if not self.experiment.default_data_type == DataType.MAP_DATA:
+            raise ValueError(
+                "`update_running_trial_with_intermediate_data` requires that "
+                "this client's `experiment` be constructed with "
+                "`support_intermediate_data=True` and have `default_data_type` of "
+                "`DataType.MAP_DATA`."
+            )
+        # TODO(jej)[T86911509]: Add support for efficient updates with single results.
+        data_update_repr = self._update_trial_with_raw_data(
+            trial_index=trial_index,
+            raw_data=raw_data,
+            metadata=metadata,
+            sample_size=sample_size,
+        )
+        logger.info(f"Updated trial {trial_index} with data: " f"{data_update_repr}.")
+
     def complete_trial(
         self,
         trial_index: int,
@@ -375,33 +437,18 @@ class AxClient(WithDBSettingsBase):
                 optional.
         """
         # Validate that trial can be completed.
-        if not isinstance(trial_index, int):  # pragma: no cover
-            raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         trial = self._get_trial(trial_index=trial_index)
         self._validate_can_complete_trial(trial=trial)
-
-        # Format the data to save.
-        sample_sizes = {not_none(trial.arm).name: sample_size} if sample_size else {}
-        evaluations, data = self._make_evaluations_and_data(
-            trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
+        if not isinstance(trial_index, int):  # pragma: no cover
+            raise ValueError(f"Trial index must be an int, got: {trial_index}.")
+        data_update_repr = self._update_trial_with_raw_data(
+            trial_index=trial_index,
+            raw_data=raw_data,
+            metadata=metadata,
+            sample_size=sample_size,
+            complete_trial=True,
         )
-        self._validate_trial_data(trial=trial, data=data)
-        trial._run_metadata = metadata or {}
-
-        self.experiment.attach_data(data=data)
-        trial.mark_completed()
-        data_for_logging = _round_floats_for_logging(
-            item=evaluations[next(iter(evaluations.keys()))]
-        )
-        logger.info(
-            f"Completed trial {trial_index} with data: "
-            f"{_round_floats_for_logging(item=data_for_logging)}."
-        )
-        self._save_updated_trial_to_db_if_possible(
-            experiment=self.experiment,
-            trial=trial,
-            suppress_all_errors=self._suppress_storage_errors,
-        )
+        logger.info(f"Completed trial {trial_index} with data: " f"{data_update_repr}.")
 
     def update_trial_data(
         self,
@@ -426,22 +473,21 @@ class AxClient(WithDBSettingsBase):
             sample_size: Number of samples collected for the underlying arm,
                 optional.
         """
-        assert isinstance(
-            trial_index, int
-        ), f"Trial index must be an int, got: {trial_index}."  # pragma: no cover
+        if not isinstance(trial_index, int):  # pragma: no cover
+            raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         trial = self._get_trial(trial_index=trial_index)
         if not trial.status.is_completed:
             raise ValueError(
                 f"Trial {trial.index} has not yet been completed with data."
                 "To complete it, use `ax_client.complete_trial`."
             )
-        sample_sizes = {not_none(trial.arm).name: sample_size} if sample_size else {}
-        evaluations, data = self._make_evaluations_and_data(
-            trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
+        data_update_repr = self._update_trial_with_raw_data(
+            trial_index=trial_index,
+            raw_data=raw_data,
+            metadata=metadata,
+            sample_size=sample_size,
+            combine_with_last_data=True,
         )
-        self._validate_trial_data(trial=trial, data=data)
-        trial._run_metadata.update(metadata or {})
-
         # Registering trial data update is needed for generation strategies that
         # leverage the `update` functionality of model and bridge setup and therefore
         # need to be aware of new data added to experiment. Usually this happends
@@ -449,19 +495,8 @@ class AxClient(WithDBSettingsBase):
         # status does not change, so we manually register the new data.
         # Currently this call will only result in a `NotImplementedError` if generation
         # strategy uses `update` (`GenerationStep.use_update` is False by default).
-        self.generation_strategy._register_trial_data_update(trial=trial, data=data)
-        self.experiment.attach_data(data, combine_with_last_data=True)
-        data_for_logging = _round_floats_for_logging(
-            item=evaluations[next(iter(evaluations.keys()))]
-        )
-        logger.info(
-            f"Added data: {_round_floats_for_logging(item=data_for_logging)} "
-            f"to trial {trial.index}."
-        )
-        self._save_experiment_to_db_if_possible(
-            experiment=self.experiment,
-            suppress_all_errors=self._suppress_storage_errors,
-        )
+        self.generation_strategy._register_trial_data_update(trial=trial)
+        logger.info(f"Added data: {data_update_repr} to trial {trial.index}.")
 
     def log_trial_failure(
         self, trial_index: int, metadata: Optional[Dict[str, str]] = None
@@ -888,6 +923,40 @@ class AxClient(WithDBSettingsBase):
         opt_config = not_none(self.experiment.optimization_config)
         return opt_config.objective.metric.name
 
+    def _update_trial_with_raw_data(
+        self,
+        trial_index: int,
+        raw_data: TEvaluationOutcome,
+        metadata: Optional[Dict[str, Union[str, int]]] = None,
+        sample_size: Optional[int] = None,
+        complete_trial: bool = False,
+        combine_with_last_data: bool = False,
+    ) -> str:
+        """Helper method attaches data to a trial, returns a str of update."""
+        # Format the data to save.
+        trial = self._get_trial(trial_index=trial_index)
+        sample_sizes = {not_none(trial.arm).name: sample_size} if sample_size else {}
+        evaluations, data = self._make_evaluations_and_data(
+            trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
+        )
+        metadata = metadata or {}
+        self._validate_trial_data(trial=trial, data=data)
+        trial.update_run_metadata(metadata=metadata)
+
+        self.experiment.attach_data(
+            data=data, combine_with_last_data=combine_with_last_data
+        )
+        if complete_trial:
+            trial.mark_completed()
+        self._save_updated_trial_to_db_if_possible(
+            experiment=self.experiment,
+            trial=trial,
+            suppress_all_errors=self._suppress_storage_errors,
+        )
+        return str(
+            _round_floats_for_logging(item=evaluations[next(iter(evaluations.keys()))])
+        )
+
     def _set_generation_strategy(
         self, choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None
     ) -> None:
@@ -962,7 +1031,7 @@ class AxClient(WithDBSettingsBase):
         raw_data: Union[TEvaluationOutcome, Dict[str, TEvaluationOutcome]],
         metadata: Optional[Dict[str, Union[str, int]]],
         sample_sizes: Optional[Dict[str, int]] = None,
-    ) -> Tuple[Dict[str, TEvaluationOutcome], Data]:
+    ) -> Tuple[Dict[str, TEvaluationOutcome], AbstractDataFrameData]:
         """Formats given raw data as Ax evaluations and `Data`.
 
         Args:
@@ -1045,7 +1114,7 @@ class AxClient(WithDBSettingsBase):
                     f"on experiment creation for {p_name}."
                 )
 
-    def _validate_trial_data(self, trial: Trial, data: Data) -> None:
+    def _validate_trial_data(self, trial: Trial, data: AbstractDataFrameData) -> None:
         for metric_name in data.df["metric_name"].values:
             if metric_name not in self.experiment.metrics:
                 logger.info(

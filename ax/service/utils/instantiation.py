@@ -8,9 +8,12 @@ import enum
 from typing import Dict, List, Optional, Union, cast
 
 import numpy as np
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.data import Data
-from ax.core.experiment import Experiment
+from ax.core.experiment import DataType, Experiment
+from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.objective import Objective, MultiObjective
 from ax.core.optimization_config import (
@@ -34,7 +37,7 @@ from ax.core.simple_experiment import DEFAULT_OBJECTIVE_NAME
 from ax.core.types import (
     ComparisonOp,
     TEvaluationOutcome,
-    TFidelityTrialEvaluation,
+    TMapTrialEvaluation,
     TParameterization,
     TParamValue,
     TTrialEvaluation,
@@ -478,6 +481,7 @@ def make_experiment(
     # Multi-objective optimization arguments:
     objectives: Optional[Dict[str, str]] = None,
     objective_thresholds: Optional[List[str]] = None,
+    support_intermediate_data: Optional[bool] = False,
 ) -> Experiment:
     """Instantiation wrapper that allows for Ax `Experiment` creation
     without importing or instantiating any Ax classes.
@@ -530,6 +534,8 @@ def make_experiment(
         objective_thresholds: A list of objective threshold constraints for multi-
             objective optimization, in the same string format as `outcome_constraints`
             argument.
+        support_intermediate_data: whether trials may report metrics results for
+            incomplete runs.
     """
     if objective_name is not None and (
         objectives is not None or objective_thresholds is not None
@@ -542,10 +548,12 @@ def make_experiment(
 
     status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
 
+    # TODO(jej): Needs to be decided per-metric when supporting heterogenous data.
+    metric_cls = MapMetric if support_intermediate_data else Metric
     if objectives is None:
         optimization_config = OptimizationConfig(
             objective=Objective(
-                metric=Metric(
+                metric=metric_cls(
                     name=objective_name or DEFAULT_OBJECTIVE_NAME,
                     lower_is_better=minimize,
                 ),
@@ -569,6 +577,10 @@ def make_experiment(
         else [Metric(name=metric_name) for metric_name in tracking_metric_names]
     )
 
+    default_data_type = (
+        DataType.MAP_DATA if support_intermediate_data else DataType.DATA
+    )
+
     return Experiment(
         name=name,
         search_space=make_search_space(parameters, parameter_constraints or []),
@@ -576,6 +588,7 @@ def make_experiment(
         status_quo=status_quo_arm,
         experiment_type=experiment_type,
         tracking_metrics=tracking_metrics,
+        default_data_type=default_data_type,
     )
 
 
@@ -587,7 +600,7 @@ def raw_data_to_evaluation(
 ) -> TEvaluationOutcome:
     """Format the trial evaluation data to a standard `TTrialEvaluation`
     (mapping from metric names to a tuple of mean and SEM) representation, or
-    to a TFidelityTrialEvaluation.
+    to a TMapTrialEvaluation.
 
     Note: this function expects raw_data to be data for a `Trial`, not a
     `BatchedTrial`.
@@ -627,7 +640,7 @@ def data_from_evaluations(
     sample_sizes: Dict[str, int],
     start_time: Optional[int] = None,
     end_time: Optional[int] = None,
-) -> Data:
+) -> AbstractDataFrameData:
     """Transforms evaluations into Ax Data.
 
     Each evaluation is either a trial evaluation: {metric_name -> (mean, SEM)}
@@ -654,13 +667,10 @@ def data_from_evaluations(
             end_time=end_time,
         )
     elif all(isinstance(evaluations[x], list) for x in evaluations.keys()):
-        # All evaluations are with-fidelity evaluations.
-        data = Data.from_fidelity_evaluations(
-            evaluations=cast(Dict[str, TFidelityTrialEvaluation], evaluations),
+        # All evaluations are map evaluations.
+        data = MapData.from_map_evaluations(
+            evaluations=cast(Dict[str, TMapTrialEvaluation], evaluations),
             trial_index=trial_index,
-            sample_sizes=sample_sizes,
-            start_time=start_time,
-            end_time=end_time,
         )
     else:
         raise ValueError(  # pragma: no cover

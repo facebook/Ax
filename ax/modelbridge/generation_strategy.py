@@ -750,7 +750,7 @@ class GenerationStrategy(Base):
         ]
         return completed_now.difference(completed_before)
 
-    def _register_trial_data_update(self, trial: BaseTrial, data: Data) -> None:
+    def _register_trial_data_update(self, trial: BaseTrial) -> None:
         """Registers that a given trial has new data even though it's a trial that has
         been completed before. Useful only for generation steps that have `use_update=
         True`, as the information registered by this function is used for identifying
