@@ -13,7 +13,7 @@ class BaseEarlyStoppingStrategy:
     """Interface for heuristics that halt trials early, typically based on early
     results from that trial."""
 
-    def should_early_stop_trial(
+    def should_stop_trial_early(
         self,
         trial_index: int,
         experiment: Experiment,
