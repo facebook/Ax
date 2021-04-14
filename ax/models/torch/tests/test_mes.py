@@ -7,6 +7,7 @@
 from unittest.mock import patch
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.mes import (
     MaxValueEntropySearch,
@@ -38,11 +39,13 @@ class AcquisitionSetUp:
         self.surrogate.construct(
             training_data=self.training_data, fidelity_features=self.fidelity_features
         )
-
-        self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
+            target_fidelities={2: 1.0},
+        )
         self.botorch_acqf_class = qMaxValueEntropy
         self.objective_weights = torch.tensor([1.0])
-        self.target_fidelities = {2: 1.0}
         self.pending_observations = [
             torch.tensor([[1.0, 3.0, 4.0]]),
             torch.tensor([[2.0, 6.0, 8.0]]),
@@ -55,7 +58,6 @@ class AcquisitionSetUp:
             Keys.COST_INTERCEPT: 1.0,
             Keys.NUM_TRACE_OBSERVATIONS: 0,
         }
-
         self.optimizer_options = {
             Keys.NUM_RESTARTS: 40,
             Keys.RAW_SAMPLES: 1024,
@@ -71,14 +73,13 @@ class MaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
         super().setUp()
         self.acquisition = MaxValueEntropySearch(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             botorch_acqf_class=self.botorch_acqf_class,
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
             options=self.options,
         )
 
@@ -90,7 +91,7 @@ class MaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
         # `Acquisition.compute_model_dependencies` once.
         depedencies = self.acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
         )
         mock_Acquisition_compute.assert_called_once()
@@ -102,8 +103,8 @@ class MaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
         # `MaxValueEntropySearch.optimize()` should call
         # `Acquisition.optimize()` once.
         self.acquisition.optimize(
-            bounds=self.bounds,
             n=1,
+            search_space_digest=self.search_space_digest,
             optimizer_class=None,
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
@@ -114,8 +115,8 @@ class MaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
         # `sequential` should be set to True
         self.optimizer_options.update({Keys.SEQUENTIAL: True})
         mock_Acquisition_optimize.assert_called_with(
-            bounds=self.bounds,
             n=1,
+            search_space_digest=self.search_space_digest,
             inequality_constraints=None,
             fixed_features=self.fixed_features,
             rounding_func="func",
@@ -128,14 +129,13 @@ class MultiFidelityMaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
         super().setUp()
         self.acquisition = MultiFidelityMaxValueEntropySearch(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             botorch_acqf_class=self.botorch_acqf_class,
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
             options=self.options,
         )
 
@@ -153,9 +153,8 @@ class MultiFidelityMaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
         # call `MultiFidelityAcquisition.compute_model_dependencies` once.
         depedencies = self.acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
-            target_fidelities=self.target_fidelities,
         )
         mock_MES_compute.assert_called_once()
         mock_MF_compute.assert_called_once()
@@ -170,8 +169,8 @@ class MultiFidelityMaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
         # `MultiFidelityMaxValueEntropySearch.optimize()` should call
         # `MaxValueEntropySearch.optimize()` once.
         self.acquisition.optimize(
-            bounds=self.bounds,
             n=1,
+            search_space_digest=self.search_space_digest,
             optimizer_class=None,
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
@@ -180,8 +179,8 @@ class MultiFidelityMaxValueEntropySearchTest(AcquisitionSetUp, TestCase):
         )
         mock_MES_optimize.assert_called_once()
         mock_MES_optimize.assert_called_with(
-            bounds=self.bounds,
             n=1,
+            search_space_digest=self.search_space_digest,
             optimizer_class=None,
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,

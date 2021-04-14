@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import ax.models.torch.botorch_modular.acquisition as acquisition
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
@@ -56,8 +57,11 @@ class MOOAcquisitionTest(TestCase):
         self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
         self.fidelity_features = [2]
         self.surrogate.construct(training_data=self.training_data)
-
-        self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
+            target_fidelities={2: 1.0},
+        )
         self.botorch_acqf_class = DummyACQFClass
         self.objective_weights = torch.tensor([1.0, -1.0, 0.0])
         self.objective_thresholds = torch.tensor([2.0, 1.0, float("nan")])
@@ -73,11 +77,10 @@ class MOOAcquisitionTest(TestCase):
         self.con_tfs = get_outcome_constraint_transforms(self.outcome_constraints)
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
-        self.target_fidelities = {2: 1.0}
         self.options = {}
         self.acquisition = MOOAcquisition(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             objective_thresholds=self.objective_thresholds,
             botorch_acqf_class=self.botorch_acqf_class,
@@ -85,10 +88,8 @@ class MOOAcquisitionTest(TestCase):
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
             options=self.options,
         )
-
         self.inequality_constraints = [
             (torch.tensor([0, 1]), torch.tensor([-1.0, 1.0]), 1)
         ]
@@ -119,7 +120,7 @@ class MOOAcquisitionTest(TestCase):
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         acquisition = MOOAcquisition(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             objective_thresholds=self.objective_thresholds,
             botorch_acqf_class=self.botorch_acqf_class,
@@ -127,7 +128,6 @@ class MOOAcquisitionTest(TestCase):
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
             options=self.options,
         )
 
@@ -137,7 +137,7 @@ class MOOAcquisitionTest(TestCase):
             pending_observations=self.pending_observations,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
-            bounds=self.bounds,
+            bounds=self.search_space_digest.bounds,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
         )
@@ -153,7 +153,7 @@ class MOOAcquisitionTest(TestCase):
         self.options[Keys.SUBSET_MODEL] = False
         acquisition = MOOAcquisition(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             objective_thresholds=self.objective_thresholds,
             botorch_acqf_class=self.botorch_acqf_class,
@@ -161,7 +161,6 @@ class MOOAcquisitionTest(TestCase):
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
             options=self.options,
         )
         mock_subset_model.assert_not_called()
@@ -186,7 +185,7 @@ class MOOAcquisitionTest(TestCase):
         ):
             MOOAcquisition(
                 surrogate=self.surrogate,
-                bounds=self.bounds,
+                search_space_digest=self.search_space_digest,
                 objective_weights=self.objective_weights,
                 objective_thresholds=self.objective_thresholds,
                 botorch_acqf_class=qNoisyExpectedImprovement,
@@ -194,14 +193,13 @@ class MOOAcquisitionTest(TestCase):
                 outcome_constraints=self.outcome_constraints,
                 linear_constraints=self.linear_constraints,
                 fixed_features=self.fixed_features,
-                target_fidelities=self.target_fidelities,
                 options=self.options,
             )
 
         with self.assertRaisesRegex(ValueError, "Objective Thresholds required"):
             MOOAcquisition(
                 surrogate=self.surrogate,
-                bounds=self.bounds,
+                search_space_digest=self.search_space_digest,
                 objective_weights=self.objective_weights,
                 objective_thresholds=None,
                 botorch_acqf_class=self.botorch_acqf_class,
@@ -209,7 +207,6 @@ class MOOAcquisitionTest(TestCase):
                 outcome_constraints=self.outcome_constraints,
                 linear_constraints=self.linear_constraints,
                 fixed_features=self.fixed_features,
-                target_fidelities=self.target_fidelities,
                 options=self.options,
             )
 

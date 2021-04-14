@@ -71,7 +71,7 @@ class Surrogate(Base):
     kernel_class: Optional[Type[Kernel]] = None
     _training_data: Optional[TrainingData] = None
     _model: Optional[Model] = None
-    # Special setting for surrogates instantiated via `Surrogate.from_BoTorch`,
+    # Special setting for surrogates instantiated via `Surrogate.from_botorch`,
     # to avoid re-constructing the underlying BoTorch model on `Surrogate.fit`
     # when set to `False`.
     _constructed_manually: bool = False
@@ -127,7 +127,7 @@ class Surrogate(Base):
         return self.training_data.X.device
 
     @classmethod
-    def from_BoTorch(
+    def from_botorch(
         cls,
         model: Model,
         mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
@@ -213,7 +213,7 @@ class Surrogate(Base):
         """
         if self._constructed_manually:
             logger.debug(
-                "For manually constructed surrogates (via `Surrogate.from_BoTorch`), "
+                "For manually constructed surrogates (via `Surrogate.from_botorch`), "
                 "`fit` skips setting the training data on model and only reoptimizes "
                 "its parameters if `refit=True`."
             )
@@ -247,7 +247,7 @@ class Surrogate(Base):
 
     def best_in_sample_point(
         self,
-        bounds: List[Tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         objective_weights: Optional[Tensor],
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
@@ -265,7 +265,7 @@ class Surrogate(Base):
             # TODO: When we move `botorch_modular` directory to OSS, we will extend
             # the annotation for `model` kwarg to accept `Surrogate` too.
             model=self,
-            bounds=bounds,
+            bounds=search_space_digest.bounds,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
@@ -279,13 +279,11 @@ class Surrogate(Base):
 
     def best_out_of_sample_point(
         self,
-        bounds: List[Tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         objective_weights: Tensor,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
-        fidelity_features: Optional[List[int]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
         options: Optional[TConfig] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Finds the best predicted point and the corresponding value of the
@@ -311,19 +309,16 @@ class Surrogate(Base):
         acqf = Acquisition(  # TODO: For multi-fidelity, might need diff. class.
             surrogate=self,
             botorch_acqf_class=acqf_class,
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
-            target_fidelities=target_fidelities,
             options=acqf_options,
         )
         candidates, acqf_values = acqf.optimize(
-            # pyre-ignore[6]: Exp. Tensor, got List[Tuple[float, float]].
-            # TODO: Fix typing of `bounds` in `TorchModel`-s.
-            bounds=bounds,
             n=1,
+            search_space_digest=search_space_digest,
             inequality_constraints=_to_inequality_constraints(
                 linear_constraints=linear_constraints
             ),
@@ -342,7 +337,7 @@ class Surrogate(Base):
     ) -> None:
         """Updates the surrogate model with new data. In the base ``Surrogate``,
         just calls ``fit`` after checking that this surrogate was not created
-        via ``Surrogate.from_BoTorch`` (in which case the ``Model`` comes premade,
+        via ``Surrogate.from_botorch`` (in which case the ``Model`` comes premade,
         constructed manually and then supplied to ``Surrogate``).
 
         NOTE: Expects `training_data` to be all available data,
@@ -367,7 +362,7 @@ class Surrogate(Base):
                 "`update` not yet implemented for models that are "
                 "constructed manually, but it is possible to create a new "
                 "surrogate in the same way as the current manually constructed one, "
-                "via `Surrogate.from_BoTorch`."
+                "via `Surrogate.from_botorch`."
             )
         self.fit(
             training_data=training_data,

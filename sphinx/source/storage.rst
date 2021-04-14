@@ -94,6 +94,14 @@ ax.storage.sqa\_store.db module
     :show-inheritance:
     :exclude-members: Base
 
+ax.storage.sqa\_store.delete module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.storage.sqa_store.delete
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.storage.sqa\_store.json module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

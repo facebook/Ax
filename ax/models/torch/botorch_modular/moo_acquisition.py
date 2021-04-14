@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.modelbridge_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
@@ -42,7 +43,7 @@ class MOOAcquisition(Acquisition):
     def __init__(
         self,
         surrogate: Surrogate,
-        bounds: List[Tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         objective_weights: Tensor,
         objective_thresholds: Optional[Tensor],
         botorch_acqf_class: Optional[Type[AcquisitionFunction]] = None,
@@ -51,7 +52,6 @@ class MOOAcquisition(Acquisition):
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
     ) -> None:
         botorch_acqf_class = not_none(
             botorch_acqf_class or self.default_botorch_acqf_class
@@ -65,27 +65,25 @@ class MOOAcquisition(Acquisition):
         super().__init__(
             surrogate=surrogate,
             botorch_acqf_class=botorch_acqf_class,
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             objective_thresholds=objective_thresholds,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
             pending_observations=pending_observations,
-            target_fidelities=target_fidelities,
             options=options,
         )
 
     def compute_model_dependencies(
         self,
         surrogate: Surrogate,
-        bounds: List[Tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         objective_weights: Tensor,
         pending_observations: Optional[List[Tensor]] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Computes inputs to acquisition function class based on the given
@@ -102,8 +100,8 @@ class MOOAcquisition(Acquisition):
         Args:
             surrogate: The surrogate object containing the BoTorch `Model`,
                 with which this `Acquisition` is to be used.
-            bounds: A list of (lower, upper) tuples for each column of X in
-                the training data of the surrogate model.
+            search_space_digest: A SearchSpaceDigest object containing
+                metadata about the search space (e.g. bounds, parameter types).
             objective_weights: The objective is to maximize a weighted sum of
                 the columns of f(x). These are the weights.
             pending_observations: A list of tensors, each of which contains
@@ -119,8 +117,6 @@ class MOOAcquisition(Acquisition):
                 A x <= b. (Not used by single task models)
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
-            target_fidelities: Optional mapping from parameter name to its
-                target fidelity, applicable to fidelity parameters only.
             options: The `options` kwarg dict, passed on initialization of
                 the `Acquisition` object.
 

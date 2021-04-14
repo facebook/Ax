@@ -6,6 +6,7 @@
 
 from typing import Any, Dict, List, Optional, Tuple
 
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
@@ -25,15 +26,15 @@ class MultiFidelityAcquisition(Acquisition):
     def compute_model_dependencies(
         self,
         surrogate: Surrogate,
-        bounds: List[Tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         objective_weights: Tensor,
-        target_fidelities: Optional[Dict[int, float]] = None,
         pending_observations: Optional[List[Tensor]] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        target_fidelities = search_space_digest.target_fidelities
         if not target_fidelities:
             raise ValueError(  # pragma: no cover
                 "Target fidelities are required for {self.__class__.__name__}."
@@ -41,13 +42,12 @@ class MultiFidelityAcquisition(Acquisition):
 
         dependencies = super().compute_model_dependencies(
             surrogate=surrogate,
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             pending_observations=pending_observations,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
-            target_fidelities=target_fidelities,
             options=options,
         )
 
@@ -76,7 +76,7 @@ class MultiFidelityAcquisition(Acquisition):
         def expand(X: Tensor) -> Tensor:
             return expand_trace_observations(
                 X=X,
-                fidelity_dims=sorted(target_fidelities),  # pyre-ignore[6]
+                fidelity_dims=sorted(target_fidelities),
                 # pyre-fixme[16]: `Optional` has no attribute `get`.
                 num_trace_obs=options.get(Keys.NUM_TRACE_OBSERVATIONS, 0),
             )
