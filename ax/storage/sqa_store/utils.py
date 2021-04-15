@@ -32,10 +32,10 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
         f"target {path + [str(target)]}: "
     )
 
-    if len(path) > 10:
+    if len(path) > 15:
         # this shouldn't happen, but is a precaution against accidentally
         # introducing infinite loops
-        return
+        raise SQADecodeError(error_message_prefix + "Encountered path of length > 10.")
 
     if type(source) != type(target):
         if not issubclass(type(target), type(source)):
@@ -71,6 +71,7 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
                 "_model",
                 "_seen_trial_indices_by_status",
                 "_steps",
+                "analysis_scheduler",
             }:
                 continue
 
