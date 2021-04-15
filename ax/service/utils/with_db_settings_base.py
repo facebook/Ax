@@ -44,6 +44,8 @@ except ModuleNotFoundError:  # pragma: no cover
     DBSettings = None
 
 
+STORAGE_MINI_BATCH_SIZE = 100
+
 logger = get_logger(__name__)
 
 
@@ -349,10 +351,12 @@ class WithDBSettingsBase:
                 trials=trials,
                 encoder=self.db_settings.encoder,
                 decoder=self.db_settings.decoder,
+                batch_size=STORAGE_MINI_BATCH_SIZE,
             )
             logger.debug(
-                f"Saved trials {[trial.index for trial in trials]} in "
-                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
+                f"Saved or updated trials {[trial.index for trial in trials]} in "
+                f"{_round_floats_for_logging(time.time() - start_time)} seconds "
+                f"in mini-batches of {STORAGE_MINI_BATCH_SIZE}."
             )
             return True
         return False
@@ -423,10 +427,12 @@ class WithDBSettingsBase:
                 generator_runs=new_generator_runs,
                 encoder=self.db_settings.encoder,
                 decoder=self.db_settings.decoder,
+                batch_size=STORAGE_MINI_BATCH_SIZE,
             )
             logger.debug(
                 f"Updated generation strategy {generation_strategy.name} in "
-                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
+                f"{_round_floats_for_logging(time.time() - start_time)} seconds in "
+                f"mini-batches of {STORAGE_MINI_BATCH_SIZE} generator runs."
             )
             return True
         return False
