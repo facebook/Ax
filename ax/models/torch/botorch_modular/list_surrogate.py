@@ -56,7 +56,7 @@ class ListSurrogate(Surrogate):
 
     _training_data_per_outcome: Optional[Dict[str, TrainingData]] = None
     _model: Optional[Model] = None
-    # Special setting for surrogates instantiated via `Surrogate.from_BoTorch`,
+    # Special setting for surrogates instantiated via `Surrogate.from_botorch`,
     # to avoid re-constructing the underlying BoTorch model on `Surrogate.fit`
     # when set to `False`.
     _should_reconstruct: bool = True

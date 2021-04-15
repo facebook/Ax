@@ -7,6 +7,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition, Optimizer
 from ax.models.torch.botorch_modular.multi_fidelity import MultiFidelityAcquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -23,8 +24,8 @@ class MaxValueEntropySearch(Acquisition):
 
     def optimize(
         self,
-        bounds: Tensor,
         n: int,
+        search_space_digest: SearchSpaceDigest,
         optimizer_class: Optional[Optimizer] = None,
         inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
@@ -34,8 +35,8 @@ class MaxValueEntropySearch(Acquisition):
         optimizer_options = optimizer_options or {}
         optimizer_options[Keys.SEQUENTIAL] = True
         return super().optimize(
-            bounds=bounds,
             n=n,
+            search_space_digest=search_space_digest,
             inequality_constraints=None,
             fixed_features=fixed_features,
             rounding_func=rounding_func,
@@ -45,31 +46,29 @@ class MaxValueEntropySearch(Acquisition):
     def compute_model_dependencies(
         self,
         surrogate: Surrogate,
-        bounds: List[Tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         objective_weights: Tensor,
         pending_observations: Optional[List[Tensor]] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         dependencies = super().compute_model_dependencies(
             surrogate=surrogate,
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             pending_observations=pending_observations,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
-            target_fidelities=target_fidelities,
             options=options,
         )
 
         dependencies.update(
             self._make_candidate_set_model_dependencies(
                 surrogate=surrogate,
-                bounds=bounds,
+                bounds=search_space_digest.bounds,
                 objective_weights=objective_weights,
                 options=options,
             )
@@ -106,9 +105,8 @@ class MultiFidelityMaxValueEntropySearch(
     def compute_model_dependencies(
         self,
         surrogate: Surrogate,
-        bounds: List[Tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         objective_weights: Tensor,
-        target_fidelities: Optional[Dict[int, float]] = None,
         pending_observations: Optional[List[Tensor]] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
@@ -117,19 +115,18 @@ class MultiFidelityMaxValueEntropySearch(
     ) -> Dict[str, Any]:
         dependencies = super().compute_model_dependencies(
             surrogate=surrogate,
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             pending_observations=pending_observations,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
-            target_fidelities=target_fidelities,
             options=options,
         )
         dependencies.update(
             self._make_candidate_set_model_dependencies(
                 surrogate=surrogate,
-                bounds=bounds,
+                bounds=search_space_digest.bounds,
                 objective_weights=objective_weights,
                 options=options,
             )

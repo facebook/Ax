@@ -6,6 +6,8 @@
 
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition, Optimizer
 from ax.models.torch.botorch_modular.multi_fidelity import MultiFidelityAcquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -22,8 +24,8 @@ from torch import Tensor
 class OneShotAcquisition(Acquisition):
     def optimize(
         self,
-        bounds: Tensor,
         n: int,
+        search_space_digest: SearchSpaceDigest,
         optimizer_class: Optional[Optimizer] = None,
         inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
@@ -31,6 +33,9 @@ class OneShotAcquisition(Acquisition):
         optimizer_options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Tensor, Tensor]:
         optimizer_options = optimizer_options or {}
+        bounds = torch.tensor(
+            search_space_digest.bounds, dtype=self.dtype, device=self.device
+        ).transpose(0, 1)
         init_conditions = gen_one_shot_kg_initial_conditions(
             acq_function=checked_cast(qKnowledgeGradient, self.acqf),
             bounds=bounds,
@@ -45,8 +50,8 @@ class OneShotAcquisition(Acquisition):
         )
         optimizer_options[Keys.BATCH_INIT_CONDITIONS] = init_conditions
         return super().optimize(
-            bounds=bounds,
             n=n,
+            search_space_digest=search_space_digest,
             inequality_constraints=inequality_constraints,
             fixed_features=fixed_features,
             rounding_func=rounding_func,
@@ -64,7 +69,7 @@ class MultiFidelityKnowledgeGradient(MultiFidelityAcquisition, KnowledgeGradient
     def compute_model_dependencies(
         self,
         surrogate: Surrogate,
-        bounds: List[Tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         objective_weights: Tensor,
         target_fidelities: Optional[Dict[int, float]] = None,
         pending_observations: Optional[List[Tensor]] = None,
@@ -76,18 +81,17 @@ class MultiFidelityKnowledgeGradient(MultiFidelityAcquisition, KnowledgeGradient
         # Compute generic multi-fidelity dependencies first
         dependencies = super().compute_model_dependencies(
             surrogate=surrogate,
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             pending_observations=pending_observations,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
-            target_fidelities=target_fidelities,
             options=options,
         )
 
         _, best_point_acqf_value = surrogate.best_in_sample_point(
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,

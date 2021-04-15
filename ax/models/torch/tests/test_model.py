@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import ANY, patch, MagicMock
+from unittest import mock
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -122,8 +122,8 @@ class BoTorchModelTest(TestCase):
         ):
             self.model.botorch_acqf_class
 
-    @patch(f"{SURROGATE_PATH}.Surrogate.fit")
-    @patch(f"{MODEL_PATH}.choose_model_class", return_value=SingleTaskGP)
+    @mock.patch(f"{SURROGATE_PATH}.Surrogate.fit")
+    @mock.patch(f"{MODEL_PATH}.choose_model_class", return_value=SingleTaskGP)
     def test_fit(self, mock_choose_model_class, mock_fit):
         # If surrogate is not yet set, initialize it with dispatcher functions.
         self.model._surrogate = None
@@ -151,7 +151,7 @@ class BoTorchModelTest(TestCase):
             refit=True,
         )
 
-    @patch(f"{SURROGATE_PATH}.Surrogate.update")
+    @mock.patch(f"{SURROGATE_PATH}.Surrogate.update")
     def test_update(self, mock_update):
         self.model.fit(
             Xs=[self.X],
@@ -208,12 +208,12 @@ class BoTorchModelTest(TestCase):
                     expected_state_dict.keys(),
                 )
 
-    @patch(f"{SURROGATE_PATH}.Surrogate.predict")
+    @mock.patch(f"{SURROGATE_PATH}.Surrogate.predict")
     def test_predict(self, mock_predict):
         self.model.predict(X=self.X)
         mock_predict.assert_called_with(X=self.X)
 
-    @patch(f"{MODEL_PATH}.BoTorchModel.fit")
+    @mock.patch(f"{MODEL_PATH}.BoTorchModel.fit")
     def test_cross_validate(self, mock_fit):
         self.model.fit(
             Xs=[self.X],
@@ -225,7 +225,7 @@ class BoTorchModelTest(TestCase):
         )
 
         old_surrogate = self.model.surrogate
-        old_surrogate._model = MagicMock()
+        old_surrogate._model = mock.MagicMock()
         old_surrogate._model.state_dict.return_value = {"key": "val"}
 
         for refit_on_cv, warm_start_refit in [
@@ -235,9 +235,9 @@ class BoTorchModelTest(TestCase):
         ]:
             self.model.refit_on_cv = refit_on_cv
             self.model.warm_start_refit = warm_start_refit
-            with patch(
+            with mock.patch(
                 f"{SURROGATE_PATH}.Surrogate.clone_reset",
-                return_value=MagicMock(spec=Surrogate),
+                return_value=mock.MagicMock(spec=Surrogate),
             ) as mock_clone_reset:
                 self.model.cross_validate(
                     Xs_train=[self.X],
@@ -262,7 +262,7 @@ class BoTorchModelTest(TestCase):
 
             # Check that surrogate is reset back to `old_surrogate` at the
             # end of cross-validation.
-            self.model.surrogate is old_surrogate
+            self.assertTrue(self.model.surrogate is old_surrogate)
 
             expected_state_dict = (
                 None
@@ -283,14 +283,16 @@ class BoTorchModelTest(TestCase):
                     expected_state_dict.keys(),
                 )
 
-    @patch(
+    @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
         return_value=({"num_fantasies": 64}, {"num_restarts": 40, "raw_samples": 1024}),
     )
-    @patch(f"{CURRENT_PATH}.KnowledgeGradient")
-    @patch(f"{MODEL_PATH}.get_rounding_func", return_value="func")
-    @patch(f"{MODEL_PATH}._to_inequality_constraints", return_value=[])
-    @patch(f"{MODEL_PATH}.choose_botorch_acqf_class", return_value=qKnowledgeGradient)
+    @mock.patch(f"{CURRENT_PATH}.KnowledgeGradient")
+    @mock.patch(f"{MODEL_PATH}.get_rounding_func", return_value="func")
+    @mock.patch(f"{MODEL_PATH}._to_inequality_constraints", return_value=[])
+    @mock.patch(
+        f"{MODEL_PATH}.choose_botorch_acqf_class", return_value=qKnowledgeGradient
+    )
     def test_gen(
         self,
         mock_choose_botorch_acqf_class,
@@ -313,6 +315,22 @@ class BoTorchModelTest(TestCase):
             fidelity_features=self.search_space_digest.fidelity_features,
         )
         model._botorch_acqf_class = None
+        # Assert that error is raised if we haven't fit the model
+        with self.assertRaises(RuntimeError):
+            model.gen(
+                n=1,
+                bounds=self.search_space_digest.bounds,
+                objective_weights=self.objective_weights,
+                outcome_constraints=self.outcome_constraints,
+                linear_constraints=self.linear_constraints,
+                fixed_features=self.fixed_features,
+                pending_observations=self.pending_observations,
+                model_gen_options=self.model_gen_options,
+                rounding_func=self.rounding_func,
+                target_fidelities=self.search_space_digest.target_fidelities,
+            )
+        # Add search space digest reference to make the model think it's been fit
+        model._search_space_digest = self.search_space_digest
         model.gen(
             n=1,
             bounds=self.search_space_digest.bounds,
@@ -325,6 +343,7 @@ class BoTorchModelTest(TestCase):
             rounding_func=self.rounding_func,
             target_fidelities=self.search_space_digest.target_fidelities,
         )
+
         # Assert `construct_acquisition_and_optimizer_options` called with kwargs
         mock_construct_options.assert_called_with(
             acqf_options=self.acquisition_options,
@@ -337,20 +356,19 @@ class BoTorchModelTest(TestCase):
         mock_kg.assert_called_with(
             surrogate=self.surrogate,
             botorch_acqf_class=model.botorch_acqf_class,
-            bounds=self.search_space_digest.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             objective_thresholds=self.objective_thresholds,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
             pending_observations=self.pending_observations,
-            target_fidelities=self.search_space_digest.target_fidelities,
             options=self.acquisition_options,
         )
         # Assert `optimize` called with kwargs
         mock_kg.return_value.optimize.assert_called_with(
-            bounds=ANY,
             n=1,
+            search_space_digest=self.search_space_digest,
             inequality_constraints=[],
             fixed_features=self.fixed_features,
             rounding_func="func",
@@ -363,11 +381,11 @@ class BoTorchModelTest(TestCase):
                 bounds=self.bounds, objective_weights=self.objective_weights
             )
 
-    @patch(
+    @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
         return_value=({"num_fantasies": 64}, {"num_restarts": 40, "raw_samples": 1024}),
     )
-    @patch(f"{CURRENT_PATH}.KnowledgeGradient", autospec=True)
+    @mock.patch(f"{CURRENT_PATH}.KnowledgeGradient", autospec=True)
     def test_evaluate_acquisition_function(self, _mock_kg, _mock_construct_options):
         model = BoTorchModel(
             surrogate=self.surrogate,
@@ -384,21 +402,20 @@ class BoTorchModelTest(TestCase):
         )
         model.evaluate_acquisition_function(
             X=self.X,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
             pending_observations=self.pending_observations,
             acq_options=self.acquisition_options,
-            target_fidelities=self.search_space_digest.target_fidelities,
         )
         # `_mock_kg` is a mock of class, so to check the mock `evaluate` on
         # instance of that class, we use `_mock_kg.return_value.evaluate`
         _mock_kg.return_value.evaluate.assert_called()
 
-    @patch(f"{LIST_SURROGATE_PATH}.ListSurrogate.__init__", return_value=None)
-    @patch(f"{LIST_SURROGATE_PATH}.ListSurrogate.fit", return_value=None)
+    @mock.patch(f"{LIST_SURROGATE_PATH}.ListSurrogate.__init__", return_value=None)
+    @mock.patch(f"{LIST_SURROGATE_PATH}.ListSurrogate.fit", return_value=None)
     def test_surrogate_options_propagation(self, _, mock_init):
         model = BoTorchModel(surrogate_options={"some_option": "some_value"})
         model.fit(
@@ -417,12 +434,12 @@ class BoTorchModelTest(TestCase):
             some_option="some_value",
         )
 
-    @patch(
+    @mock.patch(
         f"{ACQUISITION_PATH}.Acquisition._extract_training_data",
         # Mock to register calls, but still execute the function.
         side_effect=Acquisition._extract_training_data,
     )
-    @patch(
+    @mock.patch(
         f"{ACQUISITION_PATH}.Acquisition.optimize",
         # Dummy candidates and acquisition function value.
         return_value=(torch.tensor([[2.0]]), torch.tensor([1.0])),

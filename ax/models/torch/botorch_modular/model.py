@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
@@ -84,6 +85,7 @@ class BoTorchModel(TorchModel, Base):
     surrogate_options: Dict[str, Any]
     _surrogate: Optional[Surrogate]
     _botorch_acqf_class: Optional[Type[AcquisitionFunction]]
+    _search_space_digest: Optional[SearchSpaceDigest] = None
 
     def __init__(
         self,
@@ -143,6 +145,9 @@ class BoTorchModel(TorchModel, Base):
         # Ensure that parts of data all have equal lengths.
         validate_data_format(Xs=Xs, Ys=Ys, Yvars=Yvars, metric_names=metric_names)
 
+        # store search space info for later use (e.g. during generation)
+        self._search_space_digest = search_space_digest
+
         # Choose `Surrogate` and undelying `Model` based on properties of data.
         if not self._surrogate:
             self._autoset_surrogate(
@@ -177,6 +182,9 @@ class BoTorchModel(TorchModel, Base):
     ) -> None:
         if not self._surrogate:
             raise ValueError("Cannot update model that has not been fitted.")
+
+        # store search space info  for later use (e.g. during generation)
+        self._search_space_digest = search_space_digest
 
         # Sometimes the model fit should be restarted from scratch on update, for models
         # that are prone to overfitting. In those cases, `self.warm_start_refit` should
@@ -219,25 +227,34 @@ class BoTorchModel(TorchModel, Base):
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
+        if self._search_space_digest is None:
+            raise RuntimeError("Must `fit` the model before calling `gen`.")
         acq_options, opt_options = construct_acquisition_and_optimizer_options(
             acqf_options=self.acquisition_options, model_gen_options=model_gen_options
         )
+        # update bounds / target fidelities
+        new_ssd_args = {
+            **dataclasses.asdict(self._search_space_digest),
+            "bounds": bounds,
+            "target_fidelities": target_fidelities or {},
+        }
+        search_space_digest = SearchSpaceDigest(**new_ssd_args)
+
         acqf = self._instantiate_acquisition(
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             objective_thresholds=objective_thresholds,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
             pending_observations=pending_observations,
-            target_fidelities=target_fidelities,
             acq_options=acq_options,
         )
 
         botorch_rounding_func = get_rounding_func(rounding_func)
         candidates, expected_acquisition_value = acqf.optimize(
-            bounds=self._bounds_as_tensor(bounds=bounds),
             n=n,
+            search_space_digest=search_space_digest,
             inequality_constraints=_to_inequality_constraints(
                 linear_constraints=linear_constraints
             ),
@@ -269,25 +286,23 @@ class BoTorchModel(TorchModel, Base):
     def evaluate_acquisition_function(
         self,
         X: Tensor,
-        bounds: List[Tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         objective_weights: Tensor,
         objective_thresholds: Optional[Tensor] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         pending_observations: Optional[List[Tensor]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
         acq_options: Optional[Dict[str, Any]] = None,
     ) -> Tensor:
         acqf = self._instantiate_acquisition(
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             objective_thresholds=objective_thresholds,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
             pending_observations=pending_observations,
-            target_fidelities=target_fidelities,
             acq_options=acq_options,
         )
         return acqf.evaluate(X=X)
@@ -373,22 +388,15 @@ class BoTorchModel(TorchModel, Base):
                 botorch_model_class=botorch_model_class, **self.surrogate_options
             )
 
-    def _bounds_as_tensor(self, bounds: List[Tuple[float, float]]) -> Tensor:
-        bounds_ = torch.tensor(
-            bounds, dtype=self.surrogate.dtype, device=self.surrogate.device
-        )
-        return bounds_.transpose(0, 1)
-
     def _instantiate_acquisition(
         self,
-        bounds: List[Tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         objective_weights: Tensor,
         objective_thresholds: Optional[Tensor] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         pending_observations: Optional[List[Tensor]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
         acq_options: Optional[Dict[str, Any]] = None,
     ) -> Acquisition:
         if not self._botorch_acqf_class:
@@ -397,14 +405,13 @@ class BoTorchModel(TorchModel, Base):
         return self.acquisition_class(
             surrogate=self.surrogate,
             botorch_acqf_class=self.botorch_acqf_class,
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             objective_thresholds=objective_thresholds,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
             pending_observations=pending_observations,
-            target_fidelities=target_fidelities,
             options=acq_options,
         )
 

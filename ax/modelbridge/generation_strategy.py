@@ -25,7 +25,6 @@ from ax.exceptions.generation_strategy import (
 )
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import (
-    Models,
     ModelRegistryBase,
     _combine_model_kwargs_and_state,
     get_model_from_generator_run,

@@ -4,9 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import ANY, patch
+from unittest import mock
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kg import (
     KnowledgeGradient,
@@ -37,11 +38,13 @@ class AcquisitionSetUp:
         self.surrogate.construct(
             training_data=self.training_data, fidelity_features=self.fidelity_features
         )
-
-        self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
+            target_fidelities={2: 1.0},
+        )
         self.botorch_acqf_class = qKnowledgeGradient
         self.objective_weights = torch.tensor([1.0])
-        self.target_fidelities = {2: 1.0}
         self.pending_observations = [
             torch.tensor([[1.0, 3.0, 4.0]]),
             torch.tensor([[2.0, 6.0, 8.0]]),
@@ -54,7 +57,6 @@ class AcquisitionSetUp:
             Keys.COST_INTERCEPT: 1.0,
             Keys.NUM_TRACE_OBSERVATIONS: 0,
         }
-
         self.optimizer_options = {
             Keys.NUM_RESTARTS: 40,
             Keys.RAW_SAMPLES: 1024,
@@ -70,26 +72,25 @@ class OneShotAcquisitionTest(AcquisitionSetUp, TestCase):
         super().setUp()
         self.acquisition = OneShotAcquisition(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             botorch_acqf_class=self.botorch_acqf_class,
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
             options=self.options,
         )
 
-    @patch(
+    @mock.patch(
         f"{KG_PATH}.gen_one_shot_kg_initial_conditions",
         return_value=torch.tensor([1.0]),
     )
-    @patch(f"{ACQUISITION_PATH}.Acquisition.optimize")
+    @mock.patch(f"{ACQUISITION_PATH}.Acquisition.optimize")
     def test_optimize(self, mock_parent_optimize, mock_init_conditions):
         self.acquisition.optimize(
-            bounds=self.bounds,
             n=1,
+            search_space_digest=self.search_space_digest,
             optimizer_class=None,
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
@@ -97,8 +98,8 @@ class OneShotAcquisitionTest(AcquisitionSetUp, TestCase):
             optimizer_options=self.optimizer_options,
         )
         mock_init_conditions.assert_called_with(
-            acq_function=ANY,
-            bounds=self.bounds,
+            acq_function=mock.ANY,
+            bounds=mock.ANY,
             q=1,
             num_restarts=self.optimizer_options[Keys.NUM_RESTARTS],
             raw_samples=self.optimizer_options[Keys.RAW_SAMPLES],
@@ -108,12 +109,20 @@ class OneShotAcquisitionTest(AcquisitionSetUp, TestCase):
                 Keys.RAW_INNER_SAMPLES: self.optimizer_options[Keys.RAW_SAMPLES],
             },
         )
+        # can't use assert_called_with on bounds due to ambiguous bool comparison
+        expected_bounds = torch.tensor(
+            self.search_space_digest.bounds,
+            dtype=self.acquisition.dtype,
+            device=self.acquisition.device,
+        ).transpose(0, 1)
+        self.assertTrue(
+            torch.equal(mock_init_conditions.call_args[1]["bounds"], expected_bounds)
+        )
         self.optimizer_options[Keys.BATCH_INIT_CONDITIONS] = torch.tensor([1.0])
         # `OneShotAcquisition.optimize()` should call `Acquisition.optimize()` once.
-        mock_parent_optimize.assert_called_once()
-        mock_parent_optimize.assert_called_with(
-            bounds=self.bounds,
+        mock_parent_optimize.assert_called_once_with(
             n=1,
+            search_space_digest=self.search_space_digest,
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
             rounding_func="func",
@@ -126,18 +135,17 @@ class KnowledgeGradientTest(AcquisitionSetUp, TestCase):
         super().setUp()
         self.acquisition = KnowledgeGradient(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             botorch_acqf_class=self.botorch_acqf_class,
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
             options=self.options,
         )
 
-    @patch(
+    @mock.patch(
         f"{ACQUISITION_PATH}.Acquisition.compute_model_dependencies", return_value={}
     )
     def test_compute_model_dependencies(self, mock_Acquisition_compute):
@@ -145,19 +153,19 @@ class KnowledgeGradientTest(AcquisitionSetUp, TestCase):
         # `Acquisition.compute_model_dependencies` once.
         dependencies = self.acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
         )
         mock_Acquisition_compute.assert_called_once()
         self.assertEqual(dependencies, {})
 
-    @patch(f"{KG_PATH}.OneShotAcquisition.optimize")
+    @mock.patch(f"{KG_PATH}.OneShotAcquisition.optimize")
     def test_optimize(self, mock_OneShot_optimize):
         # `KnowledgeGradient.optimize()` should call `OneShotAcquisition.optimize()`
         # once.
         self.acquisition.optimize(
-            bounds=self.bounds,
             n=1,
+            search_space_digest=self.search_space_digest,
             optimizer_class=None,
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
@@ -172,18 +180,17 @@ class MultiFidelityKnowledgeGradientTest(AcquisitionSetUp, TestCase):
         super().setUp()
         self.acquisition = MultiFidelityKnowledgeGradient(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             botorch_acqf_class=self.botorch_acqf_class,
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
             options=self.options,
         )
 
-    @patch(
+    @mock.patch(
         f"{ACQUISITION_PATH}.Acquisition.compute_model_dependencies", return_value={}
     )
     def test_compute_model_dependencies(self, mock_Acquisition_compute):
@@ -191,26 +198,25 @@ class MultiFidelityKnowledgeGradientTest(AcquisitionSetUp, TestCase):
         # call `Acquisition.compute_model_dependencies` once.
         dependencies = self.acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
-            target_fidelities=self.target_fidelities,
             options=self.options,
         )
         mock_Acquisition_compute.assert_called_once()
         # Dependencies list should have `Keys.CURRENT_VALUE` in it
         self.assertTrue(Keys.CURRENT_VALUE in dependencies)
 
-    @patch(f"{KG_PATH}.OneShotAcquisition.optimize")
+    @mock.patch(f"{KG_PATH}.OneShotAcquisition.optimize")
     def test_optimize(self, mock_OneShot_optimize):
         # `MultiFidelityKnowledgeGradient.optimize()` should call
         # `OneShotAcquisition.optimize()` once.
         self.acquisition.optimize(
-            bounds=self.bounds,
             n=1,
+            search_space_digest=self.search_space_digest,
             optimizer_class=None,
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,

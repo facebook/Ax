@@ -4,9 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 from unittest.mock import patch
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.multi_fidelity import MultiFidelityAcquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -37,9 +39,12 @@ class MultiFidelityAcquisitionTest(TestCase):
             training_data=self.training_data, fidelity_features=self.fidelity_features
         )
         self.acquisition_options = {Keys.NUM_FANTASIES: 64}
-        self.bounds = [(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)]
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
+            target_fidelities={2: 1.0},
+        )
         self.objective_weights = torch.tensor([1.0])
-        self.target_fidelities = {2: 1.0}
         self.pending_observations = [
             torch.tensor([[1.0, 3.0, 4.0]]),
             torch.tensor([[2.0, 6.0, 8.0]]),
@@ -56,10 +61,9 @@ class MultiFidelityAcquisitionTest(TestCase):
             # We don't actually need to instantiate the BoTorch acqf in these tests.
             self.acquisition = MultiFidelityAcquisition(
                 surrogate=self.surrogate,
-                bounds=self.bounds,
+                search_space_digest=self.search_space_digest,
                 objective_weights=self.objective_weights,
                 botorch_acqf_class=qMultiFidelityKnowledgeGradient,
-                target_fidelities=self.target_fidelities,
             )
 
     @patch(f"{ACQUISITION_PATH}.Acquisition.__init__", return_value=None)
@@ -67,7 +71,7 @@ class MultiFidelityAcquisitionTest(TestCase):
     def test_optimize(self, mock_Acquisition_optimize, mock_Acquisition_init):
         # `self.acquisition.optimize()` should call `Acquisition.optimize()`
         # once.
-        self.acquisition.optimize(bounds=self.bounds, n=1)
+        self.acquisition.optimize(n=1, search_space_digest=self.search_space_digest)
         mock_Acquisition_optimize.assert_called_once()
 
     @patch(
@@ -85,14 +89,17 @@ class MultiFidelityAcquisitionTest(TestCase):
         mock_affine_model,
         mock_Acquisition_compute,
     ):
-        # Raise Error if `fidelity_weights` and `target_fidelities` do
-        # not align.
+        # Raise Error if `fidelity_weights` and `target_fidelities` do not align.
         with self.assertRaisesRegex(RuntimeError, "Must provide the same indices"):
             self.acquisition.compute_model_dependencies(
                 surrogate=self.surrogate,
-                bounds=self.bounds,
+                search_space_digest=SearchSpaceDigest(
+                    **{
+                        **dataclasses.asdict(self.search_space_digest),
+                        "target_fidelities": {1: 5.0},
+                    }
+                ),
                 objective_weights=self.objective_weights,
-                target_fidelities={1: 5.0},
                 pending_observations=self.pending_observations,
                 outcome_constraints=self.outcome_constraints,
                 linear_constraints=self.linear_constraints,
@@ -102,9 +109,13 @@ class MultiFidelityAcquisitionTest(TestCase):
         # Make sure `fidelity_weights` are set when they are not passed in.
         self.acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=SearchSpaceDigest(
+                **{
+                    **dataclasses.asdict(self.search_space_digest),
+                    "target_fidelities": {2: 5.0, 3: 5.0},
+                }
+            ),
             objective_weights=self.objective_weights,
-            target_fidelities={2: 5.0, 3: 5.0},
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
@@ -117,9 +128,8 @@ class MultiFidelityAcquisitionTest(TestCase):
         # Usual case.
         dependencies = self.acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
-            target_fidelities=self.target_fidelities,
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
@@ -128,9 +138,8 @@ class MultiFidelityAcquisitionTest(TestCase):
         )
         mock_Acquisition_compute.assert_called_with(
             surrogate=self.surrogate,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
-            target_fidelities=self.target_fidelities,
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
@@ -149,12 +158,13 @@ class MultiFidelityAcquisitionTest(TestCase):
         project = dependencies.get(Keys.PROJECT)
         project(torch.tensor([1.0]))
         mock_project.assert_called_with(
-            X=torch.tensor([1.0]), target_fidelities=self.target_fidelities
+            X=torch.tensor([1.0]),
+            target_fidelities=self.search_space_digest.target_fidelities,
         )
         expand = dependencies.get(Keys.EXPAND)
         expand(torch.tensor([1.0]))
         mock_expand.assert_called_with(
             X=torch.tensor([1.0]),
-            fidelity_dims=sorted(self.target_fidelities),
+            fidelity_dims=sorted(self.search_space_digest.target_fidelities),
             num_trace_obs=self.options.get(Keys.NUM_TRACE_OBSERVATIONS),
         )

@@ -105,8 +105,8 @@ class SurrogateTest(TestCase):
         )
         self.assertEqual(self.device, self.surrogate.device)
 
-    def test_from_BoTorch(self):
-        surrogate = Surrogate.from_BoTorch(
+    def test_from_botorch(self):
+        surrogate = Surrogate.from_botorch(
             self.botorch_model_class(**self.surrogate_kwargs)
         )
         self.assertIsInstance(surrogate.model, self.botorch_model_class)
@@ -185,13 +185,13 @@ class SurrogateTest(TestCase):
         ) as mock_best_in_sample:
             with self.assertRaisesRegex(ValueError, "Could not obtain"):
                 self.surrogate.best_in_sample_point(
-                    bounds=self.bounds, objective_weights=None
+                    search_space_digest=self.search_space_digest, objective_weights=None
                 )
         with patch(
             f"{SURROGATE_PATH}.best_in_sample_point", return_value=(self.Xs[0], 0.0)
         ) as mock_best_in_sample:
             best_point, observed_value = self.surrogate.best_in_sample_point(
-                bounds=self.bounds,
+                search_space_digest=self.search_space_digest,
                 objective_weights=self.objective_weights,
                 outcome_constraints=self.outcome_constraints,
                 linear_constraints=self.linear_constraints,
@@ -201,7 +201,7 @@ class SurrogateTest(TestCase):
             mock_best_in_sample.assert_called_with(
                 Xs=[self.training_data.X],
                 model=self.surrogate,
-                bounds=self.bounds,
+                bounds=self.search_space_digest.bounds,
                 objective_weights=self.objective_weights,
                 outcome_constraints=self.outcome_constraints,
                 linear_constraints=self.linear_constraints,
@@ -228,28 +228,25 @@ class SurrogateTest(TestCase):
         # currently cannot use function with fixed features
         with self.assertRaisesRegex(NotImplementedError, "Fixed features"):
             self.surrogate.best_out_of_sample_point(
-                bounds=self.bounds,
+                search_space_digest=self.search_space_digest,
                 objective_weights=self.objective_weights,
                 fixed_features=self.fixed_features,
             )
         candidate, acqf_value = self.surrogate.best_out_of_sample_point(
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
-            fidelity_features=self.search_space_digest.fidelity_features,
-            target_fidelities=self.search_space_digest.target_fidelities,
             options=self.options,
         )
         mock_acqf_init.assert_called_with(
             surrogate=self.surrogate,
             botorch_acqf_class=qSimpleRegret,
-            bounds=self.bounds,
+            search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=None,
-            target_fidelities=self.search_space_digest.target_fidelities,
             options={Keys.SAMPLER: SobolQMCNormalSampler},
         )
         self.assertTrue(torch.equal(candidate, torch.tensor([0.0])))
