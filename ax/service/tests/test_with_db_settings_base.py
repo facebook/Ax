@@ -188,7 +188,9 @@ class TestWithDBSettingsBase(TestCase):
             experiment.name, decoder=self.with_db_settings.db_settings.decoder
         )
         trial = exp.new_trial()
-        saved = self.with_db_settings._save_new_trial_to_db_if_possible(exp, trial)
+        saved = self.with_db_settings._save_or_update_trial_in_db_if_possible(
+            exp, trial
+        )
         self.assertTrue(saved)
         exp = _load_experiment(
             experiment.name, decoder=self.with_db_settings.db_settings.decoder
@@ -214,7 +216,9 @@ class TestWithDBSettingsBase(TestCase):
         self.assertEqual(trial.status, TrialStatus.CANDIDATE)
 
         trial.mark_running(True)
-        saved = self.with_db_settings._save_updated_trial_to_db_if_possible(exp, trial)
+        saved = self.with_db_settings._save_or_update_trial_in_db_if_possible(
+            exp, trial
+        )
         self.assertTrue(saved)
         exp = _load_experiment(
             experiment.name, decoder=self.with_db_settings.db_settings.decoder

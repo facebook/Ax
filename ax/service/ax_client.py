@@ -276,7 +276,7 @@ class AxClient(WithDBSettingsBase):
             f"{_round_floats_for_logging(item=not_none(trial.arm).parameters)}."
         )
         trial.mark_running(no_runner_required=True)
-        self._save_new_trial_to_db_if_possible(
+        self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
             trial=trial,
             suppress_all_errors=self._suppress_storage_errors,
@@ -496,7 +496,7 @@ class AxClient(WithDBSettingsBase):
             "Attached custom parameterization "
             f"{_round_floats_for_logging(item=parameters)} as trial {trial.index}."
         )
-        self._save_new_trial_to_db_if_possible(
+        self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
             trial=trial,
             suppress_all_errors=self._suppress_storage_errors,
@@ -904,7 +904,7 @@ class AxClient(WithDBSettingsBase):
         )
         if complete_trial:
             trial.mark_completed()
-        self._save_updated_trial_to_db_if_possible(
+        self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
             trial=trial,
             suppress_all_errors=self._suppress_storage_errors,

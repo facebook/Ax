@@ -29,9 +29,9 @@ try:  # We don't require SQLAlchemy by default.
         _load_generation_strategy_by_experiment_name,
     )
     from ax.storage.sqa_store.save import (
+        _save_or_update_trials,
         _save_experiment,
         _save_generation_strategy,
-        _save_or_update_trials,
         _update_generation_strategy,
     )
     from ax.storage.sqa_store.structs import DBSettings
@@ -257,11 +257,10 @@ class WithDBSettingsBase:
             return True
         return False
 
-    def _save_and_update_trials_and_generation_strategy_if_possible(
+    def _save_or_update_trials_and_generation_strategy_if_possible(
         self,
         experiment: Experiment,
-        new_trials: List[BaseTrial],
-        trials_to_update: List[BaseTrial],
+        trials: List[BaseTrial],
         generation_strategy: GenerationStrategy,
         new_generator_runs: List[GeneratorRun],
         suppress_all_errors: bool = False,
@@ -272,21 +271,16 @@ class WithDBSettingsBase:
 
         Args:
             experiment: Experiment, on which to save new trials in DB.
-            new_trials: Newly added trials to save.
-            trials_to_update: Updated trials to update in DB.
+            trials: Newly added or updated trials to save or update in DB.
             generation_strategy: Generation strategy to update in DB.
             new_generator_runs: Generator runs to add to generation strategy.
             suppress_all_errors: Flag for `retry_on_exception` that makes
                 the decorator suppress the thrown exception even if it
                 occurred in all the retries (exception is still logged).
         """
-        logger.debug(f"Saving {len(new_trials)} trials to DB.")
-        self._save_new_trials_to_db_if_possible(
-            experiment=experiment, trials=new_trials
-        )
-        logger.debug(f"Updating {len(trials_to_update)} in DB.")
-        self._save_updated_trials_to_db_if_possible(
-            experiment=experiment, trials=trials_to_update
+        logger.debug(f"Saving or updating {len(trials)} trials in DB.")
+        self._save_or_update_trials_in_db_if_possible(
+            experiment=experiment, trials=trials
         )
         logger.debug(
             "Updating generation strategy in DB with "
@@ -298,12 +292,8 @@ class WithDBSettingsBase:
         )
         return
 
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=RETRY_EXCEPTION_TYPES,
-    )
-    def _save_new_trial_to_db_if_possible(
+    # No retries needed, covered in `self._save_or_update_trials_in_db_if_possible`
+    def _save_or_update_trial_in_db_if_possible(
         self,
         experiment: Experiment,
         trial: BaseTrial,
@@ -322,8 +312,10 @@ class WithDBSettingsBase:
         Returns:
             bool: Whether the trial was saved.
         """
-        return self._save_new_trials_to_db_if_possible(
-            experiment, [trial], suppress_all_errors
+        return self._save_or_update_trials_in_db_if_possible(
+            experiment=experiment,
+            trials=[trial],
+            suppress_all_errors=suppress_all_errors,
         )
 
     @retry_on_exception(
@@ -331,14 +323,14 @@ class WithDBSettingsBase:
         default_return_on_suppression=False,
         exception_types=RETRY_EXCEPTION_TYPES,
     )
-    def _save_new_trials_to_db_if_possible(
+    def _save_or_update_trials_in_db_if_possible(
         self,
         experiment: Experiment,
         trials: List[BaseTrial],
         suppress_all_errors: bool = False,
     ) -> bool:
-        """Saves new trials on given experiment if DB settings are set on this
-        `WithDBSettingsBase` instance.
+        """Saves new trials or update existing trials on given experiment if DB
+        settings are set on this `WithDBSettingsBase` instance.
 
         Args:
             experiment: Experiment, on which to save new trials in DB.
@@ -360,73 +352,6 @@ class WithDBSettingsBase:
             )
             logger.debug(
                 f"Saved trials {[trial.index for trial in trials]} in "
-                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
-            )
-            return True
-        return False
-
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=RETRY_EXCEPTION_TYPES,
-    )
-    def _save_updated_trial_to_db_if_possible(
-        self,
-        experiment: Experiment,
-        trial: BaseTrial,
-        suppress_all_errors: bool = False,
-    ) -> bool:
-        """Saves updated trials on given experiment if DB settings are set on this
-        `WithDBSettingsBase` instance.
-
-        Args:
-            experiment: Experiment, on which to save updated trials in DB.
-            trial: Newly updated trial to save.
-            suppress_all_errors: Flag for `retry_on_exception` that makes
-                the decorator suppress the thrown exception even if it
-                occurred in all the retries (exception is still logged).
-
-        Returns:
-            bool: Whether the trial was saved.
-        """
-        return self._save_updated_trials_to_db_if_possible(
-            experiment, [trial], suppress_all_errors
-        )
-
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=RETRY_EXCEPTION_TYPES,
-    )
-    def _save_updated_trials_to_db_if_possible(
-        self,
-        experiment: Experiment,
-        trials: List[BaseTrial],
-        suppress_all_errors: bool = False,
-    ) -> bool:
-        """Saves updated trials on given experiment if DB settings are set on this
-        `WithDBSettingsBase` instance.
-
-        Args:
-            experiment: Experiment, on which to save updated trials in DB.
-            trials: Newly updated trials to save.
-            suppress_all_errors: Flag for `retry_on_exception` that makes
-                the decorator suppress the thrown exception even if it
-                occurred in all the retries (exception is still logged).
-
-        Returns:
-            bool: Whether the trials were saved.
-        """
-        if self.db_settings_set:
-            start_time = time.time()
-            _save_or_update_trials(
-                experiment=experiment,
-                trials=trials,
-                encoder=self.db_settings.encoder,
-                decoder=self.db_settings.decoder,
-            )
-            logger.debug(
-                f"Updated trials {[trial.index for trial in trials]} in "
                 f"{_round_floats_for_logging(time.time() - start_time)} seconds."
             )
             return True
