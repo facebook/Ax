@@ -184,7 +184,12 @@ def save_or_update_trials(
     batch_size: Optional[int] = None,
 ) -> None:
     """Add new trials to the experiment, or update if already exists
-    (using default SQAConfig)."""
+    (using default SQAConfig).
+
+    Note that new data objects (whether attached to existing or new trials)
+    will also be added to the experiment, but existing data objects in the
+    database will *not* be updated or removed.
+    """
     config = config or SQAConfig()
     encoder = Encoder(config=config)
     decoder = Decoder(config=config)
@@ -204,7 +209,12 @@ def _save_or_update_trials(
     decoder: Decoder,
     batch_size: Optional[int] = None,
 ) -> None:
-    """Add new trials to the experiment, or update if they already exist."""
+    """Add new trials to the experiment, or update if they already exist.
+
+    Note that new data objects (whether attached to existing or new trials)
+    will also be added to the experiment, but existing data objects in the
+    database will *not* be updated or removed.
+    """
     experiment_id = experiment._db_id
     if experiment_id is None:
         raise ValueError("Must save experiment first.")
