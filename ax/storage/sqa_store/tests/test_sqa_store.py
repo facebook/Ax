@@ -148,35 +148,6 @@ class SQAStoreTest(TestCase):
             self.assertTrue(engine.echo)
             self.assertEqual(engine.pool.size(), 2)
 
-    def testEquals(self):
-        trial_sqa = self.encoder.trial_to_sqa(get_batch_trial())[0]
-        self.assertTrue(trial_sqa.equals(trial_sqa))
-
-    def testListEquals(self):
-        self.assertTrue(SQABase.list_equals([1, 2, 3], [1, 2, 3]))
-        self.assertFalse(SQABase.list_equals([4], ["foo"]))
-        self.assertFalse(SQABase.list_equals([4], []))
-
-        with self.assertRaises(ValueError):
-            SQABase.list_equals([[4]], [[4]])
-
-    def testListUpdate(self):
-        self.assertEqual(SQABase.list_update([1, 2, 3], [1, 2, 3]), [1, 2, 3])
-        self.assertEqual(SQABase.list_update([4], [5]), [5])
-        self.assertEqual(SQABase.list_update([4], ["foo"]), ["foo"])
-
-        with self.assertRaises(ValueError):
-            SQABase.list_update([[4]], [[4]])
-
-    def testValidateUpdate(self):
-        parameter = get_choice_parameter()
-        parameter_sqa = self.encoder.parameter_to_sqa(parameter)
-        parameter2 = get_choice_parameter()
-        parameter2._name = 5
-        parameter_sqa_2 = self.encoder.parameter_to_sqa(parameter2)
-        with self.assertRaises(ImmutabilityError):
-            parameter_sqa.update(parameter_sqa_2)
-
     def testGeneratorRunTypeValidation(self):
         experiment = get_experiment_with_batch_trial()
         generator_run = experiment.trials[0].generator_run_structs[0].generator_run
@@ -830,14 +801,6 @@ class SQAStoreTest(TestCase):
         sqa_parameter.domain_type = 5
         with self.assertRaises(SQADecodeError):
             self.decoder.parameter_from_sqa(sqa_parameter)
-
-    def testParameterUpdateFailure(self):
-        parameter = get_range_parameter()
-        sqa_parameter = self.encoder.parameter_to_sqa(parameter)
-        parameter._name = "new"
-        sqa_parameter_2 = self.encoder.parameter_to_sqa(parameter)
-        with self.assertRaises(ImmutabilityError):
-            sqa_parameter.update(sqa_parameter_2)
 
     def testParameterConstraintValidation(self):
         sqa_parameter_constraint = SQAParameterConstraint(
