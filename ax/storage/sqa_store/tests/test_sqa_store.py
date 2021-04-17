@@ -16,7 +16,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
 from ax.core.types import ComparisonOp
-from ax.exceptions.storage import ImmutabilityError, SQADecodeError, SQAEncodeError
+from ax.exceptions.storage import SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
@@ -25,7 +25,6 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.storage.metric_registry import METRIC_REGISTRY, register_metric
 from ax.storage.runner_registry import RUNNER_REGISTRY, register_runner
 from ax.storage.sqa_store.db import (
-    SQABase,
     get_engine,
     get_session,
     init_engine_and_session_factory,
@@ -71,7 +70,6 @@ from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_arm,
-    get_batch_trial,
     get_branin_data,
     get_branin_experiment,
     get_branin_metric,
