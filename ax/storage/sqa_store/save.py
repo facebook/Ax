@@ -16,7 +16,7 @@ from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import SQABase, session_scope
 from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.encoder import Encoder, T_OBJ_TO_SQA
+from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
     SQAData,
@@ -31,23 +31,6 @@ from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger = get_logger(__name__)
-
-
-def _set_db_ids(obj_to_sqa: List[Tuple[Base, SQABase]]) -> None:
-    for obj, sqa_obj in obj_to_sqa:
-        if sqa_obj.id is not None:  # pyre-ignore[16]
-            obj.db_id = not_none(sqa_obj.id)
-        elif obj.db_id is None:
-            is_sq_gr = (
-                isinstance(obj, GeneratorRun)
-                and obj._generator_run_type == "STATUS_QUO"
-            )
-            # TODO: Remove this warning when storage & perf project is complete.
-            if not is_sq_gr:
-                logger.warning(
-                    f"User-facing object {obj} does not already have a db_id, "
-                    f"and the corresponding SQA object: {sqa_obj} does not either."
-                )
 
 
 def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) -> None:
@@ -363,7 +346,6 @@ def _merge_into_session(
     5. Decode `new_sqa` into a new user-facing object `new_obj`
     6. Copy db_ids from `new_obj` to the originally passed-in `obj`
     """
-    encode_func = _standardize_encode_func(encode_func=encode_func)
     sqa = encode_func(obj, **(encode_args or {}))
 
     if modify_sqa is not None:
@@ -401,7 +383,6 @@ def _bulk_merge_into_session(
     if len(objs) == 0:
         return []
 
-    encode_func = _standardize_encode_func(encode_func=encode_func)
     encode_args_list = encode_args_list or [None for _ in range(len(objs))]
     decode_args_list = decode_args_list or [None for _ in range(len(objs))]
 
@@ -435,36 +416,6 @@ def _bulk_merge_into_session(
         _copy_db_ids_if_possible(obj=obj, new_obj=new_obj)
 
     return new_sqas
-
-
-def encode_func_returns_obj_to_sqa(encode_func: Callable) -> bool:
-    """Some encoding functions return both the encoded object and `obj_to_sqa`,
-    with the latter being a list of tuples of form (obj, sqa_obj), used to
-    set `db_id` on Ax objects after they are saved. This function checks
-    return type of `encode_func` to determine whether `encode_func` is one
-    of such functions.
-    """
-    encode_func_return_type = signature(encode_func).return_annotation
-    return (getattr(encode_func_return_type, "_name", "") == "Tuple") and (
-        T_OBJ_TO_SQA in getattr(encode_func_return_type, "__args__", ())
-    )
-
-
-def _standardize_encode_func(encode_func: Callable) -> Callable:
-    """Some encoding functions return both the encoded object and `obj_to_sqa`.
-    This function checks the type of `encode_func` to determine whether
-    it is one of such functions, and if so, "converts" it into a function that
-    just returns the encoded object (and discards `obj_to_sqa`).
-    """
-    if encode_func_returns_obj_to_sqa(encode_func=encode_func):
-
-        def modified_encode_func(obj, **kwargs):
-            sqa, _ = encode_func(obj, **kwargs)
-            return sqa
-
-        return modified_encode_func
-
-    return encode_func
 
 
 def _copy_db_ids_if_possible(new_obj: Any, obj: Any) -> None:

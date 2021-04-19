@@ -40,7 +40,6 @@ from ax.storage.sqa_store.load import (
     load_generation_strategy_by_id,
 )
 from ax.storage.sqa_store.save import (
-    encode_func_returns_obj_to_sqa,
     save_experiment,
     save_generation_strategy,
     save_or_update_trial,
@@ -154,7 +153,7 @@ class SQAStoreTest(TestCase):
             self.encoder.generator_run_to_sqa(generator_run)
 
         generator_run._generator_run_type = "STATUS_QUO"
-        generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)[0]
+        generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)
         generator_run_sqa.generator_run_type = 2
         with self.assertRaises(SQADecodeError):
             self.decoder.generator_run_from_sqa(generator_run_sqa)
@@ -354,10 +353,6 @@ class SQAStoreTest(TestCase):
             encode_func = unbound_encode_func.__get__(self.encoder)
             decode_func = unbound_decode_func.__get__(self.decoder)
             sqa_object = encode_func(original_object)
-            if encode_func_returns_obj_to_sqa(encode_func=encode_func):
-                # Some encoding functions returns two things, of which for
-                # encoding we only care about the first.
-                sqa_object = sqa_object[0]
 
             if class_ in ["OrderConstraint", "ParameterConstraint", "SumConstraint"]:
                 converted_object = decode_func(sqa_object, self.dummy_parameters)
@@ -1162,7 +1157,7 @@ class SQAStoreTest(TestCase):
     def testGeneratorRunGenMetadata(self):
         gen_metadata = {"hello": "world"}
         gr = GeneratorRun(arms=[], gen_metadata=gen_metadata)
-        generator_run_sqa = self.encoder.generator_run_to_sqa(gr)[0]
+        generator_run_sqa = self.encoder.generator_run_to_sqa(gr)
         decoded_gr = self.decoder.generator_run_from_sqa(generator_run_sqa)
         self.assertEqual(decoded_gr.gen_metadata, gen_metadata)
 
