@@ -217,7 +217,7 @@ class Surrogate(Base):
                 "`fit` skips setting the training data on model and only reoptimizes "
                 "its parameters if `refit=True`."
             )
-        if self._model is None and not self._constructed_manually:
+        else:
             self.construct(
                 training_data=training_data,
                 metric_names=metric_names,
