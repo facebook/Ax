@@ -5,8 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
-from inspect import signature
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment

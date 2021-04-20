@@ -40,7 +40,6 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.metric_registry import METRIC_REGISTRY
 from ax.storage.runner_registry import RUNNER_REGISTRY
-from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
@@ -543,7 +542,7 @@ class Encoder:
         )
         # Constructing children SQAMetric classes (these are the real metrics in
         # the `ScalarizedObjective`).
-        children_metrics, con_to_sqa = [], []
+        children_metrics = []
         for metric_name in metrics_by_name:
             m, w, metric_cls, type_and_properties = metrics_by_name[metric_name]
             children_metrics.append(
