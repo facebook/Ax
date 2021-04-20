@@ -38,6 +38,7 @@ from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
     SingleTaskMultiFidelityGP,
 )
+from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
@@ -70,6 +71,7 @@ MODEL_REGISTRY: Dict[Type[Model], str] = {
     FixedNoiseGP: "FixedNoiseGP",
     FixedNoiseMultiFidelityGP: "FixedNoiseMultiFidelityGP",
     FixedNoiseMultiTaskGP: "FixedNoiseMultiTaskGP",
+    MixedSingleTaskGP: "MixedSingleTaskGP",
     ModelListGP: "ModelListGP",
     MultiTaskGP: "MultiTaskGP",
     SingleTaskGP: "SingleTaskGP",
