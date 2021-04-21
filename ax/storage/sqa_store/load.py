@@ -17,6 +17,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQAGeneratorRun,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
+from ax.utils.common.constants import Keys
 from sqlalchemy.orm import defaultload, lazyload
 
 
@@ -113,6 +114,25 @@ def _get_experiment_sqa_reduced_state(
         if sqa_experiment is None:
             raise ValueError(f"Experiment '{experiment_name}' not found.")
     return sqa_experiment
+
+
+def _get_experiment_immutable_opt_config_and_search_space(
+    experiment_name: str, exp_sqa_class: Type[SQAExperiment]
+) -> bool:
+    """Return true iff the experiment is designated as having an
+    immutable optimization config and search space.
+    """
+    with session_scope() as session:
+        sqa_experiment_properties = (
+            session.query(exp_sqa_class.properties)
+            .filter_by(name=experiment_name)
+            .one_or_none()
+        )
+        if sqa_experiment_properties is None:
+            raise ValueError(f"Experiment '{experiment_name}' not found.")
+    return sqa_experiment_properties[0].get(
+        Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF, False
+    )
 
 
 def _get_experiment_id(experiment_name: str, config: SQAConfig) -> Optional[int]:

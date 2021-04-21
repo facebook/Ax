@@ -38,6 +38,7 @@ from ax.storage.sqa_store.load import (
     load_experiment,
     load_generation_strategy_by_experiment_name,
     load_generation_strategy_by_id,
+    _get_experiment_immutable_opt_config_and_search_space,
 )
 from ax.storage.sqa_store.save import (
     save_experiment,
@@ -1281,3 +1282,19 @@ class SQAStoreTest(TestCase):
             delete_experiment(exp_name)
             with self.assertRaises(ValueError):
                 load_experiment(exp_name)
+
+    def testGetImmutableSearchSpaceAndOptConfig(self):
+        save_experiment(self.experiment)
+        immutable = _get_experiment_immutable_opt_config_and_search_space(
+            experiment_name=self.experiment.name, exp_sqa_class=SQAExperiment
+        )
+        self.assertFalse(immutable)
+
+        self.experiment._properties = {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True}
+        self.assertTrue(self.experiment.immutable_search_space_and_opt_config)
+        save_experiment(self.experiment)
+
+        immutable = _get_experiment_immutable_opt_config_and_search_space(
+            experiment_name=self.experiment.name, exp_sqa_class=SQAExperiment
+        )
+        self.assertTrue(immutable)
