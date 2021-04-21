@@ -157,10 +157,10 @@ class SQAStoreTest(TestCase):
         generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)
         generator_run_sqa.generator_run_type = 2
         with self.assertRaises(SQADecodeError):
-            self.decoder.generator_run_from_sqa(generator_run_sqa)
+            self.decoder.generator_run_from_sqa(generator_run_sqa, False, False)
 
         generator_run_sqa.generator_run_type = 0
-        self.decoder.generator_run_from_sqa(generator_run_sqa)
+        self.decoder.generator_run_from_sqa(generator_run_sqa, False, False)
 
     def testExperimentSaveAndLoad(self):
         for exp in [
@@ -357,6 +357,9 @@ class SQAStoreTest(TestCase):
 
             if class_ in ["OrderConstraint", "ParameterConstraint", "SumConstraint"]:
                 converted_object = decode_func(sqa_object, self.dummy_parameters)
+            elif class_ == "GeneratorRun":
+                # Need to pass in reduced_state and immutable_oc_and_ss
+                converted_object = decode_func(sqa_object, False, False)
             else:
                 converted_object = decode_func(sqa_object)
 
@@ -1159,7 +1162,9 @@ class SQAStoreTest(TestCase):
         gen_metadata = {"hello": "world"}
         gr = GeneratorRun(arms=[], gen_metadata=gen_metadata)
         generator_run_sqa = self.encoder.generator_run_to_sqa(gr)
-        decoded_gr = self.decoder.generator_run_from_sqa(generator_run_sqa)
+        decoded_gr = self.decoder.generator_run_from_sqa(
+            generator_run_sqa, False, False
+        )
         self.assertEqual(decoded_gr.gen_metadata, gen_metadata)
 
     def testUpdateGenerationStrategyIncrementally(self):
@@ -1291,10 +1296,12 @@ class SQAStoreTest(TestCase):
         self.assertFalse(immutable)
 
         self.experiment._properties = {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True}
-        self.assertTrue(self.experiment.immutable_search_space_and_opt_config)
         save_experiment(self.experiment)
 
         immutable = _get_experiment_immutable_opt_config_and_search_space(
             experiment_name=self.experiment.name, exp_sqa_class=SQAExperiment
         )
         self.assertTrue(immutable)
+
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertTrue(loaded_experiment.immutable_search_space_and_opt_config)

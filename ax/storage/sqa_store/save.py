@@ -293,6 +293,13 @@ def _update_generation_strategy(
         objs=generator_runs,
         encode_func=encoder.generator_run_to_sqa,
         decode_func=decoder.generator_run_from_sqa,
+        decode_args_list=[
+            {
+                "reduced_state": False,
+                "immutable_search_space_and_opt_config": False,
+            }
+            for _ in range(len(generator_runs))
+        ],
         modify_sqa=add_generation_strategy_id,
         batch_size=batch_size,
     )

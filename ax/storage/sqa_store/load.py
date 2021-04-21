@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Type, cast
+from typing import Any, List, Optional, Type, cast
 
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -54,66 +54,99 @@ def _load_experiment(
     1) Get SQLAlchemy object from DB.
     2) Convert to corresponding Ax object.
     """
-    # Convert SQA to user-facing class outside of session scope to avoid timeouts
-    return decoder.experiment_from_sqa(
-        experiment_sqa=_get_experiment_sqa_reduced_state(
-            experiment_name=experiment_name, decoder=decoder
+    # pyre-ignore Incompatible variable type [9]: exp_sqa_class is declared to have type
+    # `Type[SQAExperiment]` but is used as type `Type[ax.storage.sqa_store.db.SQABase]`
+    exp_sqa_class: Type[SQAExperiment] = decoder.config.class_to_sqa_class[Experiment]
+
+    if reduced_state:
+        return decoder.experiment_from_sqa(
+            experiment_sqa=_get_experiment_sqa_reduced_state(
+                experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
+            ),
+            reduced_state=reduced_state,
         )
-        if reduced_state
-        else _get_experiment_sqa(experiment_name=experiment_name, decoder=decoder),
-        reduced_state=reduced_state,
+
+    immutable_opt_config_and_search_space = (
+        _get_experiment_immutable_opt_config_and_search_space(
+            experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
+        )
     )
-
-
-def _get_experiment_sqa(experiment_name: str, decoder: Decoder) -> SQAExperiment:
-    """Obtains SQLAlchemy experiment object from DB."""
-    exp_sqa_class = decoder.config.class_to_sqa_class[Experiment]
-    with session_scope() as session:
-        sqa_experiment = (
-            session.query(exp_sqa_class).filter_by(name=experiment_name).one_or_none()
+    if immutable_opt_config_and_search_space:
+        experiment_sqa = _get_experiment_sqa_immutable_opt_config_and_search_space(
+            experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
         )
+    else:
+        experiment_sqa = _get_experiment_sqa(
+            experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
+        )
+    return decoder.experiment_from_sqa(experiment_sqa=experiment_sqa)
+
+
+def _get_experiment_sqa(
+    experiment_name: str,
+    exp_sqa_class: Type[SQAExperiment],
+    query_options: Optional[List[Any]] = None,
+) -> SQAExperiment:
+    """Obtains SQLAlchemy experiment object from DB."""
+    with session_scope() as session:
+        query = session.query(exp_sqa_class).filter_by(name=experiment_name)
+        if query_options is not None:
+            query = query.options(*query_options)
+        sqa_experiment = query.one_or_none()
         if sqa_experiment is None:
             raise ValueError(f"Experiment '{experiment_name}' not found.")
-    return sqa_experiment  # pyre-ignore[7]
+    return sqa_experiment
 
 
 def _get_experiment_sqa_reduced_state(
-    experiment_name: str, decoder: Decoder
+    experiment_name: str, exp_sqa_class: Type[SQAExperiment]
 ) -> SQAExperiment:
     """Obtains most of the SQLAlchemy experiment object from DB, with some attributes
     (model state on generator runs, abandoned arms) omitted. Used for loading
     large experiments, in cases where model state history is not required.
     """
-    exp_sqa_class = cast(
-        Type[SQAExperiment], decoder.config.class_to_sqa_class[Experiment]
+    return _get_experiment_sqa(
+        experiment_name=experiment_name,
+        exp_sqa_class=exp_sqa_class,
+        query_options=[
+            lazyload("trials.generator_runs.parameters"),
+            lazyload("trials.generator_runs.parameter_constraints"),
+            lazyload("trials.generator_runs.metrics"),
+            lazyload("trials.abandoned_arms"),
+            defaultload(exp_sqa_class.trials)
+            .defaultload("generator_runs")
+            .defer("model_kwargs"),
+            defaultload(exp_sqa_class.trials)
+            .defaultload("generator_runs")
+            .defer("bridge_kwargs"),
+            defaultload(exp_sqa_class.trials)
+            .defaultload("generator_runs")
+            .defer("model_state_after_gen"),
+            defaultload(exp_sqa_class.trials)
+            .defaultload("generator_runs")
+            .defer("gen_metadata"),
+        ],
     )
-    with session_scope() as session:
-        sqa_experiment = (
-            session.query(exp_sqa_class)
-            .filter_by(name=experiment_name)
-            .options(
-                lazyload("trials.generator_runs.parameters"),
-                lazyload("trials.generator_runs.parameter_constraints"),
-                lazyload("trials.generator_runs.metrics"),
-                lazyload("trials.abandoned_arms"),
-                defaultload(exp_sqa_class.trials)
-                .defaultload("generator_runs")
-                .defer("model_kwargs"),
-                defaultload(exp_sqa_class.trials)
-                .defaultload("generator_runs")
-                .defer("bridge_kwargs"),
-                defaultload(exp_sqa_class.trials)
-                .defaultload("generator_runs")
-                .defer("model_state_after_gen"),
-                defaultload(exp_sqa_class.trials)
-                .defaultload("generator_runs")
-                .defer("gen_metadata"),
-            )
-            .one_or_none()
-        )
-        if sqa_experiment is None:
-            raise ValueError(f"Experiment '{experiment_name}' not found.")
-    return sqa_experiment
+
+
+def _get_experiment_sqa_immutable_opt_config_and_search_space(
+    experiment_name: str, exp_sqa_class: Type[SQAExperiment]
+) -> SQAExperiment:
+    """For experiments where the search space and opt config are
+    immutable, we don't store copies of search space and opt config
+    on each generator run. Therefore, there's no need to try to
+    load these copies from the DB -- these queries will always return
+    an empty list, and are therefore unnecessary and wasteful.
+    """
+    return _get_experiment_sqa(
+        experiment_name=experiment_name,
+        exp_sqa_class=exp_sqa_class,
+        query_options=[
+            lazyload("trials.generator_runs.parameters"),
+            lazyload("trials.generator_runs.parameter_constraints"),
+            lazyload("trials.generator_runs.metrics"),
+        ],
+    )
 
 
 def _get_experiment_immutable_opt_config_and_search_space(

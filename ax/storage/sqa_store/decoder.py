@@ -652,14 +652,20 @@ class Decoder:
         return arm
 
     def generator_run_from_sqa(
-        self, generator_run_sqa: SQAGeneratorRun, reduced_state: bool = False
+        self,
+        generator_run_sqa: SQAGeneratorRun,
+        reduced_state: bool,
+        immutable_search_space_and_opt_config: bool,
     ) -> GeneratorRun:
         """Convert SQLAlchemy GeneratorRun to Ax GeneratorRun.
 
         Args:
             generator_run_sqa: `SQAGeneratorRun` to decode.
             reduced_state: Whether to load generator runs with a slightly reduced state
-            (without model state, search space, and optimization config).
+                (without model state, search space, and optimization config).
+            immutable_search_space_and_opt_config: Whether to load generator runs
+                without search space and optimization config. Unlike `reduced_state`,
+                we do still load model state.
         """
         arms = []
         weights = []
@@ -670,7 +676,7 @@ class Decoder:
             arms.append(self.arm_from_sqa(arm_sqa=arm_sqa))
             weights.append(arm_sqa.weight)
 
-        if not reduced_state:
+        if not reduced_state and not immutable_search_space_and_opt_config:
             (
                 opt_config,
                 tracking_metrics,
@@ -753,21 +759,37 @@ class Decoder:
         steps = object_from_json(gs_sqa.steps)
         gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
         gs._curr = gs._steps[gs_sqa.curr_index]
+        immutable_ss_and_oc = (
+            experiment.immutable_search_space_and_opt_config
+            if experiment is not None
+            else False
+        )
         if reduced_state and gs_sqa.generator_runs:
             # Only fully load the last of the generator runs, load the rest with
             # reduced state.
             gs._generator_runs = [
-                self.generator_run_from_sqa(generator_run_sqa=gr, reduced_state=True)
+                self.generator_run_from_sqa(
+                    generator_run_sqa=gr,
+                    reduced_state=True,
+                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
+                )
                 for gr in gs_sqa.generator_runs[:-1]
             ]
             gs._generator_runs.append(
                 self.generator_run_from_sqa(
-                    generator_run_sqa=gs_sqa.generator_runs[-1], reduced_state=False
+                    generator_run_sqa=gs_sqa.generator_runs[-1],
+                    reduced_state=False,
+                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
                 )
             )
         else:
             gs._generator_runs = [
-                self.generator_run_from_sqa(gr) for gr in gs_sqa.generator_runs
+                self.generator_run_from_sqa(
+                    generator_run_sqa=gr,
+                    reduced_state=False,
+                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
+                )
+                for gr in gs_sqa.generator_runs
             ]
         if len(gs._generator_runs) > 0:
             # Generation strategy had an initialized model.
@@ -817,6 +839,7 @@ class Decoder:
             reduced state (without model state, search space, and optimization config).
 
         """
+        immutable_ss_and_oc = experiment.immutable_search_space_and_opt_config
         if trial_sqa.is_batch:
             trial = BatchTrial(
                 experiment=experiment,
@@ -829,6 +852,7 @@ class Decoder:
                     generator_run=self.generator_run_from_sqa(
                         generator_run_sqa=generator_run_sqa,
                         reduced_state=reduced_state,
+                        immutable_search_space_and_opt_config=immutable_ss_and_oc,
                     ),
                     weight=generator_run_sqa.weight or 1.0,
                 )
@@ -875,6 +899,7 @@ class Decoder:
                 trial._generator_run = self.generator_run_from_sqa(
                     generator_run_sqa=trial_sqa.generator_runs[0],
                     reduced_state=reduced_state,
+                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
                 )
         trial._trial_type = trial_sqa.trial_type
         # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
