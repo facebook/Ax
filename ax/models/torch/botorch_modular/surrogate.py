@@ -227,8 +227,6 @@ class Surrogate(Base):
             self.model.load_state_dict(not_none(state_dict))
 
         if state_dict is None or refit:
-            # pyre-ignore[16]: Model has no attribute likelihood.
-            # All BoTorch `Model`-s expected to work with this setup have likelihood.
             mll = self.mll_class(self.model.likelihood, self.model)
             fit_gpytorch_model(mll)
 

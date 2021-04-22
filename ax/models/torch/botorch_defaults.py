@@ -174,7 +174,6 @@ def get_and_fit_model(
         if isinstance(model, ModelListGP):
             mll = SumMarginalLogLikelihood(model.likelihood, model, mll_cls=mll_cls)
         else:
-            # pyre-ignore: [16]
             mll = mll_cls(model.likelihood, model)
         mll = fit_gpytorch_model(mll, bounds=bounds)
     return model

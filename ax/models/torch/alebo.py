@@ -492,7 +492,7 @@ def alebo_acqf_optimizer(
     candidate_list, acq_value_list = [], []
     candidates = torch.tensor([], device=B.device, dtype=B.dtype)
     try:
-        base_X_pending = acq_function.X_pending  # pyre-ignore
+        base_X_pending = acq_function.X_pending
         acq_has_X_pend = True
     except AttributeError:
         base_X_pending = None
@@ -528,12 +528,17 @@ def alebo_acqf_optimizer(
             candidates = torch.cat(candidate_list, dim=-2)
             if acq_has_X_pend:
                 acq_function.set_X_pending(
+                    # pyre-fixme[6]: Expected `Union[List[Tensor],
+                    #  typing.Tuple[Tensor, ...]]` for 1st param but got
+                    #  `List[Union[Tensor, torch.nn.Module]]`.
                     torch.cat([base_X_pending, candidates], dim=-2)
                     if base_X_pending is not None
                     else candidates
                 )
         logger.info(f"Generated sequential candidate {i+1} of {n}")
     if acq_has_X_pend:
+        # pyre-fixme[6]: Expected `Optional[Tensor]` for 1st param but got
+        #  `Union[None, Tensor, torch.nn.Module]`.
         acq_function.set_X_pending(base_X_pending)
     return candidates, torch.stack(acq_value_list)
 
