@@ -31,6 +31,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis
+from ax.utils.common.typeutils import checked_cast
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -589,7 +590,7 @@ class Experiment(Base):
         return self.default_data_constructor.from_multiple_data(trial_datas)
 
     def lookup_data_for_trial(
-        self, trial_index: int
+        self, trial_index: int, merge_trial_data: bool = False
     ) -> Tuple[AbstractDataFrameData, int]:
         """Lookup stored data for a specific trial.
 
@@ -598,6 +599,8 @@ class Experiment(Base):
 
         Args:
             trial_index: The index of the trial to lookup data for.
+            merge_trial_data: Whether to return Data from all timestamps instead
+                of only the latest.
 
         Returns:
             The requested data object, and its storage timestamp in milliseconds.
@@ -612,6 +615,11 @@ class Experiment(Base):
 
         storage_time = max(trial_data_dict.keys())
         trial_data = trial_data_dict[storage_time]
+        if merge_trial_data:
+            trial_data = trial_data.from_multiple_data(
+                data=list(trial_data_dict.values())
+            )
+            trial_data = checked_cast(AbstractDataFrameData, trial_data)
         return trial_data, storage_time
 
     @property

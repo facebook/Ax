@@ -16,6 +16,7 @@ from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -114,6 +115,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     ListSurrogate: surrogate_to_dict,
     L2NormMetric: metric_to_dict,
     MapData: map_data_to_dict,
+    MapMetric: metric_to_dict,
     Metric: metric_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
@@ -177,6 +179,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "ListSurrogate": ListSurrogate,
     "L2NormMetric": L2NormMetric,
     "MapData": MapData,
+    "MapMetric": MapMetric,
     "Metric": Metric,
     "Models": Models,
     "MultiObjective": MultiObjective,

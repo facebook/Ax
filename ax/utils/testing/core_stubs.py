@@ -18,6 +18,7 @@ from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -98,10 +99,10 @@ def get_experiment_with_map_data():
     return Experiment(
         name="test_map_data",
         search_space=get_search_space(),
-        optimization_config=get_optimization_config(),
+        optimization_config=get_map_optimization_config(),
         status_quo=get_status_quo(),
         description="test description",
-        tracking_metrics=[Metric(name="tracking")],
+        tracking_metrics=[MapMetric(name="tracking")],
         is_test=True,
         default_data_type=DataType.MAP_DATA,
     )
@@ -754,6 +755,10 @@ def get_objective() -> Objective:
     return Objective(metric=Metric(name="m1"), minimize=False)
 
 
+def get_map_objective() -> Objective:
+    return Objective(metric=MapMetric(name="m1"), minimize=False)
+
+
 def get_multi_objective() -> Objective:
     return MultiObjective(
         metrics=[Metric(name="m1"), Metric(name="m3", lower_is_better=True)],
@@ -806,6 +811,11 @@ def get_optimization_config() -> OptimizationConfig:
     return OptimizationConfig(
         objective=objective, outcome_constraints=outcome_constraints
     )
+
+
+def get_map_optimization_config() -> OptimizationConfig:
+    objective = get_map_objective()
+    return OptimizationConfig(objective=objective)
 
 
 def get_multi_objective_optimization_config() -> OptimizationConfig:

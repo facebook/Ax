@@ -369,6 +369,9 @@ class ExperimentTest(TestCase):
         # Test retrieving full exp data
         self.assertEqual(len(exp.lookup_data_for_ts(t2).df), 4 * n)
 
+        # Test merging multiple timestamps of data
+        self.assertEqual(len(exp.lookup_data_for_trial(0, merge_trial_data=True)), 2)
+
         with self.assertRaisesRegex(ValueError, ".* for metric"):
             exp.attach_data(batch_data, combine_with_last_data=True)
 
@@ -644,6 +647,40 @@ class ExperimentWithMapDataTest(TestCase):
         empty_experiment.add_tracking_metric(Metric(name="ax_test_metric"))
         self.assertTrue(empty_experiment.fetch_data().df.empty)
         empty_experiment.attach_data(get_map_data())
+
+    def testFetchDataWithMapData(self):
+        evaluations = {
+            "0_0": [
+                ({"epoch": 1}, {"tracking": (3.7, 0.5)}),
+                ({"epoch": 2}, {"tracking": (3.8, 0.5)}),
+                ({"epoch": 3}, {"tracking": (3.9, 0.5)}),
+                ({"epoch": 4}, {"tracking": (4.0, 0.5)}),
+            ],
+        }
+        self.experiment.new_trial()
+        self.experiment.trials[0].mark_running(no_runner_required=True)
+        first_epoch = MapData.from_map_evaluations(
+            evaluations={
+                arm_name: partial_results[0:1]
+                for arm_name, partial_results in evaluations.items()
+            },
+            trial_index=0,
+        )
+        self.experiment.attach_data(first_epoch)
+        remaining_epochs = MapData.from_map_evaluations(
+            evaluations={
+                arm_name: partial_results[1:4]
+                for arm_name, partial_results in evaluations.items()
+            },
+            trial_index=0,
+        )
+        self.experiment.attach_data(remaining_epochs)
+        self.experiment.trials[0].mark_completed()
+        expected_data = MapData.from_map_evaluations(
+            evaluations=evaluations, trial_index=0
+        )
+        actual_data = self.experiment.fetch_data()
+        self.assertEqual(expected_data, actual_data)
 
     def testFetchTrialsData(self):
         exp = self._setupBraninExperiment(n=5)
