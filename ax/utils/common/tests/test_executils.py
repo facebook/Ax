@@ -6,6 +6,7 @@
 
 import logging
 import time
+from asyncio import iscoroutinefunction
 from unittest.mock import Mock
 
 from ax.utils.common.executils import retry_on_exception
@@ -66,7 +67,7 @@ class TestRetryDecorator(TestCase):
                 check_message_contains=["Hello", "World"],
                 exception_types=(RuntimeError,),
                 logger=logger,
-                suppress_all_errors=False,
+                suppress_all_errors=True,
             )
             def error_throwing_function(self):
                 # The exception thrown below should be caught and handled since it
@@ -259,6 +260,9 @@ class TestRetryDecorator(TestCase):
         def error_throwing_function():
             mock()
             raise RuntimeError("I failed")
+
+        # Check that the function remains non-async.
+        self.assertFalse(iscoroutinefunction(error_throwing_function))
 
         with self.assertRaisesRegex(
             RuntimeError, "Wrapper error message: RuntimeError: I failed"
