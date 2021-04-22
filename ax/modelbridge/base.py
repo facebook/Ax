@@ -80,6 +80,7 @@ class ModelBridge(ABC):
         status_quo_features: Optional[ObservationFeatures] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
+        fit_abandoned: bool = False,
     ) -> None:
         """
         Applies transforms and fits model.
@@ -105,6 +106,9 @@ class ModelBridge(ABC):
                 the model.
             fit_out_of_design: If specified, all training data is returned.
                 Otherwise, only in design points are returned.
+            fit_abandoned: Whether data for abandoned arms or trials should be
+                included in model training data. If ``False``, only
+                non-abandoned points are returned.
         """
         t_fit_start = time.time()
         transforms = transforms or []
@@ -126,6 +130,7 @@ class ModelBridge(ABC):
         self._raw_transforms = transforms
         self._transform_configs: Optional[Dict[str, TConfig]] = transform_configs
         self._fit_out_of_design = fit_out_of_design
+        self._fit_abandoned = fit_abandoned
         imm = experiment and experiment.immutable_search_space_and_opt_config
         self._experiment_has_immutable_search_space_and_opt_config = imm
         if experiment is not None:
@@ -134,7 +139,11 @@ class ModelBridge(ABC):
             self._arms_by_signature = experiment.arms_by_signature
 
         observations = (
-            observations_from_data(experiment, data)
+            observations_from_data(
+                experiment=experiment,
+                data=data,
+                include_abandoned=self._fit_abandoned,
+            )
             if experiment is not None and data is not None
             else []
         )
@@ -524,7 +533,11 @@ class ModelBridge(ABC):
         """
         t_update_start = time.time()
         observations = (
-            observations_from_data(experiment=experiment, data=new_data)
+            observations_from_data(
+                experiment=experiment,
+                data=new_data,
+                include_abandoned=self._fit_abandoned,
+            )
             if experiment is not None and new_data is not None
             else []
         )

@@ -277,6 +277,7 @@ class TestGenerationStrategy(TestCase):
                         "transform_configs": None,
                         "transforms": Cont_X_trans,
                         "fit_out_of_design": False,
+                        "fit_abandoned": False,
                     },
                 )
                 self.assertEqual(g._model_state_after_gen, {"init_position": i + 1})

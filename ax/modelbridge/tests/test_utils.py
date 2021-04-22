@@ -86,6 +86,34 @@ class TestModelbridgeUtils(TestCase):
             ),
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
+        # When an arm is abandoned, it should appear in pending features whether
+        # or not there is data for it.
+        self.batch_trial.mark_arm_abandoned(arm_name="0_0")
+        # Checking with data for all metrics.
+        with patch.object(
+            self.batch_trial,
+            "fetch_data",
+            return_value=Data.from_evaluations(
+                {
+                    self.batch_trial.arms[0].name: {
+                        "m1": (1, 0),
+                        "m2": (1, 0),
+                        "tracking": (1, 0),
+                    }
+                },
+                trial_index=self.trial.index,
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(
+                    self.experiment, include_failed_as_pending=True
+                ),
+                {
+                    "tracking": [self.obs_feat],
+                    "m2": [self.obs_feat],
+                    "m1": [self.obs_feat],
+                },
+            )
         # Checking with data for all metrics.
         with patch.object(
             self.trial,

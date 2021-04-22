@@ -432,7 +432,11 @@ def get_pending_observation_features(
 ) -> Optional[Dict[str, List[ObservationFeatures]]]:
     """Computes a list of pending observation features (corresponding to arms that
     have been generated and deployed in the course of the experiment, but have not
-    been completed with data).
+    been completed with data or to arms that have been abandoned or belong to
+    abandoned trials).
+
+    NOTE: Pending observation features are passed to the model to
+    instruct it to not generate the same points again.
 
     Args:
         experiment: Experiment, pending features on which we seek to compute.
@@ -466,6 +470,14 @@ def get_pending_observation_features(
                                 arm=arm, trial_index=np.int64(trial_index)
                             )
                         )
+                abandoned_arms = trial.abandoned_arms
+                for abandoned_arm in abandoned_arms:
+                    not_none(pending_features.get(metric_name)).append(
+                        ObservationFeatures.from_arm(
+                            arm=abandoned_arm, trial_index=np.int64(trial_index)
+                        )
+                    )
+
             if isinstance(trial, Trial):
                 if trial.status.is_abandoned or (
                     (trial.status.is_deployed or include_since_failed)

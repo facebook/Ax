@@ -16,6 +16,7 @@ from typing import (
     List,
     MutableMapping,
     Optional,
+    Set,
     Union,
 )
 
@@ -390,11 +391,16 @@ class BatchTrial(BaseTrial):
 
     @property
     def abandoned_arms(self) -> List[Arm]:
-        """List of arms that have been abandoned within this trial"""
+        """List of arms that have been abandoned within this trial."""
         return [
             self.arms_by_name[arm.name]
             for arm in self._abandoned_arms_metadata.values()
         ]
+
+    @property
+    def abandoned_arm_names(self) -> Set[str]:
+        """Set of names of arms that have been abandoned within this trial."""
+        return set(self._abandoned_arms_metadata.keys())
 
     # pyre-ignore[6]: T77111662.
     @copy_doc(BaseTrial.generator_runs)
@@ -475,6 +481,12 @@ class BatchTrial(BaseTrial):
 
         Usually done after deployment when one arm causes issues but
         user wants to continue running other arms in the batch.
+
+        NOTE: Abandoned arms are considered to be 'pending points' in
+        experiment after their abandonment to avoid Ax models suggesting
+        the same arm again as a new candidate. Abandoned arms are also
+        excluded from model training data unless ``fit_abandoned``
+        option is specified to model bridge.
 
         Args:
             arm_name: The name of the arm to abandon.

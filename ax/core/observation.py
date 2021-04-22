@@ -13,6 +13,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
@@ -202,6 +203,7 @@ def _observations_from_dataframe(
     cols: List[str],
     arm_name_only: bool,
     map_keys: List[str],
+    include_abandoned: bool,
 ) -> List[Observation]:
     """Helper method for extracting observations grouped by `cols` from `df`.
 
@@ -211,12 +213,16 @@ def _observations_from_dataframe(
         cols: columns used to group data into different observations.
         map_keys: columns that map dict-like Data
             e.g. `timestamp` in timeseries data, `epoch` in ML training traces.
+        include_abandoned: Whether data for abandoned trials and arms should
+            be included in the observations, returned from this function.
 
     Returns:
         List of Observation objects.
     """
     observations = []
+    abandoned_arms_dict = {}
     for g, d in df.groupby(by=cols):
+        obs_kwargs = {}
         if arm_name_only:
             features = {"arm_name": g}
             arm_name = g
@@ -225,16 +231,7 @@ def _observations_from_dataframe(
             features = dict(zip(cols, g))
             arm_name = features["arm_name"]
             trial_index = features.get("trial_index", None)
-        obs_kwargs = {}
-        obs_parameters = experiment.arms_by_name[arm_name].parameters.copy()
-        if obs_parameters:
-            obs_kwargs["parameters"] = obs_parameters
-        for f, val in features.items():
-            if f in OBS_KWARGS:
-                obs_kwargs[f] = val
-        fidelities = features.get("fidelities")
-        if fidelities is not None:
-            obs_parameters.update(json.loads(fidelities))
+
         if trial_index is not None:
             trial = experiment.trials[trial_index]
             metadata = trial._get_candidate_metadata(arm_name) or {}
@@ -244,6 +241,30 @@ def _observations_from_dataframe(
                         trial._time_completed
                     ).timestamp()
             obs_kwargs[Keys.METADATA] = metadata
+
+            if not include_abandoned and trial.status.is_abandoned:
+                # Exclude abandoned trials.
+                continue
+
+            if not include_abandoned and isinstance(trial, BatchTrial):
+                # Exclude abandoned arms from batch trial's observations.
+                if trial.index not in abandoned_arms_dict:
+                    # Same abandoned arm names to dict to avoid recomputing them
+                    # on creation of every observation.
+                    abandoned_arms_dict[trial.index] = trial.abandoned_arm_names
+                if arm_name in abandoned_arms_dict[trial.index]:
+                    continue
+
+        obs_parameters = experiment.arms_by_name[arm_name].parameters.copy()
+        if obs_parameters:
+            obs_kwargs["parameters"] = obs_parameters
+        for f, val in features.items():
+            if f in OBS_KWARGS:
+                obs_kwargs[f] = val
+        fidelities = features.get("fidelities")
+        if fidelities is not None:
+            obs_parameters.update(json.loads(fidelities))
+
         for map_key in map_keys:
             if map_key in obs_parameters:
                 obs_parameters[map_key] = features[map_key]
@@ -263,7 +284,9 @@ def _observations_from_dataframe(
     return observations
 
 
-def observations_from_data(experiment: Experiment, data: Data) -> List[Observation]:
+def observations_from_data(
+    experiment: Experiment, data: Data, include_abandoned: bool = False
+) -> List[Observation]:
     """Convert Data to observations.
 
     Converts a Data object to a list of Observation objects. Pulls arm parameters from
@@ -275,6 +298,8 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
     Args:
         experiment: Experiment with arm parameters.
         data: Data of observations.
+        include_abandoned: Whether data for abandoned trials and arms should
+            be included in the observations, returned from this function.
 
     Returns:
         List of Observation objects.
@@ -314,6 +339,7 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
             cols=feature_cols,
             arm_name_only=arm_name_only,
             map_keys=map_keys,
+            include_abandoned=include_abandoned,
         )
     )
     if incomplete_df is not None:
@@ -325,6 +351,7 @@ def observations_from_data(experiment: Experiment, data: Data) -> List[Observati
                 cols=complete_feature_cols,
                 arm_name_only=arm_name_only,
                 map_keys=map_keys,
+                include_abandoned=include_abandoned,
             )
         )
     return observations

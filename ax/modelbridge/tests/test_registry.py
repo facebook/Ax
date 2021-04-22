@@ -198,6 +198,7 @@ class ModelRegistryTest(TestCase):
                     "status_quo_name": None,
                     "status_quo_features": None,
                     "fit_out_of_design": False,
+                    "fit_abandoned": False,
                 },
             ),
         )
@@ -218,6 +219,7 @@ class ModelRegistryTest(TestCase):
                     "status_quo_name",
                     "status_quo_features",
                     "fit_out_of_design",
+                    "fit_abandoned",
                 ]
             ),
         )

@@ -43,6 +43,10 @@ class TrialStatus(int, Enum):
     Additionally, when trials are deployed, they may be in an intermediate
     staged state (e.g. scheduled but waiting for resources) or immediately
     transition to running.
+
+    NOTE: Data for abandoned trials (or abandoned arms in batch trials) is
+    not passed to the model as part of training data, unless ``fit_abandoned``
+    option is specified to model bridge.
     """
 
     CANDIDATE = 0
@@ -528,6 +532,12 @@ class BaseTrial(ABC, SortableBase):
     def mark_abandoned(self, reason: Optional[str] = None) -> BaseTrial:
         """Mark trial as abandoned.
 
+        NOTE: Arms in abandoned trials are considered to be 'pending points'
+        in experiment after their abandonment to avoid Ax models suggesting
+        the same arm again as a new candidate. Arms in abandoned trials are
+        also excluded from model training data unless ``fit_abandoned`` option
+        is specified to model bridge.
+
         Args:
             abandoned_reason: The reason the trial was abandoned.
 
@@ -580,6 +590,14 @@ class BaseTrial(ABC, SortableBase):
         else:
             raise ValueError(f"Cannot mark trial as {status}.")
         return self
+
+    def mark_arm_abandoned(
+        self, arm_name: str, reason: Optional[str] = None
+    ) -> BaseTrial:
+        raise NotImplementedError(
+            "Abandoning arms is only supported for `BatchTrial`. "
+            "Use `trial.mark_abandoned` if applicable."
+        )
 
     def _mark_failed_if_past_TTL(self) -> None:
         """If trial has TTL set and is running, check if the TTL has elapsed

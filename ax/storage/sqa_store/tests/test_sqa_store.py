@@ -225,7 +225,7 @@ class SQAStoreTest(TestCase):
         # Expecting model kwargs to have 5 fields (deduplicate, init_position, etc.)
         # and the rest of model-state info on generator run to have values too.
         self.assertEqual(len(gr._model_kwargs), 5)
-        self.assertEqual(len(gr._bridge_kwargs), 6)
+        self.assertEqual(len(gr._bridge_kwargs), 7)
         self.assertEqual(len(gr._model_state_after_gen), 1)
         self.assertEqual(len(gr._gen_metadata), 0)
         self.assertIsNotNone(gr._search_space, gr.optimization_config)
