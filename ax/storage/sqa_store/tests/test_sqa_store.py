@@ -39,6 +39,7 @@ from ax.storage.sqa_store.load import (
     load_generation_strategy_by_experiment_name,
     load_generation_strategy_by_id,
     _get_experiment_immutable_opt_config_and_search_space,
+    _get_experiment_sqa_immutable_opt_config_and_search_space as _get_exp_sqa_imm_oc_ss,
 )
 from ax.storage.sqa_store.save import (
     save_experiment,
@@ -197,7 +198,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(exp.name, reduced_state=True)
         self.assertEqual(loaded_experiment, exp)
         # Make sure decoder function was called with `reduced_state=True`.
-        self.assertTrue(_mock_exp_from_sqa.call_args().get("reduced_state"), True)
+        self.assertTrue(_mock_exp_from_sqa.call_args[1].get("reduced_state"))
         _mock_exp_from_sqa.reset_mock()
 
         # 2. Try case with abandoned arms.
@@ -211,10 +212,10 @@ class SQAStoreTest(TestCase):
         self.assertEqual(loaded_experiment, exp)
         # Make sure that all relevant decoding functions were called with
         # `reduced_state=True` and correct number of times.
-        self.assertTrue(_mock_exp_from_sqa.call_args().get("reduced_state"), True)
-        self.assertTrue(_mock_trial_from_sqa.call_args().get("reduced_state"), True)
+        self.assertTrue(_mock_exp_from_sqa.call_args[1].get("reduced_state"))
+        self.assertTrue(_mock_trial_from_sqa.call_args[1].get("reduced_state"))
         # 2 generator runs + regular and status quo.
-        self.assertTrue(_mock_gr_from_sqa.call_args().get("reduced_state"), True)
+        self.assertTrue(_mock_gr_from_sqa.call_args[1].get("reduced_state"))
         _mock_exp_from_sqa.reset_mock()
         _mock_trial_from_sqa.reset_mock()
         _mock_gr_from_sqa.reset_mock()
@@ -234,10 +235,10 @@ class SQAStoreTest(TestCase):
         # Make sure that all relevant decoding functions were called with
         # `reduced_state=True` and correct number of times.
         loaded_experiment = load_experiment(exp.name, reduced_state=True)
-        self.assertTrue(_mock_exp_from_sqa.call_args().get("reduced_state"), True)
-        self.assertTrue(_mock_trial_from_sqa.call_args().get("reduced_state"), True)
+        self.assertTrue(_mock_exp_from_sqa.call_args[1].get("reduced_state"))
+        self.assertTrue(_mock_trial_from_sqa.call_args[1].get("reduced_state"))
         # 2 generator runs from trial #0 + 1 from trial #1.
-        self.assertTrue(_mock_gr_from_sqa.call_args().get("reduced_state"), True)
+        self.assertTrue(_mock_gr_from_sqa.call_args[1].get("reduced_state"))
         self.assertNotEqual(loaded_experiment, exp)
         # Remove all fields that are not part of the reduced state and
         # check that everything else is equal as expected.
@@ -1303,5 +1304,30 @@ class SQAStoreTest(TestCase):
         )
         self.assertTrue(immutable)
 
-        loaded_experiment = load_experiment(self.experiment.name)
+    @patch(
+        f"{Decoder.__module__}.Decoder.generator_run_from_sqa",
+        side_effect=Decoder(SQAConfig()).generator_run_from_sqa,
+    )
+    @patch(
+        (
+            f"{_get_exp_sqa_imm_oc_ss.__module__}."
+            "_get_experiment_sqa_immutable_opt_config_and_search_space"
+        ),
+        side_effect=_get_exp_sqa_imm_oc_ss,
+    )
+    def testImmutableSearchSpaceAndOptConfigLoading(
+        self,
+        _mock_get_exp_sqa_imm_oc_ss,
+        _mock_gr_from_sqa,
+    ):
+        experiment = get_experiment_with_batch_trial()
+        experiment._properties = {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True}
+        save_experiment(experiment)
+
+        loaded_experiment = load_experiment(experiment.name)
         self.assertTrue(loaded_experiment.immutable_search_space_and_opt_config)
+
+        _mock_get_exp_sqa_imm_oc_ss.assert_called_once()
+        self.assertTrue(
+            _mock_gr_from_sqa.call_args[1].get("immutable_search_space_and_opt_config")
+        )
