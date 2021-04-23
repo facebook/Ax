@@ -39,7 +39,8 @@ from ax.storage.sqa_store.load import (
     load_generation_strategy_by_experiment_name,
     load_generation_strategy_by_id,
     _get_experiment_immutable_opt_config_and_search_space,
-    _get_experiment_sqa_immutable_opt_config_and_search_space as _get_exp_sqa_imm_oc_ss,
+    _get_experiment_sqa_immutable_opt_config_and_search_space,
+    _get_generation_strategy_sqa_immutable_opt_config_and_search_space,
 )
 from ax.storage.sqa_store.save import (
     save_experiment,
@@ -97,6 +98,8 @@ from ax.utils.testing.core_stubs import (
     get_synthetic_runner,
 )
 from ax.utils.testing.modeling_stubs import get_generation_strategy
+
+GET_GS_SQA_IMM_FUNC = _get_generation_strategy_sqa_immutable_opt_config_and_search_space
 
 
 class SQAStoreTest(TestCase):
@@ -1310,14 +1313,22 @@ class SQAStoreTest(TestCase):
     )
     @patch(
         (
-            f"{_get_exp_sqa_imm_oc_ss.__module__}."
+            f"{GET_GS_SQA_IMM_FUNC.__module__}."
+            "_get_generation_strategy_sqa_immutable_opt_config_and_search_space"
+        ),
+        side_effect=_get_generation_strategy_sqa_immutable_opt_config_and_search_space,
+    )
+    @patch(
+        (
+            f"{_get_experiment_sqa_immutable_opt_config_and_search_space.__module__}."
             "_get_experiment_sqa_immutable_opt_config_and_search_space"
         ),
-        side_effect=_get_exp_sqa_imm_oc_ss,
+        side_effect=_get_experiment_sqa_immutable_opt_config_and_search_space,
     )
     def testImmutableSearchSpaceAndOptConfigLoading(
         self,
         _mock_get_exp_sqa_imm_oc_ss,
+        _mock_get_gs_sqa_imm_oc_ss,
         _mock_gr_from_sqa,
     ):
         experiment = get_experiment_with_batch_trial()
@@ -1330,4 +1341,17 @@ class SQAStoreTest(TestCase):
         _mock_get_exp_sqa_imm_oc_ss.assert_called_once()
         self.assertTrue(
             _mock_gr_from_sqa.call_args[1].get("immutable_search_space_and_opt_config")
+        )
+        _mock_gr_from_sqa.reset_mock()
+
+        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
+        experiment.new_trial(generation_strategy.gen(experiment=experiment))
+
+        save_generation_strategy(generation_strategy=generation_strategy)
+        load_generation_strategy_by_experiment_name(experiment_name=experiment.name)
+        _mock_get_gs_sqa_imm_oc_ss.assert_called_once()
+        self.assertTrue(
+            _mock_gr_from_sqa.call_args.kwargs.get(
+                "immutable_search_space_and_opt_config"
+            )
         )

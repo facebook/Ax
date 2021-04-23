@@ -260,11 +260,37 @@ def _load_generation_strategy_by_id(
     reduced_state: bool = False,
 ) -> GenerationStrategy:
     """Finds a generation strategy stored by a given ID and restores it."""
-    gs_sqa = (
-        _get_generation_strategy_sqa(gs_id=gs_id, decoder=decoder)
-        if not reduced_state
-        else _get_generation_strategy_sqa_reduced_state(gs_id=gs_id, decoder=decoder)
+    if reduced_state:
+        return decoder.generation_strategy_from_sqa(
+            gs_sqa=_get_generation_strategy_sqa_reduced_state(
+                gs_id=gs_id, decoder=decoder
+            ),
+            experiment=experiment,
+            reduced_state=reduced_state,
+        )
+
+    exp_sqa_class = decoder.config.class_to_sqa_class[Experiment]
+    immutable_opt_config_and_search_space = (
+        (
+            _get_experiment_immutable_opt_config_and_search_space(
+                experiment_name=experiment.name,
+                # pyre-ignore Incompatible parameter type [6]: Expected
+                # `Type[SQAExperiment]` for 2nd parameter `exp_sqa_class`
+                # to call `_get_experiment_immutable_opt_config_and_search_space`
+                # but got `Type[ax.storage.sqa_store.db.SQABase]`.
+                exp_sqa_class=exp_sqa_class,
+            )
+        )
+        if experiment is not None
+        else False
     )
+    if immutable_opt_config_and_search_space:
+        gs_sqa = _get_generation_strategy_sqa_immutable_opt_config_and_search_space(
+            gs_id=gs_id, decoder=decoder
+        )
+    else:
+        gs_sqa = _get_generation_strategy_sqa(gs_id=gs_id, decoder=decoder)
+
     return decoder.generation_strategy_from_sqa(
         gs_sqa=gs_sqa, experiment=experiment, reduced_state=reduced_state
     )
@@ -355,3 +381,18 @@ def _get_generation_strategy_sqa_reduced_state(
         gs_sqa.generator_runs[len(gs_sqa.generator_runs) - 1] = not_none(last_gr_sqa)
 
     return gs_sqa
+
+
+def _get_generation_strategy_sqa_immutable_opt_config_and_search_space(
+    gs_id: int, decoder: Decoder
+) -> SQAGenerationStrategy:
+    """Obtains most of the SQLAlchemy generation strategy object from DB."""
+    return _get_generation_strategy_sqa(
+        gs_id=gs_id,
+        decoder=decoder,
+        query_options=[
+            lazyload("generator_runs.parameters"),
+            lazyload("generator_runs.parameter_constraints"),
+            lazyload("generator_runs.metrics"),
+        ],
+    )
