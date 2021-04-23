@@ -145,6 +145,20 @@ class SurrogateTest(TestCase):
             metric_names=self.metric_names,
             refit=self.refit,
         )
+        # Check that training data is correctly passed through to the
+        # BoTorch `Model`.
+        self.assertTrue(
+            torch.equal(
+                surrogate.model.train_inputs[0],
+                self.surrogate_kwargs.get("train_X"),
+            )
+        )
+        self.assertTrue(
+            torch.equal(
+                surrogate.model.train_targets,
+                self.surrogate_kwargs.get("train_Y").squeeze(1),
+            )
+        )
         mock_state_dict.assert_not_called()
         mock_MLL.assert_called_once()
         mock_fit_gpytorch.assert_called_once()
@@ -252,29 +266,61 @@ class SurrogateTest(TestCase):
         self.assertTrue(torch.equal(candidate, torch.tensor([0.0])))
         self.assertTrue(torch.equal(acqf_value, torch.tensor([1.0])))
 
-    @patch(f"{SURROGATE_PATH}.Surrogate.fit")
-    def test_update(self, mock_fit):
+    @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
+    @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
+    @patch(f"{SURROGATE_PATH}.fit_gpytorch_model")
+    def test_update(self, mock_fit_gpytorch, mock_MLL, mock_state_dict):
         self.surrogate.construct(
             training_data=self.training_data,
             fidelity_features=self.search_space_digest.fidelity_features,
         )
-        # Call `fit` by default
+        # Check that correct arguments are passed to `fit`.
+        with patch(f"{SURROGATE_PATH}.Surrogate.fit") as mock_fit:
+            # Call `fit` by default
+            self.surrogate.update(
+                training_data=self.training_data,
+                search_space_digest=self.search_space_digest,
+                metric_names=self.metric_names,
+                refit=self.refit,
+                state_dict={"key": "val"},
+            )
+            mock_fit.assert_called_with(
+                training_data=self.training_data,
+                search_space_digest=self.search_space_digest,
+                metric_names=self.metric_names,
+                candidate_metadata=None,
+                refit=self.refit,
+                state_dict={"key": "val"},
+            )
+
+        # Check that the training data is correctly passed through to the
+        # BoTorch `Model`.
+        Xs, Ys, Yvars, bounds, _, _, _ = get_torch_test_data(
+            dtype=self.dtype, offset=1.0
+        )
+        training_data = TrainingData(X=Xs[0], Y=Ys[0], Yvar=Yvars[0])
+        surrogate_kwargs = self.botorch_model_class.construct_inputs(training_data)
         self.surrogate.update(
-            training_data=self.training_data,
+            training_data=training_data,
             search_space_digest=self.search_space_digest,
             metric_names=self.metric_names,
             refit=self.refit,
             state_dict={"key": "val"},
         )
-        mock_fit.assert_called_with(
-            training_data=self.training_data,
-            search_space_digest=self.search_space_digest,
-            metric_names=self.metric_names,
-            candidate_metadata=None,
-            refit=self.refit,
-            state_dict={"key": "val"},
+        self.assertTrue(
+            torch.equal(
+                self.surrogate.model.train_inputs[0],
+                surrogate_kwargs.get("train_X"),
+            )
         )
-        # If should not be reconstructed, raise Error
+        self.assertTrue(
+            torch.equal(
+                self.surrogate.model.train_targets,
+                surrogate_kwargs.get("train_Y").squeeze(1),
+            )
+        )
+
+        # If should not be reconstructed, check that error is raised.
         self.surrogate._constructed_manually = True
         with self.assertRaisesRegex(NotImplementedError, ".* constructed manually"):
             self.surrogate.update(
