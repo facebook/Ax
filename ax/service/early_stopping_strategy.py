@@ -4,8 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 
 
@@ -18,7 +19,7 @@ class BaseEarlyStoppingStrategy:
         trial_index: int,
         experiment: Experiment,
         **kwargs: Dict[str, Any],
-    ) -> bool:
+    ) -> Optional[TrialStatus]:
         """Decide whether to complete a trial before evaluation is fully concluded.
 
         Typical examples include stopping a machine learning model's training, or
@@ -30,6 +31,6 @@ class BaseEarlyStoppingStrategy:
             experiment: Experiment that contains the trial and other contextual data,
 
         Returns:
-            Whether to early-stop this trial.
+            Suggested new status for this Trial. `None` means no suggested update.
         """
-        return False
+        return None
