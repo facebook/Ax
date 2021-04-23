@@ -164,7 +164,9 @@ def _get_experiment_immutable_opt_config_and_search_space(
         )
         if sqa_experiment_properties is None:
             raise ValueError(f"Experiment '{experiment_name}' not found.")
-    return sqa_experiment_properties[0].get(
+
+    sqa_experiment_properties = sqa_experiment_properties[0] or {}
+    return sqa_experiment_properties.get(
         Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF, False
     )
 
