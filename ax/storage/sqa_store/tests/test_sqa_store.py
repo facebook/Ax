@@ -49,6 +49,7 @@ from ax.storage.sqa_store.save import (
     save_or_update_trials,
     update_generation_strategy,
     update_runner_on_experiment,
+    update_experiment_immutable_opt_config_and_search_space,
 )
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -1355,3 +1356,15 @@ class SQAStoreTest(TestCase):
                 "immutable_search_space_and_opt_config"
             )
         )
+
+    def testSetImmutableSearchSpaceAndOptConfig(self):
+        experiment = get_experiment_with_batch_trial()
+        save_experiment(experiment)
+
+        update_experiment_immutable_opt_config_and_search_space(
+            experiment=experiment,
+            immutable_opt_config_and_search_space=True,
+        )
+
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertTrue(loaded_experiment.immutable_search_space_and_opt_config)

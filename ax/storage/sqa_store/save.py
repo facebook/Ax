@@ -25,6 +25,7 @@ from ax.storage.sqa_store.sqa_classes import (
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import copy_db_ids
 from ax.utils.common.base import Base
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -326,6 +327,33 @@ def update_runner_on_experiment(
         decode_func=decoder.runner_from_sqa,
         modify_sqa=add_experiment_id,
     )
+
+
+def update_experiment_immutable_opt_config_and_search_space(
+    experiment: Experiment,
+    immutable_opt_config_and_search_space: bool,
+    config: Optional[SQAConfig] = None,
+) -> None:
+    config = config or SQAConfig()
+    exp_sqa_class = config.class_to_sqa_class[Experiment]
+
+    with session_scope() as session:
+        exp_id, exp_properties = (
+            session.query(exp_sqa_class.id, exp_sqa_class.properties)  # pyre-ignore
+            .filter_by(name=experiment.name)
+            .one_or_none()
+        )
+
+    exp_properties[
+        Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF
+    ] = immutable_opt_config_and_search_space
+
+    with session_scope() as session:
+        session.query(exp_sqa_class).filter_by(id=exp_id).update(
+            {
+                "properties": exp_properties,
+            }
+        )
 
 
 def _merge_into_session(
