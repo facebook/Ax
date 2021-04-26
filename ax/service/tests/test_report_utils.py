@@ -9,9 +9,11 @@ from ax.service.utils.report_utils import (
     _get_shortest_unique_suffix_dict,
     exp_to_df,
     get_best_trial,
+    get_standard_plots,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.modeling_stubs import get_generation_strategy
 
 
 class ReportUtilsTest(TestCase):
@@ -45,3 +47,14 @@ class ReportUtilsTest(TestCase):
             ["abc.123", "abc.456", "def.123", "asdf.abc.123", "", "no_delimiter"]
         )
         self.assertDictEqual(expected_output, actual_output)
+
+    def test_get_standard_plots(self):
+        exp = get_branin_experiment()
+        self.assertEqual(
+            len(
+                get_standard_plots(
+                    experiment=exp, generation_strategy=get_generation_strategy()
+                )
+            ),
+            0,
+        )

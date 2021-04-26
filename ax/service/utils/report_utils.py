@@ -181,13 +181,17 @@ def get_standard_plots(
             "get_standard_plots does not currently support MultiObjective "
             "optimization experiments. Returning an empty list."
         )
-        return None
+        return []
     if isinstance(objective, ScalarizedObjective):
         logger.warning(
             "get_standard_plots does not currently support ScalarizedObjective "
             "optimization experiments. Returning an empty list."
         )
-        return None
+        return []
+
+    if experiment.fetch_data().df.empty:
+        logger.info(f"Experiment {experiment} does not yet have data, nothing to plot.")
+        return []
 
     output_plot_list = []
     output_plot_list.append(
