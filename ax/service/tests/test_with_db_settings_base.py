@@ -74,7 +74,7 @@ class TestWithDBSettingsBase(TestCase):
     def init_experiment_and_generation_strategy(
         self, save_experiment: bool = True, save_generation_strategy: bool = True
     ) -> Tuple[Experiment, GenerationStrategy]:
-        """ Generate a random Experiment and associated generation_strategy """
+        """Generate a random Experiment and associated generation_strategy"""
 
         generation_strategy = self.get_random_generation_strategy()
         experiment = self.get_random_experiment()

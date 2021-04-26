@@ -296,7 +296,7 @@ def _to_inequality_constraints(
 def tensor_callable_to_array_callable(
     tensor_func: Callable[[Tensor], Tensor], device: torch.device
 ) -> Callable[[np.ndarray], np.ndarray]:
-    """"transfer a tensor callable to an array callable"""
+    """transfer a tensor callable to an array callable"""
     # TODO: move this reuseable function and its  equivalent reverse functions
     # to some utils files
     def array_func(x: np.ndarray) -> np.ndarray:
