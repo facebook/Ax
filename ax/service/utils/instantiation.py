@@ -43,6 +43,7 @@ from ax.core.types import (
     TTrialEvaluation,
 )
 from ax.exceptions.core import UnsupportedError
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
@@ -482,6 +483,7 @@ def make_experiment(
     objectives: Optional[Dict[str, str]] = None,
     objective_thresholds: Optional[List[str]] = None,
     support_intermediate_data: Optional[bool] = False,
+    immutable_search_space_and_opt_config: Optional[bool] = True,
 ) -> Experiment:
     """Instantiation wrapper that allows for Ax `Experiment` creation
     without importing or instantiating any Ax classes.
@@ -536,6 +538,11 @@ def make_experiment(
             argument.
         support_intermediate_data: whether trials may report metrics results for
             incomplete runs.
+        immutable_search_space_and_opt_config: Whether it's possible to update the
+            search space and optimization config on this experiment after creation.
+            Defaults to True. If set to True, we won't store or load copies of the
+            search space and optimization config on each generator run, which will
+            improve storage performance.
     """
     if objective_name is not None and (
         objectives is not None or objective_thresholds is not None
@@ -581,6 +588,13 @@ def make_experiment(
         DataType.MAP_DATA if support_intermediate_data else DataType.DATA
     )
 
+    immutable_ss_and_oc = immutable_search_space_and_opt_config
+    properties = (
+        {}
+        if not immutable_search_space_and_opt_config
+        else {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value: immutable_ss_and_oc}
+    )
+
     return Experiment(
         name=name,
         search_space=make_search_space(parameters, parameter_constraints or []),
@@ -589,6 +603,7 @@ def make_experiment(
         experiment_type=experiment_type,
         tracking_metrics=tracking_metrics,
         default_data_type=default_data_type,
+        properties=properties,
     )
 
 
