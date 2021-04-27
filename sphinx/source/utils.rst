@@ -169,6 +169,14 @@ Deletion
 Testing
 ---------------
 
+Backend Simulator
+~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.testing.backend_simulator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Stubs
 ~~~~~~~~~~~~~~~~
 
