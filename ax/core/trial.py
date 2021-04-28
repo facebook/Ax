@@ -231,7 +231,9 @@ class Trial(BaseTrial):
 
         gr = self.generator_run
         if gr is None or gr.arms[0].name != arm_name:
-            raise ValueError(f"Arm by name {arm_name} is not part of this trial.")
+            raise ValueError(
+                f"Arm by name {arm_name} is not part of trial #{self.index}."
+            )
 
         if gr.candidate_metadata_by_arm_signature is None:
             return None
