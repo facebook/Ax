@@ -41,6 +41,7 @@ from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
+from ax.metrics.chemistry import ChemistryProblemType, ChemistryMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
@@ -121,6 +122,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,
     SklearnMetric: metric_to_dict,
+    ChemistryMetric: metric_to_dict,
     NegativeBraninMetric: metric_to_dict,
     NoisyFunctionMetric: metric_to_dict,
     Objective: objective_to_dict,
@@ -163,6 +165,8 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "BenchmarkResult": BenchmarkResult,
     "BoTorchModel": BoTorchModel,
     "BraninMetric": BraninMetric,
+    "ChemistryMetric": ChemistryMetric,
+    "ChemistryProblemType": ChemistryProblemType,
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
     "Data": Data,
