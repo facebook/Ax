@@ -104,9 +104,7 @@ def extract_search_space_digest(
             if p.log_scale:
                 raise ValueError(f"{p} is log scale")
             if p.parameter_type == ParameterType.INT:
-                task_features.append(i)
-                # TODO: modify to ordinal_features.append(i) and adjust models
-                # that rely on the current behavior
+                ordinal_features.append(i)
             bounds.append((p.lower, p.upper))
         else:
             raise ValueError(f"Unknown parameter type {type(p)}")

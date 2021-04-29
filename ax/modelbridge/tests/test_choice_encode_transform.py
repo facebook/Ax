@@ -6,6 +6,7 @@
 
 from copy import deepcopy
 
+import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
@@ -49,17 +50,17 @@ class ChoiceEncodeTransformTest(TestCase):
         )
         self.observation_features = [
             ObservationFeatures(
-                parameters={"x": 2.2, "a": 2, "b": 10.0, "c": 100.0, "d": "r"}
+                parameters={"x": 2.2, "a": 2, "b": 10.0, "c": 10.0, "d": "r"}
             )
         ]
         # expected parameters after transform
         self.expected_transformed_params = {
             "x": 2.2,
             "a": 2,
-            # float choice originally; transformed to int index.
-            "b": 1,
-            # float choice originally; transformed to int index.
-            "c": 1,
+            # ordered float choice originally; transformed normalized value
+            "b": normalize_values([1.0, 10.0, 100.0])[1],
+            # ordered float choice originally; transformed normalized value
+            "c": normalize_values([10.0, 100.0, 1000.0])[0],
             # string choice originally; transformed to int index.
             "d": 0,
         }
@@ -80,7 +81,12 @@ class ChoiceEncodeTransformTest(TestCase):
         # Test transform on partial features
         obs_ft3 = [ObservationFeatures(parameters={"x": 2.2, "b": 10.0})]
         obs_ft3 = self.t.transform_observation_features(obs_ft3)
-        self.assertEqual(obs_ft3[0], ObservationFeatures(parameters={"x": 2.2, "b": 1}))
+        self.assertEqual(
+            obs_ft3[0],
+            ObservationFeatures(
+                parameters={"x": 2.2, "b": self.expected_transformed_params["b"]}
+            ),
+        )
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
@@ -88,18 +94,22 @@ class ChoiceEncodeTransformTest(TestCase):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
-        for p in ("x", "a", "b", "c", "d"):
+        for p in ("x", "a"):
             self.assertIsInstance(ss2.parameters[p], RangeParameter)
-        self.assertEqual(ss2.parameters["x"].parameter_type, ParameterType.FLOAT)
-        for p in ("a", "b", "c", "d"):
+        for p in ("b", "c", "d"):
+            self.assertIsInstance(ss2.parameters[p], ChoiceParameter)
+        for p in ("x", "b", "c"):
+            self.assertEqual(ss2.parameters[p].parameter_type, ParameterType.FLOAT)
+        for p in ("a", "d"):
             self.assertEqual(ss2.parameters[p].parameter_type, ParameterType.INT)
 
-        self.assertEqual(ss2.parameters["b"].lower, 0)
-        self.assertEqual(ss2.parameters["b"].upper, 2)
-        self.assertEqual(ss2.parameters["c"].lower, 0)
-        self.assertEqual(ss2.parameters["c"].upper, 2)
-        self.assertEqual(ss2.parameters["d"].lower, 0)
-        self.assertEqual(ss2.parameters["d"].upper, 2)
+        self.assertEqual(
+            ss2.parameters["b"].values, normalize_values([1.0, 10.0, 100.0])
+        )
+        self.assertEqual(
+            ss2.parameters["c"].values, normalize_values([10.0, 100.0, 1000.0])
+        )
+        self.assertEqual(ss2.parameters["d"].values, [0, 1, 2])
 
         # Ensure we error if we try to transform a fidelity parameter
         ss3 = SearchSpace(
@@ -136,7 +146,7 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
             # float choice originally; transformed to int index.
             "b": 1,
             # float choice originally; transformed to int index.
-            "c": 1,
+            "c": 0,
             "d": "r",
         }
 
@@ -159,6 +169,7 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
         self.assertEqual(ss2.parameters["b"].upper, 2)
         self.assertEqual(ss2.parameters["c"].lower, 0)
         self.assertEqual(ss2.parameters["c"].upper, 2)
+        self.assertEqual(ss2.parameters["d"].values, ["r", "q", "z"])
 
         # Ensure we error if we try to transform a fidelity parameter
         ss3 = SearchSpace(
@@ -178,3 +189,11 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
         )
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
+
+
+def normalize_values(values):
+    values = np.array(values, dtype=float)
+    vmin, vmax = values.min(), values.max()
+    if len(values) > 1:
+        values = (values - vmin) / (vmax - vmin)
+    return values.tolist()

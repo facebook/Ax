@@ -364,10 +364,13 @@ class NumpyModelBridgeTest(TestCase):
         self.assertEqual(search_space_digest.target_fidelities, {1: 2.0})
         search_space_digest = extract_search_space_digest(self.search_space, ["x", "z"])
         self.assertEqual(search_space_digest.target_fidelities, {})
-        # Test that Int param is treated as task feature
+        # Test that task param is treated as task feature
         search_space = SearchSpace(self.parameters)
-        search_space._parameters["x"] = RangeParameter(
-            "x", ParameterType.INT, lower=1, upper=4
+        search_space._parameters["x"] = ChoiceParameter(
+            "x",
+            ParameterType.INT,
+            values=[1, 4, 5],
+            is_task=True,
         )
         search_space_digest = extract_search_space_digest(search_space, ["x", "y", "z"])
         self.assertEqual(search_space_digest.task_features, [0])
