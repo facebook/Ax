@@ -82,6 +82,7 @@ def list_modules():
         _LIST_MODULES = [
             ModuleInfo(local_path=f, base_path=__ae__manifest__.BASE_PATH)
             for f in __ae__manifest__.FILES
+            if f.endswith(".py")
         ]
     return _LIST_MODULES
 
