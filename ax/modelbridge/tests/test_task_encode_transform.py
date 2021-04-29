@@ -65,13 +65,14 @@ class TaskEncodeTransformTest(TestCase):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
-        # Parameter type fixed.
+        self.assertIsInstance(ss2.parameters["x"], RangeParameter)
+        self.assertIsInstance(ss2.parameters["b"], ChoiceParameter)
+        self.assertIsInstance(ss2.parameters["c"], ChoiceParameter)
         self.assertEqual(ss2.parameters["x"].parameter_type, ParameterType.FLOAT)
         self.assertEqual(ss2.parameters["b"].parameter_type, ParameterType.FLOAT)
         self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.INT)
 
-        self.assertEqual(ss2.parameters["c"].lower, 0)
-        self.assertEqual(ss2.parameters["c"].upper, 1)
+        self.assertEqual(ss2.parameters["c"].values, [0, 1])
 
         # Test error if there are fidelities
         ss3 = SearchSpace(

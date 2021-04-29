@@ -8,7 +8,7 @@ from typing import Dict, Type
 
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cap_parameter import CapParameter
-from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode
+from ax.modelbridge.transforms.choice_encode import ChoiceEncode, OrderedChoiceEncode
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
@@ -62,6 +62,7 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     Winsorize: 16,
     CapParameter: 17,
     PowerTransformY: 18,
+    ChoiceEncode: 19,
 }
 
 
