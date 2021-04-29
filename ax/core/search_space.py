@@ -346,11 +346,14 @@ class SearchSpaceDigest:
             to be considered as categorical discrete parameters. The corresponding
             bounds are assumed to be integers, and parameter `i` is assumed
             to take on values `l_i, l_i+1, ..., u_i`.
+        discrete_choices: A dictionary mapping indices of discrete (ordinal
+            or categorical) parameters to their respective sets of values
+            provided as a list.
         task_features: A list of parameter indices to be considered as
             task parameters.
         fidelity_features: A list of parameter indices to be considered as
             fidelity parameters.
-        target_fidelities: A dict mapping parameter indices (of fidelity
+        target_fidelities: A dictionary mapping parameter indices (of fidelity
             parameters) to their respective target fidelity value. Only used
             when generating candidates.
     """
@@ -359,6 +362,7 @@ class SearchSpaceDigest:
     bounds: List[Tuple[Union[int, float], Union[int, float]]]
     ordinal_features: List[int] = field(default_factory=list)
     categorical_features: List[int] = field(default_factory=list)
+    discrete_choices: Dict[int, List[Union[int, float]]] = field(default_factory=dict)
     task_features: List[int] = field(default_factory=list)
     fidelity_features: List[int] = field(default_factory=list)
     target_fidelities: Dict[int, Union[int, float]] = field(default_factory=dict)

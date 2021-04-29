@@ -341,6 +341,7 @@ class SearchSpaceDigestTest(TestCase):
             "bounds": [(0.0, 1.0), (0, 2), (0, 4)],
             "ordinal_features": [1],
             "categorical_features": [2],
+            "discrete_choices": {1: [0, 1, 2], 2: [0, 0.25, 4.0]},
             "task_features": [3],
             "fidelity_features": [0],
             "target_fidelities": {0: 1.0},
