@@ -84,6 +84,7 @@ def extract_search_space_digest(
     bounds: List[Tuple[Union[int, float], Union[int, float]]] = []
     ordinal_features: List[int] = []
     categorical_features: List[int] = []
+    discrete_choices: Dict[int, List[Union[int, float]]] = {}
     task_features: List[int] = []
     fidelity_features: List[int] = []
     target_fidelities: Dict[int, Union[int, float]] = {}
@@ -91,20 +92,22 @@ def extract_search_space_digest(
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
         if isinstance(p, ChoiceParameter):
-            if p.parameter_type != ParameterType.INT:
-                raise ValueError(f"Choice parameter {p} not of integer type")
             if p.is_task:
                 task_features.append(i)
             elif p.is_ordered:
                 ordinal_features.append(i)
             else:
                 categorical_features.append(i)
-            bounds.append((int(p.values[0]), int(p.values[-1])))  # pyre-ignore [6]
+            # at this point we can assume that values are numeric due to transforms
+            discrete_choices[i] = p.values  # pyre-ignore [6]
+            bounds.append((min(p.values), max(p.values)))  # pyre-ignore [6]
         elif isinstance(p, RangeParameter):
             if p.log_scale:
                 raise ValueError(f"{p} is log scale")
             if p.parameter_type == ParameterType.INT:
                 ordinal_features.append(i)
+                d_choices = list(range(int(p.lower), int(p.upper) + 1))
+                discrete_choices[i] = d_choices  # pyre-ignore [6]
             bounds.append((p.lower, p.upper))
         else:
             raise ValueError(f"Unknown parameter type {type(p)}")
@@ -119,6 +122,7 @@ def extract_search_space_digest(
         bounds=bounds,
         ordinal_features=ordinal_features,
         categorical_features=categorical_features,
+        discrete_choices=discrete_choices,
         task_features=task_features,
         fidelity_features=fidelity_features,
         target_fidelities=target_fidelities,

@@ -375,11 +375,6 @@ class NumpyModelBridgeTest(TestCase):
         search_space_digest = extract_search_space_digest(search_space, ["x", "y", "z"])
         self.assertEqual(search_space_digest.task_features, [0])
         # Test validation
-        search_space._parameters["x"] = ChoiceParameter(
-            "x", ParameterType.FLOAT, [0.1, 0.4]
-        )
-        with self.assertRaises(ValueError):
-            extract_search_space_digest(search_space, ["x", "y", "z"])
         search_space._parameters["x"] = RangeParameter(
             "x", ParameterType.FLOAT, lower=1.0, upper=4.0, log_scale=True
         )
