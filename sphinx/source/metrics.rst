@@ -24,6 +24,14 @@ Branin Map
     :undoc-members:
     :show-inheritance:
 
+Chemistry
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.metrics.chemistry
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Factorial
 ~~~~~~~~~
 
