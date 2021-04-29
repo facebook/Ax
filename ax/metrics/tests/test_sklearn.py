@@ -12,7 +12,11 @@ from unittest import mock
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
-from ax.metrics.sklearn import SklearnMetric, SklearnDataset, SklearnModelType
+from ax.metrics.sklearn import (
+    SklearnMetric,
+    SklearnDataset,
+    SklearnModelType,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_trial
 from sklearn.ensemble import RandomForestClassifier
@@ -64,8 +68,6 @@ class SklearnMetricTest(TestCase):
             metric = SklearnMetric(
                 name="test_metric",
             )
-            self.assertIs(metric.X, data["data"])
-            self.assertIs(metric.y, data["target"])
             self.assertIs(metric.dataset, SklearnDataset.DIGITS)
             self.assertIs(metric.model_type, SklearnModelType.RF)
             self.assertFalse(metric.lower_is_better)
@@ -88,6 +90,10 @@ class SklearnMetricTest(TestCase):
             self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
             self.assertEqual(df["mean"].tolist(), [cv_scores.mean()])
             self.assertTrue(np.isnan(df["sem"].values[0]))
+            # test caching
+            metric.fetch_trial_data(trial)
+            mock_load_digits.assert_called_once()
+
             # test observed noise
             metric = SklearnMetric(name="test_metric", observed_noise=True)
             df = metric.fetch_trial_data(trial).df

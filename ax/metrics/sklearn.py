@@ -8,9 +8,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 from enum import Enum
+from functools import lru_cache
 from math import sqrt
 from typing import Any, Dict, Tuple
 
+import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -31,6 +33,22 @@ class SklearnModelType(Enum):
 class SklearnDataset(Enum):
     DIGITS: str = "digits"
     BOSTON: str = "boston"
+    CANCER: str = "cancer"
+
+
+@lru_cache(maxsize=8)
+def _get_data(dataset) -> Dict[str, np.ndarray]:
+    """Return sklearn dataset, loading and caching if necessary."""
+    if dataset is SklearnDataset.DIGITS:
+        return datasets.load_digits()
+    elif dataset is SklearnDataset.BOSTON:
+        return datasets.load_boston()
+    elif dataset is SklearnDataset.CANCER:
+        return datasets.load_breast_cancer()
+    else:
+        raise NotImplementedError(
+            f"{dataset.value} is not a currently supported {dataset.name}."
+        )
 
 
 class SklearnMetric(Metric):
@@ -71,18 +89,16 @@ class SklearnMetric(Metric):
         self.model_type = model_type
         self.num_folds = num_folds
         self.observed_noise = observed_noise
-        if dataset is SklearnDataset.DIGITS:
-            data = datasets.load_digits()
+        if self.dataset is SklearnDataset.DIGITS:
             regression = False
-        elif dataset is SklearnDataset.BOSTON:
-            data = datasets.load_boston()
+        elif self.dataset is SklearnDataset.BOSTON:
             regression = True
+        elif self.dataset is SklearnDataset.CANCER:
+            regression = False
         else:
             raise NotImplementedError(
-                f"{dataset.value} is not a currently supported {dataset.name}."
+                f"{self.dataset.value} is not a currently supported {dataset.name}."
             )
-        self.X = data["data"]
-        self.y = data["target"]
         if model_type is SklearnModelType.NN:
             if regression:
                 self._model_cls = MLPRegressor
@@ -142,6 +158,8 @@ class SklearnMetric(Metric):
             - The SE of the mean k-fold CV score if observed_noise is True
                 and 'nan' otherwise
         """
+        data = _get_data(self.dataset)  # cached
+        X, y = data["data"], data["target"]
         params: Dict[str, Any] = deepcopy(arm.parameters)
         if self.model_type == SklearnModelType.NN:
             hidden_layer_size = params.pop("hidden_layer_size", None)
@@ -152,7 +170,7 @@ class SklearnMetric(Metric):
                 )
                 params["hidden_layer_sizes"] = [hidden_layer_size] * num_hidden_layers
         model = self._model_cls(**params)
-        cv_scores = cross_val_score(model, self.X, self.y, cv=self.num_folds)
+        cv_scores = cross_val_score(model, X, y, cv=self.num_folds)
         mean = cv_scores.mean()
         sem = (
             cv_scores.std() / sqrt(cv_scores.shape[0])
