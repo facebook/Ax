@@ -21,7 +21,7 @@ from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode
+from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode, ChoiceEncode
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
@@ -81,6 +81,14 @@ Cont_X_trans: List[Type[Transform]] = [
 ]
 
 Discrete_X_trans: List[Type[Transform]] = [IntRangeToChoice]
+
+Mixed_transforms: List[Type[Transform]] = [
+    RemoveFixed,
+    ChoiceEncode,
+    IntToFloat,
+    Log,
+    UnitX,
+]
 
 Y_trans: List[Type[Transform]] = [IVW, Derelativize, StandardizeY]
 
