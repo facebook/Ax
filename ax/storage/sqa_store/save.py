@@ -329,29 +329,21 @@ def update_runner_on_experiment(
     )
 
 
-def update_experiment_immutable_opt_config_and_search_space(
-    experiment: Experiment,
-    immutable_opt_config_and_search_space: bool,
+def update_properties_on_experiment(
+    experiment_with_updated_properties: Experiment,
     config: Optional[SQAConfig] = None,
 ) -> None:
     config = config or SQAConfig()
     exp_sqa_class = config.class_to_sqa_class[Experiment]
 
-    with session_scope() as session:
-        exp_id, exp_properties = (
-            session.query(exp_sqa_class.id, exp_sqa_class.properties)  # pyre-ignore
-            .filter_by(name=experiment.name)
-            .one_or_none()
-        )
-
-    exp_properties[
-        Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF
-    ] = immutable_opt_config_and_search_space
+    exp_id = experiment_with_updated_properties.db_id
+    if exp_id is None:
+        raise ValueError("Experiment must be saved before being updated.")
 
     with session_scope() as session:
         session.query(exp_sqa_class).filter_by(id=exp_id).update(
             {
-                "properties": exp_properties,
+                "properties": experiment_with_updated_properties._properties,
             }
         )
 

@@ -296,3 +296,16 @@ class TestWithDBSettingsBase(TestCase):
                 self.assertEqual(t.status, TrialStatus.CANDIDATE)
             else:
                 self.assertEqual(t.status, TrialStatus.RUNNING)
+
+    def test_update_experiment_properties_in_db(self):
+        experiment, _ = self.init_experiment_and_generation_strategy(
+            save_generation_strategy=False
+        )
+        experiment._properties["test_property"] = True
+        self.with_db_settings._update_experiment_properties_in_db(
+            experiment_with_updated_properties=experiment
+        )
+        loaded_experiment = _load_experiment(
+            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+        )
+        self.assertEqual(loaded_experiment._properties, {"test_property": True})

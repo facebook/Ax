@@ -33,6 +33,7 @@ try:  # We don't require SQLAlchemy by default.
         _save_experiment,
         _save_generation_strategy,
         _update_generation_strategy,
+        update_properties_on_experiment,
     )
     from ax.storage.sqa_store.structs import DBSettings
     from sqlalchemy.exc import OperationalError
@@ -433,6 +434,23 @@ class WithDBSettingsBase:
                 f"Updated generation strategy {generation_strategy.name} in "
                 f"{_round_floats_for_logging(time.time() - start_time)} seconds in "
                 f"mini-batches of {STORAGE_MINI_BATCH_SIZE} generator runs."
+            )
+            return True
+        return False
+
+    @retry_on_exception(
+        retries=3,
+        default_return_on_suppression=False,
+        exception_types=RETRY_EXCEPTION_TYPES,
+    )
+    def _update_experiment_properties_in_db(
+        self, experiment_with_updated_properties: Experiment
+    ) -> bool:
+        exp = experiment_with_updated_properties
+        if self.db_settings_set:
+            update_properties_on_experiment(
+                experiment_with_updated_properties=exp,
+                config=self.db_settings.encoder.config,
             )
             return True
         return False
