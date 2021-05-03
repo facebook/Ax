@@ -259,9 +259,6 @@ class BatchTrial(BaseTrial):
         Returns:
             The trial instance.
         """
-        # Copy the generator run, to preserve initial and skip mutations to arms.
-        generator_run = generator_run.clone()
-
         # First validate generator run arms
         for arm in generator_run.arms:
             self.experiment.search_space.check_types(arm.parameters, raise_error=True)
@@ -322,7 +319,7 @@ class BatchTrial(BaseTrial):
             self.experiment._name_and_store_arm_if_not_exists(
                 arm=status_quo, proposed_name="status_quo_" + str(self.index)
             )
-        self._status_quo = status_quo
+        self._status_quo = status_quo.clone()
         self._status_quo_weight_override = weight
         self._refresh_arms_by_name()
         return self

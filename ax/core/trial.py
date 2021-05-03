@@ -114,9 +114,6 @@ class Trial(BaseTrial):
         Returns:
             The trial instance.
         """
-        # Copy the generator run, to preserve initial and skip mutations to arms.
-        generator_run = generator_run.clone()
-
         if len(generator_run.arms) > 1:
             raise ValueError(
                 "Trial includes only one arm, but this generator run "

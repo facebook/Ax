@@ -268,9 +268,6 @@ def _update_generation_strategy(
     if gs_id is None:
         raise ValueError("GenerationStrategy must be saved before being updated.")
 
-    if any(gr.db_id for gr in generator_runs):
-        raise ValueError("Can only save new GeneratorRuns.")
-
     experiment_id = generation_strategy.experiment.db_id
     if experiment_id is None:
         raise ValueError(  # pragma: no cover
