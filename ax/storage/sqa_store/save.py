@@ -449,7 +449,8 @@ def _copy_db_ids_if_possible(new_obj: Any, obj: Any) -> None:
         if os.environ.get("TESTENV"):
             raise e
         logger.warning(
-            "Error encountered when copying db_ids back to user-facing object. "
+            f"Error encountered when copying db_ids from {new_obj} "
+            f"back to user-facing object {obj}. "
             "This might cause issues if you re-save this experiment. "
             f"Exception: {e}"
         )
