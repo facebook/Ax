@@ -69,3 +69,12 @@ WithDBSettingsBase
     :members:
     :undoc-members:
     :show-inheritance:
+
+
+Scheduler
+~~~~~~~~~~
+
+.. automodule:: ax.service.scheduler
+    :members:
+    :undoc-members:
+    :show-inheritance:
