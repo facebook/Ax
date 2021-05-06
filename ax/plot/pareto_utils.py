@@ -100,6 +100,7 @@ def get_observed_pareto_frontiers(
     experiment: Experiment,
     data: Optional[Data] = None,
     rel: bool = True,
+    arm_names: Optional[List[str]] = None,
 ) -> List[ParetoFrontierResults]:
     """
     Find all Pareto points from an experiment.
@@ -109,13 +110,24 @@ def get_observed_pareto_frontiers(
     use that, otherwise will use all data attached to the experiment.
 
     Uses all arms present in data; does not filter according to experiment
-    search space.
+    search space. If arm_names is specified, will filter to just those arm whose names
+    are given in the list.
 
     Assumes experiment has a multiobjective optimization config from which the
     objectives and outcome constraints will be extracted.
 
     Will generate a ParetoFrontierResults for every pair of metrics in the experiment's
     multiobjective optimization config.
+
+    Args:
+        experiment: The experiment.
+        data: Data to use for computing Pareto frontier. If not provided, will fetch
+            data from experiment.
+        rel: Relativize, if status quo on experiment.
+        arm_names: If provided, computes Pareto frontier only from among the provided
+            list of arm names.
+
+    Returns: ParetoFrontierResults that can be used with interact_pareto_frontier.
     """
     if data is None:
         data = experiment.fetch_data()
@@ -125,6 +137,8 @@ def get_observed_pareto_frontiers(
         )
     if experiment.optimization_config is None:
         raise ValueError("Experiment must have an optimization config")
+    if arm_names is not None:
+        data = Data(data.df[data.df["arm_name"].isin(arm_names)])
     mb = get_tensor_converter_model(experiment=experiment, data=data)
     pareto_observations = observed_pareto_frontier(modelbridge=mb)
     # Convert to ParetoFrontierResults
@@ -189,7 +203,7 @@ def get_observed_pareto_frontiers(
     # Construct ParetoFrontResults for each pair
     pfr_list = []
     param_dicts = [obs.features.parameters for obs in pareto_observations]
-    arm_names = [obs.arm_name for obs in pareto_observations]
+    pfr_arm_names = [obs.arm_name for obs in pareto_observations]
 
     for metric_a, metric_b in combinations(metric_names, 2):
         pfr_list.append(
@@ -201,7 +215,7 @@ def get_observed_pareto_frontiers(
                 secondary_metric=metric_b,
                 absolute_metrics=absolute_metrics,
                 objective_thresholds=objective_thresholds,
-                arm_names=arm_names,
+                arm_names=pfr_arm_names,
             )
         )
     return pfr_list

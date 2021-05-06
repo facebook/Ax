@@ -11,8 +11,11 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import plotly.graph_objs as go
+from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationFeatures
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.registry import Models
 from ax.plot.base import (
     CI_OPACITY,
     DECIMALS,
@@ -1465,4 +1468,46 @@ def interact_fitted(
 
     return AxPlotConfig(
         data=go.Figure(data=traces, layout=layout), plot_type=AxPlotTypes.GENERIC
+    )
+
+
+def tile_observations(
+    experiment: Experiment,
+    data: Optional[Data] = None,
+    rel: bool = True,
+    metrics: Optional[List[str]] = None,
+    arm_names: Optional[List[str]] = None,
+) -> AxPlotConfig:
+    """
+    Tiled plot with all observed outcomes.
+
+    Will plot all observed arms. If data is provided will use that, otherwise
+    will fetch data from experiment. Will plot all metrics in data unless a
+    list is provided in metrics. If arm_names is provided will limit the plot
+    to only arms in that list.
+
+    Args:
+        experiment: Experiment
+        data: Data to use, otherwise will fetch data from experiment.
+        rel: Plot relative values, if experiment has status quo.
+        metrics: Limit results to this set of metrics.
+        arm_names: Limit results to this set of arms.
+
+    Returns: Plot config for the plot.
+    """
+    if data is None:
+        data = experiment.fetch_data()
+    if not isinstance(data, Data):
+        raise TypeError("data must be Data type")
+    if arm_names is not None:
+        data = Data(data.df[data.df["arm_name"].isin(arm_names)])
+    m_ts = Models.THOMPSON(
+        data=data,
+        search_space=experiment.search_space,
+        experiment=experiment,
+    )
+    return tile_fitted(
+        model=m_ts,
+        rel=rel and (experiment.status_quo is not None),
+        metrics=metrics,
     )

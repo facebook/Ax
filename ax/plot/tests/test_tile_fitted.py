@@ -8,11 +8,18 @@ from typing import Optional
 from unittest import mock
 
 from ax.core.arm import Arm
+from ax.core.metric import Metric
+from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
 from ax.models.discrete.full_factorial import FullFactorialGenerator
-from ax.plot.scatter import tile_fitted
+from ax.plot.scatter import tile_fitted, tile_observations
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_data, get_experiment, get_search_space
+from ax.utils.testing.core_stubs import (
+    get_data,
+    get_experiment,
+    get_search_space,
+    get_experiment_with_data,
+)
 from ax.utils.testing.modeling_stubs import get_observation
 
 
@@ -101,3 +108,35 @@ class TileFittedTest(TestCase):
                 "yaxis",
             ]:
                 self.assertIn(key, config.data["data"][i])
+
+
+class TileObservationsTest(TestCase):
+    def testTileObservations(self):
+        exp = get_experiment_with_data()
+        exp.trials[0].run()
+        exp.trials[0].mark_completed()
+        exp.add_tracking_metric(Metric("ax_test_metric"))
+        exp.search_space = SearchSpace(parameters=exp.search_space.parameters.values())
+        config = tile_observations(experiment=exp, arm_names=["0_1", "0_2"], rel=False)
+
+        for key in ["layout", "data"]:
+            self.assertIn(key, config.data)
+
+        # Layout
+        for key in [
+            "annotations",
+            "margin",
+            "hovermode",
+            "updatemenus",
+            "font",
+            "width",
+            "height",
+            "legend",
+        ]:
+            self.assertIn(key, config.data["layout"])
+
+        # Data
+        self.assertEqual(config.data["data"][0]["x"], ["0_1", "0_2"])
+        self.assertEqual(config.data["data"][0]["y"], [2.0, 2.25])
+        self.assertEqual(config.data["data"][0]["type"], "scatter")
+        self.assertIn("Arm 0_1", config.data["data"][0]["text"][0])
