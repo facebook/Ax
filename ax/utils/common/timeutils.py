@@ -26,7 +26,7 @@ def to_ts(ds: str) -> datetime:
 
 def _ts_to_pandas(ts: int) -> pd.Timestamp:
     """Convert int timestamp into pandas timestamp."""
-    # pyre-fixme[19]: Expected 0 positional arguments.
+    # pyre-fixme[6]: Expected `Optional[str]` for 1st param but got `datetime`.
     return pd.Timestamp(datetime.fromtimestamp(ts))
 
 
