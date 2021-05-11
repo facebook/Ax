@@ -319,7 +319,7 @@ class BatchTrial(BaseTrial):
             self.experiment._name_and_store_arm_if_not_exists(
                 arm=status_quo, proposed_name="status_quo_" + str(self.index)
             )
-        self._status_quo = status_quo.clone()
+        self._status_quo = status_quo.clone() if status_quo is not None else None
         self._status_quo_weight_override = weight
         self._refresh_arms_by_name()
         return self
