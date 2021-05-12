@@ -7,15 +7,16 @@
 import time
 
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.backend_simulator import BackendSimulator
+from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
 
 
 class BackendSimulatorTest(TestCase):
     def test_backend_simulator(self):
         dt = 0.001
+        options = BackendSimulatorOptions(max_concurrency=2)
 
         # test init
-        sim = BackendSimulator(max_concurrency=2)
+        sim = BackendSimulator(options=options)
         self.assertEqual(sim.max_concurrency, 2)
         self.assertEqual(sim.time_scaling, 1.0)
         self.assertEqual(sim.failure_rate, 0.0)
@@ -86,7 +87,8 @@ class BackendSimulatorTest(TestCase):
         self.assertEqual(sim2.num_completed, 3)
 
         # test failure rate
-        sim3 = BackendSimulator(max_concurrency=2, failure_rate=1.0)
+        options = BackendSimulatorOptions(max_concurrency=2, failure_rate=1.0)
+        sim3 = BackendSimulator(options=options)
         sim3.run_trial(0, dt)
         self.assertEqual(sim3.num_queued, 0)
         self.assertEqual(sim3.num_running, 0)

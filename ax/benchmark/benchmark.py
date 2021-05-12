@@ -19,9 +19,10 @@ Key terms used:
   to assess the performance of algorithms.
 
 """
-
+import logging
 import random
 import time
+from dataclasses import dataclass
 from types import FunctionType
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -30,17 +31,25 @@ import torch
 from ax.benchmark import utils
 from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
 from ax.core.abstract_data import AbstractDataFrameData
+from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import RangeParameter
 from ax.modelbridge.base import gen_arms
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.runners.simulated_backend import SimulatedBackendRunner
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
+from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from ax.utils.measurement.synthetic_functions import SyntheticFunction
+from ax.utils.testing.backend_scheduler import AsyncSimulatedBackendScheduler
+from ax.utils.testing.backend_simulator import (
+    BackendSimulator,
+    BackendSimulatorOptions,
+)
 
 logger = get_logger(__name__)
 
@@ -58,6 +67,27 @@ class NonRetryableBenchmarkingError(ValueError):
     pass
 
 
+@dataclass
+class AsyncBenchmarkOptions:
+    """Options used in an async, Scheduler-based benchmark:
+
+    Args:
+        scheduler_options: Options passed to the ``AsyncSimulatedBackendScheduler``.
+        backend_options: Options passed to the ``BackendSimulator``.
+        sample_runtime_func: A method to sample a runtime given a trial.
+        timeout_hours: The number of hours to run before timing out, passed
+            to the ``AsyncSimulatedBackendScheduler``.
+        max_pending_trials: The maximum number of pending trials, which is
+            passed to the ``AsyncSimulatedBackendScheduler``.
+    """
+
+    scheduler_options: Optional[SchedulerOptions] = None
+    backend_options: Optional[BackendSimulatorOptions] = None
+    sample_runtime_func: Optional[Callable[[BaseTrial], float]] = None
+    timeout_hours: Optional[int] = None
+    max_pending_trials: int = 10
+
+
 def benchmark_trial(
     parameterization: Optional[np.ndarray] = None,
     evaluation_function: Optional[Union[SyntheticFunction, FunctionType]] = None,
@@ -67,7 +97,7 @@ def benchmark_trial(
     Tuple[float, float], AbstractDataFrameData
 ]:  # Mean and SEM or a Data object.
     """Evaluates one trial from benchmarking replication (an Ax trial or batched
-    trial). Evaluation requires either the `parameterization` and `evalution_
+    trial). Evaluation requires either the `parameterization` and `evaluation_
     function` parameters or the `experiment` and `trial_index` parameters.
 
     Note: evaluation function relies on the ordering of items in the
@@ -108,6 +138,7 @@ def benchmark_replication(  # One optimization loop.
     verbose_logging: bool = True,
     # Number of trials that need to fail for a replication to be considered failed.
     failed_trials_tolerated: int = 5,
+    async_benchmark_options: Optional[AsyncBenchmarkOptions] = None,
 ) -> Experiment:
     """Runs one benchmarking replication (equivalent to one optimization loop).
 
@@ -125,6 +156,10 @@ def benchmark_replication(  # One optimization loop.
         verbose_logging: Whether logging level should be set to `INFO`.
         failed_trials_tolerated: How many trials can fail before a replication is
             considered failed and aborted. Defaults to 5.
+        async_benchmark_options: Options to use for the case of an async,
+            Scheduler-based benchmark. If omitted, a synchronous benchmark
+            (possibly with batch sizes greater than one) is run without using
+            a Scheduler.
     """
     torch.manual_seed(replication_index)
     np.random.seed(replication_index)
@@ -135,17 +170,19 @@ def benchmark_replication(  # One optimization loop.
         experiment_name += f"__v{replication_index}"
     # Make sure the generation strategy starts from the beginning.
     method = method.clone_reset()
-
-    # Choose whether to run replication via Service or Developer API, based on
-    # whether the problem was set up using Ax classes like `SearchSpace` and
-    # `OptimizationConfig` or using "RESTful" Service API-like constructs like
-    # dict parameter representations and `SyntheticFunction`-s or custom callables
-    # for evaluation function.
-    replication_runner = (
-        _benchmark_replication_Service_API
-        if isinstance(problem, SimpleBenchmarkProblem)
-        else _benchmark_replication_Dev_API
-    )
+    if async_benchmark_options is not None:
+        replication_runner = _benchmark_replication_Async_Scheduler
+    else:
+        # Choose whether to run replication via Service or Developer API, based on
+        # whether the problem was set up using Ax classes like `SearchSpace` and
+        # `OptimizationConfig` or using "RESTful" Service API-like constructs like
+        # dict parameter representations and `SyntheticFunction`-s or custom callables
+        # for evaluation function.
+        replication_runner = (
+            _benchmark_replication_Service_API
+            if isinstance(problem, SimpleBenchmarkProblem)
+            else _benchmark_replication_Dev_API
+        )
     experiment, exceptions = replication_runner(
         problem=problem,  # pyre-ignore[6]
         method=method,
@@ -156,6 +193,7 @@ def benchmark_replication(  # One optimization loop.
         benchmark_trial=benchmark_trial,
         verbose_logging=verbose_logging,
         failed_trials_tolerated=failed_trials_tolerated,
+        async_benchmark_options=async_benchmark_options,
     )
     experiment.fetch_data()
     trial_exceptions.extend(exceptions)
@@ -176,6 +214,7 @@ def benchmark_test(  # One test, multiple replications.
     failed_trials_tolerated: int = 5,
     # Number of replications that need to fail for a test to be considered failed.
     failed_replications_tolerated: int = 3,
+    async_benchmark_options: Optional[AsyncBenchmarkOptions] = None,
 ) -> List[Experiment]:
     """Runs one benchmarking test (equivalent to one problem-method combination),
     translates into `num_replication` replications, ran for statistical
@@ -204,6 +243,10 @@ def benchmark_test(  # One test, multiple replications.
             considered failed and aborted. Defaults to 5.
         failed_replications_tolerated: How many replications can fail before a
             test is considered failed and aborted. Defaults to 3.
+        async_benchmark_options: Options to use for the case of an async,
+            Scheduler-based benchmark. If omitted, a synchronous benchmark
+            (possibly with batch sizes greater than one) is run without using
+            a Scheduler.
     """
     replication_exceptions = []
     test_replications = []
@@ -217,8 +260,10 @@ def benchmark_test(  # One test, multiple replications.
                     num_trials=num_trials,
                     batch_size=batch_size,
                     raise_all_exceptions=raise_all_exceptions,
+                    benchmark_trial=benchmark_trial,
                     verbose_logging=verbose_logging,
                     failed_trials_tolerated=failed_trials_tolerated,
+                    async_benchmark_options=async_benchmark_options,
                 )
             )
         except Exception as err:
@@ -252,6 +297,7 @@ def full_benchmark_run(  # Full run, multiple tests.
     failed_trials_tolerated: int = 5,
     # Number of replications that need to fail for a test to be considered failed.
     failed_replications_tolerated: int = 3,
+    async_benchmark_options: Optional[AsyncBenchmarkOptions] = None,
 ) -> Dict[str, Dict[str, List[Experiment]]]:
     """Full run of the benchmarking suite. To make benchmarking distrubuted at
     a level of a test, a replication, or a trial (or any combination of those),
@@ -306,6 +352,10 @@ def full_benchmark_run(  # Full run, multiple tests.
             considered failed and aborted. Defaults to 5.
         failed_replications_tolerated: How many replications can fail before a
             test is considered failed and aborted. Defaults to 3.
+        async_benchmark_options: Options to use for the case of an async,
+            Scheduler-based benchmark. If omitted, a synchronous benchmark
+            (possibly with batch sizes greater than one) is run without using
+            a Scheduler.
     """
     problem_groups = problem_groups or {}
     method_groups = method_groups or {}
@@ -340,6 +390,7 @@ def full_benchmark_run(  # Full run, multiple tests.
                         verbose_logging=verbose_logging,
                         failed_replications_tolerated=failed_replications_tolerated,
                         failed_trials_tolerated=failed_trials_tolerated,
+                        async_benchmark_options=async_benchmark_options,
                     )
                 except Exception as err:
                     if raise_all_exceptions:
@@ -360,11 +411,17 @@ def _benchmark_replication_Service_API(
     verbose_logging: bool = True,
     # Number of trials that need to fail for a replication to be considered failed.
     failed_trials_tolerated: int = 5,
+    async_benchmark_options: Optional[AsyncBenchmarkOptions] = None,
 ) -> Tuple[Experiment, List[Exception]]:
     """Run a benchmark replication via the Service API because the problem was
     set up in a simplified way, without the use of Ax classes like `OptimizationConfig`
     or `SearchSpace`.
     """
+    if async_benchmark_options is not None:
+        raise NonRetryableBenchmarkingError(
+            "`async_benchmark_options` not supported when using the Service API."
+        )
+
     exceptions = []
     if batch_size == 1:
         ax_client = AxClient(
@@ -423,11 +480,17 @@ def _benchmark_replication_Dev_API(
     verbose_logging: bool = True,
     # Number of trials that need to fail for a replication to be considered failed.
     failed_trials_tolerated: int = 5,
+    async_benchmark_options: Optional[AsyncBenchmarkOptions] = None,
 ) -> Tuple[Experiment, List[Exception]]:
     """Run a benchmark replication via the Developer API because the problem was
     set up with Ax classes (likely to allow for additional complexity like
     adding constraints or non-range parameters).
     """
+    if async_benchmark_options is not None:
+        raise NonRetryableBenchmarkingError(
+            "`async_benchmark_options` not supported when using the Dev API."
+        )
+
     exceptions = []
     experiment = Experiment(
         name=experiment_name,
@@ -455,6 +518,74 @@ def _benchmark_replication_Dev_API(
                 f"More than {failed_trials_tolerated} failed for {experiment_name}."
             )
     return experiment, exceptions
+
+
+def _benchmark_replication_Async_Scheduler(
+    problem: BenchmarkProblem,
+    method: GenerationStrategy,
+    num_trials: int,
+    experiment_name: str,
+    batch_size: int = 1,
+    raise_all_exceptions: bool = False,
+    benchmark_trial: FunctionType = benchmark_trial,
+    verbose_logging: bool = True,
+    # Number of trials that need to fail for a replication to be considered failed.
+    failed_trials_tolerated: int = 5,
+    async_benchmark_options: Optional[AsyncBenchmarkOptions] = None,
+) -> Tuple[Experiment, List[Exception]]:
+    """Run a benchmark replication with asynchronous evaluations through Scheduler.
+    The Scheduler interacts with a BackendSimulator.
+    """
+    if async_benchmark_options is None:
+        raise NonRetryableBenchmarkingError(
+            "`async_benchmark_options` required for Scheduler benchmarks."
+        )
+
+    backend_options = (
+        async_benchmark_options.backend_options
+        or BackendSimulatorOptions(
+            internal_clock=0.0,
+            max_concurrency=async_benchmark_options.max_pending_trials,
+        )
+    )
+    backend_simulator = BackendSimulator(
+        options=backend_options, verbose_logging=verbose_logging
+    )
+
+    experiment = Experiment(
+        name=experiment_name,
+        search_space=problem.search_space,
+        optimization_config=problem.optimization_config,
+        runner=SimulatedBackendRunner(simulator=backend_simulator),
+    )
+
+    scheduler_options = async_benchmark_options.scheduler_options or SchedulerOptions(
+        total_trials=None,
+        init_seconds_between_polls=1,
+        min_seconds_before_poll=1.0,
+        seconds_between_polls_backoff_factor=1.0,
+        logging_level=logging.INFO if verbose_logging else logging.WARNING,
+    )
+
+    scheduler = AsyncSimulatedBackendScheduler(
+        experiment=experiment,
+        generation_strategy=method,
+        max_pending_trials=async_benchmark_options.max_pending_trials,
+        options=scheduler_options,
+    )
+    scheduler.run_n_trials(
+        max_trials=num_trials, timeout_hours=async_benchmark_options.timeout_hours
+    )
+
+    # update the trial metadata with start time
+    # Note: we could also do it in the BackendSimulator if it got access to the Trial
+    for sim_trial in backend_simulator._completed:
+        metadata_dict = {
+            "start_time": sim_trial.sim_start_time,
+            "queued_time": sim_trial.sim_queued_time,
+        }
+        experiment.trials[sim_trial.trial_index].update_run_metadata(metadata_dict)
+    return experiment, []
 
 
 def benchmark_minimize_callable(

@@ -15,3 +15,11 @@ Synthetic Runner
     :members:
     :undoc-members:
     :show-inheritance:
+
+Simulated Backend Runner
+~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.runners.simulated_backend
+    :members:
+    :undoc-members:
+    :show-inheritance:

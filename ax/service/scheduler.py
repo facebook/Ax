@@ -152,6 +152,8 @@ class SchedulerOptions:
         min_seconds_before_poll: Minimum number of seconds between
             beginning to run a trial and the first poll to check
             trial status.
+        seconds_between_polls_backoff_factor: The rate at which the poll
+            interval increases.
         run_trials_in_batches: If True and ``poll_available_capacity`` is
             implemented to return non-null results, trials will be dispatched
             in groups via `run_trials` instead of one-by-one via ``run_trial``.
@@ -171,6 +173,7 @@ class SchedulerOptions:
     ttl_seconds_for_trials: Optional[int] = None
     init_seconds_between_polls: Optional[int] = 1
     min_seconds_before_poll: float = 1.0
+    seconds_between_polls_backoff_factor: float = 1.5
     run_trials_in_batches: bool = False
     debug_log_run_metadata: bool = False
 
@@ -548,7 +551,7 @@ class Scheduler(WithDBSettingsBase, ABC):
                 f"currently running trials: {len(self.running_trials)})."
             )
             sleep(seconds_between_polls)
-            seconds_between_polls *= 1.5
+            seconds_between_polls *= self.options.seconds_between_polls_backoff_factor
         return self.report_results()[1]
 
     def should_abort(self) -> bool:
