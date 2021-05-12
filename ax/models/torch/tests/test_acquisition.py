@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from itertools import chain
-from typing import Any
+from typing import Any  # , Dict, Optional
 from unittest import mock
 
 import torch
@@ -15,8 +15,18 @@ from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from botorch.acquisition.input_constructors import (
+    ACQF_INPUT_CONSTRUCTOR_REGISTRY,
+    get_acqf_input_constructor,
+    _register_acqf_input_constructor,
+)
+from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+
+# from botorch.acquisition.objective import AcquisitionObjective
 from botorch.acquisition.objective import LinearMCObjective
 from botorch.models.gp_regression import SingleTaskGP
+
+# from botorch.models.model import Model
 from botorch.utils.containers import TrainingData
 
 
@@ -37,6 +47,14 @@ class DummyACQFClass:
 
 class AcquisitionTest(TestCase):
     def setUp(self):
+        qNEI_input_constructor = get_acqf_input_constructor(qNoisyExpectedImprovement)
+        self.mock_input_constructor = mock.MagicMock(
+            qNEI_input_constructor, side_effect=qNEI_input_constructor
+        )
+        _register_acqf_input_constructor(
+            acqf_cls=DummyACQFClass,
+            input_constructor=self.mock_input_constructor,
+        )
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
@@ -61,11 +79,11 @@ class AcquisitionTest(TestCase):
         self.fixed_features = {1: 2.0}
         self.options = {"best_f": 0.0}
         self.acquisition = Acquisition(
+            botorch_acqf_class=self.botorch_acqf_class,
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             objective_thresholds=self.objective_thresholds,
-            botorch_acqf_class=self.botorch_acqf_class,
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
@@ -77,6 +95,10 @@ class AcquisitionTest(TestCase):
         ]
         self.rounding_func = lambda x: x
         self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
+
+    def tearDown(self):
+        # Avoid polluting the registry for other tests.
+        ACQF_INPUT_CONSTRUCTOR_REGISTRY.pop(DummyACQFClass)
 
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
     @mock.patch(
@@ -142,6 +164,7 @@ class AcquisitionTest(TestCase):
         )
         mock_subset_model.reset_mock()
         mock_get_objective.reset_mock()
+        self.mock_input_constructor.reset_mock()
         mock_botorch_acqf_class.reset_mock()
         self.options[Keys.SUBSET_MODEL] = False
         acquisition = Acquisition(
@@ -166,8 +189,9 @@ class AcquisitionTest(TestCase):
         self.assertFalse(ckwargs["use_scalarized_objective"])
         # Check final `acqf` creation
         model_deps = {Keys.CURRENT_VALUE: 1.2}
+        self.mock_input_constructor.assert_called_once()
         mock_botorch_acqf_class.assert_called_once()
-        _, ckwargs = mock_botorch_acqf_class.call_args
+        _, ckwargs = self.mock_input_constructor.call_args
         self.assertIs(ckwargs["model"], self.acquisition.surrogate.model)
         self.assertIs(ckwargs["objective"], botorch_objective)
         self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))

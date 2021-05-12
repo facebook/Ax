@@ -24,6 +24,7 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import AnalyticAcquisitionFunction
+from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.objective import AcquisitionObjective
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf
@@ -106,12 +107,12 @@ class Acquisition(Base):
         )
         self.surrogate = surrogate
         self.options = options or {}
-        trd = self._extract_training_data(surrogate=surrogate)
+        training_data = self._extract_training_data(surrogate=surrogate)
         Xs = (
             # Assumes 1-D objective_weights, which should be safe.
-            [trd.X for o in range(objective_weights.shape[0])]
-            if isinstance(trd, TrainingData)
-            else [i.X for i in trd.values()]
+            [training_data.X for o in range(objective_weights.shape[0])]
+            if isinstance(training_data, TrainingData)
+            else [i.X for i in training_data.values()]
         )
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=Xs,
@@ -156,19 +157,21 @@ class Acquisition(Base):
             fixed_features=fixed_features,
             options=self.options,
         )
-        X_baseline = X_observed
-        overriden_X_baseline = model_deps.get(Keys.X_BASELINE)
-        if overriden_X_baseline is not None:
-            X_baseline = overriden_X_baseline
-            model_deps.pop(Keys.X_BASELINE)
-        self._instantiate_acqf(
+        input_constructor_kwargs = {
+            "X_baseline": X_observed,
+            "X_pending": X_pending,
+            "objective_thresholds": objective_thresholds,
+            **self.options,
+            **model_deps,
+        }
+        inputs_constructor = get_acqf_input_constructor(self._botorch_acqf_class)
+        acqf_inputs = inputs_constructor(
             model=model,
+            training_data=training_data,  # TODO: Deal with list surrogates
             objective=objective,
-            objective_thresholds=objective_thresholds,
-            model_dependent_kwargs=model_deps,
-            X_pending=X_pending,
-            X_baseline=X_baseline,
+            **input_constructor_kwargs,
         )
+        self.acqf = self._botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
 
     def optimize(
         self,
@@ -307,26 +310,6 @@ class Acquisition(Base):
             ),
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
-        )
-
-    def _instantiate_acqf(
-        self,
-        model: Model,
-        objective: AcquisitionObjective,
-        model_dependent_kwargs: Dict[str, Any],
-        objective_thresholds: Optional[Tensor] = None,
-        X_pending: Optional[Tensor] = None,
-        X_baseline: Optional[Tensor] = None,
-    ) -> None:
-        self.acqf = self._botorch_acqf_class(  # pyre-ignore[28]: Some kwargs are
-            # not expected in base `AcquisitionFunction` but are expected in
-            # its subclasses.
-            model=model,
-            objective=objective,
-            X_pending=X_pending,
-            X_baseline=X_baseline,
-            **self.options,
-            **model_dependent_kwargs,
         )
 
     @classmethod
