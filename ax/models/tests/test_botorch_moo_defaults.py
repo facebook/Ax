@@ -184,14 +184,6 @@ class BotorchMOODefaultsTest(TestCase):
                 objective_thresholds=objective_thresholds,
             )
 
-    def test_get_default_partitioning_alpha(self):
-        self.assertEqual(0.0, get_default_partitioning_alpha(2))
-        self.assertEqual(1e-5, get_default_partitioning_alpha(3))
-        self.assertEqual(1e-4, get_default_partitioning_alpha(4))
-        with warnings.catch_warnings(record=True) as ws:
-            self.assertEqual(0.1, get_default_partitioning_alpha(7))
-        self.assertEqual(len(ws), 1)
-
     def test_get_weighted_mc_objective_and_objective_thresholds(self):
         objective_weights = torch.tensor([0.0, 1.0, 0.0, 1.0])
         objective_thresholds = torch.arange(4, dtype=torch.float)
