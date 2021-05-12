@@ -9,14 +9,12 @@ from unittest import mock
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_kg import KnowledgeGradient, _instantiate_KG
-from ax.models.torch.utils import get_botorch_objective
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.knowledge_gradient import qMultiFidelityKnowledgeGradient
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.acquisition.objective import (
-    ConstrainedMCObjective,
     LinearMCObjective,
     ScalarizedObjective,
 )
@@ -57,6 +55,11 @@ class KnowledgeGradientTest(TestCase):
             "batch_limit": 1,
         }
         self.optimize_acqf = "ax.models.torch.botorch_kg.optimize_acqf"
+        self.X_dummy = torch.ones(1, 3, dtype=self.dtype, device=self.device)
+        self.outcome_constraints = (torch.tensor([[1.0]]), torch.tensor([[0.5]]))
+        self.objective_weights = torch.ones(1, dtype=self.dtype, device=self.device)
+        self.moo_objective_weights = torch.ones(2, dtype=self.dtype, device=self.device)
+        self.objective_thresholds = torch.tensor([0.5, 1.5])
 
     def test_KnowledgeGradient(self):
 
@@ -295,7 +298,6 @@ class KnowledgeGradientTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     def test_KnowledgeGradient_helpers(self):
-
         model = KnowledgeGradient()
         model.fit(
             Xs=self.Xs,
@@ -310,7 +312,6 @@ class KnowledgeGradientTest(TestCase):
 
         # test _instantiate_KG
         objective = ScalarizedObjective(weights=self.objective_weights)
-        X_dummy = torch.ones(1, 3, dtype=self.dtype, device=self.device)
 
         # test acquisition setting
         acq_function = _instantiate_KG(
@@ -331,66 +332,25 @@ class KnowledgeGradientTest(TestCase):
         self.assertIsNone(acq_function.inner_sampler)
 
         acq_function = _instantiate_KG(
-            model=model.model, objective=objective, qmc=True, X_pending=X_dummy
+            model=model.model, objective=objective, qmc=True, X_pending=self.X_dummy
         )
         self.assertIsNone(acq_function.inner_sampler)
-        self.assertTrue(torch.equal(acq_function.X_pending, X_dummy))
-
-        # test _get_obj()
-        outcome_constraints = (torch.tensor([[1.0]]), torch.tensor([[0.5]]))
-        objective_weights = torch.ones(1, dtype=self.dtype, device=self.device)
-        # test use_scalarized_objective kwarg
-        self.assertIsInstance(
-            get_botorch_objective(
-                model=model.model,
-                outcome_constraints=outcome_constraints,
-                objective_weights=objective_weights,
-                X_observed=X_dummy,
-                use_scalarized_objective=False,
-            ),
-            ConstrainedMCObjective,
-        )
-        self.assertIsInstance(
-            get_botorch_objective(
-                model=model.model,
-                outcome_constraints=outcome_constraints,
-                objective_weights=objective_weights,
-                X_observed=X_dummy,
-            ),
-            ConstrainedMCObjective,
-        )
-        self.assertIsInstance(
-            get_botorch_objective(
-                model=model.model,
-                objective_weights=objective_weights,
-                X_observed=X_dummy,
-                use_scalarized_objective=False,
-            ),
-            LinearMCObjective,
-        )
-        self.assertIsInstance(
-            get_botorch_objective(
-                model=model.model,
-                objective_weights=objective_weights,
-                X_observed=X_dummy,
-            ),
-            ScalarizedObjective,
-        )
+        self.assertTrue(torch.equal(acq_function.X_pending, self.X_dummy))
 
         # test _get_best_point_acqf
         acq_function, non_fixed_idcs = model._get_best_point_acqf(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_dummy,
+            objective_weights=self.objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            X_observed=self.X_dummy,
         )
         self.assertIsInstance(acq_function, qSimpleRegret)
         self.assertIsInstance(acq_function.sampler, SobolQMCNormalSampler)
         self.assertIsNone(non_fixed_idcs)
 
         acq_function, non_fixed_idcs = model._get_best_point_acqf(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_dummy,
+            objective_weights=self.objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            X_observed=self.X_dummy,
             qmc=False,
         )
         self.assertIsInstance(acq_function.sampler, IIDNormalSampler)
@@ -398,9 +358,9 @@ class KnowledgeGradientTest(TestCase):
 
         with self.assertRaises(RuntimeError):
             model._get_best_point_acqf(
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                X_observed=X_dummy,
+                objective_weights=self.objective_weights,
+                outcome_constraints=self.outcome_constraints,
+                X_observed=self.X_dummy,
                 target_fidelities={1: 1.0},
             )
 
@@ -445,9 +405,9 @@ class KnowledgeGradientTest(TestCase):
 
         # test _get_best_point_acqf
         acq_function, non_fixed_idcs = model._get_best_point_acqf(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_dummy,
+            objective_weights=self.objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            X_observed=self.X_dummy,
             target_fidelities={2: 1.0},
         )
         self.assertIsInstance(acq_function, FixedFeatureAcquisitionFunction)
@@ -455,9 +415,9 @@ class KnowledgeGradientTest(TestCase):
         self.assertEqual(non_fixed_idcs, [0, 1])
 
         acq_function, non_fixed_idcs = model._get_best_point_acqf(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_dummy,
+            objective_weights=self.objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            X_observed=self.X_dummy,
             target_fidelities={2: 1.0},
             qmc=False,
         )
@@ -468,18 +428,18 @@ class KnowledgeGradientTest(TestCase):
         # test error that fixed features are provided
         with self.assertRaises(RuntimeError):
             model._get_best_point_acqf(
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                X_observed=X_dummy,
+                objective_weights=self.objective_weights,
+                outcome_constraints=self.outcome_constraints,
+                X_observed=self.X_dummy,
                 qmc=False,
             )
 
         # test error if fixed features are also fidelity features
         with self.assertRaises(RuntimeError):
             model._get_best_point_acqf(
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                X_observed=X_dummy,
+                objective_weights=self.objective_weights,
+                outcome_constraints=self.outcome_constraints,
+                X_observed=self.X_dummy,
                 fixed_features={2: 2.0},
                 target_fidelities={2: 1.0},
                 qmc=False,

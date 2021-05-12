@@ -18,6 +18,7 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.monte_carlo import qSimpleRegret
+from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.objective import (
     AcquisitionObjective,
     ConstrainedMCObjective,
@@ -310,6 +311,7 @@ def get_botorch_objective(
     objective_weights: Tensor,
     use_scalarized_objective: bool = True,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    objective_thresholds: Optional[Tensor] = None,
     X_observed: Optional[Tensor] = None,
 ) -> AcquisitionObjective:
     """Constructs a BoTorch `AcquisitionObjective` object.
@@ -325,6 +327,9 @@ def get_botorch_objective(
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. (Not used by single task models)
+        objective_thresholds: A tensor containing thresholds forming a reference point
+            from which to calculate pareto frontier hypervolume. Points that do not
+            dominate the objective_thresholds contribute nothing to hypervolume.
         X_observed: Observed points that are feasible and appear in the
             objective or the constraints. None if there are no such points.
 
@@ -332,6 +337,13 @@ def get_botorch_objective(
         A BoTorch `AcquisitionObjective` object. It will be one of:
         `ScalarizedObjective`, `LinearMCOObjective`, `ConstrainedMCObjective`.
     """
+    if objective_thresholds is not None:
+        nonzero_idcs = torch.nonzero(objective_weights).view(-1)
+        objective_weights = objective_weights[nonzero_idcs]
+        objective_thresholds = objective_thresholds[nonzero_idcs]
+        return WeightedMCMultiOutputObjective(
+            weights=objective_weights, outcomes=nonzero_idcs.tolist()
+        )
     if X_observed is None:
         raise UnsupportedError(
             "X_observed is required to construct a BoTorch Objective."
