@@ -4,7 +4,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import warnings
 from contextlib import ExitStack
 from unittest import mock
 
@@ -14,7 +13,6 @@ from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
     get_EHVI,
     pareto_frontier_evaluator,
-    get_default_partitioning_alpha,
     get_weighted_mc_objective_and_objective_thresholds,
     get_outcome_constraint_transforms,
 )
@@ -183,14 +181,6 @@ class BotorchMOODefaultsTest(TestCase):
                 objective_weights=weights,
                 objective_thresholds=objective_thresholds,
             )
-
-    def test_get_default_partitioning_alpha(self):
-        self.assertEqual(0.0, get_default_partitioning_alpha(2))
-        self.assertEqual(1e-5, get_default_partitioning_alpha(3))
-        self.assertEqual(1e-4, get_default_partitioning_alpha(4))
-        with warnings.catch_warnings(record=True) as ws:
-            self.assertEqual(0.1, get_default_partitioning_alpha(7))
-        self.assertEqual(len(ws), 1)
 
     def test_get_weighted_mc_objective_and_objective_thresholds(self):
         objective_weights = torch.tensor([0.0, 1.0, 0.0, 1.0])
