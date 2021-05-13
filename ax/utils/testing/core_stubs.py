@@ -7,12 +7,13 @@
 
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, Iterable, List, MutableMapping, Optional, Type, cast
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Type, cast
 
 import numpy as np
 import pandas as pd
 import torch
 from ax.core.arm import Arm
+from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
@@ -582,6 +583,40 @@ def get_trial() -> Trial:
     trial.runner = SyntheticRunner()
     trial._generation_step_index = 0
     return trial
+
+
+class TestTrial(BaseTrial):
+    "Trial class to test unsupported trial type error"
+
+    _arms: List[Arm] = []
+
+    def __repr__(self) -> str:
+        return "test"
+
+    def _get_candidate_metadata(self, arm_name: str) -> Optional[Dict[str, Any]]:
+        return None
+
+    def _get_candidate_metadata_from_all_generator_runs(
+        self,
+    ) -> Dict[str, Optional[Dict[str, Any]]]:
+        return {"test": None}
+
+    def abandoned_arms(self) -> str:
+        return "test"
+
+    @property
+    def arms(self) -> List[Arm]:
+        return self._arms
+
+    @arms.setter
+    def arms(self, val: List[Arm]):
+        self._arms = val
+
+    def arms_by_name(self) -> str:
+        return "test"
+
+    def generator_runs(self) -> str:
+        return "test"
 
 
 ##############################
