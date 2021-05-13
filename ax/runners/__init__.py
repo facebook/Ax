@@ -5,7 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 # flake8: noqa F401
+from ax.runners.simulated_backend import SimulatedBackendRunner
 from ax.runners.synthetic import SyntheticRunner
 
 
-__all__ = ["SyntheticRunner"]
+__all__ = ["SimulatedBackendRunner", "SyntheticRunner"]

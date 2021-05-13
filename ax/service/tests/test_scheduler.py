@@ -172,7 +172,8 @@ class TestAxScheduler(TestCase):
                 "options=SchedulerOptions(trial_type=<class 'ax.core.trial.Trial'>, "
                 "total_trials=0, tolerated_trial_failure_rate=0.2, log_filepath=None, "
                 "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"
-                "polls=10, min_seconds_before_poll=1.0, run_trials_in_batches=False, "
+                "polls=10, min_seconds_before_poll=1.0, seconds_between_polls_backoff_"
+                "factor=1.5, run_trials_in_batches=False, "
                 "debug_log_run_metadata=False))"
             ),
         )

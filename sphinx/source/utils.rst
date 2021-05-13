@@ -169,6 +169,14 @@ Deletion
 Testing
 ---------------
 
+Backend Scheduler
+~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.testing.backend_scheduler
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Backend Simulator
 ~~~~~~~~~~~~~~~~~
 

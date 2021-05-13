@@ -4,10 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 import random
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
+
+from ax.core.base_trial import TrialStatus
+from ax.utils.common.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -18,8 +25,10 @@ class SimTrial:
     trial_index: int
     # The simulation runtime in seconds
     sim_runtime: float
-    # the start time in seconds since epoch (i.e. as in `time.time()`)
+    # the start time in seconds
     sim_start_time: Optional[float] = None
+    # the queued time in seconds
+    sim_queued_time: Optional[float] = None
 
 
 @dataclass
@@ -33,18 +42,65 @@ class SimStatus:
     completed: List[int]  # indices of completed trials
 
 
+@dataclass
+class BackendSimulatorOptions:
+    """Settings for the BackendSimulator.
+
+    Args:
+        max_concurrency: The maximum number of trials that can be run
+            in parallel.
+        time_scaling: The factor to scale down the runtime of the tasks by.
+            If ``runtime`` is the actual runtime of a trial, the simulation
+            time will be ``runtime / time_scaling``.
+        failure_rate: The rate at which the trials are failing. For now, trials
+            fail independently with at coin flip based on that rate.
+        internal_clock: The initial state of the internal clock. If `None`,
+            the simulator uses ``time.time()`` as the clock.
+        use_update_as_start_time: Whether the start time of a new trial should be logged
+            as the current time (at time of update) or end time of previous trial.
+            This makes sense when using the internal clock and the BackendSimulator
+            is simulated forward by an external process (such as Scheduler).
+    """
+
+    max_concurrency: int = 1
+    time_scaling: float = 1.0
+    failure_rate: float = 0.0
+    internal_clock: Optional[float] = None
+    use_update_as_start_time: bool = False
+
+
+@dataclass
+class BackendSimulatorState:
+    """State of the BackendSimulator.
+
+    Args:
+        options: The BackendSimulatorOptions associated with this simulator.
+        verbose_logging: Whether the simulator is using verbose logging.
+        queued: Currently queued trials.
+        running: Currently running trials.
+        failed: Currently failed trials.
+        completed: Currently completed trials.
+    """
+
+    options: BackendSimulatorOptions
+    verbose_logging: bool
+    queued: List[Dict[str, Optional[float]]]
+    running: List[Dict[str, Optional[float]]]
+    failed: List[Dict[str, Optional[float]]]
+    completed: List[Dict[str, Optional[float]]]
+
+
 class BackendSimulator:
     """Simulator for a backend deployment with concurrent dispatch and a queue."""
 
     def __init__(
         self,
-        max_concurrency: int,
-        time_scaling: float = 1.0,
-        failure_rate: float = 0.0,
+        options: Optional[BackendSimulatorOptions] = None,
         queued: Optional[List[SimTrial]] = None,
         running: Optional[List[SimTrial]] = None,
         failed: Optional[List[SimTrial]] = None,
         completed: Optional[List[SimTrial]] = None,
+        verbose_logging: bool = True,
     ) -> None:
         """A simulator for a concurrent dispatch with a queue.
 
@@ -56,6 +112,8 @@ class BackendSimulator:
                 time will be `runtime / time_scaling`.
             failure_rate: The rate at which the trials are failing. For now, trials
                 fail independently with at coin flip based on that rate.
+            use_internal_clock: Whether or not to use an internal clock. If False,
+                the clock will be based on time.time().
             queued: A list of SimTrial objects representing the queued trials
                 (only used for testing particular initialization cases)
             running: A list of SimTrial objects representing the running trials
@@ -64,15 +122,23 @@ class BackendSimulator:
                 (only used for testing particular initialization cases)
             completed: A list of SimTrial objects representing the completed trials
                 (only used for testing particular initialization cases)
-
         """
-        self.max_concurrency = max_concurrency
-        self.time_scaling = time_scaling
-        self.failure_rate = failure_rate
+        if not verbose_logging:
+            logger.setLevel(logging.WARNING)  # pragma: no cover
+
+        if options is None:
+            options = BackendSimulatorOptions()
+
+        self.max_concurrency = options.max_concurrency
+        self.time_scaling = options.time_scaling
+        self.failure_rate = options.failure_rate
+        self.use_update_as_start_time = options.use_update_as_start_time
         self._queued: List[SimTrial] = queued or []
         self._running: List[SimTrial] = running or []
         self._failed: List[SimTrial] = failed or []
         self._completed: List[SimTrial] = completed or []
+        self._internal_clock = options.internal_clock
+        self._verbose_logging = verbose_logging
         self._init_state = self.state()
 
     @property
@@ -95,43 +161,76 @@ class BackendSimulator:
         """The number of completed trials"""
         return len(self._completed)
 
+    @property
+    def use_internal_clock(self) -> bool:
+        """Whether or not we are using the internal clock"""
+        return self._internal_clock is not None
+
+    @property
+    def time(self) -> float:
+        """The current time"""
+        return self._internal_clock if self.use_internal_clock else time.time()
+
     def update(self) -> None:
         """Update the state of the simulator"""
-        self._update(time.time())
+        if self.use_internal_clock:
+            self._internal_clock += 1
+        self._update(self.time)
+        state = self.state()
+        logger.info(
+            "\n-----------\n"
+            f"Updated backend simulator state (time = {self.time}):\n"
+            f"** Queued:\n{format(state.queued)}\n"
+            f"** Running:\n{format(state.running)}\n"
+            f"** Failed:\n{format(state.failed)}\n"
+            f"** Completed:\n{format(state.completed)}\n"
+            f"-----------\n"
+        )
 
     def reset(self) -> None:
         """Reset the simulator."""
-        self.max_concurrency = self._init_state["max_concurrency"]
-        self.time_scaling = self._init_state["time_scaling"]
-        self._queued = [SimTrial(**args) for args in self._init_state["queued"]]
-        self._running = [SimTrial(**args) for args in self._init_state["running"]]
-        self._failed = [SimTrial(**args) for args in self._init_state["failed"]]
-        self._completed = [SimTrial(**args) for args in self._init_state["completed"]]
+        self.max_concurrency = self._init_state.options.max_concurrency
+        self.time_scaling = self._init_state.options.time_scaling
+        self._internal_clock = self._init_state.options.internal_clock
+        self._queued = [SimTrial(**args) for args in self._init_state.queued]
+        self._running = [SimTrial(**args) for args in self._init_state.running]
+        self._failed = [SimTrial(**args) for args in self._init_state.failed]
+        self._completed = [SimTrial(**args) for args in self._init_state.completed]
 
-    def state(self) -> Dict[str, Union[float, List[Dict[str, Optional[float]]]]]:
+    def state(self) -> BackendSimulatorState:
         """Return a state dictionary containing the state of the simulator"""
-        return {
-            "max_concurrency": self.max_concurrency,
-            "time_scaling": self.time_scaling,
-            "failure_rate": self.failure_rate,
-            "queued": [q.__dict__.copy() for q in self._queued],
-            "running": [r.__dict__.copy() for r in self._running],
-            "failed": [r.__dict__.copy() for r in self._failed],
-            "completed": [c.__dict__.copy() for c in self._completed],
-        }
+
+        options = BackendSimulatorOptions(
+            max_concurrency=self.max_concurrency,
+            time_scaling=self.time_scaling,
+            failure_rate=self.failure_rate,
+            internal_clock=self._internal_clock,
+            use_update_as_start_time=self.use_update_as_start_time,
+        )
+        return BackendSimulatorState(
+            options=options,
+            verbose_logging=self._verbose_logging,
+            queued=[q.__dict__.copy() for q in self._queued],
+            running=[r.__dict__.copy() for r in self._running],
+            failed=[r.__dict__.copy() for r in self._failed],
+            completed=[c.__dict__.copy() for c in self._completed],
+        )
 
     @classmethod
-    def from_state(cls, state: Dict[str, List[Dict[str, Optional[float]]]]):
+    def from_state(cls, state: BackendSimulatorState):
         """Construct a simulator from a state"""
+        trial_types = {
+            "queued": state.queued,
+            "running": state.running,
+            "failed": state.failed,
+            "completed": state.completed,
+        }
         trial_kwargs = {
-            key: [SimTrial(**kwargs) for kwargs in state[key]]  # pyre-ignore [6]
+            key: [SimTrial(**kwargs) for kwargs in trial_types[key]]  # pyre-ignore [6]
             for key in ("queued", "running", "failed", "completed")
         }
         return cls(
-            max_concurrency=state["max_concurrency"],  # pyre-ignore [6]
-            time_scaling=state["time_scaling"],
-            failure_rate=state["failure_rate"],
-            **trial_kwargs,
+            options=state.options, verbose_logging=state.verbose_logging, **trial_kwargs
         )
 
     def run_trial(self, trial_index: int, runtime: float) -> None:
@@ -152,20 +251,40 @@ class BackendSimulator:
         # TODO: Allow failure behavior based on a survival rate
         if self.failure_rate > 0:
             if random.random() < self.failure_rate:
-                self._failed.append(SimTrial(trial_index, sim_runtime, time.time()))
+                self._failed.append(
+                    SimTrial(
+                        trial_index=trial_index,
+                        sim_runtime=sim_runtime,
+                        sim_start_time=self.time,
+                    )
+                )
                 return
 
         if self.num_running < self.max_concurrency:
             # note that though these are running for simulation purposes,
             # the trial status does not yet get updated (this is also how it
             # works in the real world, this requires updating the trial status manually)
-            self._running.append(SimTrial(trial_index, sim_runtime, time.time()))
+            curr_time = self.time
+            self._running.append(
+                SimTrial(
+                    trial_index=trial_index,
+                    sim_runtime=sim_runtime,
+                    sim_start_time=curr_time,
+                    sim_queued_time=curr_time,
+                )
+            )
         else:
-            self._queued.append(SimTrial(trial_index, sim_runtime))
+            self._queued.append(
+                SimTrial(
+                    trial_index=trial_index,
+                    sim_runtime=sim_runtime,
+                    sim_queued_time=self.time,
+                )
+            )
 
     def status(self) -> SimStatus:
         """Return the internal status of the simulator"""
-        now = time.time()
+        now = self.time
         return SimStatus(
             queued=[t.trial_index for t in self._queued],
             running=[t.trial_index for t in self._running],
@@ -178,6 +297,19 @@ class BackendSimulator:
             ],
             completed=[t.trial_index for t in self._completed],
         )
+
+    def lookup_trial_index_status(self, trial_index: int) -> Optional[TrialStatus]:
+        """Lookup the trial status of a ``trial_index``."""
+        sim_status = self.status()
+        if trial_index in sim_status.queued:
+            return TrialStatus.STAGED
+        elif trial_index in sim_status.running:
+            return TrialStatus.RUNNING
+        elif trial_index in sim_status.completed:
+            return TrialStatus.COMPLETED
+        elif trial_index in sim_status.failed:
+            return TrialStatus.FAILED
+        return None
 
     def _update_completed(self, timestamp: float) -> List[SimTrial]:
         completed_since_last = []
@@ -207,15 +339,23 @@ class BackendSimulator:
         for c in completed_since_last:
             if self.num_queued > 0:
                 new_running_trial = self._queued.pop(0)
-                new_running_trial.sim_start_time = (
+                sim_start_time = (
                     # pyre-fixme[58]: `+` is not supported for operand types
                     #  `Optional[float]` and `float`.
-                    c.sim_start_time
-                    + c.sim_runtime
+                    c.sim_start_time + c.sim_runtime
+                    if not self.use_update_as_start_time
+                    else self.time
                 )
+                new_running_trial.sim_start_time = sim_start_time
                 self._running.append(new_running_trial)
 
         # since of course these graduated trials could both have started and finished in
         # between the simulation updates, we need to re-run the update with the new
         # state
         self._update(timestamp)
+
+
+def format(trial_list: List[Dict[str, Optional[float]]]) -> str:
+    """Helper function for formatting a list"""
+    trial_list_str = [str(i) for i in trial_list]
+    return "\n".join(trial_list_str)
