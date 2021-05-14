@@ -6,12 +6,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TConfig
-from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
@@ -21,13 +20,12 @@ from ax.models.torch.utils import (
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import AnalyticAcquisitionFunction
 from botorch.acquisition.objective import AcquisitionObjective
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf
-from botorch.utils.containers import TrainingData
 from torch import Tensor
 
 
@@ -106,15 +104,8 @@ class Acquisition(Base):
         )
         self.surrogate = surrogate
         self.options = options or {}
-        trd = self._extract_training_data(surrogate=surrogate)
-        Xs = (
-            # Assumes 1-D objective_weights, which should be safe.
-            [trd.X for o in range(objective_weights.shape[0])]
-            if isinstance(trd, TrainingData)
-            else [i.X for i in trd.values()]
-        )
         X_pending, X_observed = _get_X_pending_and_observed(
-            Xs=Xs,
+            Xs=self.surrogate.training_data.Xs,
             objective_weights=objective_weights,
             bounds=search_space_digest.bounds,
             pending_observations=pending_observations,
@@ -328,12 +319,3 @@ class Acquisition(Base):
             **self.options,
             **model_dependent_kwargs,
         )
-
-    @classmethod
-    def _extract_training_data(
-        cls, surrogate: Surrogate
-    ) -> Union[TrainingData, Dict[str, TrainingData]]:
-        if isinstance(surrogate, ListSurrogate):
-            return checked_cast(dict, surrogate.training_data_per_outcome)
-        else:
-            return checked_cast(TrainingData, surrogate.training_data)

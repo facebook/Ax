@@ -6,11 +6,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, Optional, Type
 
 import torch
-from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata
 from ax.models.torch.botorch_modular.surrogate import NOT_YET_FIT_MSG, Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -84,13 +82,6 @@ class ListSurrogate(Surrogate):
         super().__init__(botorch_model_class=ModelListGP, mll_class=mll_class)
 
     @property
-    def training_data(self) -> TrainingData:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} doesn't implement `training_data`, "
-            "use `training_data_per_outcome`."
-        )
-
-    @property
     def training_data_per_outcome(self) -> Dict[str, TrainingData]:
         if self._training_data_per_outcome is None:
             raise ValueError(NOT_YET_FIT_MSG)
@@ -104,9 +95,7 @@ class ListSurrogate(Surrogate):
     def device(self) -> torch.device:
         return next(iter(self.training_data_per_outcome.values())).X.device
 
-    # pyre-ignore[14]: `construct` takes in list of training data in list surrogate,
-    # whereas it takes just a single training data in base surrogate.
-    def construct(self, training_data: List[TrainingData], **kwargs: Any) -> None:
+    def construct(self, training_data: TrainingData, **kwargs: Any) -> None:
         """Constructs the underlying BoTorch ``Model`` using the training data.
 
         Args:
@@ -129,8 +118,17 @@ class ListSurrogate(Surrogate):
         if metric_names is None:
             raise ValueError("Metric names are required.")
 
+        self._training_data = training_data
         self._training_data_per_outcome = {
-            metric_name: tr for metric_name, tr in zip(metric_names, training_data)
+            metric_name: TrainingData.from_block_design(X=X, Y=Y, Yvar=Yvar)
+            for metric_name, X, Y, Yvar in zip(
+                metric_names,
+                training_data.Xs,
+                training_data.Ys,
+                # `TrainingData.Yvars` can be none, in which case each per-outcome
+                # training data should have null `Yvar`.
+                training_data.Yvars or [None] * len(metric_names),
+            )
         }
 
         submodels = []
@@ -163,59 +161,6 @@ class ListSurrogate(Surrogate):
             # pyre-ignore[45]: Py raises informative error if model is abstract.
             submodels.append(model_cls(**formatted_model_inputs))
         self._model = ModelListGP(*submodels)
-
-    # pyre-ignore[14]: `fit` takes in list of training data in list surrogate,
-    # whereas it takes just a single training data in base surrogate.
-    def fit(
-        self,
-        training_data: List[TrainingData],
-        search_space_digest: SearchSpaceDigest,
-        metric_names: List[str],
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
-        state_dict: Optional[Dict[str, torch.Tensor]] = None,
-        refit: bool = True,
-    ) -> None:
-        """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
-
-        NOTE: ``state_dict`` and ``refit`` keyword arguments control how the
-        underlying BoTorch ``Model`` will be fit: whether its parameters will
-        be reoptimized and whether it will be warm-started from a given state.
-
-        There are three possibilities:
-
-        * ``fit(state_dict=None)``: fit model from stratch (optimize model
-          parameters and set its training data used for inference),
-        * ``fit(state_dict=some_state_dict, refit=True)``: warm-start refit
-          with a state dict of parameters (still re-optimize model parameters
-          and set the training data),
-        * ``fit(state_dict=some_state_dict, refit=False)``: load model parameters
-          without refitting, but set new training data (used in cross-validation,
-          for example).
-
-        Args:
-            training data: List of BoTorch ``TrainingData`` container (with Xs,
-                Ys, and possibly Yvars), one per outcome, in order corresponding
-                to the order of outcome names in ``metric_names``. Each ``TrainingData``
-                from this list will be passed to ``Model.construct_inputs`` method
-                of the corresponding submodel in ``ModelListGP``.
-            search_space_digest: A SearchSpaceDigest object containing
-                metadata on the features in the training data.
-            metric_names: Names of each outcome Y in Ys.
-            candidate_metadata: Model-produced metadata for candidates, in
-                the order corresponding to the Xs.
-            state_dict: Optional state dict to load.
-            refit: Whether to re-optimize model parameters.
-        """
-        super().fit(
-            # pyre-ignore[6]: `Surrogate.fit` expects single training data
-            # and in `ListSurrogate` we use a list of training data.
-            training_data=training_data,
-            search_space_digest=search_space_digest,
-            metric_names=metric_names,
-            candidate_metadata=candidate_metadata,
-            state_dict=state_dict,
-            refit=refit,
-        )
 
     def _serialize_attributes_as_kwargs(self) -> Dict[str, Any]:
         """Serialize attributes of this surrogate, to be passed back to it

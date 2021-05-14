@@ -34,7 +34,7 @@ from torch import Tensor
 
 
 NOT_YET_FIT_MSG = (
-    "Underlying BoTorch `Model` has not yet received its training_data."
+    "Underlying BoTorch `Model` has not yet received its training_data. "
     "Please fit the model first."
 )
 

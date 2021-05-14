@@ -49,14 +49,21 @@ class BoTorchModelTest(TestCase):
         self.dtype = torch.float
         Xs1, Ys1, Yvars1, self.bounds, _, _, _ = get_torch_test_data(dtype=self.dtype)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
-        self.Xs = Xs1 + Xs2
-        self.Ys = Ys1 + Ys2
-        self.Yvars = Yvars1 + Yvars2
-        self.X = Xs1[0]
-        self.Y = Ys1[0]
-        self.Yvar = Yvars1[0]
-        self.X2 = Xs2[0]
-        self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
+        self.Xs = Xs1  # + Xs2
+        self.Ys = Ys1  # + Ys2
+        self.Yvars = Yvars1  # + Yvars2
+        # self.X = Xs1[0]
+        # self.Y = Ys1[0]
+        # self.Yvar = Yvars1[0]
+        self.X_test = Xs2[0]
+        self.block_design_training_data = TrainingData(
+            Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars
+        )
+        self.non_block_design_training_data = TrainingData(
+            Xs=Xs1 + Xs2,
+            Ys=Ys1 + Ys2,
+            Yvars=Yvars1 + Yvars2,
+        )
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["x1", "x2", "x3"],
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
@@ -128,22 +135,22 @@ class BoTorchModelTest(TestCase):
         # If surrogate is not yet set, initialize it with dispatcher functions.
         self.model._surrogate = None
         self.model.fit(
-            Xs=[self.X],
-            Ys=[self.Y],
-            Yvars=[self.Yvar],
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
             search_space_digest=self.search_space_digest,
             metric_names=self.metric_names,
             candidate_metadata=self.candidate_metadata,
         )
         # `choose_model_class` is called.
         mock_choose_model_class.assert_called_with(
-            Yvars=[self.Yvar],
+            Yvars=self.Yvars,
             search_space_digest=self.search_space_digest,
         )
         # Since we want to refit on updates but not warm start refit, we clear the
         # state dict.
         mock_fit.assert_called_with(
-            training_data=self.training_data,
+            training_data=self.block_design_training_data,
             search_space_digest=self.search_space_digest,
             metric_names=self.metric_names,
             candidate_metadata=self.candidate_metadata,
@@ -154,9 +161,9 @@ class BoTorchModelTest(TestCase):
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.update")
     def test_update(self, mock_update):
         self.model.fit(
-            Xs=[self.X],
-            Ys=[self.Y],
-            Yvars=[self.Yvar],
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
             search_space_digest=self.search_space_digest,
             metric_names=self.metric_names,
             candidate_metadata=self.candidate_metadata,
@@ -169,9 +176,9 @@ class BoTorchModelTest(TestCase):
             self.model.refit_on_update = refit_on_update
             self.model.warm_start_refit = warm_start_refit
             self.model.update(
-                Xs=[self.X],
-                Ys=[self.Y],
-                Yvars=[self.Yvar],
+                Xs=self.Xs,
+                Ys=self.Ys,
+                Yvars=self.Yvars,
                 search_space_digest=self.search_space_digest,
                 metric_names=self.metric_names,
                 candidate_metadata=self.candidate_metadata,
@@ -184,7 +191,9 @@ class BoTorchModelTest(TestCase):
 
             # Check for correct call args
             call_args = mock_update.call_args_list[-1][1]
-            self.assertEqual(call_args.get("training_data"), self.training_data)
+            self.assertEqual(
+                call_args.get("training_data"), self.block_design_training_data
+            )
             self.assertEqual(
                 call_args.get("search_space_digest"), self.search_space_digest
             )
@@ -210,15 +219,15 @@ class BoTorchModelTest(TestCase):
 
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.predict")
     def test_predict(self, mock_predict):
-        self.model.predict(X=self.X)
-        mock_predict.assert_called_with(X=self.X)
+        self.model.predict(X=self.X_test)
+        mock_predict.assert_called_with(X=self.X_test)
 
     @mock.patch(f"{MODEL_PATH}.BoTorchModel.fit")
     def test_cross_validate(self, mock_fit):
         self.model.fit(
-            Xs=[self.X],
-            Ys=[self.Y],
-            Yvars=[self.Yvar],
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
             search_space_digest=self.search_space_digest,
             candidate_metadata=self.candidate_metadata,
             metric_names=self.metric_names,
@@ -240,10 +249,10 @@ class BoTorchModelTest(TestCase):
                 return_value=mock.MagicMock(spec=Surrogate),
             ) as mock_clone_reset:
                 self.model.cross_validate(
-                    Xs_train=[self.X],
-                    Ys_train=[self.Y],
-                    Yvars_train=[self.Yvar],
-                    X_test=self.X2,
+                    Xs_train=self.Xs,
+                    Ys_train=self.Ys,
+                    Yvars_train=self.Yvars,
+                    X_test=self.X_test,
                     search_space_digest=self.search_space_digest,
                     metric_names=self.metric_names,
                 )
@@ -256,7 +265,7 @@ class BoTorchModelTest(TestCase):
                 self.assertTrue(
                     torch.equal(
                         mock_predict.call_args_list[-1][1].get("X"),
-                        self.X2,
+                        self.X_test,
                     ),
                 )
 
@@ -311,7 +320,7 @@ class BoTorchModelTest(TestCase):
             acquisition_options=self.acquisition_options,
         )
         model.surrogate.construct(
-            training_data=self.training_data,
+            training_data=self.block_design_training_data,
             fidelity_features=self.search_space_digest.fidelity_features,
         )
         model._botorch_acqf_class = None
@@ -393,7 +402,7 @@ class BoTorchModelTest(TestCase):
             acquisition_options=self.acquisition_options,
         )
         model.surrogate.construct(
-            training_data=self.training_data,
+            training_data=self.block_design_training_data,
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
                 bounds=[],
@@ -401,7 +410,7 @@ class BoTorchModelTest(TestCase):
             ),
         )
         model.evaluate_acquisition_function(
-            X=self.X,
+            X=self.X_test,
             search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
@@ -419,9 +428,9 @@ class BoTorchModelTest(TestCase):
     def test_surrogate_options_propagation(self, _, mock_init):
         model = BoTorchModel(surrogate_options={"some_option": "some_value"})
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            Xs=self.non_block_design_training_data.Xs,
+            Ys=self.non_block_design_training_data.Ys,
+            Yvars=self.non_block_design_training_data.Yvars,
             search_space_digest=self.search_space_digest,
             metric_names=self.metric_names_for_list_surrogate,
             candidate_metadata=self.candidate_metadata,
@@ -435,44 +444,24 @@ class BoTorchModelTest(TestCase):
         )
 
     @mock.patch(
-        f"{ACQUISITION_PATH}.Acquisition._extract_training_data",
-        # Mock to register calls, but still execute the function.
-        side_effect=Acquisition._extract_training_data,
-    )
-    @mock.patch(
         f"{ACQUISITION_PATH}.Acquisition.optimize",
         # Dummy candidates and acquisition function value.
         return_value=(torch.tensor([[2.0]]), torch.tensor([1.0])),
     )
-    def test_list_surrogate_choice(self, _, mock_extract_training_data):
+    def test_list_surrogate_choice(self, _):  # , mock_extract_training_data):
         model = BoTorchModel()
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            Xs=self.non_block_design_training_data.Xs,
+            Ys=self.non_block_design_training_data.Ys,
+            Yvars=self.non_block_design_training_data.Yvars,
             search_space_digest=self.search_space_digest,
             metric_names=self.metric_names_for_list_surrogate,
             candidate_metadata=self.candidate_metadata,
         )
         # A list surrogate should be chosen, since Xs are not all the same.
+        self.assertIsInstance(model.surrogate, ListSurrogate)
         self.assertIsInstance(model.surrogate.model, ModelListGP)
         for submodel in model.surrogate.model.models:
             # There are fidelity features and nonempty Yvars, so
             # fixed noise MFGP should be chosen.
             self.assertIsInstance(submodel, FixedNoiseMultiFidelityGP)
-        model.gen(
-            n=1,
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
-            pending_observations=self.pending_observations,
-            model_gen_options=self.model_gen_options,
-            rounding_func=self.rounding_func,
-            target_fidelities=self.search_space_digest.target_fidelities,
-        )
-        mock_extract_training_data.assert_called_once()
-        self.assertIsInstance(
-            mock_extract_training_data.call_args[1]["surrogate"], ListSurrogate
-        )

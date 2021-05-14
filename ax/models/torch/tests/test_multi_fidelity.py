@@ -33,7 +33,9 @@ class MultiFidelityAcquisitionTest(TestCase):
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
         self.Y = torch.tensor([[3.0], [4.0]])
         self.Yvar = torch.tensor([[0.0], [2.0]])
-        self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
+        self.training_data = TrainingData.from_block_design(
+            X=self.X, Y=self.Y, Yvar=self.Yvar
+        )
         self.fidelity_features = [2]
         self.surrogate.construct(
             training_data=self.training_data, fidelity_features=self.fidelity_features

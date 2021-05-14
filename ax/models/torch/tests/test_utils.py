@@ -11,8 +11,6 @@ from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
-    construct_single_training_data,
-    construct_training_data_list,
     use_model_list,
 )
 from ax.utils.common.constants import Keys
@@ -25,7 +23,6 @@ from botorch.models.gp_regression_fidelity import (
     SingleTaskMultiFidelityGP,
 )
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
-from botorch.utils.containers import TrainingData
 
 
 class BoTorchModelUtilsTest(TestCase):
@@ -178,45 +175,6 @@ class BoTorchModelUtilsTest(TestCase):
             {Keys.NUM_FANTASIES: 64, Keys.CURRENT_VALUE: torch.tensor([1.0])},
         )
         self.assertEqual(final_opt_options, optimizer_kwargs)
-
-    def test_construct_single_training_data(self):
-        # len(Xs) == len(Ys) == len(Yvars) == 1 case
-        self.assertEqual(
-            construct_single_training_data(Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars),
-            TrainingData(X=self.Xs[0], Y=self.Ys[0], Yvar=self.Yvars[0]),
-        )
-        # len(Xs) == len(Ys) == len(Yvars) > 1 case, batched multi-output
-        td = construct_single_training_data(
-            Xs=self.Xs * 2, Ys=self.Ys * 2, Yvars=self.Yvars * 2
-        )
-        expected = TrainingData(
-            X=self.Xs[0],
-            Y=torch.cat(self.Ys * 2, dim=-1),
-            Yvar=torch.cat(self.Yvars * 2, dim=-1),
-        )
-        self.assertTrue(torch.equal(td.X, expected.X))
-        self.assertTrue(torch.equal(td.Y, expected.Y))
-        self.assertTrue(torch.equal(td.Yvar, expected.Yvar))
-        # len(Xs) == len(Ys) == len(Yvars) > 1 case with not all Xs equal,
-        # not supported and should go to `construct_training_data_list` instead.
-        with self.assertRaisesRegex(ValueError, "Unexpected training data format"):
-            td = construct_single_training_data(
-                Xs=self.Xs + self.Xs2,  # Unequal Xs.
-                Ys=self.Ys * 2,
-                Yvars=self.Yvars * 2,
-            )
-
-    def test_construct_training_data_list(self):
-        td_list = construct_training_data_list(
-            Xs=self.Xs + self.Xs2, Ys=self.Ys + self.Ys2, Yvars=self.Yvars + self.Yvars2
-        )
-        self.assertEqual(len(td_list), 2)
-        self.assertEqual(
-            td_list[0], TrainingData(X=self.Xs[0], Y=self.Ys[0], Yvar=self.Yvars[0])
-        )
-        self.assertEqual(
-            td_list[1], TrainingData(X=self.Xs2[0], Y=self.Ys2[0], Yvar=self.Yvars2[0])
-        )
 
     def test_use_model_list(self):
         self.assertFalse(use_model_list(Xs=self.Xs, botorch_model_class=SingleTaskGP))

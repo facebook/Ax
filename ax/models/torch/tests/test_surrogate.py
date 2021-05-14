@@ -37,7 +37,7 @@ class SurrogateTest(TestCase):
         self.Xs, self.Ys, self.Yvars, self.bounds, _, _, _ = get_torch_test_data(
             dtype=self.dtype
         )
-        self.training_data = TrainingData(
+        self.training_data = TrainingData.from_block_design(
             X=self.Xs[0], Y=self.Ys[0], Yvar=self.Yvars[0]
         )
         self.surrogate_kwargs = self.botorch_model_class.construct_inputs(
@@ -124,7 +124,10 @@ class SurrogateTest(TestCase):
             training_data=self.training_data,
             fidelity_features=self.search_space_digest.fidelity_features,
         )
-        mock_GP.assert_called_with(train_X=self.Xs[0], train_Y=self.Ys[0])
+        mock_GP.assert_called_once()
+        call_kwargs = mock_GP.call_args[1]
+        self.assertTrue(torch.equal(call_kwargs["train_X"], self.Xs[0]))
+        self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
         self.assertFalse(self.surrogate._constructed_manually)
 
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
@@ -298,7 +301,7 @@ class SurrogateTest(TestCase):
         Xs, Ys, Yvars, bounds, _, _, _ = get_torch_test_data(
             dtype=self.dtype, offset=1.0
         )
-        training_data = TrainingData(X=Xs[0], Y=Ys[0], Yvar=Yvars[0])
+        training_data = TrainingData.from_block_design(X=Xs[0], Y=Ys[0], Yvar=Yvars[0])
         surrogate_kwargs = self.botorch_model_class.construct_inputs(training_data)
         self.surrogate.update(
             training_data=training_data,

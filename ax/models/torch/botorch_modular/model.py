@@ -6,7 +6,7 @@
 
 import dataclasses
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -19,8 +19,6 @@ from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
-    construct_single_training_data,
-    construct_training_data_list,
     use_model_list,
     validate_data_format,
 )
@@ -159,10 +157,7 @@ class BoTorchModel(TorchModel, Base):
             )
 
         self.surrogate.fit(
-            # pyre-ignore[6]: Base `Surrogate` expects only single `TrainingData`,
-            # but `ListSurrogate` expects a list of them, so `training_data` here is
-            # a union of the two.
-            training_data=self._mk_training_data(Xs=Xs, Ys=Ys, Yvars=Yvars),
+            training_data=TrainingData(Xs=Xs, Ys=Ys, Yvars=Yvars),
             search_space_digest=search_space_digest,
             metric_names=metric_names,
             candidate_metadata=candidate_metadata,
@@ -197,10 +192,7 @@ class BoTorchModel(TorchModel, Base):
         )
 
         self.surrogate.update(
-            # pyre-ignore[6]: Base `Surrogate` expects only single `TrainingData`,
-            # but `ListSurrogate` expects a list of them, so `training_data` here is
-            # a union of the two.
-            training_data=self._mk_training_data(Xs=Xs, Ys=Ys, Yvars=Yvars),
+            training_data=TrainingData(Xs=Xs, Ys=Ys, Yvars=Yvars),
             search_space_digest=search_space_digest,
             metric_names=metric_names,
             candidate_metadata=candidate_metadata,
@@ -414,13 +406,3 @@ class BoTorchModel(TorchModel, Base):
             pending_observations=pending_observations,
             options=acq_options,
         )
-
-    def _mk_training_data(
-        self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-    ) -> Union[TrainingData, List[TrainingData]]:
-        if isinstance(self.surrogate, ListSurrogate):
-            return construct_training_data_list(Xs=Xs, Ys=Ys, Yvars=Yvars)
-        return construct_single_training_data(Xs=Xs, Ys=Ys, Yvars=Yvars)

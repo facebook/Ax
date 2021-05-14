@@ -19,7 +19,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.models.model import TrainingData
 from botorch.models.model_list_gp_regression import ModelListGP
-from botorch.models.multitask import FixedNoiseMultiTaskGP
+from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 
 
@@ -58,10 +58,7 @@ class ListSurrogateTest(TestCase):
         self.Xs = Xs1 + Xs2
         self.Ys = Ys1 + Ys2
         self.Yvars = Yvars1 + Yvars2
-        self.training_data = [
-            TrainingData(X=X, Y=Y, Yvar=Yvar)
-            for X, Y, Yvar in zip(self.Xs, self.Ys, self.Yvars)
-        ]
+        self.training_data = TrainingData(Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars)
         self.submodel_options_per_outcome = {
             self.outcomes[0]: {RANK: 1},
             self.outcomes[1]: {RANK: 2},
@@ -90,8 +87,6 @@ class ListSurrogateTest(TestCase):
             self.botorch_submodel_class_per_outcome,
         )
         self.assertEqual(self.surrogate.mll_class, self.mll_class)
-        with self.assertRaises(NotImplementedError):
-            self.surrogate.training_data
         with self.assertRaisesRegex(ValueError, NOT_YET_FIT_MSG):
             self.surrogate.training_data_per_outcome
         with self.assertRaisesRegex(
@@ -99,10 +94,10 @@ class ListSurrogateTest(TestCase):
         ):
             self.surrogate.model
 
-    @patch(
-        f"{CURRENT_PATH}.FixedNoiseMultiTaskGP.construct_inputs",
-        # Mock to register calls, but still execute the function.
-        side_effect=FixedNoiseMultiTaskGP.construct_inputs,
+    @patch.object(
+        FixedNoiseMultiTaskGP,
+        "construct_inputs",
+        wraps=FixedNoiseMultiTaskGP.construct_inputs,
     )
     def test_construct_per_outcome_options(self, mock_MTGP_construct_inputs):
         with self.assertRaisesRegex(ValueError, ".* are required"):
@@ -127,17 +122,45 @@ class ListSurrogateTest(TestCase):
                 {
                     "fidelity_features": [],
                     "task_features": self.task_features,
-                    "training_data": self.training_data[idx],
+                    "training_data": self.training_data.from_block_design(
+                        X=self.Xs[idx], Y=self.Ys[idx], Yvar=self.Yvars[idx]
+                    ),
                     "rank": self.submodel_options_per_outcome[self.outcomes[idx]][
                         "rank"
                     ],
                 },
             )
 
-    @patch(
-        f"{CURRENT_PATH}.FixedNoiseMultiTaskGP.construct_inputs",
-        # Mock to register calls, but still execute the function.
-        side_effect=FixedNoiseMultiTaskGP.construct_inputs,
+    @patch.object(
+        MultiTaskGP,
+        "construct_inputs",
+        wraps=MultiTaskGP.construct_inputs,
+    )
+    def test_construct_per_outcome_options_no_Yvar(self, _):
+        surrogate = ListSurrogate(
+            botorch_submodel_class=MultiTaskGP,
+            mll_class=self.mll_class,
+            submodel_options_per_outcome=self.submodel_options_per_outcome,
+        )
+
+        # Test that splitting the training data works correctly when Yvar is None.
+        training_data_no_Yvar = TrainingData(Xs=self.Xs, Ys=self.Ys)
+        surrogate.construct(
+            training_data=training_data_no_Yvar,
+            task_features=self.task_features,
+            metric_names=self.outcomes,
+        )
+        self.assertTrue(
+            all(
+                trd.Yvar is None for trd in surrogate.training_data_per_outcome.values()
+            )
+        )
+        self.assertEqual(len(surrogate.training_data_per_outcome), 2)
+
+    @patch.object(
+        FixedNoiseMultiTaskGP,
+        "construct_inputs",
+        wraps=FixedNoiseMultiTaskGP.construct_inputs,
     )
     def test_construct_shared_shortcut_options(self, mock_construct_inputs):
         surrogate = ListSurrogate(
@@ -166,7 +189,9 @@ class ListSurrogateTest(TestCase):
                     "individual_option": f"val_{idx}",
                     "shared_option": True,
                     "task_features": [0],
-                    "training_data": self.training_data[idx],
+                    "training_data": self.training_data.from_block_design(
+                        X=self.Xs[idx], Y=self.Ys[idx], Yvar=self.Yvars[idx]
+                    ),
                 },
             )
 

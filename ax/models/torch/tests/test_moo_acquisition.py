@@ -12,7 +12,6 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.moo_acquisition import MOOAcquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
@@ -54,7 +53,9 @@ class MOOAcquisitionTest(TestCase):
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
         self.Y = torch.tensor([[3.0, 4.0, 2.0], [4.0, 3.0, 1.0]])
         self.Yvar = torch.tensor([[0.0, 2.0, 1.0], [2.0, 0.0, 1.0]])
-        self.training_data = TrainingData(X=self.X, Y=self.Y, Yvar=self.Yvar)
+        self.training_data = TrainingData.from_block_design(
+            X=self.X, Y=self.Y, Yvar=self.Yvar
+        )
         self.fidelity_features = [2]
         self.surrogate.construct(training_data=self.training_data)
         self.search_space_digest = SearchSpaceDigest(
@@ -214,16 +215,3 @@ class MOOAcquisitionTest(TestCase):
     def test_evaluate(self, mock_call):
         self.acquisition.evaluate(X=self.X)
         mock_call.assert_called_with(X=self.X)
-
-    def test_extract_training_data(self):
-        self.assertEqual(  # Base `Surrogate` case.
-            self.acquisition._extract_training_data(surrogate=self.surrogate),
-            self.training_data,
-        )
-        # `ListSurrogate` case.
-        list_surrogate = ListSurrogate(botorch_submodel_class=self.botorch_model_class)
-        list_surrogate._training_data_per_outcome = {"a": self.training_data}
-        self.assertEqual(
-            self.acquisition._extract_training_data(surrogate=list_surrogate),
-            list_surrogate._training_data_per_outcome,
-        )
