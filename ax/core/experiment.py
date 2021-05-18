@@ -276,7 +276,8 @@ class Experiment(Base):
     @optimization_config.setter
     def optimization_config(self, optimization_config: OptimizationConfig) -> None:
         if (
-            getattr(self, "_optimization_config", None) is not None
+            len(self.trials) > 0
+            and getattr(self, "_optimization_config", None) is not None
             and self.immutable_search_space_and_opt_config
         ):
             raise UnsupportedError(

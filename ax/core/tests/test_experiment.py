@@ -538,9 +538,9 @@ class ExperimentTest(TestCase):
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
         )
         self.assertTrue(immutable_exp.immutable_search_space_and_opt_config)
+        immutable_exp.new_batch_trial()
         with self.assertRaises(UnsupportedError):
             immutable_exp.optimization_config = get_branin_optimization_config()
-        immutable_exp.new_batch_trial()
         with self.assertRaises(UnsupportedError):
             immutable_exp.search_space = get_branin_search_space()
 
