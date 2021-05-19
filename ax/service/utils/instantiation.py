@@ -482,8 +482,9 @@ def make_experiment(
     # Multi-objective optimization arguments:
     objectives: Optional[Dict[str, str]] = None,
     objective_thresholds: Optional[List[str]] = None,
-    support_intermediate_data: Optional[bool] = False,
-    immutable_search_space_and_opt_config: Optional[bool] = True,
+    support_intermediate_data: bool = False,
+    immutable_search_space_and_opt_config: bool = True,
+    is_test: bool = False,
 ) -> Experiment:
     """Instantiation wrapper that allows for Ax `Experiment` creation
     without importing or instantiating any Ax classes.
@@ -536,13 +537,15 @@ def make_experiment(
         objective_thresholds: A list of objective threshold constraints for multi-
             objective optimization, in the same string format as `outcome_constraints`
             argument.
-        support_intermediate_data: whether trials may report metrics results for
+        support_intermediate_data: Whether trials may report metrics results for
             incomplete runs.
         immutable_search_space_and_opt_config: Whether it's possible to update the
             search space and optimization config on this experiment after creation.
             Defaults to True. If set to True, we won't store or load copies of the
             search space and optimization config on each generator run, which will
             improve storage performance.
+        is_test: Whether this experiment will be a test experiment (useful for
+            marking test experiments in storage etc). Defaults to False.
     """
     if objective_name is not None and (
         objectives is not None or objective_thresholds is not None
@@ -604,6 +607,7 @@ def make_experiment(
         tracking_metrics=tracking_metrics,
         default_data_type=default_data_type,
         properties=properties,
+        is_test=is_test,
     )
 
 

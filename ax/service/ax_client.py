@@ -169,8 +169,9 @@ class AxClient(WithDBSettingsBase):
         experiment_type: Optional[str] = None,
         tracking_metric_names: Optional[List[str]] = None,
         choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None,
-        support_intermediate_data: Optional[bool] = False,
-        immutable_search_space_and_opt_config: Optional[bool] = True,
+        support_intermediate_data: bool = False,
+        immutable_search_space_and_opt_config: bool = True,
+        is_test: bool = False,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -226,6 +227,8 @@ class AxClient(WithDBSettingsBase):
                 Defaults to True. If set to True, we won't store or load copies of the
                 search space and optimization config on each generator run, which will
                 improve storage performance.
+            is_test: Whether this experiment will be a test experiment (useful for
+                marking test experiments in storage etc). Defaults to False.
         """
         experiment = make_experiment(
             name=name,
@@ -239,6 +242,7 @@ class AxClient(WithDBSettingsBase):
             tracking_metric_names=tracking_metric_names,
             support_intermediate_data=support_intermediate_data,
             immutable_search_space_and_opt_config=immutable_search_space_and_opt_config,
+            is_test=is_test,
         )
         self._set_experiment(
             experiment=experiment,
