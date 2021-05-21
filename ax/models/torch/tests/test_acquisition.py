@@ -198,7 +198,6 @@ class AcquisitionTest(TestCase):
         self.acquisition.optimize(
             n=3,
             search_space_digest=self.search_space_digest,
-            optimizer_class=None,
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
             rounding_func=self.rounding_func,

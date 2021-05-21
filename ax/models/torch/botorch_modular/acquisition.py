@@ -29,10 +29,6 @@ from botorch.optim.optimize import optimize_acqf
 from torch import Tensor
 
 
-class Optimizer:  # NOTE: Stub for future BoTorch optimizer class.
-    pass
-
-
 class Acquisition(Base):
     """
     **All classes in 'botorch_modular' directory are under
@@ -172,7 +168,6 @@ class Acquisition(Base):
         self,
         n: int,
         search_space_digest: SearchSpaceDigest,
-        optimizer_class: Optional[Optimizer] = None,
         inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
         fixed_features: Optional[Dict[int, float]] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
@@ -180,6 +175,21 @@ class Acquisition(Base):
     ) -> Tuple[Tensor, Tensor]:
         """Generate a set of candidates via multi-start optimization. Obtains
         candidates and their associated acquisition function values.
+
+        Args:
+            n: The number of candidates to generate.
+            search_space_digest: A ``SearchSpaceDigest`` object containing search space
+                properties, e.g. ``bounds`` for optimization.
+            inequality constraints: A list of tuples (indices, coefficients, rhs),
+                with each tuple encoding an inequality constraint of the form
+                ``sum_i (X[indices[i]] * coefficients[i]) >= rhs``.
+            fixed_features: A map `{feature_index: value}` for features that
+                should be fixed to a particular value during generation.
+            rounding_func: A function that post-processes an optimization
+                result appropriately (i.e., according to `round-trip`
+                transformations).
+            optimizer_options: Options for the optimizer function, e.g. ``sequential``
+                or ``raw_samples``.
         """
         optimizer_options = optimizer_options or {}
         bounds = torch.tensor(
