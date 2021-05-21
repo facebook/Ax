@@ -9,7 +9,6 @@ from unittest import mock
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.kg import KnowledgeGradient
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -17,11 +16,11 @@ from ax.models.torch.botorch_modular.utils import choose_model_class
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
-from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.sampling.samplers import SobolQMCNormalSampler
 from botorch.utils.containers import TrainingData
 
 
@@ -32,29 +31,29 @@ UTILS_PATH = choose_model_class.__module__
 ACQUISITION_PATH = Acquisition.__module__
 LIST_SURROGATE_PATH = ListSurrogate.__module__
 
+ACQ_OPTIONS = {Keys.SAMPLER: SobolQMCNormalSampler(1000)}
+
 
 class BoTorchModelTest(TestCase):
     def setUp(self):
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
-        self.acquisition_class = KnowledgeGradient
-        self.botorch_acqf_class = qKnowledgeGradient
-        self.acquisition_options = {Keys.NUM_FANTASIES: 64}
+        self.acquisition_class = Acquisition
+        self.botorch_acqf_class = qExpectedImprovement
+        self.acquisition_options = ACQ_OPTIONS
         self.model = BoTorchModel(
             surrogate=self.surrogate,
             acquisition_class=self.acquisition_class,
+            botorch_acqf_class=self.botorch_acqf_class,
             acquisition_options=self.acquisition_options,
         )
 
         self.dtype = torch.float
         Xs1, Ys1, Yvars1, self.bounds, _, _, _ = get_torch_test_data(dtype=self.dtype)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
-        self.Xs = Xs1  # + Xs2
-        self.Ys = Ys1  # + Ys2
-        self.Yvars = Yvars1  # + Yvars2
-        # self.X = Xs1[0]
-        # self.Y = Ys1[0]
-        # self.Yvar = Yvars1[0]
+        self.Xs = Xs1
+        self.Ys = Ys1
+        self.Yvars = Yvars1
         self.X_test = Xs2[0]
         self.block_design_training_data = TrainingData(
             Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars
@@ -92,10 +91,6 @@ class BoTorchModelTest(TestCase):
         model = BoTorchModel(botorch_acqf_class=qExpectedImprovement)
         self.assertEqual(model.acquisition_class, Acquisition)
         self.assertEqual(model.botorch_acqf_class, qExpectedImprovement)
-        # Model with `Acquisition` that specifies a `default_botorch_acqf_class`.
-        model = BoTorchModel(acquisition_class=KnowledgeGradient)
-        self.assertEqual(model.acquisition_class, KnowledgeGradient)
-        self.assertEqual(model.botorch_acqf_class, qKnowledgeGradient)
 
         # Check defaults for refitting settings.
         self.assertTrue(model.refit_on_update)
@@ -125,7 +120,7 @@ class BoTorchModelTest(TestCase):
         self.assertEqual(self.botorch_acqf_class, self.model.botorch_acqf_class)
         self.model._botorch_acqf_class = None
         with self.assertRaisesRegex(
-            ValueError, "`AcquisitionFunction` has not yet been set."
+            ValueError, "BoTorch `AcquisitionFunction` has not yet been set."
         ):
             self.model.botorch_acqf_class
 
@@ -294,29 +289,32 @@ class BoTorchModelTest(TestCase):
 
     @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
-        return_value=({"num_fantasies": 64}, {"num_restarts": 40, "raw_samples": 1024}),
+        return_value=(
+            ACQ_OPTIONS,
+            {"num_restarts": 40, "raw_samples": 1024},
+        ),
     )
-    @mock.patch(f"{CURRENT_PATH}.KnowledgeGradient")
+    @mock.patch(f"{CURRENT_PATH}.Acquisition")
     @mock.patch(f"{MODEL_PATH}.get_rounding_func", return_value="func")
     @mock.patch(f"{MODEL_PATH}._to_inequality_constraints", return_value=[])
     @mock.patch(
-        f"{MODEL_PATH}.choose_botorch_acqf_class", return_value=qKnowledgeGradient
+        f"{MODEL_PATH}.choose_botorch_acqf_class", return_value=qExpectedImprovement
     )
     def test_gen(
         self,
         mock_choose_botorch_acqf_class,
         mock_inequality_constraints,
         mock_rounding,
-        mock_kg,
+        mock_acquisition,
         mock_construct_options,
     ):
-        mock_kg.return_value.optimize.return_value = (
+        mock_acquisition.return_value.optimize.return_value = (
             torch.tensor([1.0]),
             torch.tensor([2.0]),
         )
         model = BoTorchModel(
             surrogate=self.surrogate,
-            acquisition_class=KnowledgeGradient,
+            acquisition_class=Acquisition,
             acquisition_options=self.acquisition_options,
         )
         model.surrogate.construct(
@@ -360,9 +358,9 @@ class BoTorchModelTest(TestCase):
         )
         # Assert `choose_botorch_acqf_class` is called
         mock_choose_botorch_acqf_class.assert_called_once()
-        self.assertEqual(model._botorch_acqf_class, qKnowledgeGradient)
+        self.assertEqual(model._botorch_acqf_class, qExpectedImprovement)
         # Assert `acquisition_class` called with kwargs
-        mock_kg.assert_called_with(
+        mock_acquisition.assert_called_with(
             surrogate=self.surrogate,
             botorch_acqf_class=model.botorch_acqf_class,
             search_space_digest=self.search_space_digest,
@@ -375,7 +373,7 @@ class BoTorchModelTest(TestCase):
             options=self.acquisition_options,
         )
         # Assert `optimize` called with kwargs
-        mock_kg.return_value.optimize.assert_called_with(
+        mock_acquisition.return_value.optimize.assert_called_with(
             n=1,
             search_space_digest=self.search_space_digest,
             inequality_constraints=[],
@@ -394,11 +392,11 @@ class BoTorchModelTest(TestCase):
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
         return_value=({"num_fantasies": 64}, {"num_restarts": 40, "raw_samples": 1024}),
     )
-    @mock.patch(f"{CURRENT_PATH}.KnowledgeGradient", autospec=True)
-    def test_evaluate_acquisition_function(self, _mock_kg, _mock_construct_options):
+    @mock.patch(f"{CURRENT_PATH}.Acquisition", autospec=True)
+    def test_evaluate_acquisition_function(self, mock_ei, _mock_construct_options):
         model = BoTorchModel(
             surrogate=self.surrogate,
-            acquisition_class=KnowledgeGradient,
+            acquisition_class=Acquisition,
             acquisition_options=self.acquisition_options,
         )
         model.surrogate.construct(
@@ -419,9 +417,9 @@ class BoTorchModelTest(TestCase):
             pending_observations=self.pending_observations,
             acq_options=self.acquisition_options,
         )
-        # `_mock_kg` is a mock of class, so to check the mock `evaluate` on
-        # instance of that class, we use `_mock_kg.return_value.evaluate`
-        _mock_kg.return_value.evaluate.assert_called()
+        # `mock_ei` is a mock of class, so to check the mock `evaluate` on
+        # instance of that class, we use `mock_ei.return_value.evaluate`
+        mock_ei.return_value.evaluate.assert_called()
 
     @mock.patch(f"{LIST_SURROGATE_PATH}.ListSurrogate.__init__", return_value=None)
     @mock.patch(f"{LIST_SURROGATE_PATH}.ListSurrogate.fit", return_value=None)

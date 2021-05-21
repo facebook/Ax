@@ -8,14 +8,6 @@ from typing import Any, Dict, Type
 
 # Ax `Acquisition` imports
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.kg import (
-    KnowledgeGradient,
-    MultiFidelityKnowledgeGradient,
-)
-from ax.models.torch.botorch_modular.mes import (
-    MaxValueEntropySearch,
-    MultiFidelityMaxValueEntropySearch,
-)
 
 # BoTorch `AcquisitionFunction` imports
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -57,10 +49,6 @@ Mapping of modular Ax `Acquisition` classes to class name strings.
 """
 ACQUISITION_REGISTRY: Dict[Type[Acquisition], str] = {
     Acquisition: "Acquisition",
-    KnowledgeGradient: "KnowledgeGradient",
-    MaxValueEntropySearch: "MaxValueEntropySearch",
-    MultiFidelityKnowledgeGradient: "MultiFidelityKnowledgeGradient",
-    MultiFidelityMaxValueEntropySearch: "MultiFidelityMaxValueEntropySearch",
 }
 
 
