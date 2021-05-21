@@ -20,7 +20,6 @@ from ax.models.torch.utils import (
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import AnalyticAcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
@@ -73,20 +72,13 @@ class Acquisition(Base):
 
     surrogate: Surrogate
     acqf: AcquisitionFunction
-    # BoTorch `AcquisitionFunction` class associated with this `Acquisition`
-    # class by default. `None` for the base `Acquisition` class, but can be
-    # specified in subclasses.
-    default_botorch_acqf_class: Optional[Type[AcquisitionFunction]] = None
-    # BoTorch `AcquisitionFunction` class associated with this `Acquisition`
-    # instance. Determined during `__init__`, do not set manually.
-    _botorch_acqf_class: Type[AcquisitionFunction]
 
     def __init__(
         self,
         surrogate: Surrogate,
         search_space_digest: SearchSpaceDigest,
         objective_weights: Tensor,
-        botorch_acqf_class: Optional[Type[AcquisitionFunction]] = None,
+        botorch_acqf_class: Type[AcquisitionFunction],
         options: Optional[Dict[str, Any]] = None,
         pending_observations: Optional[List[Tensor]] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
@@ -94,15 +86,6 @@ class Acquisition(Base):
         fixed_features: Optional[Dict[int, float]] = None,
         objective_thresholds: Optional[Tensor] = None,
     ) -> None:
-        if not botorch_acqf_class and not self.default_botorch_acqf_class:
-            raise ValueError(
-                f"Acquisition class {self.__class__} does not specify a default "
-                "BoTorch `AcquisitionFunction`, so `botorch_acqf_class` "
-                "argument must be specified."
-            )
-        self._botorch_acqf_class = not_none(
-            botorch_acqf_class or self.default_botorch_acqf_class
-        )
         self.surrogate = surrogate
         self.options = options or {}
         X_pending, X_observed = _get_X_pending_and_observed(
@@ -131,7 +114,8 @@ class Acquisition(Base):
         else:
             model = self.surrogate.model
 
-        objective = self._get_botorch_objective(
+        objective = self.get_botorch_objective(
+            botorch_acqf_class=botorch_acqf_class,
             model=model,
             objective_weights=objective_weights,
             objective_thresholds=objective_thresholds,
@@ -156,14 +140,33 @@ class Acquisition(Base):
             **model_deps,
             **self.options,
         }
-        input_constructor = get_acqf_input_constructor(self._botorch_acqf_class)
+        input_constructor = get_acqf_input_constructor(botorch_acqf_class)
         acqf_inputs = input_constructor(
             model=model,
             training_data=self.surrogate.training_data,
             objective=objective,
             **input_constructor_kwargs,
         )
-        self.acqf = self._botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
+        self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
+
+    @property
+    def botorch_acqf_class(self) -> Type[AcquisitionFunction]:
+        """BoTorch ``AcquisitionFunction`` class underlying this ``Acquisition``."""
+        return self.acqf.__class__
+
+    @property
+    def dtype(self) -> torch.dtype:
+        """Torch data type of the tensors in the training data used in the model,
+        of which this ``Acquisition`` is a subcomponent.
+        """
+        return self.surrogate.dtype
+
+    @property
+    def device(self) -> torch.device:
+        """Torch device type of the tensors in the training data used in the model,
+        of which this ``Acquisition`` is a subcomponent.
+        """
+        return self.surrogate.device
 
     def optimize(
         self,
@@ -278,16 +281,9 @@ class Acquisition(Base):
         """
         return {}
 
-    @property
-    def dtype(self) -> torch.dtype:
-        return self.surrogate.dtype
-
-    @property
-    def device(self) -> torch.device:
-        return self.surrogate.device
-
-    def _get_botorch_objective(
+    def get_botorch_objective(
         self,
+        botorch_acqf_class: Type[AcquisitionFunction],
         model: Model,
         objective_weights: Tensor,
         objective_thresholds: Optional[Tensor] = None,
@@ -298,29 +294,8 @@ class Acquisition(Base):
             model=model,
             objective_weights=objective_weights,
             use_scalarized_objective=issubclass(
-                self._botorch_acqf_class, AnalyticAcquisitionFunction
+                botorch_acqf_class, AnalyticAcquisitionFunction
             ),
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
-        )
-
-    def _instantiate_acqf(
-        self,
-        model: Model,
-        objective: AcquisitionObjective,
-        model_dependent_kwargs: Dict[str, Any],
-        objective_thresholds: Optional[Tensor] = None,
-        X_pending: Optional[Tensor] = None,
-        X_baseline: Optional[Tensor] = None,
-    ) -> None:
-        self.acqf = self._botorch_acqf_class(  # pyre-ignore[28]: Some kwargs are
-            # not expected in base `AcquisitionFunction` but are expected in
-            # its subclasses.
-            model=model,
-            objective=objective,
-            X_pending=X_pending,
-            X_baseline=X_baseline,
-            objective_thresholds=objective_thresholds,
-            **self.options,
-            **model_dependent_kwargs,
         )

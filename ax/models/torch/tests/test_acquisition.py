@@ -118,10 +118,7 @@ class AcquisitionTest(TestCase):
         mock_subset_model,
         mock_get_X,
     ):
-        self.acquisition.default_botorch_acqf_class = None
-        with self.assertRaisesRegex(
-            ValueError, ".*`botorch_acqf_class` argument must be specified."
-        ):
+        with self.assertRaisesRegex(TypeError, ".* missing .* 'botorch_acqf_class'"):
             Acquisition(
                 surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,

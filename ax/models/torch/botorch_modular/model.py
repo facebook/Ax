@@ -105,11 +105,9 @@ class BoTorchModel(TorchModel, Base):
             )
         self.surrogate_options = surrogate_options or {}
         self.acquisition_class = acquisition_class or Acquisition
-        # `_botorch_acqf_class` can be set to `None` here. If so,
-        # `Model.gen` will set it with `choose_botorch_acqf_class`.
-        self._botorch_acqf_class = (
-            botorch_acqf_class or self.acquisition_class.default_botorch_acqf_class
-        )
+        # `_botorch_acqf_class` can be `None` here. If so, `Model.gen` or `Model.
+        # evaluate_acquisition_function` will set it with `choose_botorch_acqf_class`.
+        self._botorch_acqf_class = botorch_acqf_class
         self.acquisition_options = acquisition_options or {}
         self.refit_on_update = refit_on_update
         self.refit_on_cv = refit_on_cv
