@@ -389,8 +389,20 @@ class BoTorchModel(TorchModel, Base):
         pending_observations: Optional[List[Tensor]] = None,
         acq_options: Optional[Dict[str, Any]] = None,
     ) -> Acquisition:
+        """Set an BoTorch acquisition function class for this model if needed and
+        instantiate it.
+
+        Returns:
+            BoTorch ``AcquisitionFunction`` instance.
+        """
         if not self._botorch_acqf_class:
-            self._botorch_acqf_class = choose_botorch_acqf_class()
+            self._botorch_acqf_class = choose_botorch_acqf_class(
+                objective_thresholds=objective_thresholds,
+                outcome_constraints=outcome_constraints,
+                linear_constraints=linear_constraints,
+                fixed_features=fixed_features,
+                pending_observations=pending_observations,
+            )
 
         return self.acquisition_class(
             surrogate=self.surrogate,

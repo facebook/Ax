@@ -307,5 +307,6 @@ class Acquisition(Base):
                 botorch_acqf_class, AnalyticAcquisitionFunction
             ),
             outcome_constraints=outcome_constraints,
+            objective_thresholds=objective_thresholds,
             X_observed=X_observed,
         )

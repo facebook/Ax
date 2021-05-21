@@ -17,6 +17,9 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.multi_objective.monte_carlo import (
+    qExpectedHypervolumeImprovement,
+)
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
@@ -32,11 +35,9 @@ class BoTorchModelUtilsTest(TestCase):
         self.Xs2, self.Ys2, self.Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=self.dtype, offset=1.0  # Making this data different.
         )
-        # self.Xs = Xs1
-        # self.Ys = [torch.tensor([[3.0], [4.0]])]
-        # self.Yvars = [torch.tensor([[0.0], [2.0]])]
         self.none_Yvars = [torch.tensor([[np.nan], [np.nan]])]
         self.task_features = []
+        self.objective_thresholds = torch.tensor([0.5, 1.5])
 
     def test_choose_model_class_fidelity_features(self):
         # Only a single fidelity feature can be used.
@@ -152,6 +153,10 @@ class BoTorchModelUtilsTest(TestCase):
 
     def test_choose_botorch_acqf_class(self):
         self.assertEqual(qNoisyExpectedImprovement, choose_botorch_acqf_class())
+        self.assertEqual(
+            qExpectedHypervolumeImprovement,
+            choose_botorch_acqf_class(objective_thresholds=self.objective_thresholds),
+        )
 
     def test_construct_acquisition_and_optimizer_options(self):
         # Two dicts for `Acquisition` should be concatenated

@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional, Tuple, Type
+from typing import List, Dict, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -13,6 +13,9 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.multi_objective.monte_carlo import (
+    qExpectedHypervolumeImprovement,
+)
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
@@ -102,11 +105,18 @@ def choose_model_class(
     return FixedNoiseGP  # Known observation noise.
 
 
-def choose_botorch_acqf_class() -> Type[AcquisitionFunction]:
+def choose_botorch_acqf_class(
+    pending_observations: Optional[List[Tensor]] = None,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    fixed_features: Optional[Dict[int, float]] = None,
+    objective_thresholds: Optional[Tensor] = None,
+) -> Type[AcquisitionFunction]:
     """Chooses a BoTorch `AcquisitionFunction` class."""
-    # NOTE: In the future, this dispatch function could leverage any
-    # of the attributes of `BoTorchModel` or kwargs passed to
-    # `BoTorchModel.gen` to intelligently select acquisition function.
+    if objective_thresholds is not None:
+        # TODO: Use new qNEHVI just added to BoTorch once we have `construct_inputs`
+        # for it in BoTorch.
+        return qExpectedHypervolumeImprovement
     return qNoisyExpectedImprovement
 
 

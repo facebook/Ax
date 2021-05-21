@@ -13,11 +13,20 @@ from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class
+from ax.models.torch.utils import _filter_X_observed
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
+from botorch.acquisition.input_constructors import (
+    get_acqf_input_constructor,
+    _register_acqf_input_constructor,
+)
 from botorch.acquisition.monte_carlo import qExpectedImprovement
-from botorch.models.gp_regression import SingleTaskGP
+from botorch.acquisition.multi_objective.monte_carlo import (
+    qExpectedHypervolumeImprovement,
+)
+from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
+from botorch.models.gp_regression import SingleTaskGP, FixedNoiseGP
 from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.sampling.samplers import SobolQMCNormalSampler
@@ -30,8 +39,9 @@ SURROGATE_PATH = Surrogate.__module__
 UTILS_PATH = choose_model_class.__module__
 ACQUISITION_PATH = Acquisition.__module__
 LIST_SURROGATE_PATH = ListSurrogate.__module__
+EHVI_PATH = qExpectedHypervolumeImprovement.__module__
 
-ACQ_OPTIONS = {Keys.SAMPLER: SobolQMCNormalSampler(1000)}
+ACQ_OPTIONS = {Keys.SAMPLER: SobolQMCNormalSampler(1024)}
 
 
 class BoTorchModelTest(TestCase):
@@ -49,6 +59,8 @@ class BoTorchModelTest(TestCase):
         )
 
         self.dtype = torch.float
+        self.device = torch.device("cpu")
+        tkwargs = {"dtype": self.dtype, "device": self.device}
         Xs1, Ys1, Yvars1, self.bounds, _, _, _ = get_torch_test_data(dtype=self.dtype)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
         self.Xs = Xs1
@@ -66,6 +78,10 @@ class BoTorchModelTest(TestCase):
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["x1", "x2", "x3"],
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
+        )
+        self.mf_search_space_digest = SearchSpaceDigest(
+            feature_names=["x1", "x2", "x3"],
+            bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             task_features=[],
             fidelity_features=[2],
             target_fidelities={1: 1.0},
@@ -75,13 +91,19 @@ class BoTorchModelTest(TestCase):
         self.candidate_metadata = []
         self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
         self.model_gen_options = {Keys.OPTIMIZER_KWARGS: self.optimizer_options}
-        self.objective_weights = torch.tensor([1.0])
-        self.objective_thresholds = None
+        self.objective_weights = torch.tensor([1.0], **tkwargs)
+        self.moo_objective_weights = torch.tensor([1.0, 1.5], **tkwargs)
+        self.moo_objective_thresholds = torch.tensor([0.5, 1.5], **tkwargs)
         self.outcome_constraints = None
         self.linear_constraints = None
         self.fixed_features = None
         self.pending_observations = None
         self.rounding_func = "func"
+        self.moo_training_data = TrainingData(
+            Xs=self.Xs * 2,
+            Ys=self.non_block_design_training_data.Ys,
+            Yvars=self.Yvars * 2,
+        )
 
     def test_init(self):
         # Default model with no specifications.
@@ -133,20 +155,20 @@ class BoTorchModelTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=self.mf_search_space_digest,
             metric_names=self.metric_names,
             candidate_metadata=self.candidate_metadata,
         )
         # `choose_model_class` is called.
         mock_choose_model_class.assert_called_with(
             Yvars=self.Yvars,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=self.mf_search_space_digest,
         )
         # Since we want to refit on updates but not warm start refit, we clear the
         # state dict.
         mock_fit.assert_called_with(
             training_data=self.block_design_training_data,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=self.mf_search_space_digest,
             metric_names=self.metric_names,
             candidate_metadata=self.candidate_metadata,
             state_dict=None,
@@ -159,7 +181,7 @@ class BoTorchModelTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=self.mf_search_space_digest,
             metric_names=self.metric_names,
             candidate_metadata=self.candidate_metadata,
         )
@@ -174,7 +196,7 @@ class BoTorchModelTest(TestCase):
                 Xs=self.Xs,
                 Ys=self.Ys,
                 Yvars=self.Yvars,
-                search_space_digest=self.search_space_digest,
+                search_space_digest=self.mf_search_space_digest,
                 metric_names=self.metric_names,
                 candidate_metadata=self.candidate_metadata,
             )
@@ -190,7 +212,7 @@ class BoTorchModelTest(TestCase):
                 call_args.get("training_data"), self.block_design_training_data
             )
             self.assertEqual(
-                call_args.get("search_space_digest"), self.search_space_digest
+                call_args.get("search_space_digest"), self.mf_search_space_digest
             )
             self.assertEqual(call_args.get("metric_names"), self.metric_names)
             self.assertEqual(
@@ -223,7 +245,7 @@ class BoTorchModelTest(TestCase):
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
             metric_names=self.metric_names,
         )
@@ -248,7 +270,7 @@ class BoTorchModelTest(TestCase):
                     Ys_train=self.Ys,
                     Yvars_train=self.Yvars,
                     X_test=self.X_test,
-                    search_space_digest=self.search_space_digest,
+                    search_space_digest=self.mf_search_space_digest,
                     metric_names=self.metric_names,
                 )
                 # Check that `predict` is called on the cloned surrogate, not
@@ -319,14 +341,14 @@ class BoTorchModelTest(TestCase):
         )
         model.surrogate.construct(
             training_data=self.block_design_training_data,
-            fidelity_features=self.search_space_digest.fidelity_features,
+            fidelity_features=self.mf_search_space_digest.fidelity_features,
         )
         model._botorch_acqf_class = None
         # Assert that error is raised if we haven't fit the model
         with self.assertRaises(RuntimeError):
             model.gen(
                 n=1,
-                bounds=self.search_space_digest.bounds,
+                bounds=self.mf_search_space_digest.bounds,
                 objective_weights=self.objective_weights,
                 outcome_constraints=self.outcome_constraints,
                 linear_constraints=self.linear_constraints,
@@ -334,13 +356,13 @@ class BoTorchModelTest(TestCase):
                 pending_observations=self.pending_observations,
                 model_gen_options=self.model_gen_options,
                 rounding_func=self.rounding_func,
-                target_fidelities=self.search_space_digest.target_fidelities,
+                target_fidelities=self.mf_search_space_digest.target_fidelities,
             )
         # Add search space digest reference to make the model think it's been fit
-        model._search_space_digest = self.search_space_digest
+        model._search_space_digest = self.mf_search_space_digest
         model.gen(
             n=1,
-            bounds=self.search_space_digest.bounds,
+            bounds=self.mf_search_space_digest.bounds,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
@@ -348,7 +370,7 @@ class BoTorchModelTest(TestCase):
             pending_observations=self.pending_observations,
             model_gen_options=self.model_gen_options,
             rounding_func=self.rounding_func,
-            target_fidelities=self.search_space_digest.target_fidelities,
+            target_fidelities=self.mf_search_space_digest.target_fidelities,
         )
 
         # Assert `construct_acquisition_and_optimizer_options` called with kwargs
@@ -363,9 +385,9 @@ class BoTorchModelTest(TestCase):
         mock_acquisition.assert_called_with(
             surrogate=self.surrogate,
             botorch_acqf_class=model.botorch_acqf_class,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=self.mf_search_space_digest,
             objective_weights=self.objective_weights,
-            objective_thresholds=self.objective_thresholds,
+            objective_thresholds=None,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
@@ -375,7 +397,7 @@ class BoTorchModelTest(TestCase):
         # Assert `optimize` called with kwargs
         mock_acquisition.return_value.optimize.assert_called_with(
             n=1,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=self.mf_search_space_digest,
             inequality_constraints=[],
             fixed_features=self.fixed_features,
             rounding_func="func",
@@ -404,12 +426,12 @@ class BoTorchModelTest(TestCase):
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
                 bounds=[],
-                fidelity_features=self.search_space_digest.fidelity_features,
+                fidelity_features=self.mf_search_space_digest.fidelity_features,
             ),
         )
         model.evaluate_acquisition_function(
             X=self.X_test,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=self.mf_search_space_digest,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
@@ -429,7 +451,7 @@ class BoTorchModelTest(TestCase):
             Xs=self.non_block_design_training_data.Xs,
             Ys=self.non_block_design_training_data.Ys,
             Yvars=self.non_block_design_training_data.Yvars,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=self.mf_search_space_digest,
             metric_names=self.metric_names_for_list_surrogate,
             candidate_metadata=self.candidate_metadata,
         )
@@ -452,7 +474,7 @@ class BoTorchModelTest(TestCase):
             Xs=self.non_block_design_training_data.Xs,
             Ys=self.non_block_design_training_data.Ys,
             Yvars=self.non_block_design_training_data.Yvars,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=self.mf_search_space_digest,
             metric_names=self.metric_names_for_list_surrogate,
             candidate_metadata=self.candidate_metadata,
         )
@@ -463,3 +485,86 @@ class BoTorchModelTest(TestCase):
             # There are fidelity features and nonempty Yvars, so
             # fixed noise MFGP should be chosen.
             self.assertIsInstance(submodel, FixedNoiseMultiFidelityGP)
+
+    @mock.patch(
+        f"{ACQUISITION_PATH}.Acquisition.optimize",
+        # Dummy candidates and acquisition function value.
+        return_value=(torch.tensor([[2.0]]), torch.tensor([1.0])),
+    )
+    def test_MOO(self, _):
+        # Add mock for qEHVI input constructor to catch arguments passed to it.
+        qEHVI_input_constructor = get_acqf_input_constructor(
+            qExpectedHypervolumeImprovement
+        )
+        mock_input_constructor = mock.MagicMock(
+            qEHVI_input_constructor, side_effect=qEHVI_input_constructor
+        )
+        _register_acqf_input_constructor(
+            acqf_cls=qExpectedHypervolumeImprovement,
+            input_constructor=mock_input_constructor,
+        )
+
+        model = BoTorchModel()
+        model.fit(
+            Xs=self.moo_training_data.Xs,
+            Ys=self.moo_training_data.Ys,
+            Yvars=self.moo_training_data.Yvars,
+            search_space_digest=self.search_space_digest,
+            metric_names=self.metric_names_for_list_surrogate,
+            candidate_metadata=self.candidate_metadata,
+        )
+        self.assertIsInstance(model.surrogate.model, FixedNoiseGP)
+        model.gen(
+            n=1,
+            bounds=self.search_space_digest.bounds,
+            objective_weights=self.moo_objective_weights,
+            objective_thresholds=self.moo_objective_thresholds,
+            outcome_constraints=self.outcome_constraints,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+            pending_observations=self.pending_observations,
+            model_gen_options=self.model_gen_options,
+            rounding_func=self.rounding_func,
+            target_fidelities=self.mf_search_space_digest.target_fidelities,
+        )
+        self.assertIs(model.botorch_acqf_class, qExpectedHypervolumeImprovement)
+        mock_input_constructor.assert_called_once()
+        mock_input_constructor.assert_called_with(
+            model=model.surrogate.model,
+            training_data=self.moo_training_data,
+            objective=mock.ANY,  # Checked objective equality separately below.
+            X_baseline=mock.ANY,  # Checked tensor equality separately below.
+            X_pending=None,
+            objective_thresholds=self.moo_objective_thresholds,
+            outcome_constraints=self.outcome_constraints,
+        )
+        self.assertIsInstance(
+            mock_input_constructor.call_args[1].get("objective"),
+            WeightedMCMultiOutputObjective,
+        )
+        self.assertTrue(
+            torch.equal(
+                mock_input_constructor.call_args[1].get("objective").weights,
+                self.moo_objective_weights,
+            )
+        )
+        self.assertTrue(
+            torch.equal(
+                mock_input_constructor.call_args[1].get("X_baseline"),
+                _filter_X_observed(
+                    Xs=self.moo_training_data.Xs,
+                    objective_weights=self.moo_objective_weights,
+                    outcome_constraints=self.outcome_constraints,
+                    bounds=self.search_space_digest.bounds,
+                    linear_constraints=self.linear_constraints,
+                    fixed_features=self.fixed_features,
+                ),
+            )
+        )
+
+        # Avoid polluting the registry for other tests; re-register correct input
+        # contructor for qEHVI.
+        _register_acqf_input_constructor(
+            acqf_cls=qExpectedHypervolumeImprovement,
+            input_constructor=qEHVI_input_constructor,
+        )
