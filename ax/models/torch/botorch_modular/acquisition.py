@@ -23,6 +23,7 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import AnalyticAcquisitionFunction
+from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.objective import AcquisitionObjective
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf
@@ -147,19 +148,22 @@ class Acquisition(Base):
             fixed_features=fixed_features,
             options=self.options,
         )
-        X_baseline = X_observed
-        overriden_X_baseline = model_deps.get(Keys.X_BASELINE)
-        if overriden_X_baseline is not None:
-            X_baseline = overriden_X_baseline
-            model_deps.pop(Keys.X_BASELINE)
-        self._instantiate_acqf(
+        input_constructor_kwargs = {
+            "X_baseline": X_observed,
+            "X_pending": X_pending,
+            "objective_thresholds": objective_thresholds,
+            "outcome_constraints": outcome_constraints,
+            **model_deps,
+            **self.options,
+        }
+        input_constructor = get_acqf_input_constructor(self._botorch_acqf_class)
+        acqf_inputs = input_constructor(
             model=model,
+            training_data=self.surrogate.training_data,
             objective=objective,
-            objective_thresholds=objective_thresholds,
-            model_dependent_kwargs=model_deps,
-            X_pending=X_pending,
-            X_baseline=X_baseline,
+            **input_constructor_kwargs,
         )
+        self.acqf = self._botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
 
     def optimize(
         self,
@@ -316,6 +320,7 @@ class Acquisition(Base):
             objective=objective,
             X_pending=X_pending,
             X_baseline=X_baseline,
+            objective_thresholds=objective_thresholds,
             **self.options,
             **model_dependent_kwargs,
         )

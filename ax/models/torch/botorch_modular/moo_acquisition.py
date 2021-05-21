@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple, Type
 
-import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.modelbridge_utils import (
@@ -16,8 +15,6 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
-from ax.models.torch.botorch_moo_defaults import DEFAULT_EHVI_MC_SAMPLES
-from ax.models.torch.botorch_moo_defaults import get_default_partitioning_alpha
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition import monte_carlo  # noqa F401
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -26,16 +23,11 @@ from botorch.acquisition.multi_objective.monte_carlo import (
 )
 from botorch.acquisition.objective import AcquisitionObjective
 from botorch.models.model import Model
-from botorch.sampling.samplers import IIDNormalSampler
-from botorch.sampling.samplers import SobolQMCNormalSampler
-from botorch.utils import get_outcome_constraint_transforms
-from botorch.utils.multi_objective.box_decompositions.non_dominated import (
-    NondominatedPartitioning,
-)
 from torch import Tensor
 
 
 class MOOAcquisition(Acquisition):
+    # TODO: should probably get rid of this and use a single Acquisition class
     default_botorch_acqf_class: Optional[
         Type[AcquisitionFunction]
     ] = qExpectedHypervolumeImprovement
@@ -141,75 +133,3 @@ class MOOAcquisition(Acquisition):
             objective_thresholds=objective_thresholds,
         )
         return objective
-
-    def _instantiate_acqf(
-        self,
-        model: Model,
-        objective: AcquisitionObjective,
-        model_dependent_kwargs: Dict[str, Any],
-        objective_thresholds: Optional[Tensor] = None,
-        X_pending: Optional[Tensor] = None,
-        X_baseline: Optional[Tensor] = None,
-    ) -> None:
-        # Extract model dependent kwargs
-        outcome_constraints = model_dependent_kwargs.pop("outcome_constraints")
-        # Replicate `get_EHVI` transformation code
-        X_observed = X_baseline
-        if X_observed is None:
-            raise ValueError("There are no feasible observed points.")
-        if objective_thresholds is None:
-            raise ValueError("Objective Thresholds required")
-        with torch.no_grad():
-            Y = model.posterior(X_observed).mean
-
-        # For EHVI acquisition functions we pass the constraint transform directly.
-        if outcome_constraints is None:
-            cons_tfs = None
-        else:
-            cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        num_objectives = objective_thresholds.shape[0]
-
-        mc_samples = self.options.get("mc_samples", DEFAULT_EHVI_MC_SAMPLES)
-        qmc = self.options.get("qmc", True)
-        alpha = self.options.get(
-            "alpha",
-            get_default_partitioning_alpha(num_objectives=num_objectives),
-        )
-        # this selects the objectives (a subset of the outcomes) and set each
-        # objective threhsold to have the proper optimization direction
-        ref_point = objective(objective_thresholds).tolist()
-
-        # initialize the sampler
-        seed = int(torch.randint(1, 10000, (1,)).item())
-        if qmc:
-            sampler = SobolQMCNormalSampler(num_samples=mc_samples, seed=seed)
-        else:
-            sampler = IIDNormalSampler(
-                num_samples=mc_samples, seed=seed
-            )  # pragma: nocover
-        if not ref_point:
-            raise ValueError(
-                "`ref_point` must be specified in kwargs for qEHVI"
-            )  # pragma: nocover
-        # get feasible points
-        if cons_tfs is not None:
-            # pyre-ignore [16]: `Tensor` has no attribute `all`.
-            feas = torch.stack([c(Y) <= 0 for c in cons_tfs], dim=-1).all(dim=-1)
-            Y = Y[feas]
-        obj = objective(Y)
-        partitioning = NondominatedPartitioning(
-            ref_point=torch.as_tensor(ref_point, dtype=Y.dtype, device=Y.device),
-            Y=obj,
-            alpha=alpha,
-        )
-        self.acqf = self._botorch_acqf_class(  # pyre-ignore[28]: Some kwargs are
-            # not expected in base `AcquisitionFunction` but are expected in
-            # its subclasses.
-            model=model,
-            ref_point=ref_point,
-            partitioning=partitioning,
-            sampler=sampler,
-            objective=objective,
-            constraints=cons_tfs,
-            X_pending=X_pending,
-        )
