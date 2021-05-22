@@ -11,6 +11,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TConfig
+from ax.models.torch.botorch_modular.default_options import (
+    get_default_optimizer_options,
+)
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
@@ -196,15 +199,17 @@ class Acquisition(Base):
             search_space_digest.bounds, dtype=self.dtype, device=self.device
         ).transpose(0, 1)
         # NOTE: Could make use of `optimizer_class` when its added to BoTorch.
-        return optimize_acqf(
-            acq_function=self.acqf,
-            bounds=bounds,
-            q=n,
-            inequality_constraints=inequality_constraints,
-            fixed_features=fixed_features,
-            post_processing_func=rounding_func,
+        optimizer_inputs = {
+            "acq_function": self.acqf,
+            "bounds": bounds,
+            "q": n,
+            "inequality_constraints": inequality_constraints,
+            "fixed_features": fixed_features,
+            "post_processing_func": rounding_func,
+            **get_default_optimizer_options(acqf_class=self.botorch_acqf_class),
             **optimizer_options,
-        )
+        }
+        return optimize_acqf(**optimizer_inputs)
 
     def evaluate(self, X: Tensor) -> Tensor:
         """Evaluate the acquisition function on the candidate set `X`.
