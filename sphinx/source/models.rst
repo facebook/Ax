@@ -203,10 +203,10 @@ ax.models.torch.botorch_modular.acquisition module
     :undoc-members:
     :show-inheritance:
 
-ax.models.torch.botorch_modular.kg module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ax.models.torch.botorch_modular.default_options module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.models.torch.botorch_modular.kg
+.. automodule:: ax.models.torch.botorch_modular.default_options
     :members:
     :undoc-members:
     :show-inheritance:
@@ -219,26 +219,10 @@ ax.models.torch.botorch_modular.list_surrogate module
     :undoc-members:
     :show-inheritance:
 
-ax.models.torch.botorch_modular.mes module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.torch.botorch_modular.mes
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 ax.models.torch.botorch_modular.model module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.models.torch.botorch_modular.model
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-ax.models.torch.botorch_modular.moo_acquisition module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.torch.botorch_modular.moo_acquisition
     :members:
     :undoc-members:
     :show-inheritance:
