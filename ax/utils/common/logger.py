@@ -8,11 +8,12 @@
 
 import logging
 import os
-from typing import Any
-
+from functools import wraps
+from typing import Any, Callable, TypeVar
 
 AX_ROOT_LOGGER_NAME = "ax"
 DEFAULT_LOG_LEVEL: int = logging.INFO
+T = TypeVar("T")
 
 
 class AxOutputNameFilter(logging.Filter):
@@ -129,6 +130,30 @@ def set_stderr_log_level(level: int) -> None:
     are printed to STDERR by the root logger
     """
     ROOT_STREAM_HANDLER.setLevel(level)
+
+
+# pyre-ignore[3] Supports generic callables
+def disable_logger(
+    name: str, level: int = logging.ERROR
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Disables a specific logger by name (e.g. module path) by setting the
+    log level at the given one for the duration of the decorated function's call
+    """
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        def inner(*args: Any, **kwargs: Any) -> T:
+            logger = get_logger(name)
+            prev_level = logger.getEffectiveLevel()
+            logger.setLevel(level)
+            try:
+                return func(*args, **kwargs)
+            finally:
+                logger.setLevel(prev_level)
+
+        return inner
+
+    return decorator
 
 
 """Sets up Ax's root logger to not propogate to Python's root logger and
