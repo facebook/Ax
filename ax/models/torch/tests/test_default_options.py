@@ -62,8 +62,8 @@ class AcquisitionTest(TestCase):
                 "num_restarts": 20,
                 "raw_samples": 1024,
                 "options": {
+                    "init_batch_limit": 128,
                     "batch_limit": 5,
-                    "method": "trust-constr",
                 },
             },
         )

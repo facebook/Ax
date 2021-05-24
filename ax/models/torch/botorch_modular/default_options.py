@@ -82,8 +82,8 @@ register_default_optimizer_options(
         "num_restarts": 20,
         "raw_samples": 1024,
         "options": {
+            "init_batch_limit": 128,  # Used in `gen_batch_initial_conditions`.
             "batch_limit": 5,  # Batch limit prevents memory issues in initialization.
-            "method": "trust-constr",
         },
     },
 )
