@@ -26,6 +26,7 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.registry import Models
 from ax.service.scheduler import (
+    FailureRateExceededError,
     Scheduler,
     SchedulerInternalError,
     SchedulerOptions,
@@ -170,7 +171,8 @@ class TestAxScheduler(TestCase):
                 "generation_strategy=GenerationStrategy(name='Sobol+GPEI', "
                 "steps=[Sobol for 5 trials, GPEI for subsequent trials]), "
                 "options=SchedulerOptions(trial_type=<class 'ax.core.trial.Trial'>, "
-                "total_trials=0, tolerated_trial_failure_rate=0.2, log_filepath=None, "
+                "total_trials=0, tolerated_trial_failure_rate=0.2, "
+                "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "
                 "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"
                 "polls=10, min_seconds_before_poll=1.0, seconds_between_polls_backoff_"
                 "factor=1.5, run_trials_in_batches=False, "
@@ -351,6 +353,7 @@ class TestAxScheduler(TestCase):
         )
         scheduler.run_all_trials(timeout_hours=0)  # Forcing optimization to time out.
         self.assertEqual(len(scheduler.experiment.trials), 0)
+        self.assertIn("aborted", scheduler.experiment._properties["run_trials_success"])
 
     def test_logging(self):
         with NamedTemporaryFile() as temp_file:
@@ -442,7 +445,6 @@ class TestAxScheduler(TestCase):
             all(t.ttl_seconds == 1 for t in scheduler.experiment.trials.values())
         )
 
-    @patch(f"{Scheduler.__module__}.START_CHECKING_FAILURE_RATE_AFTER_N_TRIALS", 3)
     def test_failure_rate(self):
         class SchedulerWithFrequentFailedTrials(TestScheduler):
 
@@ -459,35 +461,42 @@ class TestAxScheduler(TestCase):
                 self.poll_failed_next_time = not self.poll_failed_next_time
                 return {status: {running[randint(0, len(running) - 1)]}}
 
-        scheduler = SchedulerWithFrequentFailedTrials(
-            experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GS_no_parallelism,
-            options=SchedulerOptions(
-                total_trials=8,
-                tolerated_trial_failure_rate=0.5,
-                init_seconds_between_polls=0,  # No wait between polls so test is fast.
-            ),
-        )
-        scheduler.run_all_trials()
-        # Trials will have statuses: 0, 2, 4 - FAILED, 1, 3 - COMPLETED. Failure rate
-        # is 0.5, and we start checking failure rate after first 3 trials.
-        # Therefore, failure rate should be exceeded after trial #4.
-        self.assertEqual(len(scheduler.experiment.trials), 5)
+        class SchedulerWithAllFailedTrials(TestScheduler):
+            def poll_trial_status(self) -> Dict[TrialStatus, Set[int]]:
+                running = [t.index for t in self.running_trials]
+                return {TrialStatus.FAILED: {running[randint(0, len(running) - 1)]}}
 
-        # If we set a slightly lower failure rate, it will be reached after 4 trials.
-        num_preexisting_trials = len(scheduler.experiment.trials)
+        options = SchedulerOptions(
+            total_trials=8,
+            tolerated_trial_failure_rate=0.5,
+            init_seconds_between_polls=0,  # No wait between polls so test is fast.
+            min_failed_trials_for_failure_rate_check=2,
+        )
+
         scheduler = SchedulerWithFrequentFailedTrials(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_GS_no_parallelism,
-            options=SchedulerOptions(
-                total_trials=8,
-                tolerated_trial_failure_rate=0.49,
-                init_seconds_between_polls=0,  # No wait between polls so test is fast.
-            ),
+            options=options,
+        )
+        with self.assertRaises(FailureRateExceededError):
+            scheduler.run_all_trials()
+        # Trials will have statuses: 0, 2 - FAILED, 1 - COMPLETED. Failure rate
+        # is 0.5, and so if 2 of the first 3 trials are failed, we can fail
+        # immediately.
+        self.assertEqual(len(scheduler.experiment.trials), 3)
+
+        # If all trials fail, we can be certain that the sweep will
+        # fail after only 2 trials.
+        num_preexisting_trials = len(scheduler.experiment.trials)
+        scheduler = SchedulerWithAllFailedTrials(
+            experiment=self.branin_experiment,
+            generation_strategy=self.sobol_GS_no_parallelism,
+            options=options,
         )
         self.assertEqual(scheduler._num_preexisting_trials, num_preexisting_trials)
-        scheduler.run_all_trials()
-        self.assertEqual(len(scheduler.experiment.trials), num_preexisting_trials + 4)
+        with self.assertRaises(FailureRateExceededError):
+            scheduler.run_all_trials()
+        self.assertEqual(len(scheduler.experiment.trials), num_preexisting_trials + 2)
 
     def test_sqa_storage(self):
         init_test_engine_and_session_factory(force_init=True)
