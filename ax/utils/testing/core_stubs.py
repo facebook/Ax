@@ -117,13 +117,14 @@ def get_branin_experiment(
     with_choice_parameter: bool = False,
     search_space: Optional[SearchSpace] = None,
     minimize: bool = False,
+    named: bool = True,
 ) -> Experiment:
     search_space = search_space or get_branin_search_space(
         with_fidelity_parameter=with_fidelity_parameter,
         with_choice_parameter=with_choice_parameter,
     )
     exp = Experiment(
-        name="branin_test_experiment",
+        name="branin_test_experiment" if named else None,
         search_space=search_space,
         optimization_config=get_branin_optimization_config(minimize=minimize)
         if has_optimization_config
