@@ -18,7 +18,7 @@ from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import OptimizationComplete, UnsupportedError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
@@ -663,3 +663,20 @@ class TestAxScheduler(TestCase):
             ),
         )
         self.assertEqual(scheduler.run_n_trials(max_trials=3), OptimizationResult())
+
+    @patch(
+        f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",
+        side_effect=OptimizationComplete("test error"),
+    )
+    def test_optimization_complete(self, _):
+        # With runners & metrics, `BareBonesTestScheduler.run_all_trials` should run.
+        scheduler = BareBonesTestScheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.two_sobol_steps_GS,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+            ),
+        )
+        scheduler.run_n_trials(max_trials=1)
+        # no trials should run if _gen_multiple throws an OptimizationComplete error
+        self.assertEqual(len(scheduler.experiment.trials), 0)

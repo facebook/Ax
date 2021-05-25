@@ -210,6 +210,9 @@ class Scheduler(WithDBSettingsBase, ABC):
     _timeout_hours: Optional[int] = None
     # Timestamp of when the last deployed trial started running.
     _latest_trial_start_timestamp: Optional[float] = None
+    # Will be set to `True` if generation strategy signals that the optimization
+    # is complete, in which case the optimization should gracefully exit early.
+    _optimization_complete: bool = False
 
     def __init__(
         self,
@@ -558,6 +561,9 @@ class Scheduler(WithDBSettingsBase, ABC):
         """Checks whether this scheduler has reached some intertuption / abort
         criterion, such as an overall optimization timeout, tolerated failure rate, etc.
         """
+        if self._optimization_complete:
+            self.logger.info("Optimization completed, stopping early.")
+            return True
         timed_out = (
             self._timeout_hours is not None
             and self._latest_optimization_start_timestamp is not None
@@ -755,6 +761,9 @@ class Scheduler(WithDBSettingsBase, ABC):
         if not existing_trials and not new_trials:
             # Unable to gen. new run due to max parallelism limit or need for data
             # or unable to run trials due to lack of capacity.
+            if self._optimization_complete:
+                return False
+
             if not self.has_trials_in_flight:
                 raise SchedulerInternalError(  # pragma: no cover
                     "No trials are running but model requires more data. This is an "
@@ -974,7 +983,8 @@ class Scheduler(WithDBSettingsBase, ABC):
                 pending_observations=pending,
             )
         except OptimizationComplete as err:
-            self.logger.info(f"Optimization completed: {err}.")
+            self.logger.info(f"Optimization complete: {err}.")
+            self._optimization_complete = True
             return []
         except DataRequiredError as err:
             # TODO[T62606107]: consider adding a `more_data_required` property to
