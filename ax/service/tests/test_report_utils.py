@@ -15,6 +15,16 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 
+EXPECTED_COLUMNS = [
+    "branin",
+    "trial_index",
+    "arm_name",
+    "x1",
+    "x2",
+    "trial_status",
+    "generator_model",
+]
+
 
 class ReportUtilsTest(TestCase):
     def test_exp_to_df(self):
@@ -22,6 +32,7 @@ class ReportUtilsTest(TestCase):
         exp.trials[0].run()
         df = exp_to_df(exp)
         self.assertIsInstance(df, pd.DataFrame)
+        self.assertListEqual(list(df.columns), EXPECTED_COLUMNS)
         df = exp_to_df(exp, run_metadata_fields=["name"])
         self.assertIn("name", df.columns)
 

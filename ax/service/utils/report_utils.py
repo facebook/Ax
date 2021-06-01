@@ -294,7 +294,32 @@ def exp_to_df(
     # add trial status
     trials = exp.trials.items()
     trial_to_status = {index: trial.status.name for index, trial in trials}
-    exp_df["trial_status"] = [trial_to_status[key] for key in exp_df.trial_index]
+    exp_df["trial_status"] = [
+        trial_to_status[trial_index] for trial_index in exp_df.trial_index
+    ]
+
+    # add and generator_run model keys
+    exp_df["generator_model"] = [
+        # This accounts for the generic case that generator_runs is a list of arbitrary
+        # length. If all elements are `None`, this yields an empty string. Repeated
+        # generator models within a trial are condensed via a set comprehension.
+        ", ".join(
+            {
+                not_none(generator_run._model_key)
+                for generator_run in exp.trials[trial_index].generator_runs
+                if generator_run._model_key is not None
+            }
+        )
+        if trial_index in exp.trials
+        else ""
+        for trial_index in exp_df.trial_index
+    ]
+
+    # replace all unknown generator_models (denoted by empty strings) with "Unknown"
+    exp_df["generator_model"] = [
+        "Unknown" if generator_model == "" else generator_model
+        for generator_model in exp_df["generator_model"]
+    ]
 
     # if no run_metadata fields are requested, return exp_df so far
     if run_metadata_fields is None:
