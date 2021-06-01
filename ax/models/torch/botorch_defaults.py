@@ -14,6 +14,7 @@ from ax.models.torch.utils import (  # noqa F401
     predict_from_model,
 )
 from ax.models.torch_base import TorchModel
+from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjective
@@ -309,8 +310,8 @@ def scipy_optimizer(
           values, where `i`-th element is the expected acquisition value
           conditional on having observed candidates `0,1,...,i-1`.
     """
-    num_restarts: int = kwargs.get("num_restarts", 20)
-    raw_samples: int = kwargs.get("num_raw_samples", 50 * num_restarts)
+    num_restarts: int = kwargs.pop(Keys.NUM_RESTARTS, 20)
+    raw_samples: int = kwargs.pop(Keys.RAW_SAMPLES, 50 * num_restarts)
 
     if kwargs.get("joint_optimization", False):
         sequential = False

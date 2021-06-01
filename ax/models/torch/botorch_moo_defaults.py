@@ -23,6 +23,7 @@ from ax.models.torch.utils import (  # noqa F40
     predict_from_model,
 )
 from ax.models.torch_base import TorchModel
+from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.multi_objective.utils import get_default_partitioning_alpha
@@ -198,8 +199,8 @@ def scipy_optimizer_list(
           values, where `i`-th element is the expected acquisition value
           conditional on having observed candidates `0,1,...,i-1`.
     """
-    num_restarts: int = kwargs.get("num_restarts", 20)
-    raw_samples: int = kwargs.get("num_raw_samples", 50 * num_restarts)
+    num_restarts: int = kwargs.pop(Keys.NUM_RESTARTS, 20)
+    raw_samples: int = kwargs.pop(Keys.RAW_SAMPLES, 50 * num_restarts)
 
     # use SLSQP by default for small problems since it yields faster wall times
     if "method" not in kwargs:
