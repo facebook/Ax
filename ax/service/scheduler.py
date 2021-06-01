@@ -294,6 +294,21 @@ class Scheduler(WithDBSettingsBase, ABC):
         generation_strategy: Optional[GenerationStrategy] = None,
         **kwargs: Any,
     ) -> Scheduler:
+        """Create a ``Scheduler`` with a previously stored experiment, which
+        the scheduler should resume.
+
+        Args:
+            experiment_name: Experiment to load and resume.
+            options: ``SchedulerOptions``, with which to set up the new scheduler.
+            db_settings: Optional ``DBSettings``, which to use for reloading the
+                experiment; also passed as ``db_settings`` argument to the
+                scheduler constructor.
+            generation_strategy: Generation strategy to use to provide candidates
+                for the resumed optimization. Provide this argument only if
+                the experiment does not already have a generation strategy
+                associated with it.
+            kwargs: Kwargs to pass through to the ``Scheduler`` constructor.
+        """
         dbs = WithDBSettingsBase(
             db_settings=db_settings or cls.get_default_db_settings()
         )
