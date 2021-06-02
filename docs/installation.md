@@ -56,7 +56,7 @@ pip3 install SQLAlchemy
 You can install the latest (bleeding edge) version from GitHub:
 
 ```
-pip3 install 'git+https://github.com/facebook/Ax.git#egg=Ax'
+pip3 install 'git+https://github.com/facebook/Ax.git#egg=ax-platform'
 ```
 
 See also the recommendation for installing PyTorch for MacOS users above.
@@ -73,12 +73,12 @@ pip3 install git+https://github.com/pytorch/botorch.git
 To use Ax with a notebook environment, you will need Jupyter. Install it first:
 
 ```
-pip3 install 'git+https://github.com/facebook/Ax.git#egg=Ax[notebook]'
+pip3 install 'git+https://github.com/facebook/Ax.git#egg=ax-platform[notebook]'
 ```
 
 If storing Ax experiments via SQLAlchemy in MySQL or SQLite:
 ```
-pip3 install 'git+https://github.com/facebook/Ax.git#egg=Ax[mysql]'
+pip3 install 'git+https://github.com/facebook/Ax.git#egg=ax-platform[mysql]'
 ```
 
 ## Development

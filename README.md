@@ -114,7 +114,7 @@ pip3 install SQLAlchemy
 You can install the latest (bleeding edge) version from Git:
 
 ```
-pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=Ax
+pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=ax-platform
 ```
 
 See recommendation for installing PyTorch for MacOS users above.
@@ -130,7 +130,7 @@ pip3 install git+https://github.com/pytorch/botorch.git
 If using Ax in Jupyter notebooks:
 
 ```
-pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=Ax[notebook]
+pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=ax-platform[notebook]
 ```
 
 To support plotly-based plotting in newer Jupyter notebook versions
@@ -143,7 +143,7 @@ pip install "notebook>=5.3" "ipywidgets==7.5"
 
 If storing Ax experiments via SQLAlchemy in MySQL or SQLite:
 ```
-pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=Ax[mysql]
+pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=ax-platform[mysql]
 ```
 
 ## Join the Ax Community
