@@ -483,7 +483,7 @@ class TestGenerationStrategy(TestCase):
             sobol_generation_strategy.gen(experiment=exp)
 
     @patch(f"{RandomModelBridge.__module__}.RandomModelBridge.update")
-    @patch(f"{Experiment.__module__}.Experiment.fetch_trials_data")
+    @patch(f"{Experiment.__module__}.Experiment.lookup_data")
     def test_use_update(self, mock_fetch_trials_data, mock_update):
         exp = get_branin_experiment()
         sobol_gs_with_update = GenerationStrategy(

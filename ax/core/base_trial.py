@@ -381,6 +381,13 @@ class BaseTrial(ABC, SortableBase):
             trial_index=self.index, metrics=metrics, **kwargs
         )
 
+    def lookup_data(self, **kwargs: Any) -> AbstractDataFrameData:
+        merge_trial_data = kwargs.get("merge_trial_data", False)
+        return self.experiment.lookup_data_for_trial(
+            trial_index=self.index,
+            merge_trial_data=merge_trial_data,
+        )[0]
+
     def _check_existing_and_name_arm(self, arm: Arm) -> None:
         """Sets name for given arm; if this arm is already in the
         experiment, uses the existing arm name.

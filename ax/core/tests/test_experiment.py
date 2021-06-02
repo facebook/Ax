@@ -31,6 +31,7 @@ from ax.utils.testing.core_stubs import (
     get_data,
     get_experiment,
     get_experiment_with_map_data,
+    get_experiment_with_map_data_type,
     get_map_data,
     get_optimization_config,
     get_search_space,
@@ -351,8 +352,8 @@ class ExperimentTest(TestCase):
             {"not_yet_on_experiment"},
         )
 
-        # Verify data lookup is empty for trial that does not yet have data.
-        self.assertEqual(len(exp.lookup_data_for_trial(1)[0].df), 0)
+        # Verify data lookup includes trials attached from `fetch_data`.
+        self.assertEqual(len(exp.lookup_data_for_trial(1)[0].df), 30)
 
         # Test local storage
         t1 = exp.attach_data(batch_data)
@@ -360,7 +361,7 @@ class ExperimentTest(TestCase):
 
         full_dict = exp.data_by_trial
         self.assertEqual(len(full_dict), 2)  # data for 2 trials
-        self.assertEqual(len(full_dict[0]), 3)  # 3 data objs for batch 0
+        self.assertEqual(len(full_dict[0]), 5)  # 5 data objs for batch 0
 
         # Test retrieving original batch 0 data
         self.assertEqual(len(exp.lookup_data_for_ts(t1).df), n)
@@ -389,7 +390,7 @@ class ExperimentTest(TestCase):
             )
         )
         t3 = exp.attach_data(new_data, combine_with_last_data=True)
-        self.assertEqual(len(full_dict[0]), 4)  # 4 data objs for batch 0 now
+        self.assertEqual(len(full_dict[0]), 6)  # 6 data objs for batch 0 now
         self.assertIn("z", exp.lookup_data_for_ts(t3).df["metric_name"].tolist())
 
         # Verify we don't get the data if the trial is abandoned
@@ -515,7 +516,7 @@ class ExperimentTest(TestCase):
         # Try to fetch data when there are only metrics and no attached data.
         exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
         exp.add_tracking_metric(Metric(name="b"))  # Add unimplemented metric.
-        self.assertTrue(exp.fetch_trials_data(trial_indices=[0]).df.empty)
+        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).df), 5)
         # Try fetching attached data.
         exp.attach_data(batch_0_data)
         exp.attach_data(batch_1_data)
@@ -582,12 +583,14 @@ class ExperimentTest(TestCase):
         # Since metric is available while trial is running, we should be
         # refetching the data and no data should be attached to experiment.
         mock_fetch_exp_data_multi.assert_called_once()
-        self.assertEqual(len(exp._data_by_trial), 0)
+        self.assertEqual(len(exp._data_by_trial), 2)
 
         with patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,
         ):
+            exp = self._setupBraninExperiment(n=5)
+            exp.fetch_data()
             # 1. No completed trials => no fetch case.
             mock_fetch_exp_data_multi.reset_mock()
             dat = exp.fetch_data()
@@ -616,7 +619,7 @@ class ExperimentTest(TestCase):
 
 class ExperimentWithMapDataTest(TestCase):
     def setUp(self):
-        self.experiment = get_experiment_with_map_data()
+        self.experiment = get_experiment_with_map_data_type()
 
     def _setupBraninExperiment(self, n: int) -> Experiment:
         exp = Experiment(
@@ -651,12 +654,16 @@ class ExperimentWithMapDataTest(TestCase):
     def testFetchDataWithMapData(self):
         evaluations = {
             "0_0": [
-                ({"epoch": 1}, {"tracking": (3.7, 0.5)}),
-                ({"epoch": 2}, {"tracking": (3.8, 0.5)}),
-                ({"epoch": 3}, {"tracking": (3.9, 0.5)}),
-                ({"epoch": 4}, {"tracking": (4.0, 0.5)}),
+                ({"epoch": 1}, {"no_fetch_impl_metric": (3.7, 0.5)}),
+                ({"epoch": 2}, {"no_fetch_impl_metric": (3.8, 0.5)}),
+                ({"epoch": 3}, {"no_fetch_impl_metric": (3.9, 0.5)}),
+                ({"epoch": 4}, {"no_fetch_impl_metric": (4.0, 0.5)}),
             ],
         }
+
+        self.experiment.add_tracking_metric(
+            metric=MapMetric(name="no_fetch_impl_metric")
+        )
         self.experiment.new_trial()
         self.experiment.trials[0].mark_running(no_runner_required=True)
         first_epoch = MapData.from_map_evaluations(
@@ -676,10 +683,17 @@ class ExperimentWithMapDataTest(TestCase):
         )
         self.experiment.attach_data(remaining_epochs)
         self.experiment.trials[0].mark_completed()
+
+        # merge_trial_data = False
+        expected_data = remaining_epochs
+        actual_data = self.experiment.lookup_data()  # False by default.
+        self.assertEqual(expected_data, actual_data)
+
+        # merge_trial_data = True
         expected_data = MapData.from_map_evaluations(
             evaluations=evaluations, trial_index=0
         )
-        actual_data = self.experiment.fetch_data()
+        actual_data = self.experiment.lookup_data(merge_trial_data=True)
         self.assertEqual(expected_data, actual_data)
 
     def testFetchTrialsData(self):
@@ -707,7 +721,7 @@ class ExperimentWithMapDataTest(TestCase):
         # Try to fetch data when there are only metrics and no attached data.
         exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
         exp.add_tracking_metric(MapMetric(name="b"))  # Add unimplemented metric.
-        self.assertTrue(exp.fetch_trials_data(trial_indices=[0]).df.empty)
+        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).df), 15)
         # Try fetching attached data.
         exp.attach_data(batch_0_data)
         exp.attach_data(batch_1_data)
@@ -717,3 +731,21 @@ class ExperimentWithMapDataTest(TestCase):
         self.assertEqual(
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
         )
+
+    def testFetchTrialDataLookupOnly(self):
+        experiment = get_experiment_with_map_data()
+        self.assertTrue(experiment.optimization_config.objective.metric)
+        experiment.trials[0].mark_running(no_runner_required=True)
+        actual_data = experiment.fetch_trials_data(trial_indices=[0], lookup_only=True)
+        expected_data = get_map_data()
+        self.assertNotEqual(expected_data, actual_data)
+        with patch(
+            f"{MapMetric.__module__}.MapMetric.is_available_while_running",
+            return_value=True,
+        ):
+            experiment = get_experiment_with_map_data()
+            self.assertTrue(experiment.optimization_config.objective.metric)
+            experiment.trials[0].mark_running(no_runner_required=True)
+            actual_data = experiment.lookup_data()
+            expected_data = get_map_data()
+            self.assertEqual(expected_data, actual_data)

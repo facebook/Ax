@@ -58,7 +58,7 @@ class TestModelbridgeUtils(TestCase):
         # should no longer have pending observation features.
         with patch.object(
             self.trial,
-            "fetch_data",
+            "lookup_data",
             return_value=Data.from_evaluations(
                 {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
             ),

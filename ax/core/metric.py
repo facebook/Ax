@@ -188,9 +188,12 @@ class Metric(SortableBase):
         # If this metric is available while trial is running, just default to
         # `fetch_experiment_data_multi`.
         if cls.is_available_while_running():
-            return cls.fetch_experiment_data_multi(
+            fetched_data = cls.fetch_experiment_data_multi(
                 experiment=experiment, metrics=metrics, trials=trials, **kwargs
             )
+            if not fetched_data.df.empty:
+                experiment.attach_data(fetched_data)
+            return fetched_data
 
         # If this metric is available only upon trial completion, look up data
         # on experiment and only fetch data that is not already cached.

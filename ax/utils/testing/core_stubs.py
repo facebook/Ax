@@ -95,7 +95,7 @@ def get_experiment(with_status_quo: bool = True) -> Experiment:
     )
 
 
-def get_experiment_with_map_data():
+def get_experiment_with_map_data_type():
     return Experiment(
         name="test_map_data",
         search_space=get_search_space(),
@@ -299,6 +299,14 @@ def get_experiment_with_data() -> Experiment:
     batch_trial.experiment.attach_data(data=get_data())
     batch_trial.experiment.attach_data(data=get_data())
     return batch_trial.experiment
+
+
+def get_experiment_with_map_data() -> Experiment:
+    experiment = get_experiment_with_map_data_type()
+    experiment.new_trial()
+    experiment.add_tracking_metric(MapMetric("ax_test_metric"))
+    experiment.attach_data(data=get_map_data())
+    return experiment
 
 
 def get_experiment_with_multi_objective() -> Experiment:
@@ -1074,7 +1082,7 @@ def get_map_data(trial_index: int = 0) -> MapData:
     }
     return MapData.from_map_evaluations(
         evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
-        trial_index=0,
+        trial_index=trial_index,
         map_keys=["epoch"],
     )
 

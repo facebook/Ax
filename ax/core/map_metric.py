@@ -129,7 +129,6 @@ class MapMetric(Metric):
         trial completion, data fetched in this function (data that was not yet
         available on experiment) will be attached to experiment.
         """
-        kwargs["merge_trial_data"] = kwargs.get("merge_trial_data", True)
         return super().lookup_or_fetch_experiment_data_multi(
             experiment=experiment,
             metrics=metrics,

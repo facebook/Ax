@@ -137,7 +137,7 @@ class TrialTest(TestCase):
                     self.assertIsNone(self.trial.abandoned_reason)
 
     @patch(
-        f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data",
+        f"{BaseTrial.__module__}.{BaseTrial.__name__}.lookup_data",
         return_value=TEST_DATA,
     )
     def test_objective_mean(self, _mock):

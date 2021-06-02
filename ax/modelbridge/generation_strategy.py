@@ -593,7 +593,7 @@ class GenerationStrategy(Base):
                 # If the new step is using `update`, it's important to instantiate
                 # the model with data for completed trials only, so later we can
                 # update it with data for new trials as they become completed.
-                # `experiment.fetch_data` can fetch all available data, including
+                # `experiment.lookup_data` can lookup all available data, including
                 # for non-completed trials (depending on how the experiment's metrics
                 # implement `fetch_experiment_data`). We avoid fetching data for
                 # trials with statuses other than `COMPLETED`, by fetching specifically
@@ -610,11 +610,13 @@ class GenerationStrategy(Base):
                         "generation strategy relies on new data being available upon "
                         "trial completion."
                     )
-                data = self.experiment.fetch_trials_data(
-                    self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
+                data = self.experiment.lookup_data(
+                    trial_indices=self.experiment.trial_indices_by_status[
+                        TrialStatus.COMPLETED
+                    ]
                 )
             else:
-                data = self.experiment.fetch_data()
+                data = self.experiment.lookup_data()
         # By the time we get here, we will have already transitioned
         # to a new step, but if previou step required observed data,
         # we should raise an error even if enough trials were completed.
@@ -658,9 +660,7 @@ class GenerationStrategy(Base):
             )
             return
         if data is None:
-            new_data = self.experiment.fetch_trials_data(
-                trial_indices=newly_completed_trials
-            )
+            new_data = self.experiment.lookup_data(trial_indices=newly_completed_trials)
             if new_data.df.empty:
                 logger.info("Skipping model update as there is no new data.")
                 return
@@ -717,11 +717,12 @@ class GenerationStrategy(Base):
             raise ValueError("No generator run was stored on generation strategy.")
         if self._experiment is None:  # pragma: no cover
             raise ValueError("No experiment was set on this generation strategy.")
+        data = self.experiment.lookup_data()
         self._model = get_model_from_generator_run(
             generator_run=generator_run,
             experiment=self.experiment,
             # pyre-fixme [6]: Incompat param: Expect `Data` got `AbstractDataFrameData`
-            data=self.experiment.fetch_data(),
+            data=data,
             models_enum=models_enum,
         )
         self._save_seen_trial_indices()

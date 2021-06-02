@@ -455,7 +455,7 @@ def get_pending_observation_features(
     # not pending for the metric. Where only the most recent data matters, this will
     # work, but may need to add logic to check previously added data objects, too.
     for trial_index, trial in experiment.trials.items():
-        dat = trial.fetch_data()
+        dat = trial.lookup_data()
         for metric_name in experiment.metrics:
             if metric_name not in pending_features:
                 pending_features[metric_name] = []

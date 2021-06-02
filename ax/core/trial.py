@@ -179,7 +179,7 @@ class Trial(BaseTrial):
         objective that was set at the time the trial was created or ran.
         """
         # For SimpleExperiment, fetch_data just executes eval_trial.
-        df = self.fetch_data().df
+        df = self.lookup_data().df
         if df.empty:
             raise ValueError(f"No data was retrieved for trial {self.index}.")
         opt_config = self.experiment.optimization_config
@@ -194,7 +194,7 @@ class Trial(BaseTrial):
         latest data available for the metric for the trial.
         """
         # For SimpleExperiment, fetch_data just executes eval_trial.
-        df = self.fetch_data().df
+        df = self.lookup_data().df
         try:
             return df.loc[df["metric_name"] == metric_name].iloc[0]["mean"]
         except IndexError:  # pragma: no cover

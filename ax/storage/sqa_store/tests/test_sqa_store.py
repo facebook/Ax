@@ -80,7 +80,7 @@ from ax.utils.testing.core_stubs import (
     get_data,
     get_experiment,
     get_experiment_with_batch_trial,
-    get_experiment_with_map_data,
+    get_experiment_with_map_data_type,
     get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective_and_outcome_constraint,
     get_scalarized_outcome_constraint,
@@ -170,7 +170,7 @@ class SQAStoreTest(TestCase):
     def testExperimentSaveAndLoad(self):
         for exp in [
             self.experiment,
-            get_experiment_with_map_data(),
+            get_experiment_with_map_data_type(),
             get_experiment_with_multi_objective(),
             get_experiment_with_scalarized_objective_and_outcome_constraint(),
         ]:
@@ -1189,6 +1189,7 @@ class SQAStoreTest(TestCase):
             )
             trial.mark_completed()
 
+        experiment.fetch_data()
         save_experiment(experiment=experiment)
         update_generation_strategy(
             generation_strategy=generation_strategy,
@@ -1282,7 +1283,7 @@ class SQAStoreTest(TestCase):
     def testExperimentSaveAndDelete(self):
         for exp in [
             self.experiment,
-            get_experiment_with_map_data(),
+            get_experiment_with_map_data_type(),
             get_experiment_with_multi_objective(),
             get_experiment_with_scalarized_objective_and_outcome_constraint(),
         ]:
