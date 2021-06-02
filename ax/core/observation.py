@@ -313,7 +313,6 @@ def observations_from_data(
     arm_name_only = len(feature_cols) == 1  # there will always be an arm name
     # One DataFrame where all rows have all features.
     isnull = data.df[feature_cols].isnull()
-    # pyre-fixme[29]: `Series` is not a function.
     isnull_any = isnull.any(axis=1)
     incomplete_df_cols = isnull[isnull_any].any()
 

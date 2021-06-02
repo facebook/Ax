@@ -166,7 +166,6 @@ def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
             )
     df = pd.DataFrame(importances)
     df.set_index("index", inplace=True)
-    # pyre-fixme[29]: `Series` is not a function.
     df = df.div(df.sum(axis=1), axis=0)
     data = [
         go.Bar(y=df.index, x=df[column_name], name=column_name, orientation="h")
