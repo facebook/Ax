@@ -233,7 +233,8 @@ class BatchTrial(BaseTrial):
         Returns:
             The trial instance.
         """
-
+        # Clone saved arms to avoid mutating existing state
+        arms = [(arm.clone() if arm.db_id else arm) for arm in arms]
         return self.add_generator_run(
             generator_run=GeneratorRun(
                 arms=arms, weights=weights, type=GeneratorRunType.MANUAL.name

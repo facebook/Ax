@@ -60,6 +60,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQAParameterConstraint,
     SQARunner,
     SQATrial,
+    SQAArm,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.tests.utils import TEST_CASES
@@ -1370,3 +1371,19 @@ class SQAStoreTest(TestCase):
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertTrue(loaded_experiment.immutable_search_space_and_opt_config)
+
+    def testRepeatedArmStorage(self):
+        experiment = get_experiment_with_batch_trial()
+        save_experiment(experiment)
+        self.assertEqual(get_session().query(SQAArm).count(), 4)
+
+        # add repeated arms to new trial, ensuring
+        # we create completely new arms in DB for the
+        # new trials
+        trial = experiment.new_batch_trial()
+        trial.add_arms_and_weights(experiment.trials[0].arms)
+        save_experiment(experiment)
+        self.assertEqual(get_session().query(SQAArm).count(), 7)
+
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(experiment, loaded_experiment)
