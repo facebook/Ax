@@ -7,13 +7,22 @@
 from unittest import mock
 
 import numpy as np
+from ax.core.metric import Metric
+from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.optimization_config import (
+    OptimizationConfig,
+    MultiObjectiveOptimizationConfig,
+)
+from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.types import ComparisonOp
 from ax.modelbridge.cross_validation import (
     CVResult,
     assess_model_fit,
     compute_diagnostics,
     cross_validate,
     cross_validate_by_trial,
+    has_good_opt_config_model_fit,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -210,18 +219,62 @@ class CrossValidationTest(TestCase):
         self.assertAlmostEqual(diag["Fisher exact test p"]["a"], 0.10)
         self.assertAlmostEqual(diag["Fisher exact test p"]["b"], 0.166666666)
 
-        good_fit_metrics, bad_fit_metrics = assess_model_fit(
-            diag, significance_level=0.05
+        assess_model_fit_result = assess_model_fit(
+            diagnostics=diag, significance_level=0.05
         )
-        self.assertTrue("a" in bad_fit_metrics)
-        self.assertTrue("b" in bad_fit_metrics)
-        good_fit_metrics, bad_fit_metrics = assess_model_fit(
-            diag, significance_level=0.15
+        self.assertTrue("a" in assess_model_fit_result.bad_fit_metrics_to_fisher_score)
+        self.assertTrue("b" in assess_model_fit_result.bad_fit_metrics_to_fisher_score)
+        assess_model_fit_result = assess_model_fit(
+            diagnostics=diag, significance_level=0.15
         )
-        self.assertTrue("a" in good_fit_metrics)
-        self.assertTrue("b" in bad_fit_metrics)
-        good_fit_metrics, bad_fit_metrics = assess_model_fit(
-            diag, significance_level=0.2
+        self.assertTrue("a" in assess_model_fit_result.good_fit_metrics_to_fisher_score)
+        self.assertTrue("b" in assess_model_fit_result.bad_fit_metrics_to_fisher_score)
+        assess_model_fit_result = assess_model_fit(
+            diagnostics=diag, significance_level=0.2
         )
-        self.assertTrue("a" in good_fit_metrics)
-        self.assertTrue("b" in good_fit_metrics)
+        self.assertTrue("a" in assess_model_fit_result.good_fit_metrics_to_fisher_score)
+        self.assertTrue("b" in assess_model_fit_result.good_fit_metrics_to_fisher_score)
+
+    def testHasGoodOptConfigModelFit(self):
+        # Construct diagnostics
+        result = []
+        for i, obs in enumerate(self.training_data):
+            result.append(CVResult(observed=obs, predicted=self.observation_data[i]))
+        diag = compute_diagnostics(result=result)
+        assess_model_fit_result = assess_model_fit(
+            diagnostics=diag,
+            significance_level=0.05,
+        )
+
+        # Test single objective
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric("a"))
+        )
+        has_good_fit = has_good_opt_config_model_fit(
+            optimization_config=optimization_config,
+            assess_model_fit_result=assess_model_fit_result,
+        )
+        self.assertFalse(has_good_fit)
+
+        # Test multi objective
+        optimization_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(metrics=[Metric("a"), Metric("b")])
+        )
+        has_good_fit = has_good_opt_config_model_fit(
+            optimization_config=optimization_config,
+            assess_model_fit_result=assess_model_fit_result,
+        )
+        self.assertFalse(has_good_fit)
+
+        # Test constraints
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric("a")),
+            outcome_constraints=[
+                OutcomeConstraint(metric=Metric("b"), op=ComparisonOp.GEQ, bound=0.1)
+            ],
+        )
+        has_good_fit = has_good_opt_config_model_fit(
+            optimization_config=optimization_config,
+            assess_model_fit_result=assess_model_fit_result,
+        )
+        self.assertFalse(has_good_fit)

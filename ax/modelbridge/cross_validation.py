@@ -9,10 +9,10 @@ from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tu
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData
+from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import ModelBridge
 from ax.utils.common.logger import get_logger
 from scipy.stats import fisher_exact, pearsonr, spearmanr, norm
-
 
 logger = get_logger(__name__)
 
@@ -32,6 +32,13 @@ class CVResult(NamedTuple):
 
     observed: Observation
     predicted: ObservationData
+
+
+class AssessModelFitResult(NamedTuple):
+    """Container for model fit assessment results"""
+
+    good_fit_metrics_to_fisher_score: Dict[str, float]
+    bad_fit_metrics_to_fisher_score: Dict[str, float]
 
 
 def cross_validate(
@@ -232,8 +239,9 @@ def compute_diagnostics(result: List[CVResult]) -> CVDiagnostics:
 
 
 def assess_model_fit(
-    diagnostics: Dict[str, Dict[str, float]], significance_level: float = 0.1
-) -> Tuple[Dict[str, float], Dict[str, float]]:
+    diagnostics: CVDiagnostics,
+    significance_level: float = 0.1,
+) -> AssessModelFitResult:
     """Assess model fit for given diagnostics results.
 
     It determines if a model fit is good or bad based on Fisher exact test p
@@ -246,23 +254,56 @@ def assess_model_fit(
         mapping metric name to p-value
     """
 
-    good_fit_metrics: Dict[str, float] = {}
-    bad_fit_metrics: Dict[str, float] = {}
+    good_fit_metrics_to_fisher_score: Dict[str, float] = {}
+    bad_fit_metrics_to_fisher_score: Dict[str, float] = {}
 
     for metric, score in diagnostics[FISHER_EXACT_TEST_P].items():
         if score > significance_level:
-            bad_fit_metrics[metric] = score
+            bad_fit_metrics_to_fisher_score[metric] = score
         else:
-            good_fit_metrics[metric] = score
-    if len(bad_fit_metrics) > 0:
+            good_fit_metrics_to_fisher_score[metric] = score
+    if len(bad_fit_metrics_to_fisher_score) > 0:
         logger.warning(
             "{} {} {} unable to be reliably fit.".format(
-                ("Metrics" if len(bad_fit_metrics) > 1 else "Metric"),
-                (" , ".join(bad_fit_metrics.keys())),
-                ("were" if len(bad_fit_metrics) > 1 else "was"),
+                ("Metrics" if len(bad_fit_metrics_to_fisher_score) > 1 else "Metric"),
+                (" , ".join(bad_fit_metrics_to_fisher_score.keys())),
+                ("were" if len(bad_fit_metrics_to_fisher_score) > 1 else "was"),
             )
         )
-    return good_fit_metrics, bad_fit_metrics
+    return AssessModelFitResult(
+        good_fit_metrics_to_fisher_score=good_fit_metrics_to_fisher_score,
+        bad_fit_metrics_to_fisher_score=bad_fit_metrics_to_fisher_score,
+    )
+
+
+def has_good_opt_config_model_fit(
+    optimization_config: OptimizationConfig,
+    assess_model_fit_result: AssessModelFitResult,
+) -> bool:
+    """Assess model fit for given diagnostics results across the optimization
+    config metrics
+
+    Bad fit criteria: Any objective metrics are poorly fit based on
+    the Fisher exact test p (see assess_model_fit())
+
+    TODO[]: Incl. outcome constraints in assessment
+
+    Args:
+        optimization_config: Objective/Outcome constraint metrics to assess
+        diagnostics: Output of compute_diagnostics
+
+    Returns:
+        Two dictionaries, one for good metrics, one for bad metrics, each
+        mapping metric name to p-value
+    """
+
+    # Bad fit criteria: Any objective metrics are poorly fit
+    # TODO[]: Incl. outcome constraints in assessment
+    has_good_opt_config_fit = all(
+        (m.name in assess_model_fit_result.good_fit_metrics_to_fisher_score)
+        for m in optimization_config.objective.metrics
+    )
+    return has_good_opt_config_fit
 
 
 def _gen_train_test_split(
