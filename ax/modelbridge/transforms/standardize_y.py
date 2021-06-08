@@ -117,7 +117,10 @@ def compute_standardization_parameters(
 ]:
     """Compute mean and std. dev of Ys."""
     Ymean = {k: np.mean(y) for k, y in Ys.items()}
-    Ystd = {k: np.std(y) for k, y in Ys.items()}
+    # We use the Bessel correction term (divide by N-1) here in order to
+    # be consistent with the default behavior of torch.std that is used to
+    # validate input data standardization in BoTorch.
+    Ystd = {k: np.std(y, ddof=1) if len(y) > 1 else 0.0 for k, y in Ys.items()}
     for k, s in Ystd.items():
         # Don't standardize if variance is too small.
         if s < 1e-8:
