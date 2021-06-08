@@ -6,6 +6,7 @@
 
 from collections import OrderedDict
 
+from ax.core.observation import ObservationFeatures
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
@@ -291,3 +292,44 @@ class ModelRegistryTest(TestCase):
             bridge_args = set(get_function_argument_names(bridge_class))
             # Intersection of two sets should be empty
             self.assertEqual(model_args & bridge_args, set())
+
+    def test_ST_MTGP(self):
+        """Tests single type MTGP instantiation."""
+        # Test Single-type MTGP
+        exp = get_branin_experiment()
+        sobol = Models.SOBOL(search_space=exp.search_space)
+        self.assertIsInstance(sobol, RandomModelBridge)
+        for _ in range(5):
+            sobol_run = sobol.gen(n=1)
+            t = exp.new_batch_trial().add_generator_run(sobol_run)
+            t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
+            t.run().mark_completed()
+        status_quo_features = ObservationFeatures(
+            parameters=exp.trials[0].status_quo.parameters,
+            trial_index=0,
+        )
+        mtgp = Models.ST_MTGP(
+            experiment=exp,
+            data=exp.fetch_data(),
+            status_quo_features=status_quo_features,
+        )
+        self.assertIsInstance(mtgp, TorchModelBridge)
+
+        exp = get_branin_experiment()
+        sobol = Models.SOBOL(search_space=exp.search_space)
+        self.assertIsInstance(sobol, RandomModelBridge)
+        sobol_run = sobol.gen(n=1)
+        t = exp.new_batch_trial().add_generator_run(sobol_run)
+        t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
+        t.run().mark_completed()
+
+        with self.assertRaises(ValueError):
+            status_quo_features = ObservationFeatures(
+                parameters=exp.trials[0].status_quo.parameters,
+                trial_index=0,
+            )
+            Models.ST_MTGP(
+                experiment=exp,
+                data=exp.fetch_data(),
+                status_quo_features=status_quo_features,
+            )
