@@ -16,6 +16,7 @@ from scipy.stats import fisher_exact, pearsonr, spearmanr, norm
 
 logger = get_logger(__name__)
 
+CVDiagnostics = Dict[str, Dict[str, float]]
 
 MEAN_PREDICTION_CI = "Mean prediction CI"
 MAPE = "MAPE"
@@ -164,7 +165,7 @@ def cross_validate_by_trial(model: ModelBridge, trial: int = -1) -> List[CVResul
     return result
 
 
-def compute_diagnostics(result: List[CVResult]) -> Dict[str, Dict[str, float]]:
+def compute_diagnostics(result: List[CVResult]) -> CVDiagnostics:
     """Computes diagnostics for given cross validation results.
 
     It provides a dictionary with values for the following diagnostics, for
