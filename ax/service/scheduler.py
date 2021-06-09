@@ -1034,10 +1034,10 @@ class Scheduler(WithDBSettingsBase, ABC):
 
         early_stopping_strategy = not_none(self.options.early_stopping_strategy)
         new_status_to_trial_idcs = defaultdict(set)
-        for idx in trial_indices:
-            maybe_new_trial_status = early_stopping_strategy.should_stop_trial_early(
-                trial_index=idx, experiment=self.experiment
-            )
+        maybe_new_trial_statuses = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=trial_indices, experiment=self.experiment
+        )
+        for idx, maybe_new_trial_status in maybe_new_trial_statuses.items():
             if maybe_new_trial_status is not None:
                 new_status_to_trial_idcs[maybe_new_trial_status].add(idx)
         return new_status_to_trial_idcs

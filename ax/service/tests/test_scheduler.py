@@ -46,7 +46,6 @@ from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_search_space,
-    get_branin_experiment_with_timestamp_map_metric,
     get_generator_run,
 )
 
@@ -656,25 +655,27 @@ class TestAxScheduler(TestCase):
         class OddIndexEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             # Trials with odd indices will be early stopped
             # Thus, with 3 total trials, trial #1 will be early stopped
-            def should_stop_trial_early(
+            def should_stop_trials_early(
                 self,
-                trial_index: int,
+                trial_indices: Set[int],
                 experiment: Experiment,
                 **kwargs: Dict[str, Any],
-            ) -> Optional[TrialStatus]:
+            ) -> Dict[int, Optional[TrialStatus]]:
                 # Make sure that we can lookup data for the trial,
                 # even though we won't use it in this dummy strategy
-                data = experiment.lookup_data(trial_indices={trial_index})
+                data = experiment.lookup_data(trial_indices=trial_indices)
                 if data.df.empty:
                     raise Exception(
-                        f"No data found for trial {trial_index}; "
+                        f"No data found for trials {trial_indices}; "
                         "can't determine whether or not to stop early."
                     )
-
-                if trial_index % 2 == 1:
-                    return TrialStatus.COMPLETED
-
-                return None
+                new_statuses = {}
+                for trial_index in trial_indices:
+                    if trial_index % 2 == 1:
+                        new_statuses[trial_index] = TrialStatus.COMPLETED
+                    else:
+                        new_statuses[trial_index] = None
+                return new_statuses
 
         class SchedulerWithEarlyStoppingStrategy(BareBonesTestScheduler):
             poll_trial_status_count = 0

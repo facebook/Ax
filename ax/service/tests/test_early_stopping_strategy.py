@@ -13,9 +13,12 @@ class TestEarlyStoppingStrategy(TestCase):
     def test_early_stopping_strategy(self):
         exp = get_branin_experiment()
         early_stopping_strategy = BaseEarlyStoppingStrategy()
-        should_stop = early_stopping_strategy.should_stop_trial_early(
-            trial_index=0, experiment=exp
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices={0}, experiment=exp
         )
-        self.assertFalse(
-            should_stop, f"Expected should_stop to be False, got {should_stop}"
+        self.assertDictEqual(should_stop, {0: None})
+
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices={0, 1}, experiment=exp
         )
+        self.assertDictEqual(should_stop, {0: None, 1: None})
