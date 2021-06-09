@@ -1014,7 +1014,18 @@ class Scheduler(WithDBSettingsBase, ABC):
             Dict with new suggested ``TrialStatus`` as keys and a set of
             indices of trials to update (subset of initially-passed trials) as values.
         """
-        return {}
+        if self.options.early_stopping_strategy is None:
+            return {}
+
+        early_stopping_strategy = not_none(self.options.early_stopping_strategy)
+        new_status_to_trial_idcs = defaultdict(set)
+        for idx in trial_indices:
+            maybe_new_trial_status = early_stopping_strategy.should_stop_trial_early(
+                trial_index=idx, experiment=self.experiment
+            )
+            if maybe_new_trial_status is not None:
+                new_status_to_trial_idcs[maybe_new_trial_status].add(idx)
+        return new_status_to_trial_idcs
 
     def _validate_options(self, options: SchedulerOptions) -> None:
         """Validates `SchedulerOptions` for compatibility with given

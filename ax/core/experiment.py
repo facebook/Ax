@@ -632,12 +632,6 @@ class Experiment(Base):
         specified metrics or all metrics currently on the experiment, if `metrics`
         argument is not specified.
 
-        NOTE: For metrics that are not available while trial is running, the data
-        may be retrieved from cache on the experiment. Data is cached on the experiment
-        via calls to `experiment.attach_data` and whetner a given metric class is
-        available while trial is running is determined by the boolean returned from its
-        `is_available_while_running` class method.
-
         Args:
             trial_indices: Indices of trials, for which to fetch data.
             merge_trial_data: Whether to return data across all timestamps.

@@ -10,7 +10,7 @@ from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Iterable, Set, Tuple
+from typing import Any, Dict, Iterable, Optional, Set, Tuple
 from unittest.mock import patch
 
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -648,6 +648,61 @@ class TestAxScheduler(TestCase):
                 mock_should_stop_trials_early.call_count, expected_num_polls
             )
             self.assertEqual(mock_stop_trial_runs.call_count, expected_num_polls)
+
+    def test_scheduler_with_odd_index_early_stopping_strategy(self):
+        total_trials = 3
+
+        class OddIndexEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
+            # Trials with odd indices will be early stopped
+            # Thus, with 3 total trials, trial #1 will be early stopped
+            def should_stop_trial_early(
+                self,
+                trial_index: int,
+                experiment: Experiment,
+                **kwargs: Dict[str, Any],
+            ) -> Optional[TrialStatus]:
+                if trial_index % 2 == 1:
+                    return TrialStatus.COMPLETED
+
+                return None
+
+        class SchedulerWithEarlyStoppingStrategy(BareBonesTestScheduler):
+            poll_trial_status_count = 0
+
+            def poll_trial_status(self):
+                # In the first step, don't complete any trials
+                # Trial #1 will be early stopped
+                if self.poll_trial_status_count == 0:
+                    self.poll_trial_status_count += 1
+                    return {}
+
+                # In the second step, complete trials 0 and 2
+                self.poll_trial_status_count += 1
+                return {TrialStatus.COMPLETED: {0, 2}}
+
+        scheduler = SchedulerWithEarlyStoppingStrategy(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.two_sobol_steps_GS,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0.1,
+                early_stopping_strategy=OddIndexEarlyStoppingStrategy(),
+            ),
+        )
+        with patch.object(
+            scheduler, "stop_trial_run", return_value=None
+        ) as mock_stop_trial_run:
+            res_list = list(
+                scheduler.run_trials_and_yield_results(max_trials=total_trials)
+            )
+            expected_num_steps = 2
+            self.assertEqual(len(res_list), expected_num_steps)
+            # Trial #1 completed in first step
+            self.assertDictEqual(res_list[0], {"trials_completed_so_far": {1}})
+            # All trials completed by end of second step
+            self.assertDictEqual(
+                res_list[1], {"trials_completed_so_far": set(range(total_trials))}
+            )
+            self.assertEqual(mock_stop_trial_run.call_count, 1)
 
     def test_run_trials_in_batches(self):
         with self.assertRaisesRegex(
