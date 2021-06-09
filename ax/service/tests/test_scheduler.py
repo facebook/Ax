@@ -19,12 +19,14 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import OptimizationComplete, UnsupportedError
+from ax.metrics.branin import BraninMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status,
 )
 from ax.modelbridge.registry import Models
+from ax.service.early_stopping_strategy import BaseEarlyStoppingStrategy
 from ax.service.scheduler import (
     FailureRateExceededError,
     Scheduler,
@@ -178,7 +180,7 @@ class TestAxScheduler(TestCase):
                 "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"
                 "polls=10, min_seconds_before_poll=1.0, seconds_between_polls_backoff_"
                 "factor=1.5, run_trials_in_batches=False, "
-                "debug_log_run_metadata=False))"
+                "debug_log_run_metadata=False, early_stopping_strategy=None))"
             ),
         )
 
@@ -194,6 +196,28 @@ class TestAxScheduler(TestCase):
         self.branin_experiment.runner = None
         with self.assertRaisesRegex(NotImplementedError, ".* runner is required"):
             scheduler.run_all_trials()
+
+    def test_validate_early_stopping_strategy(self):
+        with patch(
+            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+            return_value=False,
+        ), self.assertRaises(ValueError):
+            BareBonesTestScheduler(
+                experiment=self.branin_experiment,
+                generation_strategy=self.sobol_GPEI_GS,
+                options=SchedulerOptions(
+                    early_stopping_strategy=BaseEarlyStoppingStrategy()
+                ),
+            )
+
+        # should not error
+        BareBonesTestScheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=self.sobol_GPEI_GS,
+            options=SchedulerOptions(
+                early_stopping_strategy=BaseEarlyStoppingStrategy()
+            ),
+        )
 
     @patch(
         f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",

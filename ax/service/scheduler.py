@@ -44,6 +44,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status,
 )
+from ax.service.early_stopping_strategy import BaseEarlyStoppingStrategy
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.executils import retry_on_exception
@@ -174,6 +175,9 @@ class SchedulerOptions:
             the minimum of ``self.poll_available_capacity()`` and the number
             of generator runs that the generation strategy is able to produce
             without more data or reaching its allowed max paralellism limit.
+        early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines
+            whether a trial should be stopped given the current state of
+            the experiment. Used in ``should_stop_trials_early``.
     """
 
     trial_type: Type[BaseTrial] = Trial
@@ -188,6 +192,7 @@ class SchedulerOptions:
     seconds_between_polls_backoff_factor: float = 1.5
     run_trials_in_batches: bool = False
     debug_log_run_metadata: bool = False
+    early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None
 
 
 class Scheduler(WithDBSettingsBase, ABC):
@@ -1019,6 +1024,15 @@ class Scheduler(WithDBSettingsBase, ABC):
             raise NotImplementedError("Support for batched trials coming soon.")
         if not (0.0 <= options.tolerated_trial_failure_rate < 1.0):
             raise ValueError("`tolerated_trial_failure_rate` must be in [0, 1).")
+        if options.early_stopping_strategy is not None and not any(
+            m.is_available_while_running() for m in self.experiment.metrics.values()
+        ):
+            raise ValueError(
+                "Can only specify an early stopping strategy if at least one metric "
+                "is marked as `is_available_while_running`. Otherwise, we will be "
+                "unable to fetch intermediate results with which to evaluate "
+                "early stopping criteria."
+            )
 
     def _prepare_trials(
         self, max_new_trials: int
