@@ -604,7 +604,9 @@ class TestAxScheduler(TestCase):
             scheduler,
             "should_stop_trials_early",
             wraps=scheduler.should_stop_trials_early,
-        ) as mock_should_stop_trials_early:
+        ) as mock_should_stop_trials_early, patch.object(
+            scheduler, "stop_trial_runs", return_value=None
+        ) as mock_stop_trial_runs:
             res_list = list(
                 scheduler.run_trials_and_yield_results(max_trials=total_trials)
             )
@@ -618,6 +620,7 @@ class TestAxScheduler(TestCase):
             self.assertEqual(
                 mock_should_stop_trials_early.call_count, expected_num_polls
             )
+            self.assertEqual(mock_stop_trial_runs.call_count, expected_num_polls)
 
     def test_run_trials_in_batches(self):
         with self.assertRaisesRegex(

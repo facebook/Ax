@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import itertools
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
@@ -505,8 +506,8 @@ class Scheduler(WithDBSettingsBase, ABC):
             )
         return not_none(self.experiment.runner).run(trial=trial)
 
-    def stop_trial_run(self, trial: BaseTrial) -> None:
-        """Stops the job that executes a given trial.
+    def stop_trial_runs(self, trials: List[BaseTrial]) -> None:
+        """Stops the jobs that execute given trials.
 
         Used if, for example, TTL for a trial was specified and expired, or poor
         early results suggest the trial is not worth running to completion.
@@ -514,16 +515,31 @@ class Scheduler(WithDBSettingsBase, ABC):
         Requires a runner to be defined on the experiment in this base class
         implementation, but can be overridden in subclasses to not require a runner.
 
+        Overwrite default implementation if its desirable to stop trials in bulk.
+
         Args:
-            trial: Trial to be stopped.
+            trials: Trials to be stopped.
         """
+        if len(trials) == 0:
+            return
+
         if self.experiment.runner is None:
             raise NotImplementedError(  # pragma: no cover
                 "A runner is required on experiment to use its `stop` method to "
                 "stop a trial evaluation. Alternatively, `stop_trial` can be defined "
                 "on a subclass of `Scheduler` as a substitute of a runner."
             )
-        return not_none(self.experiment.runner).stop(trial=trial)
+
+        for trial in trials:
+            not_none(self.experiment.runner).stop(trial=trial)
+
+    def stop_trial_run(self, trial: BaseTrial) -> None:
+        """Stops the job that executes a given trial.
+
+        Args:
+            trial: Trial to be stopped.
+        """
+        self.stop_trial_runs(trials=[trial])
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def run_trials(self, trials: Iterable[BaseTrial]) -> Dict[int, Dict[str, Any]]:
@@ -885,8 +901,12 @@ class Scheduler(WithDBSettingsBase, ABC):
         return updated_status_dict
 
     def poll_and_process_results(self) -> bool:
-        """Polls trial runs and updates the experiment with their statuses,
-        fetches the data for newly completed trials.
+        """Takes the following actions:
+            1. Poll trial runs for their statuses
+            2. Determine which trials should be early stopped
+            3. Early-stop those trials
+            4. Update the experiment with the new trial statuses
+            5. Fetch the data for newly completed trials
 
         Returns:
             A boolean representing whether any trial evaluations completed
@@ -899,31 +919,52 @@ class Scheduler(WithDBSettingsBase, ABC):
         prev_completed_trial_idcs = set(
             self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
         )
-        new_status = self.poll_trial_status()
-        # Get set of all indices of terminated trials
-        terminated_trials = {
+
+        # 1. Poll trial statuses
+        new_status_to_trial_idcs = self.poll_trial_status()
+
+        # 2. Determine which trials to stop early
+        # Note: We could use `new_status_to_trial_idcs[TrialStatus.Running]`
+        # for the early_stopping_candidate_indices, but we don't enforce
+        # that users return the status of trials that are not being updated.
+        # Thus, if a trial was running in the last poll and is still running
+        # in this poll, it might not appear in new_status_to_trial_idcs.
+        # Instead, to get the list of all currently running trials at this
+        # point in time, we look at self.running_trials, which contains trials
+        # that were running in the last poll, and we exclude trials that were
+        # newly terminated in this poll.
+        terminated_trial_idcs = {
             index
-            for status, indices in new_status.items()
+            for status, indices in new_status_to_trial_idcs.items()
             if status.is_terminal
             for index in indices
         }
-        # We could use `new_status[TrialStatus.Running]`, but we don't enforce that
-        # users return the status of trials that are not being updated.
-        # The inclusion of terminated trials in new_status is enforced by the logic.
         early_stopping_candidate_indices = {
             trial.index
             for trial in self.running_trials
-            if trial.index not in terminated_trials
+            if trial.index not in terminated_trial_idcs
         }
-        early_stopping_new_status = self.should_stop_trials_early(
+        early_stopping_new_status_to_trial_idcs = self.should_stop_trials_early(
             trial_indices=early_stopping_candidate_indices
         )
-        new_status = self._update_status_dict(
-            status_dict=new_status, updating_status_dict=early_stopping_new_status
+
+        # 3. Stop trials early
+        # Note: We early-stop all trials returned from should_stop_trials_early,
+        # regardless of their TrialStatus value.
+        stop_trial_idcs = itertools.chain.from_iterable(
+            early_stopping_new_status_to_trial_idcs.values()
         )
-        # Update all statuses
+        self.stop_trial_runs(
+            trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_idcs]
+        )
+
+        # 4. Update trial statuses on the experiment
+        new_status_to_trial_idcs = self._update_status_dict(
+            status_dict=new_status_to_trial_idcs,
+            updating_status_dict=early_stopping_new_status_to_trial_idcs,
+        )
         updated_trials = []
-        for status, trial_idcs in new_status.items():
+        for status, trial_idcs in new_status_to_trial_idcs.items():
             if status.is_candidate or status.is_deployed:
                 # No need to consider candidate, staged or running trials here (none of
                 # these trials should actually be candidates, but we can filter on that)
@@ -940,10 +981,9 @@ class Scheduler(WithDBSettingsBase, ABC):
 
             if status.is_completed:
                 newly_completed = trial_idcs - prev_completed_trial_idcs
-                # Fetch the data for newly completed trials; this will cache the data
-                # for all metrics, for which `is_available_while_running` is False,
-                # so by pre-caching the data now, we remove the need to fetch it
-                # during candidate generation.
+                # 5. Fetch the data for newly completed trials; this will cache the data
+                # for all metrics, so by pre-caching the data now, we remove the need to
+                # fetch it during candidate generation.
                 self.experiment.fetch_trials_data(trial_indices=newly_completed)
 
             updated_trials.extend(trials)
