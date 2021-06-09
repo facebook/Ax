@@ -56,6 +56,7 @@ from ax.core.types import (
     TParameterization,
 )
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
+from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
@@ -149,6 +150,16 @@ def get_branin_experiment(
         exp.new_trial(generator_run=sobol_run)
 
     return exp
+
+
+def get_branin_experiment_with_timestamp_map_metric():
+    return Experiment(
+        name="branin_with_timestamp_map_metric",
+        search_space=get_branin_search_space(),
+        tracking_metrics=[BraninTimestampMapMetric(name="b", param_names=["x1", "x2"])],
+        runner=SyntheticRunner(),
+        default_data_type=DataType.MAP_DATA,
+    )
 
 
 def get_multi_type_experiment(

@@ -19,7 +19,6 @@ from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
-from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -28,6 +27,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_arms,
     get_branin_optimization_config,
     get_branin_search_space,
+    get_branin_experiment_with_timestamp_map_metric,
     get_data,
     get_experiment,
     get_experiment_with_map_data,
@@ -622,15 +622,7 @@ class ExperimentWithMapDataTest(TestCase):
         self.experiment = get_experiment_with_map_data_type()
 
     def _setupBraninExperiment(self, n: int) -> Experiment:
-        exp = Experiment(
-            name="test3",
-            search_space=get_branin_search_space(),
-            tracking_metrics=[
-                BraninTimestampMapMetric(name="b", param_names=["x1", "x2"])
-            ],
-            runner=SyntheticRunner(),
-            default_data_type=DataType.MAP_DATA,
-        )
+        exp = get_branin_experiment_with_timestamp_map_metric()
         batch = exp.new_batch_trial()
         batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
         batch.run()

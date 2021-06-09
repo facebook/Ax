@@ -46,6 +46,7 @@ from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_search_space,
+    get_branin_experiment_with_timestamp_map_metric,
     get_generator_run,
 )
 
@@ -661,6 +662,15 @@ class TestAxScheduler(TestCase):
                 experiment: Experiment,
                 **kwargs: Dict[str, Any],
             ) -> Optional[TrialStatus]:
+                # Make sure that we can lookup data for the trial,
+                # even though we won't use it in this dummy strategy
+                data = experiment.lookup_data(trial_indices={trial_index})
+                if data.df.empty:
+                    raise Exception(
+                        f"No data found for trial {trial_index}; "
+                        "can't determine whether or not to stop early."
+                    )
+
                 if trial_index % 2 == 1:
                     return TrialStatus.COMPLETED
 
@@ -681,7 +691,7 @@ class TestAxScheduler(TestCase):
                 return {TrialStatus.COMPLETED: {0, 2}}
 
         scheduler = SchedulerWithEarlyStoppingStrategy(
-            experiment=self.branin_experiment,  # Has runner and metrics.
+            experiment=self.branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
                 init_seconds_between_polls=0.1,

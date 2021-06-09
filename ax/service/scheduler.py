@@ -908,10 +908,12 @@ class Scheduler(WithDBSettingsBase, ABC):
     def poll_and_process_results(self) -> bool:
         """Takes the following actions:
             1. Poll trial runs for their statuses
-            2. Determine which trials should be early stopped
-            3. Early-stop those trials
-            4. Update the experiment with the new trial statuses
-            5. Fetch the data for newly completed trials
+            2. If any experiment metrics are available while running,
+               fetch data for running trials
+            3. Determine which trials should be early stopped
+            4. Early-stop those trials
+            5. Update the experiment with the new trial statuses
+            6. Fetch the data for newly completed trials
 
         Returns:
             A boolean representing whether any trial evaluations completed
@@ -928,9 +930,8 @@ class Scheduler(WithDBSettingsBase, ABC):
         # 1. Poll trial statuses
         new_status_to_trial_idcs = self.poll_trial_status()
 
-        # 2. Determine which trials to stop early
         # Note: We could use `new_status_to_trial_idcs[TrialStatus.Running]`
-        # for the early_stopping_candidate_indices, but we don't enforce
+        # for the running_trial_indices, but we don't enforce
         # that users return the status of trials that are not being updated.
         # Thus, if a trial was running in the last poll and is still running
         # in this poll, it might not appear in new_status_to_trial_idcs.
@@ -944,16 +945,27 @@ class Scheduler(WithDBSettingsBase, ABC):
             if status.is_terminal
             for index in indices
         }
-        early_stopping_candidate_indices = {
+        running_trial_indices = {
             trial.index
             for trial in self.running_trials
             if trial.index not in terminated_trial_idcs
         }
+
+        # 2. If any experiment metrics are available while running,
+        #    fetch data for running trials
+        already_fetched_trial_idcs = set()
+        if any(m.is_available_while_running for m in self.experiment.metrics.values()):
+            # Note: Metrics that are *not* available_while_running will be skipped
+            # in fetch_trials_data
+            self.experiment.fetch_trials_data(trial_indices=running_trial_indices)
+            already_fetched_trial_idcs = running_trial_indices
+
+        # 3. Determine which trials to stop early
         early_stopping_new_status_to_trial_idcs = self.should_stop_trials_early(
-            trial_indices=early_stopping_candidate_indices
+            trial_indices=running_trial_indices
         )
 
-        # 3. Stop trials early
+        # 4. Stop trials early
         # Note: We early-stop all trials returned from should_stop_trials_early,
         # regardless of their TrialStatus value.
         stop_trial_idcs = itertools.chain.from_iterable(
@@ -963,7 +975,7 @@ class Scheduler(WithDBSettingsBase, ABC):
             trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_idcs]
         )
 
-        # 4. Update trial statuses on the experiment
+        # 5. Update trial statuses on the experiment
         new_status_to_trial_idcs = self._update_status_dict(
             status_dict=new_status_to_trial_idcs,
             updating_status_dict=early_stopping_new_status_to_trial_idcs,
@@ -984,10 +996,13 @@ class Scheduler(WithDBSettingsBase, ABC):
             for trial in trials:
                 trial.mark_as(status=status)
 
+            # 6. Fetch data for newly completed trials
             if status.is_completed:
-                newly_completed = trial_idcs - prev_completed_trial_idcs
-                # 5. Fetch the data for newly completed trials; this will cache the data
-                # for all metrics, so by pre-caching the data now, we remove the need to
+                newly_completed = (
+                    trial_idcs - prev_completed_trial_idcs - already_fetched_trial_idcs
+                )
+                # Fetch the data for newly completed trials; this will cache the data
+                # for all metrics. By pre-caching the data now, we remove the need to
                 # fetch it during candidate generation.
                 self.experiment.fetch_trials_data(trial_indices=newly_completed)
 
