@@ -65,9 +65,11 @@ class BareBonesTestScheduler(Scheduler):
         return (
             True,
             {
-                "trials_completed_so_far": self.experiment.trial_indices_by_status[
-                    TrialStatus.COMPLETED
-                ]
+                # use `set` constructor to copy the set, else the value
+                # will be a pointer and all will be the same
+                "trials_completed_so_far": set(
+                    self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
+                )
             },
         )
 
@@ -579,9 +581,9 @@ class TestAxScheduler(TestCase):
         res_list = list(scheduler.run_trials_and_yield_results(max_trials=total_trials))
         self.assertEqual(len(res_list), total_trials)
         self.assertIsInstance(res_list, list)
-        self.assertDictEqual(
-            res_list[0], {"trials_completed_so_far": set(range(total_trials))}
-        )
+        self.assertEqual(len(res_list[0]["trials_completed_so_far"]), 1)
+        self.assertEqual(len(res_list[1]["trials_completed_so_far"]), 2)
+        self.assertEqual(len(res_list[2]["trials_completed_so_far"]), 3)
 
     def test_run_trials_and_yield_results_with_early_stopper(self):
         class EarlyStopsInsteadOfNormalCompletionScheduler(BareBonesTestScheduler):
@@ -614,9 +616,10 @@ class TestAxScheduler(TestCase):
             expected_num_polls = 2
             self.assertEqual(len(res_list), expected_num_polls)
             self.assertIsInstance(res_list, list)
-            self.assertDictEqual(
-                res_list[0], {"trials_completed_so_far": set(range(total_trials))}
-            )
+            # Both trials in first batch of parallelism will be early stopped
+            self.assertEqual(len(res_list[0]["trials_completed_so_far"]), 2)
+            # Third trial in second batch of parallelism will be early stopped
+            self.assertEqual(len(res_list[1]["trials_completed_so_far"]), 3)
             self.assertEqual(
                 mock_should_stop_trials_early.call_count, expected_num_polls
             )
