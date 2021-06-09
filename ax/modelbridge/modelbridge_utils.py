@@ -206,16 +206,17 @@ def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.n
         n-length list of weights.
 
     """
-    s = -1.0 if objective.minimize else 1.0
     objective_weights = np.zeros(len(outcomes))
     if isinstance(objective, ScalarizedObjective):
+        s = -1.0 if objective.minimize else 1.0
         for obj_metric, obj_weight in objective.metric_weights:
             objective_weights[outcomes.index(obj_metric.name)] = obj_weight * s
     elif isinstance(objective, MultiObjective):
-        for obj_metric, obj_weight in objective.metric_weights:
-            # Rely on previously extracted lower_is_better weights not objective.
-            objective_weights[outcomes.index(obj_metric.name)] = obj_weight or s
+        for obj, obj_weight in objective.objective_weights:
+            s = -1.0 if obj.minimize else 1.0
+            objective_weights[outcomes.index(obj.metric.name)] = obj_weight * s
     else:
+        s = -1.0 if objective.minimize else 1.0
         objective_weights[outcomes.index(objective.metric.name)] = s
     return objective_weights
 

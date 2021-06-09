@@ -804,8 +804,10 @@ def get_map_objective() -> Objective:
 
 def get_multi_objective() -> Objective:
     return MultiObjective(
-        metrics=[Metric(name="m1"), Metric(name="m3", lower_is_better=True)],
-        minimize=False,
+        objectives=[
+            Objective(metric=Metric(name="m1")),
+            Objective(metric=Metric(name="m3", lower_is_better=True), minimize=True),
+        ],
     )
 
 
@@ -823,9 +825,9 @@ def get_branin_objective(minimize: bool = False) -> Objective:
 
 def get_branin_multi_objective() -> Objective:
     return MultiObjective(
-        metrics=[
-            get_branin_metric(name="branin_a"),
-            get_branin_metric(name="branin_b"),
+        objectives=[
+            Objective(metric=get_branin_metric(name="branin_a")),
+            Objective(metric=get_branin_metric(name="branin_b")),
         ],
         minimize=False,
     )

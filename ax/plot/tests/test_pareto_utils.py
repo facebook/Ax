@@ -6,7 +6,7 @@
 
 import numpy as np
 from ax.core.data import Data
-from ax.core.objective import MultiObjective
+from ax.core.objective import Objective, MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
@@ -72,24 +72,37 @@ class ParetoUtilsTest(TestCase):
         with self.assertRaises(ValueError):
             get_observed_pareto_frontiers(experiment=experiment, data=Data())
 
-        metrics = [
-            BraninMetric(name="m1", param_names=["x1", "x2"], lower_is_better=True),
-            NegativeBraninMetric(
-                name="m2", param_names=["x1", "x2"], lower_is_better=True
+        objectives = [
+            Objective(
+                metric=BraninMetric(
+                    name="m1", param_names=["x1", "x2"], lower_is_better=True
+                ),
+                minimize=True,
             ),
-            BraninMetric(name="m3", param_names=["x1", "x2"], lower_is_better=True),
+            Objective(
+                metric=NegativeBraninMetric(
+                    name="m2", param_names=["x1", "x2"], lower_is_better=True
+                ),
+                minimize=True,
+            ),
+            Objective(
+                metric=BraninMetric(
+                    name="m3", param_names=["x1", "x2"], lower_is_better=True
+                ),
+                minimize=True,
+            ),
         ]
         bounds = [0, -100, 0]
         objective_thresholds = [
             ObjectiveThreshold(
-                metric=metric,
+                metric=objective.metric,
                 bound=bounds[i],
                 relative=True,
                 op=ComparisonOp.LEQ,
             )
-            for i, metric in enumerate(metrics)
+            for i, objective in enumerate(objectives)
         ]
-        objective = MultiObjective(metrics=metrics, minimize=True)
+        objective = MultiObjective(objectives=objectives)
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=objective,
             objective_thresholds=objective_thresholds,

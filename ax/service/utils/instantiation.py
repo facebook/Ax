@@ -341,12 +341,14 @@ def objective_threshold_constraint_from_str(
     )
 
 
-def make_objectives(objectives: Dict[str, str]) -> List[Metric]:
+def make_objectives(objectives: Dict[str, str]) -> List[Objective]:
     try:
         return [
-            Metric(
-                name=metric_name,
-                lower_is_better=(
+            Objective(
+                metric=Metric(
+                    name=metric_name,
+                ),
+                minimize=(
                     MetricObjective[min_or_max.upper()] == MetricObjective.MINIMIZE
                 ),
             )
@@ -395,7 +397,7 @@ def make_objective_thresholds(
 
 
 def optimization_config_from_objectives(
-    objectives: List[Metric],
+    objectives: List[Objective],
     objective_thresholds: List[ObjectiveThreshold],
     outcome_constraints: List[OutcomeConstraint],
 ) -> OptimizationConfig:
@@ -414,13 +416,11 @@ def optimization_config_from_objectives(
                 "Single-objective optimizations must not specify objective thresholds."
             )
         return OptimizationConfig(
-            objective=Objective(
-                metric=objectives[0],
-            ),
+            objective=objectives[0],
             outcome_constraints=outcome_constraints,
         )
     else:
-        objective_names = {m.name for m in objectives}
+        objective_names = {m.metric.name for m in objectives}
         threshold_names = {oc.metric.name for oc in objective_thresholds}
         if objective_names != threshold_names:
             diff = objective_names.symmetric_difference(threshold_names)
@@ -430,7 +430,7 @@ def optimization_config_from_objectives(
             )
 
         return MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(metrics=objectives),
+            objective=MultiObjective(objectives=objectives),
             outcome_constraints=outcome_constraints,
             objective_thresholds=objective_thresholds,
         )

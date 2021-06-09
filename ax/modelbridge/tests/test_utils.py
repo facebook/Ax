@@ -309,7 +309,9 @@ class TestModelbridgeUtils(TestCase):
 
     def test_extract_objective_thresholds(self):
         outcomes = ["m1", "m2", "m3", "m4"]
-        objective = MultiObjective(metrics=[Metric(name) for name in outcomes[:3]])
+        objective = MultiObjective(
+            objectives=[Objective(metric=Metric(name)) for name in outcomes[:3]]
+        )
         objective_thresholds = [
             ObjectiveThreshold(
                 metric=Metric(name), op=ComparisonOp.LEQ, bound=float(i + 2)

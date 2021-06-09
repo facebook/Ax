@@ -119,10 +119,10 @@ class TestInstantiationtUtils(TestCase):
     def test_make_objectives(self):
         with self.assertRaisesRegex(ValueError, "specify 'minimize' or 'maximize'"):
             make_objectives({"branin": "unknown"})
-        metrics = make_objectives({"branin": "minimize", "currin": "maximize"})
-        branin_metric = [m.lower_is_better for m in metrics if m.name == "branin"]
+        objectives = make_objectives({"branin": "minimize", "currin": "maximize"})
+        branin_metric = [o.minimize for o in objectives if o.metric.name == "branin"]
         self.assertTrue(branin_metric[0])
-        currin_metric = [m.lower_is_better for m in metrics if m.name == "currin"]
+        currin_metric = [o.minimize for o in objectives if o.metric.name == "currin"]
         self.assertFalse(currin_metric[0])
 
     def test_make_optimization_config(self):

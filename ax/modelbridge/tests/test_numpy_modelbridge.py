@@ -253,8 +253,12 @@ class NumpyModelBridgeTest(TestCase):
         # Test with MultiObjective (unweighted multiple objectives)
         oc3 = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(
-                metrics=[Metric(name="a"), Metric(name="b", lower_is_better=True)],
-                minimize=True,
+                objectives=[
+                    Objective(metric=Metric(name="a")),
+                    Objective(
+                        metric=Metric(name="b", lower_is_better=True), minimize=True
+                    ),
+                ],
             )
         )
         search_space = SearchSpace(self.parameters)  # Unconstrained

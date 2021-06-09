@@ -244,9 +244,8 @@ def multi_objective_to_dict(objective: MultiObjective) -> Dict[str, Any]:
     """Convert Ax objective to a dictionary."""
     return {
         "__type": objective.__class__.__name__,
-        "metrics": objective.metrics,
+        "objectives": objective.objectives,
         "weights": objective.weights,
-        "minimize": objective.minimize,
     }
 
 

@@ -10,6 +10,13 @@ from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.utils.common.testutils import TestCase
 
+MULTI_OBJECTIVE_REPR = """
+MultiObjective(objectives=
+[Objective(metric_name="m1", minimize=False),
+Objective(metric_name="m2", minimize=True),
+Objective(metric_name="m3", minimize=False)])
+"""
+
 
 class ObjectiveTest(TestCase):
     def setUp(self):
@@ -18,9 +25,18 @@ class ObjectiveTest(TestCase):
             "m2": Metric(name="m2", lower_is_better=True),
             "m3": Metric(name="m3", lower_is_better=False),
         }
+        self.objectives = {
+            "o1": Objective(metric=self.metrics["m1"]),
+            "o2": Objective(metric=self.metrics["m2"], minimize=True),
+            "o3": Objective(metric=self.metrics["m3"], minimize=False),
+        }
         self.objective = Objective(metric=self.metrics["m1"], minimize=False)
         self.multi_objective = MultiObjective(
-            metrics=[self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]]
+            objectives=[
+                self.objectives["o1"],
+                self.objectives["o2"],
+                self.objectives["o3"],
+            ]
         )
         self.scalarized_objective = ScalarizedObjective(
             metrics=[self.metrics["m1"], self.metrics["m2"]]
@@ -54,14 +70,36 @@ class ObjectiveTest(TestCase):
             return self.multi_objective.metric
 
         self.assertEqual(self.multi_objective.metrics, list(self.metrics.values()))
-        weights = [mw[1] for mw in self.multi_objective.metric_weights]
-        self.assertEqual(weights, [1.0, -1.0, 1.0])
+        minimizes = [obj.minimize for obj in self.multi_objective.objectives]
+        self.assertEqual(minimizes, [False, True, False])
+        weights = [mw[1] for mw in self.multi_objective.objective_weights]
+        self.assertEqual(weights, [1.0, 1.0, 1.0])
         self.assertEqual(self.multi_objective.clone(), self.multi_objective)
         self.assertEqual(
             str(self.multi_objective),
-            "MultiObjective(metric_names=['m1', 'm2', 'm3'], minimize=False)",
+            (
+                "MultiObjective(objectives="
+                '[Objective(metric_name="m1", minimize=False), '
+                'Objective(metric_name="m2", minimize=True), '
+                'Objective(metric_name="m3", minimize=False)])'
+            ),
         )
         self.assertEqual(self.multi_objective.get_unconstrainable_metrics(), [])
+
+    def testMultiObjectiveBackwardsCompatibility(self):
+        multi_objective = MultiObjective(
+            metrics=[self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]]
+        )
+        minimizes = [obj.minimize for obj in multi_objective.objectives]
+        self.assertEqual(multi_objective.metrics, list(self.metrics.values()))
+        self.assertEqual(minimizes, [False, True, False])
+
+        multi_objective_min = MultiObjective(
+            metrics=[self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]],
+            minimize=True,
+        )
+        minimizes = [obj.minimize for obj in multi_objective_min.objectives]
+        self.assertEqual(minimizes, [True, False, True])
 
     def testScalarizedObjective(self):
         with self.assertRaises(NotImplementedError):

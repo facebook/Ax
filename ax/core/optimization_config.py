@@ -8,7 +8,7 @@ from itertools import groupby
 from typing import Dict, List, Optional
 
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective, Objective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.outcome_constraint import (
     ComparisonOp,
     ObjectiveThreshold,
@@ -352,12 +352,13 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         Args:
             outcome_constraints: Constraints to validate.
         """
-        if not isinstance(objective, MultiObjective):
+        if not isinstance(objective, (MultiObjective, ScalarizedObjective)):
             raise TypeError(
                 (
                     "`MultiObjectiveOptimizationConfig` requires an objective "
-                    "of type `MultiObjective`. Use `OptimizationConfig` instead "
-                    "if using a single-metric objective."
+                    "of type `MultiObjective` or `ScalarizedObjective`. "
+                    "Use `OptimizationConfig` instead if using a "
+                    "single-metric objective."
                 )
             )
         outcome_constraints = outcome_constraints or []

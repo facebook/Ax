@@ -396,7 +396,7 @@ class Encoder:
 
         return checked_cast(SQAMetric, objective_sqa)
 
-    def multi_objective_to_sqa(self, objective: MultiObjective) -> SQAMetric:
+    def multi_objective_to_sqa(self, multi_objective: MultiObjective) -> SQAMetric:
         """Convert Ax Multi Objective to SQLAlchemy and compile a list of (object,
         sqa_counterpart) tuples to set `db_id` on user-facing classes after
         the conversion is complete and the SQL session is flushed (SQLAlchemy
@@ -406,29 +406,23 @@ class Encoder:
             corresponding to `metrics` attribute of `MultiObjective`.
             NOTE: The parent is used as a placeholder for storage purposes.
         """
-        metrics_by_name = {
-            metric.name: (
-                metric,
-                cast(SQAMetric, self.config.class_to_sqa_class[Metric]),
-                self.get_metric_type_and_properties(metric=metric),
-            )
-            for metric in objective.metrics
-        }
-
         # Constructing children SQAMetric classes (these are the real metrics in
         # the `MultiObjective`).
-        children_metrics = []
-        for metric_name in metrics_by_name:
-            metric, metric_cls, type_and_properties = metrics_by_name[metric_name]
-            children_metrics.append(
-                metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a function.
-                    id=metric.db_id,
-                    name=metric.name,
+        children_objectives = []
+        for objective in multi_objective.objectives:
+            objective_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+            type_and_properties = self.get_metric_type_and_properties(
+                metric=objective.metric
+            )
+            children_objectives.append(
+                objective_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
+                    id=objective.db_id,
+                    name=objective.metric.name,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OBJECTIVE,
                     minimize=objective.minimize,
                     properties=type_and_properties[1],
-                    lower_is_better=metric.lower_is_better,
+                    lower_is_better=objective.metric.lower_is_better,
                 )
             )
 
@@ -437,13 +431,11 @@ class Encoder:
         parent_metric_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
         parent_metric = (
             parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
-                id=objective.db_id,
-                name="scalarized_objective",
+                id=multi_objective.db_id,
+                name="multi_objective",
                 metric_type=METRIC_REGISTRY[Metric],
                 intent=MetricIntent.MULTI_OBJECTIVE,
-                minimize=objective.minimize,
-                lower_is_better=objective.minimize,
-                scalarized_objective_children_metrics=children_metrics,
+                scalarized_objective_children_metrics=children_objectives,
             )
         )
         return parent_metric

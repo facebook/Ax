@@ -461,11 +461,6 @@ class Decoder:
             metric_sqa.intent == MetricIntent.MULTI_OBJECTIVE
         ):  # metric_sqa is a parent whose children are individual
             # metrics in MultiObjective
-            if metric_sqa.minimize is None:
-                raise SQADecodeError(  # pragma: no cover
-                    "Cannot decode SQAMetric to MultiObjective \
-                    because minimize is None."
-                )
             metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
             if metrics_sqa_children is None:
                 raise SQADecodeError(  # pragma: no cover
@@ -474,15 +469,15 @@ class Decoder:
                 )
 
             # Extracting metric and weight for each child
-            metrics = [
-                self.metric_from_sqa_util(child) for child in metrics_sqa_children
+            objectives = [
+                Objective(
+                    metric=self.metric_from_sqa_util(metric_sqa),
+                    minimize=metric_sqa.minimize,
+                )
+                for metric_sqa in metrics_sqa_children
             ]
 
-            multi_objective = MultiObjective(
-                metrics=list(metrics),
-                # pyre-fixme[6]: Expected `bool` for 2nd param but got `Optional[bool]`.
-                minimize=metric_sqa.minimize,
-            )
+            multi_objective = MultiObjective(objectives=objectives)
             multi_objective.db_id = metric_sqa.id
             return multi_objective
         elif (

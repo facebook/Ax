@@ -28,8 +28,9 @@ OC_STR = (
 )
 
 MOOC_STR = (
-    "OptimizationConfig(objective=MultiObjective("
-    "metric_names=['m1', 'm2'], minimize=False), "
+    "OptimizationConfig(objective=MultiObjective(objectives="
+    '[Objective(metric_name="m1", minimize=True), '
+    'Objective(metric_name="m2", minimize=True)]), '
     "outcome_constraints=[OutcomeConstraint(m2 >= -0.25%), "
     "OutcomeConstraint(m2 <= 0.25%)], objective_thresholds=[])"
 )
@@ -41,7 +42,7 @@ class OptimizationConfigTest(TestCase):
         self.objective = Objective(metric=self.metrics["m1"], minimize=False)
         self.alt_objective = Objective(metric=self.metrics["m2"], minimize=False)
         self.multi_objective = MultiObjective(
-            metrics=[self.metrics["m1"], self.metrics["m2"]]
+            objectives=[self.objective, self.alt_objective],
         )
         self.m2_objective = ScalarizedObjective(
             metrics=[self.metrics["m1"], self.metrics["m2"]]
@@ -186,11 +187,18 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             "m2": Metric(name="m2", lower_is_better=False),
             "m3": Metric(name="m3", lower_is_better=False),
         }
+        self.objectives = {
+            "o1": Objective(metric=self.metrics["m1"]),
+            "o2": Objective(metric=self.metrics["m2"], minimize=True),
+            "o3": Objective(metric=self.metrics["m3"], minimize=False),
+        }
         self.objective = Objective(metric=self.metrics["m1"], minimize=False)
         self.multi_objective = MultiObjective(
-            metrics=[self.metrics["m1"], self.metrics["m2"]]
+            objectives=[self.objectives["o1"], self.objectives["o2"]]
         )
-        self.multi_objective_just_m2 = MultiObjective(metrics=[self.metrics["m2"]])
+        self.multi_objective_just_m2 = MultiObjective(
+            objectives=[self.objectives["o2"]]
+        )
         self.outcome_constraint = OutcomeConstraint(
             metric=self.metrics["m2"], op=ComparisonOp.GEQ, bound=-0.25
         )
