@@ -700,8 +700,8 @@ class TestAxScheduler(TestCase):
             ),
         )
         with patch.object(
-            scheduler, "stop_trial_run", return_value=None
-        ) as mock_stop_trial_run:
+            scheduler, "stop_trial_runs", return_value=None
+        ) as mock_stop_trial_runs:
             res_list = list(
                 scheduler.run_trials_and_yield_results(max_trials=total_trials)
             )
@@ -713,7 +713,7 @@ class TestAxScheduler(TestCase):
             self.assertDictEqual(
                 res_list[1], {"trials_completed_so_far": set(range(total_trials))}
             )
-            self.assertEqual(mock_stop_trial_run.call_count, 1)
+            self.assertEqual(mock_stop_trial_runs.call_count, expected_num_steps)
 
     def test_run_trials_in_batches(self):
         with self.assertRaisesRegex(
