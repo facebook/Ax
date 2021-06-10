@@ -349,6 +349,14 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.status, TrialStatus.FAILED)
         self.assertIsNotNone(self.batch.time_completed)
 
+    def testEarlyStoppedBatchTrial(self):
+        self.batch.runner = SyntheticRunner()
+        self.batch.run()
+        self.batch.mark_early_stopped()
+
+        self.assertEqual(self.batch.status, TrialStatus.EARLY_STOPPED)
+        self.assertIsNotNone(self.batch.time_completed)
+
     def testAbandonArm(self):
         arm = self.batch.arms[0]
         reason = "Bad arm"

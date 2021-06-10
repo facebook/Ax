@@ -71,7 +71,10 @@ class BareBonesTestScheduler(Scheduler):
                 # will be a pointer and all will be the same
                 "trials_completed_so_far": set(
                     self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
-                )
+                ),
+                "trials_early_stopped_so_far": set(
+                    self.experiment.trial_indices_by_status[TrialStatus.EARLY_STOPPED]
+                ),
             },
         )
 
@@ -615,7 +618,7 @@ class TestAxScheduler(TestCase):
                 return {}
 
             def should_stop_trials_early(self, trial_indices: Set[int]):
-                return {TrialStatus.COMPLETED: trial_indices}
+                return {TrialStatus.EARLY_STOPPED: trial_indices}
 
         total_trials = 3
         scheduler = EarlyStopsInsteadOfNormalCompletionScheduler(
@@ -641,9 +644,9 @@ class TestAxScheduler(TestCase):
             self.assertEqual(len(res_list), expected_num_polls)
             self.assertIsInstance(res_list, list)
             # Both trials in first batch of parallelism will be early stopped
-            self.assertEqual(len(res_list[0]["trials_completed_so_far"]), 2)
+            self.assertEqual(len(res_list[0]["trials_early_stopped_so_far"]), 2)
             # Third trial in second batch of parallelism will be early stopped
-            self.assertEqual(len(res_list[1]["trials_completed_so_far"]), 3)
+            self.assertEqual(len(res_list[1]["trials_early_stopped_so_far"]), 3)
             self.assertEqual(
                 mock_should_stop_trials_early.call_count, expected_num_polls
             )
@@ -672,7 +675,7 @@ class TestAxScheduler(TestCase):
                 new_statuses = {}
                 for trial_index in trial_indices:
                     if trial_index % 2 == 1:
-                        new_statuses[trial_index] = TrialStatus.COMPLETED
+                        new_statuses[trial_index] = TrialStatus.EARLY_STOPPED
                     else:
                         new_statuses[trial_index] = None
                 return new_statuses
@@ -707,12 +710,11 @@ class TestAxScheduler(TestCase):
             )
             expected_num_steps = 2
             self.assertEqual(len(res_list), expected_num_steps)
-            # Trial #1 completed in first step
-            self.assertDictEqual(res_list[0], {"trials_completed_so_far": {1}})
+            # Trial #1 early stopped in first step
+            self.assertEqual(res_list[0]["trials_early_stopped_so_far"], {1})
             # All trials completed by end of second step
-            self.assertDictEqual(
-                res_list[1], {"trials_completed_so_far": set(range(total_trials))}
-            )
+            self.assertEqual(res_list[1]["trials_early_stopped_so_far"], {1})
+            self.assertEqual(res_list[1]["trials_completed_so_far"], {0, 2})
             self.assertEqual(mock_stop_trial_runs.call_count, expected_num_steps)
 
     def test_run_trials_in_batches(self):

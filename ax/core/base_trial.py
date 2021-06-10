@@ -33,12 +33,14 @@ class TrialStatus(int, Enum):
 
         CANDIDATE --> STAGED --> RUNNING --> COMPLETED
                   ------------->         --> FAILED (machine failure)
+                                         --> EARLY_STOPPED (deemed unpromising)
                   -------------------------> ABANDONED (human-initiated action)
 
     Trials may be abandoned at any time prior to completion or failure
     via human intervention. The difference between abandonment and failure
     is that the former is human-directed, while the latter is an internal
-    failure state.
+    failure state. Early-stopped refers to trials that were deemed
+    unpromising by an early-stopping strategy and therefore terminated.
 
     Additionally, when trials are deployed, they may be in an intermediate
     staged state (e.g. scheduled but waiting for resources) or immediately
@@ -56,6 +58,7 @@ class TrialStatus(int, Enum):
     RUNNING = 4
     ABANDONED = 5
     DISPATCHED = 6  # Deprecated.
+    EARLY_STOPPED = 7
 
     @property
     def is_terminal(self) -> bool:
@@ -572,6 +575,18 @@ class BaseTrial(ABC, SortableBase):
         self._time_completed = datetime.now()
         return self
 
+    def mark_early_stopped(self) -> BaseTrial:
+        """Mark trial as early stopped.
+
+        Returns:
+            The trial instance.
+        """
+        if self._status != TrialStatus.RUNNING:
+            raise ValueError("Can only early stop trial that is currently running.")
+        self._status = TrialStatus.EARLY_STOPPED
+        self._time_completed = datetime.now()
+        return self
+
     def mark_as(self, status: TrialStatus, **kwargs: Any) -> BaseTrial:
         """Mark trial with a new TrialStatus.
 
@@ -594,6 +609,8 @@ class BaseTrial(ABC, SortableBase):
             self.mark_failed()
         elif status == TrialStatus.COMPLETED:
             self.mark_completed()
+        elif status == TrialStatus.EARLY_STOPPED:
+            self.mark_early_stopped()
         else:
             raise ValueError(f"Cannot mark trial as {status}.")
         return self
