@@ -961,24 +961,20 @@ class Scheduler(WithDBSettingsBase, ABC):
             already_fetched_trial_idcs = running_trial_indices
 
         # 3. Determine which trials to stop early
-        early_stopping_new_status_to_trial_idcs = self.should_stop_trials_early(
+        stop_trial_idcs = self.should_stop_trials_early(
             trial_indices=running_trial_indices
         )
 
         # 4. Stop trials early
-        # Note: We early-stop all trials returned from should_stop_trials_early,
-        # regardless of their TrialStatus value.
-        stop_trial_idcs = itertools.chain.from_iterable(
-            early_stopping_new_status_to_trial_idcs.values()
-        )
         self.stop_trial_runs(
             trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_idcs]
         )
 
         # 5. Update trial statuses on the experiment
+        early_stop_status_to_trial_idcs = {TrialStatus.EARLY_STOPPED: stop_trial_idcs}
         new_status_to_trial_idcs = self._update_status_dict(
             status_dict=new_status_to_trial_idcs,
-            updating_status_dict=early_stopping_new_status_to_trial_idcs,
+            updating_status_dict=early_stop_status_to_trial_idcs,
         )
         updated_trials = []
         for status, trial_idcs in new_status_to_trial_idcs.items():
@@ -1017,30 +1013,23 @@ class Scheduler(WithDBSettingsBase, ABC):
         )
         return updated_any_trial
 
-    def should_stop_trials_early(
-        self, trial_indices: Set[int]
-    ) -> Dict[TrialStatus, Set[int]]:
+    def should_stop_trials_early(self, trial_indices: Set[int]) -> Set[int]:
         """Evaluate whether to early-stop running trials.
 
         Args:
             trial_indices: Indices of trials to consider for early stopping.
 
         Returns:
-            Dict with new suggested ``TrialStatus`` as keys and a set of
-            indices of trials to update (subset of initially-passed trials) as values.
+            A set of indices of trials to early-stop (will be a subset of
+            initially-passed trials).
         """
         if self.options.early_stopping_strategy is None:
-            return {}
+            return set()
 
         early_stopping_strategy = not_none(self.options.early_stopping_strategy)
-        new_status_to_trial_idcs = defaultdict(set)
-        maybe_new_trial_statuses = early_stopping_strategy.should_stop_trials_early(
+        return early_stopping_strategy.should_stop_trials_early(
             trial_indices=trial_indices, experiment=self.experiment
         )
-        for idx, maybe_new_trial_status in maybe_new_trial_statuses.items():
-            if maybe_new_trial_status is not None:
-                new_status_to_trial_idcs[maybe_new_trial_status].add(idx)
-        return new_status_to_trial_idcs
 
     def _validate_options(self, options: SchedulerOptions) -> None:
         """Validates `SchedulerOptions` for compatibility with given

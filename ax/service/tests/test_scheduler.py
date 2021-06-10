@@ -618,7 +618,7 @@ class TestAxScheduler(TestCase):
                 return {}
 
             def should_stop_trials_early(self, trial_indices: Set[int]):
-                return {TrialStatus.EARLY_STOPPED: trial_indices}
+                return trial_indices
 
         total_trials = 3
         scheduler = EarlyStopsInsteadOfNormalCompletionScheduler(
@@ -663,7 +663,7 @@ class TestAxScheduler(TestCase):
                 trial_indices: Set[int],
                 experiment: Experiment,
                 **kwargs: Dict[str, Any],
-            ) -> Dict[int, Optional[TrialStatus]]:
+            ) -> Set[int]:
                 # Make sure that we can lookup data for the trial,
                 # even though we won't use it in this dummy strategy
                 data = experiment.lookup_data(trial_indices=trial_indices)
@@ -672,13 +672,7 @@ class TestAxScheduler(TestCase):
                         f"No data found for trials {trial_indices}; "
                         "can't determine whether or not to stop early."
                     )
-                new_statuses = {}
-                for trial_index in trial_indices:
-                    if trial_index % 2 == 1:
-                        new_statuses[trial_index] = TrialStatus.EARLY_STOPPED
-                    else:
-                        new_statuses[trial_index] = None
-                return new_statuses
+                return {idx for idx in trial_indices if idx % 2 == 1}
 
         class SchedulerWithEarlyStoppingStrategy(BareBonesTestScheduler):
             poll_trial_status_count = 0
