@@ -10,7 +10,7 @@ from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Iterable, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, Set, Tuple
 from unittest.mock import patch
 
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -201,6 +201,15 @@ class TestAxScheduler(TestCase):
             scheduler.run_all_trials()
 
     def test_validate_early_stopping_strategy(self):
+        class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
+            def should_stop_trials_early(
+                self,
+                trial_indices: Set[int],
+                experiment: Experiment,
+                **kwargs: Dict[str, Any],
+            ) -> Set[int]:
+                return {}
+
         with patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,
@@ -209,7 +218,7 @@ class TestAxScheduler(TestCase):
                 experiment=self.branin_experiment,
                 generation_strategy=self.sobol_GPEI_GS,
                 options=SchedulerOptions(
-                    early_stopping_strategy=BaseEarlyStoppingStrategy()
+                    early_stopping_strategy=DummyEarlyStoppingStrategy()
                 ),
             )
 
@@ -218,7 +227,7 @@ class TestAxScheduler(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_GPEI_GS,
             options=SchedulerOptions(
-                early_stopping_strategy=BaseEarlyStoppingStrategy()
+                early_stopping_strategy=DummyEarlyStoppingStrategy()
             ),
         )
 
