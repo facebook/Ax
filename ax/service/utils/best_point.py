@@ -156,8 +156,6 @@ def _get_best_row_for_scalarized_objective(
     df: pd.DataFrame,
     objective: ScalarizedObjective,
 ) -> pd.DataFrame:
-    # pyre-fixme[9]: df has type `DataFrame`; used as
-    #  `Union[pd.core.frame.DataFrame, pd.core.series.Series]`.
     df = df.copy()
     # First, add a weight column, setting 0.0 if the metric is not part
     # of the objective

@@ -236,9 +236,6 @@ class REMBOStrategy(GenerationStrategy):
             return None
         # Else,
         df_i = data.df[data.df["arm_name"].isin(arm_names)].copy()
-        # pyre-fixme[6]: Expected `Optional[pandas.core.frame.DataFrame]` for 1st
-        #  param but got `Union[pandas.core.frame.DataFrame,
-        #  pandas.core.series.Series]`.
         return Data(df_i)
 
     def get_projection(
