@@ -16,6 +16,9 @@ from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.types import TParameterization
+from ax.utils.common.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class NoisyFunctionMapMetric(MapMetric):
@@ -29,6 +32,7 @@ class NoisyFunctionMapMetric(MapMetric):
         param_names: List[str],
         noise_sd: float = 0.0,
         lower_is_better: Optional[bool] = None,
+        cache_evaluations: bool = True,
     ) -> None:
         """
         Metric is computed by evaluating a deterministic function, implemented
@@ -44,9 +48,15 @@ class NoisyFunctionMapMetric(MapMetric):
                 to the deterministic function.
             noise_sd: Scale of normal noise added to the function result.
             lower_is_better: Flag for metrics which should be minimized.
+            cache_evaluations: Flag for whether previous evaluations should
+                be cached. If so, those values are returned for previously
+                evaluated parameters using the same realization of the
+                observation noise.
         """
         self.param_names = param_names
         self.noise_sd = noise_sd
+        self.cache = {}
+        self.cache_evaluations = cache_evaluations
         super().__init__(name=name, lower_is_better=lower_is_better)
 
     @classmethod
@@ -81,7 +91,7 @@ class NoisyFunctionMapMetric(MapMetric):
                 )
                 # TODO(jej): Use hierarchical DF here for easier syntax?
                 arm_names.append(name)
-                mean.append(self.f(x) + np.random.randn() * noise_sd)
+                mean.append(self._cached_f(x, noisy=noisy))
             for map_key, values in map_keys_dict_of_lists.items():
                 map_keys_values[map_key].extend(values)
         df = pd.DataFrame(
@@ -107,6 +117,17 @@ class NoisyFunctionMapMetric(MapMetric):
             if (p in self.param_names) or p in (map_key_series.keys())
         ]
         return np.array(features)
+
+    def _cached_f(self, x: np.ndarray, noisy: bool) -> float:
+        noise_sd = self.noise_sd if noisy else 0.0
+        x_tuple = tuple(x)  # works since x is 1-d array
+        if not self.cache_evaluations:
+            return self.f(x) + np.random.randn() * noise_sd
+        if x_tuple in self.cache:
+            return self.cache[x_tuple]
+        new_eval = self.f(x) + np.random.randn() * noise_sd
+        self.cache[x_tuple] = new_eval
+        return new_eval
 
     def f(self, x: np.ndarray) -> float:
         """The deterministic function that produces the metric outcomes."""

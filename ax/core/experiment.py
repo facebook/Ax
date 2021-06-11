@@ -19,6 +19,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
@@ -32,7 +33,6 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast
-
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -97,7 +97,14 @@ class Experiment(Base):
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
         self._properties: Dict[str, Any] = properties or {}
-        self._default_data_type = default_data_type or DataType.DATA
+        self._default_data_type = default_data_type or (
+            DataType.MAP_DATA
+            if (
+                optimization_config is not None
+                and isinstance(optimization_config.objective.metrics[0], MapMetric)
+            )
+            else DataType.DATA
+        )
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary

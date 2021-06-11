@@ -45,6 +45,14 @@ class SimulatedBackendRunner(Runner):
         self.simulator.run_trial(trial_index=trial.index, runtime=runtime)
         return {"runtime": runtime}
 
+    def stop(self, trial: BaseTrial) -> None:
+        """Stop a trial on the BackendSimulator.
+
+        Args:
+            trial: Trial to stop on the simulator.
+        """
+        self.simulator.stop_trial(trial.index)
+
 
 def sample_runtime_unif(trial: BaseTrial, low: float = 1.0, high: float = 5.0) -> float:
     """Return a uniform runtime in [low, high]

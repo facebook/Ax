@@ -10,5 +10,9 @@ from ax.metrics.chemistry import ChemistryMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.sklearn import SklearnMetric
 
-
-__all__ = ["BraninMetric", "ChemistryMetric", "FactorialMetric", "SklearnMetric"]
+__all__ = [
+    "BraninMetric",
+    "ChemistryMetric",
+    "FactorialMetric",
+    "SklearnMetric",
+]

@@ -17,7 +17,7 @@ Branin
     :show-inheritance:
 
 Branin Map
-~~~~~~~~~~~
+~~~~~~~~~~
 
 .. automodule:: ax.metrics.branin_map
     :members:
@@ -25,7 +25,7 @@ Branin Map
     :show-inheritance:
 
 Chemistry
-~~~~~~~~~~~~~~~
+~~~~~~~~~
 
 .. automodule:: ax.metrics.chemistry
     :members:
@@ -49,7 +49,7 @@ Hartmann6
     :show-inheritance:
 
 L2 Norm
-~~~~~~~~~
+~~~~~~~
 
 .. automodule:: ax.metrics.l2norm
     :members:
@@ -73,7 +73,7 @@ Noisy Function Map
     :show-inheritance:
 
 Sklearn
-~~~~~~~~~~~~~~~
+~~~~~~~
 
 .. automodule:: ax.metrics.sklearn
     :members:

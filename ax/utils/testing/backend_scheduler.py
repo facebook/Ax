@@ -17,8 +17,11 @@ from ax.service.scheduler import (
     Scheduler,
     SchedulerOptions,
 )
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.backend_simulator import BackendSimulator
+
+logger = get_logger(__name__)
 
 
 class AsyncSimulatedBackendScheduler(Scheduler):
@@ -56,8 +59,7 @@ class AsyncSimulatedBackendScheduler(Scheduler):
 
     @property
     def backend_simulator(self) -> BackendSimulator:
-        """Get the ``BackendSimulator`` stored on the runner of the
-        experiment.
+        """Get the ``BackendSimulator`` stored on the runner of the experiment.
 
         Returns:
             The backend simulator.
@@ -65,7 +67,9 @@ class AsyncSimulatedBackendScheduler(Scheduler):
         return self.experiment.runner.simulator  # pyre-ignore[16]
 
     def poll_trial_status(self) -> Dict[TrialStatus, Set[int]]:
-        """Poll trial status from the ``BackendSimulator``.
+        """Poll trial status from the ``BackendSimulator``. NOTE: The ``Scheduler``
+        currently marks trials as running when they are created, but some of these
+        trials may actually be in queued on the ``BackendSimulator``.
 
         Returns:
             A Dict mapping statuses to sets of trial indices.
@@ -103,3 +107,32 @@ class AsyncSimulatedBackendScheduler(Scheduler):
         num_running = len(trials_by_status[TrialStatus.RUNNING])
         capacity = self.max_pending_trials - (num_staged + num_running)
         return capacity
+
+    def should_stop_trials_early(self, trial_indices: Set[int]) -> Set[int]:
+        """Given a set of trial indices, decide whether or not to early-stop
+        running trials using the ``early_stopping_strategy``.
+
+        Args:
+            trial_indices: Indices of trials to consider for early stopping.
+
+        Returns:
+            Dict with new suggested ``TrialStatus`` as keys and a set of
+            indices of trials to update (subset of initially-passed trials) as values.
+        """
+        # TODO: The status on the experiment does not distinguish between
+        # running and queued trials, so here we check status on the
+        # ``backend_simulator`` directly to make sure it is running.
+        running_trials = set()
+        skipped_trials = set()
+        for trial_index in trial_indices:
+            status = self.backend_simulator.lookup_trial_index_status(trial_index)
+            if status == TrialStatus.RUNNING:
+                running_trials.add(trial_index)
+            else:
+                skipped_trials.add(trial_index)
+        if len(skipped_trials) > 0:
+            logger.info(
+                f"Not sending {skipped_trials} to base `should_stop_trials_early` "
+                "because they are not running on the backend simulator."
+            )
+        return super().should_stop_trials_early(trial_indices=running_trials)
