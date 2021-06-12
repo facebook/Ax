@@ -41,6 +41,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.runners.simulated_backend import SimulatedBackendRunner
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
+from ax.service.early_stopping_strategy import BaseEarlyStoppingStrategy
 from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
@@ -79,6 +80,7 @@ class AsyncBenchmarkOptions:
             to the ``AsyncSimulatedBackendScheduler``.
         max_pending_trials: The maximum number of pending trials, which is
             passed to the ``AsyncSimulatedBackendScheduler``.
+        early_stopping_strategy: The early stopping strategy.
     """
 
     scheduler_options: Optional[SchedulerOptions] = None
@@ -86,6 +88,7 @@ class AsyncBenchmarkOptions:
     sample_runtime_func: Optional[Callable[[BaseTrial], float]] = None
     timeout_hours: Optional[int] = None
     max_pending_trials: int = 10
+    early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None
 
 
 def benchmark_trial(
@@ -556,7 +559,10 @@ def _benchmark_replication_Async_Scheduler(
         name=experiment_name,
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
-        runner=SimulatedBackendRunner(simulator=backend_simulator),
+        runner=SimulatedBackendRunner(
+            simulator=backend_simulator,
+            sample_runtime_func=async_benchmark_options.sample_runtime_func,
+        ),
     )
 
     scheduler_options = async_benchmark_options.scheduler_options or SchedulerOptions(
@@ -565,6 +571,7 @@ def _benchmark_replication_Async_Scheduler(
         min_seconds_before_poll=1.0,
         seconds_between_polls_backoff_factor=1.0,
         logging_level=logging.INFO if verbose_logging else logging.WARNING,
+        early_stopping_strategy=async_benchmark_options.early_stopping_strategy,
     )
 
     scheduler = AsyncSimulatedBackendScheduler(
@@ -583,6 +590,7 @@ def _benchmark_replication_Async_Scheduler(
         metadata_dict = {
             "start_time": sim_trial.sim_start_time,
             "queued_time": sim_trial.sim_queued_time,
+            "completed_time": sim_trial.sim_completed_time,
         }
         experiment.trials[sim_trial.trial_index].update_run_metadata(metadata_dict)
     return experiment, []

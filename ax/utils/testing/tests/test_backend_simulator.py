@@ -6,6 +6,7 @@
 
 import time
 
+from ax.core.base_trial import TrialStatus
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
 
@@ -94,3 +95,47 @@ class BackendSimulatorTest(TestCase):
         self.assertEqual(sim3.num_running, 0)
         self.assertEqual(sim3.num_failed, 1)
         self.assertEqual(sim3.num_completed, 0)
+
+    def test_backend_simulator_internal_clock(self):
+        options = BackendSimulatorOptions(
+            internal_clock=0.0, use_update_as_start_time=True, max_concurrency=2
+        )
+        sim = BackendSimulator(options=options)
+        sim.run_trial(0, 2)
+        sim.run_trial(1, 1)
+        sim.run_trial(2, 10)
+        self.assertEqual(len(sim.all_trials), 3)
+        self.assertEqual(sim.time, 0.0)
+        self.assertEqual(sim.num_queued, 1)
+        self.assertEqual(
+            sim.lookup_trial_index_status(trial_index=0), TrialStatus.RUNNING
+        )
+        self.assertEqual(
+            sim.lookup_trial_index_status(trial_index=1), TrialStatus.RUNNING
+        )
+        self.assertEqual(
+            sim.lookup_trial_index_status(trial_index=2), TrialStatus.STAGED
+        )
+
+        sim.update()
+        self.assertEqual(sim.num_completed, 1)
+        self.assertEqual(sim.num_running, 2)
+        self.assertEqual(
+            sim.lookup_trial_index_status(trial_index=1), TrialStatus.COMPLETED
+        )
+
+        sim.update()
+        self.assertEqual(sim.num_completed, 2)
+        self.assertEqual(sim.num_running, 1)
+        self.assertEqual(
+            sim.lookup_trial_index_status(trial_index=0), TrialStatus.COMPLETED
+        )
+
+        sim.stop_trial(trial_index=2)
+        sim.update()
+        self.assertEqual(
+            sim.lookup_trial_index_status(trial_index=2), TrialStatus.COMPLETED
+        )
+        self.assertEqual(
+            sim.get_sim_trial_by_index(trial_index=2).sim_completed_time, 2.0
+        )
