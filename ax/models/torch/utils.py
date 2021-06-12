@@ -231,7 +231,7 @@ def subset_model(
     objective_weights: Tensor,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     objective_thresholds: Optional[Tensor] = None,
-) -> Tuple[Model, Tensor, Optional[Tuple[Tensor, Tensor]], Optional[Tensor],]:
+) -> Tuple[Model, Tensor, Optional[Tuple[Tensor, Tensor]], Optional[Tensor]]:
     """Subset a botorch model to the outputs used in the optimization.
 
     Args:

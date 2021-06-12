@@ -8,7 +8,13 @@ from itertools import product
 from unittest.mock import MagicMock
 
 import numpy as np
-from ax.models.model_utils import best_observed_point, check_duplicate
+from ax.core.search_space import SearchSpaceDigest
+from ax.models.model_utils import (
+    best_observed_point,
+    check_duplicate,
+    mk_discrete_choices,
+    enumerate_discrete_combinations,
+)
 from ax.utils.common.testutils import TestCase
 
 
@@ -140,3 +146,42 @@ class ModelUtilsTest(TestCase):
         points = np.array([[0, 1], [0, 2], [0, 1]])
         self.assertTrue(check_duplicate(duplicate_point, points))
         self.assertFalse(check_duplicate(not_duplicate_point, points))
+
+    def testMkDiscreteChoices(self):
+        ssd1 = SearchSpaceDigest(
+            feature_names=["a", "b"],
+            bounds=[(0, 1), (0, 2)],
+            ordinal_features=[1],
+            discrete_choices={1: [0, 1, 2]},
+        )
+        dc1 = mk_discrete_choices(ssd1)
+        self.assertEqual(dc1, {1: [0, 1, 2]})
+        dc1_ff = mk_discrete_choices(ssd1, fixed_features={1: 0})
+        self.assertEqual(dc1_ff, {1: [0]})
+        ssd2 = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 1), (0, 2), (3, 4)],
+            ordinal_features=[1],
+            categorical_features=[2],
+            discrete_choices={1: [0, 1, 2], 2: [3, 4]},
+        )
+        dc2_ff = mk_discrete_choices(ssd2, fixed_features={1: 0})
+        self.assertEqual(dc2_ff, {1: [0], 2: [3, 4]})
+
+    def testEnumerateDiscreteCombinations(self):
+        dc1 = {1: [0, 1, 2]}
+        dc1_enum = enumerate_discrete_combinations(dc1)
+        self.assertEqual(dc1_enum, [{1: 0}, {1: 1}, {1: 2}])
+        dc2 = {1: [0, 1, 2], 2: [3, 4]}
+        dc2_enum = enumerate_discrete_combinations(dc2)
+        self.assertEqual(
+            dc2_enum,
+            [
+                {1: 0, 2: 3},
+                {1: 0, 2: 4},
+                {1: 1, 2: 3},
+                {1: 1, 2: 4},
+                {1: 2, 2: 3},
+                {1: 2, 2: 4},
+            ],
+        )

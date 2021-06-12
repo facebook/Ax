@@ -11,6 +11,7 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 
 # BoTorch `AcquisitionFunction` imports
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.analytic import ExpectedImprovement
 from botorch.acquisition.knowledge_gradient import (
     qKnowledgeGradient,
     qMultiFidelityKnowledgeGradient,
@@ -71,6 +72,7 @@ MODEL_REGISTRY: Dict[Type[Model], str] = {
 Mapping of Botorch `AcquisitionFunction` classes to class name strings.
 """
 ACQUISITION_FUNCTION_REGISTRY: Dict[Type[AcquisitionFunction], str] = {
+    ExpectedImprovement: "ExpectedImprovement",
     qExpectedImprovement: "qExpectedImprovement",
     qKnowledgeGradient: "qKnowledgeGradient",
     qMaxValueEntropy: "qMaxValueEntropy",

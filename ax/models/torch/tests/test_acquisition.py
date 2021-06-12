@@ -222,6 +222,116 @@ class AcquisitionTest(TestCase):
             torch.equal(mock_optimize_acqf.call_args[1]["bounds"], expected_bounds)
         )
 
+    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_discrete")
+    def test_optimize_discrete(self, mock_optimize_acqf_discrete):
+        tkwargs = {
+            "dtype": self.acquisition.dtype,
+            "device": self.acquisition.device,
+        }
+        ssd1 = SearchSpaceDigest(
+            feature_names=["a"],
+            bounds=[(0, 2)],
+            categorical_features=[0],
+            discrete_choices={0: [0, 1, 2]},
+        )
+        # check fixed_feature index validation
+        with self.assertRaisesRegex(ValueError, "Invalid fixed_feature index"):
+            self.acquisition.optimize(
+                n=3,
+                search_space_digest=ssd1,
+                inequality_constraints=self.inequality_constraints,
+                fixed_features=self.fixed_features,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
+        # check this works without any fixed_feature specified
+        self.acquisition.optimize(
+            n=3,
+            search_space_digest=ssd1,
+            inequality_constraints=self.inequality_constraints,
+            fixed_features=None,
+            rounding_func=self.rounding_func,
+            optimizer_options=self.optimizer_options,
+        )
+        mock_optimize_acqf_discrete.assert_called_with(
+            acq_function=self.acquisition.acqf,
+            q=3,
+            choices=mock.ANY,
+            **self.optimizer_options,
+        )
+        # can't use assert_called_with on choices due to ambiguous bool comparison
+        expected_choices = torch.tensor([[0], [1], [2]], **tkwargs)
+        self.assertTrue(
+            torch.equal(
+                mock_optimize_acqf_discrete.call_args[1]["choices"], expected_choices
+            )
+        )
+        # check with fixed feature
+        ssd2 = SearchSpaceDigest(
+            feature_names=["a", "b"],
+            bounds=[(0, 2), (0, 1)],
+            categorical_features=[0],
+            discrete_choices={0: [0, 1, 2]},
+        )
+        self.acquisition.optimize(
+            n=3,
+            search_space_digest=ssd2,
+            inequality_constraints=self.inequality_constraints,
+            fixed_features=self.fixed_features,
+            rounding_func=self.rounding_func,
+            optimizer_options=self.optimizer_options,
+        )
+        mock_optimize_acqf_discrete.assert_called_with(
+            acq_function=self.acquisition.acqf,
+            q=3,
+            choices=mock.ANY,
+            **self.optimizer_options,
+        )
+        # can't use assert_called_with on choices due to ambiguous bool comparison
+        expected_choices = torch.tensor([[0, 2.0], [1, 2.0], [2, 2.0]], **tkwargs)
+        self.assertTrue(
+            torch.equal(
+                mock_optimize_acqf_discrete.call_args[1]["choices"], expected_choices
+            )
+        )
+
+    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_mixed")
+    def test_optimize_mixed(self, mock_optimize_acqf_mixed):
+        tkwargs = {
+            "dtype": self.acquisition.dtype,
+            "device": self.acquisition.device,
+        }
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b"],
+            bounds=[(0, 1), (0, 2)],
+            categorical_features=[1],
+            discrete_choices={1: [0, 1, 2]},
+        )
+        self.acquisition.optimize(
+            n=3,
+            search_space_digest=ssd,
+            inequality_constraints=self.inequality_constraints,
+            fixed_features=None,
+            rounding_func=self.rounding_func,
+            optimizer_options=self.optimizer_options,
+        )
+        mock_optimize_acqf_mixed.assert_called_with(
+            acq_function=self.acquisition.acqf,
+            bounds=mock.ANY,
+            q=3,
+            fixed_features_list=[{1: 0}, {1: 1}, {1: 2}],
+            inequality_constraints=self.inequality_constraints,
+            post_processing_func=self.rounding_func,
+            **self.optimizer_options,
+        )
+        # can't use assert_called_with on bounds due to ambiguous bool comparison
+        expected_bounds = torch.tensor(ssd.bounds, **tkwargs).transpose(0, 1)
+        self.assertTrue(
+            torch.equal(
+                mock_optimize_acqf_mixed.call_args[1]["bounds"], expected_bounds
+            )
+        )
+
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.best_in_sample_point")
     def test_best_point(self, mock_best_point):
         self.acquisition.best_point(
