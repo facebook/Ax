@@ -120,6 +120,7 @@ class TrialTest(TestCase):
             TrialStatus.ABANDONED,
             TrialStatus.FAILED,
             TrialStatus.COMPLETED,
+            TrialStatus.EARLY_STOPPED,
         ):
             self.setUp()
             # Note: This only tests the no-runner case (and thus not staging)
@@ -131,10 +132,23 @@ class TrialTest(TestCase):
                     kwargs["reason"] = "test_reason"
                 self.trial.mark_as(status=status, **kwargs)
                 self.assertTrue(self.trial.status == status)
+
                 if status == TrialStatus.ABANDONED:
                     self.assertEqual(self.trial.abandoned_reason, "test_reason")
                 else:
                     self.assertIsNone(self.trial.abandoned_reason)
+
+                if status != TrialStatus.RUNNING:
+                    self.assertTrue(self.trial.status.is_terminal)
+
+                if status in [
+                    TrialStatus.RUNNING,
+                    TrialStatus.EARLY_STOPPED,
+                    TrialStatus.COMPLETED,
+                ]:
+                    self.assertTrue(self.trial.status.expecting_data)
+                else:
+                    self.assertFalse(self.trial.status.expecting_data)
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.lookup_data",

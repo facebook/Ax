@@ -67,12 +67,17 @@ class TrialStatus(int, Enum):
             self == TrialStatus.ABANDONED
             or self == TrialStatus.COMPLETED
             or self == TrialStatus.FAILED
+            or self == TrialStatus.EARLY_STOPPED
         )
 
     @property
     def expecting_data(self) -> bool:
         """True if trial is expecting data."""
-        return self == TrialStatus.RUNNING or self == TrialStatus.COMPLETED
+        return (
+            self == TrialStatus.RUNNING
+            or self == TrialStatus.COMPLETED
+            or self == TrialStatus.EARLY_STOPPED
+        )
 
     @property
     def is_deployed(self) -> bool:
@@ -103,6 +108,11 @@ class TrialStatus(int, Enum):
     def is_running(self) -> bool:
         """True if this trial is a running one."""
         return self == TrialStatus.RUNNING
+
+    @property
+    def is_early_stopped(self) -> bool:
+        """True if this trial is an early stopped one."""
+        return self == TrialStatus.EARLY_STOPPED
 
     # pyre-fixme[14]: `__format__` overrides method defined in `object` inconsistently.
     def __format__(self, fmt: str) -> str:
