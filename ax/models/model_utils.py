@@ -6,11 +6,14 @@
 
 from __future__ import annotations
 
+import itertools
+import warnings
 from collections import defaultdict
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TConfig, TParamCounter
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.numpy_base import NumpyModel
@@ -539,3 +542,34 @@ def filter_constraints_and_fixed_features(
         return torch.from_numpy(X_feas).to(device=X.device, dtype=X.dtype)
     else:
         return X_feas
+
+
+def mk_discrete_choices(
+    ssd: SearchSpaceDigest,
+    fixed_features: Optional[Dict[int, float]] = None,
+) -> Dict[int, List[Union[int, float]]]:
+    discrete_choices = ssd.discrete_choices
+    # Add in fixed features.
+    if fixed_features is not None:
+        # Note: if any discrete features are fixed we won't enumerate those.
+        discrete_choices = {
+            **discrete_choices,
+            **{k: [v] for k, v in fixed_features.items()},
+        }
+    return discrete_choices
+
+
+def enumerate_discrete_combinations(
+    discrete_choices: Dict[int, List[Union[int, float]]],
+) -> List[Dict[int, Union[float, int]]]:
+    n_combos = np.prod([len(v) for v in discrete_choices.values()])
+    if n_combos > 50:
+        warnings.warn(
+            f"Enumerating {n_combos} combinations of discrete parameter values "
+            "while optimizing over a mixed search space. This can be very slow."
+        )
+    fixed_features_list = [
+        dict(zip(discrete_choices.keys(), c))
+        for c in itertools.product(*discrete_choices.values())
+    ]
+    return fixed_features_list

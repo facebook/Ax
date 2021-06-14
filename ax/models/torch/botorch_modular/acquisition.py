@@ -6,11 +6,16 @@
 
 from __future__ import annotations
 
+import itertools
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TConfig
+from ax.models.model_utils import (
+    mk_discrete_choices,
+    enumerate_discrete_combinations,
+)
 from ax.models.torch.botorch_modular.default_options import (
     get_default_optimizer_options,
 )
@@ -29,6 +34,7 @@ from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.objective import AcquisitionObjective
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf
+from botorch.optim.optimize import optimize_acqf_mixed, optimize_acqf_discrete
 from torch import Tensor
 
 
@@ -194,22 +200,67 @@ class Acquisition(Base):
             optimizer_options: Options for the optimizer function, e.g. ``sequential``
                 or ``raw_samples``.
         """
-        optimizer_options = optimizer_options or {}
-        bounds = torch.tensor(
-            search_space_digest.bounds, dtype=self.dtype, device=self.device
-        ).transpose(0, 1)
-        # NOTE: Could make use of `optimizer_class` when its added to BoTorch.
-        optimizer_inputs = {
-            "acq_function": self.acqf,
-            "bounds": bounds,
-            "q": n,
-            "inequality_constraints": inequality_constraints,
-            "fixed_features": fixed_features,
-            "post_processing_func": rounding_func,
+        # NOTE: Could make use of `optimizer_class` when its added to BoTorch
+        # instead of calling `optimizer_acqf` or `optimize_acqf_discrete` etc.
+
+        optimizer_options_with_defaults = {
             **get_default_optimizer_options(acqf_class=self.botorch_acqf_class),
-            **optimizer_options,
+            **(optimizer_options or {}),
         }
-        return optimize_acqf(**optimizer_inputs)
+        ssd = search_space_digest
+        tkwargs = {"dtype": self.dtype, "device": self.device}
+        bounds = torch.tensor(ssd.bounds, **tkwargs).transpose(0, 1)
+        discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
+
+        if fixed_features is not None:
+            for i in fixed_features:
+                if not 0 <= i < len(ssd.feature_names):
+                    raise ValueError(f"Invalid fixed_feature index: {i}")
+
+        # 1. Handle the fully continuous search space.
+        if not discrete_features:
+            return optimize_acqf(
+                acq_function=self.acqf,
+                bounds=bounds,
+                q=n,
+                inequality_constraints=inequality_constraints,
+                fixed_features=fixed_features,
+                post_processing_func=rounding_func,
+                **optimizer_options_with_defaults,
+            )
+
+        # 2. Handle search spaces with discrete features.
+        discrete_choices = mk_discrete_choices(ssd=ssd, fixed_features=fixed_features)
+
+        # 2a. Handle the fully discrete search space.
+        if len(discrete_choices) == len(ssd.feature_names):
+            # For now we just enumerate all possible discrete combinations. This is not
+            # scalable and and only works for a reasonably small number of choices.
+            all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
+            all_choices = torch.tensor(list(itertools.product(*all_choices)), **tkwargs)
+
+            return optimize_acqf_discrete(
+                acq_function=self.acqf,
+                q=n,
+                choices=all_choices,
+                **optimizer_options_with_defaults,
+            )
+
+        # 2b. Handle mixed search spaces that have discrete and continuous features.
+        return optimize_acqf_mixed(
+            acq_function=self.acqf,
+            bounds=bounds,
+            q=n,
+            # For now we just enumerate all possible discrete combinations. This is not
+            # scalable and and only works for a reasonably small number of choices. A
+            # slowdown warning is logged in `enumerate_discrete_combinations` if needed.
+            fixed_features_list=enumerate_discrete_combinations(
+                discrete_choices=discrete_choices
+            ),
+            inequality_constraints=inequality_constraints,
+            post_processing_func=rounding_func,
+            **optimizer_options_with_defaults,
+        )
 
     def evaluate(self, X: Tensor) -> Tensor:
         """Evaluate the acquisition function on the candidate set `X`.
