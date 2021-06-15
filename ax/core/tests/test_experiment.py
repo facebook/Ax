@@ -715,7 +715,7 @@ class ExperimentWithMapDataTest(TestCase):
         # Try to fetch data when there are only metrics and no attached data.
         exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
         exp.add_tracking_metric(MapMetric(name="b"))  # Add unimplemented metric.
-        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).df), 15)
+        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).df), 30)
         # Try fetching attached data.
         exp.attach_data(batch_0_data)
         exp.attach_data(batch_1_data)

@@ -6,13 +6,13 @@
 
 import math
 from random import random
-from typing import Any
+from typing import Any, List, Optional
 
 import numpy as np
 from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin
 
 
@@ -21,6 +21,33 @@ FIDELITY_KWARGS = {"map_keys": ["fidelity"], "fidelity": [0.1, 0.4, 0.7, 1.0]}
 
 
 class BraninTimestampMapMetric(NoisyFunctionMapMetric):
+    def __init__(
+        self,
+        name: str,
+        param_names: List[str],
+        noise_sd: float = 0.0,
+        lower_is_better: Optional[bool] = None,
+        rate: Optional[float] = None,
+    ) -> None:
+        """A Branin map metric with an optional multiplicative factor
+        of `1 - exp(-rate * t)` where `t` is the runtime of the trial.
+
+        Args:
+            name: Name of the metric.
+            param_names: An ordered list of names of parameters to be passed
+                to the deterministic function.
+            noise_sd: Scale of normal noise added to the function result.
+            lower_is_better: Flag for metrics which should be minimized.
+            rate: Parameter of the multiplicative factor.
+        """
+        self.rate = rate
+        super().__init__(
+            name=name,
+            param_names=param_names,
+            noise_sd=noise_sd,
+            lower_is_better=lower_is_better,
+        )
+
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
     ) -> MapData:
@@ -29,8 +56,12 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         )
 
     def f(self, x: np.ndarray) -> float:
-        x1, x2, timestamp = x
-        return checked_cast(float, branin(x1=x1, x2=x2))
+        x1, x2, t = x
+        if self.rate is not None:
+            weight = 1.0 - np.exp(-not_none(self.rate) * t)
+        else:
+            weight = 1.0
+        return checked_cast(float, branin(x1=x1, x2=x2)) * weight
 
 
 class BraninFidelityMapMetric(NoisyFunctionMapMetric):

@@ -152,10 +152,18 @@ def get_branin_experiment(
     return exp
 
 
-def get_branin_experiment_with_timestamp_map_metric():
+def get_branin_experiment_with_timestamp_map_metric(rate: Optional[float] = None):
     return Experiment(
         name="branin_with_timestamp_map_metric",
         search_space=get_branin_search_space(),
+        optimization_config=OptimizationConfig(
+            objective=Objective(
+                metric=BraninTimestampMapMetric(
+                    name="branin", param_names=["x1", "x2"], rate=rate
+                ),
+                minimize=True,
+            )
+        ),
         tracking_metrics=[BraninTimestampMapMetric(name="b", param_names=["x1", "x2"])],
         runner=SyntheticRunner(),
         default_data_type=DataType.MAP_DATA,
