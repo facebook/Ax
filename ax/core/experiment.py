@@ -505,16 +505,20 @@ class Experiment(Base):
             data: Data object to store.
             combine_with_last_data: By default, when attaching data, it's identified
                 by its timestamp, and `experiment.lookup_data_for_trial` returns
-                data by most recent timestamp. In some cases, however, the goal
-                is to combine all data attached for a trial into a single Data
-                object. To achieve that goal, every call to `attach_data` after
+                data by most recent timestamp. Sometimes, however, we attach
+                data for some metrics at one point and data for the rest of the
+                metrics later on. In this case, we actually want to combine the
+                data so that one dataframe contains data for all metrics.
+                To achieve that goal, every call to `attach_data` after
                 the initial data is attached to trials, should be set to `True`.
-                Then, the newly attached data will be appended to existing data,
-                rather than stored as a separate object, and `lookup_data_for_trial`
-                will return the combined data object, rather than just the most
-                recently added data. This will validate that the newly added data
-                does not contain observations for the metrics that already have
-                observations in the most recent data stored.
+                In this case, we will take the most recent previously attached
+                data, append the newly attached data to it, and attach a new
+                Data object with the merged result. Afterwards, calls to
+                `lookup_data_for_trial` will return this combined data object,
+                rather than just the most recently added data. This operation
+                will also validate that the newly added data does not contain
+                observations for the metrics that already have observations in
+                the most recent data stored.
 
         Returns:
             Timestamp of storage in millis.
