@@ -15,6 +15,8 @@ Sequential optimization strategy for finding an optimal [arm](glossary.md#arm) i
 Function that takes a parameterization and an optional weight as input and outputs a set of metric evaluations ([more details](trial-evaluation.md#evaluation-function)). Used in [simple experiment](glossary.md#simple-experiment) and in the [Loop API](api.md).
 ### Experiment
 Object that keeps track of the whole optimization process. Contains a [search space](glossary.md#search-space), [optimization config](glossary.md#optimization-config), and other metadata. [```[Experiment]```](/api/core.html#module-ax.core.experiment)
+### Generation strategy
+Abstraction that allows to declaratively specify one or multiple models to use in the course of the optimization and automate transition between them (relevant [tutorial](/tutorials/scheduler.html)). [```[GenerationStrategy]```](/api/modelbridge.html#module-ax.modelbridge.generation_strategy)
 ### Generator run
 Outcome of a single run of the `gen` method of a [model bridge](glossary.md#model-bridge), contains the generated [arms](glossary.md#arm), as well as possibly best [arm](glossary.md#arm) predictions, other [model](glossary.md#model) predictions, fit times etc. [```[GeneratorRun]```](/api/core.html#module-ax.core.generator_run)
 ### Metric
@@ -37,6 +39,9 @@ Places restrictions on the relationships between [parameters](glossary.md#parame
 [Outcome constraint](glossary.md#outcome-constraint) evaluated relative to the [status quo](glossary.md#status-quo) instead of directly on the metric value. [```[OutcomeConstraint]```](/api/core.html#module-ax.core.outcome_constraint)
 ### Runner
 Dispatch abstraction that defines how a given [trial](glossary.md#trial) is to be run (either locally or by dispatching to an external system). [````[Runner]````](/api/core.html#module-ax.core.runner)
+### Scheduler
+Configurable closed-loop optimization manager class, capable of conducting a full experiment by deploying trials, polling their results, and leveraging those results to generate and deploy more
+trials (relevant [tutorial](/tutorials/scheduler.html)). [````[Scheduler]````](https://ax.dev/versions/latest/api/service.html#module-ax.service.scheduler)
 ### Search space
 Continuous, discrete or mixed design space that defines the set of [parameters](glossary.md#parameter) to be tuned in the optimization, and optionally [parameter constraints](glossary.md#parameter-constraint) on these parameters. The parameters of the [arms](glossary.md#arm) to be evaluated in the optimization are drawn from a search space. [```[SearchSpace]```](/api/core.html#module-ax.core.search_space)
 ### SEM
