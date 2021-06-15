@@ -32,7 +32,7 @@ class TutorialHome extends React.Component {
               examples.
             </p>
             <p>
-              Our 3 API tutorials:&nbsp;
+              <b>Our 3 API tutorials:</b>&nbsp;
               <a href="gpei_hartmann_loop.html">Loop</a>,&nbsp;
               <a href="gpei_hartmann_service.html">Service</a>, and&nbsp;
               <a href="gpei_hartmann_developer.html">Developer</a> &mdash; are a
@@ -40,7 +40,65 @@ class TutorialHome extends React.Component {
               constrained Hartmann6 problem, with the Loop API being the
               simplest to use and the Developer API being the most customizable.
             </p>
-            <p>Further, our Bayesian Optimization tutorials include:</p>
+            <p>
+              <b>
+                Further, we explore the different components available in Ax in
+                more detail.
+              </b>{' '}
+              The components explored below serve to set up an experiment,
+              visualize its results, configure an optimization algorithm, run an
+              entire experiment in a managed closed loop, and combine BoTorch
+              components in Ax in a modular way.
+            </p>
+            <ul>
+              <li>
+                <a href="building_blocks.html">Building Blocks of Ax</a>&nbsp;
+                examines the architecture of Ax and the
+                experimentation/optimization process.
+              </li>
+            </ul>
+            <ul>
+              <li>
+                <a href="visualizations.html">Visualizations</a>&nbsp;
+                illustrates the different plots available to view and understand
+                your results.
+              </li>
+            </ul>
+            <ul>
+              <li>
+                <a href="generation_strategy.html">GenerationStrategy</a>&nbsp;
+                steps through setting up a way to specify the optimization
+                algorithm (or multiple). A <code>GenerationStrategy</code>
+                is an important component of Service API and the
+                <code>Scheduler</code>.
+              </li>
+            </ul>
+            <ul>
+              <li>
+                <a href="scheduler.html">Scheduler</a>&nbsp; demonstrates an
+                example of a managed and configurable closed-loop optimization,
+                conducted in an asyncronous fashion. <code>Scheduler</code> is a
+                manager abstraction in Ax that deploys trials, polls them, and
+                uses their results to produce more trials.
+              </li>
+            </ul>
+            <ul>
+              <li>
+                <a href="modular_botax.html">
+                  Modular <code>BoTorchModel</code>
+                </a>
+                &nbsp; walks though a new beta-feature &mdash; an improved
+                interface between Ax and <a href="botorch.org">BoTorch</a>{' '}
+                &mdash; which allows for combining arbitrary BoTorch components
+                like
+                <code>AcquisitionFunction</code>, <code>Model</code>,
+                <code>AcquisitionObjective</code> etc. into a single{' '}
+                <code>Model</code> in Ax.
+              </li>
+            </ul>
+            <p>
+              <b>Our other Bayesian Optimization tutorials include:</b>
+            </p>
             <ul>
               <li>
                 <a href="tune_cnn.html">
@@ -55,8 +113,8 @@ class TutorialHome extends React.Component {
                 <a href="raytune_pytorch_cnn.html">
                   Hyperparameter Optimization via Raytune
                 </a>
-                &nbsp; provides an example of parallelized hyperparameter optimization
-                using Ax + Raytune.
+                &nbsp; provides an example of parallelized hyperparameter
+                optimization using Ax + Raytune.
               </li>
             </ul>
             <ul>
@@ -103,20 +161,6 @@ class TutorialHome extends React.Component {
                 &nbsp; walks through manually influencing the course of
                 optimization in real-time.
               </li>
-            </ul>
-            <p>
-              Finally, we explore the different components available in Ax in
-              more detail, both for setting up the experiment and visualizing
-              results.
-            </p>
-            <ul>
-              <a href="building_blocks.html">Building Blocks of Ax</a>&nbsp;
-              examines the architecture of Ax and the
-              experimentation/optimization process.
-            </ul>
-            <ul>
-              <a href="visualizations.html">Visualizations</a>&nbsp; illustrates
-              the different plots available to view and understand your results.
             </ul>
           </div>
         </Container>

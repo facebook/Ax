@@ -13,6 +13,28 @@
       "title": "Developer API"
     }
   ],
+  "Deep Dives": [
+    {
+      "id": "building_blocks",
+      "title": "Building Blocks of Ax"
+    },
+    {
+      "id": "visualizations",
+      "title": "Visualizations"
+    },
+    {
+      "id": "generation_strategy",
+      "title": "Generation Strategy"
+    },
+    {
+      "id": "scheduler",
+      "title": "Scheduler"
+    },
+    {
+      "id": "modular_botax",
+      "title": "Modular `BoTorchModel`"
+    }
+  ],
   "Bayesian Optimization": [
     {
       "id": "tune_cnn",
@@ -40,16 +62,6 @@
       "dir": "human_in_the_loop",
       "id": "human_in_the_loop",
       "title": "Human-in-the-Loop Optimization"
-    }
-  ],
-  "Deep Dives": [
-    {
-      "id": "building_blocks",
-      "title": "Building Blocks of Ax"
-    },
-    {
-      "id": "visualizations",
-      "title": "Visualizations"
     }
   ]
 }
