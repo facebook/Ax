@@ -395,10 +395,10 @@ class BaseTrial(ABC, SortableBase):
         )
 
     def lookup_data(self, **kwargs: Any) -> AbstractDataFrameData:
-        merge_trial_data = kwargs.get("merge_trial_data", False)
+        merge_across_timestamps = kwargs.get("merge_across_timestamps", False)
         return self.experiment.lookup_data_for_trial(
             trial_index=self.index,
-            merge_trial_data=merge_trial_data,
+            merge_across_timestamps=merge_across_timestamps,
         )[0]
 
     def _check_existing_and_name_arm(self, arm: Arm) -> None:

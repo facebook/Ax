@@ -602,7 +602,7 @@ class Experiment(Base):
         return self.default_data_constructor.from_multiple_data(trial_datas)
 
     def lookup_data_for_trial(
-        self, trial_index: int, merge_trial_data: bool = False
+        self, trial_index: int, merge_across_timestamps: bool = False
     ) -> Tuple[AbstractDataFrameData, int]:
         """Lookup stored data for a specific trial.
 
@@ -611,7 +611,7 @@ class Experiment(Base):
 
         Args:
             trial_index: The index of the trial to lookup data for.
-            merge_trial_data: Whether to return Data from all timestamps instead
+            merge_across_timestamps: Whether to return Data from all timestamps instead
                 of only the latest.
 
         Returns:
@@ -627,7 +627,7 @@ class Experiment(Base):
 
         storage_time = max(trial_data_dict.keys())
         trial_data = trial_data_dict[storage_time]
-        if merge_trial_data:
+        if merge_across_timestamps:
             trial_data = trial_data.from_multiple_data(
                 data=list(trial_data_dict.values())
             )
@@ -637,7 +637,7 @@ class Experiment(Base):
     def lookup_data(
         self,
         trial_indices: Optional[Iterable[int]] = None,
-        merge_trial_data: bool = False,
+        merge_across_timestamps: bool = False,
     ) -> AbstractDataFrameData:
         """Lookup data for all trials on this experiment and for either the
         specified metrics or all metrics currently on the experiment, if `metrics`
@@ -645,7 +645,7 @@ class Experiment(Base):
 
         Args:
             trial_indices: Indices of trials, for which to fetch data.
-            merge_trial_data: Whether to return data across all timestamps.
+            merge_across_timestamps: Whether to return data across all timestamps.
 
         Returns:
             Data for the experiment.
@@ -655,7 +655,8 @@ class Experiment(Base):
         for trial_index in trial_indices:
             data_by_trial.append(
                 self.lookup_data_for_trial(
-                    trial_index=trial_index, merge_trial_data=merge_trial_data
+                    trial_index=trial_index,
+                    merge_across_timestamps=merge_across_timestamps,
                 )[0]
             )
         if not data_by_trial:
