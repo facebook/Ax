@@ -264,6 +264,8 @@ def get_map_model(
     for _ in range(restarts):
         m = ALEBOGP(B=B, train_X=train_X, train_Y=train_Y, train_Yvar=train_Yvar)
         if init_state_dict is not None:
+            # pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st
+            #  param but got `Dict[str, Tensor]`.
             m.load_state_dict(init_state_dict)
         mll = ExactMarginalLogLikelihood(m.likelihood, m)
         mll.train()

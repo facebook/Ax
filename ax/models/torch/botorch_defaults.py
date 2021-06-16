@@ -164,6 +164,8 @@ def get_and_fit_model(
         model = ModelListGP(*models)
     model.to(Xs[0])
     if state_dict is not None:
+        # pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st
+        #  param but got `Dict[str, Tensor]`.
         model.load_state_dict(state_dict)
     if state_dict is None or refit_model:
         # TODO: Add bounds for optimization stability - requires revamp upstream

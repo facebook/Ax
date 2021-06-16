@@ -45,6 +45,8 @@ def fixed_noise_gp_model_constructor(
     gp = FixedNoiseGP(train_X=Xs[0], train_Y=Ys[0], train_Yvar=Yvars[0], **kwargs)
     gp.to(Xs[0])
     if state_dict is not None:
+        # pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st
+        #  param but got `Dict[str, Tensor]`.
         gp.load_state_dict(state_dict)
     if state_dict is None or refit_model:
         fit_gpytorch_model(ExactMarginalLogLikelihood(gp.likelihood, gp))
@@ -65,6 +67,8 @@ def singletask_gp_model_constructor(
     gp = SingleTaskGP(train_X=Xs[0], train_Y=Ys[0], **kwargs)
     gp.to(Xs[0])
     if state_dict is not None:
+        # pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st
+        #  param but got `Dict[str, Tensor]`.
         gp.load_state_dict(state_dict)
     if state_dict is None or refit_model:
         fit_gpytorch_model(ExactMarginalLogLikelihood(gp.likelihood, gp))
