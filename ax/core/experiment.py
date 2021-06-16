@@ -907,10 +907,16 @@ class Experiment(Base):
                 new_trial.mark_completed()
                 copied_trials.append(new_trial)
 
-        logger.info(
-            f"Copied {len(copied_trials)} completed trials and their data "
-            f"from {old_experiment.name} to {self.name}."
-        )
+        if self._name is not None:
+            logger.info(
+                f"Copied {len(copied_trials)} completed trials and their data "
+                f"from {old_experiment.name} to {self.name}."
+            )
+        else:
+            logger.info(
+                f"Copied {len(copied_trials)} completed trials and their data "
+                f"from {old_experiment.name}."
+            )
 
         return copied_trials
 
