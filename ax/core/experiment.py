@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
@@ -32,7 +34,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -836,6 +838,81 @@ class Experiment(Base):
         )
         self._trials[index] = trial
         return index
+
+    def warm_start_from_old_experiment(self, old_experiment: Experiment) -> List[Trial]:
+        """Copy all completed trials with data from an old Ax expeirment to this one.
+        This function checks that the parameters of each trial are members of the
+        current experiment's search_space.
+
+        NOTE: Currently only handles experiments with 1-arm ``Trial``-s, not
+        ``BatchTrial``-s as there has not yet been need for support of the latter.
+
+        Args:
+            old_experiment: The experiment from which to transfer trials and data
+
+        Returns:
+            List of trials successfully copied from old_experiment to this one
+        """
+        if len(self.trials) > 0:
+            raise ValueError(  # pragma: no cover
+                f"Can only warm-start experiments that don't yet have trials. "
+                f"Experiment {self.name} has {len(self.trials)} trials."
+            )
+
+        old_parameter_names = set(old_experiment.search_space.parameters.keys())
+        parameter_names = set(self.search_space.parameters.keys())
+        if old_parameter_names.symmetric_difference(parameter_names):
+            raise ValueError(  # pragma: no cover
+                f"Cannot warm-start experiment '{self.name}' from experiment "
+                f"'{old_experiment.name}' due to mismatch in search space parameters."
+                f"Parameters in '{self.name}' but not in '{old_experiment.name}': "
+                f"{old_parameter_names - parameter_names}. Vice-versa: "
+                f"{parameter_names - old_parameter_names}."
+            )
+
+        old_completed_trials = old_experiment.trials_by_status[TrialStatus.COMPLETED]
+        copied_trials = []
+        for trial in old_completed_trials:
+            if not isinstance(trial, Trial):
+                raise NotImplementedError(  # pragma: no cover
+                    "Only experiments with 1-arm trials currently supported."
+                )
+            self.search_space.check_membership(
+                not_none(trial.arm).parameters, raise_error=True
+            )
+            dat, ts = old_experiment.lookup_data_for_trial(trial_index=trial.index)
+            if ts != -1 and not dat.df.empty:
+                # Trial has data, so we replicate it on the new experiment.
+                new_trial = self.new_trial()
+                new_trial.add_arm(not_none(trial.arm).clone(clear_name=True))
+                new_trial.mark_running(no_runner_required=True)
+                new_trial.update_run_metadata(
+                    {"run_id": trial.run_metadata.get("run_id")}
+                )
+                new_trial._properties[
+                    "warm_start_source"
+                ] = f"Experiment: `{old_experiment.name}`, trial: `{trial.index}`"
+                # Set trial index and arm name to their values in new trial.
+                new_df = dat.df.copy()
+                new_df["trial_index"].replace(
+                    {trial.index: new_trial.index}, inplace=True
+                )
+                new_df["arm_name"].replace(
+                    {not_none(trial.arm).name: not_none(new_trial.arm).name},
+                    inplace=True,
+                )
+                # Attach updated data to new trial on experiment and mark trial
+                # as completed.
+                self.attach_data(data=Data(df=new_df))
+                new_trial.mark_completed()
+                copied_trials.append(new_trial)
+
+        logger.info(
+            f"Copied {len(copied_trials)} completed trials and their data "
+            f"from {old_experiment.name} to {self.name}."
+        )
+
+        return copied_trials
 
     def _name_and_store_arm_if_not_exists(self, arm: Arm, proposed_name: str) -> None:
         """Tries to lookup arm with same signature, otherwise names and stores it.

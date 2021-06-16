@@ -27,6 +27,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_arms,
     get_branin_optimization_config,
     get_branin_search_space,
+    get_branin_experiment,
     get_branin_experiment_with_timestamp_map_metric,
     get_data,
     get_experiment,
@@ -35,6 +36,7 @@ from ax.utils.testing.core_stubs import (
     get_map_data,
     get_optimization_config,
     get_search_space,
+    get_sobol,
     get_status_quo,
     get_scalarized_outcome_constraint,
 )
@@ -743,3 +745,59 @@ class ExperimentWithMapDataTest(TestCase):
             actual_data = experiment.lookup_data()
             expected_data = get_map_data()
             self.assertEqual(expected_data, actual_data)
+
+    def testWarmStartFromOldExperiment(self):
+        # create old_experiment
+        len_old_trials = 5
+        i_failed_trial = 3
+        old_experiment = get_branin_experiment()
+        for i_old_trial in range(len_old_trials):
+            sobol_run = get_sobol(search_space=old_experiment.search_space).gen(n=1)
+            trial = old_experiment.new_trial(generator_run=sobol_run)
+            trial.mark_running(no_runner_required=True)
+            if i_old_trial == i_failed_trial:
+                trial.mark_failed()
+            else:
+                trial.mark_completed()
+        # make metric noiseless for exact reproducibility
+        old_experiment.optimization_config.objective.metric.noise_sd = 0
+        old_experiment.fetch_data()
+
+        # should fail if new_experiment has trials
+        new_experiment = get_branin_experiment(with_trial=True)
+        with self.assertRaisesRegex(ValueError, "Experiment.*has.*trials"):
+            new_experiment.warm_start_from_old_experiment(old_experiment=old_experiment)
+
+        # should fail if search spaces are different
+        with self.assertRaisesRegex(ValueError, "mismatch in search space parameters"):
+            self.experiment.warm_start_from_old_experiment(
+                old_experiment=old_experiment
+            )
+
+        # check that all non-failed trials are copied to new_experiment
+        new_experiment = get_branin_experiment()
+        # make metric noiseless for exact reproducibility
+        new_experiment.optimization_config.objective.metric.noise_sd = 0
+        new_experiment.warm_start_from_old_experiment(old_experiment=old_experiment)
+        self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 1)
+        i_old_trial = 0
+        for _, trial in new_experiment.trials.items():
+            # skip failed trial
+            i_old_trial += i_old_trial == i_failed_trial
+            self.assertEqual(
+                trial.arm.parameters, old_experiment.trials[i_old_trial].arm.parameters
+            )
+            self.assertRegex(
+                trial._properties["warm_start_source"], "Experiment.*trial"
+            )
+            i_old_trial += 1
+
+        # Check that the data was attached for correct trials
+        old_df = old_experiment.fetch_data().df
+        new_df = new_experiment.fetch_data().df
+
+        self.assertEqual(len(new_df), len_old_trials - 1)
+        pd.testing.assert_frame_equal(
+            old_df.drop(["arm_name", "trial_index"], axis=1),
+            new_df.drop(["arm_name", "trial_index"], axis=1),
+        )
