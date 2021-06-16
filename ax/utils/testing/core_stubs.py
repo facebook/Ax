@@ -907,10 +907,16 @@ def get_branin_multi_objective_optimization_config(
     objective_thresholds = (
         [
             ObjectiveThreshold(
-                metric=get_branin_metric(name="branin_a"), bound=10, op=ComparisonOp.GEQ
+                metric=get_branin_metric(name="branin_a"),
+                bound=10,
+                op=ComparisonOp.GEQ,
+                relative=False,
             ),
             ObjectiveThreshold(
-                metric=get_branin_metric(name="branin_b"), bound=20, op=ComparisonOp.GEQ
+                metric=get_branin_metric(name="branin_b"),
+                bound=20,
+                op=ComparisonOp.GEQ,
+                relative=False,
             ),
         ]
         if has_objective_thresholds

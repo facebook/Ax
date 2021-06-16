@@ -314,7 +314,10 @@ class TestModelbridgeUtils(TestCase):
         )
         objective_thresholds = [
             ObjectiveThreshold(
-                metric=Metric(name), op=ComparisonOp.LEQ, bound=float(i + 2)
+                metric=Metric(name),
+                op=ComparisonOp.LEQ,
+                bound=float(i + 2),
+                relative=False,
             )
             for i, name in enumerate(outcomes[:3])
         ]
@@ -365,6 +368,15 @@ class TestModelbridgeUtils(TestCase):
         self.assertEqual(obj_t.shape[0], 4)
 
         # Fails if relative
+        objective_thresholds[2] = ObjectiveThreshold(
+            metric=Metric("m3"), op=ComparisonOp.LEQ, bound=3
+        )
+        with self.assertRaises(ValueError):
+            extract_objective_thresholds(
+                objective_thresholds=objective_thresholds,
+                objective=objective,
+                outcomes=outcomes,
+            )
         objective_thresholds[2] = ObjectiveThreshold(
             metric=Metric("m3"), op=ComparisonOp.LEQ, bound=3, relative=True
         )

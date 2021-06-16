@@ -134,7 +134,7 @@ class ObjectiveThreshold(OutcomeConstraint):
         self,
         metric: Metric,
         bound: float,
-        relative: bool = False,
+        relative: bool = True,
         op: Optional[ComparisonOp] = None,
     ) -> None:
         if metric.lower_is_better is None and op is None:

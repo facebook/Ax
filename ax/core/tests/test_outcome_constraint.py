@@ -94,6 +94,11 @@ class ObjectiveThresholdTest(TestCase):
         threshold2 = ObjectiveThreshold(metric=self.minimize_metric, bound=self.bound)
         self.assertEqual(threshold1, threshold2)
 
+        threshold3 = ObjectiveThreshold(
+            metric=self.minimize_metric, bound=self.bound, relative=False
+        )
+        self.assertNotEqual(threshold1, threshold3)
+
         constraint3 = OutcomeConstraint(
             metric=self.minimize_metric, op=ComparisonOp.LEQ, bound=self.bound
         )
@@ -121,6 +126,29 @@ class ObjectiveThresholdTest(TestCase):
             mock_warning.debug.assert_called_once_with(
                 CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH)
             )
+
+    def testRelativize(self):
+        self.assertTrue(
+            ObjectiveThreshold(
+                metric=self.maximize_metric, op=ComparisonOp.LEQ, bound=self.bound
+            ).relative
+        )
+        self.assertTrue(
+            ObjectiveThreshold(
+                metric=self.maximize_metric,
+                op=ComparisonOp.LEQ,
+                bound=self.bound,
+                relative=True,
+            ).relative
+        )
+        self.assertFalse(
+            ObjectiveThreshold(
+                metric=self.maximize_metric,
+                op=ComparisonOp.LEQ,
+                bound=self.bound,
+                relative=False,
+            ).relative
+        )
 
 
 class ScalarizedOutcomeConstraintTest(TestCase):
