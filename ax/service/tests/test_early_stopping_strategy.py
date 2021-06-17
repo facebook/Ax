@@ -78,30 +78,30 @@ class TestEarlyStoppingStrategy(TestCase):
 
         """
         Data looks like this:
-        arm_name metric_name       mean  sem  trial_index  timestamp
-        0       0_0      branin   0.000000  0.0            0          0
-        1       0_0      branin  28.750533  0.0            0          1
-        2       0_0      branin  46.188613  0.0            0          2
-        3       1_0      branin   0.000000  0.0            1          0
-        4       1_0      branin  22.242326  0.0            1          1
-        5       1_0      branin  35.732979  0.0            1          2
-        6       2_0      branin   0.000000  0.0            2          0
-        7       2_0      branin   8.779723  0.0            2          1
-        8       2_0      branin  14.104894  0.0            2          2
-        9       3_0      branin   0.000000  0.0            3          0
-        10      3_0      branin  28.206965  0.0            3          1
-        11      3_0      branin  45.315354  0.0            3          2
-        12      4_0      branin   0.000000  0.0            4          0
-        13      4_0      branin  12.794351  0.0            4          1
-        14      4_0      branin  20.554517  0.0            4          2
+        arm_name metric_name        mean  sem  trial_index  timestamp
+        0       0_0      branin  146.138620  0.0            0          0
+        1       0_0      branin  117.388086  0.0            0          1
+        2       0_0      branin   99.950007  0.0            0          2
+        3       1_0      branin  113.057480  0.0            1          0
+        4       1_0      branin   90.815154  0.0            1          1
+        5       1_0      branin   77.324501  0.0            1          2
+        6       2_0      branin   44.627226  0.0            2          0
+        7       2_0      branin   35.847504  0.0            2          1
+        8       2_0      branin   30.522333  0.0            2          2
+        9       3_0      branin  143.375669  0.0            3          0
+        10      3_0      branin  115.168704  0.0            3          1
+        11      3_0      branin   98.060315  0.0            3          2
+        12      4_0      branin   65.033535  0.0            4          0
+        13      4_0      branin   52.239184  0.0            4          1
+        14      4_0      branin   44.479018  0.0            4          2
 
         Looking at the most recent fidelity only (timestamp==2), we have
         the following metric values for each trial:
-        0: 46.188613 <-- worst
-        3: 45.315354
-        1: 35.732979
-        4: 20.554517
-        2: 14.104894 <-- best
+        0: 99.950007 <-- worst
+        3: 98.060315
+        1: 77.324501
+        4: 44.479018
+        2: 30.522333 <-- best
         """
         idcs = set(exp.trials.keys())
 

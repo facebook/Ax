@@ -30,8 +30,8 @@ class BackendSimulatorTimestampMapMetric(NoisyFunctionMapMetric):
             start_time=sim_trial.sim_start_time, end_time=end_time
         )
         timestamp_kwargs = {"map_keys": ["timestamp"], "timestamp": timestamps}
-        return super().fetch_trial_data(
-            trial=trial, noisy=noisy, **kwargs, **timestamp_kwargs
+        return NoisyFunctionMapMetric.fetch_trial_data(
+            self, trial=trial, noisy=noisy, **kwargs, **timestamp_kwargs
         )
 
     def convert_to_timestamps(self, start_time: float, end_time: float) -> List[float]:
