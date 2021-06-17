@@ -266,12 +266,12 @@ class ModelBridgeFactoryTest(TestCase):
     def test_MOO_EHVI(self):
         single_obj_exp = get_branin_experiment(with_batch=True)
         metrics = single_obj_exp.optimization_config.objective.metrics
-        metrics[0].lower_is_better = True
         objective_thresholds = [
             ObjectiveThreshold(
                 metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
             )
         ]
+        # ValueError: Multi-objective optimization requires multiple objectives.
         with self.assertRaises(ValueError):
             get_MOO_EHVI(
                 experiment=single_obj_exp,
@@ -280,12 +280,15 @@ class ModelBridgeFactoryTest(TestCase):
             )
         multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
         metrics = multi_obj_exp.optimization_config.objective.metrics
-        metrics[0].lower_is_better = False
-        metrics[1].lower_is_better = True
         multi_objective_thresholds = [
-            ObjectiveThreshold(metric=metrics[0], bound=0.0, relative=False),
-            ObjectiveThreshold(metric=metrics[1], bound=0.0, relative=False),
+            ObjectiveThreshold(
+                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            ),
+            ObjectiveThreshold(
+                metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            ),
         ]
+        # ValueError: MultiObjectiveOptimization requires non-empty data.
         with self.assertRaises(ValueError):
             get_MOO_EHVI(
                 experiment=multi_obj_exp,

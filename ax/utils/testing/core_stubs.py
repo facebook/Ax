@@ -848,7 +848,6 @@ def get_branin_multi_objective() -> Objective:
             Objective(metric=get_branin_metric(name="branin_a")),
             Objective(metric=get_branin_metric(name="branin_b")),
         ],
-        minimize=False,
     )
 
 

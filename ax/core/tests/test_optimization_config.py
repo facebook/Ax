@@ -30,7 +30,7 @@ OC_STR = (
 MOOC_STR = (
     "OptimizationConfig(objective=MultiObjective(objectives="
     '[Objective(metric_name="m1", minimize=True), '
-    'Objective(metric_name="m2", minimize=True)]), '
+    'Objective(metric_name="m2", minimize=False)]), '
     "outcome_constraints=[OutcomeConstraint(m2 >= -0.25%), "
     "OutcomeConstraint(m2 <= 0.25%)], objective_thresholds=[])"
 )
@@ -189,7 +189,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         }
         self.objectives = {
             "o1": Objective(metric=self.metrics["m1"]),
-            "o2": Objective(metric=self.metrics["m2"], minimize=True),
+            "o2": Objective(metric=self.metrics["m2"], minimize=False),
             "o3": Objective(metric=self.metrics["m3"], minimize=False),
         }
         self.objective = Objective(metric=self.metrics["m1"], minimize=False)

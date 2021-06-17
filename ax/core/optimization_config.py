@@ -364,25 +364,9 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         outcome_constraints = outcome_constraints or []
         objective_thresholds = objective_thresholds or []
 
-        # Verify we aren't optimizing too many objectives.
-        objective_metrics_by_name = {
-            metric.name: metric for metric in objective.metrics
-        }
-        # Warn if thresholds on objective_metrics bound from the wrong direction.
-        for threshold in objective_thresholds:
-            metric_name = threshold.metric.name
-            if metric_name in objective_metrics_by_name:
-                lower_is_better = threshold.metric.lower_is_better
-                bounded_above = threshold.op == ComparisonOp.LEQ
-                is_aligned = lower_is_better == bounded_above
-                if not (is_aligned or lower_is_better is None):
-                    raise ValueError(
-                        make_wrong_direction_warning(
-                            metric_name=metric_name,
-                            bounded_above=bounded_above,
-                            lower_is_better=lower_is_better,
-                        )
-                    )
+        maybe_raise_wrong_direction_warning(
+            objective=objective, objective_thresholds=objective_thresholds
+        )
 
         unconstrainable_metrics = objective.get_unconstrainable_metrics()
         OptimizationConfig._validate_outcome_constraints(
@@ -402,12 +386,26 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         )
 
 
-def make_wrong_direction_warning(
-    metric_name: str, bounded_above: bool, lower_is_better: Optional[bool]
-) -> str:
-    return (
-        f"Constraint on {metric_name} bounds from "
-        f"{'above' if bounded_above else 'below'} "
-        f"but {metric_name} is being "
-        f"{'minimized' if lower_is_better else 'maximized'}."
-    ).format(metric_name)
+def maybe_raise_wrong_direction_warning(
+    objective: Objective,
+    objective_thresholds: List[ObjectiveThreshold],
+) -> None:
+    """Warn if thresholds on objective_metrics bound from the wrong direction."""
+    if not isinstance(objective, MultiObjective):
+        return
+
+    objectives_by_name = {obj.metric.name: obj for obj in objective.objectives}
+    for threshold in objective_thresholds:
+        metric_name = threshold.metric.name
+        if metric_name in objectives_by_name:
+            minimize = objectives_by_name[metric_name].minimize
+            bounded_above = threshold.op == ComparisonOp.LEQ
+            is_aligned = minimize == bounded_above
+            if not is_aligned:
+                message = (
+                    f"Constraint on {metric_name} bounds from "
+                    f"{'above' if bounded_above else 'below'} "
+                    f"but {metric_name} is being "
+                    f"{'minimized' if minimize else 'maximized'}."
+                ).format(metric_name)
+                raise ValueError(message)
