@@ -14,17 +14,10 @@ from ax.core.search_space import SearchSpace
 from ax.modelbridge.factory import DEFAULT_TORCH_DEVICE
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.random import RandomModelBridge
+from ax.modelbridge.registry import ALEBO_X_trans, ALEBO_Y_trans
 from ax.modelbridge.torch import TorchModelBridge
-from ax.modelbridge.transforms.centered_unit_x import CenteredUnitX
-from ax.modelbridge.transforms.derelativize import Derelativize
-from ax.modelbridge.transforms.int_to_float import IntToFloat
-from ax.modelbridge.transforms.remove_fixed import RemoveFixed
-from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.alebo import ALEBO
-
-
-ALEBO_X_trans = [RemoveFixed, IntToFloat, CenteredUnitX]
 
 
 def get_ALEBOInitializer(
@@ -33,7 +26,7 @@ def get_ALEBOInitializer(
     return RandomModelBridge(
         search_space=search_space,
         model=ALEBOInitializer(B=B, **model_kwargs),
-        transforms=ALEBO_X_trans,  # pyre-ignore
+        transforms=ALEBO_X_trans,
     )
 
 
@@ -51,7 +44,7 @@ def get_ALEBO(
         search_space=search_space,
         data=data,
         model=ALEBO(B=B, **model_kwargs),
-        transforms=ALEBO_X_trans + [Derelativize, StandardizeY],  # pyre-ignore
+        transforms=ALEBO_X_trans + ALEBO_Y_trans,
         torch_dtype=B.dtype,
         torch_device=B.device,
     )

@@ -21,6 +21,7 @@ from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.centered_unit_x import CenteredUnitX
 from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode, ChoiceEncode
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
@@ -42,6 +43,7 @@ from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
+from ax.models.torch.alebo import ALEBO
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_kg import KnowledgeGradient
 from ax.models.torch.botorch_mes import MaxValueEntropySearch
@@ -119,6 +121,9 @@ Specified_Task_ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
     StratifiedStandardizeY,
     TaskEncode,
 ]
+
+ALEBO_X_trans: List[Type[Transform]] = [RemoveFixed, IntToFloat, CenteredUnitX]
+ALEBO_Y_trans: List[Type[Transform]] = [Derelativize, StandardizeY]
 
 STANDARD_TORCH_BRIDGE_KWARGS: Dict[str, Any] = {"torch_dtype": torch.double}
 
@@ -214,6 +219,11 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         model_class=BotorchModel,
         transforms=ST_MTGP_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
+    "ALEBO": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=ALEBO,
+        transforms=ALEBO_X_trans + ALEBO_Y_trans,
     ),
 }
 
@@ -382,6 +392,7 @@ class Models(ModelRegistryBase):
     MOO = "MOO"
     MOO_MODULAR = "MOO_Modular"
     ST_MTGP = "ST_MTGP"
+    ALEBO = "ALEBO"
 
 
 def get_model_from_generator_run(
