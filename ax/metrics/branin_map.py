@@ -30,7 +30,10 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         rate: Optional[float] = None,
     ) -> None:
         """A Branin map metric with an optional multiplicative factor
-        of `1 - exp(-rate * t)` where `t` is the runtime of the trial.
+        of `1 + exp(-rate * t)` where `t` is the runtime of the trial.
+        If the multiplicative factor is used, then at `t = 0`, the function
+        is twice the usual value, while as `t` becomes large, the values
+        approach the standard Branin values.
 
         Args:
             name: Name of the metric.
@@ -58,7 +61,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
     def f(self, x: np.ndarray) -> float:
         x1, x2, t = x
         if self.rate is not None:
-            weight = 1.0 - np.exp(-not_none(self.rate) * t)
+            weight = 1.0 + np.exp(-not_none(self.rate) * t)
         else:
             weight = 1.0
         return checked_cast(float, branin(x1=x1, x2=x2)) * weight
