@@ -130,6 +130,21 @@ class SurrogateTest(TestCase):
         self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
         self.assertFalse(self.surrogate._constructed_manually)
 
+        # Check that `model_options` passed to the `Surrogate` constructor are
+        # properly propagated.
+        with patch.object(
+            SingleTaskGP, "construct_inputs", wraps=SingleTaskGP.construct_inputs
+        ) as mock_construct_inputs:
+            surrogate = Surrogate(
+                botorch_model_class=self.botorch_model_class,
+                mll_class=self.mll_class,
+                model_options={"some_option": "some_value"},
+            )
+            surrogate.construct(self.training_data)
+            mock_construct_inputs.assert_called_with(
+                training_data=self.training_data, some_option="some_value"
+            )
+
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
     @patch(f"{SURROGATE_PATH}.fit_gpytorch_model")
