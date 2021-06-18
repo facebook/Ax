@@ -107,11 +107,14 @@ class MaxValueEntropySearch(BotorchModel):
 
         # subset model only to the outcomes we need for the optimization
         if options.get("subset_model", True):
-            model, objective_weights, outcome_constraints, _ = subset_model(
+            subset_model_results = subset_model(
                 model=model,  # pyre-ignore [6]
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
             )
+            model = subset_model_results.model
+            objective_weights = subset_model_results.objective_weights
+            outcome_constraints = subset_model_results.outcome_constraints
 
         # get the acquisition function
         num_fantasies = acf_options.get("num_fantasies", 16)

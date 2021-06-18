@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, cast
 
 import numpy as np
@@ -46,6 +47,15 @@ NOISELESS_MODELS = {SingleTaskGP}
 # Distributions
 SIMPLEX = "simplex"
 HYPERSPHERE = "hypersphere"
+
+
+@dataclass
+class SubsetModelData:
+    model: Model
+    objective_weights: Tensor
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]]
+    objective_thresholds: Optional[Tensor]
+    indices: Tensor
 
 
 def is_noiseless(model: Model) -> bool:
@@ -231,7 +241,7 @@ def subset_model(
     objective_weights: Tensor,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     objective_thresholds: Optional[Tensor] = None,
-) -> Tuple[Model, Tensor, Optional[Tuple[Tensor, Tensor]], Optional[Tensor]]:
+) -> SubsetModelData:
     """Subset a botorch model to the outputs used in the optimization.
 
     Args:
@@ -247,18 +257,26 @@ def subset_model(
             A f(x) <= b. (Not used by single task models)
 
     Returns:
-        A four-tuple of model, objective_weights, outcome_constraints, and objective
-        thresholds all subset to only those outputs that appear in either
-        the objective weights or the outcome constraints.
+        A SubsetModelData dataclass containing the model, objective_weights,
+        outcome_constraints, objective thresholds, all subset to only those
+        outputs that appear in either the objective weights or the outcome
+        constraints, along with the indices of the outputs.
     """
     nonzero = objective_weights != 0
     if outcome_constraints is not None:
         A, _ = outcome_constraints
         nonzero = nonzero | torch.any(A != 0, dim=0)
-    idcs = torch.arange(nonzero.size(0))[nonzero].tolist()
+    idcs_t = torch.arange(nonzero.size(0))[nonzero]
+    idcs = idcs_t.tolist()
     if len(idcs) == model.num_outputs:
         # if we use all model outputs, just return the inputs
-        return model, objective_weights, outcome_constraints, objective_thresholds
+        return SubsetModelData(
+            model=model,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            objective_thresholds=objective_thresholds,
+            indices=idcs_t,
+        )
     elif len(idcs) > model.num_outputs:
         raise RuntimeError(
             "Model size inconsistency. Tryting to subset a model with "
@@ -274,7 +292,13 @@ def subset_model(
             objective_thresholds = objective_thresholds[nonzero]
     except NotImplementedError:
         pass
-    return model, objective_weights, outcome_constraints, objective_thresholds
+    return SubsetModelData(
+        model=model,
+        objective_weights=objective_weights,
+        outcome_constraints=outcome_constraints,
+        objective_thresholds=objective_thresholds,
+        indices=idcs_t,
+    )
 
 
 def _to_inequality_constraints(
@@ -395,11 +419,14 @@ def get_out_of_sample_best_point_acqf(
 
     # subset model only to the outcomes we need for the optimization
     if kwargs.get(Keys.SUBSET_MODEL, True):
-        model, objective_weights, outcome_constraints, _ = subset_model(
+        subset_model_results = subset_model(
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
         )
+        model = subset_model_results.model
+        objective_weights = subset_model_results.objective_weights
+        outcome_constraints = subset_model_results.outcome_constraints
 
     fixed_features = fixed_features or {}
     target_fidelities = target_fidelities or {}

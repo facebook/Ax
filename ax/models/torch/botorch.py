@@ -343,11 +343,14 @@ class BotorchModel(TorchModel):
 
         # subset model only to the outcomes we need for the optimization	357
         if options.get(Keys.SUBSET_MODEL, True):
-            model, objective_weights, outcome_constraints, _ = subset_model(
+            subset_model_results = subset_model(
                 model=model,  # pyre-ignore [6]
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
             )
+            model = subset_model_results.model
+            objective_weights = subset_model_results.objective_weights
+            outcome_constraints = subset_model_results.outcome_constraints
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)

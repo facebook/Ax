@@ -105,17 +105,16 @@ class Acquisition(Base):
 
         # Subset model only to the outcomes we need for the optimization.
         if self.options.get(Keys.SUBSET_MODEL, True):
-            (
-                model,
-                objective_weights,
-                outcome_constraints,
-                objective_thresholds,
-            ) = subset_model(
-                self.surrogate.model,
+            subset_model_results = subset_model(
+                model=self.surrogate.model,
                 objective_weights=objective_weights,
-                objective_thresholds=objective_thresholds,
                 outcome_constraints=outcome_constraints,
+                objective_thresholds=objective_thresholds,
             )
+            model = subset_model_results.model
+            objective_weights = subset_model_results.objective_weights
+            outcome_constraints = subset_model_results.outcome_constraints
+            objective_thresholds = subset_model_results.objective_thresholds
         else:
             model = self.surrogate.model
 

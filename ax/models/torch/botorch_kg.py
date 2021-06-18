@@ -130,11 +130,14 @@ class KnowledgeGradient(BotorchModel):
         # subset model only to the outcomes we need for the optimization
         model = not_none(self.model)
         if options.get("subset_model", True):
-            model, objective_weights, outcome_constraints, _ = subset_model(
+            subset_model_results = subset_model(
                 model=model,
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
             )
+            model = subset_model_results.model
+            objective_weights = subset_model_results.objective_weights
+            outcome_constraints = subset_model_results.outcome_constraints
 
         objective = get_botorch_objective(
             model=model,
