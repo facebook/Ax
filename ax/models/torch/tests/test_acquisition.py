@@ -12,6 +12,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.utils import SubsetModelData
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.input_constructors import (
@@ -100,7 +101,8 @@ class AcquisitionTest(TestCase):
 
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
     @mock.patch(
-        f"{ACQUISITION_PATH}.subset_model", return_value=(None, None, None, None)
+        f"{ACQUISITION_PATH}.subset_model",
+        return_value=SubsetModelData(None, None, None, None, None),
     )
     @mock.patch(f"{ACQUISITION_PATH}.get_botorch_objective")
     @mock.patch(
@@ -152,7 +154,7 @@ class AcquisitionTest(TestCase):
         )
         # Call `subset_model` only when needed
         mock_subset_model.assert_called_with(
-            acquisition.surrogate.model,
+            model=acquisition.surrogate.model,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             objective_thresholds=self.objective_thresholds,

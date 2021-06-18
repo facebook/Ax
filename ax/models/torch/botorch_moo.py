@@ -40,7 +40,7 @@ from ax.models.torch_base import TorchModel
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from torch import Tensor
@@ -271,21 +271,20 @@ class MultiObjectiveBotorchModel(BotorchModel):
             fixed_features=fixed_features,
         )
 
-        model = self.model
+        model = not_none(self.model)
 
         # subset model only to the outcomes we need for the optimization
         if options.get(Keys.SUBSET_MODEL, True):
-            (
-                model,
-                objective_weights,
-                outcome_constraints,
-                objective_thresholds,
-            ) = subset_model(
-                model=model,  # pyre-ignore [6]
+            subset_model_results = subset_model(
+                model=model,
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
                 objective_thresholds=objective_thresholds,
             )
+            model = subset_model_results.model
+            objective_weights = subset_model_results.objective_weights
+            outcome_constraints = subset_model_results.outcome_constraints
+            objective_thresholds = subset_model_results.objective_thresholds
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)

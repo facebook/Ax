@@ -53,18 +53,22 @@ class TorchUtilsTest(TestCase):
         self.assertEqual(model.num_outputs, 2)
         # basic test, can subset
         obj_weights = torch.tensor([1.0, 0.0])
-        model_sub, obj_weights_sub, ocs_sub, obj_t_sub = subset_model(
-            model, obj_weights
-        )
+        subset_model_results = subset_model(model, obj_weights)
+        model_sub = subset_model_results.model
+        obj_weights_sub = subset_model_results.objective_weights
+        ocs_sub = subset_model_results.outcome_constraints
+        obj_t_sub = subset_model_results.objective_thresholds
         self.assertIsNone(ocs_sub)
         self.assertIsNone(obj_t_sub)
         self.assertEqual(model_sub.num_outputs, 1)
         self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([1.0])))
         # basic test, cannot subset
         obj_weights = torch.tensor([1.0, 2.0])
-        model_sub, obj_weights_sub, ocs_sub, obj_t_sub = subset_model(
-            model, obj_weights
-        )
+        subset_model_results = subset_model(model, obj_weights)
+        model_sub = subset_model_results.model
+        obj_weights_sub = subset_model_results.objective_weights
+        ocs_sub = subset_model_results.outcome_constraints
+        obj_t_sub = subset_model_results.objective_thresholds
         self.assertIsNone(ocs_sub)
         self.assertIsNone(obj_t_sub)
         self.assertIs(model_sub, model)  # check identity
@@ -72,9 +76,11 @@ class TorchUtilsTest(TestCase):
         # test w/ outcome constraints, can subset
         obj_weights = torch.tensor([1.0, 0.0])
         ocs = (torch.tensor([[1.0, 0.0]]), torch.tensor([1.0]))
-        model_sub, obj_weights_sub, ocs_sub, obj_t_sub = subset_model(
-            model, obj_weights, ocs
-        )
+        subset_model_results = subset_model(model, obj_weights, ocs)
+        model_sub = subset_model_results.model
+        obj_weights_sub = subset_model_results.objective_weights
+        ocs_sub = subset_model_results.outcome_constraints
+        obj_t_sub = subset_model_results.objective_thresholds
         self.assertEqual(model_sub.num_outputs, 1)
         self.assertIsNone(obj_t_sub)
         self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([1.0])))
@@ -83,9 +89,11 @@ class TorchUtilsTest(TestCase):
         # test w/ outcome constraints, cannot subset
         obj_weights = torch.tensor([1.0, 0.0])
         ocs = (torch.tensor([[0.0, 1.0]]), torch.tensor([1.0]))
-        model_sub, obj_weights_sub, ocs_sub, obj_t_sub = subset_model(
-            model, obj_weights, ocs
-        )
+        subset_model_results = subset_model(model, obj_weights, ocs)
+        model_sub = subset_model_results.model
+        obj_weights_sub = subset_model_results.objective_weights
+        ocs_sub = subset_model_results.outcome_constraints
+        obj_t_sub = subset_model_results.objective_thresholds
         self.assertIs(model_sub, model)  # check identity
         self.assertIsNone(obj_t_sub)
         self.assertIs(obj_weights_sub, obj_weights)  # check identity
@@ -93,19 +101,25 @@ class TorchUtilsTest(TestCase):
         # test w/ objective thresholds, cannot subset
         obj_weights = torch.tensor([1.0, 0.0])
         ocs = (torch.tensor([[0.0, 1.0]]), torch.tensor([1.0]))
-        model_sub, obj_weights_sub, ocs_sub, obj_t_sub = subset_model(
-            model, obj_weights, ocs, obj_t
-        )
+        subset_model_results = subset_model(model, obj_weights, ocs, obj_t)
+        model_sub = subset_model_results.model
+        obj_weights_sub = subset_model_results.objective_weights
+        ocs_sub = subset_model_results.outcome_constraints
+        obj_t_sub = subset_model_results.objective_thresholds
         self.assertIs(model_sub, model)  # check identity
         self.assertIs(obj_t, obj_t_sub)
         self.assertIs(obj_weights_sub, obj_weights)  # check identity
+        self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0, 1])))
         self.assertIs(ocs_sub, ocs)  # check identity
         # test w/ objective thresholds, can subset
         obj_weights = torch.tensor([1.0, 0.0])
         ocs = (torch.tensor([[1.0, 0.0]]), torch.tensor([1.0]))
-        model_sub, obj_weights_sub, ocs_sub, obj_t_sub = subset_model(
-            model, obj_weights, ocs, obj_t
-        )
+        subset_model_results = subset_model(model, obj_weights, ocs, obj_t)
+        model_sub = subset_model_results.model
+        obj_weights_sub = subset_model_results.objective_weights
+        ocs_sub = subset_model_results.outcome_constraints
+        obj_t_sub = subset_model_results.objective_thresholds
+        self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0])))
         self.assertEqual(model_sub.num_outputs, 1)
         self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([1.0])))
         self.assertTrue(torch.equal(obj_t_sub, obj_t[:1]))
@@ -114,8 +128,12 @@ class TorchUtilsTest(TestCase):
         # test unsupported
         yvar = torch.ones(1, 2)
         model = HeteroskedasticSingleTaskGP(x, y, yvar)
-        model_sub, obj_weights_sub, ocs, obj_t_sub = subset_model(model, obj_weights)
-        self.assertIsNone(ocs)
+        subset_model_results = subset_model(model, obj_weights)
+        model_sub = subset_model_results.model
+        obj_weights_sub = subset_model_results.objective_weights
+        ocs_sub = subset_model_results.outcome_constraints
+        obj_t_sub = subset_model_results.objective_thresholds
+        self.assertIsNone(ocs_sub)
         self.assertIs(model_sub, model)  # check identity
         self.assertIs(obj_weights_sub, obj_weights)  # check identity
         # test error on size inconsistency
