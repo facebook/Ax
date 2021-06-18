@@ -198,6 +198,8 @@ def get_standard_plots(
         _get_objective_trace_plot(
             experiment=experiment,
             metric_name=not_none(experiment.optimization_config).objective.metric.name,
+            # TODO: Adjust `model_transitions` to case where custom trials are present
+            # and generation strategy does not start right away.
             model_transitions=generation_strategy.model_transitions,
             optimization_direction=(
                 "minimize"
@@ -207,20 +209,24 @@ def get_standard_plots(
         )
     )
 
-    try:
-        output_plot_list.append(
-            _get_objective_v_param_plot(
-                search_space=experiment.search_space,
-                model=not_none(generation_strategy.model),
-                metric_name=not_none(
-                    experiment.optimization_config
-                ).objective.metric.name,
-                trials=experiment.trials,
+    # Objective vs. parameter plot requires a `Model`, so add it only if model
+    # is alrady available. In cases where initially custom trials are attached,
+    # model might not yet be set on the generation strategy.
+    if generation_strategy.model:
+        try:
+            output_plot_list.append(
+                _get_objective_v_param_plot(
+                    search_space=experiment.search_space,
+                    model=not_none(generation_strategy.model),
+                    metric_name=not_none(
+                        experiment.optimization_config
+                    ).objective.metric.name,
+                    trials=experiment.trials,
+                )
             )
-        )
-    except NotImplementedError:
-        # Model does not implement `predict` method.
-        pass
+        except NotImplementedError:
+            # Model does not implement `predict` method.
+            pass
 
     return [plot for plot in output_plot_list if plot is not None]
 
