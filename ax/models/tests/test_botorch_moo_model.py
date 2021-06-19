@@ -4,21 +4,25 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from contextlib import ExitStack
 from typing import Dict
 from unittest import mock
 
 import ax.models.torch.botorch_moo as botorch_moo
+import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch_defaults import get_NEI
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
-from ax.models.torch.utils import HYPERSPHERE
+from ax.models.torch.utils import HYPERSPHERE, _get_X_pending_and_observed
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
-from botorch.models import ModelListGP
+from botorch.models import ModelListGP, FixedNoiseGP
 from botorch.models.transforms.input import Warp
+from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
+from botorch.utils.testing import MockPosterior
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
 SAMPLE_SIMPLEX_UTIL_PATH = "ax.models.torch.utils.sample_simplex"
@@ -286,7 +290,7 @@ class BotorchMOOModelTest(TestCase):
         ) as _, mock.patch(
             PARTITIONING_PATH, wraps=moo_monte_carlo.NondominatedPartitioning
         ) as _mock_partitioning:
-            model.gen(
+            _, _, gen_metadata, _ = model.gen(
                 n,
                 bounds,
                 objective_weights,
@@ -297,6 +301,7 @@ class BotorchMOOModelTest(TestCase):
             self.assertEqual(1, _mock_ehvi_acqf.call_count)
             # check partitioning strategy
             self.assertEqual(_mock_partitioning.call_args[1]["alpha"], 0.0)
+            self.assertTrue(torch.equal(gen_metadata["objective_thresholds"], obj_t))
 
         # 3 objective
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
@@ -329,6 +334,179 @@ class BotorchMOOModelTest(TestCase):
             )
             # check partitioning strategy
             self.assertEqual(_mock_partitioning.call_args[1]["alpha"], 1e-5)
+
+        # test inferred objective thresholds in gen()
+        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            # create several data points
+            Xs1 = [torch.cat([Xs1[0], Xs1[0] - 0.1], dim=0)]
+            Ys1 = [torch.cat([Ys1[0], Ys1[0] - 0.5], dim=0)]
+            Ys2 = [torch.cat([Ys2[0], Ys2[0] + 0.5], dim=0)]
+            Yvars1 = [torch.cat([Yvars1[0], Yvars1[0] + 0.2], dim=0)]
+            Yvars2 = [torch.cat([Yvars2[0], Yvars2[0] + 0.1], dim=0)]
+            model.fit(
+                Xs=Xs1 + Xs1,
+                Ys=Ys1 + Ys2,
+                Yvars=Yvars1 + Yvars2,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                    task_features=tfs,
+                ),
+                metric_names=mns + ["dummy_metric"],
+            )
+        with ExitStack() as es:
+            _mock_ehvi_acqf = es.enter_context(
+                mock.patch(
+                    EHVI_ACQF_PATH,
+                    wraps=moo_monte_carlo.qExpectedHypervolumeImprovement,
+                )
+            )
+            es.enter_context(
+                mock.patch(
+                    "ax.models.torch.botorch_defaults.optimize_acqf",
+                    return_value=(X_dummy, acqfv_dummy),
+                )
+            )
+            _mock_partitioning = es.enter_context(
+                mock.patch(
+                    PARTITIONING_PATH, wraps=moo_monte_carlo.NondominatedPartitioning
+                )
+            )
+            _mock_model_infer_objective_thresholds = es.enter_context(
+                mock.patch.object(
+                    model,
+                    "infer_objective_thresholds",
+                    wraps=model.infer_objective_thresholds,
+                )
+            )
+            _mock_infer_reference_point = es.enter_context(
+                mock.patch(
+                    "ax.models.torch.botorch_moo.infer_reference_point",
+                    wraps=infer_reference_point,
+                )
+            )
+            es.enter_context(
+                mock.patch.object(
+                    model.model,
+                    "posterior",
+                    return_value=MockPosterior(
+                        mean=torch.tensor(
+                            [
+                                [11.0, 2.0, 0.0],
+                                [9.0, 3.0, 0.0],
+                            ]
+                        )
+                    ),
+                )
+            )
+            outcome_constraints = (
+                torch.tensor([[1.0, 0.0, 0.0]]),
+                torch.tensor([[10.0]]),
+            )
+            _, _, gen_metadata, _ = model.gen(
+                n,
+                bounds,
+                objective_weights=torch.tensor([-1.0, -1.0, 0.0]),
+                outcome_constraints=outcome_constraints,
+                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
+            )
+            # the EHVI acquisition function should be created only once.
+            self.assertEqual(1, _mock_ehvi_acqf.call_count)
+            ckwargs = _mock_model_infer_objective_thresholds.call_args[1]
+            X_observed = ckwargs["X_observed"]
+            sorted_idcs = X_observed[:, 0].argsort()
+            expected_X_observed = torch.tensor([[1.0, 2.0, 3.0], [0.9, 1.9, 2.9]])
+            sorted_idcs2 = expected_X_observed[:, 0].argsort()
+            self.assertTrue(
+                torch.equal(
+                    X_observed[sorted_idcs],
+                    expected_X_observed[sorted_idcs2],
+                )
+            )
+            self.assertTrue(
+                torch.equal(
+                    ckwargs["objective_weights"], torch.tensor([-1.0, -1.0, 0.0])
+                )
+            )
+            oc = ckwargs["outcome_constraints"]
+            self.assertTrue(torch.equal(oc[0], outcome_constraints[0]))
+            self.assertTrue(torch.equal(oc[1], outcome_constraints[1]))
+            self.assertIsInstance(ckwargs["model"], FixedNoiseGP)
+            self.assertTrue(torch.equal(ckwargs["subset_idcs"], torch.tensor([0, 1])))
+            _mock_infer_reference_point.assert_called_once()
+            ckwargs = _mock_infer_reference_point.call_args[1]
+            self.assertEqual(ckwargs["scale"], 0.1)
+            self.assertTrue(
+                torch.equal(ckwargs["pareto_Y"], torch.tensor([[-9.0, -3.0]]))
+            )
+            self.assertIn("objective_thresholds", gen_metadata)
+            obj_t = gen_metadata["objective_thresholds"]
+            self.assertTrue(torch.equal(obj_t[:2], torch.tensor([9.9, 3.3])))
+            self.assertTrue(np.isnan(obj_t[2]))
+
+        # test infer objective thresholds alone
+        # include an extra 3rd outcome
+        outcome_constraints = (torch.tensor([[1.0, 0.0, 0.0]]), torch.tensor([[10.0]]))
+        with ExitStack() as es:
+            _mock_infer_reference_point = es.enter_context(
+                mock.patch(
+                    "ax.models.torch.botorch_moo.infer_reference_point",
+                    wraps=infer_reference_point,
+                )
+            )
+            _mock_get_X_pending_and_observed = es.enter_context(
+                mock.patch(
+                    "ax.models.torch.botorch_moo._get_X_pending_and_observed",
+                    wraps=_get_X_pending_and_observed,
+                )
+            )
+            es.enter_context(
+                mock.patch.object(
+                    model.model,
+                    "posterior",
+                    return_value=MockPosterior(
+                        mean=torch.tensor(
+                            [
+                                [11.0, 2.0, 0.0],
+                                [9.0, 3.0, 0.0],
+                            ]
+                        )
+                    ),
+                )
+            )
+            linear_constraints = (torch.tensor([1.0, 0.0, 0.0]), torch.tensor([2.0]))
+            objective_weights = torch.tensor([-1.0, -1.0, 0.0])
+            obj_thresholds = model.infer_objective_thresholds(
+                bounds=bounds,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                fixed_features={},
+                linear_constraints=linear_constraints,
+            )
+            _mock_get_X_pending_and_observed.assert_called_once()
+            ckwargs = _mock_get_X_pending_and_observed.call_args[1]
+            actual_Xs = ckwargs["Xs"]
+            for X in actual_Xs:
+                self.assertTrue(torch.equal(X, Xs1[0]))
+            self.assertEqual(ckwargs["bounds"], bounds)
+            self.assertTrue(
+                torch.equal(ckwargs["objective_weights"], objective_weights)
+            )
+            oc = ckwargs["outcome_constraints"]
+            self.assertTrue(torch.equal(oc[0], outcome_constraints[0]))
+            self.assertTrue(torch.equal(oc[1], outcome_constraints[1]))
+            self.assertEqual(ckwargs["fixed_features"], {})
+            lc = ckwargs["linear_constraints"]
+            self.assertTrue(torch.equal(lc[0], linear_constraints[0]))
+            self.assertTrue(torch.equal(lc[1], linear_constraints[1]))
+            _mock_infer_reference_point.assert_called_once()
+            ckwargs = _mock_infer_reference_point.call_args[1]
+            self.assertEqual(ckwargs["scale"], 0.1)
+            self.assertTrue(
+                torch.equal(ckwargs["pareto_Y"], torch.tensor([[-9.0, -3.0]]))
+            )
+            self.assertTrue(torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3])))
+            self.assertTrue(np.isnan(obj_thresholds[2].item()))
 
     def test_BotorchMOOModel_with_random_scalarization_and_outcome_constraints(
         self, dtype=torch.float, cuda=False

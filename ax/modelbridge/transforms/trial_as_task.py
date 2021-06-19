@@ -97,7 +97,7 @@ class TrialAsTask(Transform):
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, level_dict in self.trial_level_map.items():
-            level_values = list(set(level_dict.values()))
+            level_values = sorted(set(level_dict.values()))
             if len(level_values) == 1:
                 raise ValueError(
                     "TrialAsTask transform expects 2+ task params, "

@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import numpy as np
@@ -33,6 +34,18 @@ from ax.utils.common.typeutils import not_none
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
+
+
+@dataclass
+class ArrayModelGenArgs:
+    search_space_digest: SearchSpaceDigest
+    objective_weights: np.ndarray
+    outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]]
+    linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]]
+    fixed_features: Optional[Dict[int, float]]
+    pending_observations: Optional[List[np.ndarray]]
+    rounding_func: Callable[[np.ndarray], np.ndarray]
+    extra_model_gen_kwargs: Dict[str, Any]
 
 
 # pyre-fixme[13]: Attribute `model` is never initialized.
@@ -177,25 +190,14 @@ class ArrayModelBridge(ModelBridge):
     ) -> Dict[str, Any]:
         return {}
 
-    def _gen(
+    def _get_transformed_model_gen_args(
         self,
-        n: int,
         search_space: SearchSpace,
         pending_observations: Dict[str, List[ObservationFeatures]],
         fixed_features: ObservationFeatures,
         model_gen_options: Optional[TConfig] = None,
         optimization_config: Optional[OptimizationConfig] = None,
-    ) -> Tuple[
-        List[ObservationFeatures],
-        List[float],
-        Optional[ObservationFeatures],
-        TGenMetadata,
-    ]:
-        """Generate new candidates according to search_space and
-        optimization_config.
-
-        The outcome constraints should be transformed to no longer be relative.
-        """
+    ) -> ArrayModelGenArgs:
         # Validation
         if not self.parameters:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
@@ -228,19 +230,59 @@ class ArrayModelBridge(ModelBridge):
         pending_array = pending_observations_as_array(
             pending_observations, self.outcomes, self.parameters
         )
-        # Generate the candidates
-        X, w, gen_metadata, candidate_metadata = self._model_gen(
-            n=n,
-            bounds=search_space_digest.bounds,
+        return ArrayModelGenArgs(
+            search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features_dict,
             pending_observations=pending_array,
-            model_gen_options=model_gen_options,
             rounding_func=transform_callback(self.parameters, self.transforms),
+            extra_model_gen_kwargs=extra_model_gen_kwargs,
+        )
+
+    def _gen(
+        self,
+        n: int,
+        search_space: SearchSpace,
+        pending_observations: Dict[str, List[ObservationFeatures]],
+        fixed_features: ObservationFeatures,
+        model_gen_options: Optional[TConfig] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> Tuple[
+        List[ObservationFeatures],
+        List[float],
+        Optional[ObservationFeatures],
+        TGenMetadata,
+    ]:
+        """Generate new candidates according to search_space and
+        optimization_config.
+
+        The outcome constraints should be transformed to no longer be relative.
+        """
+        array_model_gen_args = self._get_transformed_model_gen_args(
+            search_space=search_space,
+            pending_observations=pending_observations,
+            fixed_features=fixed_features,
+            model_gen_options=model_gen_options,
+            optimization_config=optimization_config,
+        )
+
+        # Generate the candidates
+        search_space_digest = array_model_gen_args.search_space_digest
+        # TODO: pass array_model_gen_args to _model_gen
+        X, w, gen_metadata, candidate_metadata = self._model_gen(
+            n=n,
+            bounds=search_space_digest.bounds,
+            objective_weights=array_model_gen_args.objective_weights,
+            outcome_constraints=array_model_gen_args.outcome_constraints,
+            linear_constraints=array_model_gen_args.linear_constraints,
+            fixed_features=array_model_gen_args.fixed_features,
+            pending_observations=array_model_gen_args.pending_observations,
+            model_gen_options=model_gen_options,
+            rounding_func=array_model_gen_args.rounding_func,
             target_fidelities=search_space_digest.target_fidelities,
-            **extra_model_gen_kwargs,
+            **array_model_gen_args.extra_model_gen_kwargs,
         )
         # Transform array to observations
         observation_features = parse_observation_features(
@@ -248,10 +290,10 @@ class ArrayModelBridge(ModelBridge):
         )
         xbest = self._model_best_point(
             bounds=search_space_digest.bounds,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features_dict,
+            objective_weights=array_model_gen_args.objective_weights,
+            outcome_constraints=array_model_gen_args.outcome_constraints,
+            linear_constraints=array_model_gen_args.linear_constraints,
+            fixed_features=array_model_gen_args.fixed_features,
             model_gen_options=model_gen_options,
             target_fidelities=search_space_digest.target_fidelities,
         )
