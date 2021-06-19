@@ -8,6 +8,7 @@ import time
 from abc import ABC
 from collections import OrderedDict
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
 
 from ax.core.arm import Arm
@@ -41,6 +42,14 @@ from ax.utils.common.typeutils import not_none
 
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class BaseGenArgs:
+    search_space: SearchSpace
+    optimization_config: OptimizationConfig
+    pending_observations: Dict[str, List[ObservationFeatures]]
+    fixed_features: ObservationFeatures
 
 
 class ModelBridge(ABC):
@@ -576,39 +585,17 @@ class ModelBridge(ABC):
         """
         raise NotImplementedError  # pragma: no cover
 
-    def gen(
+    def _get_transformed_gen_args(
         self,
-        n: int,
-        search_space: Optional[SearchSpace] = None,
+        search_space: SearchSpace,
         optimization_config: Optional[OptimizationConfig] = None,
         pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
         fixed_features: Optional[ObservationFeatures] = None,
-        model_gen_options: Optional[TConfig] = None,
-    ) -> GeneratorRun:
-        """
-        Args:
-            n: Number of points to generate
-            search_space: Search space
-            optimization_config: Optimization config
-            pending_observations: A map from metric name to pending
-                observations for that metric.
-            fixed_features: An ObservationFeatures object containing any
-                features that should be fixed at specified values during
-                generation.
-            model_gen_options: A config dictionary that is passed along to the
-                model.
-        """
-        t_gen_start = time.time()
+    ) -> BaseGenArgs:
         if pending_observations is None:
             pending_observations = {}
         if fixed_features is None:
             fixed_features = ObservationFeatures({})
-
-        # Get modifiable versions
-        if search_space is None:
-            search_space = self._model_space
-        orig_search_space = search_space
-        search_space = search_space.clone()
 
         if optimization_config is None:
             optimization_config = (
@@ -636,14 +623,55 @@ class ModelBridge(ABC):
             for metric, po in pending_observations.items():
                 pending_observations[metric] = t.transform_observation_features(po)
             fixed_features = t.transform_observation_features([fixed_features])[0]
-
-        # Apply terminal transform and gen
-        observation_features, weights, best_obsf, gen_metadata = self._gen(
-            n=n,
+        return BaseGenArgs(
             search_space=search_space,
             optimization_config=optimization_config,
             pending_observations=pending_observations,
             fixed_features=fixed_features,
+        )
+
+    def gen(
+        self,
+        n: int,
+        search_space: Optional[SearchSpace] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
+        model_gen_options: Optional[TConfig] = None,
+    ) -> GeneratorRun:
+        """
+        Args:
+            n: Number of points to generate
+            search_space: Search space
+            optimization_config: Optimization config
+            pending_observations: A map from metric name to pending
+                observations for that metric.
+            fixed_features: An ObservationFeatures object containing any
+                features that should be fixed at specified values during
+                generation.
+            model_gen_options: A config dictionary that is passed along to the
+                model.
+        """
+        t_gen_start = time.time()
+        # Get modifiable versions
+        if search_space is None:
+            search_space = self._model_space
+        orig_search_space = search_space
+        search_space = search_space.clone()
+        base_gen_args = self._get_transformed_gen_args(
+            search_space=search_space,
+            optimization_config=optimization_config,
+            pending_observations=pending_observations,
+            fixed_features=fixed_features,
+        )
+
+        # Apply terminal transform and gen
+        observation_features, weights, best_obsf, gen_metadata = self._gen(
+            n=n,
+            search_space=base_gen_args.search_space,
+            optimization_config=base_gen_args.optimization_config,
+            pending_observations=base_gen_args.pending_observations,
+            fixed_features=base_gen_args.fixed_features,
             model_gen_options=model_gen_options,
         )
         # Apply reverse transforms
@@ -692,11 +720,12 @@ class ModelBridge(ABC):
         immutable = getattr(
             self, "_experiment_has_immutable_search_space_and_opt_config", False
         )
+        optimization_config = None if immutable else base_gen_args.optimization_config
         gr = GeneratorRun(
             arms=arms,
             weights=weights,
-            optimization_config=None if immutable else optimization_config,
-            search_space=None if immutable else search_space,
+            optimization_config=optimization_config,
+            search_space=None if immutable else base_gen_args.search_space,
             model_predictions=model_predictions,
             best_arm_predictions=None
             if best_arm is None

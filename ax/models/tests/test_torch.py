@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import numpy as np
+import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch_base import TorchModel
 from ax.utils.common.testutils import TestCase
@@ -64,3 +65,8 @@ class TorchModelTest(TestCase):
                 search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
                 metric_names=[],
             )
+
+    def testTorchModelInferObjectiveThresholds(self):
+        torch_model = TorchModel()
+        with self.assertRaises(NotImplementedError):
+            torch_model.infer_objective_thresholds(torch.zeros(2))

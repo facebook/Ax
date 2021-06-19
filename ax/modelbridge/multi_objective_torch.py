@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -22,6 +22,7 @@ from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.array import FIT_MODEL_ERROR
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
+    parse_observation_features,
     validate_and_apply_final_transform,
 )
 from ax.modelbridge.torch import TorchModelBridge
@@ -34,6 +35,7 @@ from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast_optional, not_none
+from torch import Tensor
 
 
 logger = get_logger("MultiObjectiveTorchModelBridge")
@@ -168,6 +170,18 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             rounding_func=tensor_rounding_func,
             target_fidelities=target_fidelities,
         )
+        # if objective_thresholds are supplied by the user, then the
+        # transformed user-specified objective thresholds are in
+        # gen_metadata. Otherwise, inferred objective thresholds are
+        # in gen_metadata.
+        objective_thresholds = gen_metadata["objective_thresholds"]
+        obj_thlds = self.untransform_objective_thresholds(
+            objective_thresholds=objective_thresholds,
+            objective_weights=obj_w,
+            bounds=bounds,
+            fixed_features=fixed_features,
+        )
+        gen_metadata["objective_thresholds"] = obj_thlds
         return (
             X.detach().cpu().clone().numpy(),
             w.detach().cpu().clone().numpy(),
@@ -225,3 +239,98 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             if hasattr(self.model, "frontier_evaluator")
             else get_default_frontier_evaluator()
         )
+
+    def infer_objective_thresholds(
+        self,
+        search_space: Optional[SearchSpace] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
+    ) -> ObservationData:
+        """Infer objective thresholds.
+
+        This method uses the model-estimated Pareto frontier over the in-sample points
+        to infer absolute (not relativized) objective thresholds.
+
+        This uses a heuristic that sets the objective threshold to be a scaled nadir
+        point, where the nadir point is scaled back based on the range of each
+        objective across the current in-sample Pareto frontier.
+        """
+        if search_space is None:
+            search_space = self._model_space
+        search_space = search_space.clone()
+        base_gen_args = self._get_transformed_gen_args(
+            search_space=search_space,
+            optimization_config=optimization_config,
+            fixed_features=fixed_features,
+        )
+        # get transformed args from ArrayModelbridge
+        array_model_gen_args = self._get_transformed_model_gen_args(
+            search_space=base_gen_args.search_space,
+            fixed_features=base_gen_args.fixed_features,
+            pending_observations={},
+            optimization_config=base_gen_args.optimization_config,
+        )
+        # get transformed args from TorchModelbridge
+        obj_w, oc_c, l_c, pend_obs, _ = validate_and_apply_final_transform(
+            objective_weights=array_model_gen_args.objective_weights,
+            outcome_constraints=array_model_gen_args.outcome_constraints,
+            pending_observations=None,
+            linear_constraints=array_model_gen_args.linear_constraints,
+            final_transform=self._array_to_tensor,
+        )
+        # infer objective thresholds
+        objective_thresholds = not_none(self.model).infer_objective_thresholds(
+            objective_weights=obj_w,
+            bounds=array_model_gen_args.search_space_digest.bounds,
+            outcome_constraints=oc_c,
+            linear_constraints=l_c,
+            fixed_features=array_model_gen_args.fixed_features,
+        )
+        return self.untransform_objective_thresholds(
+            objective_thresholds=objective_thresholds,
+            objective_weights=obj_w,
+            bounds=array_model_gen_args.search_space_digest.bounds,
+            fixed_features=array_model_gen_args.fixed_features,
+        )
+
+    def untransform_objective_thresholds(
+        self,
+        objective_thresholds: Tensor,
+        objective_weights: Tensor,
+        bounds: List[Tuple[Union[int, float], Union[int, float]]],
+        fixed_features: Optional[Dict[int, float]],
+    ) -> ObservationData:
+        objective_thresholds_np = objective_thresholds.cpu().numpy()
+        # pyre-ignore [16]
+        objective_indices = objective_weights.nonzero().view(-1).tolist()
+        objective_names = [self.outcomes[i] for i in objective_indices]
+        # create an ObservationData object for untransforming the objective thresholds
+        observation_data = [
+            ObservationData(
+                metric_names=objective_names,
+                means=objective_thresholds_np[objective_indices].copy(),
+                covariance=np.zeros((len(objective_indices), len(objective_indices))),
+            )
+        ]
+        # Untransform objective thresholds. Note: there is one objective threshold
+        # for every outcome.
+        # Construct dummy observation features
+        X = [bound[0] for bound in bounds]
+        fixed_features = fixed_features or {}
+        for i, val in fixed_features.items():
+            X[i] = val
+        observation_features = parse_observation_features(
+            X=np.array([X]),
+            param_names=self.parameters,
+        )
+        # Apply reverse transforms, in reverse order
+        for t in reversed(self.transforms.values()):
+            observation_data = t.untransform_observation_data(
+                observation_data=observation_data,
+                observation_features=observation_features,
+            )
+            observation_features = t.untransform_observation_features(
+                observation_features=observation_features,
+            )
+        observation_data = observation_data[0]
+        return observation_data

@@ -4,12 +4,19 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from contextlib import ExitStack
 from unittest.mock import patch
 
 import numpy as np
 import torch
 from ax.core.observation import ObservationFeatures, ObservationData
-from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
+from ax.core.outcome_constraint import (
+    ComparisonOp,
+    ObjectiveThreshold,
+    OutcomeConstraint,
+)
+from ax.core.parameter_constraint import ParameterConstraint
+from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.modelbridge_utils import (
     get_pareto_frontier_and_transformed_configs,
     pareto_frontier,
@@ -19,15 +26,17 @@ from ax.modelbridge.modelbridge_utils import (
     observed_pareto_frontier,
 )
 from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
+from ax.modelbridge.registry import Cont_X_trans, Y_trans, ST_MTGP_trans
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import pareto_frontier_evaluator
+from ax.service.utils.report_utils import exp_to_df
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
 )
-
+from botorch.utils.multi_objective.pareto import is_non_dominated
 
 PARETO_FRONTIER_EVALUATOR_PATH = (
     f"{pareto_frontier_evaluator.__module__}.pareto_frontier_evaluator"
@@ -341,3 +350,180 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             observation_features=observation_features,
         )
         self.assertTrue(predicted_hv >= 0)
+
+    @patch(
+        # Mocking `BraninMetric` as not available while running, so it will
+        # be grabbed from cache during `fetch_data`.
+        f"{STUBS_PATH}.BraninMetric.is_available_while_running",
+        return_value=False,
+    )
+    def test_infer_objective_thresholds(self, _):
+        # lightweight test
+        exp = get_branin_experiment_with_multi_objective(
+            has_optimization_config=True,
+            with_batch=True,
+            with_status_quo=True,
+        )
+        for trial in exp.trials.values():
+            trial.mark_running(no_runner_required=True).mark_completed()
+        exp.attach_data(
+            get_branin_data_multi_objective(trial_indices=exp.trials.keys())
+        )
+        data = exp.fetch_data()
+        modelbridge = MultiObjectiveTorchModelBridge(
+            search_space=exp.search_space,
+            model=MultiObjectiveBotorchModel(),
+            optimization_config=exp.optimization_config,
+            transforms=Cont_X_trans + Y_trans,
+            experiment=exp,
+            data=data,
+        )
+        fixed_features = ObservationFeatures(parameters={"x1": 0.0})
+        search_space = exp.search_space.clone()
+        param_constraints = [
+            ParameterConstraint(constraint_dict={"x1": 1.0}, bound=10.0)
+        ]
+        outcome_constraints = [
+            OutcomeConstraint(
+                metric=exp.metrics["branin_a"],
+                op=ComparisonOp.GEQ,
+                bound=-40.0,
+                relative=False,
+            )
+        ]
+        search_space.add_parameter_constraints(param_constraints)
+        exp.optimization_config.outcome_constraints = outcome_constraints
+        expected_base_gen_args = modelbridge._get_transformed_gen_args(
+            search_space=search_space.clone(),
+            optimization_config=exp.optimization_config,
+            fixed_features=fixed_features,
+        )
+        with ExitStack() as es:
+            mock_model_infer_obj_t = es.enter_context(
+                patch.object(
+                    modelbridge.model,
+                    "infer_objective_thresholds",
+                    wraps=modelbridge.model.infer_objective_thresholds,
+                )
+            )
+            mock_get_transformed_gen_args = es.enter_context(
+                patch.object(
+                    modelbridge,
+                    "_get_transformed_gen_args",
+                    wraps=modelbridge._get_transformed_gen_args,
+                )
+            )
+            mock_get_transformed_model_gen_args = es.enter_context(
+                patch.object(
+                    modelbridge,
+                    "_get_transformed_model_gen_args",
+                    wraps=modelbridge._get_transformed_model_gen_args,
+                )
+            )
+            mock_untransform_objective_thresholds = es.enter_context(
+                patch.object(
+                    modelbridge,
+                    "untransform_objective_thresholds",
+                    wraps=modelbridge.untransform_objective_thresholds,
+                )
+            )
+            obs_data = modelbridge.infer_objective_thresholds(
+                search_space=search_space,
+                optimization_config=exp.optimization_config,
+                fixed_features=fixed_features,
+            )
+            ckwargs = mock_model_infer_obj_t.call_args[1]
+            self.assertTrue(torch.equal(ckwargs["objective_weights"], torch.ones(2)))
+            # check that transforms have been applied (at least UnitX)
+            self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
+            oc = ckwargs["outcome_constraints"]
+            self.assertTrue(torch.equal(oc[0], torch.tensor([[-1.0, 0.0]])))
+            self.assertTrue(torch.equal(oc[1], torch.tensor([[45.0]])))
+            lc = ckwargs["linear_constraints"]
+            self.assertTrue(torch.equal(lc[0], torch.tensor([[15.0, 0.0]])))
+            self.assertTrue(torch.equal(lc[1], torch.tensor([[15.0]])))
+            self.assertEqual(ckwargs["fixed_features"], {0: 1.0 / 3.0})
+            mock_get_transformed_gen_args.assert_called_once()
+            mock_get_transformed_model_gen_args.assert_called_once_with(
+                search_space=expected_base_gen_args.search_space,
+                fixed_features=expected_base_gen_args.fixed_features,
+                pending_observations=expected_base_gen_args.pending_observations,
+                optimization_config=expected_base_gen_args.optimization_config,
+            )
+            mock_untransform_objective_thresholds.assert_called_once()
+            ckwargs = mock_untransform_objective_thresholds.call_args[1]
+
+            self.assertTrue(torch.equal(ckwargs["objective_weights"], torch.ones(2)))
+            self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
+            self.assertEqual(ckwargs["fixed_features"], {0: 1.0 / 3.0})
+        self.assertEqual(obs_data.metric_names, ["branin_a", "branin_b"])
+        df = exp_to_df(exp)
+        Y = np.stack([df.branin_a.values, df.branin_b.values]).T
+        Y = torch.from_numpy(Y)
+        pareto_Y = Y[is_non_dominated(Y)]
+        nadir = pareto_Y.min(dim=0).values
+        self.assertTrue(np.all(np.array(obs_data.means) < nadir.numpy()))
+        self.assertTrue(np.all(np.array(obs_data.covariance) == 0.0))
+        # test using MTGP
+        sobol_generator = get_sobol(search_space=exp.search_space)
+        sobol_run = sobol_generator.gen(n=5)
+        trial = exp.new_batch_trial(optimize_for_power=True)
+        trial.add_generator_run(sobol_run)
+        trial.mark_running(no_runner_required=True).mark_completed()
+        data = exp.fetch_data()
+        modelbridge = MultiObjectiveTorchModelBridge(
+            search_space=exp.search_space,
+            model=MultiObjectiveBotorchModel(),
+            optimization_config=exp.optimization_config,
+            transforms=ST_MTGP_trans,
+            experiment=exp,
+            data=data,
+        )
+        fixed_features = ObservationFeatures(parameters={}, trial_index=1)
+        expected_base_gen_args = modelbridge._get_transformed_gen_args(
+            search_space=search_space.clone(),
+            optimization_config=exp.optimization_config,
+            fixed_features=fixed_features,
+        )
+        with self.assertRaises(ValueError):
+            # Check that a ValueError is raised when MTGP is being used
+            # and trial_index is not specified as a fixed features.
+            # Note: this error is raised by StratifiedStandardizeY
+            modelbridge.infer_objective_thresholds(
+                search_space=search_space,
+                optimization_config=exp.optimization_config,
+            )
+        with ExitStack() as es:
+            mock_model_infer_obj_t = es.enter_context(
+                patch.object(
+                    modelbridge.model,
+                    "infer_objective_thresholds",
+                    wraps=modelbridge.model.infer_objective_thresholds,
+                )
+            )
+            mock_untransform_objective_thresholds = es.enter_context(
+                patch.object(
+                    modelbridge,
+                    "untransform_objective_thresholds",
+                    wraps=modelbridge.untransform_objective_thresholds,
+                )
+            )
+            obs_data = modelbridge.infer_objective_thresholds(
+                search_space=search_space,
+                optimization_config=exp.optimization_config,
+                fixed_features=fixed_features,
+            )
+            ckwargs = mock_model_infer_obj_t.call_args[1]
+            self.assertEqual(ckwargs["fixed_features"], {2: 1.0})
+            mock_untransform_objective_thresholds.assert_called_once()
+            ckwargs = mock_untransform_objective_thresholds.call_args[1]
+            self.assertEqual(ckwargs["fixed_features"], {2: 1.0})
+        self.assertEqual(obs_data.metric_names, ["branin_a", "branin_b"])
+        df = exp_to_df(exp)
+        trial_mask = df.trial_index == 1
+        Y = np.stack([df.branin_a.values[trial_mask], df.branin_b.values[trial_mask]]).T
+        Y = torch.from_numpy(Y)
+        pareto_Y = Y[is_non_dominated(Y)]
+        nadir = pareto_Y.min(dim=0).values
+        self.assertTrue(np.all(np.array(obs_data.means) < nadir.numpy()))
+        self.assertTrue(np.all(np.array(obs_data.covariance) == 0.0))
