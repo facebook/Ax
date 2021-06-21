@@ -66,7 +66,7 @@ An evaluation function can return:
 - A single (mean, SEM) tuple
 - A single mean
 
-In the second case, Ax will assume that the mean and the SEM are for the experiment objective, and in the third case that the mean is for the objective and that SEM is 0.
+In the second case, Ax will assume that the mean and the SEM are for the experiment objective (if the evaluations are noiseless, simply provide a SEM of 0.0). In the third case, Ax will assume that observations are corrupted by Gaussian noise with zero mean and unknown SEM, and infer the SEM from the data. Note that if the observation noise is non-zero (either provided or inferred), the "best arm" suggested by Ax may not always be the one whose evaluation returned the best observed value (as the "best arm" is selected based on the model-predicted mean).
 
 For example, this evaluation function computes mean and SEM for [Hartmann6](https://www.sfu.ca/~ssurjano/hart6.html) function and for the L2-norm:
 
