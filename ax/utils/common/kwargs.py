@@ -13,6 +13,8 @@ from typeguard import check_type
 
 logger = get_logger(__name__)
 
+TKwargs = Dict[str, Any]
+
 
 def consolidate_kwargs(
     kwargs_iterable: Iterable[Optional[Dict[str, Any]]], keywords: Iterable[str]
