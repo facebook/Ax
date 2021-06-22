@@ -788,7 +788,7 @@ class ExperimentWithMapDataTest(TestCase):
                 trial.arm.parameters, old_experiment.trials[i_old_trial].arm.parameters
             )
             self.assertRegex(
-                trial._properties["warm_start_source"], "Experiment.*trial"
+                trial._properties["source"], "Warm start.*Experiment.*trial"
             )
             i_old_trial += 1
 

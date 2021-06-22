@@ -889,9 +889,10 @@ class Experiment(Base):
                 new_trial.update_run_metadata(
                     {"run_id": trial.run_metadata.get("run_id")}
                 )
-                new_trial._properties[
-                    "warm_start_source"
-                ] = f"Experiment: `{old_experiment.name}`, trial: `{trial.index}`"
+                new_trial._properties["source"] = (
+                    f"Warm start from Experiment: `{old_experiment.name}`, "
+                    f"trial: `{trial.index}`"
+                )
                 # Set trial index and arm name to their values in new trial.
                 new_df = dat.df.copy()
                 new_df["trial_index"].replace(
