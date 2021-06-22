@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Set
 
 import numpy as np
+import pandas as pd
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.exceptions.core import UnsupportedError
@@ -61,6 +62,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             percentile_threshold: Falling below this threshold compared to other trials
                 at the same step will stop the run. Must be between 0.0 and 100.0.
                 e.g. if percentile_threshold=25.0, the bottom 25% of trials are stopped.
+                Note that "bottom" here is determined based on performance, not
+                absolute values; if `minimize` is False, then "bottom" actually refers
+                to the top trials in terms of metric value.
             min_progression: Only stop trials if the latest progression value
                 (e.g. timestamp) is greater than this threshold. Prevents stopping
                 prematurely before enough data is gathered to make a decision.
@@ -120,39 +124,80 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         df = data.df
         df = df[df.metric_name == objective_name]
 
-        last_progression = df[map_key].max()
-        if last_progression < self.min_progression:
-            logger.info(
-                f"Most recent progression ({last_progression}) is less than the "
-                "specified minimum progression for early stopping "
-                f"({self.min_progression}). "
-                "Not early stopping any trials."
+        return {
+            trial_index
+            for trial_index in df.trial_index.unique()
+            if self.should_stop_trial_early(
+                trial_index=trial_index,
+                experiment=experiment,
+                df=df,
+                percentile_threshold=self.percentile_threshold,
+                map_key=map_key,
+                minimize=minimize,
             )
-            return set()
+        }
 
-        # TODO: Apply smoothing to account for the case when different
-        # trials report results at different progressions.
-        data_at_last_progression = df[df[map_key] == last_progression]
+    def should_stop_trial_early(
+        self,
+        trial_index: int,
+        experiment: Experiment,
+        df: pd.Series,
+        percentile_threshold: float,
+        map_key: str,
+        minimize: bool,
+    ) -> bool:
+        """Stop a trial if its performance is in the bottom `percentile_threshold`
+        of the trials at the same step.
 
+        Args:
+            trial_index: Indices of candidate trial to stop early.
+            experiment: Experiment that contains the trials and other contextual data.
+            df: Dataframe of partial results, filtered to objective metric.
+            percentile_threshold: Falling below this threshold compared to other trials
+                at the same step will stop the run. Must be between 0.0 and 100.0.
+                e.g. if percentile_threshold=25.0, the bottom 25% of trials are stopped.
+                Note that "bottom" here is determined based on performance, not
+                absolute values; if `minimize` is False, then "bottom" actually refers
+                to the top trials in terms of metric value.
+            map_key: Name of the column of the dataset that indicates progression.
+            minimize: Whether objective value is being minimized.
+
+        Returns:
+            True iff trial should be early stopped.
+        """
+        trial_last_progression = df[df.trial_index == trial_index][map_key].max()
+        if trial_last_progression < self.min_progression:
+            logger.info(
+                f"Trial {trial_index}'s most recent progression "
+                f"({trial_last_progression}) is less than the specified minimum"
+                f"progression for early stopping ({self.min_progression}). "
+                "Not early stopping this trial."
+            )
+            return False
+
+        # TODO: Integrate with D29122275
+        data_at_last_progression = df[df[map_key] == trial_last_progression]
         if len(data_at_last_progression) < self.min_curves:
             logger.info(
                 f"The number of trials with data ({len(data_at_last_progression)}) "
-                "is less than the specified minimum number for early stopping "
-                f"({self.min_curves}). "
-                "Not early stopping any trials."
+                f"at trial {trial_index}'s last progression ({trial_last_progression}) "
+                f"is less than the specified minimum number for early stopping "
+                f"({self.min_curves}). Not early stopping this trial."
             )
-            return set()
+            return False
 
-        objective_value_at_last_progression = data_at_last_progression["mean"]
+        objective_values_at_last_progression = data_at_last_progression["mean"]
         percentile_threshold = (
             100.0 - self.percentile_threshold if minimize else self.percentile_threshold
         )
         percentile_value = np.percentile(
-            objective_value_at_last_progression, percentile_threshold
+            objective_values_at_last_progression, percentile_threshold
         )
-        worse_than_percentile_rows = (
-            objective_value_at_last_progression > percentile_value
+        trial_objective_value = data_at_last_progression[
+            data_at_last_progression.trial_index == trial_index
+        ]["mean"].values[0]
+        return (
+            trial_objective_value > percentile_value
             if minimize
-            else objective_value_at_last_progression < percentile_value
+            else trial_objective_value < percentile_value
         )
-        return set(data_at_last_progression[worse_than_percentile_rows]["trial_index"])

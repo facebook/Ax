@@ -34,7 +34,7 @@ class TestEarlyStoppingStrategy(TestCase):
         exp.attach_data(data=exp.fetch_data())
 
         # Non-MapData attached
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "expects MapData"):
             early_stopping_strategy.should_stop_trials_early(
                 trial_indices=idcs, experiment=exp
             )
@@ -45,7 +45,7 @@ class TestEarlyStoppingStrategy(TestCase):
             trial.run()
 
         # No data attached
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "non-empty data"):
             early_stopping_strategy.should_stop_trials_early(
                 trial_indices=idcs, experiment=exp
             )
@@ -61,7 +61,7 @@ class TestEarlyStoppingStrategy(TestCase):
         )
         self.assertEqual(should_stop, set())
 
-        # Most recent fidelity below minimum
+        # Most recent progression below minimum
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             min_progression=3,
         )
@@ -130,3 +130,33 @@ class TestEarlyStoppingStrategy(TestCase):
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(should_stop, {0, 3, 1})
+
+    def test_early_stopping_with_unaligned_results(self):
+        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
+        for i in range(5):
+            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
+            trial.run()
+
+        # manually "unalign" timestamps to simulate real-world scenario
+        # where each curve reports results at different steps
+        data = exp.fetch_data()
+        unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
+        data.df.loc[
+            data.df["metric_name"] == "branin", "timestamp"
+        ] = unaligned_timestamps
+        exp.attach_data(data=data)
+
+        # We consider trials 0, 2, and 4 for early stopping at progression 4,
+        #    and choose to stop trial 0.
+        # We consider trial 3 for early stopping at progression 2 (and compare
+        #    it to trials 1 and 4) and choose to stop it.
+        # We don't consider trial 1 for early stopping because there aren't
+        #    enough trials with data at its last progression.
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=50,
+            min_curves=3,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=set(exp.trials.keys()), experiment=exp
+        )
+        self.assertEqual(should_stop, {0, 3})
