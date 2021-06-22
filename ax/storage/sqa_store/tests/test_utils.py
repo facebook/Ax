@@ -51,3 +51,13 @@ class SQAStoreUtilsTest(TestCase):
         # copy db_ids from exp1 to exp2
         copy_db_ids(exp1, exp2)
         self.assertEqual(exp1, exp2)
+
+    def testCopyDBIDsRepeatedArms(self):
+        exp = get_experiment_with_batch_trial()
+        exp.trials[0]
+        save_experiment(exp)
+
+        exp.new_batch_trial().add_arms_and_weights(exp.trials[0].arms)
+        save_experiment(exp)
+
+        self.assertNotEqual(exp.trials[0].arms[0].db_id, exp.trials[1].arms[0].db_id)

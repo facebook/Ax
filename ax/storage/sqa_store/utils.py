@@ -6,6 +6,7 @@
 
 from typing import Any, List, Optional
 
+from ax.core.experiment import Experiment
 from ax.exceptions.storage import SQADecodeError
 from ax.utils.common.base import Base, SortableBase
 
@@ -33,7 +34,7 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
     )
 
     if len(path) > 15:
-        # this shouldn't happen, but is a precaution against accidentally
+        # This shouldn't happen, but is a precaution against accidentally
         # introducing infinite loops
         raise SQADecodeError(error_message_prefix + "Encountered path of length > 10.")
 
@@ -51,7 +52,7 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
                 setattr(target, attr, val)
                 continue
 
-            # skip over:
+            # Skip over:
             # * doubly private attributes
             # * _experiment (to prevent infinite loops)
             # * most generator run and generation strategy metadata
@@ -59,19 +60,30 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
             #   and we don't have guarantees about the structure of some
             #   of that data, so the recursion could fail somewhere)
             if attr.startswith("__") or attr in {
-                "_experiment",
-                "_gen_metadata",
-                "_model_predictions",
                 "_best_arm_predictions",
-                "_model_kwargs",
                 "_bridge_kwargs",
-                "_model_state_after_gen",
                 "_candidate_metadata_by_arm_signature",
                 "_curr",
+                "_experiment",
+                "_gen_metadata",
+                "_model_kwargs",
+                "_model_predictions",
+                "_model_state_after_gen",
                 "_model",
                 "_seen_trial_indices_by_status",
                 "_steps",
                 "analysis_scheduler",
+            }:
+                continue
+
+            # Arms are referenced twice on an Experiment object; once in
+            # experiment.arms_by_name/signature and once in
+            # trial.arms_by_name/signature. When copying db_ids, we should
+            # ignore the former, since it will "collapse" arms of the same
+            # name/signature that appear in more than one trial.
+            if isinstance(source, Experiment) and attr in {
+                "_arms_by_name",
+                "_arms_by_signature",
             }:
                 continue
 
