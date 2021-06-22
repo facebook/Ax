@@ -85,7 +85,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         of the trials at the same step.
 
         Args:
-            trial_indices: Indices of candidate trials to stop early.
+            trial_indices: Indices of candidate trials to consider for early stopping.
             experiment: Experiment that contains the trials and other contextual data.
 
         Returns:
@@ -123,10 +123,14 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
         df = data.df
         df = df[df.metric_name == objective_name]
+        if df.empty:
+            raise ValueError(  # pragma: nocover
+                f"No data found for objective metric {objective_name}."
+            )
 
         return {
             trial_index
-            for trial_index in df.trial_index.unique()
+            for trial_index in trial_indices
             if self.should_stop_trial_early(
                 trial_index=trial_index,
                 experiment=experiment,
@@ -169,7 +173,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         if trial_last_progression < self.min_progression:
             logger.info(
                 f"Trial {trial_index}'s most recent progression "
-                f"({trial_last_progression}) is less than the specified minimum"
+                f"({trial_last_progression}) is less than the specified minimum "
                 f"progression for early stopping ({self.min_progression}). "
                 "Not early stopping this trial."
             )

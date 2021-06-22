@@ -123,6 +123,12 @@ class TestEarlyStoppingStrategy(TestCase):
         )
         self.assertEqual(should_stop, {0, 3})
 
+        # respect trial_indices argument
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices={0}, experiment=exp
+        )
+        self.assertEqual(should_stop, {0})
+
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             percentile_threshold=75,
         )
