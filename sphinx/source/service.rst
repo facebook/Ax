@@ -16,14 +16,6 @@ Ax Client
     :undoc-members:
     :show-inheritance:
 
-Early Stopping Strategy
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.service.early_stopping_strategy
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Managed Loop
 ~~~~~~~~~~~~~~~~
 

@@ -36,12 +36,12 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import RangeParameter
+from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.modelbridge.base import gen_arms
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.runners.simulated_backend import SimulatedBackendRunner
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
-from ax.service.early_stopping_strategy import BaseEarlyStoppingStrategy
 from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none

@@ -123,7 +123,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         last_progression = df[map_key].max()
         if last_progression < self.min_progression:
             logger.info(
-                "Most recent progression ({last_progression}) is less than the "
+                f"Most recent progression ({last_progression}) is less than the "
                 "specified minimum progression for early stopping "
                 f"({self.min_progression}). "
                 "Not early stopping any trials."
@@ -136,7 +136,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
         if len(data_at_last_progression) < self.min_curves:
             logger.info(
-                "The number of trials with data ({len(data_at_last_progression)}) "
+                f"The number of trials with data ({len(data_at_last_progression)}) "
                 "is less than the specified minimum number for early stopping "
                 f"({self.min_curves}). "
                 "Not early stopping any trials."

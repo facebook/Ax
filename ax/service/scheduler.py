@@ -32,6 +32,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.trial import Trial
+from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import (
     AxError,
     DataRequiredError,
@@ -43,7 +44,6 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status,
 )
-from ax.service.early_stopping_strategy import BaseEarlyStoppingStrategy
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.executils import retry_on_exception
