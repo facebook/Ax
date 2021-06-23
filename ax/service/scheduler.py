@@ -718,7 +718,8 @@ class Scheduler(WithDBSettingsBase, ABC):
                 raise ValueError(f"Expected `timeout_hours` >= 0, got {timeout_hours}.")
             self._timeout_hours = timeout_hours
 
-        assert max_trials >= 0, "Expected `max_trials` >= 0."
+        if max_trials < 0:
+            raise ValueError(f"Expected `max_trials` >= 0, got {max_trials}.")
         trials = self.experiment.trials
         n_existing = len(self.experiment.trials)
 
