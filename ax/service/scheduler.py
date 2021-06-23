@@ -738,7 +738,7 @@ class Scheduler(WithDBSettingsBase, ABC):
                 self._record_run_trials_status(
                     num_preexisting_trials=n_existing, status=RunTrialsStatus.ABORTED
                 )
-                yield self.report_results()[1]
+                yield self.wait_for_completed_trials_and_report_results()
                 return
 
             # Run new trial evaluations until `run` returns `False`, which
@@ -765,7 +765,7 @@ class Scheduler(WithDBSettingsBase, ABC):
                 self._record_run_trials_status(
                     num_preexisting_trials=n_existing, status=RunTrialsStatus.ABORTED
                 )
-                yield self.report_results()[1]
+                yield self.wait_for_completed_trials_and_report_results()
                 return
 
             yield self.wait_for_completed_trials_and_report_results()
