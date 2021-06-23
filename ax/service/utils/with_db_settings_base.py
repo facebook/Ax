@@ -45,7 +45,7 @@ except ModuleNotFoundError:  # pragma: no cover
     DBSettings = None
 
 
-STORAGE_MINI_BATCH_SIZE = 100
+STORAGE_MINI_BATCH_SIZE = 50
 
 logger = get_logger(__name__)
 
