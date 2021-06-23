@@ -4,16 +4,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from unittest.mock import patch
+
 import pandas as pd
 from ax.service.utils.report_utils import (
     _get_shortest_unique_suffix_dict,
     exp_to_df,
     get_best_trial,
     get_standard_plots,
+    Experiment,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.core_stubs import get_branin_experiment, get_multi_type_experiment
 from ax.utils.testing.modeling_stubs import get_generation_strategy
+from fblearner.flow.util.attrdict import AttrDict
 
 EXPECTED_COLUMNS = [
     "branin",
@@ -28,13 +32,66 @@ EXPECTED_COLUMNS = [
 
 class ReportUtilsTest(TestCase):
     def test_exp_to_df(self):
+        # MultiTypeExperiment should fail
+        exp = get_multi_type_experiment()
+        with self.assertRaisesRegex(ValueError, "MultiTypeExperiment"):
+            exp_to_df(exp=exp)
+        # empty case - no trials, should return empty results
+        exp = get_branin_experiment()
+        df = exp_to_df(exp=exp)
+        self.assertEqual(len(df), 0)
+        # set up working experiment
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
-        df = exp_to_df(exp)
+        # run_metadata_fields not List[str] should fail
+        with self.assertRaisesRegex(
+            ValueError, r"run_metadata_fields.*List\[str\] or None"
+        ):
+            exp_to_df(exp=exp, run_metadata_fields=[1, "asdf"])
+        with self.assertRaisesRegex(
+            ValueError, r"run_metadata_fields.*List\[str\] or None"
+        ):
+            exp_to_df(exp=exp, run_metadata_fields="asdf")
+
+        # assert result is df with expected columns and length
+        df = exp_to_df(exp=exp)
         self.assertIsInstance(df, pd.DataFrame)
         self.assertListEqual(list(df.columns), EXPECTED_COLUMNS)
+        self.assertEqual(len(df.index), len(exp.arms_by_name))
+
+        # test with run_metadata_fields not empty
         df = exp_to_df(exp, run_metadata_fields=["name"])
         self.assertIn("name", df.columns)
+
+        # test column values
+        self.assertTrue(all(x == 0 for x in df.trial_index))
+        self.assertTrue(all(x == "RUNNING" for x in df.trial_status))
+        self.assertTrue(all(x == "Sobol" for x in df.generator_model))
+        self.assertTrue(all(x == "branin_test_experiment_0" for x in df.name))
+        # works correctly for failed trials (will need to mock)
+        mock_results = AttrDict()
+        mock_results.df = pd.DataFrame(
+            {
+                "arm_name": ["0_0"],
+                "metric_name": ["branin"],
+                "mean": [0],
+                "sem": [0],
+                "trial_index": [0],
+                "n": [123],
+                "frac_nonnull": [1],
+            }
+        )
+        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
+            df = exp_to_df(exp=exp)
+
+        # all but one row should have a metric value of NaN
+        self.assertEqual(pd.isna(df["branin"]).sum(), len(df.index) - 1)
+
+        # an experiment with more results than arms raises an error
+        with patch.object(
+            Experiment, "fetch_data", lambda self, metrics: mock_results
+        ), self.assertRaisesRegex(ValueError, "inconsistent experimental state"):
+            exp_to_df(exp=get_branin_experiment())
 
     def test_get_best_trial(self):
         exp = get_branin_experiment(with_batch=True, minimize=True)

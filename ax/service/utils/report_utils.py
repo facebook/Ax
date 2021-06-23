@@ -234,7 +234,6 @@ def get_standard_plots(
 def exp_to_df(
     exp: Experiment,
     metrics: Optional[List[Metric]] = None,
-    key_components: Optional[List[str]] = None,
     run_metadata_fields: Optional[List[str]] = None,
     **kwargs: Any,
 ) -> pd.DataFrame:
@@ -247,9 +246,6 @@ def exp_to_df(
     Args:
         exp: An Experiment that may have pending trials.
         metrics: Override list of metrics to return. Return all metrics if None.
-        key_components: fields that combine to make a unique key corresponding
-            to rows, similar to the list of fields passed to a GROUP BY.
-            Defaults to ['arm_name', 'trial_index'].
         run_metadata_fields: fields to extract from trial.run_metadata for trial
             in experiment.trials. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial.
@@ -257,7 +253,9 @@ def exp_to_df(
             objects from call-site to the `fetch_data` callback.
 
     Returns:
-        DataFrame: A dataframe of inputs and metrics by trial and arm.
+        DataFrame: A dataframe of inputs, metadata and metrics by trial and arm. If
+        no trials are available, returns an empty dataframe. If no metric ouputs are
+        available, returns a dataframe of inputs and metadata.
     """
 
     def prep_return(
@@ -265,47 +263,49 @@ def exp_to_df(
     ) -> pd.DataFrame:
         return not_none(not_none(df.drop(drop_col, axis=1)).sort_values(sort_by))
 
-    key_components = key_components or ["trial_index", "arm_name"]
-
     # Accept Experiment and SimpleExperiment
     if isinstance(exp, MultiTypeExperiment):
         raise ValueError("Cannot transform MultiTypeExperiments to DataFrames.")
 
+    key_components = ["trial_index", "arm_name"]
+
+    # Get each trial-arm with parameters
+    arms_df = pd.DataFrame()
+    for trial_index, trial in exp.trials.items():
+        for arm in trial.arms:
+            arms_df = arms_df.append(
+                {"arm_name": arm.name, "trial_index": trial_index, **arm.parameters},
+                ignore_index=True,
+            )
+
+    # Fetch results; in case arms_df is empty, return empty results (legacy behavior)
     results = exp.fetch_data(metrics, **kwargs).df
-    if len(results.index) == 0:  # Handle empty case
+    if len(arms_df.index) == 0:
+        if len(results.index) != 0:
+            raise ValueError(
+                "exp.fetch_data().df returned more rows than there are experimental "
+                "arms. This is an inconsistent experimental state. Please report to "
+                "Ax support."
+            )
         return results
 
-    # create key column from key_components
+    # Create key column from key_components
+    arms_df["trial_index"] = arms_df["trial_index"].astype(int)
     key_col = "-".join(key_components)
-    key_vals = results[key_components[0]].astype("str")
-    for key in key_components[1:]:
-        key_vals = key_vals + results[key].astype("str")
-    results[key_col] = key_vals
+    key_vals = arms_df[key_components[0]].astype("str") + arms_df[
+        key_components[1]
+    ].astype("str")
+    arms_df[key_col] = key_vals
 
-    # pivot dataframe from long to wide
-    metric_vals = results.pivot(
-        index=key_col, columns="metric_name", values="mean"
-    ).reset_index()
-
-    # dedupe results by key_components
-    metadata = results[key_components + [key_col]].drop_duplicates()
-    metric_and_metadata = pd.merge(metric_vals, metadata, on=key_col)
-
-    # get params of each arm and merge with deduped results
-    arm_names_and_params = pd.DataFrame(
-        [{"arm_name": name, **arm.parameters} for name, arm in exp.arms_by_name.items()]
-    )
-    exp_df = pd.merge(metric_and_metadata, arm_names_and_params, on="arm_name")
-
-    # add trial status
+    # Add trial status
     trials = exp.trials.items()
     trial_to_status = {index: trial.status.name for index, trial in trials}
-    exp_df["trial_status"] = [
-        trial_to_status[trial_index] for trial_index in exp_df.trial_index
+    arms_df["trial_status"] = [
+        trial_to_status[trial_index] for trial_index in arms_df.trial_index
     ]
 
-    # add and generator_run model keys
-    exp_df["generator_model"] = [
+    # Add and generator_run model keys
+    arms_df["generator_model"] = [
         # This accounts for the generic case that generator_runs is a list of arbitrary
         # length. If all elements are `None`, this yields an empty string. Repeated
         # generator models within a trial are condensed via a set comprehension.
@@ -318,46 +318,72 @@ def exp_to_df(
         )
         if trial_index in exp.trials
         else ""
-        for trial_index in exp_df.trial_index
+        for trial_index in arms_df.trial_index
     ]
 
     # replace all unknown generator_models (denoted by empty strings) with "Unknown"
-    exp_df["generator_model"] = [
+    arms_df["generator_model"] = [
         "Unknown" if generator_model == "" else generator_model
-        for generator_model in exp_df["generator_model"]
+        for generator_model in arms_df["generator_model"]
     ]
 
-    # if no run_metadata fields are requested, return exp_df so far
-    if run_metadata_fields is None:
-        return prep_return(df=exp_df, drop_col=key_col, sort_by=key_components)
-    if not isinstance(run_metadata_fields, list):
-        raise ValueError("run_metadata_fields must be List[str] or None.")
-
-    # add additional run_metadata fields
-    for field in run_metadata_fields:
-        trial_to_metadata_field = {
-            index: (trial.run_metadata[field] if field in trial.run_metadata else None)
-            for index, trial in trials
-        }
-        if any(trial_to_metadata_field.values()):  # field present for any trial
-            if not all(trial_to_metadata_field.values()):  # not present for all trials
-                logger.warning(
-                    f"Field {field} missing for some trials' run_metadata. "
-                    "Returning None when missing."
-                )
-            exp_df[field] = [trial_to_metadata_field[key] for key in exp_df.trial_index]
-        else:
-            logger.warning(
-                f"Field {field} missing for all trials' run_metadata. "
-                "Not appending column."
+    # Add any run_metadata fields to arms_df
+    if run_metadata_fields is not None:
+        if not (
+            isinstance(run_metadata_fields, list)
+            and all(isinstance(field, str) for field in run_metadata_fields)
+        ):
+            raise ValueError(
+                "run_metadata_fields must be List[str] or None. "
+                f"Got {run_metadata_fields}"
             )
-    return prep_return(df=exp_df, drop_col=key_col, sort_by=key_components)
+
+        # add additional run_metadata fields
+        for field in run_metadata_fields:
+            trial_to_metadata_field = {
+                index: (
+                    trial.run_metadata[field] if field in trial.run_metadata else None
+                )
+                for index, trial in trials
+            }
+            if any(trial_to_metadata_field.values()):  # field present for any trial
+                if not all(
+                    trial_to_metadata_field.values()
+                ):  # not present for all trials
+                    logger.warning(
+                        f"Field {field} missing for some trials' run_metadata. "
+                        "Returning None when missing."
+                    )
+                arms_df[field] = [
+                    trial_to_metadata_field[key] for key in arms_df.trial_index
+                ]
+            else:
+                logger.warning(
+                    f"Field {field} missing for all trials' run_metadata. "
+                    "Not appending column."
+                )
+
+    # prepare results for merge
+    key_vals = results[key_components[0]].astype("str") + results[
+        key_components[1]
+    ].astype("str")
+    results[key_col] = key_vals
+    metric_vals = results.pivot(
+        index=key_col, columns="metric_name", values="mean"
+    ).reset_index()
+
+    # dedupe results by key_components
+    metadata = results[key_components + [key_col]].drop_duplicates()
+    metrics_df = pd.merge(metric_vals, metadata, on=key_col)
+
+    # merge and return
+    exp_df = pd.merge(metrics_df, arms_df, on=key_components + [key_col], how="outer")
+    return prep_return(df=exp_df, drop_col=key_col, sort_by=["arm_name"])
 
 
 def get_best_trial(
     exp: Experiment,
     additional_metrics: Optional[List[Metric]] = None,
-    key_components: Optional[List[str]] = None,
     run_metadata_fields: Optional[List[str]] = None,
     **kwargs: Any,
 ) -> Optional[pd.DataFrame]:
@@ -370,9 +396,6 @@ def get_best_trial(
         exp: An Experiment that may have pending trials.
         additional_metrics: List of metrics to return in addition to the objective
             metric. Return all metrics if None.
-        key_components: fields that combine to make a unique key corresponding
-            to rows, similar to the list of fields passed to a GROUP BY.
-            Defaults to ['arm_name', 'trial_index'].
         run_metadata_fields: fields to extract from trial.run_metadata for trial
             in experiment.trials. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial.
@@ -402,7 +425,6 @@ def get_best_trial(
     trials_df = exp_to_df(
         exp=exp,
         metrics=additional_metrics,
-        key_components=key_components,
         run_metadata_fields=run_metadata_fields,
         **kwargs,
     )
