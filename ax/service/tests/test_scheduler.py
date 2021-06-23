@@ -615,7 +615,7 @@ class TestAxScheduler(TestCase):
         # as many times as `total_trials` and yielding from generator after
         # obtaining each new result.
         res_list = list(scheduler.run_trials_and_yield_results(max_trials=total_trials))
-        self.assertEqual(len(res_list), total_trials)
+        self.assertEqual(len(res_list), total_trials + 1)
         self.assertIsInstance(res_list, list)
         self.assertEqual(len(res_list[0]["trials_completed_so_far"]), 1)
         self.assertEqual(len(res_list[1]["trials_completed_so_far"]), 2)
@@ -650,7 +650,7 @@ class TestAxScheduler(TestCase):
             )
             # Two steps complete the experiment given parallelism.
             expected_num_polls = 2
-            self.assertEqual(len(res_list), expected_num_polls)
+            self.assertEqual(len(res_list), expected_num_polls + 1)
             self.assertIsInstance(res_list, list)
             # Both trials in first batch of parallelism will be early stopped
             self.assertEqual(len(res_list[0]["trials_early_stopped_so_far"]), 2)
@@ -712,7 +712,7 @@ class TestAxScheduler(TestCase):
                 scheduler.run_trials_and_yield_results(max_trials=total_trials)
             )
             expected_num_steps = 2
-            self.assertEqual(len(res_list), expected_num_steps)
+            self.assertEqual(len(res_list), expected_num_steps + 1)
             # Trial #1 early stopped in first step
             self.assertEqual(res_list[0]["trials_early_stopped_so_far"], {1})
             # All trials completed by end of second step
