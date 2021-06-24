@@ -17,6 +17,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
     TRefPoint,
 )
+from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.array import FIT_MODEL_ERROR
@@ -245,7 +246,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         search_space: Optional[SearchSpace] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         fixed_features: Optional[ObservationFeatures] = None,
-    ) -> ObservationData:
+    ) -> List[ObjectiveThreshold]:
         """Infer objective thresholds.
 
         This method uses the model-estimated Pareto frontier over the in-sample points
@@ -279,7 +280,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             final_transform=self._array_to_tensor,
         )
         # infer objective thresholds
-        objective_thresholds = not_none(self.model).infer_objective_thresholds(
+        obj_thresholds_arr = not_none(self.model).infer_objective_thresholds(
             objective_weights=obj_w,
             bounds=array_model_gen_args.search_space_digest.bounds,
             outcome_constraints=oc_c,
@@ -287,7 +288,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             fixed_features=array_model_gen_args.fixed_features,
         )
         return self.untransform_objective_thresholds(
-            objective_thresholds=objective_thresholds,
+            objective_thresholds=obj_thresholds_arr,
             objective_weights=obj_w,
             bounds=array_model_gen_args.search_space_digest.bounds,
             fixed_features=array_model_gen_args.fixed_features,
@@ -299,7 +300,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         objective_weights: Tensor,
         bounds: List[Tuple[Union[int, float], Union[int, float]]],
         fixed_features: Optional[Dict[int, float]],
-    ) -> ObservationData:
+    ) -> List[ObjectiveThreshold]:
         objective_thresholds_np = objective_thresholds.cpu().numpy()
         # pyre-ignore [16]
         objective_indices = objective_weights.nonzero().view(-1).tolist()
@@ -333,4 +334,22 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
                 observation_features=observation_features,
             )
         observation_data = observation_data[0]
-        return observation_data
+        obj_names_to_bounds = dict(
+            zip(observation_data.metric_names, observation_data.means)
+        )
+        oc = not_none(self._optimization_config)
+        metrics_names_to_metric = oc.metrics
+        obj_thresholds = []
+        for idx, (name, bound) in enumerate(obj_names_to_bounds.items()):
+            if not np.isnan(bound):
+                obj_weight = objective_weights[objective_indices[idx]]
+                op = ComparisonOp.LEQ if obj_weight == -1.0 else ComparisonOp.GEQ
+                obj_thresholds.append(
+                    ObjectiveThreshold(
+                        metric=metrics_names_to_metric[name],
+                        bound=bound,
+                        relative=False,
+                        op=op,
+                    )
+                )
+        return obj_thresholds
