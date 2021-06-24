@@ -364,7 +364,6 @@ def get_botorch_objective(
     if objective_thresholds is not None:
         nonzero_idcs = torch.nonzero(objective_weights).view(-1)
         objective_weights = objective_weights[nonzero_idcs]
-        objective_thresholds = objective_thresholds[nonzero_idcs]
         return WeightedMCMultiOutputObjective(
             weights=objective_weights, outcomes=nonzero_idcs.tolist()
         )
