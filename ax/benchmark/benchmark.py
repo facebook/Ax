@@ -127,7 +127,9 @@ def benchmark_trial(
         return evaluation_function(parameterization), sem  # pyre-ignore[29]: call err.
     else:
         trial_index = not_none(trial_index)
-        return not_none(not_none(experiment).trials.get(trial_index)).fetch_data()
+        trial = not_none(not_none(experiment).trials.get(trial_index))
+        trial.mark_completed()  # Some metrics only fetch data when `COMPLETED`.
+        return trial.fetch_data()  # This also automatically attaches the data.
 
 
 def benchmark_replication(  # One optimization loop.
@@ -510,8 +512,10 @@ def _benchmark_replication_Dev_API(
                 assert batch_size > 1
                 trial = experiment.new_batch_trial(generator_run=gr)
             trial.run()
-            benchmark_trial(experiment=experiment, trial_index=trial_index)
-            trial.mark_completed()
+            # TODO[T94059549]: Rm 3 lines below when attaching data in fetch is fixed.
+            data = benchmark_trial(experiment=experiment, trial_index=trial_index)
+            if not data.df.empty:
+                experiment.attach_data(data=data)
         except Exception as err:  # TODO[T53975770]: test
             if raise_all_exceptions:
                 raise
