@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from collections import namedtuple
 from unittest.mock import patch
 
 import pandas as pd
@@ -17,7 +18,6 @@ from ax.service.utils.report_utils import (
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment, get_multi_type_experiment
 from ax.utils.testing.modeling_stubs import get_generation_strategy
-from fblearner.flow.util.attrdict import AttrDict
 
 EXPECTED_COLUMNS = [
     "branin",
@@ -69,17 +69,19 @@ class ReportUtilsTest(TestCase):
         self.assertTrue(all(x == "Sobol" for x in df.generator_model))
         self.assertTrue(all(x == "branin_test_experiment_0" for x in df.name))
         # works correctly for failed trials (will need to mock)
-        mock_results = AttrDict()
-        mock_results.df = pd.DataFrame(
-            {
-                "arm_name": ["0_0"],
-                "metric_name": ["branin"],
-                "mean": [0],
-                "sem": [0],
-                "trial_index": [0],
-                "n": [123],
-                "frac_nonnull": [1],
-            }
+        dummy_struct = namedtuple("dummy_struct", "df")
+        mock_results = dummy_struct(
+            df=pd.DataFrame(
+                {
+                    "arm_name": ["0_0"],
+                    "metric_name": ["branin"],
+                    "mean": [0],
+                    "sem": [0],
+                    "trial_index": [0],
+                    "n": [123],
+                    "frac_nonnull": [1],
+                }
+            )
         )
         with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
             df = exp_to_df(exp=exp)
