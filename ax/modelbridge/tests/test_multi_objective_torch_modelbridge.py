@@ -393,9 +393,11 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         ]
         search_space.add_parameter_constraints(param_constraints)
         exp.optimization_config.outcome_constraints = outcome_constraints
+        oc = exp.optimization_config.clone()
+        oc.objective._objectives[0].minimize = True
         expected_base_gen_args = modelbridge._get_transformed_gen_args(
             search_space=search_space.clone(),
-            optimization_config=exp.optimization_config,
+            optimization_config=oc,
             fixed_features=fixed_features,
         )
         with ExitStack() as es:
@@ -427,13 +429,16 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                     wraps=modelbridge.untransform_objective_thresholds,
                 )
             )
-            obs_data = modelbridge.infer_objective_thresholds(
+            obj_thresholds = modelbridge.infer_objective_thresholds(
                 search_space=search_space,
-                optimization_config=exp.optimization_config,
+                optimization_config=oc,
                 fixed_features=fixed_features,
             )
+            expected_obj_weights = torch.tensor([-1.0, 1.0])
             ckwargs = mock_model_infer_obj_t.call_args[1]
-            self.assertTrue(torch.equal(ckwargs["objective_weights"], torch.ones(2)))
+            self.assertTrue(
+                torch.equal(ckwargs["objective_weights"], expected_obj_weights)
+            )
             # check that transforms have been applied (at least UnitX)
             self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
             oc = ckwargs["outcome_constraints"]
@@ -453,17 +458,29 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             mock_untransform_objective_thresholds.assert_called_once()
             ckwargs = mock_untransform_objective_thresholds.call_args[1]
 
-            self.assertTrue(torch.equal(ckwargs["objective_weights"], torch.ones(2)))
+            self.assertTrue(
+                torch.equal(ckwargs["objective_weights"], expected_obj_weights)
+            )
             self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
             self.assertEqual(ckwargs["fixed_features"], {0: 1.0 / 3.0})
-        self.assertEqual(obs_data.metric_names, ["branin_a", "branin_b"])
+        self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
+        self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+        self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
+        self.assertEqual(obj_thresholds[1].op, ComparisonOp.GEQ)
+        self.assertFalse(obj_thresholds[0].relative)
+        self.assertFalse(obj_thresholds[1].relative)
         df = exp_to_df(exp)
         Y = np.stack([df.branin_a.values, df.branin_b.values]).T
         Y = torch.from_numpy(Y)
+        Y[:, 0] *= -1
         pareto_Y = Y[is_non_dominated(Y)]
         nadir = pareto_Y.min(dim=0).values
-        self.assertTrue(np.all(np.array(obs_data.means) < nadir.numpy()))
-        self.assertTrue(np.all(np.array(obs_data.covariance) == 0.0))
+        self.assertTrue(
+            np.all(
+                np.array([-obj_thresholds[0].bound, obj_thresholds[1].bound])
+                < nadir.numpy()
+            )
+        )
         # test using MTGP
         sobol_generator = get_sobol(search_space=exp.search_space)
         sobol_run = sobol_generator.gen(n=5)
@@ -508,7 +525,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                     wraps=modelbridge.untransform_objective_thresholds,
                 )
             )
-            obs_data = modelbridge.infer_objective_thresholds(
+            obj_thresholds = modelbridge.infer_objective_thresholds(
                 search_space=search_space,
                 optimization_config=exp.optimization_config,
                 fixed_features=fixed_features,
@@ -518,12 +535,21 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             mock_untransform_objective_thresholds.assert_called_once()
             ckwargs = mock_untransform_objective_thresholds.call_args[1]
             self.assertEqual(ckwargs["fixed_features"], {2: 1.0})
-        self.assertEqual(obs_data.metric_names, ["branin_a", "branin_b"])
+        self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
+        self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+        self.assertEqual(obj_thresholds[0].op, ComparisonOp.GEQ)
+        self.assertEqual(obj_thresholds[1].op, ComparisonOp.GEQ)
+        self.assertFalse(obj_thresholds[0].relative)
+        self.assertFalse(obj_thresholds[1].relative)
         df = exp_to_df(exp)
         trial_mask = df.trial_index == 1
         Y = np.stack([df.branin_a.values[trial_mask], df.branin_b.values[trial_mask]]).T
         Y = torch.from_numpy(Y)
         pareto_Y = Y[is_non_dominated(Y)]
         nadir = pareto_Y.min(dim=0).values
-        self.assertTrue(np.all(np.array(obs_data.means) < nadir.numpy()))
-        self.assertTrue(np.all(np.array(obs_data.covariance) == 0.0))
+        self.assertTrue(
+            np.all(
+                np.array([obj_thresholds[0].bound, obj_thresholds[1].bound])
+                < nadir.numpy()
+            )
+        )
