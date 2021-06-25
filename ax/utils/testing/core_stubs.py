@@ -454,36 +454,38 @@ def get_branin_search_space(
 
 def get_factorial_search_space() -> SearchSpace:
     return SearchSpace(
-        # Expected `List[ax.core.parameter.Parameter]` for 2nd parameter
-        # `parameters` to call `ax.core.search_space.SearchSpace.__init__` but
-        # got `List[ChoiceParameter]`.
         parameters=[
             ChoiceParameter(
                 name="factor1",
                 parameter_type=ParameterType.STRING,
-                # Expected `List[typing.Optional[typing.Union[bool, float, str]]]` for
-                # 4th parameter `values` to call
-                # `ax.core.parameter.ChoiceParameter.__init__` but got
-                # `List[str]`.
                 values=["level11", "level12", "level13"],
             ),
             ChoiceParameter(
                 name="factor2",
                 parameter_type=ParameterType.STRING,
-                # Expected `List[typing.Optional[typing.Union[bool, float, str]]]` for
-                # 4th parameter `values` to call
-                # `ax.core.parameter.ChoiceParameter.__init__` but got
-                # `List[str]`.
                 values=["level21", "level22"],
             ),
             ChoiceParameter(
                 name="factor3",
                 parameter_type=ParameterType.STRING,
-                # Expected `List[typing.Optional[typing.Union[bool, float, str]]]` for
-                # 4th parameter `values` to call
-                # `ax.core.parameter.ChoiceParameter.__init__` but got
-                # `List[str]`.
                 values=["level31", "level32", "level33", "level34"],
+            ),
+        ]
+    )
+
+
+def get_large_factorial_search_space() -> SearchSpace:
+    return SearchSpace(
+        parameters=[
+            ChoiceParameter(
+                name="factor1",
+                parameter_type=ParameterType.STRING,
+                values=[f"level1{i}" for i in range(7)],
+            ),
+            ChoiceParameter(
+                name="factor2",
+                parameter_type=ParameterType.STRING,
+                values=[f"level2{i}" for i in range(10)],
             ),
         ]
     )

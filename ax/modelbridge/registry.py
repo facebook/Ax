@@ -225,6 +225,12 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         model_class=ALEBO,
         transforms=ALEBO_X_trans + ALEBO_Y_trans,
     ),
+    "BO_MIXED": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=ModularBoTorchModel,
+        transforms=Mixed_transforms + Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
 }
 
 
@@ -393,6 +399,7 @@ class Models(ModelRegistryBase):
     MOO_MODULAR = "MOO_Modular"
     ST_MTGP = "ST_MTGP"
     ALEBO = "ALEBO"
+    BO_MIXED = "BO_MIXED"
 
 
 def get_model_from_generator_run(

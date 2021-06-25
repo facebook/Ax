@@ -14,6 +14,7 @@ from ax.utils.testing.core_stubs import (
     get_discrete_search_space,
     get_experiment,
     get_factorial_search_space,
+    get_large_factorial_search_space,
 )
 
 
@@ -21,17 +22,40 @@ class TestDispatchUtils(TestCase):
     """Tests that dispatching utilities correctly select generation strategies."""
 
     def test_choose_generation_strategy(self):
+        # GPEI
         sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
         self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
         self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
         self.assertEqual(sobol_gpei._steps[1].model.value, "GPEI")
-        sobol = choose_generation_strategy(search_space=get_factorial_search_space())
+        # Sobol (we can try every option)
+        sobol = choose_generation_strategy(
+            search_space=get_factorial_search_space(), num_trials=1000
+        )
         self.assertEqual(sobol._steps[0].model.value, "Sobol")
         self.assertEqual(len(sobol._steps), 1)
+        # Sobol (because of too many categories)
+        sobol_large = choose_generation_strategy(
+            search_space=get_large_factorial_search_space()
+        )
+        self.assertEqual(sobol_large._steps[0].model.value, "Sobol")
+        self.assertEqual(len(sobol_large._steps), 1)
+        # GPEI-Batched
         sobol_gpei_batched = choose_generation_strategy(
             search_space=get_branin_search_space(), use_batch_trials=3
         )
         self.assertEqual(sobol_gpei_batched._steps[0].num_trials, 1)
+        # BO_MIXED (purely categorical)
+        bo_mixed = choose_generation_strategy(search_space=get_factorial_search_space())
+        self.assertEqual(bo_mixed._steps[0].model.value, "Sobol")
+        self.assertEqual(bo_mixed._steps[0].num_trials, 5)
+        self.assertEqual(bo_mixed._steps[1].model.value, "BO_MIXED")
+        # BO_MIXED (mixed search space)
+        bo_mixed_2 = choose_generation_strategy(
+            search_space=get_branin_search_space(with_choice_parameter=True)
+        )
+        self.assertEqual(bo_mixed_2._steps[0].model.value, "Sobol")
+        self.assertEqual(bo_mixed_2._steps[0].num_trials, 5)
+        self.assertEqual(bo_mixed_2._steps[1].model.value, "BO_MIXED")
 
     def test_setting_random_seed(self):
         sobol = choose_generation_strategy(
@@ -75,7 +99,7 @@ class TestDispatchUtils(TestCase):
         # Check that with budget that is lower than exhaustive, BayesOpt is used.
         sobol_gpei = choose_generation_strategy(search_space=ss, num_trials=11)
         self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
-        self.assertEqual(sobol_gpei._steps[1].model.value, "GPEI")
+        self.assertEqual(sobol_gpei._steps[1].model.value, "BO_MIXED")
         # Check that with budget that is exhaustive, Sobol is used.
         sobol = choose_generation_strategy(search_space=ss, num_trials=12)
         self.assertEqual(sobol._steps[0].model.value, "Sobol")
