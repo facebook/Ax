@@ -169,25 +169,6 @@ class TestAxClient(TestCase):
         self.assertIn("a", trials_df)
         self.assertEqual(len(trials_df), 6)
 
-    def test_default_generation_strategy_discrete(self) -> None:
-        """Test that Sobol is used if no GenerationStrategy is provided and
-        the search space is discrete.
-        """
-        # Test that Sobol is chosen when all parameters are choice.
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            parameters=[  # pyre-fixme[6]: expected union that should include
-                {"name": "x", "type": "choice", "values": [1, 2, 3]},
-                {"name": "y", "type": "choice", "values": [1, 2, 3]},
-            ]
-        )
-        self.assertEqual(
-            [s.model for s in not_none(ax_client.generation_strategy)._steps],
-            [Models.SOBOL],
-        )
-        self.assertEqual(ax_client.get_max_parallelism(), [(-1, -1)])
-        self.assertTrue(ax_client.get_trials_data_frame().empty)
-
     def test_create_experiment(self) -> None:
         """Test basic experiment creation."""
         ax_client = AxClient(

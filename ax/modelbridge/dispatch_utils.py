@@ -6,7 +6,7 @@
 
 import logging
 from math import ceil
-from typing import Optional, Tuple, Type, cast
+from typing import cast, Optional, Tuple, Type, Union
 
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -21,6 +21,7 @@ logger: logging.Logger = get_logger(__name__)
 
 
 DEFAULT_BAYESIAN_PARALLELISM = 3
+MAX_DISCRETE_COMBINATIONS = 65
 
 
 def _make_sobol_step(
@@ -47,6 +48,7 @@ def _make_botorch_step(
     min_trials_observed: Optional[int] = None,
     enforce_num_trials: bool = True,
     max_parallelism: Optional[int] = None,
+    model: Models = Models.GPEI,
     winsorize: bool = False,
     winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
 ) -> GenerationStep:
@@ -71,7 +73,7 @@ def _make_botorch_step(
             },
         }
     return GenerationStep(
-        model=Models.GPEI,
+        model=model,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
@@ -81,21 +83,27 @@ def _make_botorch_step(
     )
 
 
-def _should_use_gp(search_space: SearchSpace, num_trials: Optional[int] = None) -> bool:
-    """We should use only Sobol and not GPEI if:
-    1. there are less continuous parameters in the search space than the sum of
-    options for the choice parameters,
-    2. the number of total iterations in the optimization is known in advance and
-    there are less distinct points in the search space than the known intended
-    number of total iterations.
+def _suggest_gp_model(
+    search_space: SearchSpace, num_trials: Optional[int] = None
+) -> Union[None, Models]:
+    """Suggest a model based on the search space. None means we use Sobol.
+
+    1. We use Sobol if the number of total iterations in the optimization is
+    known in advance and there are less distinct points in the search space
+    than the known intended number of total iterations.
+    2. We use BO_MIXED if there are less continuous parameters in the search
+    space than the sum of options for the *unordered* choice parameters.
+    3. In all other cases we use GPEI.
     """
-    num_continuous_parameters, num_discrete_choices, num_possible_points = 0, 0, 1
+    num_continuous_parameters, num_discrete_choices = 0, 0
+    num_discrete_combinations, num_possible_points = 1, 1
     all_range_parameters_are_int = True
     for parameter in search_space.parameters.values():
         if isinstance(parameter, ChoiceParameter):
             num_discrete_choices += len(parameter.values)
+            num_discrete_combinations *= len(parameter.values)
             num_possible_points *= len(parameter.values)
-        if isinstance(parameter, RangeParameter):
+        elif isinstance(parameter, RangeParameter):
             num_continuous_parameters += 1
             if parameter.parameter_type != ParameterType.INT:
                 all_range_parameters_are_int = False
@@ -107,9 +115,30 @@ def _should_use_gp(search_space: SearchSpace, num_trials: Optional[int] = None) 
         and all_range_parameters_are_int
         and num_possible_points <= num_trials
     ):
-        return False
+        logger.info("Using Sobol since we can enumerate the search space.")
+        return None
 
-    return num_continuous_parameters >= num_discrete_choices
+    if num_continuous_parameters > num_discrete_choices:
+        logger.info(
+            "Using GPEI (Bayesian optimization) since there are more continuous "
+            "parameters than there are categories for the unordered categorical "
+            "parameters."
+        )
+        return Models.GPEI
+    elif num_discrete_combinations <= MAX_DISCRETE_COMBINATIONS:
+        logger.info(
+            "Using Bayesian optimization with a categorical kernel for improved "
+            "performance with a large number of unordered categorical parameters."
+        )
+        return Models.BO_MIXED
+    else:
+        logger.info(
+            f"Using Sobol since there are more than {MAX_DISCRETE_COMBINATIONS} "
+            "combinations for the categorical parameters. Consider removing a few "
+            "categorical parameters for improved performance. If possible, turn "
+            "all ordered categorical variables into RangeParameters"
+        )
+        return None
 
 
 def choose_generation_strategy(
@@ -171,11 +200,10 @@ def choose_generation_strategy(
             (e.g. to avoid overloading machine(s) that evaluate the experiment trials).
             Specify only if not specifying `max_parallelism_override`.
     """
-    # If there are more discrete choices than continuous parameters, Sobol
-    # will do better than GP+EI.
-    if not no_bayesian_optimization and _should_use_gp(
+    suggested_model = _suggest_gp_model(
         search_space=search_space, num_trials=num_trials
-    ):
+    )
+    if not no_bayesian_optimization and suggested_model is not None:
         if not enforce_sequential_optimization and (  # pragma: no cover
             max_parallelism_override or max_parallelism_cap
         ):
@@ -223,6 +251,7 @@ def choose_generation_strategy(
                     max_parallelism=sobol_parallelism,
                 ),
                 _make_botorch_step(
+                    model=suggested_model,
                     winsorize=winsorize_botorch_model,
                     winsorization_limits=winsorization_limits,
                     max_parallelism=bo_parallelism,
