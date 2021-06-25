@@ -5,16 +5,23 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-from typing import Dict, List, NamedTuple, Optional
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.trial import Trial
-from ax.core.utils import best_feasible_objective, get_model_times
+from ax.core.utils import best_feasible_objective, feasible_hypervolume, get_model_times
 from ax.plot.base import AxPlotConfig
+from ax.plot.pareto_frontier import plot_multiple_pareto_frontiers
+from ax.plot.pareto_utils import (
+    get_observed_pareto_frontiers,
+    ParetoFrontierResults,
+)
 from ax.plot.render import plot_config_to_html
 from ax.plot.trace import (
     optimization_times,
@@ -25,13 +32,13 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.report.render import h2_html, h3_html, p_html, render_report_elements
 
-
 logger: logging.Logger = get_logger(__name__)
 
 
-class BenchmarkResult(NamedTuple):
+@dataclass
+class BenchmarkResult:
     # {method_name -> [[best objective per trial] per benchmark run]}
-    objective_at_true_best: Dict[str, np.ndarray]
+    true_performance: Dict[str, np.ndarray]
     # {method_name -> [total fit time per run]}
     fit_times: Dict[str, List[float]]
     # {method_name -> [total gen time per run]}
@@ -39,6 +46,8 @@ class BenchmarkResult(NamedTuple):
     # {method_name -> trials where generation strategy changed}
     optimum: Optional[float] = None
     model_transitions: Optional[Dict[str, Optional[List[int]]]] = None
+    is_multi_objective: bool = False
+    pareto_frontiers: Optional[Dict[str, ParetoFrontierResults]] = None
 
 
 def aggregate_problem_results(
@@ -48,12 +57,15 @@ def aggregate_problem_results(
     model_transitions: Optional[Dict[str, List[int]]] = None,
 ) -> BenchmarkResult:
     # Results will be put in {method -> results} dictionaries.
-    objective_at_true_best: Dict[str, List[np.ndarray]] = {}
+    true_performances: Dict[str, List[np.ndarray]] = {}
     fit_times: Dict[str, List[float]] = {}
     gen_times: Dict[str, List[float]] = {}
-
+    exp = list(runs.values())[0][0]
+    is_moo = isinstance(exp.optimization_config, MultiObjectiveOptimizationConfig)
+    plot_pfs = is_moo and len(not_none(exp.optimization_config).objective.metrics) == 2
+    pareto_frontiers = {} if plot_pfs else None
     for method, experiments in runs.items():
-        objective_at_true_best[method] = []
+        true_performances[method] = []
         fit_times[method] = []
         gen_times[method] = []
         for experiment in experiments:
@@ -61,13 +73,13 @@ def aggregate_problem_results(
                 problem.name in experiment.name
             ), "Problem and experiment name do not match."
             fit_time, gen_time = get_model_times(experiment=experiment)
-            true_best_objective = extract_optimization_trace(
+            true_performance = extract_optimization_trace(
                 experiment=experiment, problem=problem
             )
 
             # Compute the things we care about
             # 1. True best objective value.
-            objective_at_true_best[method].append(true_best_objective)
+            true_performances[method].append(true_performance)
             # 2. Time
             fit_times[method].append(fit_time)
             gen_times[method].append(gen_time)
@@ -75,19 +87,27 @@ def aggregate_problem_results(
             # 3. True obj. value of model-predicted best
             # 4. True feasiblity of model-predicted best
             # 5. Model prediction MSE for each gen run
+        # only include pareto frontier for one experiment per method
+        if plot_pfs:
+            # pyre-ignore [16]
+            pareto_frontiers[method] = get_observed_pareto_frontiers(
+                experiment=experiment,
+                # pyre-ignore [6]
+                data=experiment.fetch_data(),
+            )[0]
 
         # TODO: remove rows from <values>[method] of length different
         # from the length of other rows, log warning when removing
     return BenchmarkResult(
-        objective_at_true_best={
-            m: np.array(v) for m, v in objective_at_true_best.items()
-        },
+        true_performance={m: np.array(v) for m, v in true_performances.items()},
         # pyre-fixme[6]: [6]: Expected `Optional[Dict[str, Optional[List[int]]]]`
         # but got `Optional[Dict[str, List[int]]]`
         model_transitions=model_transitions,
         optimum=problem.optimal_value,
         fit_times=fit_times,
         gen_times=gen_times,
+        is_multi_objective=is_moo,
+        pareto_frontiers=pareto_frontiers,
     )
 
 
@@ -96,24 +116,29 @@ def make_plots(
 ) -> List[AxPlotConfig]:
     plots: List[AxPlotConfig] = []
     # Plot objective at true best
+    ylabel = (
+        "Feasible Hypervolume"
+        if benchmark_result.is_multi_objective
+        else "Objective at best-feasible point observed so far"
+    )
     plots.append(
         optimization_trace_all_methods(
-            y_dict=benchmark_result.objective_at_true_best,
+            y_dict=benchmark_result.true_performance,
             optimum=benchmark_result.optimum,
-            title=f"{problem_name}: cumulative best objective",
-            ylabel="Objective at best-feasible point observed so far",
+            title=f"{problem_name}: Optimization Performance",
+            ylabel=ylabel,
         )
     )
     if include_individual:
         # Plot individual plots of a single method on a single problem.
-        for m, y in benchmark_result.objective_at_true_best.items():
+        for m, y in benchmark_result.true_performance.items():
             plots.append(
                 optimization_trace_single_method(
                     y=y,
                     optimum=benchmark_result.optimum,
                     # model_transitions=benchmark_result.model_transitions[m],
                     title=f"{problem_name}, {m}: cumulative best objective",
-                    ylabel="Objective at best-feasible point observed so far",
+                    ylabel=ylabel,
                 )
             )
     # Plot time
@@ -121,9 +146,16 @@ def make_plots(
         optimization_times(
             fit_times=benchmark_result.fit_times,
             gen_times=benchmark_result.gen_times,
-            title=f"{problem_name}: optimization times",
+            title=f"{problem_name}: cumulative optimization times",
         )
     )
+    if benchmark_result.pareto_frontiers is not None:
+        plots.append(
+            plot_multiple_pareto_frontiers(
+                frontiers=not_none(benchmark_result.pareto_frontiers),
+                CI_level=0.0,
+            )
+        )
     return plots
 
 
@@ -205,6 +237,13 @@ def _extract_optimization_trace_from_metrics(experiment: Experiment) -> np.ndarr
         df_m = df_m.groupby("arm_name").first().reset_index()
         df_b = pd.merge(iters_df, df_m, how="left", on="arm_name")
         true_values[metric] = df_b["mean"].values
+    if isinstance(experiment.optimization_config, MultiObjectiveOptimizationConfig):
+        return feasible_hypervolume(
+            # pyre-fixme[6]: Expected `OptimizationConfig` for 1st param but got
+            #  `Optional[ax.core.optimization_config.OptimizationConfig]`.
+            optimization_config=experiment.optimization_config,
+            values=true_values,
+        )
     return best_feasible_objective(
         # pyre-fixme[6]: Expected `OptimizationConfig` for 1st param but got
         #  `Optional[ax.core.optimization_config.OptimizationConfig]`.
