@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
@@ -122,11 +123,12 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         map_key = map_keys[0]
 
         df = data.df
-        df = df[df.metric_name == objective_name]
-        if df.empty:
-            raise ValueError(  # pragma: nocover
-                f"No data found for objective metric {objective_name}."
-            )
+        metric_to_aligned_means, _ = align_partial_results(
+            df=df,
+            progr_key=map_key,
+            metrics=[objective_name],
+        )
+        aligned_means = metric_to_aligned_means[objective_name]
 
         return {
             trial_index
@@ -134,7 +136,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             if self.should_stop_trial_early(
                 trial_index=trial_index,
                 experiment=experiment,
-                df=df,
+                df=aligned_means,
                 percentile_threshold=self.percentile_threshold,
                 map_key=map_key,
                 minimize=minimize,
@@ -145,7 +147,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_index: int,
         experiment: Experiment,
-        df: pd.Series,
+        df: pd.DataFrame,
         percentile_threshold: float,
         map_key: str,
         minimize: bool,
@@ -156,7 +158,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         Args:
             trial_index: Indices of candidate trial to stop early.
             experiment: Experiment that contains the trials and other contextual data.
-            df: Dataframe of partial results, filtered to objective metric.
+            df: Dataframe of partial results after applying interpolation,
+                filtered to objective metric.
             percentile_threshold: Falling below this threshold compared to other trials
                 at the same step will stop the run. Must be between 0.0 and 100.0.
                 e.g. if percentile_threshold=25.0, the bottom 25% of trials are stopped.
@@ -169,7 +172,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         Returns:
             True iff trial should be early stopped.
         """
-        trial_last_progression = df[df.trial_index == trial_index][map_key].max()
+        logger.debug(f"Considering trial {trial_index} for early stopping.")
+        trial_last_progression = not_none(df[trial_index].dropna()).index.max()
         if trial_last_progression < self.min_progression:
             logger.info(
                 f"Trial {trial_index}'s most recent progression "
@@ -179,8 +183,10 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             )
             return False
 
-        # TODO: Integrate with D29122275
-        data_at_last_progression = df[df[map_key] == trial_last_progression]
+        # dropna() here will exclude trials that have not made it to the
+        # last progression of the trial under consideration, and therefore
+        # can't be included in the comparison
+        data_at_last_progression = df.loc[trial_last_progression].dropna()
         if len(data_at_last_progression) < self.min_curves:
             logger.info(
                 f"The number of trials with data ({len(data_at_last_progression)}) "
@@ -190,18 +196,15 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             )
             return False
 
-        objective_values_at_last_progression = data_at_last_progression["mean"]
         percentile_threshold = (
             100.0 - self.percentile_threshold if minimize else self.percentile_threshold
         )
-        percentile_value = np.percentile(
-            objective_values_at_last_progression, percentile_threshold
-        )
-        trial_objective_value = data_at_last_progression[
-            data_at_last_progression.trial_index == trial_index
-        ]["mean"].values[0]
-        return (
+        percentile_value = np.percentile(data_at_last_progression, percentile_threshold)
+        trial_objective_value = data_at_last_progression[trial_index]
+        should_early_stop = (
             trial_objective_value > percentile_value
             if minimize
             else trial_objective_value < percentile_value
         )
+        logger.debug(f"Early stopping decision for {trial_index}: {should_early_stop}")
+        return should_early_stop

@@ -152,12 +152,23 @@ class TestEarlyStoppingStrategy(TestCase):
         ] = unaligned_timestamps
         exp.attach_data(data=data)
 
+        """
+        Dataframe after interpolation:
+                    0           1          2           3          4
+        timestamp
+        0          146.138620         NaN        NaN  143.375669  65.033535
+        1          117.388086  113.057480  44.627226  115.168704  58.007086
+        2          100.106473   90.815154  40.549135   98.060315  52.239184
+        3           94.293780   77.324501  35.847504         NaN  47.729828
+        4           99.950007         NaN  30.522333         NaN  44.479018
+        """
+
         # We consider trials 0, 2, and 4 for early stopping at progression 4,
         #    and choose to stop trial 0.
-        # We consider trial 3 for early stopping at progression 2 (and compare
-        #    it to trials 1 and 4) and choose to stop it.
-        # We don't consider trial 1 for early stopping because there aren't
-        #    enough trials with data at its last progression.
+        # We consider trial 1 for early stopping at progression 3, and
+        #    choose to stop it.
+        # We consider trial 3 for early stopping at progression 2, and
+        #    choose to stop it.
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             percentile_threshold=50,
             min_curves=3,
@@ -165,4 +176,4 @@ class TestEarlyStoppingStrategy(TestCase):
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=set(exp.trials.keys()), experiment=exp
         )
-        self.assertEqual(should_stop, {0, 3})
+        self.assertEqual(should_stop, {0, 1, 3})

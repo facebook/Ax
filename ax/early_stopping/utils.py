@@ -32,7 +32,7 @@ def align_partial_results(
         A two-tuple containig a dict mapping the provided metric names to the
         index-normalized and interpolated mean (sem).
     """
-    missing_metrics = set(df["metric_name"]) - set(metrics)
+    missing_metrics = set(metrics) - set(df["metric_name"])
     if missing_metrics:
         raise ValueError(f"Metrics {missing_metrics} not found in input dataframe")
     # select relevant metrics
