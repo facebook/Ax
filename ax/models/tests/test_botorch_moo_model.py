@@ -33,7 +33,7 @@ CHEBYSHEV_SCALARIZATION_PATH = (
 EHVI_ACQF_PATH = (
     "botorch.acquisition.utils.moo_monte_carlo.qExpectedHypervolumeImprovement"
 )
-PARTITIONING_PATH = "botorch.acquisition.utils.NondominatedPartitioning"
+PARTITIONING_PATH = "botorch.acquisition.utils.FastNondominatedPartitioning"
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -288,7 +288,7 @@ class BotorchMOOModelTest(TestCase):
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
         ) as _, mock.patch(
-            PARTITIONING_PATH, wraps=moo_monte_carlo.NondominatedPartitioning
+            PARTITIONING_PATH, wraps=moo_monte_carlo.FastNondominatedPartitioning
         ) as _mock_partitioning:
             _, _, gen_metadata, _ = model.gen(
                 n,
@@ -300,7 +300,7 @@ class BotorchMOOModelTest(TestCase):
             # the EHVI acquisition function should be created only once.
             self.assertEqual(1, _mock_ehvi_acqf.call_count)
             # check partitioning strategy
-            self.assertEqual(_mock_partitioning.call_args[1]["alpha"], 0.0)
+            _mock_partitioning.assert_called_once()
             self.assertTrue(torch.equal(gen_metadata["objective_thresholds"], obj_t))
 
         # 3 objective
@@ -323,7 +323,7 @@ class BotorchMOOModelTest(TestCase):
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
         ) as _, mock.patch(
-            PARTITIONING_PATH, wraps=moo_monte_carlo.NondominatedPartitioning
+            PARTITIONING_PATH, wraps=moo_monte_carlo.FastNondominatedPartitioning
         ) as _mock_partitioning:
             model.gen(
                 n,
@@ -333,7 +333,7 @@ class BotorchMOOModelTest(TestCase):
                 objective_thresholds=torch.tensor([1.0, 1.0, 1.0], **tkwargs),
             )
             # check partitioning strategy
-            self.assertEqual(_mock_partitioning.call_args[1]["alpha"], 1e-5)
+            _mock_partitioning.assert_called_once()
 
         # test inferred objective thresholds in gen()
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
@@ -369,7 +369,8 @@ class BotorchMOOModelTest(TestCase):
             )
             _mock_partitioning = es.enter_context(
                 mock.patch(
-                    PARTITIONING_PATH, wraps=moo_monte_carlo.NondominatedPartitioning
+                    PARTITIONING_PATH,
+                    wraps=moo_monte_carlo.FastNondominatedPartitioning,
                 )
             )
             _mock_model_infer_objective_thresholds = es.enter_context(
