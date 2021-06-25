@@ -7,7 +7,10 @@
 from types import FunctionType
 from typing import Dict, List, Optional, Tuple, Union
 
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    OptimizationConfig,
+    MultiObjectiveOptimizationConfig,
+)
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
 from ax.utils.common.base import Base
@@ -92,7 +95,13 @@ class BenchmarkProblem(Base):
         suffix = (  # To avoid clashing of two problem names, mark constrained
             "_constrained" if len(optimization_config.outcome_constraints) > 0 else ""
         )
-        self.name = name or optimization_config.objective.metric.name + suffix
+        if name is None:
+            if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+                name = "_".join(m.name for m in optimization_config.objective.metrics)
+            else:
+                name = optimization_config.objective.metric.name
+            name += suffix
+        self.name = name
         self.optimal_value = optimal_value
         self.evaluate_suggested = evaluate_suggested
 

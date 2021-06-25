@@ -7,14 +7,21 @@
 from typing import Dict, Iterable, NamedTuple, Set, Tuple
 
 import numpy as np
+import torch
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.utils.common.typeutils import not_none
+from botorch.utils.multi_objective.box_decompositions.dominated import (
+    DominatedPartitioning,
+)
 
 
 TArmTrial = Tuple[str, int]
@@ -146,6 +153,58 @@ def best_feasible_objective(  # pragma: no cover
     minimize = objective.minimize
     accumulate = np.minimum.accumulate if minimize else np.maximum.accumulate
     return accumulate(f)
+
+
+def feasible_hypervolume(  # pragma: no cover
+    optimization_config: MultiObjectiveOptimizationConfig, values: Dict[str, np.ndarray]
+) -> np.ndarray:
+    """Compute the feasible hypervolume each iteration.
+
+    Args:
+        optimization_config: Optimization config.
+        values: Dictionary from metric name to array of value at each
+            iteration (each array is `n`-dim). If optimization config contains
+            outcome constraints, values for them must be present in `values`.
+
+    Returns: Array of feasible hypervolumes.
+    """
+    # Get objective at each iteration
+    obj_threshold_dict = {
+        ot.metric.name: ot.bound for ot in optimization_config.objective_thresholds
+    }
+    f_vals = np.hstack(
+        [values[m.name].reshape(-1, 1) for m in optimization_config.objective.metrics]
+    )
+    obj_thresholds = np.array(
+        [obj_threshold_dict[m.name] for m in optimization_config.objective.metrics]
+    )
+    # Set infeasible points to be the objective threshold
+    for oc in optimization_config.outcome_constraints:
+        if oc.relative:
+            raise ValueError(  # pragma: no cover
+                "Benchmark aggregation does not support relative constraints"
+            )
+        g = values[oc.metric.name]
+        feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
+        f_vals[~feas] = obj_thresholds
+
+    obj_weights = np.array(
+        [-1 if m.lower_is_better else 1 for m in optimization_config.objective.metrics]
+    )
+    obj_thresholds = obj_thresholds * obj_weights
+    f_vals = f_vals * obj_weights
+    partitioning = DominatedPartitioning(
+        ref_point=torch.from_numpy(obj_thresholds).double()
+    )
+    f_vals_torch = torch.from_numpy(f_vals).double()
+    # compute hv at each iteration
+    hvs = []
+    for i in range(f_vals.shape[0]):
+        # update with new point
+        partitioning.update(Y=f_vals_torch[i : i + 1])
+        hv = partitioning.compute_hypervolume().item()
+        hvs.append(hv)
+    return np.array(hvs)
 
 
 def get_model_times(experiment: Experiment) -> Tuple[float, float]:  # pragma: no cover

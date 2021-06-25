@@ -4,12 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import plotly.graph_objs as go
 from ax.plot.base import CI_OPACITY, DECIMALS, AxPlotConfig, AxPlotTypes
-from ax.plot.color import COLORS, rgba
+from ax.plot.color import COLORS, rgba, DISCRETE_COLOR_SCALE
 from ax.plot.helper import extend_range, _format_CI, _format_dict
 from ax.plot.pareto_utils import ParetoFrontierResults
 from scipy.stats import norm
@@ -170,24 +170,13 @@ def scatter_plot_with_pareto_frontier(
     )
 
 
-def plot_pareto_frontier(
+def _get_single_pareto_trace(
     frontier: ParetoFrontierResults,
-    CI_level: float = DEFAULT_CI_LEVEL,
+    CI_level: float,
+    legend_label: str = "mean",
+    trace_color: Tuple[int] = COLORS.STEELBLUE.value,
     show_parameterization_on_hover: bool = True,
-) -> AxPlotConfig:
-    """Plot a Pareto frontier from a ParetoFrontierResults object.
-
-    Args:
-        frontier (ParetoFrontierResults): The results of the Pareto frontier
-            computation.
-        CI_level (float, optional): The confidence level, i.e. 0.95 (95%)
-        show_parameterization_on_hover (bool, optional): If True, show the
-            parameterization of the points on the frontier on hover.
-
-    Returns:
-        AEPlotConfig: The resulting Plotly plot definition.
-
-    """
+) -> go.Scatter:
     primary_means = frontier.means[frontier.primary_metric]
     primary_sems = frontier.sems[frontier.primary_metric]
     secondary_means = frontier.means[frontier.secondary_metric]
@@ -204,19 +193,7 @@ def plot_pareto_frontier(
     else:
         Z = None
 
-    primary_threshold = None
-    secondary_threshold = None
-    if frontier.objective_thresholds is not None:
-        primary_threshold = frontier.objective_thresholds.get(
-            frontier.primary_metric, None
-        )
-        secondary_threshold = frontier.objective_thresholds.get(
-            frontier.secondary_metric, None
-        )
-
     labels = []
-    rel_x = frontier.secondary_metric not in absolute_metrics
-    rel_y = frontier.primary_metric not in absolute_metrics
 
     for i, param_dict in enumerate(frontier.param_dicts):
         label = f"<b>{arm_names[i]}</b><br>"
@@ -237,30 +214,161 @@ def plot_pareto_frontier(
         )
         label += parameterization
         labels.append(label)
+    return go.Scatter(
+        name=legend_label,
+        legendgroup=legend_label,
+        x=secondary_means,
+        y=primary_means,
+        error_x={
+            "type": "data",
+            "array": Z * np.array(secondary_sems),
+            "thickness": 2,
+            "color": rgba(trace_color, CI_OPACITY),
+        },
+        error_y={
+            "type": "data",
+            "array": Z * np.array(primary_sems),
+            "thickness": 2,
+            "color": rgba(trace_color, CI_OPACITY),
+        },
+        mode="markers",
+        text=labels,
+        hoverinfo="text",
+        marker={"color": rgba(trace_color)},
+    )
 
-    traces = [
-        go.Scatter(
-            x=secondary_means,
-            y=primary_means,
-            error_x={
-                "type": "data",
-                "array": Z * np.array(secondary_sems),
-                "thickness": 2,
-                "color": rgba(COLORS.STEELBLUE.value, CI_OPACITY),
-            },
-            error_y={
-                "type": "data",
-                "array": Z * np.array(primary_sems),
-                "thickness": 2,
-                "color": rgba(COLORS.STEELBLUE.value, CI_OPACITY),
-            },
-            mode="markers",
-            text=labels,
-            hoverinfo="text",
-        )
-    ]
+
+def plot_pareto_frontier(
+    frontier: ParetoFrontierResults,
+    CI_level: float = DEFAULT_CI_LEVEL,
+    show_parameterization_on_hover: bool = True,
+) -> AxPlotConfig:
+    """Plot a Pareto frontier from a ParetoFrontierResults object.
+
+    Args:
+        frontier (ParetoFrontierResults): The results of the Pareto frontier
+            computation.
+        CI_level (float, optional): The confidence level, i.e. 0.95 (95%)
+        show_parameterization_on_hover (bool, optional): If True, show the
+            parameterization of the points on the frontier on hover.
+
+    Returns:
+        AEPlotConfig: The resulting Plotly plot definition.
+
+    """
+    trace = _get_single_pareto_trace(
+        frontier=frontier,
+        CI_level=CI_level,
+        show_parameterization_on_hover=show_parameterization_on_hover,
+    )
 
     shapes = []
+    primary_threshold = None
+    secondary_threshold = None
+    if frontier.objective_thresholds is not None:
+        primary_threshold = frontier.objective_thresholds.get(
+            frontier.primary_metric, None
+        )
+        secondary_threshold = frontier.objective_thresholds.get(
+            frontier.secondary_metric, None
+        )
+    absolute_metrics = frontier.absolute_metrics
+    rel_x = frontier.secondary_metric not in absolute_metrics
+    rel_y = frontier.primary_metric not in absolute_metrics
+    if primary_threshold is not None:
+        shapes.append(
+            {
+                "type": "line",
+                "xref": "paper",
+                "x0": 0.0,
+                "x1": 1.0,
+                "yref": "y",
+                "y0": primary_threshold,
+                "y1": primary_threshold,
+                "line": {"color": rgba(COLORS.CORAL.value), "width": 3},
+            }
+        )
+    if secondary_threshold is not None:
+        shapes.append(
+            {
+                "type": "line",
+                "yref": "paper",
+                "y0": 0.0,
+                "y1": 1.0,
+                "xref": "x",
+                "x0": secondary_threshold,
+                "x1": secondary_threshold,
+                "line": {"color": rgba(COLORS.CORAL.value), "width": 3},
+            }
+        )
+
+    layout = go.Layout(
+        title="Pareto Frontier",
+        xaxis={
+            "title": frontier.secondary_metric,
+            "ticksuffix": "%" if rel_x else "",
+            "zeroline": True,
+        },
+        yaxis={
+            "title": frontier.primary_metric,
+            "ticksuffix": "%" if rel_y else "",
+            "zeroline": True,
+        },
+        hovermode="closest",
+        legend={"orientation": "h"},
+        width=750,
+        height=500,
+        margin=go.layout.Margin(pad=4, l=225, b=75, t=75),  # noqa E741
+        shapes=shapes,
+    )
+
+    fig = go.Figure(data=[trace], layout=layout)
+    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+
+
+def plot_multiple_pareto_frontiers(
+    frontiers: Dict[str, ParetoFrontierResults],
+    CI_level: float = DEFAULT_CI_LEVEL,
+    show_parameterization_on_hover: bool = True,
+) -> AxPlotConfig:
+    """Plot a Pareto frontier from a ParetoFrontierResults object.
+
+    Args:
+        frontiers (Dict[str, ParetoFrontierResults]): The results of
+            the Pareto frontier computation.
+        CI_level (float, optional): The confidence level, i.e. 0.95 (95%)
+        show_parameterization_on_hover (bool, optional): If True, show the
+            parameterization of the points on the frontier on hover.
+
+    Returns:
+        AEPlotConfig: The resulting Plotly plot definition.
+
+    """
+    traces = []
+    for i, (method, frontier) in enumerate(frontiers.items()):
+        trace = _get_single_pareto_trace(
+            frontier=frontier,
+            legend_label=method,
+            trace_color=DISCRETE_COLOR_SCALE[i % len(DISCRETE_COLOR_SCALE)],
+            CI_level=CI_level,
+            show_parameterization_on_hover=show_parameterization_on_hover,
+        )
+
+        traces.append(trace)
+
+    shapes = []
+    primary_threshold = None
+    secondary_threshold = None
+    if frontier.objective_thresholds is not None:
+        primary_threshold = frontier.objective_thresholds.get(
+            frontier.primary_metric, None
+        )
+        secondary_threshold = frontier.objective_thresholds.get(
+            frontier.secondary_metric, None
+        )
+    absolute_metrics = frontier.absolute_metrics
+    rel_x = frontier.secondary_metric not in absolute_metrics
+    rel_y = frontier.primary_metric not in absolute_metrics
     if primary_threshold is not None:
         shapes.append(
             {

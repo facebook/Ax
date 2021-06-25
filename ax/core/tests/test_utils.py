@@ -8,15 +8,19 @@ import numpy as np
 import pandas as pd
 from ax.core.data import Data
 from ax.core.metric import Metric
-from ax.core.objective import Objective
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.objective import Objective, MultiObjective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import OutcomeConstraint, ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
     MissingMetrics,
     best_feasible_objective,
     get_missing_metrics,
     get_missing_metrics_by_name,
+    feasible_hypervolume,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -125,3 +129,59 @@ class UtilsTest(TestCase):
             values={"a": np.array([1.0, 3.0, 2.0]), "b": np.array([0.0, -1.0, 0.0])},
         )
         self.assertEqual(list(bfo), [1.0, 1.0, 2.0])
+
+    def test_feasible_hypervolume(self):
+        ma = Metric(name="a", lower_is_better=False)
+        mb = Metric(name="b", lower_is_better=True)
+        mc = Metric(name="c", lower_is_better=False)
+        optimization_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(metrics=[ma, mb]),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    mc,
+                    op=ComparisonOp.GEQ,
+                    bound=0,
+                    relative=False,
+                )
+            ],
+            objective_thresholds=[
+                ObjectiveThreshold(
+                    ma,
+                    bound=1.0,
+                ),
+                ObjectiveThreshold(
+                    mb,
+                    bound=1.0,
+                ),
+            ],
+        )
+        feas_hv = feasible_hypervolume(
+            optimization_config,
+            values={
+                "a": np.array(
+                    [
+                        1.0,
+                        3.0,
+                        2.0,
+                        2.0,
+                    ]
+                ),
+                "b": np.array(
+                    [
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                    ]
+                ),
+                "c": np.array(
+                    [
+                        0.0,
+                        -0.0,
+                        1.0,
+                        -2.0,
+                    ]
+                ),
+            },
+        )
+        self.assertEqual(list(feas_hv), [0.0, 0.0, 1.0, 1.0])
