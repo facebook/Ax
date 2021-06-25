@@ -138,6 +138,7 @@ class TestEarlyStoppingStrategy(TestCase):
         self.assertEqual(should_stop, {0, 3, 1})
 
     def test_early_stopping_with_unaligned_results(self):
+        # test case 1
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
@@ -157,9 +158,9 @@ class TestEarlyStoppingStrategy(TestCase):
                     0           1          2           3          4
         timestamp
         0          146.138620         NaN        NaN  143.375669  65.033535
-        1          117.388086  113.057480  44.627226  115.168704  58.007086
-        2          100.106473   90.815154  40.549135   98.060315  52.239184
-        3           94.293780   77.324501  35.847504         NaN  47.729828
+        1          117.388086  113.057480  44.627226  115.168704  58.636359
+        2          111.575393   90.815154  40.237365   98.060315  52.239184
+        3          105.762700   77.324501  35.847504         NaN  48.359101
         4           99.950007         NaN  30.522333         NaN  44.479018
         """
 
@@ -177,3 +178,46 @@ class TestEarlyStoppingStrategy(TestCase):
             trial_indices=set(exp.trials.keys()), experiment=exp
         )
         self.assertEqual(should_stop, {0, 1, 3})
+
+        # test case 2, where trial 3 has only 1 data point
+        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
+        for i in range(5):
+            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
+            trial.run()
+
+        # manually "unalign" timestamps to simulate real-world scenario
+        # where each curve reports results at different steps
+        data = exp.fetch_data()
+        unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
+        data.df.loc[
+            data.df["metric_name"] == "branin", "timestamp"
+        ] = unaligned_timestamps
+        # manually remove timestamps 1 and 2 for arm 3
+        data.df.drop([22, 23], inplace=True)
+        exp.attach_data(data=data)
+
+        """
+        Dataframe after interpolation:
+                    0           1          2           3          4
+        timestamp
+        0          146.138620         NaN        NaN  143.375669  65.033535
+        1          117.388086  113.057480  44.627226         NaN  58.636359
+        2          111.575393   90.815154  40.237365         NaN  52.239184
+        3          105.762700   77.324501  35.847504         NaN  48.359101
+        4           99.950007         NaN  30.522333         NaN  44.479018
+        """
+
+        # We consider trials 0, 2, and 4 for early stopping at progression 4,
+        #    and choose to stop trial 0.
+        # We consider trial 1 for early stopping at progression 3, and
+        #    choose to stop it.
+        # We consider trial 3 for early stopping at progression 0, and
+        #    choose not to stop it.
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=50,
+            min_curves=3,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=set(exp.trials.keys()), experiment=exp
+        )
+        self.assertEqual(should_stop, {0, 1})

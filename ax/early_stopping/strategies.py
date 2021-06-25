@@ -173,6 +173,13 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             True iff trial should be early stopped.
         """
         logger.debug(f"Considering trial {trial_index} for early stopping.")
+        if trial_index not in df:
+            logger.info(
+                f"There is not yet any data associated with trial {trial_index}. "
+                "Not early stopping this trial."
+            )
+            return False
+
         trial_last_progression = not_none(df[trial_index].dropna()).index.max()
         if trial_last_progression < self.min_progression:
             logger.info(

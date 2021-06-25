@@ -8,13 +8,16 @@ from collections import defaultdict
 from typing import List, Dict, Tuple
 
 import pandas as pd
+from ax.utils.common.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def align_partial_results(
     df: pd.DataFrame,
     progr_key: str,  # progression key
     metrics: List[str],
-    interpolation: str = "quadratic",
+    interpolation: str = "slinear",
     # TODO: Allow normalizing progr_key (e.g. subtract min time stamp)
 ) -> Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]:
     """Helper function to align partial results with heterogeneous index
@@ -47,9 +50,9 @@ def align_partial_results(
     has_sem = not df["sem"].isnull().all()
     if not has_sem:
         df = df.drop("sem", axis=1)
-    # create the common index that every map result will be re-indexeed w.r.t.
+    # create the common index that every map result will be re-indexed w.r.t.
     index_union = df.index.levels[2].unique()
-    # loop through (trial,metric) combos and align data
+    # loop through (trial, metric) combos and align data
     dfs_mean = defaultdict(list)
     dfs_sem = defaultdict(list)
     for tidx in df.index.levels[0]:  # this could be slow if there are many trials
@@ -60,7 +63,16 @@ def align_partial_results(
             # does not extrapolate)
             # TODO: Allow passing of additional kwargs to `interpolate`
             # TODO: Allow using an arbitrary prediction model for this instead
-            df_interp = df_ridx.interpolate(interpolation)
+            try:
+                df_interp = df_ridx.interpolate(
+                    method=interpolation, limit_area="inside"
+                )
+            except ValueError as e:
+                df_interp = df_ridx
+                logger.info(
+                    f"Got exception `{e}` during interpolation. "
+                    "Using uninterpolated values instead."
+                )
             # renaming column to trial index, append results
             dfs_mean[metric].append(df_interp["mean"].rename(tidx))
             if has_sem:

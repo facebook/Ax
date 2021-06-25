@@ -125,14 +125,17 @@ class AsyncSimulatedBackendScheduler(Scheduler):
         running_trials = set()
         skipped_trials = set()
         for trial_index in trial_indices:
-            status = self.backend_simulator.lookup_trial_index_status(trial_index)
-            if status == TrialStatus.RUNNING:
+            sim_trial = self.backend_simulator.get_sim_trial_by_index(trial_index)
+            if sim_trial.sim_start_time is not None and (  # pyre-ignore[16]
+                self.backend_simulator.time - sim_trial.sim_start_time > 0
+            ):
                 running_trials.add(trial_index)
             else:
                 skipped_trials.add(trial_index)
         if len(skipped_trials) > 0:
             logger.info(
                 f"Not sending {skipped_trials} to base `should_stop_trials_early` "
-                "because they are not running on the backend simulator."
+                "because they have not been running for a positive amount of time "
+                "on the backend simulator."
             )
         return super().should_stop_trials_early(trial_indices=running_trials)
