@@ -363,21 +363,36 @@ def exp_to_df(
                     "Not appending column."
                 )
 
-    # prepare results for merge
-    key_vals = results[key_components[0]].astype("str") + results[
-        key_components[1]
-    ].astype("str")
-    results[key_col] = key_vals
-    metric_vals = results.pivot(
-        index=key_col, columns="metric_name", values="mean"
-    ).reset_index()
+    if len(results.index) == 0:
+        logger.info(
+            f"No results present for the specified metrics `{metrics}`. "
+            "Returning arm parameters and metadata only."
+        )
+        exp_df = arms_df
+    elif not all(col in results.columns for col in key_components):
+        logger.warn(
+            f"At least one of key columns `{key_components}` not present in results df "
+            f"`{results}`. Returning arm parameters and metadata only."
+        )
+        exp_df = arms_df
+    else:
+        # prepare results for merge
+        key_vals = results[key_components[0]].astype("str") + results[
+            key_components[1]
+        ].astype("str")
+        results[key_col] = key_vals
+        metric_vals = results.pivot(
+            index=key_col, columns="metric_name", values="mean"
+        ).reset_index()
 
-    # dedupe results by key_components
-    metadata = results[key_components + [key_col]].drop_duplicates()
-    metrics_df = pd.merge(metric_vals, metadata, on=key_col)
+        # dedupe results by key_components
+        metadata = results[key_components + [key_col]].drop_duplicates()
+        metrics_df = pd.merge(metric_vals, metadata, on=key_col)
 
-    # merge and return
-    exp_df = pd.merge(metrics_df, arms_df, on=key_components + [key_col], how="outer")
+        # merge and return
+        exp_df = pd.merge(
+            metrics_df, arms_df, on=key_components + [key_col], how="outer"
+        )
     return prep_return(df=exp_df, drop_col=key_col, sort_by=["arm_name"])
 
 
