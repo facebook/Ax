@@ -14,6 +14,7 @@ from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig, TRefPoint
+from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.discrete import DiscreteModelBridge
@@ -42,6 +43,9 @@ from ax.models.torch.botorch_defaults import (
     predict_from_model,
     scipy_optimizer,
 )
+from ax.models.torch.botorch_moo_defaults import (
+    get_EHVI,
+)
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 
@@ -63,6 +67,124 @@ additional ``GenerationStrategy`` and is able to delegate work to multiple model
 optimization model for subsequent trials).
 
 """
+
+
+def get_MOO_NEHVI(
+    experiment: Experiment,
+    data: Data,
+    objective_thresholds: Optional[TRefPoint] = None,
+    search_space: Optional[SearchSpace] = None,
+    dtype: torch.dtype = torch.double,
+    device: torch.device = (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    ),
+    status_quo_features: Optional[ObservationFeatures] = None,
+    use_input_warping: bool = False,
+) -> MultiObjectiveTorchModelBridge:
+    """Instantiates a multi-objective model using qNEHVI."""
+    # pyre-ignore: [16] `Optional` has no attribute `objective`.
+    if not isinstance(experiment.optimization_config.objective, MultiObjective):
+        raise ValueError("Multi-objective optimization requires multiple objectives.")
+    if data.df.empty:  # pragma: no cover
+        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    return checked_cast(
+        MultiObjectiveTorchModelBridge,
+        Models.MOO(
+            experiment=experiment,
+            data=data,
+            objective_thresholds=objective_thresholds,
+            search_space=search_space or experiment.search_space,
+            torch_dtype=dtype,
+            torch_device=device,
+            status_quo_features=status_quo_features,
+            default_model_gen_options={
+                "optimizer_kwargs": {
+                    # having a batch limit is very important for avoiding
+                    # memory issues in the initialization
+                    "batch_limit": DEFAULT_EHVI_BATCH_LIMIT,
+                    "sequential": True,
+                },
+            },
+            use_input_warping=use_input_warping,
+        ),
+    )
+
+
+def get_MTGP_NEHVI(
+    experiment: Experiment,
+    data: Data,
+    objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
+    search_space: Optional[SearchSpace] = None,
+    dtype: torch.dtype = torch.double,
+    device: torch.device = DEFAULT_TORCH_DEVICE,
+    trial_index: Optional[int] = None,
+) -> TorchModelBridge:
+    """Instantiates a Multi-task Gaussian Process (MTGP) model that generates
+    points with qNEHVI.
+
+    If the input experiment is a MultiTypeExperiment then a
+    Multi-type Multi-task GP model will be instantiated.
+    Otherwise, the model will be a Single-type Multi-task GP.
+    """
+    # pyre-ignore: [16] `Optional` has no attribute `objective`.
+    if not isinstance(experiment.optimization_config.objective, MultiObjective):
+        raise ValueError("Multi-objective optimization requires multiple objectives.")
+    elif data.df.empty:  # pragma: no cover
+        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+
+    if isinstance(experiment, MultiTypeExperiment):
+        trial_index_to_type = {
+            t.index: t.trial_type for t in experiment.trials.values()
+        }
+        transforms = MT_MTGP_trans
+        transform_configs = {
+            "ConvertMetricNames": tconfig_from_mt_experiment(experiment),
+            "TrialAsTask": {"trial_level_map": {"trial_type": trial_index_to_type}},
+        }
+    else:
+        # Set transforms for a Single-type MTGP model.
+        transforms = ST_MTGP_trans
+        transform_configs = None
+
+    # Choose the status quo features for the experiment from the selected trial.
+    # If trial_index is None, we will look for a status quo from the last
+    # experiment trial to use as a status quo for the experiment.
+    if trial_index is None:
+        trial_index = len(experiment.trials) - 1
+    elif trial_index >= len(experiment.trials):
+        raise ValueError("trial_index is bigger than the number of experiment trials")
+
+    # pyre-fixme[16]: `ax.core.base_trial.BaseTrial` has no attribute `status_quo`.
+    status_quo = experiment.trials[trial_index].status_quo
+    if status_quo is None:
+        status_quo_features = None
+    else:
+        status_quo_features = ObservationFeatures(
+            parameters=status_quo.parameters, trial_index=trial_index
+        )
+
+    return checked_cast(
+        MultiObjectiveTorchModelBridge,
+        Models.MOO(
+            experiment=experiment,
+            data=data,
+            objective_thresholds=objective_thresholds,
+            search_space=search_space or experiment.search_space,
+            transforms=transforms,
+            transform_configs=transform_configs,
+            torch_dtype=dtype,
+            torch_device=device,
+            status_quo_features=status_quo_features,
+            default_model_gen_options={
+                "optimizer_kwargs": {
+                    # having a batch limit is very important for avoiding
+                    # memory issues in the initialization
+                    "batch_limit": DEFAULT_EHVI_BATCH_LIMIT,
+                    "sequential": True,
+                },
+            },
+        ),
+    )
 
 
 def get_sobol(
@@ -400,6 +522,7 @@ def get_MOO_EHVI(
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
+            acqf_constructor=get_EHVI,
             default_model_gen_options={
                 "acquisition_function_kwargs": {"sequential": True},
                 "optimizer_kwargs": {

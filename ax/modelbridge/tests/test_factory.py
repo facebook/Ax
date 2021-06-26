@@ -17,6 +17,8 @@ from ax.modelbridge.factory import (
     get_GPKG,
     get_GPMES,
     get_MOO_EHVI,
+    get_MOO_NEHVI,
+    get_MTGP_NEHVI,
     get_MOO_PAREGO,
     get_MTGP_PAREGO,
     get_MOO_RS,
@@ -376,6 +378,120 @@ class ModelBridgeFactoryTest(TestCase):
         )
         data = multi_type_multi_obj_exp.fetch_data()
         mt_ehvi = get_MTGP_PAREGO(
+            experiment=multi_type_multi_obj_exp,
+            data=data,
+            objective_thresholds=multi_objective_thresholds,
+        )
+
+    def test_MOO_NEHVI(self):
+        single_obj_exp = get_branin_experiment(with_batch=True)
+        metrics = single_obj_exp.optimization_config.objective.metrics
+        metrics[0].lower_is_better = True
+        objective_thresholds = [
+            ObjectiveThreshold(metric=metrics[0], bound=0.0, relative=False)
+        ]
+        with self.assertRaises(ValueError):
+            get_MOO_NEHVI(
+                experiment=single_obj_exp,
+                data=single_obj_exp.fetch_data(),
+                objective_thresholds=objective_thresholds,
+            )
+
+        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        metrics = multi_obj_exp.optimization_config.objective.metrics
+        multi_objective_thresholds = [
+            ObjectiveThreshold(
+                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            ),
+            ObjectiveThreshold(
+                metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            ),
+        ]
+        with self.assertRaises(ValueError):
+            get_MOO_NEHVI(
+                experiment=multi_obj_exp,
+                data=multi_obj_exp.fetch_data(),
+                objective_thresholds=multi_objective_thresholds,
+            )
+
+        multi_obj_exp.trials[0].run()
+        moo_ehvi = get_MOO_NEHVI(
+            experiment=multi_obj_exp,
+            data=multi_obj_exp.fetch_data(),
+            objective_thresholds=multi_objective_thresholds,
+        )
+        self.assertIsInstance(moo_ehvi, MultiObjectiveTorchModelBridge)
+        moo_ehvi_run = moo_ehvi.gen(n=1)
+        self.assertEqual(len(moo_ehvi_run.arms), 1)
+
+    def test_MTGP_NEHVI(self):
+        single_obj_exp = get_branin_experiment(with_batch=True)
+        metrics = single_obj_exp.optimization_config.objective.metrics
+        metrics[0].lower_is_better = True
+        objective_thresholds = [
+            ObjectiveThreshold(metric=metrics[0], bound=0.0, relative=False)
+        ]
+        with self.assertRaises(ValueError):
+            get_MTGP_NEHVI(
+                experiment=single_obj_exp,
+                data=single_obj_exp.fetch_data(),
+                objective_thresholds=objective_thresholds,
+            )
+
+        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        metrics = multi_obj_exp.optimization_config.objective.metrics
+        multi_objective_thresholds = [
+            ObjectiveThreshold(
+                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            ),
+            ObjectiveThreshold(
+                metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            ),
+        ]
+        with self.assertRaises(ValueError):
+            get_MTGP_NEHVI(
+                experiment=multi_obj_exp,
+                data=multi_obj_exp.fetch_data(),
+                objective_thresholds=multi_objective_thresholds,
+            )
+
+        multi_obj_exp.trials[0].run()
+        sobol_generator = get_sobol(search_space=multi_obj_exp.search_space)
+        sobol_run = sobol_generator.gen(n=3)
+        multi_obj_exp.new_batch_trial(optimize_for_power=False).add_generator_run(
+            sobol_run
+        )
+        multi_obj_exp.trials[1].run()
+        mt_ehvi = get_MTGP_NEHVI(
+            experiment=multi_obj_exp,
+            data=multi_obj_exp.fetch_data(),
+            objective_thresholds=multi_objective_thresholds,
+            trial_index=1,
+        )
+        self.assertIsInstance(mt_ehvi, MultiObjectiveTorchModelBridge)
+        self.assertIsInstance(mt_ehvi.model.model.models[0], MultiTaskGP)
+        task_covar_factor = mt_ehvi.model.model.models[0].task_covar_module.covar_factor
+        self.assertEqual(task_covar_factor.shape, torch.Size([2, 2]))
+        mt_ehvi_run = mt_ehvi.gen(
+            n=1, fixed_features=ObservationFeatures(parameters={}, trial_index=1)
+        )
+        self.assertEqual(len(mt_ehvi_run.arms), 1)
+
+        # Bad index given
+        with self.assertRaises(ValueError):
+            get_MTGP_NEHVI(
+                experiment=multi_obj_exp,
+                data=multi_obj_exp.fetch_data(),
+                objective_thresholds=multi_objective_thresholds,
+                trial_index=999,
+            )
+
+        # Multi-type + multi-objective experiment
+        multi_type_multi_obj_exp = get_multi_type_experiment_with_multi_objective(
+            add_trials=True
+        )
+        data = multi_type_multi_obj_exp.fetch_data()
+        mt_ehvi = get_MTGP_NEHVI(
             experiment=multi_type_multi_obj_exp,
             data=data,
             objective_thresholds=multi_objective_thresholds,

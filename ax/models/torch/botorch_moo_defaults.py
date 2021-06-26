@@ -12,6 +12,10 @@ References
     Improvement for Parallel Multi-Objective Bayesian Optimization. Advances in Neural
     Information Processing Systems 33, 2020.
 
+.. [Daulton2021nehvi]
+    S. Daulton, M. Balandat, and E. Bakshy. Parallel Bayesian Optimization of
+    Multiple Noisy Objectives. ArXiv, 2021.
+
 """
 
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -88,6 +92,75 @@ def get_weighted_mc_objective_and_objective_thresholds(
     )
     objective_thresholds = torch.mul(objective_thresholds, objective_weights)
     return objective, objective_thresholds
+
+
+def get_NEHVI(
+    model: Model,
+    objective_weights: Tensor,
+    objective_thresholds: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    X_observed: Optional[Tensor] = None,
+    X_pending: Optional[Tensor] = None,
+    **kwargs: Any,
+) -> AcquisitionFunction:
+    r"""Instantiates a qNoisyExpectedHyperVolumeImprovement acquisition function.
+
+    Args:
+        model: The underlying model which the acqusition function uses
+            to estimate acquisition values of candidates.
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b. (Not used by single task models)
+        X_observed: A tensor containing points observed for all objective
+            outcomes and outcomes that appear in the outcome constraints (if
+            there are any).
+        X_pending: A tensor containing points whose evaluation is pending (i.e.
+            that have been submitted for evaluation) present for all objective
+            outcomes and outcomes that appear in the outcome constraints (if
+            there are any).
+        mc_samples: The number of MC samples to use (default: 512).
+        qmc: If True, use qMC instead of MC (default: True).
+        prune_baseline: If True, prune the baseline points for NEI (default: True).
+        chebyshev_scalarization: Use augmented Chebyshev scalarization.
+
+    Returns:
+        qNoisyExpectedHyperVolumeImprovement: The instantiated acquisition function.
+    """
+    if X_observed is None:
+        raise ValueError("There are no feasible observed points.")
+    # construct Objective module
+    (
+        objective,
+        objective_thresholds,
+    ) = get_weighted_mc_objective_and_objective_thresholds(
+        objective_weights=objective_weights, objective_thresholds=objective_thresholds
+    )
+    # For EHVI acquisition functions we pass the constraint transform directly.
+    if outcome_constraints is None:
+        cons_tfs = None
+    else:
+        cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
+    num_objectives = objective_thresholds.shape[0]
+    return get_acquisition_function(
+        acquisition_function_name="qNEHVI",
+        model=model,
+        objective=objective,  # pyre-ignore [6]
+        X_observed=X_observed,
+        X_pending=X_pending,
+        constraints=cons_tfs,
+        prune_baseline=kwargs.get("prune_baseline", True),
+        mc_samples=kwargs.get("mc_samples", DEFAULT_EHVI_MC_SAMPLES),
+        alpha=kwargs.get(
+            "alpha", get_default_partitioning_alpha(num_objectives=num_objectives)
+        ),
+        qmc=kwargs.get("qmc", True),
+        seed=torch.randint(1, 10000, (1,)).item(),
+        ref_point=objective_thresholds.tolist(),
+        marginalize_dim=kwargs.get("marginalize_dim"),
+        match_right_most_batch_dim=kwargs.get("match_right_most_batch_dim", False),
+    )
 
 
 def get_EHVI(

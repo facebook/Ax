@@ -14,7 +14,7 @@ from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
-    qExpectedHypervolumeImprovement,
+    qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import (
@@ -114,9 +114,7 @@ def choose_botorch_acqf_class(
 ) -> Type[AcquisitionFunction]:
     """Chooses a BoTorch `AcquisitionFunction` class."""
     if objective_thresholds is not None:
-        # TODO: Use new qNEHVI just added to BoTorch once we have `construct_inputs`
-        # for it in BoTorch.
-        return qExpectedHypervolumeImprovement
+        return qNoisyExpectedHypervolumeImprovement
     return qNoisyExpectedImprovement
 
 

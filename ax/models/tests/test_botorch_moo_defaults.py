@@ -11,6 +11,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
+    get_NEHVI,
     get_EHVI,
     pareto_frontier_evaluator,
     get_weighted_mc_objective_and_objective_thresholds,
@@ -195,6 +196,19 @@ class BotorchMOODefaultsTest(TestCase):
         self.assertTrue(torch.equal(weighted_obj.weights, objective_weights[[1, 3]]))
         self.assertEqual(weighted_obj.outcomes.tolist(), [1, 3])
         self.assertTrue(torch.equal(new_obj_thresholds, objective_thresholds[[1, 3]]))
+
+    def test_get_NEHVI_input_validation_errors(self):
+        model = MultiObjectiveBotorchModel()
+        weights = torch.ones(2)
+        objective_thresholds = torch.zeros(2)
+        with self.assertRaisesRegex(
+            ValueError, "There are no feasible observed points."
+        ):
+            get_NEHVI(
+                model=model.model,
+                objective_weights=weights,
+                objective_thresholds=objective_thresholds,
+            )
 
     def test_get_ehvi(self):
         weights = torch.tensor([0.0, 1.0, 1.0])
