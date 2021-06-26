@@ -8,13 +8,14 @@ from contextlib import ExitStack
 from typing import Dict
 from unittest import mock
 
-import ax.models.torch.botorch_moo as botorch_moo
+import ax.models.torch.botorch_moo_defaults as botorch_moo_defaults
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch_defaults import get_NEI
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.models.torch.botorch_moo_defaults import get_NEHVI, get_EHVI
 from ax.models.torch.utils import HYPERSPHERE, _get_X_pending_and_observed
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
@@ -30,10 +31,16 @@ SAMPLE_HYPERSPHERE_UTIL_PATH = "ax.models.torch.utils.sample_hypersphere"
 CHEBYSHEV_SCALARIZATION_PATH = (
     "ax.models.torch.botorch_defaults.get_chebyshev_scalarization"
 )
+NEHVI_ACQF_PATH = (
+    "botorch.acquisition.utils.moo_monte_carlo.qNoisyExpectedHypervolumeImprovement"
+)
 EHVI_ACQF_PATH = (
     "botorch.acquisition.utils.moo_monte_carlo.qExpectedHypervolumeImprovement"
 )
-PARTITIONING_PATH = "botorch.acquisition.utils.FastNondominatedPartitioning"
+NEHVI_PARTITIONING_PATH = (
+    "botorch.acquisition.multi_objective.monte_carlo.FastNondominatedPartitioning"
+)
+EHVI_PARTITIONING_PATH = "botorch.acquisition.utils.FastNondominatedPartitioning"
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -61,17 +68,35 @@ def _get_torch_test_data(
 
 
 class BotorchMOOModelTest(TestCase):
-    def test_BotorchMOOModel_cuda(self):
-        if torch.cuda.is_available():
-            self.test_BotorchMOOModel_with_random_scalarization(cuda=True)
-
     def test_BotorchMOOModel_double(self):
         self.test_BotorchMOOModel_with_random_scalarization(dtype=torch.double)
 
-    def test_BotorchMOOModel_double_cuda(self):
+    def test_BotorchMOOModel_cuda(self):
         if torch.cuda.is_available():
-            self.test_BotorchMOOModel_with_random_scalarization(
-                dtype=torch.double, cuda=True
+            for dtype in (torch.float, torch.double):
+                self.test_BotorchMOOModel_with_random_scalarization(
+                    dtype=dtype, cuda=True
+                )
+                # test qEHVI
+                self.test_BotorchMOOModel_with_qehvi(
+                    dtype=dtype, cuda=True, use_qnehvi=False
+                )
+                self.test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
+                    dtype=dtype, cuda=True, use_qnehvi=False
+                )
+                # test qNEHVI
+                self.test_BotorchMOOModel_with_qehvi(
+                    dtype=dtype, cuda=True, use_qnehvi=True
+                )
+                self.test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
+                    dtype=dtype, cuda=True, use_qnehvi=True
+                )
+
+    def test_BotorchMOOModel_with_qnehvi(self):
+        for dtype in (torch.float, torch.double):
+            self.test_BotorchMOOModel_with_qehvi(dtype=dtype, use_qnehvi=True)
+            self.test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
+                dtype=dtype, use_qnehvi=True
             )
 
     def test_BotorchMOOModel_with_random_scalarization(
@@ -249,7 +274,15 @@ class BotorchMOOModelTest(TestCase):
             # get_chebyshev_scalarization should be called once for generated candidate.
             self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
 
-    def test_BotorchMOOModel_with_ehvi(self, dtype=torch.float, cuda=False):
+    def test_BotorchMOOModel_with_qehvi(
+        self, dtype=torch.float, cuda=False, use_qnehvi=False
+    ):
+        if use_qnehvi:
+            acqf_constructor = get_NEHVI
+            partitioning_path = NEHVI_PARTITIONING_PATH
+        else:
+            acqf_constructor = get_EHVI
+            partitioning_path = EHVI_PARTITIONING_PATH
         tkwargs = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
@@ -263,7 +296,7 @@ class BotorchMOOModelTest(TestCase):
         n = 3
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
-        model = MultiObjectiveBotorchModel()
+        model = MultiObjectiveBotorchModel(acqf_constructor=acqf_constructor)
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
         acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
@@ -281,15 +314,39 @@ class BotorchMOOModelTest(TestCase):
                 metric_names=mns,
             )
             _mock_fit_model.assert_called_once()
-
-        with mock.patch(
-            EHVI_ACQF_PATH, wraps=moo_monte_carlo.qExpectedHypervolumeImprovement
-        ) as _mock_ehvi_acqf, mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
-            return_value=(X_dummy, acqfv_dummy),
-        ) as _, mock.patch(
-            PARTITIONING_PATH, wraps=moo_monte_carlo.FastNondominatedPartitioning
-        ) as _mock_partitioning:
+        with ExitStack() as es:
+            _mock_acqf = es.enter_context(
+                mock.patch(
+                    NEHVI_ACQF_PATH,
+                    wraps=moo_monte_carlo.qNoisyExpectedHypervolumeImprovement,
+                )
+            )
+            if use_qnehvi:
+                _mock_acqf = es.enter_context(
+                    mock.patch(
+                        NEHVI_ACQF_PATH,
+                        wraps=moo_monte_carlo.qNoisyExpectedHypervolumeImprovement,
+                    )
+                )
+            else:
+                _mock_acqf = es.enter_context(
+                    mock.patch(
+                        EHVI_ACQF_PATH,
+                        wraps=moo_monte_carlo.qExpectedHypervolumeImprovement,
+                    )
+                )
+            es.enter_context(
+                mock.patch(
+                    "ax.models.torch.botorch_defaults.optimize_acqf",
+                    return_value=(X_dummy, acqfv_dummy),
+                )
+            )
+            _mock_partitioning = es.enter_context(
+                mock.patch(
+                    partitioning_path,
+                    wraps=moo_monte_carlo.FastNondominatedPartitioning,
+                )
+            )
             _, _, gen_metadata, _ = model.gen(
                 n,
                 bounds,
@@ -297,14 +354,15 @@ class BotorchMOOModelTest(TestCase):
                 objective_thresholds=obj_t,
                 model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
             )
-            # the EHVI acquisition function should be created only once.
-            self.assertEqual(1, _mock_ehvi_acqf.call_count)
+            # the NEHVI acquisition function should be created only once.
+            self.assertEqual(1, _mock_acqf.call_count)
             # check partitioning strategy
+            # NEHVI should call FastNondominatedPartitioning 1 time
+            # since a batched partitioning is used for 2 objectives
             _mock_partitioning.assert_called_once()
             self.assertTrue(torch.equal(gen_metadata["objective_thresholds"], obj_t))
-
-        # 3 objective
-        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            _mock_fit_model = es.enter_context(mock.patch(FIT_MODEL_MO_PATH))
+            # 3 objective
             model.fit(
                 Xs=Xs1 + Xs2 + Xs2,
                 Ys=Ys1 + Ys2 + Ys2,
@@ -316,15 +374,6 @@ class BotorchMOOModelTest(TestCase):
                 ),
                 metric_names=mns,
             )
-
-        with mock.patch(
-            EHVI_ACQF_PATH, wraps=moo_monte_carlo.qExpectedHypervolumeImprovement
-        ) as _mock_ehvi_acqf, mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
-            return_value=(X_dummy, acqfv_dummy),
-        ) as _, mock.patch(
-            PARTITIONING_PATH, wraps=moo_monte_carlo.FastNondominatedPartitioning
-        ) as _mock_partitioning:
             model.gen(
                 n,
                 bounds,
@@ -333,10 +382,16 @@ class BotorchMOOModelTest(TestCase):
                 objective_thresholds=torch.tensor([1.0, 1.0, 1.0], **tkwargs),
             )
             # check partitioning strategy
-            _mock_partitioning.assert_called_once()
+            # NEHVI should call FastNondominatedPartitioning 129 times because
+            # we have called gen twice: The first time, a batch partitioning is used
+            # so there is one call to _mock_partitioning. The second time gen() is
+            # called with three objectives so 128 calls are made to _mock_partitioning
+            # because a BoxDecompositionList is used. qEHVI will only make 2 calls.
+            self.assertEqual(
+                len(_mock_partitioning.mock_calls), 129 if use_qnehvi else 2
+            )
 
-        # test inferred objective thresholds in gen()
-        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
+            # test inferred objective thresholds in gen()
             # create several data points
             Xs1 = [torch.cat([Xs1[0], Xs1[0] - 0.1], dim=0)]
             Ys1 = [torch.cat([Ys1[0], Ys1[0] - 0.5], dim=0)]
@@ -354,25 +409,6 @@ class BotorchMOOModelTest(TestCase):
                 ),
                 metric_names=mns + ["dummy_metric"],
             )
-        with ExitStack() as es:
-            _mock_ehvi_acqf = es.enter_context(
-                mock.patch(
-                    EHVI_ACQF_PATH,
-                    wraps=moo_monte_carlo.qExpectedHypervolumeImprovement,
-                )
-            )
-            es.enter_context(
-                mock.patch(
-                    "ax.models.torch.botorch_defaults.optimize_acqf",
-                    return_value=(X_dummy, acqfv_dummy),
-                )
-            )
-            _mock_partitioning = es.enter_context(
-                mock.patch(
-                    PARTITIONING_PATH,
-                    wraps=moo_monte_carlo.FastNondominatedPartitioning,
-                )
-            )
             _mock_model_infer_objective_thresholds = es.enter_context(
                 mock.patch.object(
                     model,
@@ -386,37 +422,42 @@ class BotorchMOOModelTest(TestCase):
                     wraps=infer_reference_point,
                 )
             )
-            es.enter_context(
+            preds = torch.tensor(
+                [
+                    [11.0, 2.0, 0.0],
+                    [9.0, 3.0, 0.0],
+                ],
+                **tkwargs,
+            )
+            _mock_posterior = es.enter_context(
                 mock.patch.object(
                     model.model,
                     "posterior",
                     return_value=MockPosterior(
-                        mean=torch.tensor(
-                            [
-                                [11.0, 2.0, 0.0],
-                                [9.0, 3.0, 0.0],
-                            ]
-                        )
+                        mean=preds,
+                        samples=preds,
                     ),
                 )
             )
             outcome_constraints = (
-                torch.tensor([[1.0, 0.0, 0.0]]),
-                torch.tensor([[10.0]]),
+                torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
+                torch.tensor([[10.0]], **tkwargs),
             )
             _, _, gen_metadata, _ = model.gen(
                 n,
                 bounds,
-                objective_weights=torch.tensor([-1.0, -1.0, 0.0]),
+                objective_weights=torch.tensor([-1.0, -1.0, 0.0], **tkwargs),
                 outcome_constraints=outcome_constraints,
                 model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
             )
-            # the EHVI acquisition function should be created only once.
-            self.assertEqual(1, _mock_ehvi_acqf.call_count)
+            # the NEHVI acquisition function should be created only once.
+            self.assertEqual(_mock_acqf.call_count, 3)
             ckwargs = _mock_model_infer_objective_thresholds.call_args[1]
             X_observed = ckwargs["X_observed"]
             sorted_idcs = X_observed[:, 0].argsort()
-            expected_X_observed = torch.tensor([[1.0, 2.0, 3.0], [0.9, 1.9, 2.9]])
+            expected_X_observed = torch.tensor(
+                [[1.0, 2.0, 3.0], [0.9, 1.9, 2.9]], **tkwargs
+            )
             sorted_idcs2 = expected_X_observed[:, 0].argsort()
             self.assertTrue(
                 torch.equal(
@@ -426,34 +467,38 @@ class BotorchMOOModelTest(TestCase):
             )
             self.assertTrue(
                 torch.equal(
-                    ckwargs["objective_weights"], torch.tensor([-1.0, -1.0, 0.0])
+                    ckwargs["objective_weights"],
+                    torch.tensor([-1.0, -1.0, 0.0], **tkwargs),
                 )
             )
             oc = ckwargs["outcome_constraints"]
             self.assertTrue(torch.equal(oc[0], outcome_constraints[0]))
             self.assertTrue(torch.equal(oc[1], outcome_constraints[1]))
             self.assertIsInstance(ckwargs["model"], FixedNoiseGP)
-            self.assertTrue(torch.equal(ckwargs["subset_idcs"], torch.tensor([0, 1])))
+            self.assertTrue(
+                torch.equal(
+                    ckwargs["subset_idcs"],
+                    torch.tensor([0, 1], device=tkwargs["device"]),
+                )
+            )
             _mock_infer_reference_point.assert_called_once()
             ckwargs = _mock_infer_reference_point.call_args[1]
             self.assertEqual(ckwargs["scale"], 0.1)
             self.assertTrue(
-                torch.equal(ckwargs["pareto_Y"], torch.tensor([[-9.0, -3.0]]))
+                torch.equal(
+                    ckwargs["pareto_Y"], torch.tensor([[-9.0, -3.0]], **tkwargs)
+                )
             )
             self.assertIn("objective_thresholds", gen_metadata)
             obj_t = gen_metadata["objective_thresholds"]
-            self.assertTrue(torch.equal(obj_t[:2], torch.tensor([9.9, 3.3])))
+            self.assertTrue(torch.equal(obj_t[:2], torch.tensor([9.9, 3.3], **tkwargs)))
             self.assertTrue(np.isnan(obj_t[2]))
 
-        # test infer objective thresholds alone
-        # include an extra 3rd outcome
-        outcome_constraints = (torch.tensor([[1.0, 0.0, 0.0]]), torch.tensor([[10.0]]))
-        with ExitStack() as es:
-            _mock_infer_reference_point = es.enter_context(
-                mock.patch(
-                    "ax.models.torch.botorch_moo.infer_reference_point",
-                    wraps=infer_reference_point,
-                )
+            # test infer objective thresholds alone
+            # include an extra 3rd outcome
+            outcome_constraints = (
+                torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
+                torch.tensor([[10.0]], **tkwargs),
             )
             _mock_get_X_pending_and_observed = es.enter_context(
                 mock.patch(
@@ -461,22 +506,20 @@ class BotorchMOOModelTest(TestCase):
                     wraps=_get_X_pending_and_observed,
                 )
             )
-            es.enter_context(
-                mock.patch.object(
-                    model.model,
-                    "posterior",
-                    return_value=MockPosterior(
-                        mean=torch.tensor(
-                            [
-                                [11.0, 2.0, 0.0],
-                                [9.0, 3.0, 0.0],
-                            ]
-                        )
-                    ),
+            _mock_posterior.return_value = MockPosterior(
+                mean=torch.tensor(
+                    [
+                        [11.0, 2.0, 0.0],
+                        [9.0, 3.0, 0.0],
+                    ],
+                    **tkwargs,
                 )
             )
-            linear_constraints = (torch.tensor([1.0, 0.0, 0.0]), torch.tensor([2.0]))
-            objective_weights = torch.tensor([-1.0, -1.0, 0.0])
+            linear_constraints = (
+                torch.tensor([1.0, 0.0, 0.0], **tkwargs),
+                torch.tensor([2.0], **tkwargs),
+            )
+            objective_weights = torch.tensor([-1.0, -1.0, 0.0], **tkwargs)
             obj_thresholds = model.infer_objective_thresholds(
                 bounds=bounds,
                 objective_weights=objective_weights,
@@ -500,13 +543,17 @@ class BotorchMOOModelTest(TestCase):
             lc = ckwargs["linear_constraints"]
             self.assertTrue(torch.equal(lc[0], linear_constraints[0]))
             self.assertTrue(torch.equal(lc[1], linear_constraints[1]))
-            _mock_infer_reference_point.assert_called_once()
+            self.assertEqual(_mock_infer_reference_point.call_count, 2)
             ckwargs = _mock_infer_reference_point.call_args[1]
             self.assertEqual(ckwargs["scale"], 0.1)
             self.assertTrue(
-                torch.equal(ckwargs["pareto_Y"], torch.tensor([[-9.0, -3.0]]))
+                torch.equal(
+                    ckwargs["pareto_Y"], torch.tensor([[-9.0, -3.0]], **tkwargs)
+                )
             )
-            self.assertTrue(torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3])))
+            self.assertTrue(
+                torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
+            )
             self.assertTrue(np.isnan(obj_thresholds[2].item()))
 
     def test_BotorchMOOModel_with_random_scalarization_and_outcome_constraints(
@@ -626,9 +673,10 @@ class BotorchMOOModelTest(TestCase):
             # get_chebyshev_scalarization should be called once for generated candidate.
             self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
 
-    def test_BotorchMOOModel_with_ehvi_and_outcome_constraints(
-        self, dtype=torch.float, cuda=False
+    def test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
+        self, dtype=torch.float, cuda=False, use_qnehvi=False
     ):
+        acqf_constructor = get_NEHVI if use_qnehvi else get_EHVI
         tkwargs = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
@@ -645,7 +693,7 @@ class BotorchMOOModelTest(TestCase):
         n = 3
         objective_weights = torch.tensor([1.0, 1.0, 0.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
-        model = MultiObjectiveBotorchModel()
+        model = MultiObjectiveBotorchModel(acqf_constructor=acqf_constructor)
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
         acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
@@ -677,8 +725,8 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch.object(
             model,
             "acqf_constructor",
-            wraps=botorch_moo.get_EHVI,
-        ) as mock_get_ehvi, mock.patch(
+            wraps=botorch_moo_defaults.get_NEHVI,
+        ) as mock_get_nehvi, mock.patch(
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
         ):
@@ -689,8 +737,8 @@ class BotorchMOOModelTest(TestCase):
                 model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
                 objective_thresholds=obj_t,
             )
-            mock_get_ehvi.assert_called_once()
-            _, ckwargs = mock_get_ehvi.call_args
+            mock_get_nehvi.assert_called_once()
+            _, ckwargs = mock_get_nehvi.call_args
             self.assertEqual(ckwargs["model"].num_outputs, 2)
             self.assertTrue(
                 torch.equal(ckwargs["objective_weights"], objective_weights[:-1])
@@ -708,8 +756,8 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch.object(
             model,
             "acqf_constructor",
-            wraps=botorch_moo.get_EHVI,
-        ) as mock_get_ehvi, mock.patch(
+            wraps=botorch_moo_defaults.get_NEHVI,
+        ) as mock_get_nehvi, mock.patch(
             "ax.models.torch.botorch_defaults.optimize_acqf",
             return_value=(X_dummy, acqfv_dummy),
         ):
@@ -721,8 +769,8 @@ class BotorchMOOModelTest(TestCase):
                 model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
                 objective_thresholds=obj_t,
             )
-            mock_get_ehvi.assert_called_once()
-            _, ckwargs = mock_get_ehvi.call_args
+            mock_get_nehvi.assert_called_once()
+            _, ckwargs = mock_get_nehvi.call_args
             self.assertEqual(ckwargs["model"].num_outputs, 3)
             self.assertTrue(
                 torch.equal(ckwargs["objective_weights"], objective_weights)

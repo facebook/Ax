@@ -18,7 +18,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
-    qExpectedHypervolumeImprovement,
+    qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import (
@@ -154,7 +154,7 @@ class BoTorchModelUtilsTest(TestCase):
     def test_choose_botorch_acqf_class(self):
         self.assertEqual(qNoisyExpectedImprovement, choose_botorch_acqf_class())
         self.assertEqual(
-            qExpectedHypervolumeImprovement,
+            qNoisyExpectedHypervolumeImprovement,
             choose_botorch_acqf_class(objective_thresholds=self.objective_thresholds),
         )
 

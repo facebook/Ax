@@ -23,7 +23,7 @@ from botorch.acquisition.input_constructors import (
 )
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
-    qExpectedHypervolumeImprovement,
+    qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.models.gp_regression import SingleTaskGP, FixedNoiseGP
@@ -39,7 +39,7 @@ SURROGATE_PATH = Surrogate.__module__
 UTILS_PATH = choose_model_class.__module__
 ACQUISITION_PATH = Acquisition.__module__
 LIST_SURROGATE_PATH = ListSurrogate.__module__
-EHVI_PATH = qExpectedHypervolumeImprovement.__module__
+NEHVI_PATH = qNoisyExpectedHypervolumeImprovement.__module__
 
 ACQ_OPTIONS = {Keys.SAMPLER: SobolQMCNormalSampler(1024)}
 
@@ -492,15 +492,15 @@ class BoTorchModelTest(TestCase):
         return_value=(torch.tensor([[2.0]]), torch.tensor([1.0])),
     )
     def test_MOO(self, _):
-        # Add mock for qEHVI input constructor to catch arguments passed to it.
-        qEHVI_input_constructor = get_acqf_input_constructor(
-            qExpectedHypervolumeImprovement
+        # Add mock for qNEHVI input constructor to catch arguments passed to it.
+        qNEHVI_input_constructor = get_acqf_input_constructor(
+            qNoisyExpectedHypervolumeImprovement
         )
         mock_input_constructor = mock.MagicMock(
-            qEHVI_input_constructor, side_effect=qEHVI_input_constructor
+            qNEHVI_input_constructor, side_effect=qNEHVI_input_constructor
         )
         _register_acqf_input_constructor(
-            acqf_cls=qExpectedHypervolumeImprovement,
+            acqf_cls=qNoisyExpectedHypervolumeImprovement,
             input_constructor=mock_input_constructor,
         )
 
@@ -527,7 +527,7 @@ class BoTorchModelTest(TestCase):
             rounding_func=self.rounding_func,
             target_fidelities=self.mf_search_space_digest.target_fidelities,
         )
-        self.assertIs(model.botorch_acqf_class, qExpectedHypervolumeImprovement)
+        self.assertIs(model.botorch_acqf_class, qNoisyExpectedHypervolumeImprovement)
         mock_input_constructor.assert_called_once()
         mock_input_constructor.assert_called_with(
             model=model.surrogate.model,
@@ -563,8 +563,8 @@ class BoTorchModelTest(TestCase):
         )
 
         # Avoid polluting the registry for other tests; re-register correct input
-        # contructor for qEHVI.
+        # contructor for qNEHVI.
         _register_acqf_input_constructor(
-            acqf_cls=qExpectedHypervolumeImprovement,
-            input_constructor=qEHVI_input_constructor,
+            acqf_cls=qNoisyExpectedHypervolumeImprovement,
+            input_constructor=qNEHVI_input_constructor,
         )

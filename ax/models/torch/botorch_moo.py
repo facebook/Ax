@@ -25,7 +25,7 @@ from ax.models.torch.botorch_defaults import (
     scipy_optimizer,
 )
 from ax.models.torch.botorch_moo_defaults import (
-    get_EHVI,
+    get_NEHVI,
     pareto_frontier_evaluator,
     scipy_optimizer_list,
 )
@@ -193,7 +193,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         #  AcquisitionFunction]`; used as `Callable[[Model, Tensor,
         #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],
         #  **(Any)], AcquisitionFunction]`.
-        acqf_constructor: TAcqfConstructor = get_EHVI,
+        acqf_constructor: TAcqfConstructor = get_NEHVI,
         # pyre-fixme[9]: acqf_optimizer has type `Callable[[AcquisitionFunction,
         #  Tensor, int, Optional[Dict[int, float]], Optional[Callable[[Tensor],
         #  Tensor]], Any], Tensor]`; used as `Callable[[AcquisitionFunction, Tensor,
