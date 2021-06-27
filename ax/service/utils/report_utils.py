@@ -423,13 +423,13 @@ def get_best_trial(
     objective = not_none(exp.optimization_config).objective
     if isinstance(objective, MultiObjective):
         logger.warning(
-            "No best trial is available for MultiObjective optimization. "
+            "No best trial is available for `MultiObjective` optimization. "
             "Returning None for best trial."
         )
         return None
     if isinstance(objective, ScalarizedObjective):
         logger.warning(
-            "No best trial is available for ScalarizedObjective optimization. "
+            "No best trial is available for `ScalarizedObjective` optimization. "
             "Returning None for best trial."
         )
         return None
@@ -444,10 +444,18 @@ def get_best_trial(
         **kwargs,
     )
     if len(trials_df.index) == 0:
-        logger.warning("exp_to_df returned 0 trials. Returning None for best trial.")
+        logger.warning("`exp_to_df` returned 0 trials. Returning None for best trial.")
         return None
+
     metric_name = objective.metric.name
     minimize = objective.minimize
+    if metric_name not in trials_df.columns:
+        logger.warning(
+            f"`exp_to_df` did not have data for metric {metric_name}. "
+            "Returning None for best trial."
+        )
+        return None
+
     metric_optimum = (
         trials_df[metric_name].min() if minimize else trials_df[metric_name].max()
     )
