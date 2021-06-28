@@ -23,7 +23,7 @@ from typing import (
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
-from ax.core.generator_run import GeneratorRun, GeneratorRunType
+from ax.core.generator_run import ArmWeight, GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
 from ax.core.types import TCandidateMetadata
 from ax.utils.common.base import SortableBase
@@ -233,8 +233,6 @@ class BatchTrial(BaseTrial):
         Returns:
             The trial instance.
         """
-        # Clone saved arms to avoid mutating existing state
-        arms = [(arm.clone() if arm.db_id else arm) for arm in arms]
         return self.add_generator_run(
             generator_run=GeneratorRun(
                 arms=arms, weights=weights, type=GeneratorRunType.MANUAL.name
@@ -263,6 +261,14 @@ class BatchTrial(BaseTrial):
         # First validate generator run arms
         for arm in generator_run.arms:
             self.experiment.search_space.check_types(arm.parameters, raise_error=True)
+
+        # Clone arms to avoid mutating existing state
+        generator_run._arm_weight_table = OrderedDict(
+            {
+                arm_sig: ArmWeight(arm_weight.arm.clone(), arm_weight.weight)
+                for arm_sig, arm_weight in generator_run._arm_weight_table.items()
+            }
+        )
 
         # Add names to arms
         # For those not yet added to this experiment, create a new name

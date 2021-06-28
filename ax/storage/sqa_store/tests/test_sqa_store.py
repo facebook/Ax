@@ -1380,8 +1380,9 @@ class SQAStoreTest(TestCase):
         # add repeated arms to new trial, ensuring
         # we create completely new arms in DB for the
         # new trials
-        trial = experiment.new_batch_trial()
-        trial.add_arms_and_weights(experiment.trials[0].arms)
+        experiment.new_batch_trial(
+            generator_run=GeneratorRun(arms=experiment.trials[0].arms)
+        )
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAArm).count(), 7)
 
