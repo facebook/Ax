@@ -394,8 +394,21 @@ class BaseTrial(ABC, SortableBase):
             trial_index=self.index, metrics=metrics, **kwargs
         )
 
-    def lookup_data(self, **kwargs: Any) -> AbstractDataFrameData:
-        merge_across_timestamps = kwargs.get("merge_across_timestamps", False)
+    def lookup_data(
+        self, merge_across_timestamps: bool = False
+    ) -> AbstractDataFrameData:
+        """Lookup cached data on experiment for this trial.
+
+        Args:
+            merge_across_timestamps: Whether to return all ``Data`` objects
+            for this trial, merged together. ``Data`` objects are identified
+            by trial index and timestamp in Ax.
+
+        Returns:
+            If not merging across timestamps, the latest ``Data`` object
+            associated with the trial. If merging, all data for trial, merged.
+
+        """
         return self.experiment.lookup_data_for_trial(
             trial_index=self.index,
             merge_across_timestamps=merge_across_timestamps,
