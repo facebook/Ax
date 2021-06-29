@@ -17,8 +17,8 @@ mypy --version
 pushd $PSScriptRoot\..
 
 # Install or upgrade all the dependecies
-mypy -m pip install botorch jinja2 pandas scipy simplejson sklearn plotly numpy searchtools twine wheel
-mypy -m pip install --upgrade botorch jinja2 pandas scipy simplejson sklearn plotly numpy searchtools twine wheel
+mypy -m pip install botorch jinja2 pandas scipy simplejson sklearn plotly numpy twine wheel
+mypy -m pip install --upgrade botorch jinja2 pandas scipy simplejson sklearn plotly numpy twine wheel
 
 # Let's build
 mypy ./setup.py bdist_wheel
