@@ -367,17 +367,9 @@ def best_in_sample_point(
     # Parse options
     if options is None:
         options = {}
-    # pyre-fixme[9]: method has type `str`; used as `Union[AcquisitionFunction,
-    #  float, int, str]`.
     method: str = options.get("best_point_method", "max_utility")
-    # pyre-fixme[9]: B has type `Optional[float]`; used as
-    #  `Optional[Union[AcquisitionFunction, float, int, str]]`.
     B: Optional[float] = options.get("utility_baseline", None)
-    # pyre-fixme[9]: threshold has type `float`; used as `Union[AcquisitionFunction,
-    #  float, int, str]`.
     threshold: float = options.get("probability_threshold", 0.95)
-    # pyre-fixme[9]: nsamp has type `int`; used as `Union[AcquisitionFunction,
-    #  float, int, str]`.
     nsamp: int = options.get("feasibility_mc_samples", 10000)
     # Get points observed for all objective and constraint outcomes
     if objective_weights is None:
@@ -421,6 +413,7 @@ def best_in_sample_point(
         if B is None:
             B = obj.min()
         utility = (obj - B) * pfeas
+    # pyre-fixme[61]: `utility` may not be initialized here.
     i = np.argmax(utility)
     if utility[i] == -np.Inf:
         return None

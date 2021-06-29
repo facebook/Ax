@@ -126,5 +126,6 @@ class TrialAsTask(Transform):
                 pval = obsf.parameters.pop(p_name)
             if self.inverse_map is not None:
                 # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
+                # pyre-fixme[61]: `pval` may not be initialized here.
                 obsf.trial_index = np.int64(self.inverse_map[pval])
         return observation_features

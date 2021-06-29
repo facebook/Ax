@@ -549,5 +549,6 @@ def randomize_objective_weights(
                 len(objective_weights), dtype=dtype, device=device
             ).squeeze()
         )
+    # pyre-fixme[61]: `random_weights` may not be initialized here.
     objective_weights = torch.mul(objective_weights, random_weights)
     return objective_weights

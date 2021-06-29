@@ -146,7 +146,9 @@ def table_view_plot(
     colors = [["#ffffff"] * len(metric_names)] + transpose(colors)
     # pyre-fixme[58]: `+` is not supported for operand types `List[str]` and
     #  `List[float]`.
+    # pyre-fixme[61]: `arm_names` may not be initialized here.
     header = [f"<b>{x}</b>" for x in [f"{arm_noun}s"] + arm_names]
+    # pyre-fixme[61]: `arm_names` may not be initialized here.
     column_widths = [300] + [150] * len(arm_names)
 
     trace = go.Table(

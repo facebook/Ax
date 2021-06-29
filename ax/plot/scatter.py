@@ -318,9 +318,6 @@ def _multiple_metric_traces(
     ):
         traces.append(
             _error_scatter_trace(
-                # pyre-fixme[6]: Expected `List[Union[PlotInSampleArm,
-                #  PlotOutOfSampleArm]]` for 1st param but got
-                #  `List[PlotOutOfSampleArm]`.
                 list(cand_arms.values()),
                 x_axis_var=PlotMetric(metric_x, pred=True, rel=rel_x),
                 y_axis_var=PlotMetric(metric_y, pred=True, rel=rel_y),
@@ -766,9 +763,6 @@ def lattice_multiple_metrics(
                 ):
                     fig.append_trace(
                         _error_scatter_trace(
-                            # pyre-fixme[6]: Expected `List[Union[PlotInSampleArm,
-                            #  PlotOutOfSampleArm]]` for 1st param but got
-                            #  `List[PlotOutOfSampleArm]`.
                             list(cand_arms.values()),
                             x_axis_var=PlotMetric(o1, pred=True, rel=rel),
                             y_axis_var=PlotMetric(o2, pred=True, rel=rel),
@@ -1034,9 +1028,6 @@ def _single_metric_traces(
     ):
         traces.append(
             _error_scatter_trace(
-                # pyre-fixme[6]: Expected `List[Union[PlotInSampleArm,
-                #  PlotOutOfSampleArm]]` for 1st param but got
-                #  `List[PlotOutOfSampleArm]`.
                 list(cand_arms.values()),
                 x_axis_var=None,
                 y_axis_var=PlotMetric(metric, pred=True, rel=rel),
