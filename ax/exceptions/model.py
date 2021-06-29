@@ -11,3 +11,11 @@ class ModelError(AxError):
     """Raised when an error occurs during modeling."""
 
     pass
+
+
+class CVNotSupportedError(AxError):
+    """Raised when cross validation is applied to a model which doesn't
+    support it.
+    """
+
+    pass
