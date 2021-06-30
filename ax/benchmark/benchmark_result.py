@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
+from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -55,6 +56,8 @@ def aggregate_problem_results(
     problem: BenchmarkProblem,
     # Model transitions, can be obtained as `generation_strategy.model_transitions`
     model_transitions: Optional[Dict[str, List[int]]] = None,
+    is_asynchronous: bool = False,
+    **kwargs,
 ) -> BenchmarkResult:
     # Results will be put in {method -> results} dictionaries.
     true_performances: Dict[str, List[np.ndarray]] = {}
@@ -74,7 +77,10 @@ def aggregate_problem_results(
             ), "Problem and experiment name do not match."
             fit_time, gen_time = get_model_times(experiment=experiment)
             true_performance = extract_optimization_trace(
-                experiment=experiment, problem=problem
+                experiment=experiment,
+                problem=problem,
+                is_asynchronous=is_asynchronous,
+                **kwargs,
             )
 
             # Compute the things we care about
@@ -189,13 +195,30 @@ def generate_report(
 
 
 def extract_optimization_trace(  # pragma: no cover
-    experiment: Experiment, problem: BenchmarkProblem
+    experiment: Experiment,
+    problem: BenchmarkProblem,
+    is_asynchronous: bool,
+    **kwargs,
 ) -> np.ndarray:
     """Extract outcomes of an experiment: best cumulative objective as numpy ND-
     array, and total model-fitting time and candidate generation time as floats.
     """
-    # Get true values by evaluting the synthetic function noiselessly
-    if isinstance(problem, SimpleBenchmarkProblem) and problem.uses_synthetic_function:
+    if is_asynchronous:
+        return _extract_asynchronous_optimization_trace(
+            experiment=experiment,
+            start_time=kwargs.get("start_time", 0.0),
+            end_time=kwargs.get("end_time", 100.0),
+            delta_t=kwargs.get("delta_t", 1.0),
+            completed_time_key=kwargs.get("completed_time_key", "completed_time"),
+            include_only_completed_trials=kwargs.get(
+                "include_only_completed_trials", True
+            ),
+        )
+
+    # Get true values by evaluating the synthetic function noiselessly
+    elif (
+        isinstance(problem, SimpleBenchmarkProblem) and problem.uses_synthetic_function
+    ):
         return _extract_optimization_trace_from_synthetic_function(
             experiment=experiment, problem=problem
         )
@@ -268,4 +291,87 @@ def _extract_optimization_trace_from_synthetic_function(
         #  `Optional[ax.core.optimization_config.OptimizationConfig]`.
         optimization_config=experiment.optimization_config,
         values={problem.name: true_values},
+    )
+
+
+def _extract_asynchronous_optimization_trace(
+    experiment: Experiment,
+    start_time: float,
+    end_time: float,
+    delta_t: float,
+    completed_time_key: str,
+    include_only_completed_trials: bool,
+) -> np.ndarray:
+    """Extract optimization trace for an asynchronous benchmark run. This involves
+    getting the `completed_time` from the trial `run_metadata`, as described by
+    the `completed_time_key`. From the `start_time`, `end_time`, and `delta_t`
+    arguments, a sequence of times is constructed. The returned optimization trace
+    is the best achieved value so far for each time, amongst completed (or early
+    stopped) trials.
+
+    Args:
+        experiment: The experiment from which to generate results.
+        start_time: The starting time.
+        end_time: The ending time.
+        delta_t: The increment between successive time points.
+        completed_time_key: The key from which we look up completed run times
+            from trial `run_metadata`.
+        include_only_completed_trials: Include results only from completed trials.
+            This will ignore trials that were early stopped.
+
+    Returns:
+        An array representing the optimization trace as a function of time.
+    """
+    if any(isinstance(trial, BatchTrial) for trial in experiment.trials.values()):
+        raise NotImplementedError("Batched trials are not yet supported.")
+
+    def get_completed_time(row):
+        time = experiment.trials[row.trial_index].run_metadata[completed_time_key]
+        return pd.Series({"completed_time": time})
+
+    if include_only_completed_trials:
+        completed_trials = experiment.trial_indices_by_status[TrialStatus.COMPLETED]
+        data_df = experiment.fetch_trials_data(
+            trial_indices=completed_trials, noisy=False
+        ).df
+    else:
+        data_df = experiment.fetch_data(noisy=False).df
+
+    minimize = experiment.optimization_config.objective.minimize  # pyre-ignore[16]
+    num_periods_running = int((end_time - start_time) // delta_t + 1)
+    # TODO: Currently, the timestamps generated below must exactly match the
+    # `completed_time` column
+    iters_df = pd.DataFrame(
+        {"completed_time": np.arange(num_periods_running) * delta_t + start_time}
+    )
+    true_values = {}
+    for metric, df_m in data_df.groupby("metric_name"):
+        df_m = data_df[data_df["metric_name"] == metric]
+
+        # only keep the last data point for each arm
+        df_m = (
+            df_m.sort_values(["timestamp"], ascending=True)
+            .groupby("arm_name")
+            .tail(n=1)
+        )
+
+        # get completed times from run metadata
+        df_m["completed_time"] = df_m.apply(get_completed_time, axis=1)
+
+        # for trials that completed at the same time, keep only the best
+        df_m_g = df_m.groupby("completed_time")
+        df_m = (df_m_g.min() if minimize else df_m_g.max()).reset_index()
+
+        # take cumulative best wrt the completed time
+        df_m = df_m.sort_index()
+        df_m["mean"] = df_m["mean"].cummin() if minimize else df_m["mean"].cummax()
+        df_b = pd.merge(iters_df, df_m, how="left", on="completed_time")
+
+        # replace nans with Infs, which can be handled by `best_feasible_objective`
+        true_values[metric] = df_b["mean"].fillna(np.Inf if minimize else -np.Inf)
+    return best_feasible_objective(
+        # pyre-fixme[6]: Expected `OptimizationConfig` for 1st param but got
+        #  `Optional[ax.core.optimization_config.OptimizationConfig]`.
+        optimization_config=experiment.optimization_config,
+        values=true_values,
     )
