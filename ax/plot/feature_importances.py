@@ -18,7 +18,7 @@ from plotly import subplots
 logger = get_logger(__name__)
 
 
-def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
+def plot_feature_importance_plotly(df: pd.DataFrame, title: str) -> go.Figure:
     if df.empty:
         raise NoDataError("No Data on Feature Importances found.")
     df.set_index(df.columns[0], inplace=True)
@@ -41,10 +41,18 @@ def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
         l=8 * min(max(len(idx) for idx in df.index), 75)  # noqa E741
     )
     fig.layout.title = title
-    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+    return fig
 
 
-def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
+def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
+    """Wrapper method to convert plot_feature_importance_plotly to
+    AxPlotConfig"""
+    return AxPlotConfig(
+        data=plot_feature_importance_plotly(df, title), plot_type=AxPlotTypes.GENERIC
+    )
+
+
+def plot_feature_importance_by_metric_plotly(model: ModelBridge) -> go.Figure:
     """One plot per feature, showing importances by metric."""
     importances = []
     for metric_name in sorted(model.metric_names):
@@ -65,17 +73,28 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
     # plot_feature_importance expects index in first column
     df = df.reindex(columns=(["index"] + [a for a in df.columns if a != "index"]))
 
-    plot_fi = plot_feature_importance(df, "Absolute Feature Importances by Metric")
+    plot_fi = plot_feature_importance_plotly(
+        df, "Absolute Feature Importances by Metric"
+    )
     num_subplots = len(df.columns)
     num_features = len(df)
     # Include per-subplot margin for subplot titles (feature names).
-    plot_fi.data["layout"]["height"] = num_subplots * (num_features + 1) * 50
+    plot_fi["layout"]["height"] = num_subplots * (num_features + 1) * 50
     return plot_fi
 
 
-def plot_feature_importance_by_feature(
+def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
+    """Wrapper method to convert plot_feature_importance_by_metric_plotly to
+    AxPlotConfig"""
+    return AxPlotConfig(
+        data=plot_feature_importance_by_metric_plotly(model),
+        plot_type=AxPlotTypes.GENERIC,
+    )
+
+
+def plot_feature_importance_by_feature_plotly(
     model: ModelBridge, relative: bool = True
-) -> AxPlotConfig:
+) -> go.Figure:
     """One plot per metric, showing importances by feature."""
     traces = []
     dropdown = []
@@ -147,12 +166,21 @@ def plot_feature_importance_by_feature(
     if relative:
         layout.update({"xaxis": {"tickformat": ".0%"}})
 
-    fig = go.Figure(data=traces, layout=layout)
-    plot_fi = AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
-    return plot_fi
+    return go.Figure(data=traces, layout=layout)
 
 
-def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
+def plot_feature_importance_by_feature(
+    model: ModelBridge, relative: bool = True
+) -> AxPlotConfig:
+    """Wrapper method to convert plot_feature_importance_by_feature_plotly to
+    AxPlotConfig"""
+    return AxPlotConfig(
+        data=plot_feature_importance_by_feature_plotly(model, relative),
+        plot_type=AxPlotTypes.GENERIC,
+    )
+
+
+def plot_relative_feature_importance_plotly(model: ModelBridge) -> go.Figure:
     """Create a stacked bar chart of feature importances per metric"""
     importances = []
     for metric_name in sorted(model.metric_names):
@@ -179,5 +207,13 @@ def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
         showlegend=False,
         title="Relative Feature Importance per Metric",
     )
-    fig = go.Figure(data=data, layout=layout)
-    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+    return go.Figure(data=data, layout=layout)
+
+
+def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
+    """Wrapper method to convert plot_relative_feature_importance_plotly to
+    AxPlotConfig"""
+    return AxPlotConfig(
+        data=plot_relative_feature_importance_plotly(model),
+        plot_type=AxPlotTypes.GENERIC,
+    )
