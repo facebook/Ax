@@ -139,5 +139,5 @@ class ReportUtilsTest(TestCase):
             data=exp.fetch_data(),
         )
         plots = get_standard_plots(experiment=exp, generation_strategy=gs)
-        self.assertEqual(len(plots), 3)
+        self.assertEqual(len(plots), 4)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))

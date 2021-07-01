@@ -84,7 +84,7 @@ def _obs_vs_pred_dropdown_plot(
     show_context: bool = False,
     xlabel: str = "Actual Outcome",
     ylabel: str = "Predicted Outcome",
-) -> Dict[str, Any]:
+) -> go.Figure:
     """Plot a dropdown plot of observed vs. predicted values from a model.
 
     Args:
@@ -403,6 +403,26 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
+def interact_cross_validation_plotly(
+    cv_results: List[CVResult], show_context: bool = True
+) -> go.Figure:
+    """Interactive cross-validation (CV) plotting; select metric via dropdown.
+
+    Note: uses the Plotly version of dropdown (which means that all data is
+    stored within the notebook).
+
+    Args:
+        cv_results: cross-validation results.
+        show_context: if True, show context on hover.
+
+    Returns a plotly.graph_objects.Figure
+    """
+    data = _get_cv_plot_data(cv_results)
+    fig = _obs_vs_pred_dropdown_plot(data=data, rel=False, show_context=show_context)
+    fig["layout"]["title"] = "Cross-validation"
+    return fig
+
+
 def interact_cross_validation(
     cv_results: List[CVResult], show_context: bool = True
 ) -> AxPlotConfig:
@@ -415,11 +435,14 @@ def interact_cross_validation(
         cv_results: cross-validation results.
         show_context: if True, show context on hover.
 
+    Returns an AxPlotConfig
     """
-    data = _get_cv_plot_data(cv_results)
-    fig = _obs_vs_pred_dropdown_plot(data=data, rel=False, show_context=show_context)
-    fig["layout"]["title"] = "Cross-validation"
-    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+    return AxPlotConfig(
+        data=interact_cross_validation_plotly(
+            cv_results=cv_results, show_context=show_context
+        ),
+        plot_type=AxPlotTypes.GENERIC,
+    )
 
 
 def tile_cross_validation(
@@ -441,6 +464,7 @@ def tile_cross_validation(
         show_context: if True (default), display context on
             hover.
 
+    Returns a plotly.graph_objects.Figure
     """
     data = _get_cv_plot_data(cv_results)
     metrics = data.metrics
