@@ -38,7 +38,7 @@ def unimplemented_evaluation_function(
     Default evaluation function used if none is provided during initialization.
     The evaluation function must be manually set before use.
     """
-    raise Exception("The evaluation function has not been set yet.")
+    raise RuntimeError("The evaluation function has not been set yet.")
 
 
 class SimpleExperiment(Experiment):

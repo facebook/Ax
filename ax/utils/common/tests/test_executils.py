@@ -24,7 +24,7 @@ class TestRetryDecorator(TestCase):
                 suppress_all_errors=True, default_return_on_suppression="SUCCESS"
             )
             def error_throwing_function(self):
-                raise Exception("ERROR THROWN FOR TESTING. SHOULD HAVE BEEN CAUGHT")
+                raise RuntimeError("ERROR THROWN FOR TESTING. SHOULD HAVE BEEN CAUGHT")
 
         decorator_tester = DecoratorTester()
         self.assertEqual("SUCCESS", decorator_tester.error_throwing_function())
@@ -42,7 +42,7 @@ class TestRetryDecorator(TestCase):
             ):
                 # Testing that kwargs get passed down correctly
                 self.assertEqual(extra_kwarg, "abcd")
-                raise Exception("ERROR THROWN FOR TESTING. SHOULD HAVE BEEN CAUGHT")
+                raise RuntimeError("ERROR THROWN FOR TESTING. SHOULD HAVE BEEN CAUGHT")
 
         decorator_tester = DecoratorTester()
         self.assertEqual(
@@ -140,7 +140,7 @@ class TestRetryDecorator(TestCase):
             def succeed_on_3rd_try(self):
                 if self.retries_done < 2:
                     self.retries_done += 1
-                    raise Exception(
+                    raise RuntimeError(
                         "This error surfacing means enough retries were not done"
                     )
                 else:
@@ -170,7 +170,7 @@ class TestRetryDecorator(TestCase):
 
             def succeed_after_five_seconds(self):
                 if time.time() - self.start_time < 5:
-                    raise Exception(
+                    raise RuntimeError(
                         "This error surfacing means enough retries were not done"
                     )
                 else:
@@ -180,7 +180,7 @@ class TestRetryDecorator(TestCase):
         self.assertEqual("SUCCESS", decorator_tester.error_throwing_function())
 
         decorator_tester = DecoratorTester()
-        with self.assertRaises(Exception):
+        with self.assertRaises(RuntimeError):
             decorator_tester.no_wait_error_throwing_function()
 
     def test_retry_mechanism_fail(self):

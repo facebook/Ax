@@ -372,8 +372,8 @@ class SQAStoreTest(TestCase):
             if class_ == "SimpleExperiment":
                 # Evaluation functions will be different, so need to do
                 # this so equality test passes
-                with self.assertRaises(Exception):
-                    converted_object.evaluation_function()
+                with self.assertRaises(RuntimeError):
+                    converted_object.evaluation_function(parameterization={})
 
                 original_object.evaluation_function = None
                 converted_object.evaluation_function = None
@@ -1266,19 +1266,19 @@ class SQAStoreTest(TestCase):
 
         # changing the name of an experiment is not allowed
         exp.name = "new name"
-        with self.assertRaisesRegex(Exception, ".* Changing the name .*"):
+        with self.assertRaisesRegex(ValueError, ".* Changing the name .*"):
             save_experiment(exp)
 
         # changing the name to an experiment that already exists
         # is also not allowed
         exp.name = "test2"
-        with self.assertRaisesRegex(Exception, ".* database with the name .*"):
+        with self.assertRaisesRegex(ValueError, ".* database with the name .*"):
             save_experiment(exp)
 
         # can't use a name that's already been used
         exp3 = get_experiment()
         exp3.name = "test1"
-        with self.assertRaisesRegex(Exception, ".* experiment already exists .*"):
+        with self.assertRaisesRegex(ValueError, ".* experiment already exists .*"):
             save_experiment(exp3)
 
     def testExperimentSaveAndDelete(self):

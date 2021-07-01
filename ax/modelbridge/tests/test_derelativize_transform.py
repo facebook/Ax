@@ -159,7 +159,7 @@ class DerelativizeTransformTest(TestCase):
         self.assertTrue(obsf == obsf2)
 
         # Test with relative constraint, out-of-design status quo
-        mock_predict.side_effect = Exception()
+        mock_predict.side_effect = RuntimeError()
         g = ModelBridge(
             search_space=search_space,
             model=None,
@@ -227,7 +227,7 @@ class DerelativizeTransformTest(TestCase):
                 ),
             ],
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(RuntimeError):
             oc = t.transform_optimization_config(oc, g, None)
 
         # Bypasses error if use_raw_sq

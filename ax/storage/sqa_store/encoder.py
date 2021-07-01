@@ -87,13 +87,13 @@ class Encoder:
         """Validates required experiment metadata."""
         if experiment.db_id is not None:
             if existing_sqa_experiment_id is None:
-                raise Exception(
+                raise ValueError(
                     f"Experiment with ID {experiment.db_id} was already saved to the "
                     "database with a different name. Changing the name of an "
                     "experiment is not allowed."
                 )
             elif experiment.db_id != existing_sqa_experiment_id:
-                raise Exception(
+                raise ValueError(
                     f"experiment.db_id = {experiment.db_id} but the experiment in the "
                     f"database with the name {experiment.name} has the id "
                     f"{existing_sqa_experiment_id}."
@@ -101,7 +101,7 @@ class Encoder:
         else:
             # experiment.db_id is None
             if existing_sqa_experiment_id is not None:
-                raise Exception(
+                raise ValueError(
                     f"An experiment already exists with the name {experiment.name}. "
                     "If you need to override this existing experiment, first delete it "
                     "via `delete_experiment` in ax/ax/storage/sqa_store/delete.py, "

@@ -121,7 +121,7 @@ class SimpleExperimentTest(TestCase):
             search_space=get_branin_search_space(),
             objective_name="sum",
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(RuntimeError):
             experiment.evaluation_function(parameterization={})
 
         experiment.evaluation_function = sum_evaluation_function

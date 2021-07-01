@@ -148,10 +148,10 @@ class JSONStoreTest(TestCase):
         self.experiment = get_experiment_with_batch_and_single_trial()
 
     def testJSONEncodeFailure(self):
-        self.assertRaises(JSONEncodeError, object_to_json, Exception("foobar"))
+        self.assertRaises(JSONEncodeError, object_to_json, RuntimeError("foobar"))
 
     def testJSONDecodeFailure(self):
-        self.assertRaises(JSONDecodeError, object_from_json, Exception("foobar"))
+        self.assertRaises(JSONDecodeError, object_from_json, RuntimeError("foobar"))
         self.assertRaises(JSONDecodeError, object_from_json, {"__type": "foobar"})
 
     def testSaveAndLoad(self):
@@ -188,8 +188,8 @@ class JSONStoreTest(TestCase):
             if class_ == "SimpleExperiment":
                 # Evaluation functions will be different, so need to do
                 # this so equality test passes
-                with self.assertRaises(Exception):
-                    converted_object.evaluation_function()
+                with self.assertRaises(RuntimeError):
+                    converted_object.evaluation_function(parameterization={})
 
                 original_object.evaluation_function = None
                 converted_object.evaluation_function = None
