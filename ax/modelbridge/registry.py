@@ -224,6 +224,7 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         bridge_class=TorchModelBridge,
         model_class=ALEBO,
         transforms=ALEBO_X_trans + ALEBO_Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "BO_MIXED": ModelSetup(
         bridge_class=TorchModelBridge,

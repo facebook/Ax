@@ -357,7 +357,7 @@ class ModelRegistryTest(TestCase):
             experiment=experiment,
             search_space=None,
             data=data,
-            B=torch.from_numpy(B).float(),
+            B=torch.from_numpy(B).double(),
         )
         self.assertIsInstance(m, TorchModelBridge)
         self.assertIsInstance(m.model, ALEBO)
