@@ -11,6 +11,7 @@ from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric
@@ -868,7 +869,7 @@ class Encoder:
     ) -> SQAData:
         """Convert Ax data to SQLAlchemy."""
         # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[Data]`.
-        data_class: SQAData = self.config.class_to_sqa_class[type(data)]
+        data_class: SQAData = self.config.class_to_sqa_class[Data]
         import json
 
         # pyre-fixme[29]: `SQAData` is not a function.

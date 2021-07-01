@@ -7,13 +7,11 @@
 from enum import Enum
 from typing import Dict, NamedTuple, Optional, Type
 
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
-from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
@@ -56,13 +54,11 @@ class SQAConfig(NamedTuple):
 
     class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = {
         AbandonedArm: SQAAbandonedArm,
-        AbstractDataFrameData: SQAData,
         Arm: SQAArm,
         Data: SQAData,
         Experiment: SQAExperiment,
         GenerationStrategy: SQAGenerationStrategy,
         GeneratorRun: SQAGeneratorRun,
-        MapData: SQAData,
         Parameter: SQAParameter,
         ParameterConstraint: SQAParameterConstraint,
         Metric: SQAMetric,
