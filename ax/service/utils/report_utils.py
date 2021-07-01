@@ -22,6 +22,7 @@ from ax.core.trial import BaseTrial, Trial
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.plot.contour import interact_contour_plotly
+from ax.plot.feature_importances import plot_feature_importance_by_feature_plotly
 from ax.plot.slice import plot_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.common.logger import get_logger
@@ -149,7 +150,7 @@ def _get_shortest_unique_suffix_dict(
 
 
 def get_standard_plots(
-    experiment: Experiment, generation_strategy: GenerationStrategy
+    experiment: Experiment, generation_strategy: Optional[GenerationStrategy]
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
@@ -200,7 +201,9 @@ def get_standard_plots(
             metric_name=not_none(experiment.optimization_config).objective.metric.name,
             # TODO: Adjust `model_transitions` to case where custom trials are present
             # and generation strategy does not start right away.
-            model_transitions=generation_strategy.model_transitions,
+            model_transitions=not_none(generation_strategy).model_transitions
+            if generation_strategy is not None
+            else [],
             optimization_direction=(
                 "minimize"
                 if not_none(experiment.optimization_config).objective.minimize
@@ -212,18 +215,24 @@ def get_standard_plots(
     # Objective vs. parameter plot requires a `Model`, so add it only if model
     # is alrady available. In cases where initially custom trials are attached,
     # model might not yet be set on the generation strategy.
-    if generation_strategy.model:
+    if generation_strategy and generation_strategy.model:
+        model = not_none(not_none(generation_strategy).model)
         try:
             output_plot_list.append(
                 _get_objective_v_param_plot(
                     search_space=experiment.search_space,
-                    model=not_none(generation_strategy.model),
+                    model=model,
                     metric_name=not_none(
                         experiment.optimization_config
                     ).objective.metric.name,
                     trials=experiment.trials,
                 )
             )
+        except NotImplementedError:
+            # Model does not implement `predict` method.
+            pass
+        try:
+            output_plot_list.append(plot_feature_importance_by_feature_plotly(model))
         except NotImplementedError:
             # Model does not implement `predict` method.
             pass

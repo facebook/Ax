@@ -8,6 +8,8 @@ from collections import namedtuple
 from unittest.mock import patch
 
 import pandas as pd
+from ax.modelbridge.dispatch_utils import choose_generation_strategy
+from ax.modelbridge.registry import Models
 from ax.service.utils.report_utils import (
     _get_shortest_unique_suffix_dict,
     exp_to_df,
@@ -18,6 +20,7 @@ from ax.service.utils.report_utils import (
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment, get_multi_type_experiment
 from ax.utils.testing.modeling_stubs import get_generation_strategy
+from plotly import graph_objects as go
 
 EXPECTED_COLUMNS = [
     "branin",
@@ -128,3 +131,13 @@ class ReportUtilsTest(TestCase):
             ),
             0,
         )
+        exp = get_branin_experiment(with_batch=True, minimize=True)
+        exp.trials[0].run()
+        gs = choose_generation_strategy(search_space=exp.search_space)
+        gs._model = Models.BOTORCH(
+            experiment=exp,
+            data=exp.fetch_data(),
+        )
+        plots = get_standard_plots(experiment=exp, generation_strategy=gs)
+        self.assertEqual(len(plots), 3)
+        self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
