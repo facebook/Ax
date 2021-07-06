@@ -45,13 +45,19 @@ class SimulatedBackendRunner(Runner):
         self.simulator.run_trial(trial_index=trial.index, runtime=runtime)
         return {"runtime": runtime}
 
-    def stop(self, trial: BaseTrial) -> None:
+    def stop(self, trial: BaseTrial, reason: Optional[str] = None) -> Dict[str, Any]:
         """Stop a trial on the BackendSimulator.
 
         Args:
             trial: Trial to stop on the simulator.
+            reason: A message containing information why the trial is to be stopped.
+
+        Returns:
+            A dictionary containing a single key "reason" that maps to the reason
+            passed to the function. If no reason was given, returns an empty dictionary.
         """
         self.simulator.stop_trial(trial.index)
+        return {"reason": reason} if reason else {}
 
 
 def sample_runtime_unif(trial: BaseTrial, low: float = 1.0, high: float = 5.0) -> float:

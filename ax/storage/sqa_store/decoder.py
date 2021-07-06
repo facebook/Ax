@@ -920,6 +920,17 @@ class Decoder:
             if trial_sqa.run_metadata is not None
             else None
         )
+        # pyre-fixme[9]: _run_metadata has type `Dict[str, Any]`; used as
+        #  `Optional[Dict[str, Any]]`.
+        # pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as
+        #  `Optional[typing.Dict[Variable[_KT], Variable[_VT]]]`.
+        trial._stop_metadata = (
+            # pyre-fixme[6]: Expected `Mapping[Variable[_KT], Variable[_VT]]` for
+            #  1st param but got `Optional[Dict[str, typing.Any]]`.
+            dict(trial_sqa.stop_metadata)
+            if trial_sqa.stop_metadata is not None
+            else None
+        )
         trial._num_arms_created = trial_sqa.num_arms_created
         trial._runner = (
             self.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None

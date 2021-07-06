@@ -849,6 +849,7 @@ class Encoder:
             optimize_for_power=optimize_for_power,
             ttl_seconds=trial.ttl_seconds,
             run_metadata=trial.run_metadata,
+            stop_metadata=trial.stop_metadata,
             status=trial.status,
             status_quo_name=status_quo_name,
             time_completed=trial.time_completed,

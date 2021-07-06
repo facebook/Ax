@@ -392,6 +392,9 @@ class SQATrial(Base):
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
     run_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
+    #  `Column[typing.Any]`.
+    stop_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
     # pyre-fixme[8]: Attribute has type `TrialStatus`; used as `Column[typing.Any]`.
     status: TrialStatus = Column(
         IntEnum(TrialStatus), nullable=False, default=TrialStatus.CANDIDATE

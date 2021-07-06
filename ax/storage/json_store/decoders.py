@@ -34,6 +34,7 @@ def batch_trial_from_json(
     time_run_started: Optional[datetime],
     abandoned_reason: Optional[str],
     run_metadata: Optional[Dict[str, Any]],
+    stop_metadata: Optional[Dict[str, Any]],
     generator_run_structs: List[GeneratorRunStruct],
     runner: Optional[Runner],
     abandoned_arms_metadata: Dict[str, AbandonedArm],
@@ -64,6 +65,7 @@ def batch_trial_from_json(
     batch._time_run_started = time_run_started
     batch._abandoned_reason = abandoned_reason
     batch._run_metadata = run_metadata or {}
+    batch._stop_metadata = stop_metadata or {}
     batch._generator_run_structs = generator_run_structs
     batch._runner = runner
     batch._abandoned_arms_metadata = abandoned_arms_metadata
@@ -88,6 +90,7 @@ def trial_from_json(
     time_run_started: Optional[datetime],
     abandoned_reason: Optional[str],
     run_metadata: Optional[Dict[str, Any]],
+    stop_metadata: Optional[Dict[str, Any]],
     generator_run: GeneratorRun,
     runner: Optional[Runner],
     num_arms_created: int,
@@ -118,6 +121,7 @@ def trial_from_json(
     trial._time_run_started = time_run_started
     trial._abandoned_reason = abandoned_reason
     trial._run_metadata = run_metadata or {}
+    trial._stop_metadata = stop_metadata or {}
     trial._runner = runner
     trial._num_arms_created = num_arms_created
     trial._generation_step_index = generation_step_index

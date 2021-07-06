@@ -4,12 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import itertools
 from unittest.mock import patch
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
+from ax.core.runner import Runner
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_arms, get_experiment, get_objective
 
@@ -150,6 +152,39 @@ class TrialTest(TestCase):
                 else:
                     self.assertFalse(self.trial.status.expecting_data)
 
+    def test_stop(self):
+        # test bad old status
+        with self.assertRaisesRegex(ValueError, "Can only stop STAGED or RUNNING"):
+            self.trial.stop(new_status=TrialStatus.ABANDONED)
+
+        # test bad new status
+        self.trial.mark_running(no_runner_required=True)
+        with self.assertRaisesRegex(ValueError, "New status of a stopped trial must"):
+            self.trial.stop(new_status=TrialStatus.CANDIDATE)
+
+        # dummy runner for testing stopping functionality
+        class DummyStopRunner(Runner):
+            def run(self, trial):
+                pass
+
+            def stop(self, trial, reason):
+                return {"reason": reason} if reason else {}
+
+        # test valid stopping
+        for reason, new_status in itertools.product(
+            (None, "because"),
+            (TrialStatus.COMPLETED, TrialStatus.ABANDONED, TrialStatus.EARLY_STOPPED),
+        ):
+            self.setUp()
+            self.trial._runner = DummyStopRunner()
+            self.trial.mark_running()
+            self.assertEqual(self.trial.status, TrialStatus.RUNNING)
+            self.trial.stop(new_status=new_status, reason=reason)
+            self.assertEqual(self.trial.status, new_status)
+            self.assertEqual(
+                self.trial.stop_metadata, {} if reason is None else {"reason": reason}
+            )
+
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.lookup_data",
         return_value=TEST_DATA,
@@ -176,3 +211,8 @@ class TrialTest(TestCase):
         self.assertEqual(len(self.trial.run_metadata), 0)
         self.trial.update_run_metadata({"something": "new"})
         self.assertEqual(self.trial.run_metadata, {"something": "new"})
+
+    def test_update_stop_metadata(self):
+        self.assertEqual(len(self.trial.stop_metadata), 0)
+        self.trial.update_stop_metadata({"something": "new"})
+        self.assertEqual(self.trial.stop_metadata, {"something": "new"})

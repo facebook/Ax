@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import extract_init_args, serialize_init_args
@@ -47,22 +47,30 @@ class Runner(Base, ABC):
         """
         pass  # pragma: no cover
 
-    def stop(self, trial: core.base_trial.BaseTrial) -> None:
+    def stop(
+        self, trial: core.base_trial.BaseTrial, reason: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Stop a trial based on custom runner subclass implementation.
 
-        Optional to implement
+        Optional method.
 
         Args:
-            trial: The trial to deploy.
+            trial: The trial to stop.
+            reason: A message containing information why the trial is to be stopped.
+
+        Returns:
+            A dictionary of run metadata from the stopping process.
         """
-        pass
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a `stop` method."
+        )
 
     @property
     def staging_required(self) -> bool:
         """Whether the trial goes to staged or running state once deployed."""
         return False
 
-    def clone(self) -> "Runner":
+    def clone(self) -> Runner:
         """Create a copy of this Runner."""
         cls = type(self)
         # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
