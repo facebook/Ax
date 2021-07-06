@@ -59,7 +59,7 @@ class TestEarlyStoppingStrategy(TestCase):
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
-        self.assertEqual(should_stop, set())
+        self.assertEqual(should_stop, {})
 
         # Most recent progression below minimum
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
@@ -68,7 +68,7 @@ class TestEarlyStoppingStrategy(TestCase):
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
-        self.assertEqual(should_stop, set())
+        self.assertEqual(should_stop, {})
 
     def test_percentile_early_stopping_strategy(self):
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
@@ -113,7 +113,7 @@ class TestEarlyStoppingStrategy(TestCase):
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
-        self.assertEqual(should_stop, {0})
+        self.assertEqual(set(should_stop), {0})
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             percentile_threshold=50,
@@ -121,13 +121,13 @@ class TestEarlyStoppingStrategy(TestCase):
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
-        self.assertEqual(should_stop, {0, 3})
+        self.assertEqual(set(should_stop), {0, 3})
 
         # respect trial_indices argument
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices={0}, experiment=exp
         )
-        self.assertEqual(should_stop, {0})
+        self.assertEqual(set(should_stop), {0})
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             percentile_threshold=75,
@@ -135,7 +135,7 @@ class TestEarlyStoppingStrategy(TestCase):
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
-        self.assertEqual(should_stop, {0, 3, 1})
+        self.assertEqual(set(should_stop), {0, 3, 1})
 
     def test_early_stopping_with_unaligned_results(self):
         # test case 1
@@ -177,7 +177,7 @@ class TestEarlyStoppingStrategy(TestCase):
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=set(exp.trials.keys()), experiment=exp
         )
-        self.assertEqual(should_stop, {0, 1, 3})
+        self.assertEqual(set(should_stop), {0, 1, 3})
 
         # test case 2, where trial 3 has only 1 data point
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
@@ -220,4 +220,4 @@ class TestEarlyStoppingStrategy(TestCase):
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=set(exp.trials.keys()), experiment=exp
         )
-        self.assertEqual(should_stop, {0, 1})
+        self.assertEqual(set(should_stop), {0, 1})

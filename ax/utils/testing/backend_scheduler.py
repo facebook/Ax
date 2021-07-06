@@ -108,7 +108,9 @@ class AsyncSimulatedBackendScheduler(Scheduler):
         capacity = self.max_pending_trials - (num_staged + num_running)
         return capacity
 
-    def should_stop_trials_early(self, trial_indices: Set[int]) -> Set[int]:
+    def should_stop_trials_early(
+        self, trial_indices: Set[int]
+    ) -> Dict[int, Optional[str]]:
         """Given a set of trial indices, decide whether or not to early-stop
         running trials using the ``early_stopping_strategy``.
 

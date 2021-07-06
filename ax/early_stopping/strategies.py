@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Set
+from typing import Any, Dict, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -29,7 +29,7 @@ class BaseEarlyStoppingStrategy(ABC):
         trial_indices: Set[int],
         experiment: Experiment,
         **kwargs: Dict[str, Any],
-    ) -> Set[int]:
+    ) -> Dict[int, Optional[str]]:
         """Decide whether to complete trials before evaluation is fully concluded.
 
         Typical examples include stopping a machine learning model's training, or
@@ -41,8 +41,8 @@ class BaseEarlyStoppingStrategy(ABC):
             experiment: Experiment that contains the trials and other contextual data.
 
         Returns:
-            Set of trial indices that should be early stopped. Empty set means
-            no suggested update.
+            A dictionary mapping trial indices that should be early stopped to
+            (optional) messages with the associated reason.
         """
         pass  # pragma: nocover
 
@@ -81,7 +81,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         trial_indices: Set[int],
         experiment: Experiment,
         **kwargs: Dict[str, Any],
-    ) -> Set[int]:
+    ) -> Dict[int, Optional[str]]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
         of the trials at the same step.
 
@@ -90,8 +90,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             experiment: Experiment that contains the trials and other contextual data.
 
         Returns:
-            Set of trial indices that should be early stopped. Empty set means
-            no suggested update.
+            A dictionary mapping trial indices that should be early stopped to
+            (optional) messages with the associated reason. An empty dictionary
+            means no suggested updates to any trial's status.
         """
         if experiment.optimization_config is None:
             raise UnsupportedError(  # pragma: no cover
@@ -129,11 +130,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             metrics=[objective_name],
         )
         aligned_means = metric_to_aligned_means[objective_name]
-
-        return {
-            trial_index
-            for trial_index in trial_indices
-            if self.should_stop_trial_early(
+        decisions = {
+            trial_index: self.should_stop_trial_early(
                 trial_index=trial_index,
                 experiment=experiment,
                 df=aligned_means,
@@ -141,6 +139,12 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 map_key=map_key,
                 minimize=minimize,
             )
+            for trial_index in trial_indices
+        }
+        return {
+            trial_index: reason
+            for trial_index, (should_stop, reason) in decisions.items()
+            if should_stop
         }
 
     def should_stop_trial_early(
@@ -151,7 +155,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         percentile_threshold: float,
         map_key: str,
         minimize: bool,
-    ) -> bool:
+    ) -> Tuple[bool, Optional[str]]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
         of the trials at the same step.
 
@@ -170,7 +174,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             minimize: Whether objective value is being minimized.
 
         Returns:
-            True iff trial should be early stopped.
+            A tuple `(should_stop, reason)`, where `should_stop` is `True` iff the
+            trial should be stopped, and `reason` is an (optional) string providing
+            information on why the trial should or should not be stopped.
         """
         logger.debug(f"Considering trial {trial_index} for early stopping.")
         if trial_index not in df:
@@ -178,17 +184,19 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 f"There is not yet any data associated with trial {trial_index}. "
                 "Not early stopping this trial."
             )
-            return False
+            return False, "No data available to make an early stopping decision."
 
         trial_last_progression = not_none(df[trial_index].dropna()).index.max()
         if trial_last_progression < self.min_progression:
-            logger.info(
-                f"Trial {trial_index}'s most recent progression "
-                f"({trial_last_progression}) is less than the specified minimum "
-                f"progression for early stopping ({self.min_progression}). "
-                "Not early stopping this trial."
+            reason = (
+                f"Most recent progression ({trial_last_progression}) is less than "
+                "the specified minimum progression for early stopping "
+                f"({self.min_progression}). "
             )
-            return False
+            logger.info(
+                f"Trial {trial_index}'s m{reason[1:]} Not early stopping this trial."
+            )
+            return False, reason
 
         # dropna() here will exclude trials that have not made it to the
         # last progression of the trial under consideration, and therefore
@@ -198,10 +206,15 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             logger.info(
                 f"The number of trials with data ({len(data_at_last_progression)}) "
                 f"at trial {trial_index}'s last progression ({trial_last_progression}) "
-                f"is less than the specified minimum number for early stopping "
+                "is less than the specified minimum number for early stopping "
                 f"({self.min_curves}). Not early stopping this trial."
             )
-            return False
+            reason = (
+                f"Number of trials with data ({len(data_at_last_progression)}) at "
+                f"last progression ({trial_last_progression}) is less than the "
+                f"specified minimum number for early stopping ({self.min_curves})."
+            )
+            return False, reason
 
         percentile_threshold = (
             100.0 - self.percentile_threshold if minimize else self.percentile_threshold
@@ -213,5 +226,14 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             if minimize
             else trial_objective_value < percentile_value
         )
-        logger.debug(f"Early stopping decision for {trial_index}: {should_early_stop}")
-        return should_early_stop
+        comp = "better" if should_early_stop else "worse"
+        reason = (
+            f"Trial objective value {trial_objective_value} is {comp} than "
+            f"{percentile_threshold:.1f}-th percentile ({percentile_value}) "
+            "across comparable trials."
+        )
+        logger.debug(
+            f"Early stopping decision for {trial_index}: {should_early_stop}. "
+            f"Reason: {reason}"
+        )
+        return should_early_stop, reason

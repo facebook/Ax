@@ -523,7 +523,9 @@ class Scheduler(WithDBSettingsBase, ABC):
             )
         return not_none(self.experiment.runner).run(trial=trial)
 
-    def stop_trial_runs(self, trials: List[BaseTrial]) -> None:
+    def stop_trial_runs(
+        self, trials: List[BaseTrial], reasons: Optional[List[Optional[str]]] = None
+    ) -> None:
         """Stops the jobs that execute given trials.
 
         Used if, for example, TTL for a trial was specified and expired, or poor
@@ -536,6 +538,8 @@ class Scheduler(WithDBSettingsBase, ABC):
 
         Args:
             trials: Trials to be stopped.
+            reasons: A list of strings describing the reasons for why the
+                trials are to be stopped (in the same order).
         """
         if len(trials) == 0:
             return
@@ -547,16 +551,21 @@ class Scheduler(WithDBSettingsBase, ABC):
                 "on a subclass of `Scheduler` as a substitute of a runner."
             )
 
-        for trial in trials:
-            not_none(self.experiment.runner).stop(trial=trial)
+        runner = not_none(self.experiment.runner)
+        if reasons is None:
+            reasons = [None] * len(trials)
 
-    def stop_trial_run(self, trial: BaseTrial) -> None:
+        for trial, reason in zip(trials, reasons):
+            runner.stop(trial=trial, reason=reason)
+
+    def stop_trial_run(self, trial: BaseTrial, reason: Optional[str] = None) -> None:
         """Stops the job that executes a given trial.
 
         Args:
             trial: Trial to be stopped.
+            reason: The reason the trial is to be stopped.
         """
-        self.stop_trial_runs(trials=[trial])
+        self.stop_trial_runs(trials=[trial], reasons=[reason])
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def run_trials(self, trials: Iterable[BaseTrial]) -> Dict[int, Dict[str, Any]]:
@@ -977,20 +986,20 @@ class Scheduler(WithDBSettingsBase, ABC):
             already_fetched_trial_idcs = running_trial_indices
 
         # 3. Determine which trials to stop early
-        stop_trial_idcs = self.should_stop_trials_early(
+        stop_trial_info = self.should_stop_trials_early(
             trial_indices=running_trial_indices
         )
 
         # 4. Stop trials early
         self.stop_trial_runs(
-            trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_idcs]
+            trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_info],
+            reasons=list(stop_trial_info.values()),
         )
 
         # 5. Update trial statuses on the experiment
-        early_stop_status_to_trial_idcs = {TrialStatus.EARLY_STOPPED: stop_trial_idcs}
         new_status_to_trial_idcs = self._update_status_dict(
             status_dict=new_status_to_trial_idcs,
-            updating_status_dict=early_stop_status_to_trial_idcs,
+            updating_status_dict={TrialStatus.EARLY_STOPPED: set(stop_trial_info)},
         )
         updated_trials = []
         for status, trial_idcs in new_status_to_trial_idcs.items():
@@ -1029,7 +1038,9 @@ class Scheduler(WithDBSettingsBase, ABC):
         )
         return updated_any_trial
 
-    def should_stop_trials_early(self, trial_indices: Set[int]) -> Set[int]:
+    def should_stop_trials_early(
+        self, trial_indices: Set[int]
+    ) -> Dict[int, Optional[str]]:
         """Evaluate whether to early-stop running trials.
 
         Args:
@@ -1040,7 +1051,7 @@ class Scheduler(WithDBSettingsBase, ABC):
             initially-passed trials).
         """
         if self.options.early_stopping_strategy is None:
-            return set()
+            return {}
 
         early_stopping_strategy = not_none(self.options.early_stopping_strategy)
         return early_stopping_strategy.should_stop_trials_early(

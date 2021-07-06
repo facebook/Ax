@@ -10,7 +10,7 @@ from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Iterable, Set, Tuple
+from typing import Any, Dict, Iterable, Optional, Set, Tuple
 from unittest.mock import patch
 
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -627,7 +627,7 @@ class TestAxScheduler(TestCase):
                 return {}
 
             def should_stop_trials_early(self, trial_indices: Set[int]):
-                return trial_indices
+                return {i: None for i in trial_indices}
 
         total_trials = 3
         scheduler = EarlyStopsInsteadOfNormalCompletionScheduler(
@@ -672,7 +672,7 @@ class TestAxScheduler(TestCase):
                 trial_indices: Set[int],
                 experiment: Experiment,
                 **kwargs: Dict[str, Any],
-            ) -> Set[int]:
+            ) -> Dict[int, Optional[str]]:
                 # Make sure that we can lookup data for the trial,
                 # even though we won't use it in this dummy strategy
                 data = experiment.lookup_data(trial_indices=trial_indices)
@@ -681,7 +681,7 @@ class TestAxScheduler(TestCase):
                         f"No data found for trials {trial_indices}; "
                         "can't determine whether or not to stop early."
                     )
-                return {idx for idx in trial_indices if idx % 2 == 1}
+                return {idx: None for idx in trial_indices if idx % 2 == 1}
 
         class SchedulerWithEarlyStoppingStrategy(BareBonesTestScheduler):
             poll_trial_status_count = 0
