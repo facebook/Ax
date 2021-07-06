@@ -130,7 +130,9 @@ class AxClient(WithDBSettingsBase):
         verbose_logging: bool = True,
         suppress_storage_errors: bool = False,
     ) -> None:
-        super().__init__(db_settings=db_settings)
+        super().__init__(
+            db_settings=db_settings, suppress_all_errors=suppress_storage_errors
+        )
         if not verbose_logging:
             logger.setLevel(logging.WARNING)  # pragma: no cover
         else:
@@ -253,7 +255,6 @@ class AxClient(WithDBSettingsBase):
         )
         self._save_generation_strategy_to_db_if_possible(
             generation_strategy=self.generation_strategy,
-            suppress_all_errors=self._suppress_storage_errors,
         )
 
     @retry_on_exception(
@@ -290,14 +291,12 @@ class AxClient(WithDBSettingsBase):
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
             trial=trial,
-            suppress_all_errors=self._suppress_storage_errors,
         )
         # TODO[T79183560]: Ensure correct handling of generator run when using
         # foreign keys.
         self._update_generation_strategy_in_db_if_possible(
             generation_strategy=self.generation_strategy,
             new_generator_runs=[self.generation_strategy._generator_runs[-1]],
-            suppress_all_errors=self._suppress_storage_errors,
         )
         return not_none(trial.arm).parameters, trial.index
 
@@ -481,7 +480,6 @@ class AxClient(WithDBSettingsBase):
             trial._run_metadata = metadata
         self._save_experiment_to_db_if_possible(
             experiment=self.experiment,
-            suppress_all_errors=self._suppress_storage_errors,
         )
 
     def attach_trial(
@@ -510,7 +508,6 @@ class AxClient(WithDBSettingsBase):
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
             trial=trial,
-            suppress_all_errors=self._suppress_storage_errors,
         )
         return not_none(trial.arm).parameters, trial.index
 
@@ -742,7 +739,6 @@ class AxClient(WithDBSettingsBase):
             )
             self._save_generation_strategy_to_db_if_possible(
                 generation_strategy=self.generation_strategy,
-                suppress_all_errors=self._suppress_storage_errors,
             )
         else:
             self._generation_strategy = generation_strategy
@@ -918,7 +914,6 @@ class AxClient(WithDBSettingsBase):
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
             trial=trial,
-            suppress_all_errors=self._suppress_storage_errors,
         )
         return str(
             _round_floats_for_logging(item=evaluations[next(iter(evaluations.keys()))])
@@ -978,7 +973,6 @@ class AxClient(WithDBSettingsBase):
         try:
             self._save_experiment_to_db_if_possible(
                 experiment=self.experiment,
-                suppress_all_errors=self._suppress_storage_errors,
             )
         except Exception:
             # Unset the experiment on this `AxClient` instance if encountered and

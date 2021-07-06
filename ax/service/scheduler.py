@@ -182,6 +182,11 @@ class SchedulerOptions:
         early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines
             whether a trial should be stopped given the current state of
             the experiment. Used in ``should_stop_trials_early``.
+        suppress_storage_errors_after_retries: Whether to fully suppress SQL
+            storage-related errors if encounted, after retrying the call
+            multiple times. Only use if SQL storage is not important for the given
+            use case, since this will only log, but not raise, an exception if
+            its encountered while saving to DB or loading from it.
     """
 
     trial_type: Type[BaseTrial] = Trial
@@ -197,6 +202,7 @@ class SchedulerOptions:
     run_trials_in_batches: bool = False
     debug_log_run_metadata: bool = False
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None
+    suppress_storage_errors_after_retries: bool = False
 
 
 class Scheduler(WithDBSettingsBase, ABC):
@@ -264,7 +270,9 @@ class Scheduler(WithDBSettingsBase, ABC):
 
         # Initialize storage layer for the scheduler.
         super().__init__(
-            db_settings=db_settings, logging_level=self.options.logging_level
+            db_settings=db_settings,
+            logging_level=self.options.logging_level,
+            suppress_all_errors=self.options.suppress_storage_errors_after_retries,
         )
 
         # Set up logger with an optional filepath handler
@@ -1034,7 +1042,8 @@ class Scheduler(WithDBSettingsBase, ABC):
 
         self.logger.debug(f"Updating {len(updated_trials)} trials in DB.")
         self._save_or_update_trials_in_db_if_possible(
-            experiment=self.experiment, trials=updated_trials
+            experiment=self.experiment,
+            trials=updated_trials,
         )
         return updated_any_trial
 

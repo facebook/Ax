@@ -13,6 +13,9 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.storage.sqa_store.decoder import Decoder
+from ax.storage.sqa_store.encoder import Encoder
+from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
@@ -58,7 +61,10 @@ class WithDBSettingsBase:
     _db_settings: Optional[DBSettings] = None
 
     def __init__(
-        self, db_settings: Optional[DBSettings] = None, logging_level: int = INFO
+        self,
+        db_settings: Optional[DBSettings] = None,
+        logging_level: int = INFO,
+        suppress_all_errors: bool = False,
     ) -> None:
         if db_settings and (not DBSettings or not isinstance(db_settings, DBSettings)):
             raise ValueError(
@@ -67,6 +73,7 @@ class WithDBSettingsBase:
                 "installed in your environment (can be installed through pip)."
             )
         self._db_settings = db_settings
+        self._suppress_all_errors = suppress_all_errors
         if self.db_settings_set:
             init_engine_and_session_factory(
                 creator=self.db_settings.creator, url=self.db_settings.url
@@ -128,8 +135,6 @@ class WithDBSettingsBase:
                 experiment_name=exp_name
             )
             if exp_id:  # Experiment in DB.
-                # TODO: Switch to just updating experiment when selective-field
-                # update is available.
                 logger.info(f"Experiment {exp_name} is in DB, updating it.")
                 self._save_experiment_to_db_if_possible(experiment=experiment)
                 saved_exp = True
@@ -226,36 +231,22 @@ class WithDBSettingsBase:
             raise  # `ValueError` here could signify more than just absence of GS.
         return experiment, generation_strategy
 
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=RETRY_EXCEPTION_TYPES,
-    )
-    def _save_experiment_to_db_if_possible(
-        self, experiment: Experiment, suppress_all_errors: bool = False
-    ) -> bool:
+    def _save_experiment_to_db_if_possible(self, experiment: Experiment) -> bool:
         """Saves attached experiment and generation strategy if DB settings are
         set on this `WithDBSettingsBase` instance.
 
         Args:
             experiment: Experiment to save new trials in DB.
-            suppress_all_errors: Flag for `retry_on_exception` that makes
-                the decorator suppress the thrown exception even if it
-                occurred in all the retries (exception is still logged).
 
         Returns:
             bool: Whether the experiment was saved.
         """
         if self.db_settings_set:
-            start_time = time.time()
-            _save_experiment(
-                experiment,
+            _save_experiment_to_db_if_possible(
+                experiment=experiment,
                 encoder=self.db_settings.encoder,
                 decoder=self.db_settings.decoder,
-            )
-            logger.debug(
-                f"Saved experiment {experiment.name} in "
-                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
+                suppress_all_errors=self._suppress_all_errors,
             )
             return True
         return False
@@ -266,7 +257,6 @@ class WithDBSettingsBase:
         trials: List[BaseTrial],
         generation_strategy: GenerationStrategy,
         new_generator_runs: List[GeneratorRun],
-        suppress_all_errors: bool = False,
     ) -> None:
         """Saves new trials (and updates existing ones) on given experiment
         and updates the given generation strategy, if DB settings are set on
@@ -277,9 +267,6 @@ class WithDBSettingsBase:
             trials: Newly added or updated trials to save or update in DB.
             generation_strategy: Generation strategy to update in DB.
             new_generator_runs: Generator runs to add to generation strategy.
-            suppress_all_errors: Flag for `retry_on_exception` that makes
-                the decorator suppress the thrown exception even if it
-                occurred in all the retries (exception is still logged).
         """
         logger.debug(f"Saving or updating {len(trials)} trials in DB.")
         self._save_or_update_trials_in_db_if_possible(
@@ -300,7 +287,6 @@ class WithDBSettingsBase:
         self,
         experiment: Experiment,
         trial: BaseTrial,
-        suppress_all_errors: bool = False,
     ) -> bool:
         """Saves new trial on given experiment if DB settings are set on this
         `WithDBSettingsBase` instance.
@@ -308,9 +294,6 @@ class WithDBSettingsBase:
         Args:
             experiment: Experiment, on which to save new trial in DB.
             trials: Newly added trial to save.
-            suppress_all_errors: Flag for `retry_on_exception` that makes
-                the decorator suppress the thrown exception even if it
-                occurred in all the retries (exception is still logged).
 
         Returns:
             bool: Whether the trial was saved.
@@ -318,19 +301,12 @@ class WithDBSettingsBase:
         return self._save_or_update_trials_in_db_if_possible(
             experiment=experiment,
             trials=[trial],
-            suppress_all_errors=suppress_all_errors,
         )
 
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=RETRY_EXCEPTION_TYPES,
-    )
     def _save_or_update_trials_in_db_if_possible(
         self,
         experiment: Experiment,
         trials: List[BaseTrial],
-        suppress_all_errors: bool = False,
     ) -> bool:
         """Saves new trials or update existing trials on given experiment if DB
         settings are set on this `WithDBSettingsBase` instance.
@@ -338,35 +314,21 @@ class WithDBSettingsBase:
         Args:
             experiment: Experiment, on which to save new trials in DB.
             trials: Newly added trials to save.
-            suppress_all_errors: Flag for `retry_on_exception` that makes
-                the decorator suppress the thrown exception even if it
-                occurred in all the retries (exception is still logged).
 
         Returns:
             bool: Whether the trials were saved.
         """
         if self.db_settings_set:
-            start_time = time.time()
-            _save_or_update_trials(
+            _save_or_update_trials_in_db_if_possible(
                 experiment=experiment,
                 trials=trials,
                 encoder=self.db_settings.encoder,
                 decoder=self.db_settings.decoder,
-                batch_size=STORAGE_MINI_BATCH_SIZE,
-            )
-            logger.debug(
-                f"Saved or updated trials {[trial.index for trial in trials]} in "
-                f"{_round_floats_for_logging(time.time() - start_time)} seconds "
-                f"in mini-batches of {STORAGE_MINI_BATCH_SIZE}."
+                suppress_all_errors=self._suppress_all_errors,
             )
             return True
         return False
 
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=RETRY_EXCEPTION_TYPES,
-    )
     def _save_generation_strategy_to_db_if_possible(
         self, generation_strategy: GenerationStrategy, suppress_all_errors: bool = False
     ) -> bool:
@@ -375,37 +337,24 @@ class WithDBSettingsBase:
 
         Args:
             generation_strategy: Generation strategy to save in DB.
-            suppress_all_errors: Flag for `retry_on_exception` that makes
-                the decorator suppress the thrown exception even if it
-                occurred in all the retries (exception is still logged).
 
         Returns:
             bool: Whether the generation strategy was saved.
         """
         if self.db_settings_set:
-            start_time = time.time()
-            _save_generation_strategy(
+            _save_generation_strategy_to_db_if_possible(
                 generation_strategy=generation_strategy,
                 encoder=self.db_settings.encoder,
                 decoder=self.db_settings.decoder,
-            )
-            logger.debug(
-                f"Saved generation strategy {generation_strategy.name} in "
-                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
+                suppress_all_errors=self._suppress_all_errors,
             )
             return True
         return False
 
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=RETRY_EXCEPTION_TYPES,
-    )
     def _update_generation_strategy_in_db_if_possible(
         self,
         generation_strategy: GenerationStrategy,
         new_generator_runs: List[GeneratorRun],
-        suppress_all_errors: bool = False,
     ) -> bool:
         """Updates the given generation strategy with new generator runs (and with
         new current generation step if applicable) if DB settings are set
@@ -415,42 +364,150 @@ class WithDBSettingsBase:
             generation_strategy: Generation strategy to update in DB.
             new_generator_runs: New generator runs of this generation strategy
                 since its last save.
-            suppress_all_errors: Flag for `retry_on_exception` that makes
-                the decorator suppress the thrown exception even if it
-                occurred in all the retries (exception is still logged).
+
         Returns:
             bool: Whether the experiment was saved.
         """
         if self.db_settings_set:
-            start_time = time.time()
-            _update_generation_strategy(
+            _update_generation_strategy_in_db_if_possible(
                 generation_strategy=generation_strategy,
-                generator_runs=new_generator_runs,
+                new_generator_runs=new_generator_runs,
                 encoder=self.db_settings.encoder,
                 decoder=self.db_settings.decoder,
-                batch_size=STORAGE_MINI_BATCH_SIZE,
-            )
-            logger.debug(
-                f"Updated generation strategy {generation_strategy.name} in "
-                f"{_round_floats_for_logging(time.time() - start_time)} seconds in "
-                f"mini-batches of {STORAGE_MINI_BATCH_SIZE} generator runs."
+                suppress_all_errors=self._suppress_all_errors,
             )
             return True
         return False
 
-    @retry_on_exception(
-        retries=3,
-        default_return_on_suppression=False,
-        exception_types=RETRY_EXCEPTION_TYPES,
-    )
     def _update_experiment_properties_in_db(
-        self, experiment_with_updated_properties: Experiment
+        self,
+        experiment_with_updated_properties: Experiment,
     ) -> bool:
         exp = experiment_with_updated_properties
         if self.db_settings_set:
-            update_properties_on_experiment(
+            _update_experiment_properties_in_db(
                 experiment_with_updated_properties=exp,
-                config=self.db_settings.encoder.config,
+                sqa_config=self.db_settings.encoder.config,
+                suppress_all_errors=self._suppress_all_errors,
             )
             return True
         return False
+
+
+# ------------- Utils for storage that assume `DBSettings` are provided --------
+
+
+@retry_on_exception(
+    retries=3,
+    default_return_on_suppression=False,
+    exception_types=RETRY_EXCEPTION_TYPES,
+)
+def _save_experiment_to_db_if_possible(
+    experiment: Experiment,
+    encoder: Encoder,
+    decoder: Decoder,
+    suppress_all_errors: bool,
+) -> None:
+    start_time = time.time()
+    _save_experiment(
+        experiment,
+        encoder=encoder,
+        decoder=decoder,
+    )
+    logger.debug(
+        f"Saved experiment {experiment.name} in "
+        f"{_round_floats_for_logging(time.time() - start_time)} seconds."
+    )
+
+
+@retry_on_exception(
+    retries=3,
+    default_return_on_suppression=False,
+    exception_types=RETRY_EXCEPTION_TYPES,
+)
+def _save_or_update_trials_in_db_if_possible(
+    experiment: Experiment,
+    trials: List[BaseTrial],
+    encoder: Encoder,
+    decoder: Decoder,
+    suppress_all_errors: bool,
+) -> None:
+    start_time = time.time()
+    _save_or_update_trials(
+        experiment=experiment,
+        trials=trials,
+        encoder=encoder,
+        decoder=decoder,
+        batch_size=STORAGE_MINI_BATCH_SIZE,
+    )
+    logger.debug(
+        f"Saved or updated trials {[trial.index for trial in trials]} in "
+        f"{_round_floats_for_logging(time.time() - start_time)} seconds "
+        f"in mini-batches of {STORAGE_MINI_BATCH_SIZE}."
+    )
+
+
+@retry_on_exception(
+    retries=3,
+    default_return_on_suppression=False,
+    exception_types=RETRY_EXCEPTION_TYPES,
+)
+def _save_generation_strategy_to_db_if_possible(
+    generation_strategy: GenerationStrategy,
+    encoder: Encoder,
+    decoder: Decoder,
+    suppress_all_errors: bool,
+) -> None:
+    start_time = time.time()
+    _save_generation_strategy(
+        generation_strategy=generation_strategy,
+        encoder=encoder,
+        decoder=decoder,
+    )
+    logger.debug(
+        f"Saved generation strategy {generation_strategy.name} in "
+        f"{_round_floats_for_logging(time.time() - start_time)} seconds."
+    )
+
+
+@retry_on_exception(
+    retries=3,
+    default_return_on_suppression=False,
+    exception_types=RETRY_EXCEPTION_TYPES,
+)
+def _update_generation_strategy_in_db_if_possible(
+    generation_strategy: GenerationStrategy,
+    new_generator_runs: List[GeneratorRun],
+    encoder: Encoder,
+    decoder: Decoder,
+    suppress_all_errors: bool,
+) -> None:
+    start_time = time.time()
+    _update_generation_strategy(
+        generation_strategy=generation_strategy,
+        generator_runs=new_generator_runs,
+        encoder=encoder,
+        decoder=decoder,
+        batch_size=STORAGE_MINI_BATCH_SIZE,
+    )
+    logger.debug(
+        f"Updated generation strategy {generation_strategy.name} in "
+        f"{_round_floats_for_logging(time.time() - start_time)} seconds in "
+        f"mini-batches of {STORAGE_MINI_BATCH_SIZE} generator runs."
+    )
+
+
+@retry_on_exception(
+    retries=3,
+    default_return_on_suppression=False,
+    exception_types=RETRY_EXCEPTION_TYPES,
+)
+def _update_experiment_properties_in_db(
+    experiment_with_updated_properties: Experiment,
+    sqa_config: SQAConfig,
+    suppress_all_errors: bool,
+) -> None:
+    update_properties_on_experiment(
+        experiment_with_updated_properties=experiment_with_updated_properties,
+        config=sqa_config,
+    )

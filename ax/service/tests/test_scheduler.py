@@ -35,6 +35,9 @@ from ax.service.scheduler import (
     ExperimentStatusProperties,
     OptimizationResult,
 )
+from ax.service.utils.with_db_settings_base import (
+    WithDBSettingsBase,
+)
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -48,6 +51,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_generator_run,
 )
+from sqlalchemy.orm.exc import StaleDataError
 
 
 class BareBonesTestScheduler(Scheduler):
@@ -183,7 +187,8 @@ class TestAxScheduler(TestCase):
                 "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"
                 "polls=10, min_seconds_before_poll=1.0, seconds_between_polls_backoff_"
                 "factor=1.5, run_trials_in_batches=False, "
-                "debug_log_run_metadata=False, early_stopping_strategy=None))"
+                "debug_log_run_metadata=False, early_stopping_strategy=None, "
+                "suppress_storage_errors_after_retries=False))"
             ),
         )
 
@@ -790,3 +795,29 @@ class TestAxScheduler(TestCase):
         scheduler.run_n_trials(max_trials=1)
         # no trials should run if _gen_multiple throws an OptimizationComplete error
         self.assertEqual(len(scheduler.experiment.trials), 0)
+
+    @patch(
+        (
+            f"{WithDBSettingsBase.__module__}.WithDBSettingsBase."
+            "_save_generation_strategy_to_db_if_possible"
+        )
+    )
+    @patch(
+        f"{WithDBSettingsBase.__module__}._save_experiment", side_effect=StaleDataError
+    )
+    def test_suppress_all_storage_errors(self, mock_save_exp, _):
+        init_test_engine_and_session_factory(force_init=True)
+        config = SQAConfig()
+        encoder = Encoder(config=config)
+        decoder = Decoder(config=config)
+        db_settings = DBSettings(encoder=encoder, decoder=decoder)
+        BareBonesTestScheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.two_sobol_steps_GS,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+                suppress_storage_errors_after_retries=True,
+            ),
+            db_settings=db_settings,
+        )
+        self.assertEqual(mock_save_exp.call_count, 3)
