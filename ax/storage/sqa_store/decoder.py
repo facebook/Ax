@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import json
 from collections import OrderedDict, defaultdict
 from enum import Enum
 from typing import List, Optional, Tuple, Type, Union
@@ -948,12 +949,21 @@ class Decoder:
         """Convert SQLAlchemy Data to AE Data."""
         # TODO: extract data type from SQAData after DataRegistry added.
         data_constructor = data_constructor or Data
+        kwargs = data_constructor.deserialize_init_args(
+            args=dict(
+                json.loads(data_sqa.structure_metadata_json)
+                if data_sqa.structure_metadata_json
+                else {}
+            )
+        )
+
         # pyre-ignore[45]: Cannot instantiate abstract class. But this is concrete.
         dat = data_constructor(
             description=data_sqa.description,
             # NOTE: Need dtype=False, otherwise infers arm_names like
             # "4_1" should be int 41.
             df=pd.read_json(data_sqa.data_json, dtype=False),
+            **kwargs,
         )
         dat.db_id = data_sqa.id
         return dat
