@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import copy
+
 import numpy as np
 from ax.core.data import Data
 from ax.core.objective import Objective, MultiObjective
@@ -13,12 +15,16 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.modelbridge.registry import Models
+from ax.plot.pareto_frontier import interact_multiple_pareto_frontier
 from ax.plot.pareto_utils import (
     compute_posterior_pareto_frontier,
     get_observed_pareto_frontiers,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
+)
 
 
 class ParetoUtilsTest(TestCase):
@@ -142,3 +148,15 @@ class ParetoUtilsTest(TestCase):
                 self.assertEqual(
                     pfr.param_dicts[idx], experiment.arms_by_name[name].parameters
                 )
+
+    def testPlotMultipleParetoFrontiers(self):
+        experiment = get_branin_experiment_with_multi_objective(
+            has_objective_thresholds=True,
+        )
+        sobol = Models.SOBOL(experiment.search_space)
+        a = sobol.gen(5)
+        experiment.new_batch_trial(generator_run=a).run()
+        pfrs = get_observed_pareto_frontiers(experiment=experiment)
+        pfrs2 = copy.deepcopy(pfrs)
+        pfr_lists = {"pfrs 1": pfrs, "pfrs 2": pfrs2}
+        self.assertIsNotNone(interact_multiple_pareto_frontier(pfr_lists))
