@@ -106,7 +106,11 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
         data = experiment.lookup_data()
         if data.df.empty:
-            raise ValueError("PercentileEarlyStoppingStrategy expects non-empty data.")
+            logger.info(
+                "PercentileEarlyStoppingStrategy received empty data. "
+                "Not stopping any trials."
+            )
+            return {}
 
         if not isinstance(data, MapData):
             raise ValueError(

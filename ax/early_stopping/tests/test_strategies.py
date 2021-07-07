@@ -45,10 +45,10 @@ class TestEarlyStoppingStrategy(TestCase):
             trial.run()
 
         # No data attached
-        with self.assertRaisesRegex(ValueError, "non-empty data"):
-            early_stopping_strategy.should_stop_trials_early(
-                trial_indices=idcs, experiment=exp
-            )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
 
         exp.attach_data(data=exp.fetch_data())
 
