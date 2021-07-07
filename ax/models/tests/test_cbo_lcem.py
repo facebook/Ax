@@ -50,3 +50,24 @@ class LCEMBOTest(TestCase):
         )
         self.assertIsInstance(gp, ModelListGP)
         self.assertIsInstance(gp.models[0], FixedNoiseLCEMGP)
+
+        # Verify errors are raised in get_and_fit_model
+        train_yvar = np.nan * torch.ones(train_y.shape)
+        with self.assertRaises(NotImplementedError):
+            gp = m.get_and_fit_model(
+                Xs=[train_x],
+                Ys=[train_y],
+                Yvars=[train_yvar],
+                task_features=[d, 2],
+                fidelity_features=[],
+                metric_names=[],
+            )
+        with self.assertRaises(ValueError):
+            gp = m.get_and_fit_model(
+                Xs=[train_x],
+                Ys=[train_y],
+                Yvars=[train_yvar],
+                task_features=[],
+                fidelity_features=[],
+                metric_names=[],
+            )

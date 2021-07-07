@@ -228,7 +228,7 @@ class TorchModel(BaseModel):
         Returns:
             A single-element tensor with the acquisition value for these points.
         """
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: nocover
 
     def infer_objective_thresholds(
         self,

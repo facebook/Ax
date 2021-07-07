@@ -251,7 +251,9 @@ class MultiObjectiveBotorchModel(BotorchModel):
         """
         if X_observed is None:
             if bounds is None:
-                raise ValueError("bounds is required if X_observed is None.")
+                raise ValueError(
+                    "bounds is required if X_observed is None."
+                )  # pragma: nocover
             _, X_observed = _get_X_pending_and_observed(
                 Xs=self.Xs,
                 objective_weights=objective_weights,
@@ -264,7 +266,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
             if subset_idcs is None:
                 raise ValueError(
                     "subset_idcs must be provided if the model is provided."
-                )
+                )  # pragma: nocover
         else:
             # subset the model
             subset_model_results = subset_model(
