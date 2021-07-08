@@ -25,10 +25,12 @@ from ax.core.parameter import (
 )
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError, UnsupportedPlotError
+from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import branin
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.service.ax_client import AxClient
+from ax.service.utils.instantiation import ObjectiveProperties
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -169,6 +171,91 @@ class TestAxClient(TestCase):
         self.assertIn("a", trials_df)
         self.assertEqual(len(trials_df), 6)
 
+    @patch(
+        "ax.modelbridge.base.observations_from_data",
+        autospec=True,
+        return_value=([get_observation1()]),
+    )
+    @patch(
+        "ax.modelbridge.random.RandomModelBridge.get_training_data",
+        autospec=True,
+        return_value=([get_observation1()]),
+    )
+    @patch(
+        "ax.modelbridge.random.RandomModelBridge._predict",
+        autospec=True,
+        return_value=[get_observation1trans().data],
+    )
+    @patch(
+        "ax.modelbridge.random.RandomModelBridge.feature_importances",
+        autospec=True,
+        return_value={"x": 0.9, "y": 1.1},
+    )
+    def test_default_generation_strategy_continuous_for_moo(
+        self, _a, _b, _c, _d
+    ) -> None:
+        """Test that Sobol+MOO is used if no GenerationStrategy is provided."""
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[  # pyre-fixme[6]: expected union that should include
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            objectives={
+                "a": ObjectiveProperties(minimize=True, threshold=1.0),
+                "b": ObjectiveProperties(minimize=True, threshold=1.0),
+            },
+        )
+        self.assertEqual(
+            [s.model for s in not_none(ax_client.generation_strategy)._steps],
+            [Models.SOBOL, Models.MOO],
+        )
+        with self.assertRaisesRegex(ValueError, ".* no trials"):
+            ax_client.get_optimization_trace(objective_optimum=branin.fmin)
+        for i in range(6):
+            parameterization, trial_index = ax_client.get_next_trial()
+            x, y = parameterization.get("x"), parameterization.get("y")
+            ax_client.complete_trial(
+                trial_index,
+                raw_data={
+                    "a": (
+                        checked_cast(
+                            float,
+                            branin(checked_cast(float, x), checked_cast(float, y)),
+                        ),
+                        0.0,
+                    ),
+                    "b": (
+                        checked_cast(
+                            float,
+                            branin(checked_cast(float, x), checked_cast(float, y)),
+                        ),
+                        0.0,
+                    ),
+                },
+                sample_size=i,
+            )
+        self.assertEqual(ax_client.generation_strategy.model._model_key, "MOO")
+        ax_client.get_contour_plot(metric_name="a")
+        ax_client.get_contour_plot(metric_name="b")
+        ax_client.get_feature_importances()
+        trials_df = ax_client.get_trials_data_frame()
+        self.assertIn("x", trials_df)
+        self.assertIn("y", trials_df)
+        self.assertIn("a", trials_df)
+        self.assertIn("b", trials_df)
+        self.assertEqual(len(trials_df), 6)
+
+        with self.subTest("it raises UnsupportedError for get_optimization_trace"):
+            with self.assertRaises(UnsupportedError):
+                ax_client.get_optimization_trace(objective_optimum=branin.fmin)
+
+        with self.subTest(
+            "it raises UnsupportedError for get_contour_plot without metric"
+        ):
+            with self.assertRaises(UnsupportedError):
+                ax_client.get_contour_plot()
+
     def test_create_experiment(self) -> None:
         """Test basic experiment creation."""
         ax_client = AxClient(
@@ -288,6 +375,303 @@ class TestAxClient(TestCase):
         )
         self.assertTrue(ax_client._experiment.immutable_search_space_and_opt_config)
         self.assertTrue(ax_client.experiment.is_test)
+
+        with self.subTest("objective_name"):
+            self.assertEqual(ax_client.objective_name, "test_objective")
+
+        with self.subTest("objective_names"):
+            self.assertEqual(ax_client.objective_names, ["test_objective"])
+
+    def test_create_single_objective_experiment_with_objectives_dict(self) -> None:
+        """Test basic experiment creation."""
+        ax_client = AxClient(
+            GenerationStrategy(
+                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
+            ax_client.experiment
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                    "value_type": "float",
+                    "log_scale": True,
+                    "digits": 6,
+                },
+                {
+                    "name": "y",
+                    "type": "choice",
+                    "values": [1, 2, 3],
+                    "value_type": "int",
+                    "is_ordered": True,
+                },
+                {"name": "x3", "type": "fixed", "value": 2, "value_type": "int"},
+                {
+                    "name": "x4",
+                    "type": "range",
+                    "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
+                {
+                    "name": "x5",
+                    "type": "choice",
+                    "values": ["one", "two", "three"],
+                    "value_type": "str",
+                },
+                {
+                    "name": "x6",
+                    "type": "range",
+                    "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
+            ],
+            objectives={
+                "test_objective": ObjectiveProperties(minimize=True, threshold=2.0),
+            },
+            outcome_constraints=["some_metric >= 3", "some_metric <= 4.0"],
+            parameter_constraints=["x4 <= x6"],
+            tracking_metric_names=["test_tracking_metric"],
+            is_test=True,
+        )
+        assert ax_client._experiment is not None
+        self.assertEqual(ax_client.objective_name, "test_objective")
+        self.assertTrue(ax_client.objective.minimize)
+
+        with self.subTest("objective_name"):
+            self.assertEqual(ax_client.objective_name, "test_objective")
+
+        with self.subTest("objective_names"):
+            self.assertEqual(ax_client.objective_names, ["test_objective"])
+
+    def test_it_does_not_accept_both_legacy_and_new_objective_params(self) -> None:
+        """Test basic experiment creation."""
+        ax_client = AxClient(
+            GenerationStrategy(
+                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
+            ax_client.experiment
+        params = {
+            "name": "test_experiment",
+            "parameters": [
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                    "value_type": "float",
+                    "log_scale": True,
+                    "digits": 6,
+                },
+                {
+                    "name": "y",
+                    "type": "choice",
+                    "values": [1, 2, 3],
+                    "value_type": "int",
+                    "is_ordered": True,
+                },
+                {"name": "x3", "type": "fixed", "value": 2, "value_type": "int"},
+                {
+                    "name": "x4",
+                    "type": "range",
+                    "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
+                {
+                    "name": "x5",
+                    "type": "choice",
+                    "values": ["one", "two", "three"],
+                    "value_type": "str",
+                },
+                {
+                    "name": "x6",
+                    "type": "range",
+                    "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
+            ],
+            "objectives": {
+                "test_objective": ObjectiveProperties(minimize=True, threshold=2.0),
+            },
+            "outcome_constraints": ["some_metric >= 3", "some_metric <= 4.0"],
+            "parameter_constraints": ["x4 <= x6"],
+            "tracking_metric_names": ["test_tracking_metric"],
+            "is_test": True,
+        }
+        with self.subTest("objective_name"):
+            with self.assertRaises(UnsupportedError):
+                ax_client.create_experiment(objective_name="something", **params)
+        with self.subTest("minimize"):
+            with self.assertRaises(UnsupportedError):
+                ax_client.create_experiment(minimize=False, **params)
+        with self.subTest("both"):
+            with self.assertRaises(UnsupportedError):
+                ax_client.create_experiment(
+                    objective_name="another thing", minimize=False, **params
+                )
+
+    def test_create_moo_experiment(self) -> None:
+        """Test basic experiment creation."""
+        ax_client = AxClient(
+            GenerationStrategy(
+                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
+            ax_client.experiment
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                    "value_type": "float",
+                    "log_scale": True,
+                    "digits": 6,
+                },
+                {
+                    "name": "y",
+                    "type": "choice",
+                    "values": [1, 2, 3],
+                    "value_type": "int",
+                    "is_ordered": True,
+                },
+                {"name": "x3", "type": "fixed", "value": 2, "value_type": "int"},
+                {
+                    "name": "x4",
+                    "type": "range",
+                    "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
+                {
+                    "name": "x5",
+                    "type": "choice",
+                    "values": ["one", "two", "three"],
+                    "value_type": "str",
+                },
+                {
+                    "name": "x6",
+                    "type": "range",
+                    "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
+            ],
+            objectives={
+                "test_objective_1": ObjectiveProperties(minimize=True, threshold=2.0),
+                "test_objective_2": ObjectiveProperties(minimize=False, threshold=7.0),
+            },
+            outcome_constraints=["some_metric >= 3", "some_metric <= 4.0"],
+            parameter_constraints=["x4 <= x6"],
+            tracking_metric_names=["test_tracking_metric"],
+            is_test=True,
+        )
+        assert ax_client._experiment is not None
+        self.assertEqual(ax_client._experiment, ax_client.experiment)
+        self.assertEqual(
+            ax_client._experiment.search_space.parameters["x"],
+            RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.001,
+                upper=0.1,
+                log_scale=True,
+                digits=6,
+            ),
+        )
+        self.assertEqual(
+            ax_client._experiment.search_space.parameters["y"],
+            ChoiceParameter(
+                name="y",
+                parameter_type=ParameterType.INT,
+                values=[1, 2, 3],
+                is_ordered=True,
+            ),
+        )
+        self.assertEqual(
+            ax_client._experiment.search_space.parameters["x3"],
+            FixedParameter(name="x3", parameter_type=ParameterType.INT, value=2),
+        )
+        self.assertEqual(
+            ax_client._experiment.search_space.parameters["x4"],
+            RangeParameter(
+                name="x4", parameter_type=ParameterType.INT, lower=1.0, upper=3.0
+            ),
+        )
+        self.assertEqual(
+            ax_client._experiment.search_space.parameters["x5"],
+            ChoiceParameter(
+                name="x5",
+                parameter_type=ParameterType.STRING,
+                values=["one", "two", "three"],
+            ),
+        )
+        optimization_config = ax_client._experiment.optimization_config
+        self.assertEqual(
+            [m.name for m in optimization_config.objective.metrics],
+            ["test_objective_1", "test_objective_2"],
+        )
+        self.assertEqual(
+            [o.minimize for o in optimization_config.objective.objectives],
+            [True, False],
+        )
+        self.assertEqual(
+            [m.lower_is_better for m in optimization_config.objective.metrics],
+            [None, None],
+        )
+        self.assertEqual(
+            [t.metric.name for t in optimization_config.objective_thresholds],
+            ["test_objective_1", "test_objective_2"],
+        )
+        self.assertEqual(
+            [t.bound for t in optimization_config.objective_thresholds],
+            [2.0, 7.0],
+        )
+        self.assertEqual(
+            [t.op for t in optimization_config.objective_thresholds],
+            [ComparisonOp.LEQ, ComparisonOp.GEQ],
+        )
+        self.assertEqual(
+            [t.relative for t in optimization_config.objective_thresholds],
+            [False, False],
+        )
+        self.assertEqual(
+            optimization_config.outcome_constraints[0],
+            OutcomeConstraint(
+                metric=Metric(name="some_metric"),
+                op=ComparisonOp.GEQ,
+                bound=3.0,
+                relative=False,
+            ),
+        )
+        self.assertEqual(
+            optimization_config.outcome_constraints[1],
+            OutcomeConstraint(
+                metric=Metric(name="some_metric"),
+                op=ComparisonOp.LEQ,
+                bound=4.0,
+                relative=False,
+            ),
+        )
+        self.assertDictEqual(
+            ax_client._experiment._tracking_metrics,
+            {"test_tracking_metric": Metric(name="test_tracking_metric")},
+        )
+        self.assertTrue(ax_client._experiment.immutable_search_space_and_opt_config)
+        self.assertTrue(ax_client.experiment.is_test)
+
+        with self.subTest("objective_name name raises UnsupportedError"):
+            with self.assertRaises(UnsupportedError):
+                ax_client.objective_name
+
+        with self.subTest("objective_names"):
+            self.assertEqual(
+                ax_client.objective_names, ["test_objective_1", "test_objective_2"]
+            )
 
     def test_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""

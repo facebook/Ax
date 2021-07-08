@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import enum
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Union, cast
 
 import numpy as np
@@ -81,6 +82,12 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
 class MetricObjective(enum.Enum):
     MINIMIZE = enum.auto()
     MAXIMIZE = enum.auto()
+
+
+@dataclass
+class ObjectiveProperties:
+    minimize: bool
+    threshold: float
 
 
 def _get_parameter_type(python_type: TParameterType) -> ParameterType:
@@ -613,7 +620,7 @@ def make_experiment(
 
 def raw_data_to_evaluation(
     raw_data: TEvaluationOutcome,
-    objective_name: str,
+    objective: Objective,
     start_time: Optional[int] = None,
     end_time: Optional[int] = None,
 ) -> TEvaluationOutcome:
@@ -637,14 +644,19 @@ def raw_data_to_evaluation(
                     )
                 raw_data[metric_name] = (float(dat), None)
         return raw_data
+    elif isinstance(objective, MultiObjective):
+        raise ValueError(
+            "Raw data must be a dictionary of metric names to mean "
+            "for multi-objective optimizations."
+        )
     elif isinstance(raw_data, list):
         return raw_data
     elif isinstance(raw_data, tuple):
-        return {objective_name: raw_data}
+        return {objective.metric.name: raw_data}
     elif isinstance(raw_data, (float, int)):
-        return {objective_name: (raw_data, None)}
+        return {objective.metric.name: (raw_data, None)}
     elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
-        return {objective_name: (numpy_type_to_python_type(raw_data), None)}
+        return {objective.metric.name: (numpy_type_to_python_type(raw_data), None)}
     else:
         raise ValueError(
             "Raw data has an invalid type. The data must either be in the form "
@@ -697,3 +709,20 @@ def data_from_evaluations(
             "evaluations, which is not currently supported."
         )
     return data
+
+
+def build_objective_threshold(
+    objective: str, objective_properties: ObjectiveProperties
+) -> str:
+    """
+    Constructs constraint string for an objective threshold interpretable
+    by `make_experiment()`
+
+    Args:
+        objective: Name of the objective
+        objective_properties: Object containing:
+            minimize: Whether this experiment represents a minimization problem.
+            threshold: The bound in the objective's threshold constraint.
+    """
+    operator = "<=" if objective_properties.minimize else ">="
+    return f"{objective} {operator} {objective_properties.threshold}"
