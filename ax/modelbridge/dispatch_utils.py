@@ -8,6 +8,8 @@ import logging
 from math import ceil
 from typing import cast, Optional, Tuple, Type, Union
 
+from ax.core.objective import MultiObjective
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -84,7 +86,9 @@ def _make_botorch_step(
 
 
 def _suggest_gp_model(
-    search_space: SearchSpace, num_trials: Optional[int] = None
+    search_space: SearchSpace,
+    num_trials: Optional[int] = None,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> Union[None, Models]:
     """Suggest a model based on the search space. None means we use Sobol.
 
@@ -93,7 +97,8 @@ def _suggest_gp_model(
     than the known intended number of total iterations.
     2. We use BO_MIXED if there are less continuous parameters in the search
     space than the sum of options for the *unordered* choice parameters.
-    3. In all other cases we use GPEI.
+    3. We us MOO if `optimization_config` has multiple objectives.
+    4. In all other cases we use GPEI.
     """
     num_continuous_parameters, num_discrete_choices = 0, 0
     num_discrete_combinations, num_possible_points = 1, 1
@@ -118,14 +123,22 @@ def _suggest_gp_model(
         logger.info("Using Sobol since we can enumerate the search space.")
         return None
 
+    is_moo_problem = (
+        optimization_config
+        and optimization_config.objective
+        and isinstance(optimization_config.objective, MultiObjective)
+    )
     if num_continuous_parameters > num_discrete_choices:
         logger.info(
             "Using GPEI (Bayesian optimization) since there are more continuous "
             "parameters than there are categories for the unordered categorical "
             "parameters."
         )
-        return Models.GPEI
-    elif num_discrete_combinations <= MAX_DISCRETE_COMBINATIONS:
+        if is_moo_problem:
+            return Models.MOO
+        else:
+            return Models.GPEI
+    elif not is_moo_problem and num_discrete_combinations <= MAX_DISCRETE_COMBINATIONS:
         logger.info(
             "Using Bayesian optimization with a categorical kernel for improved "
             "performance with a large number of unordered categorical parameters."
@@ -153,6 +166,7 @@ def choose_generation_strategy(
     num_initialization_trials: Optional[int] = None,
     max_parallelism_cap: Optional[int] = None,
     max_parallelism_override: Optional[int] = None,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -201,7 +215,9 @@ def choose_generation_strategy(
             Specify only if not specifying `max_parallelism_override`.
     """
     suggested_model = _suggest_gp_model(
-        search_space=search_space, num_trials=num_trials
+        search_space=search_space,
+        num_trials=num_trials,
+        optimization_config=optimization_config,
     )
     if not no_bayesian_optimization and suggested_model is not None:
         if not enforce_sequential_optimization and (  # pragma: no cover
