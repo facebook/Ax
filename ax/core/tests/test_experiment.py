@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 from typing import Type
 from unittest.mock import patch
 
@@ -20,7 +21,7 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
-from ax.utils.common.constants import Keys
+from ax.utils.common.constants import Keys, EXPERIMENT_IS_TEST_WARNING
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_arm,
@@ -801,3 +802,49 @@ class ExperimentWithMapDataTest(TestCase):
             old_df.drop(["arm_name", "trial_index"], axis=1),
             new_df.drop(["arm_name", "trial_index"], axis=1),
         )
+
+    def test_is_test_warning(self):
+        experiments_module = "ax.core.experiment"
+        with self.subTest("it warns on construction for a test"):
+            with self.assertLogs(experiments_module, level=logging.INFO) as logger:
+                exp = Experiment(
+                    search_space=get_search_space(),
+                    is_test=True,
+                )
+                self.assertIn(
+                    f"INFO:{experiments_module}:{EXPERIMENT_IS_TEST_WARNING}",
+                    logger.output,
+                )
+
+        with self.subTest("it does not warn on construction for a non test"):
+            with self.assertLogs(experiments_module, level=logging.INFO) as logger:
+                logging.getLogger(experiments_module).info(
+                    "there must be at least one log or the assertLogs statement fails"
+                )
+                exp = Experiment(
+                    search_space=get_search_space(),
+                    is_test=False,
+                )
+                self.assertNotIn(
+                    f"INFO:{experiments_module}:{EXPERIMENT_IS_TEST_WARNING}",
+                    logger.output,
+                )
+
+        with self.subTest("it warns on setting is_test to True"):
+            with self.assertLogs(experiments_module, level=logging.INFO) as logger:
+                exp.is_test = True
+                self.assertIn(
+                    f"INFO:{experiments_module}:{EXPERIMENT_IS_TEST_WARNING}",
+                    logger.output,
+                )
+
+        with self.subTest("it does not warn on setting is_test to False"):
+            with self.assertLogs(experiments_module, level=logging.INFO) as logger:
+                logging.getLogger(experiments_module).info(
+                    "there must be at least one log or the assertLogs statement fails"
+                )
+                exp.is_test = False
+                self.assertNotIn(
+                    f"INFO:{experiments_module}:{EXPERIMENT_IS_TEST_WARNING}",
+                    logger.output,
+                )

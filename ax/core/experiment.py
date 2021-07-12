@@ -30,7 +30,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import Base
-from ax.utils.common.constants import Keys
+from ax.utils.common.constants import Keys, EXPERIMENT_IS_TEST_WARNING
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis
@@ -86,6 +86,7 @@ class Experiment(Base):
         # appease pyre
         self._search_space: SearchSpace
         self._status_quo: Optional[Arm] = None
+        self._is_test: bool
 
         self._name = name
         self.description = description
@@ -144,6 +145,18 @@ class Experiment(Base):
     def name(self, name: str) -> None:
         """Set experiment name."""
         self._name = name
+
+    @property
+    def is_test(self) -> bool:
+        """Get whether the experiment is a test."""
+        return self._is_test
+
+    @is_test.setter
+    def is_test(self, is_test: bool) -> None:
+        """Set whether the experiment is a test."""
+        if is_test:
+            logger.info(EXPERIMENT_IS_TEST_WARNING)
+        self._is_test = is_test
 
     @property
     def is_simple_experiment(self):
