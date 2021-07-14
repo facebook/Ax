@@ -51,6 +51,10 @@
     {
       "id": "multiobjective_optimization",
       "title": "Multi-Objective Optimization"
+    },
+    {
+      "id": "saasbo_nehvi",
+      "title": "Fully Bayesian, High-Dimensional, Multi-Objective Optimization"
     }
   ],
   "Field Experiments": [
