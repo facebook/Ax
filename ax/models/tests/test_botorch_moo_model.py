@@ -360,7 +360,9 @@ class BotorchMOOModelTest(TestCase):
             # NEHVI should call FastNondominatedPartitioning 1 time
             # since a batched partitioning is used for 2 objectives
             _mock_partitioning.assert_called_once()
-            self.assertTrue(torch.equal(gen_metadata["objective_thresholds"], obj_t))
+            self.assertTrue(
+                torch.equal(gen_metadata["objective_thresholds"], obj_t.cpu())
+            )
             _mock_fit_model = es.enter_context(mock.patch(FIT_MODEL_MO_PATH))
             # 3 objective
             model.fit(
@@ -491,7 +493,9 @@ class BotorchMOOModelTest(TestCase):
             )
             self.assertIn("objective_thresholds", gen_metadata)
             obj_t = gen_metadata["objective_thresholds"]
-            self.assertTrue(torch.equal(obj_t[:2], torch.tensor([9.9, 3.3], **tkwargs)))
+            self.assertTrue(
+                torch.equal(obj_t[:2], torch.tensor([9.9, 3.3], dtype=tkwargs["dtype"]))
+            )
             self.assertTrue(np.isnan(obj_t[2]))
 
             # test infer objective thresholds alone
@@ -718,10 +722,10 @@ class BotorchMOOModelTest(TestCase):
                 n,
                 bounds,
                 objective_weights,
-                objective_thresholds=torch.tensor([1.0, 1.0]),
+                objective_thresholds=torch.tensor([1.0, 1.0], **tkwargs),
             )
         # test that objective thresholds and weights are properly subsetted
-        obj_t = torch.tensor([1.0, 1.0, 1.0])
+        obj_t = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
         with mock.patch.object(
             model,
             "acqf_constructor",

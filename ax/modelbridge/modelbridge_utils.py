@@ -699,7 +699,7 @@ def get_pareto_frontier_and_transformed_configs(
                 arm_name=arm_names[indx[i]],
             )
         )
-    return frontier_observations, f, obj_w, obj_t
+    return frontier_observations, f, obj_w.cpu(), obj_t.cpu()
 
 
 def pareto_frontier(
