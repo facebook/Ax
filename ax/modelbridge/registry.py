@@ -49,6 +49,10 @@ from ax.models.torch.botorch_kg import KnowledgeGradient
 from ax.models.torch.botorch_mes import MaxValueEntropySearch
 from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.models.torch.fully_bayesian import (
+    FullyBayesianBotorchModel,
+    FullyBayesianMOOBotorchModel,
+)
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
@@ -232,6 +236,18 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Mixed_transforms + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
+    "FullyBayesian": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=FullyBayesianBotorchModel,
+        transforms=Cont_X_trans + Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
+    "FullyBayesianMOO": ModelSetup(
+        bridge_class=MultiObjectiveTorchModelBridge,
+        model_class=FullyBayesianMOOBotorchModel,
+        transforms=Cont_X_trans + Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
 }
 
 
@@ -391,6 +407,8 @@ class Models(ModelRegistryBase):
     GPKG = "GPKG"
     GPMES = "GPMES"
     FACTORIAL = "Factorial"
+    FULLYBAYESIAN = "FullyBayesian"
+    FULLYBAYESIANMOO = "FullyBayesianMOO"
     THOMPSON = "Thompson"
     BOTORCH = "BO"
     BOTORCH_MODULAR = "BoTorch"

@@ -284,6 +284,14 @@ ax.models.torch.frontier_utils module
     :undoc-members:
     :show-inheritance:
 
+ax.models.torch.fully_bayesian module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.fully_bayesian
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.models.torch.posterior_mean module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

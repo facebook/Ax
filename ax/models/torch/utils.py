@@ -266,7 +266,7 @@ def subset_model(
     if outcome_constraints is not None:
         A, _ = outcome_constraints
         nonzero = nonzero | torch.any(A != 0, dim=0)
-    idcs_t = torch.arange(nonzero.size(0))[nonzero]
+    idcs_t = torch.arange(nonzero.size(0), device=objective_weights.device)[nonzero]
     idcs = idcs_t.tolist()
     if len(idcs) == model.num_outputs:
         # if we use all model outputs, just return the inputs
