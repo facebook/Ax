@@ -286,7 +286,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         f"{STUBS_PATH}.BraninMetric.is_available_while_running",
         return_value=False,
     )
-    def test_hypervolume(self, _):
+    def test_hypervolume(self, _, cuda=False):
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
         )
@@ -320,6 +320,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             transforms=[],
             experiment=exp,
             data=exp.fetch_data(),
+            torch_device=torch.device("cuda" if cuda else "cpu"),
             objective_thresholds=objective_thresholds,
         )
         with patch(
@@ -351,13 +352,17 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         )
         self.assertTrue(predicted_hv >= 0)
 
+    def test_hypervolume_cuda(self):
+        if torch.cuda.is_available():
+            self.test_hypervolume(cuda=True)
+
     @patch(
         # Mocking `BraninMetric` as not available while running, so it will
         # be grabbed from cache during `fetch_data`.
         f"{STUBS_PATH}.BraninMetric.is_available_while_running",
         return_value=False,
     )
-    def test_infer_objective_thresholds(self, _):
+    def test_infer_objective_thresholds(self, _, cuda=False):
         # lightweight test
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True,
@@ -375,6 +380,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             model=MultiObjectiveBotorchModel(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
+            torch_device=torch.device("cuda" if cuda else "cpu"),
             experiment=exp,
             data=data,
         )
