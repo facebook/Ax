@@ -92,3 +92,21 @@ def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> Non
         raise ValueError(
             f"Arguments {extra_keywords} are not expected by any of {typed_callables}."
         )
+
+
+def warn_on_kwargs(callable_with_kwargs: Callable, **kwargs: Any) -> None:
+    """Log a warning when a decoder function receives unexpected kwargs.
+
+    NOTE: This mainly caters to the use case where an older version of Ax is
+    used to decode objects, serialized to JSON by a newer version of Ax (and
+    therefore potentially containing new fields). In that case, the decoding
+    function should not fail when encountering those additional fields, but
+    rather just ignore them and log a warning using this function.
+    """
+    if kwargs:
+        logger.warning(
+            "Found unexpected kwargs: %s while calling %s "
+            "from JSON. These kwargs will be ignored.",
+            kwargs,
+            callable_with_kwargs,
+        )
