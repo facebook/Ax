@@ -13,6 +13,7 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Dict, Iterable, Optional, Set, Tuple
 from unittest.mock import patch
 
+from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
@@ -319,6 +320,23 @@ class TestAxScheduler(TestCase):
         # experiment.
         dat = scheduler.experiment.fetch_data().df
         self.assertEqual(set(dat["trial_index"].values), set(range(11)))
+
+    def test_run_preattached_trials_only(self):
+        # assert that pre-attached trials run when max_trials = 0
+        scheduler = BareBonesTestScheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.two_sobol_steps_GS,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+            ),
+        )
+        trial = scheduler.experiment.new_trial()
+        trial.add_arm(Arm(parameters={"x1": 5, "x2": 5}))
+        scheduler.run_n_trials(max_trials=0)
+        self.assertEqual(len(scheduler.experiment.trials), 1)
+        self.assertTrue(  # Make sure all trials got to complete.
+            all(t.completed_successfully for t in scheduler.experiment.trials.values())
+        )
 
     def test_stop_trial(self):
         # With runners & metrics, `BareBonesTestScheduler.run_all_trials` should run.

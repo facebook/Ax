@@ -744,14 +744,17 @@ class Scheduler(WithDBSettingsBase, ABC):
             num_preexisting_trials=None, status=RunTrialsStatus.STARTED
         )
 
+        while len(self.candidate_trials) > 0:
+            self.run(max_new_trials=0)
+            # only wait for trials to complete if max_pending_trials are already running
+            if not self.has_capacity():
+                yield self.wait_for_completed_trials_and_report_results()
+
         # Until completion criterion is reached or `max_trials` is scheduled,
         # schedule new trials and poll existing ones in a loop.
         while not self.completion_criterion() and len(trials) - n_existing < max_trials:
             if self.should_abort():
                 self._record_optimization_complete_message()
-                self._record_run_trials_status(
-                    num_preexisting_trials=n_existing, status=RunTrialsStatus.ABORTED
-                )
                 self._record_run_trials_status(
                     num_preexisting_trials=n_existing, status=RunTrialsStatus.ABORTED
                 )
