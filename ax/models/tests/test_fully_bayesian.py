@@ -27,6 +27,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import ModelListGP
+from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL
 from botorch.models.transforms.input import Warp
 from botorch.optim.optimize import optimize_acqf
 from botorch.utils import get_objective_weights_transform
@@ -126,7 +127,9 @@ try:
                             torch.rand(4, 1, Xs1[0].shape[-1], **tkwargs) * 0.5 + 0.1
                         )
                     if inferred_noise:
-                        dummy_samples["noise"] = torch.rand(4, 1, **tkwargs)
+                        dummy_samples["noise"] = torch.rand(4, 1, **tkwargs).clamp_min(
+                            MIN_INFERRED_NOISE_LEVEL
+                        )
 
                 with mock.patch(
                     RUN_INFERENCE_PATH,
