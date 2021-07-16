@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 
@@ -16,6 +18,7 @@ from ax.core.trial import Trial
 from ax.modelbridge.transforms.base import Transform
 from ax.storage.botorch_modular_registry import CLASS_TO_REVERSE_REGISTRY
 from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
+from ax.utils.common.kwargs import warn_on_kwargs
 
 
 if TYPE_CHECKING:
@@ -24,7 +27,7 @@ if TYPE_CHECKING:
 
 
 def batch_trial_from_json(
-    experiment: "core.experiment.Experiment",
+    experiment: core.experiment.Experiment,
     index: int,
     trial_type: Optional[str],
     status: TrialStatus,
@@ -34,7 +37,6 @@ def batch_trial_from_json(
     time_run_started: Optional[datetime],
     abandoned_reason: Optional[str],
     run_metadata: Optional[Dict[str, Any]],
-    stop_metadata: Optional[Dict[str, Any]],
     generator_run_structs: List[GeneratorRunStruct],
     runner: Optional[Runner],
     abandoned_arms_metadata: Dict[str, AbandonedArm],
@@ -47,6 +49,8 @@ def batch_trial_from_json(
     ttl_seconds: Optional[int] = None,
     generation_step_index: Optional[int] = None,
     properties: Optional[Dict[str, Any]] = None,
+    stop_metadata: Optional[Dict[str, Any]] = None,
+    **kwargs: Any,
 ) -> BatchTrial:
     """Load Ax BatchTrial from JSON.
 
@@ -76,11 +80,12 @@ def batch_trial_from_json(
     batch._generation_step_index = generation_step_index
     batch._properties = properties
     batch._refresh_arms_by_name()  # Trigger cache build
+    warn_on_kwargs(callable_with_kwargs=BatchTrial, **kwargs)
     return batch
 
 
 def trial_from_json(
-    experiment: "core.experiment.Experiment",
+    experiment: core.experiment.Experiment,
     index: int,
     trial_type: Optional[str],
     status: TrialStatus,
@@ -90,7 +95,6 @@ def trial_from_json(
     time_run_started: Optional[datetime],
     abandoned_reason: Optional[str],
     run_metadata: Optional[Dict[str, Any]],
-    stop_metadata: Optional[Dict[str, Any]],
     generator_run: GeneratorRun,
     runner: Optional[Runner],
     num_arms_created: int,
@@ -99,6 +103,8 @@ def trial_from_json(
     ttl_seconds: Optional[int] = None,
     generation_step_index: Optional[int] = None,
     properties: Optional[Dict[str, Any]] = None,
+    stop_metadata: Optional[Dict[str, Any]] = None,
+    **kwargs: Any,
 ) -> Trial:
     """Load Ax trial from JSON.
 
@@ -126,6 +132,7 @@ def trial_from_json(
     trial._num_arms_created = num_arms_created
     trial._generation_step_index = generation_step_index
     trial._properties = properties or {}
+    warn_on_kwargs(callable_with_kwargs=Trial, **kwargs)
     return trial
 
 

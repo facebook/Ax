@@ -8,9 +8,11 @@
 from typing import Callable, Dict
 from unittest.mock import patch
 
-from ax.utils.common.kwargs import validate_kwarg_typing
+from ax.utils.common.kwargs import validate_kwarg_typing, warn_on_kwargs
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
+
+logger = get_logger("ax.utils.common.kwargs")
 
 
 class TestKwargUtils(TestCase):
@@ -70,7 +72,6 @@ class TestKwargUtils(TestCase):
             validate_kwarg_typing(typed_callables, **kwargs)
 
         # callables have duplicate keywords
-        logger = get_logger("ax.utils.common.kwargs")
         with patch.object(logger, "debug") as mock_debug:
             kwargs = {"arg1": 1, "arg2": "test", "arg4": "test_again"}
             typed_callables = [typed_callable, typed_callable_dup_keyword]
@@ -113,3 +114,24 @@ class TestKwargUtils(TestCase):
                 f"Got test_again (type: {type('test_again')})."
             )
             mock_warning.assert_called_once_with(expected_message)
+
+
+class TestWarnOnKwargs(TestCase):
+    def test_it_warns_if_kwargs_are_passed(self):
+        with patch.object(logger, "warning") as mock_warning:
+
+            def callable_arg():
+                return
+
+            warn_on_kwargs(callable_with_kwargs=callable_arg, foo="")
+            mock_warning.assert_called_once_with(
+                "Found unexpected kwargs: %s while calling %s "
+                "from JSON. These kwargs will be ignored.",
+                {"foo": ""},
+                callable_arg,
+            )
+
+    def test_it_does_not_warn_if_no_kwargs_are_passed(self):
+        with patch.object(logger, "warning") as mock_warning:
+            warn_on_kwargs(callable_with_kwargs=lambda: None)
+            mock_warning.assert_not_called()
