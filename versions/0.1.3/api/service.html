@@ -1,0 +1,623 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.3/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.3/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.3/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.3/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.3/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.3/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.3/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.3/css/main.css"/><script src="/versions/0.1.3/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.3/"><img class="logo" src="/versions/0.1.3/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.3/versions.html"><h3>0.1.3</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.3/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.3/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.3/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<div class="section" id="module-ax.service">
+<span id="ax-service"></span><h1>ax.service<a class="headerlink" href="#module-ax.service" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-ax.service.ax_client">
+<span id="ax-client"></span><h2>Ax Client<a class="headerlink" href="#module-ax.service.ax_client" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="ax.service.ax_client.AxClient">
+<em class="property">class </em><code class="descclassname">ax.service.ax_client.</code><code class="descname">AxClient</code><span class="sig-paren">(</span><em>generation_strategy=None</em>, <em>db_settings=None</em>, <em>enforce_sequential_optimization=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Convenience handler for management of experimentation cycle through a
+service-like API. External system manages scheduling of the cycle and makes
+calls to this client to get next suggestion in the experiment and log back
+data from the evaluation of that suggestion.</p>
+<p>Note: <cite>AxClient</cite> expects to only propose 1 arm (suggestion) per trial; support
+for use cases that require use of batches is coming soon.</p>
+<p>Two custom types used in this class for convenience are <cite>TParamValue</cite> and
+<cite>TParameterization</cite>. Those are shortcuts for <cite>Union[str, bool, float, int]</cite>
+and <cite>Dict[str, Union[str, bool, float, int]]</cite>, respectively.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>generation_strategy</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference internal" href="modelbridge.html#ax.modelbridge.generation_strategy.GenerationStrategy" title="ax.modelbridge.generation_strategy.GenerationStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">GenerationStrategy</span></code></a>]) – Optional generation strategy. If not set, one is
+intelligently chosen based on properties of search space.</li>
+<li><strong>db_settings</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]) – Settings for saving and reloading the underlying experiment
+to a database.</li>
+<li><strong>enforce_sequential_optimization</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether to enforce that when it is
+reasonable to switch models during the optimization (as prescribed
+by <cite>num_arms</cite> in generation strategy), Ax will wait for enough trials
+to be completed with data to proceed. Defaults to True. If set to
+False, Ax will keep generating new trials from the previous model
+until enough data is gathered. Use this only if necessary;
+otherwise, it is more resource-efficient to
+optimize sequentially, by waiting until enough data is available to
+use the next model.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.attach_trial">
+<code class="descname">attach_trial</code><span class="sig-paren">(</span><em>parameters</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.attach_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.attach_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attach a new trial with the given parameterization to the experiment.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>parameters</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]]) – Parameterization of the new trial.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]], <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Tuple of parameterization and trial index from newly created trial.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.complete_trial">
+<code class="descname">complete_trial</code><span class="sig-paren">(</span><em>trial_index</em>, <em>raw_data</em>, <em>metadata=None</em>, <em>sample_size=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.complete_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.complete_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Completes the trial with given metric values and adds optional metadata
+to it.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>trial_index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index of trial within the experiment.</li>
+<li><strong>raw_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]], <code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – Evaluation data for the trial. Can be a mapping from
+metric name to a tuple of mean and SEM, just a tuple of mean and
+SEM if only one metric in optimization, or just the mean if there
+is no SEM.</li>
+<li><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]) – Additional metadata to track about this run.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.create_experiment">
+<code class="descname">create_experiment</code><span class="sig-paren">(</span><em>parameters</em>, <em>name=None</em>, <em>objective_name=None</em>, <em>minimize=False</em>, <em>parameter_constraints=None</em>, <em>outcome_constraints=None</em>, <em>status_quo=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.create_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.create_experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new experiment and save it if DBSettings available.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>parameters</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]]]]]) – List of dictionaries representing parameters in the
+experiment search space. Required elements in the dictionaries
+are: “name” (name of this parameter, string), “type” (type of the
+parameter: “range”, “fixed”, or “choice”, string), and “bounds”
+for range parameters (list of two values, lower bound first),
+“values” for choice parameters (list of values), and “value” for
+fixed parameters (single value).</li>
+<li><strong>objective</strong> – Name of the metric used as objective in this experiment.
+This metric must be present in <cite>raw_data</cite> argument to <cite>complete_trial</cite>.</li>
+<li><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – Name of the experiment to be created.</li>
+<li><strong>minimize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether this experiment represents a minimization problem.</li>
+<li><strong>parameter_constraints</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]) – List of string representation of parameter
+constraints, such as “x3 &gt;= x4” or “x3 + x4 + x5 &gt;= 2”. For sum
+constraints, any number of arguments is accepted, and acceptable
+operators are “&lt;=” and “&gt;=”.</li>
+<li><strong>outcome_constraints</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]) – List of string representation of outcome
+constraints of form “metric_name &gt;= bound”, like “m1 &lt;= 3.”</li>
+<li><strong>status_quo</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]]]) – Parameterization of the current state of the system.
+If set, this will be added to each trial to be evaluated alongside
+test configurations.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.service.ax_client.AxClient.experiment">
+<code class="descname">experiment</code><a class="headerlink" href="#ax.service.ax_client.AxClient.experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the experiment set on this Ax client</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><code class="xref py py-class docutils literal notranslate"><span class="pre">Experiment</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.get_best_parameters">
+<code class="descname">get_best_parameters</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.get_best_parameters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.get_best_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given an experiment, identifies the best arm.</p>
+<p>First attempts according to do so with models used in optimization and
+its corresponding predictions if available. Falls back to the best raw
+objective based on the data fetched from the experiment.</p>
+<dl class="docutils">
+<dt>TModelPredictArm is of the form:</dt>
+<dd>({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>experiment</strong> – Experiment, on which to identify best raw objective arm.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]]]]]]]</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Tuple of parameterization and model predictions for it.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.get_contour_plot">
+<code class="descname">get_contour_plot</code><span class="sig-paren">(</span><em>param_x=None</em>, <em>param_y=None</em>, <em>metric_name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.get_contour_plot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.get_contour_plot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves a plot configuration for a contour plot of the response
+surface. For response surfaces with more than two parameters,
+selected two parameters will appear on the axes, and remaining parameters
+will be affixed to the middle of their range. If contour params arguments
+are not provided, the first two parameters in the search space will be
+used. If contour metrics are not provided, objective will be used.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>param_x</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – name of parameters to use on x-axis for
+the contour response surface plots.</li>
+<li><strong>param_y</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – name of parameters to use on y-axis for
+the contour response surface plots.</li>
+<li><strong>metric_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – Name of the metric, for which to plot the response
+surface.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="plot.html#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.get_next_trial">
+<code class="descname">get_next_trial</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.get_next_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.get_next_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate trial with the next set of parameters to try in the iteration process.</p>
+<p>Note: Service API currently supports only 1-arm trials.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]], <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Tuple of trial parameterization, trial index</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.get_optimization_trace">
+<code class="descname">get_optimization_trace</code><span class="sig-paren">(</span><em>objective_optimum=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.get_optimization_trace"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.get_optimization_trace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves the plot configuration for optimization trace, which shows
+the evolution of the objective mean over iterations.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>objective_optimum</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – Optimal objective, if known, for display in the
+visualization.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="plot.html#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.get_recommended_max_parallelism">
+<code class="descname">get_recommended_max_parallelism</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.get_recommended_max_parallelism"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.get_recommended_max_parallelism" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recommends maximum number of trials that can be scheduled in parallel
+at different stages of optimization.</p>
+<p>Some optimization algorithms profit significantly from sequential
+optimization (e.g. suggest a few points, get updated with data for them,
+repeat). This setting indicates how many trials should be in flight
+(generated, but not yet completed with data).</p>
+<p>The output of this method is mapping of form
+{num_trials -&gt; max_parallelism_setting}, where the max_parallelism_setting
+is used for num_trials trials. If max_parallelism_setting is -1, as
+many of the trials can be ran in parallel, as necessary. If num_trials
+in a tuple is -1, then the corresponding max_parallelism_setting
+should be used for all subsequent trials.</p>
+<p>For example, if the returned list is [(5, -1), (12, 6), (-1, 3)],
+the schedule could be: run 5 trials in parallel, run 6 trials in
+parallel twice, run 3 trials in parallel for as long as needed. Here,
+‘running’ a trial means obtaining a next trial from <cite>AxClient</cite> through
+get_next_trials and completing it with data when available.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]]</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Mapping of form {num_trials -&gt; max_parallelism_setting}.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.get_report">
+<code class="descname">get_report</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.get_report"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.get_report" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns HTML of a generated report containing vizualizations.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.load_experiment">
+<code class="descname">load_experiment</code><span class="sig-paren">(</span><em>experiment_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.load_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.load_experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>[Work in progress] Load an existing experiment.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>experiment_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of the experiment.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><code class="docutils literal notranslate"><span class="pre">None</span></code></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Experiment object.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.log_trial_failure">
+<code class="descname">log_trial_failure</code><span class="sig-paren">(</span><em>trial_index</em>, <em>metadata=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.log_trial_failure"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.log_trial_failure" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mark that the given trial has failed while running.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>trial_index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index of trial within the experiment.</li>
+<li><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]) – Additional metadata to track about this run.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.ax_client.AxClient.should_stop_early">
+<code class="descname">should_stop_early</code><span class="sig-paren">(</span><em>trial_index</em>, <em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/ax_client.html#AxClient.should_stop_early"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.ax_client.AxClient.should_stop_early" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether to stop the given parameterization given early data.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.service.managed_loop">
+<span id="managed-loop"></span><h2>Managed Loop<a class="headerlink" href="#module-ax.service.managed_loop" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="ax.service.managed_loop.OptimizationLoop">
+<em class="property">class </em><code class="descclassname">ax.service.managed_loop.</code><code class="descname">OptimizationLoop</code><span class="sig-paren">(</span><em>experiment</em>, <em>total_trials=20</em>, <em>arms_per_trial=1</em>, <em>wait_time=0</em>, <em>run_async=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.managed_loop.OptimizationLoop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Managed optimization loop, in which Ax oversees deployment of trials and
+gathering data.</p>
+<dl class="method">
+<dt id="ax.service.managed_loop.OptimizationLoop.full_run">
+<code class="descname">full_run</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.full_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.managed_loop.OptimizationLoop.full_run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Runs full optimization loop as defined in the provided optimization
+plan.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#ax.service.managed_loop.OptimizationLoop" title="ax.service.managed_loop.OptimizationLoop"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimizationLoop</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.managed_loop.OptimizationLoop.get_best_point">
+<code class="descname">get_best_point</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.get_best_point"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.managed_loop.OptimizationLoop.get_best_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtains the best point encountered in the course
+of this optimization.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]]]]]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.managed_loop.OptimizationLoop.get_current_model">
+<code class="descname">get_current_model</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.get_current_model"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.managed_loop.OptimizationLoop.get_current_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtain the most recently used model in optimization.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="method">
+<dt id="ax.service.managed_loop.OptimizationLoop.run_trial">
+<code class="descname">run_trial</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.run_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.managed_loop.OptimizationLoop.run_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run a single step of the optimization plan.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><code class="docutils literal notranslate"><span class="pre">None</span></code></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="staticmethod">
+<dt id="ax.service.managed_loop.OptimizationLoop.with_evaluation_function">
+<em class="property">static </em><code class="descname">with_evaluation_function</code><span class="sig-paren">(</span><em>parameters</em>, <em>evaluation_function</em>, <em>experiment_name=None</em>, <em>objective_name=None</em>, <em>minimize=False</em>, <em>parameter_constraints=None</em>, <em>outcome_constraints=None</em>, <em>total_trials=20</em>, <em>arms_per_trial=1</em>, <em>wait_time=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.with_evaluation_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.managed_loop.OptimizationLoop.with_evaluation_function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Constructs a synchronous <cite>OptimizationLoop</cite> using an evaluation
+function.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#ax.service.managed_loop.OptimizationLoop" title="ax.service.managed_loop.OptimizationLoop"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimizationLoop</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="classmethod">
+<dt id="ax.service.managed_loop.OptimizationLoop.with_runners_and_metrics">
+<em class="property">classmethod </em><code class="descname">with_runners_and_metrics</code><span class="sig-paren">(</span><em>parameters</em>, <em>path_to_runner</em>, <em>paths_to_metrics</em>, <em>experiment_name=None</em>, <em>objective_name=None</em>, <em>minimize=False</em>, <em>parameter_constraints=None</em>, <em>outcome_constraints=None</em>, <em>total_trials=20</em>, <em>arms_per_trial=1</em>, <em>wait_time=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.with_runners_and_metrics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.managed_loop.OptimizationLoop.with_runners_and_metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Constructs an asynchronous <cite>OptimizationLoop</cite> using Ax runners and
+metrics.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#ax.service.managed_loop.OptimizationLoop" title="ax.service.managed_loop.OptimizationLoop"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimizationLoop</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.service.managed_loop.optimize">
+<code class="descclassname">ax.service.managed_loop.</code><code class="descname">optimize</code><span class="sig-paren">(</span><em>parameters</em>, <em>evaluation_function</em>, <em>experiment_name=None</em>, <em>objective_name=None</em>, <em>minimize=False</em>, <em>parameter_constraints=None</em>, <em>outcome_constraints=None</em>, <em>total_trials=20</em>, <em>arms_per_trial=1</em>, <em>wait_time=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/managed_loop.html#optimize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.managed_loop.optimize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct and run a full optimization loop.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]]]]], <a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><code class="xref py py-class docutils literal notranslate"><span class="pre">Experiment</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<div class="section" id="utils">
+<h3>Utils<a class="headerlink" href="#utils" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+<div class="section" id="module-ax.service.utils.dispatch">
+<span id="dispatch"></span><h2>Dispatch<a class="headerlink" href="#module-ax.service.utils.dispatch" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="ax.service.utils.dispatch.choose_generation_strategy">
+<code class="descclassname">ax.service.utils.dispatch.</code><code class="descname">choose_generation_strategy</code><span class="sig-paren">(</span><em>search_space</em>, <em>arms_per_trial=1</em>, <em>enforce_sequential_optimization=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/utils/dispatch.html#choose_generation_strategy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.utils.dispatch.choose_generation_strategy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select an appropriate generation strategy based on the properties of
+the search space.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="modelbridge.html#ax.modelbridge.generation_strategy.GenerationStrategy" title="ax.modelbridge.generation_strategy.GenerationStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">GenerationStrategy</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.service.utils.instantiation">
+<span id="instantiation"></span><h2>Instantiation<a class="headerlink" href="#module-ax.service.utils.instantiation" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="ax.service.utils.instantiation.constraint_from_str">
+<code class="descclassname">ax.service.utils.instantiation.</code><code class="descname">constraint_from_str</code><span class="sig-paren">(</span><em>representation</em>, <em>parameters</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/utils/instantiation.html#constraint_from_str"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.utils.instantiation.constraint_from_str" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse string representation of a parameter constraint.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="core.html#ax.core.parameter_constraint.ParameterConstraint" title="ax.core.parameter_constraint.ParameterConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterConstraint</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.service.utils.instantiation.make_experiment">
+<code class="descclassname">ax.service.utils.instantiation.</code><code class="descname">make_experiment</code><span class="sig-paren">(</span><em>parameters</em>, <em>name=None</em>, <em>objective_name=None</em>, <em>minimize=False</em>, <em>parameter_constraints=None</em>, <em>outcome_constraints=None</em>, <em>status_quo=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/utils/instantiation.html#make_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.utils.instantiation.make_experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instantiation wrapper that allows for creation of SimpleExperiment without
+importing or instantiating any Ax classes.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><code class="xref py py-class docutils literal notranslate"><span class="pre">Experiment</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.service.utils.instantiation.outcome_constraint_from_str">
+<code class="descclassname">ax.service.utils.instantiation.</code><code class="descname">outcome_constraint_from_str</code><span class="sig-paren">(</span><em>representation</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/utils/instantiation.html#outcome_constraint_from_str"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.utils.instantiation.outcome_constraint_from_str" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse string representation of an outcome constraint.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="core.html#ax.core.outcome_constraint.OutcomeConstraint" title="ax.core.outcome_constraint.OutcomeConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">OutcomeConstraint</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.service.utils.instantiation.parameter_from_json">
+<code class="descclassname">ax.service.utils.instantiation.</code><code class="descname">parameter_from_json</code><span class="sig-paren">(</span><em>representation</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/utils/instantiation.html#parameter_from_json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.utils.instantiation.parameter_from_json" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instantiate a parameter from JSON representation.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="core.html#ax.core.parameter.Parameter" title="ax.core.parameter.Parameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Parameter</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.service.utils.storage">
+<span id="storage"></span><h2>Storage<a class="headerlink" href="#module-ax.service.utils.storage" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="ax.service.utils.storage.load_experiment">
+<code class="descclassname">ax.service.utils.storage.</code><code class="descname">load_experiment</code><span class="sig-paren">(</span><em>name</em>, <em>db_settings</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/utils/storage.html#load_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.utils.storage.load_experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load experiment from the db. Service API only supports <cite>Experiment</cite>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Experiment name.</li>
+<li><strong>db_settings</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">DBSettings</span></code>) – Defines behavior for loading/saving experiment to/from db.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Loaded experiment.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">ax.core.Experiment</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.service.utils.storage.save_experiment">
+<code class="descclassname">ax.service.utils.storage.</code><code class="descname">save_experiment</code><span class="sig-paren">(</span><em>experiment</em>, <em>db_settings</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/utils/storage.html#save_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.service.utils.storage.save_experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save experiment to db.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>experiment</strong> (<a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><code class="xref py py-class docutils literal notranslate"><span class="pre">Experiment</span></code></a>) – <cite>Experiment</cite> object.</li>
+<li><strong>db_settings</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">DBSettings</span></code>) – Defines behavior for loading/saving experiment to/from db.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runners.html">ax.runners</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ax.service</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.service.ax_client">Ax Client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.service.managed_loop">Managed Loop</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.service.utils.dispatch">Dispatch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.service.utils.instantiation">Instantiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.service.utils.storage">Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+<li>Previous: <a href="runners.html" title="previous chapter">ax.runners</a></li>
+<li>Next: <a href="storage.html" title="next chapter">ax.storage</a></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3>Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input name="q" type="text"/>
+<input type="submit" value="Go"/>
+<input name="check_keywords" type="hidden" value="yes"/>
+<input name="area" type="hidden" value="default"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.3/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

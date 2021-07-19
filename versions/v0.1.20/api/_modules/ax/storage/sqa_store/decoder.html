@@ -1,0 +1,927 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/v0.1.20/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/v0.1.20/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/v0.1.20/img/ax.svg"/><link rel="shortcut icon" href="/versions/v0.1.20/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/v0.1.20/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/v0.1.20/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/v0.1.20/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/v0.1.20/css/main.css"/><script src="/versions/v0.1.20/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/v0.1.20/"><img class="logo" src="/versions/v0.1.20/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/v0.1.20/versions.html"><h3>v0.1.20</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/v0.1.20/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/v0.1.20/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/v0.1.20/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.storage.sqa_store.decoder</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">BaseTrial</span><span class="p">,</span> <span class="n">TrialStatus</span>
+<span class="kn">from</span> <span class="nn">ax.core.batch_trial</span> <span class="kn">import</span> <span class="n">AbandonedArm</span><span class="p">,</span> <span class="n">BatchTrial</span><span class="p">,</span> <span class="n">GeneratorRunStruct</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span><span class="p">,</span> <span class="n">GeneratorRunType</span>
+<span class="kn">from</span> <span class="nn">ax.core.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">ax.core.multi_type_experiment</span> <span class="kn">import</span> <span class="n">MultiTypeExperiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">MultiObjective</span><span class="p">,</span> <span class="n">Objective</span><span class="p">,</span> <span class="n">ScalarizedObjective</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">,</span>
+    <span class="n">OptimizationConfig</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="kn">import</span> <span class="n">ObjectiveThreshold</span><span class="p">,</span> <span class="n">OutcomeConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">ChoiceParameter</span><span class="p">,</span> <span class="n">FixedParameter</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter_constraint</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OrderConstraint</span><span class="p">,</span>
+    <span class="n">ParameterConstraint</span><span class="p">,</span>
+    <span class="n">SumConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.runner</span> <span class="kn">import</span> <span class="n">Runner</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.simple_experiment</span> <span class="kn">import</span> <span class="n">SimpleExperiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.trial</span> <span class="kn">import</span> <span class="n">Trial</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.storage</span> <span class="kn">import</span> <span class="n">SQADecodeError</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="kn">import</span> <span class="n">Models</span><span class="p">,</span> <span class="n">ModelRegistryBase</span>
+<span class="kn">from</span> <span class="nn">ax.storage.json_store.decoder</span> <span class="kn">import</span> <span class="n">object_from_json</span>
+<span class="kn">from</span> <span class="nn">ax.storage.metric_registry</span> <span class="kn">import</span> <span class="n">REVERSE_METRIC_REGISTRY</span>
+<span class="kn">from</span> <span class="nn">ax.storage.runner_registry</span> <span class="kn">import</span> <span class="n">REVERSE_RUNNER_REGISTRY</span>
+<span class="kn">from</span> <span class="nn">ax.storage.sqa_store.sqa_classes</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SQAAbandonedArm</span><span class="p">,</span>
+    <span class="n">SQAArm</span><span class="p">,</span>
+    <span class="n">SQAData</span><span class="p">,</span>
+    <span class="n">SQAExperiment</span><span class="p">,</span>
+    <span class="n">SQAGenerationStrategy</span><span class="p">,</span>
+    <span class="n">SQAGeneratorRun</span><span class="p">,</span>
+    <span class="n">SQAMetric</span><span class="p">,</span>
+    <span class="n">SQAParameter</span><span class="p">,</span>
+    <span class="n">SQAParameterConstraint</span><span class="p">,</span>
+    <span class="n">SQARunner</span><span class="p">,</span>
+    <span class="n">SQATrial</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.storage.sqa_store.sqa_config</span> <span class="kn">import</span> <span class="n">SQAConfig</span>
+<span class="kn">from</span> <span class="nn">ax.storage.utils</span> <span class="kn">import</span> <span class="n">DomainType</span><span class="p">,</span> <span class="n">MetricIntent</span><span class="p">,</span> <span class="n">ParameterConstraintType</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.constants</span> <span class="kn">import</span> <span class="n">Keys</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+
+
+<div class="viewcode-block" id="Decoder"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder">[docs]</a><span class="k">class</span> <span class="nc">Decoder</span><span class="p">:</span>
+    <span class="sd">"""Class that contains methods for loading an Ax experiment from SQLAlchemy.</span>
+
+<span class="sd">    Instantiate with an instance of Config to customize the functionality.</span>
+<span class="sd">    For even more flexibility, create a subclass.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        config: Metadata needed to save and load an experiment to SQLAlchemy.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">SQAConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+
+<div class="viewcode-block" id="Decoder.get_enum_name"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.get_enum_name">[docs]</a>    <span class="k">def</span> <span class="nf">get_enum_name</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">enum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Enum</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Given an enum value (int) and an enum (of ints), return the</span>
+<span class="sd">        corresponding enum name. If the value is not present in the enum,</span>
+<span class="sd">        throw an error.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">enum</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">enum</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>  <span class="c1"># pyre-ignore T29651755</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Value </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2"> is invalid for enum </span><span class="si">{</span><span class="n">enum</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_init_experiment_from_sqa</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">experiment_sqa</span><span class="p">:</span> <span class="n">SQAExperiment</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Experiment</span><span class="p">:</span>
+        <span class="sd">"""First step of conversion within experiment_from_sqa."""</span>
+        <span class="n">opt_config</span><span class="p">,</span> <span class="n">tracking_metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opt_config_and_tracking_metrics_from_sqa</span><span class="p">(</span>
+            <span class="n">metrics_sqa</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">metrics</span>
+        <span class="p">)</span>
+        <span class="n">search_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_space_from_sqa</span><span class="p">(</span>
+            <span class="n">parameters_sqa</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="n">parameter_constraints_sqa</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">parameter_constraints</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">search_space</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Experiment SearchSpace cannot be None."</span>
+            <span class="p">)</span>
+        <span class="n">status_quo</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">Arm</span><span class="p">(</span>
+                <span class="c1"># pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float,</span>
+                <span class="c1">#  int, str]]]` for 1st param but got `Optional[Dict[str,</span>
+                <span class="c1">#  Optional[Union[bool, float, int, str]]]]`.</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">status_quo_parameters</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">status_quo_name</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">status_quo_parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">runners</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">runner</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">runners</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">runner</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">runner_from_sqa</span><span class="p">(</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">runners</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Multiple runners on experiment "</span>
+                <span class="s2">"only supported for MultiTypeExperiment."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`</span>
+        <span class="c1"># so need to convert it to regular dict.</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">properties</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="c1"># Remove 'subclass' from experiment's properties, since its only</span>
+        <span class="c1"># used for decoding to the correct experiment subclass in storage.</span>
+        <span class="n">subclass</span> <span class="o">=</span> <span class="n">properties</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">SUBCLASS</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">subclass</span> <span class="o">==</span> <span class="s2">"SimpleExperiment"</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">opt_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"SimpleExperiment must have an optimization config."</span>
+                <span class="p">)</span>
+            <span class="n">experiment</span> <span class="o">=</span> <span class="n">SimpleExperiment</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+                <span class="n">objective_name</span><span class="o">=</span><span class="n">opt_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">minimize</span><span class="o">=</span><span class="n">opt_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">minimize</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">opt_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+                <span class="n">status_quo</span><span class="o">=</span><span class="n">status_quo</span><span class="p">,</span>
+                <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">experiment</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">description</span>
+            <span class="n">experiment</span><span class="o">.</span><span class="n">is_test</span> <span class="o">=</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">is_test</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">experiment</span> <span class="o">=</span> <span class="n">Experiment</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+                <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+                <span class="n">optimization_config</span><span class="o">=</span><span class="n">opt_config</span><span class="p">,</span>
+                <span class="n">tracking_metrics</span><span class="o">=</span><span class="n">tracking_metrics</span><span class="p">,</span>
+                <span class="n">runner</span><span class="o">=</span><span class="n">runner</span><span class="p">,</span>
+                <span class="n">status_quo</span><span class="o">=</span><span class="n">status_quo</span><span class="p">,</span>
+                <span class="n">is_test</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">is_test</span><span class="p">,</span>
+                <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">experiment</span>
+
+    <span class="k">def</span> <span class="nf">_init_mt_experiment_from_sqa</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">experiment_sqa</span><span class="p">:</span> <span class="n">SQAExperiment</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MultiTypeExperiment</span><span class="p">:</span>
+        <span class="sd">"""First step of conversion within experiment_from_sqa."""</span>
+        <span class="n">opt_config</span><span class="p">,</span> <span class="n">tracking_metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opt_config_and_tracking_metrics_from_sqa</span><span class="p">(</span>
+            <span class="n">metrics_sqa</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">metrics</span>
+        <span class="p">)</span>
+        <span class="n">search_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_space_from_sqa</span><span class="p">(</span>
+            <span class="n">parameters_sqa</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="n">parameter_constraints_sqa</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">parameter_constraints</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">search_space</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Experiment SearchSpace cannot be None."</span>
+            <span class="p">)</span>
+        <span class="n">status_quo</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">Arm</span><span class="p">(</span>
+                <span class="c1"># pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float,</span>
+                <span class="c1">#  int, str]]]` for 1st param but got `Optional[Dict[str,</span>
+                <span class="c1">#  Optional[Union[bool, float, int, str]]]]`.</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">status_quo_parameters</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">status_quo_name</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">status_quo_parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">trial_type_to_runner</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">not_none</span><span class="p">(</span><span class="n">sqa_runner</span><span class="o">.</span><span class="n">trial_type</span><span class="p">):</span> <span class="bp">self</span><span class="o">.</span><span class="n">runner_from_sqa</span><span class="p">(</span><span class="n">sqa_runner</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">sqa_runner</span> <span class="ow">in</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">runners</span>
+        <span class="p">}</span>
+        <span class="n">default_trial_type</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">default_trial_type</span><span class="p">)</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">properties</span>
+        <span class="k">if</span> <span class="n">properties</span><span class="p">:</span>
+            <span class="c1"># Remove 'subclass' from experiment's properties, since its only</span>
+            <span class="c1"># used for decoding to the correct experiment subclass in storage.</span>
+            <span class="n">properties</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">SUBCLASS</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">experiment</span> <span class="o">=</span> <span class="n">MultiTypeExperiment</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">default_trial_type</span><span class="o">=</span><span class="n">default_trial_type</span><span class="p">,</span>
+            <span class="n">default_runner</span><span class="o">=</span><span class="n">trial_type_to_runner</span><span class="p">[</span><span class="n">default_trial_type</span><span class="p">],</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">opt_config</span><span class="p">,</span>
+            <span class="n">status_quo</span><span class="o">=</span><span class="n">status_quo</span><span class="p">,</span>
+            <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">experiment</span><span class="o">.</span><span class="n">_trial_type_to_runner</span> <span class="o">=</span> <span class="n">trial_type_to_runner</span>
+        <span class="n">sqa_metric_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">metric</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">metrics</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">tracking_metric</span> <span class="ow">in</span> <span class="n">tracking_metrics</span><span class="p">:</span>
+            <span class="n">sqa_metric</span> <span class="o">=</span> <span class="n">sqa_metric_dict</span><span class="p">[</span><span class="n">tracking_metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+            <span class="n">experiment</span><span class="o">.</span><span class="n">add_tracking_metric</span><span class="p">(</span>
+                <span class="n">tracking_metric</span><span class="p">,</span>
+                <span class="n">trial_type</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="n">sqa_metric</span><span class="o">.</span><span class="n">trial_type</span><span class="p">),</span>
+                <span class="n">canonical_name</span><span class="o">=</span><span class="n">sqa_metric</span><span class="o">.</span><span class="n">canonical_name</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">experiment</span>
+
+<div class="viewcode-block" id="Decoder.experiment_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.experiment_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">experiment_from_sqa</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">experiment_sqa</span><span class="p">:</span> <span class="n">SQAExperiment</span><span class="p">,</span> <span class="n">reduced_state</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Experiment</span><span class="p">:</span>
+        <span class="sd">"""Convert SQLAlchemy Experiment to Ax Experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            experiment_sqa: `SQAExperiment` to decode.</span>
+<span class="sd">            reduced_state: Whether to load experiment with a slightly reduced state</span>
+<span class="sd">                (without abandoned arms on experiment and without model state,</span>
+<span class="sd">                search space, and optimization config on generator runs).</span>
+<span class="sd">        """</span>
+        <span class="n">subclass</span> <span class="o">=</span> <span class="p">(</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">properties</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">SUBCLASS</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">subclass</span> <span class="o">==</span> <span class="s2">"MultiTypeExperiment"</span><span class="p">:</span>
+            <span class="n">experiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_mt_experiment_from_sqa</span><span class="p">(</span><span class="n">experiment_sqa</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">experiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_experiment_from_sqa</span><span class="p">(</span><span class="n">experiment_sqa</span><span class="p">)</span>
+        <span class="n">trials</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">trial_from_sqa</span><span class="p">(</span>
+                <span class="n">trial_sqa</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">reduced_state</span><span class="o">=</span><span class="n">reduced_state</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">trials</span>
+        <span class="p">]</span>
+
+        <span class="n">data_by_trial</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">data_sqa</span> <span class="ow">in</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+            <span class="n">trial_index</span> <span class="o">=</span> <span class="n">data_sqa</span><span class="o">.</span><span class="n">trial_index</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">data_sqa</span><span class="o">.</span><span class="n">time_created</span>
+            <span class="n">data_by_trial</span><span class="p">[</span><span class="n">trial_index</span><span class="p">][</span><span class="n">timestamp</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_from_sqa</span><span class="p">(</span>
+                <span class="n">data_sqa</span><span class="o">=</span><span class="n">data_sqa</span>
+            <span class="p">)</span>
+        <span class="n">data_by_trial</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">trial_index</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">data_by_timestamp</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+            <span class="k">for</span> <span class="n">trial_index</span><span class="p">,</span> <span class="n">data_by_timestamp</span> <span class="ow">in</span> <span class="n">data_by_trial</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+        <span class="n">experiment</span><span class="o">.</span><span class="n">_trials</span> <span class="o">=</span> <span class="p">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">:</span> <span class="n">trial</span> <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">trials</span><span class="p">}</span>
+        <span class="n">experiment</span><span class="o">.</span><span class="n">_arms_by_name</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">trials</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">ttl_seconds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">experiment</span><span class="o">.</span><span class="n">_trials_have_ttl</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+                <span class="n">experiment</span><span class="o">.</span><span class="n">_register_arm</span><span class="p">(</span><span class="n">arm</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">experiment</span><span class="o">.</span><span class="n">status_quo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sq</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">status_quo</span><span class="p">)</span>
+            <span class="n">experiment</span><span class="o">.</span><span class="n">_register_arm</span><span class="p">(</span><span class="n">sq</span><span class="p">)</span>
+        <span class="n">experiment</span><span class="o">.</span><span class="n">_time_created</span> <span class="o">=</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">time_created</span>
+        <span class="n">experiment</span><span class="o">.</span><span class="n">_experiment_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_enum_name</span><span class="p">(</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">experiment_sqa</span><span class="o">.</span><span class="n">experiment_type</span><span class="p">,</span> <span class="n">enum</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type_enum</span>
+        <span class="p">)</span>
+        <span class="n">experiment</span><span class="o">.</span><span class="n">_data_by_trial</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">data_by_trial</span><span class="p">)</span>
+        <span class="n">experiment</span><span class="o">.</span><span class="n">db_id</span> <span class="o">=</span> <span class="n">experiment_sqa</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">experiment</span></div>
+
+<div class="viewcode-block" id="Decoder.parameter_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.parameter_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">parameter_from_sqa</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_sqa</span><span class="p">:</span> <span class="n">SQAParameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Parameter</span><span class="p">:</span>
+        <span class="sd">"""Convert SQLAlchemy Parameter to Ax Parameter."""</span>
+        <span class="k">if</span> <span class="n">parameter_sqa</span><span class="o">.</span><span class="n">domain_type</span> <span class="o">==</span> <span class="n">DomainType</span><span class="o">.</span><span class="n">RANGE</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">parameter_sqa</span><span class="o">.</span><span class="n">lower</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">parameter_sqa</span><span class="o">.</span><span class="n">upper</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"`lower` and `upper` must be set for RangeParameter."</span>
+                <span class="p">)</span>
+            <span class="n">parameter</span> <span class="o">=</span> <span class="n">RangeParameter</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span>
+                <span class="c1"># pyre-fixme[6]: Expected `float` for 3rd param but got</span>
+                <span class="c1">#  `Optional[float]`.</span>
+                <span class="n">lower</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">lower</span><span class="p">,</span>
+                <span class="n">upper</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">upper</span><span class="p">,</span>
+                <span class="n">log_scale</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">log_scale</span> <span class="ow">or</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">digits</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">digits</span><span class="p">,</span>
+                <span class="n">is_fidelity</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">is_fidelity</span> <span class="ow">or</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">target_value</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">target_value</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">parameter_sqa</span><span class="o">.</span><span class="n">domain_type</span> <span class="o">==</span> <span class="n">DomainType</span><span class="o">.</span><span class="n">CHOICE</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">parameter_sqa</span><span class="o">.</span><span class="n">choice_values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"`values` must be set for ChoiceParameter."</span>
+                <span class="p">)</span>
+            <span class="n">parameter</span> <span class="o">=</span> <span class="n">ChoiceParameter</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span>
+                <span class="c1"># pyre-fixme[6]: Expected `List[Optional[Union[bool, float, int,</span>
+                <span class="c1">#  str]]]` for 3rd param but got `Optional[List[Optional[Union[bool,</span>
+                <span class="c1">#  float, int, str]]]]`.</span>
+                <span class="n">values</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">choice_values</span><span class="p">,</span>
+                <span class="n">is_fidelity</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">is_fidelity</span> <span class="ow">or</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">target_value</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">target_value</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">parameter_sqa</span><span class="o">.</span><span class="n">domain_type</span> <span class="o">==</span> <span class="n">DomainType</span><span class="o">.</span><span class="n">FIXED</span><span class="p">:</span>
+            <span class="c1"># Don't throw an error if parameter_sqa.fixed_value is None;</span>
+            <span class="c1"># that might be the actual value!</span>
+            <span class="n">parameter</span> <span class="o">=</span> <span class="n">FixedParameter</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">fixed_value</span><span class="p">,</span>
+                <span class="n">is_fidelity</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">is_fidelity</span> <span class="ow">or</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">target_value</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">target_value</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Cannot decode SQAParameter because </span><span class="si">{</span><span class="n">parameter_sqa</span><span class="o">.</span><span class="n">domain_type</span><span class="si">}</span><span class="s2"> "</span>
+                <span class="s2">"is an invalid domain type."</span>
+            <span class="p">)</span>
+
+        <span class="n">parameter</span><span class="o">.</span><span class="n">db_id</span> <span class="o">=</span> <span class="n">parameter_sqa</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">parameter</span></div>
+
+<div class="viewcode-block" id="Decoder.parameter_constraint_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.parameter_constraint_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">parameter_constraint_from_sqa</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameter_constraint_sqa</span><span class="p">:</span> <span class="n">SQAParameterConstraint</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Parameter</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterConstraint</span><span class="p">:</span>
+        <span class="sd">"""Convert SQLAlchemy ParameterConstraint to Ax ParameterConstraint."""</span>
+        <span class="n">parameter_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">parameter_constraint_sqa</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ParameterConstraintType</span><span class="o">.</span><span class="n">ORDER</span><span class="p">:</span>
+            <span class="n">lower_name</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">upper_name</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">parameter_constraint_sqa</span><span class="o">.</span><span class="n">constraint_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">v</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">lower_name</span> <span class="o">=</span> <span class="n">k</span>
+                <span class="k">elif</span> <span class="n">v</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                    <span class="n">upper_name</span> <span class="o">=</span> <span class="n">k</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">lower_name</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">upper_name</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>
+                    <span class="s2">"Cannot decode SQAParameterConstraint because `lower_name` or "</span>
+                    <span class="s2">"`upper_name` was not found."</span>
+                <span class="p">)</span>
+            <span class="c1"># pyre-fixme[6]: Expected `str` for 1st param but got `None`.</span>
+            <span class="n">lower_parameter</span> <span class="o">=</span> <span class="n">parameter_map</span><span class="p">[</span><span class="n">lower_name</span><span class="p">]</span>
+            <span class="c1"># pyre-fixme[6]: Expected `str` for 1st param but got `None`.</span>
+            <span class="n">upper_parameter</span> <span class="o">=</span> <span class="n">parameter_map</span><span class="p">[</span><span class="n">upper_name</span><span class="p">]</span>
+            <span class="n">constraint</span> <span class="o">=</span> <span class="n">OrderConstraint</span><span class="p">(</span>
+                <span class="n">lower_parameter</span><span class="o">=</span><span class="n">lower_parameter</span><span class="p">,</span> <span class="n">upper_parameter</span><span class="o">=</span><span class="n">upper_parameter</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">parameter_constraint_sqa</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ParameterConstraintType</span><span class="o">.</span><span class="n">SUM</span><span class="p">:</span>
+            <span class="c1"># This operation is potentially very inefficient.</span>
+            <span class="c1"># It is O(#constrained_parameters * #total_parameters)</span>
+            <span class="n">parameter_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">parameter_constraint_sqa</span><span class="o">.</span><span class="n">constraint_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="n">constraint_parameters</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="nb">next</span><span class="p">(</span>
+                    <span class="n">search_space_param</span>
+                    <span class="k">for</span> <span class="n">search_space_param</span> <span class="ow">in</span> <span class="n">parameters</span>
+                    <span class="k">if</span> <span class="n">search_space_param</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">c_p_name</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">c_p_name</span> <span class="ow">in</span> <span class="n">parameter_names</span>
+            <span class="p">]</span>
+            <span class="n">a_values</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">parameter_constraint_sqa</span><span class="o">.</span><span class="n">constraint_dict</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">a_values</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>
+                    <span class="s2">"Cannot decode SQAParameterConstraint because `constraint_dict` "</span>
+                    <span class="s2">"is empty."</span>
+                <span class="p">)</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">a_values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">is_upper_bound</span> <span class="o">=</span> <span class="n">a</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="n">bound</span> <span class="o">=</span> <span class="n">parameter_constraint_sqa</span><span class="o">.</span><span class="n">bound</span> <span class="o">*</span> <span class="n">a</span>
+            <span class="n">constraint</span> <span class="o">=</span> <span class="n">SumConstraint</span><span class="p">(</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="n">constraint_parameters</span><span class="p">,</span>
+                <span class="n">is_upper_bound</span><span class="o">=</span><span class="n">is_upper_bound</span><span class="p">,</span>
+                <span class="n">bound</span><span class="o">=</span><span class="n">bound</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">constraint</span> <span class="o">=</span> <span class="n">ParameterConstraint</span><span class="p">(</span>
+                <span class="n">constraint_dict</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">parameter_constraint_sqa</span><span class="o">.</span><span class="n">constraint_dict</span><span class="p">),</span>
+                <span class="n">bound</span><span class="o">=</span><span class="n">parameter_constraint_sqa</span><span class="o">.</span><span class="n">bound</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">constraint</span><span class="o">.</span><span class="n">db_id</span> <span class="o">=</span> <span class="n">parameter_constraint_sqa</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">constraint</span></div>
+
+<div class="viewcode-block" id="Decoder.search_space_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.search_space_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">search_space_from_sqa</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameters_sqa</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SQAParameter</span><span class="p">],</span>
+        <span class="n">parameter_constraints_sqa</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SQAParameterConstraint</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SearchSpace</span><span class="p">]:</span>
+        <span class="sd">"""Convert a list of SQLAlchemy Parameters and ParameterConstraints to an</span>
+<span class="sd">        Ax SearchSpace.</span>
+<span class="sd">        """</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_from_sqa</span><span class="p">(</span><span class="n">parameter_sqa</span><span class="o">=</span><span class="n">parameter_sqa</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">parameter_sqa</span> <span class="ow">in</span> <span class="n">parameters_sqa</span>
+        <span class="p">]</span>
+        <span class="n">parameter_constraints</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_constraint_from_sqa</span><span class="p">(</span>
+                <span class="n">parameter_constraint_sqa</span><span class="o">=</span><span class="n">parameter_constraint_sqa</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">parameter_constraint_sqa</span> <span class="ow">in</span> <span class="n">parameter_constraints_sqa</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">SearchSpace</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span> <span class="n">parameter_constraints</span><span class="o">=</span><span class="n">parameter_constraints</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Decoder.metric_from_sqa_util"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.metric_from_sqa_util">[docs]</a>    <span class="k">def</span> <span class="nf">metric_from_sqa_util</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric_sqa</span><span class="p">:</span> <span class="n">SQAMetric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Metric</span><span class="p">:</span>
+        <span class="sd">"""Convert SQLAlchemy Metric to Ax Metric"""</span>
+        <span class="n">metric_class</span> <span class="o">=</span> <span class="n">REVERSE_METRIC_REGISTRY</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">metric_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">metric_class</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Cannot decode SQAMetric because </span><span class="si">{</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">metric_type</span><span class="si">}</span><span class="s2"> "</span>
+                <span class="sa">f</span><span class="s2">"is an invalid type."</span>
+            <span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">properties</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">args</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">args</span><span class="p">[</span><span class="s2">"lower_is_better"</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">lower_is_better</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">metric_class</span><span class="o">.</span><span class="n">deserialize_init_args</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="n">args</span><span class="p">)</span>
+        <span class="n">metric</span> <span class="o">=</span> <span class="n">metric_class</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
+        <span class="n">metric</span><span class="o">.</span><span class="n">db_id</span> <span class="o">=</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">metric</span></div>
+
+<div class="viewcode-block" id="Decoder.metric_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.metric_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">metric_from_sqa</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">metric_sqa</span><span class="p">:</span> <span class="n">SQAMetric</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Metric</span><span class="p">,</span> <span class="n">Objective</span><span class="p">,</span> <span class="n">OutcomeConstraint</span><span class="p">]:</span>
+        <span class="sd">"""Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""</span>
+
+        <span class="n">metric</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_from_sqa_util</span><span class="p">(</span><span class="n">metric_sqa</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">intent</span> <span class="o">==</span> <span class="n">MetricIntent</span><span class="o">.</span><span class="n">TRACKING</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">metric</span>
+        <span class="k">elif</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">intent</span> <span class="o">==</span> <span class="n">MetricIntent</span><span class="o">.</span><span class="n">OBJECTIVE</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">minimize</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"Cannot decode SQAMetric to Objective because minimize is None."</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">scalarized_objective_weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"The metric corresponding to regular objective does not </span><span class="se">\</span>
+<span class="s2">                    have weight attribute"</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">Objective</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">minimize</span><span class="o">=</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">minimize</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="p">(</span>
+            <span class="n">metric_sqa</span><span class="o">.</span><span class="n">intent</span> <span class="o">==</span> <span class="n">MetricIntent</span><span class="o">.</span><span class="n">MULTI_OBJECTIVE</span>
+        <span class="p">):</span>  <span class="c1"># metric_sqa is a parent whose children are individual</span>
+            <span class="c1"># metrics in MultiObjective</span>
+            <span class="k">if</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">minimize</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"Cannot decode SQAMetric to MultiObjective </span><span class="se">\</span>
+<span class="s2">                    because minimize is None."</span>
+                <span class="p">)</span>
+            <span class="n">metrics_sqa_children</span> <span class="o">=</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">scalarized_objective_children_metrics</span>
+            <span class="k">if</span> <span class="n">metrics_sqa_children</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"Cannot decode SQAMetric to MultiObjective </span><span class="se">\</span>
+<span class="s2">                    because the parent metric has no children metrics."</span>
+                <span class="p">)</span>
+
+            <span class="c1"># Extracting metric and weight for each child</span>
+            <span class="n">metrics</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metric_from_sqa_util</span><span class="p">(</span><span class="n">child</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">metrics_sqa_children</span>
+            <span class="p">]</span>
+
+            <span class="k">return</span> <span class="n">MultiObjective</span><span class="p">(</span>
+                <span class="n">metrics</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">metrics</span><span class="p">),</span>
+                <span class="c1"># pyre-fixme[6]: Expected `bool` for 2nd param but got `Optional[bool]`.</span>
+                <span class="n">minimize</span><span class="o">=</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">minimize</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="p">(</span>
+            <span class="n">metric_sqa</span><span class="o">.</span><span class="n">intent</span> <span class="o">==</span> <span class="n">MetricIntent</span><span class="o">.</span><span class="n">SCALARIZED_OBJECTIVE</span>
+        <span class="p">):</span>  <span class="c1"># metric_sqa is a parent whose children are individual</span>
+            <span class="c1"># metrics in Scalarized Objective</span>
+            <span class="k">if</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">minimize</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"Cannot decode SQAMetric to Scalarized Objective </span><span class="se">\</span>
+<span class="s2">                    because minimize is None."</span>
+                <span class="p">)</span>
+            <span class="n">metrics_sqa_children</span> <span class="o">=</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">scalarized_objective_children_metrics</span>
+            <span class="k">if</span> <span class="n">metrics_sqa_children</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"Cannot decode SQAMetric to Scalarized Objective </span><span class="se">\</span>
+<span class="s2">                    because the parent metric has no children metrics."</span>
+                <span class="p">)</span>
+
+            <span class="c1"># Extracting metric and weight for each child</span>
+            <span class="n">metrics</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span>
+                <span class="o">*</span><span class="p">[</span>
+                    <span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">metric_from_sqa_util</span><span class="p">(</span><span class="n">child</span><span class="p">),</span>
+                        <span class="n">child</span><span class="o">.</span><span class="n">scalarized_objective_weight</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">metrics_sqa_children</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">ScalarizedObjective</span><span class="p">(</span>
+                <span class="n">metrics</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">metrics</span><span class="p">),</span>
+                <span class="n">weights</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">weights</span><span class="p">),</span>
+                <span class="c1"># pyre-fixme[6]: Expected `bool` for 3nd param but got `Optional[bool]`.</span>
+                <span class="n">minimize</span><span class="o">=</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">minimize</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">intent</span> <span class="o">==</span> <span class="n">MetricIntent</span><span class="o">.</span><span class="n">OUTCOME_CONSTRAINT</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">metric_sqa</span><span class="o">.</span><span class="n">bound</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="ow">or</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">op</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="ow">or</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">relative</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"Cannot decode SQAMetric to OutcomeConstraint because "</span>
+                    <span class="s2">"bound, op, or relative is None."</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">OutcomeConstraint</span><span class="p">(</span>
+                <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span>
+                <span class="c1"># pyre-fixme[6]: Expected `float` for 2nd param but got</span>
+                <span class="c1">#  `Optional[float]`.</span>
+                <span class="n">bound</span><span class="o">=</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">bound</span><span class="p">,</span>
+                <span class="n">op</span><span class="o">=</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">op</span><span class="p">,</span>
+                <span class="n">relative</span><span class="o">=</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">relative</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">intent</span> <span class="o">==</span> <span class="n">MetricIntent</span><span class="o">.</span><span class="n">OBJECTIVE_THRESHOLD</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">bound</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">metric_sqa</span><span class="o">.</span><span class="n">relative</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"Cannot decode SQAMetric to ObjectiveThreshold because "</span>
+                    <span class="s2">"bound, op, or relative is None."</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">ObjectiveThreshold</span><span class="p">(</span>
+                <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span>
+                <span class="c1"># pyre-fixme[6]: Expected `float` for 2nd param but got</span>
+                <span class="c1">#  `Optional[float]`.</span>
+                <span class="n">bound</span><span class="o">=</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">bound</span><span class="p">,</span>
+                <span class="n">relative</span><span class="o">=</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">relative</span><span class="p">,</span>
+                <span class="n">op</span><span class="o">=</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">op</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Cannot decode SQAMetric because </span><span class="si">{</span><span class="n">metric_sqa</span><span class="o">.</span><span class="n">intent</span><span class="si">}</span><span class="s2"> "</span>
+                <span class="sa">f</span><span class="s2">"is an invalid intent."</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Decoder.opt_config_and_tracking_metrics_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.opt_config_and_tracking_metrics_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">opt_config_and_tracking_metrics_from_sqa</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">metrics_sqa</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SQAMetric</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]:</span>
+        <span class="sd">"""Convert a list of SQLAlchemy Metrics to a a tuple of Ax OptimizationConfig</span>
+<span class="sd">        and tracking metrics.</span>
+<span class="sd">        """</span>
+        <span class="n">objective</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">objective_thresholds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">tracking_metrics</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">metric_sqa</span> <span class="ow">in</span> <span class="n">metrics_sqa</span><span class="p">:</span>
+            <span class="n">metric</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_from_sqa</span><span class="p">(</span><span class="n">metric_sqa</span><span class="o">=</span><span class="n">metric_sqa</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">Objective</span><span class="p">):</span>
+                <span class="n">objective</span> <span class="o">=</span> <span class="n">metric</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">ObjectiveThreshold</span><span class="p">):</span>
+                <span class="n">objective_thresholds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">OutcomeConstraint</span><span class="p">):</span>
+                <span class="n">outcome_constraints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">tracking_metrics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">objective</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tracking_metrics</span>
+
+        <span class="k">if</span> <span class="n">objective_thresholds</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">objective</span><span class="p">)</span> <span class="o">==</span> <span class="n">MultiObjective</span><span class="p">:</span>
+            <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">(</span>
+                <span class="n">objective</span><span class="o">=</span><span class="n">objective</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+                <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+                <span class="n">objective</span><span class="o">=</span><span class="n">objective</span><span class="p">,</span> <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">optimization_config</span><span class="p">,</span> <span class="n">tracking_metrics</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Decoder.arm_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.arm_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">arm_from_sqa</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm_sqa</span><span class="p">:</span> <span class="n">SQAArm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Arm</span><span class="p">:</span>
+        <span class="sd">"""Convert SQLAlchemy Arm to Ax Arm."""</span>
+        <span class="n">arm</span> <span class="o">=</span> <span class="n">Arm</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">arm_sqa</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">arm_sqa</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">arm</span><span class="o">.</span><span class="n">db_id</span> <span class="o">=</span> <span class="n">arm_sqa</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">arm</span></div>
+
+<div class="viewcode-block" id="Decoder.abandoned_arm_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.abandoned_arm_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">abandoned_arm_from_sqa</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">abandoned_arm_sqa</span><span class="p">:</span> <span class="n">SQAAbandonedArm</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbandonedArm</span><span class="p">:</span>
+        <span class="sd">"""Convert SQLAlchemy AbandonedArm to Ax AbandonedArm."""</span>
+        <span class="k">return</span> <span class="n">AbandonedArm</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">abandoned_arm_sqa</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="n">abandoned_arm_sqa</span><span class="o">.</span><span class="n">abandoned_reason</span><span class="p">,</span>
+            <span class="n">time</span><span class="o">=</span><span class="n">abandoned_arm_sqa</span><span class="o">.</span><span class="n">time_abandoned</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Decoder.generator_run_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.generator_run_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">generator_run_from_sqa</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">generator_run_sqa</span><span class="p">:</span> <span class="n">SQAGeneratorRun</span><span class="p">,</span> <span class="n">reduced_state</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeneratorRun</span><span class="p">:</span>
+        <span class="sd">"""Convert SQLAlchemy GeneratorRun to Ax GeneratorRun.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            generator_run_sqa: `SQAGeneratorRun` to decode.</span>
+<span class="sd">            reduced_state: Whether to load generator runs with a slightly reduced state</span>
+<span class="sd">            (without model state, search space, and optimization config).</span>
+<span class="sd">        """</span>
+        <span class="n">arms</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">opt_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">search_space</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">for</span> <span class="n">arm_sqa</span> <span class="ow">in</span> <span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+            <span class="n">arms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">arm_from_sqa</span><span class="p">(</span><span class="n">arm_sqa</span><span class="o">=</span><span class="n">arm_sqa</span><span class="p">))</span>
+            <span class="n">weights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arm_sqa</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">reduced_state</span><span class="p">:</span>
+            <span class="p">(</span>
+                <span class="n">opt_config</span><span class="p">,</span>
+                <span class="n">tracking_metrics</span><span class="p">,</span>
+            <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opt_config_and_tracking_metrics_from_sqa</span><span class="p">(</span>
+                <span class="n">metrics_sqa</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">metrics</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tracking_metrics</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"GeneratorRun should not have tracking metrics."</span>
+                <span class="p">)</span>
+
+            <span class="n">search_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_space_from_sqa</span><span class="p">(</span>
+                <span class="n">parameters_sqa</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+                <span class="n">parameter_constraints_sqa</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">parameter_constraints</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">best_arm_predictions</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">model_predictions</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">best_arm_parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">best_arm_predictions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="n">best_arm</span> <span class="o">=</span> <span class="n">Arm</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">best_arm_name</span><span class="p">,</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">best_arm_parameters</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">best_arm_predictions</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">best_arm</span><span class="p">,</span>
+                <span class="nb">tuple</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">best_arm_predictions</span><span class="p">)),</span>
+            <span class="p">)</span>
+        <span class="n">model_predictions</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">tuple</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">model_predictions</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">model_predictions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+
+        <span class="n">generator_run</span> <span class="o">=</span> <span class="n">GeneratorRun</span><span class="p">(</span>
+            <span class="n">arms</span><span class="o">=</span><span class="n">arms</span><span class="p">,</span>
+            <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">opt_config</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">fit_time</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">fit_time</span><span class="p">,</span>
+            <span class="n">gen_time</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">gen_time</span><span class="p">,</span>
+            <span class="n">best_arm_predictions</span><span class="o">=</span><span class="n">best_arm_predictions</span><span class="p">,</span>  <span class="c1"># pyre-ignore[6]</span>
+            <span class="n">model_predictions</span><span class="o">=</span><span class="n">model_predictions</span><span class="p">,</span>
+            <span class="n">model_key</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">model_key</span><span class="p">,</span>
+            <span class="n">model_kwargs</span><span class="o">=</span><span class="kc">None</span>
+            <span class="k">if</span> <span class="n">reduced_state</span>
+            <span class="k">else</span> <span class="n">object_from_json</span><span class="p">(</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">model_kwargs</span><span class="p">),</span>
+            <span class="n">bridge_kwargs</span><span class="o">=</span><span class="kc">None</span>
+            <span class="k">if</span> <span class="n">reduced_state</span>
+            <span class="k">else</span> <span class="n">object_from_json</span><span class="p">(</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">bridge_kwargs</span><span class="p">),</span>
+            <span class="n">gen_metadata</span><span class="o">=</span><span class="kc">None</span>
+            <span class="k">if</span> <span class="n">reduced_state</span>
+            <span class="k">else</span> <span class="n">object_from_json</span><span class="p">(</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">gen_metadata</span><span class="p">),</span>
+            <span class="n">model_state_after_gen</span><span class="o">=</span><span class="kc">None</span>
+            <span class="k">if</span> <span class="n">reduced_state</span>
+            <span class="k">else</span> <span class="n">object_from_json</span><span class="p">(</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">model_state_after_gen</span><span class="p">),</span>
+            <span class="n">generation_step_index</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">generation_step_index</span><span class="p">,</span>
+            <span class="n">candidate_metadata_by_arm_signature</span><span class="o">=</span><span class="n">object_from_json</span><span class="p">(</span>
+                <span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">candidate_metadata_by_arm_signature</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">generator_run</span><span class="o">.</span><span class="n">_time_created</span> <span class="o">=</span> <span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">time_created</span>
+        <span class="n">generator_run</span><span class="o">.</span><span class="n">_generator_run_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_enum_name</span><span class="p">(</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">generator_run_type</span><span class="p">,</span>
+            <span class="n">enum</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">generator_run_type_enum</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">generator_run</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">index</span>
+        <span class="n">generator_run</span><span class="o">.</span><span class="n">db_id</span> <span class="o">=</span> <span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">generator_run</span></div>
+
+<div class="viewcode-block" id="Decoder.generation_strategy_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.generation_strategy_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">generation_strategy_from_sqa</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">gs_sqa</span><span class="p">:</span> <span class="n">SQAGenerationStrategy</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Experiment</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">reduced_state</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GenerationStrategy</span><span class="p">:</span>
+        <span class="sd">"""Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""</span>
+        <span class="n">steps</span> <span class="o">=</span> <span class="n">object_from_json</span><span class="p">(</span><span class="n">gs_sqa</span><span class="o">.</span><span class="n">steps</span><span class="p">)</span>
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">GenerationStrategy</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">gs_sqa</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="n">steps</span><span class="p">)</span>
+        <span class="n">gs</span><span class="o">.</span><span class="n">_curr</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">_steps</span><span class="p">[</span><span class="n">gs_sqa</span><span class="o">.</span><span class="n">curr_index</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">reduced_state</span> <span class="ow">and</span> <span class="n">gs_sqa</span><span class="o">.</span><span class="n">generator_runs</span><span class="p">:</span>
+            <span class="c1"># Only fully load the last of the generator runs, load the rest with</span>
+            <span class="c1"># reduced state.</span>
+            <span class="n">gs</span><span class="o">.</span><span class="n">_generator_runs</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">generator_run_from_sqa</span><span class="p">(</span><span class="n">generator_run_sqa</span><span class="o">=</span><span class="n">gr</span><span class="p">,</span> <span class="n">reduced_state</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">gr</span> <span class="ow">in</span> <span class="n">gs_sqa</span><span class="o">.</span><span class="n">generator_runs</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">]</span>
+            <span class="n">gs</span><span class="o">.</span><span class="n">_generator_runs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">generator_run_from_sqa</span><span class="p">(</span>
+                    <span class="n">generator_run_sqa</span><span class="o">=</span><span class="n">gs_sqa</span><span class="o">.</span><span class="n">generator_runs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">reduced_state</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">gs</span><span class="o">.</span><span class="n">_generator_runs</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">generator_run_from_sqa</span><span class="p">(</span><span class="n">gr</span><span class="p">)</span> <span class="k">for</span> <span class="n">gr</span> <span class="ow">in</span> <span class="n">gs_sqa</span><span class="o">.</span><span class="n">generator_runs</span>
+            <span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gs</span><span class="o">.</span><span class="n">_generator_runs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Generation strategy had an initialized model.</span>
+            <span class="k">if</span> <span class="n">experiment</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>
+                    <span class="s2">"Cannot decode a generation strategy with a non-zero number of "</span>
+                    <span class="s2">"generator runs without an experiment."</span>
+                <span class="p">)</span>
+            <span class="n">gs</span><span class="o">.</span><span class="n">_experiment</span> <span class="o">=</span> <span class="n">experiment</span>
+            <span class="c1"># If model in the current step was not directly from the `Models` enum,</span>
+            <span class="c1"># pass its type to `restore_model_from_generator_run`, which will then</span>
+            <span class="c1"># attempt to use this type to recreate the model.</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">gs</span><span class="o">.</span><span class="n">_curr</span><span class="o">.</span><span class="n">model</span><span class="p">)</span> <span class="o">!=</span> <span class="n">Models</span><span class="p">:</span>
+                <span class="n">models_enum</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">gs</span><span class="o">.</span><span class="n">_curr</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">models_enum</span><span class="p">,</span> <span class="n">ModelRegistryBase</span><span class="p">)</span>
+                <span class="c1"># pyre-ignore[6]: `models_enum` typing hackiness</span>
+                <span class="n">gs</span><span class="o">.</span><span class="n">_restore_model_from_generator_run</span><span class="p">(</span><span class="n">models_enum</span><span class="o">=</span><span class="n">models_enum</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">gs</span><span class="o">.</span><span class="n">_restore_model_from_generator_run</span><span class="p">()</span>
+        <span class="n">gs</span><span class="o">.</span><span class="n">db_id</span> <span class="o">=</span> <span class="n">gs_sqa</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">gs</span></div>
+
+<div class="viewcode-block" id="Decoder.runner_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.runner_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">runner_from_sqa</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runner_sqa</span><span class="p">:</span> <span class="n">SQARunner</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Runner</span><span class="p">:</span>
+        <span class="sd">"""Convert SQLAlchemy Runner to Ax Runner."""</span>
+        <span class="n">runner_class</span> <span class="o">=</span> <span class="n">REVERSE_RUNNER_REGISTRY</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">runner_sqa</span><span class="o">.</span><span class="n">runner_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">runner_class</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Cannot decode SQARunner because </span><span class="si">{</span><span class="n">runner_sqa</span><span class="o">.</span><span class="n">runner_type</span><span class="si">}</span><span class="s2"> "</span>
+                <span class="sa">f</span><span class="s2">"is an invalid type."</span>
+            <span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">runner_class</span><span class="o">.</span><span class="n">deserialize_init_args</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="n">runner_sqa</span><span class="o">.</span><span class="n">properties</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="c1"># pyre-ignore[45]: Cannot instantiate abstract class `Runner`.</span>
+        <span class="n">runner</span> <span class="o">=</span> <span class="n">runner_class</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
+        <span class="n">runner</span><span class="o">.</span><span class="n">db_id</span> <span class="o">=</span> <span class="n">runner_sqa</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">runner</span></div>
+
+<div class="viewcode-block" id="Decoder.trial_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.trial_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">trial_from_sqa</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial_sqa</span><span class="p">:</span> <span class="n">SQATrial</span><span class="p">,</span> <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span> <span class="n">reduced_state</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Convert SQLAlchemy Trial to Ax Trial.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_sqa: `SQATrial` to decode.</span>
+<span class="sd">            reduced_state: Whether to load trial's generator run(s) with a slightly</span>
+<span class="sd">            reduced state (without model state, search space, and optimization config).</span>
+
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">is_batch</span><span class="p">:</span>
+            <span class="n">trial</span> <span class="o">=</span> <span class="n">BatchTrial</span><span class="p">(</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+                <span class="n">optimize_for_power</span><span class="o">=</span><span class="n">trial_sqa</span><span class="o">.</span><span class="n">optimize_for_power</span><span class="p">,</span>
+                <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">trial_sqa</span><span class="o">.</span><span class="n">ttl_seconds</span><span class="p">,</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">trial_sqa</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">generator_run_structs</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">GeneratorRunStruct</span><span class="p">(</span>
+                    <span class="n">generator_run</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">generator_run_from_sqa</span><span class="p">(</span>
+                        <span class="n">generator_run_sqa</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="p">,</span>
+                        <span class="n">reduced_state</span><span class="o">=</span><span class="n">reduced_state</span><span class="p">,</span>
+                    <span class="p">),</span>
+                    <span class="n">weight</span><span class="o">=</span><span class="n">generator_run_sqa</span><span class="o">.</span><span class="n">weight</span> <span class="ow">or</span> <span class="mf">1.0</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">generator_run_sqa</span> <span class="ow">in</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">generator_runs</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">status_quo_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">new_generator_run_structs</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">struct</span> <span class="ow">in</span> <span class="n">generator_run_structs</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="p">(</span>
+                        <span class="n">struct</span><span class="o">.</span><span class="n">generator_run</span><span class="o">.</span><span class="n">generator_run_type</span>
+                        <span class="o">==</span> <span class="n">GeneratorRunType</span><span class="o">.</span><span class="n">STATUS_QUO</span><span class="o">.</span><span class="n">name</span>
+                    <span class="p">):</span>
+                        <span class="n">status_quo_weight</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">generator_run</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">trial</span><span class="o">.</span><span class="n">_status_quo</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">generator_run</span><span class="o">.</span><span class="n">arms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">trial</span><span class="o">.</span><span class="n">_status_quo_weight_override</span> <span class="o">=</span> <span class="n">status_quo_weight</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">new_generator_run_structs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">struct</span><span class="p">)</span>
+                <span class="n">generator_run_structs</span> <span class="o">=</span> <span class="n">new_generator_run_structs</span>
+            <span class="n">trial</span><span class="o">.</span><span class="n">_generator_run_structs</span> <span class="o">=</span> <span class="n">generator_run_structs</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">reduced_state</span><span class="p">:</span>
+                <span class="n">trial</span><span class="o">.</span><span class="n">_abandoned_arms_metadata</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="n">abandoned_arm_sqa</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">abandoned_arm_from_sqa</span><span class="p">(</span>
+                        <span class="n">abandoned_arm_sqa</span><span class="o">=</span><span class="n">abandoned_arm_sqa</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">abandoned_arm_sqa</span> <span class="ow">in</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">abandoned_arms</span>
+                <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">trial</span> <span class="o">=</span> <span class="n">Trial</span><span class="p">(</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+                <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">trial_sqa</span><span class="o">.</span><span class="n">ttl_seconds</span><span class="p">,</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">trial_sqa</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">generator_runs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">trial_sqa</span><span class="o">.</span><span class="n">generator_runs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">SQADecodeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                        <span class="s2">"Cannot decode SQATrial to Trial because trial is not batched "</span>
+                        <span class="s2">"but has more than one generator run."</span>
+                    <span class="p">)</span>
+                <span class="n">trial</span><span class="o">.</span><span class="n">_generator_run</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generator_run_from_sqa</span><span class="p">(</span>
+                    <span class="n">generator_run_sqa</span><span class="o">=</span><span class="n">trial_sqa</span><span class="o">.</span><span class="n">generator_runs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="n">reduced_state</span><span class="o">=</span><span class="n">reduced_state</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_trial_type</span> <span class="o">=</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">trial_type</span>
+        <span class="c1"># Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly</span>
+        <span class="c1"># equivalent to `RUNNING`.</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">trial_sqa</span><span class="o">.</span><span class="n">status</span>
+            <span class="k">if</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">status</span> <span class="o">!=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">DISPATCHED</span>
+            <span class="k">else</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span>
+        <span class="p">)</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_time_created</span> <span class="o">=</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">time_created</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_time_completed</span> <span class="o">=</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">time_completed</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_time_staged</span> <span class="o">=</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">time_staged</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_time_run_started</span> <span class="o">=</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">time_run_started</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_abandoned_reason</span> <span class="o">=</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">abandoned_reason</span>
+        <span class="c1"># pyre-fixme[9]: _run_metadata has type `Dict[str, Any]`; used as</span>
+        <span class="c1">#  `Optional[Dict[str, Any]]`.</span>
+        <span class="c1"># pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as</span>
+        <span class="c1">#  `Optional[typing.Dict[Variable[_KT], Variable[_VT]]]`.</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_run_metadata</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="c1"># pyre-fixme[6]: Expected `Mapping[Variable[_KT], Variable[_VT]]` for</span>
+            <span class="c1">#  1st param but got `Optional[Dict[str, typing.Any]]`.</span>
+            <span class="nb">dict</span><span class="p">(</span><span class="n">trial_sqa</span><span class="o">.</span><span class="n">run_metadata</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">run_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_num_arms_created</span> <span class="o">=</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">num_arms_created</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_runner</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runner_from_sqa</span><span class="p">(</span><span class="n">trial_sqa</span><span class="o">.</span><span class="n">runner</span><span class="p">)</span> <span class="k">if</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">runner</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="o">=</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">generation_step_index</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_properties</span> <span class="o">=</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">properties</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">db_id</span> <span class="o">=</span> <span class="n">trial_sqa</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">trial</span></div>
+
+<div class="viewcode-block" id="Decoder.data_from_sqa"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.decoder.Decoder.data_from_sqa">[docs]</a>    <span class="k">def</span> <span class="nf">data_from_sqa</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_sqa</span><span class="p">:</span> <span class="n">SQAData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="sd">"""Convert SQLAlchemy Data to AE Data."""</span>
+        <span class="n">dat</span> <span class="o">=</span> <span class="n">Data</span><span class="p">(</span>
+            <span class="n">description</span><span class="o">=</span><span class="n">data_sqa</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+            <span class="c1"># NOTE: Need dtype=False, otherwise infers arm_names like</span>
+            <span class="c1"># "4_1" should be int 41.</span>
+            <span class="n">df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">read_json</span><span class="p">(</span><span class="n">data_sqa</span><span class="o">.</span><span class="n">data_json</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">dat</span><span class="o">.</span><span class="n">db_id</span> <span class="o">=</span> <span class="n">data_sqa</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">dat</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/v0.1.20/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>

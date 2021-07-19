@@ -1,0 +1,178 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.0/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.0/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.0/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.0/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.0/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.0/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.0/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.0/css/main.css"/><script src="/versions/0.2.0/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.0/"><img class="logo" src="/versions/0.2.0/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.0/versions.html"><h3>0.2.0</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.0/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.0/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.0/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<div class="section" id="module-ax.early_stopping">
+<span id="ax-early-stopping"></span><h1>ax.early_stopping<a class="headerlink" href="#module-ax.early_stopping" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-ax.early_stopping.strategies">
+<span id="strategies"></span><h2>Strategies<a class="headerlink" href="#module-ax.early_stopping.strategies" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="ax.early_stopping.strategies.BaseEarlyStoppingStrategy">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.early_stopping.strategies.</span></code><code class="sig-name descname"><span class="pre">BaseEarlyStoppingStrategy</span></code><a class="reference internal" href="_modules/ax/early_stopping/strategies.html#BaseEarlyStoppingStrategy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.early_stopping.strategies.BaseEarlyStoppingStrategy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
+<p>Interface for heuristics that halt trials early, typically based on early
+results from that trial.</p>
+<dl class="py method">
+<dt id="ax.early_stopping.strategies.BaseEarlyStoppingStrategy.should_stop_trials_early">
+<em class="property"><span class="pre">abstract</span> </em><code class="sig-name descname"><span class="pre">should_stop_trials_early</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial_indices</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Set</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><span class="pre">ax.core.experiment.Experiment</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> → <span class="pre">Set</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><a class="reference internal" href="_modules/ax/early_stopping/strategies.html#BaseEarlyStoppingStrategy.should_stop_trials_early"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.early_stopping.strategies.BaseEarlyStoppingStrategy.should_stop_trials_early" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decide whether to complete trials before evaluation is fully concluded.</p>
+<p>Typical examples include stopping a machine learning model’s training, or
+halting the gathering of samples before some planned number are collected.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trial_indices</strong> – Indices of candidate trials to stop early.</p></li>
+<li><p><strong>experiment</strong> – Experiment that contains the trials and other contextual data.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Set of trial indices that should be early stopped. Empty set means
+no suggested update.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="py class">
+<dt id="ax.early_stopping.strategies.PercentileEarlyStoppingStrategy">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.early_stopping.strategies.</span></code><code class="sig-name descname"><span class="pre">PercentileEarlyStoppingStrategy</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">percentile_threshold</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><span class="pre">float</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">50.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_progression</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><span class="pre">float</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_curves</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><span class="pre">float</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/early_stopping/strategies.html#PercentileEarlyStoppingStrategy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.early_stopping.strategies.PercentileEarlyStoppingStrategy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.early_stopping.strategies.BaseEarlyStoppingStrategy" title="ax.early_stopping.strategies.BaseEarlyStoppingStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.early_stopping.strategies.BaseEarlyStoppingStrategy</span></code></a></p>
+<p>Implements the strategy of stopping a trial if its performance
+falls below that of other trials at the same step.</p>
+<dl class="py method">
+<dt id="ax.early_stopping.strategies.PercentileEarlyStoppingStrategy.should_stop_trial_early">
+<code class="sig-name descname"><span class="pre">should_stop_trial_early</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial_index</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><span class="pre">ax.core.experiment.Experiment</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pandas.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">percentile_threshold</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_key</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">minimize</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> → <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a><a class="reference internal" href="_modules/ax/early_stopping/strategies.html#PercentileEarlyStoppingStrategy.should_stop_trial_early"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.early_stopping.strategies.PercentileEarlyStoppingStrategy.should_stop_trial_early" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop a trial if its performance is in the bottom <cite>percentile_threshold</cite>
+of the trials at the same step.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trial_index</strong> – Indices of candidate trial to stop early.</p></li>
+<li><p><strong>experiment</strong> – Experiment that contains the trials and other contextual data.</p></li>
+<li><p><strong>df</strong> – Dataframe of partial results after applying interpolation,
+filtered to objective metric.</p></li>
+<li><p><strong>percentile_threshold</strong> – Falling below this threshold compared to other trials
+at the same step will stop the run. Must be between 0.0 and 100.0.
+e.g. if percentile_threshold=25.0, the bottom 25% of trials are stopped.
+Note that “bottom” here is determined based on performance, not
+absolute values; if <cite>minimize</cite> is False, then “bottom” actually refers
+to the top trials in terms of metric value.</p></li>
+<li><p><strong>map_key</strong> – Name of the column of the dataset that indicates progression.</p></li>
+<li><p><strong>minimize</strong> – Whether objective value is being minimized.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True iff trial should be early stopped.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt id="ax.early_stopping.strategies.PercentileEarlyStoppingStrategy.should_stop_trials_early">
+<code class="sig-name descname"><span class="pre">should_stop_trials_early</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial_indices</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Set</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><span class="pre">ax.core.experiment.Experiment</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> → <span class="pre">Set</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><a class="reference internal" href="_modules/ax/early_stopping/strategies.html#PercentileEarlyStoppingStrategy.should_stop_trials_early"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.early_stopping.strategies.PercentileEarlyStoppingStrategy.should_stop_trials_early" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop a trial if its performance is in the bottom <cite>percentile_threshold</cite>
+of the trials at the same step.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trial_indices</strong> – Indices of candidate trials to consider for early stopping.</p></li>
+<li><p><strong>experiment</strong> – Experiment that contains the trials and other contextual data.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Set of trial indices that should be early stopped. Empty set means
+no suggested update.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.early_stopping.utils">
+<span id="utils"></span><h2>Utils<a class="headerlink" href="#module-ax.early_stopping.utils" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="ax.early_stopping.utils.align_partial_results">
+<code class="sig-prename descclassname"><span class="pre">ax.early_stopping.utils.</span></code><code class="sig-name descname"><span class="pre">align_partial_results</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pandas.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progr_key</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">metrics</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interpolation</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'slinear'</span></span></em><span class="sig-paren">)</span> → <span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">pandas.DataFrame</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">pandas.DataFrame</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><a class="reference internal" href="_modules/ax/early_stopping/utils.html#align_partial_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.early_stopping.utils.align_partial_results" title="Permalink to this definition">¶</a></dt>
+<dd><p>Helper function to align partial results with heterogeneous index</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> – The DataFrame containining the raw data (in long format).</p></li>
+<li><p><strong>progr_key</strong> – The key of the column indexing progression (such as
+the number of training examples, timestamps, etc.).</p></li>
+<li><p><strong>metrics</strong> – The names of the metrics to consider.</p></li>
+<li><p><strong>interpolation</strong> – The interpolation method used to fill missing values
+(if applicable). See <cite>pandas.DataFrame.interpolate</cite> for
+available options.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A two-tuple containig a dict mapping the provided metric names to the
+index-normalized and interpolated mean (sem).</p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.0/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>

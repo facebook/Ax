@@ -1,0 +1,366 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.8/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.8/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.8/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.8/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.8/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.8/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.8/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.8/css/main.css"/><script src="/versions/0.1.8/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.8/"><img class="logo" src="/versions/0.1.8/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.8/versions.html"><h3>0.1.8</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.8/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.8/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.8/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.utils.stats.statstools</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="s2">"Statstools"</span><span class="p">)</span>
+<span class="n">num_mixed</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>
+
+
+<div class="viewcode-block" id="inverse_variance_weight"><a class="viewcode-back" href="../../../../utils.html#ax.utils.stats.statstools.inverse_variance_weight">[docs]</a><span class="k">def</span> <span class="nf">inverse_variance_weight</span><span class="p">(</span>
+    <span class="n">means</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">variances</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">conflicting_noiseless</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"warn"</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sd">"""Perform inverse variance weighting.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        means: The means of the observations.</span>
+<span class="sd">        variances: The variances of the observations.</span>
+<span class="sd">        conflicting_noiseless: How to handle the case of</span>
+<span class="sd">            multiple observations with zero variance but different means.</span>
+<span class="sd">            Options are "warn" (default), "ignore" or "raise".</span>
+
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">conflicting_noiseless</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"warn"</span><span class="p">,</span> <span class="s2">"ignore"</span><span class="p">,</span> <span class="s2">"raise"</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Unsupported option `</span><span class="si">{conflicting_noiseless}</span><span class="s2">` for conflicting_noiseless."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">means</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">variances</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Means and variances must be of the same length."</span><span class="p">)</span>
+    <span class="c1"># new_mean = \sum_i 1/var_i mean_i / \sum_i (1/var_i), unless any var = 0,</span>
+    <span class="c1"># in which case we report the mean of all values with var = 0.</span>
+    <span class="n">idx_zero</span> <span class="o">=</span> <span class="n">variances</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">idx_zero</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="n">means_z</span> <span class="o">=</span> <span class="n">means</span><span class="p">[</span><span class="n">idx_zero</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">means_z</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="s2">"Multiple observations zero variance but different means."</span>
+            <span class="k">if</span> <span class="n">conflicting_noiseless</span> <span class="o">==</span> <span class="s2">"warn"</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">conflicting_noiseless</span> <span class="o">==</span> <span class="s2">"raise"</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">means_z</span><span class="p">),</span> <span class="mi">0</span>
+    <span class="n">inv_vars</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">variances</span><span class="p">)</span>
+    <span class="n">sum_inv_vars</span> <span class="o">=</span> <span class="n">inv_vars</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">new_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">inv_vars</span><span class="p">,</span> <span class="n">means</span><span class="p">)</span> <span class="o">/</span> <span class="n">sum_inv_vars</span>
+    <span class="n">new_var</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sum_inv_vars</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">new_mean</span><span class="p">,</span> <span class="n">new_var</span></div>
+
+
+<div class="viewcode-block" id="total_variance"><a class="viewcode-back" href="../../../../utils.html#ax.utils.stats.statstools.total_variance">[docs]</a><span class="k">def</span> <span class="nf">total_variance</span><span class="p">(</span>
+    <span class="n">means</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">variances</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sample_sizes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">"""Compute total variance."""</span>
+    <span class="n">variances</span> <span class="o">=</span> <span class="n">variances</span> <span class="o">*</span> <span class="n">sample_sizes</span>
+    <span class="n">weighted_variance_of_means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">means</span> <span class="o">-</span> <span class="n">means</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">sample_sizes</span>
+    <span class="p">)</span>
+    <span class="n">weighted_mean_of_variance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">variances</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">sample_sizes</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">weighted_variance_of_means</span> <span class="o">+</span> <span class="n">weighted_mean_of_variance</span><span class="p">)</span> <span class="o">/</span> <span class="n">sample_sizes</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="positive_part_james_stein"><a class="viewcode-back" href="../../../../utils.html#ax.utils.stats.statstools.positive_part_james_stein">[docs]</a><span class="k">def</span> <span class="nf">positive_part_james_stein</span><span class="p">(</span>
+    <span class="n">means</span><span class="p">:</span> <span class="n">num_mixed</span><span class="p">,</span> <span class="n">sems</span><span class="p">:</span> <span class="n">num_mixed</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">"""Estimation method for Positive-part James-Stein estimator.</span>
+
+<span class="sd">    This method takes a vector of K means (`y_i`) and standard errors</span>
+<span class="sd">    (`sigma_i`) and calculates the positive-part James Stein estimator.</span>
+
+<span class="sd">    Resulting estimates are the shrunk means and standard errors. The positive</span>
+<span class="sd">    part James-Stein estimator shrinks each constituent average to the grand</span>
+<span class="sd">    average:</span>
+
+<span class="sd">        y_i - phi_i * y_i + phi_i * ybar</span>
+
+<span class="sd">    The variable phi_i determines the amount of shrinkage. For `phi_i = 1`,</span>
+<span class="sd">    `mu_hat` is equal to `ybar` (the mean of all `y_i`), while for `phi_i = 0`,</span>
+<span class="sd">    `mu_hat` is equal to `y_i`. It can be shown that restricting `phi_i &lt;= 1`</span>
+<span class="sd">    dominates the unrestricted estimator, so this method restricts `phi_i` in</span>
+<span class="sd">    this manner. The amount of shrinkage, `phi_i`, is determined by:</span>
+
+<span class="sd">        (K - 3) * sigma2_i / s2</span>
+
+<span class="sd">    That is, less shrinkage is applied when individual means are estimated with</span>
+<span class="sd">    greater precision, and more shrinkage is applied when individual means are</span>
+<span class="sd">    very tightly clustered together. We also restrict `phi_i` to never be larger</span>
+<span class="sd">    than 1.</span>
+
+<span class="sd">    The variance of the mean estimator is:</span>
+
+<span class="sd">        (1 - phi_i) * sigma2_i</span>
+<span class="sd">        + phi * sigma2_i / K</span>
+<span class="sd">        + 2 * phi_i ** 2 * (y_i - ybar)^2 / (K - 3)</span>
+
+<span class="sd">    The first term is the variance component from `y_i`, the second term is the</span>
+<span class="sd">    contribution from the mean of all `y_i`, and the third term is the</span>
+<span class="sd">    contribution from the uncertainty in the sum of squared deviations of `y_i`</span>
+<span class="sd">    from the mean of all `y_i`.</span>
+
+<span class="sd">    For more information, see https://fburl.com/empirical_bayes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        means: Means of each arm</span>
+<span class="sd">        sems: Standard errors of each arm</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        mu_hat_i: Empirical Bayes estimate of each arm's mean</span>
+<span class="sd">        sem_i: Empirical Bayes estimate of each arm's sem</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">sems</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"sems cannot be negative."</span><span class="p">)</span>
+    <span class="n">y_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">means</span><span class="p">)</span>
+    <span class="n">K</span> <span class="o">=</span> <span class="n">y_i</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">K</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Less than 4 measurements passed to positive_part_james_stein. "</span>
+            <span class="o">+</span> <span class="s2">"Returning raw estimates."</span>
+        <span class="p">)</span>
+    <span class="n">sigma2_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">sems</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">ybar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y_i</span><span class="p">)</span>
+    <span class="n">s2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">y_i</span> <span class="o">-</span> <span class="n">ybar</span><span class="p">,</span> <span class="n">ddof</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>  <span class="c1"># sample variance normalized by K-3</span>
+    <span class="k">if</span> <span class="n">s2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">phi_i</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">phi_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">sigma2_i</span> <span class="o">/</span> <span class="n">s2</span><span class="p">)</span>
+    <span class="n">mu_hat_i</span> <span class="o">=</span> <span class="n">y_i</span> <span class="o">+</span> <span class="n">phi_i</span> <span class="o">*</span> <span class="p">(</span><span class="n">ybar</span> <span class="o">-</span> <span class="n">y_i</span><span class="p">)</span>
+    <span class="n">sigma_hat_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+        <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">phi_i</span><span class="p">)</span> <span class="o">*</span> <span class="n">sigma2_i</span>
+        <span class="o">+</span> <span class="n">phi_i</span> <span class="o">*</span> <span class="n">sigma2_i</span> <span class="o">/</span> <span class="n">K</span>
+        <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">phi_i</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">y_i</span> <span class="o">-</span> <span class="n">ybar</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="n">K</span> <span class="o">-</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">mu_hat_i</span><span class="p">,</span> <span class="n">sigma_hat_i</span></div>
+
+
+<div class="viewcode-block" id="relativize"><a class="viewcode-back" href="../../../../utils.html#ax.utils.stats.statstools.relativize">[docs]</a><span class="k">def</span> <span class="nf">relativize</span><span class="p">(</span>
+    <span class="n">means_t</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">sems_t</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">mean_c</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">sem_c</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">bias_correction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">cov_means</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">as_percent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">"""Ratio estimator based on the delta method.</span>
+
+<span class="sd">    This uses the delta method (i.e. a Taylor series approximation) to estimate</span>
+<span class="sd">    the mean and standard deviation of the sampling distribution of the ratio</span>
+<span class="sd">    between test and control -- that is, the sampling distribution of an</span>
+<span class="sd">    estimator of the true population value under the assumption that the means</span>
+<span class="sd">    in test and control have a known covariance:</span>
+
+<span class="sd">        (mu_t / mu_c) - 1.</span>
+
+<span class="sd">    Under a second-order Taylor expansion, the sampling distribution of the</span>
+<span class="sd">    relative change in empirical means, which is `m_t / m_c - 1`, is</span>
+<span class="sd">    approximately normally distributed with mean</span>
+
+<span class="sd">        [(mu_t - mu_c) / mu_c] - [(sigma_c)^2 * mu_t] / (mu_c)^3</span>
+
+<span class="sd">    and variance</span>
+
+<span class="sd">        (sigma_t / mu_c)^2</span>
+<span class="sd">        - 2 * mu_t _ sigma_tc / mu_c^3</span>
+<span class="sd">        + [(sigma_c * mu_t)^2 / (mu_c)^4]</span>
+
+<span class="sd">    as the higher terms are assumed to be close to zero in the full Taylor</span>
+<span class="sd">    series. To estimate these parameters, we plug in the empirical means and</span>
+<span class="sd">    standard errors. This gives us the estimators:</span>
+
+<span class="sd">        [(m_t - m_c) / m_c] - [(s_c)^2 * m_t] / (m_c)^3</span>
+
+<span class="sd">    and</span>
+
+<span class="sd">        (s_t / m_c)^2 - 2 * m_t * s_tc / m_c^3 + [(s_c * m_t)^2 / (m_c)^4]</span>
+
+<span class="sd">    Note that the delta method does NOT take as input the empirical standard</span>
+<span class="sd">    deviation of a metric, but rather the standard error of the mean of that</span>
+<span class="sd">    metric -- that is, the standard deviation of the metric after division by</span>
+<span class="sd">    the square root of the total number of observations.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        means_t: Sample means (test)</span>
+<span class="sd">        sems_t: Sample standard errors of the means (test)</span>
+<span class="sd">        mean_c: Sample mean (control)</span>
+<span class="sd">        sem_c: Sample standard error of the mean (control)</span>
+<span class="sd">        cov_means: Sample covariance between test and control</span>
+<span class="sd">        as_percent: If true, return results in percent (* 100)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        rel_hat: Inferred means of the sampling distribution of</span>
+<span class="sd">            the relative change `(mean_t / mean_c) - 1`</span>
+<span class="sd">        sem_hat: Inferred standard deviation of the sampling</span>
+<span class="sd">            distribution of rel_hat -- i.e. the standard error.</span>
+
+<span class="sd">    """</span>
+    <span class="c1"># if mean_c is too small, bail</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">1e-10</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">mean_c</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">epsilon</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"mean_control (</span><span class="si">{0}</span><span class="s2"> +/- </span><span class="si">{1}</span><span class="s2">) is smaller than 1 in 10 billion, "</span>
+            <span class="s2">"which is too small to reliably analyze ratios using the delta "</span>
+            <span class="s2">"method. This usually occurs because winsorization has truncated "</span>
+            <span class="s2">"all values down to zero. Try using a delta type that applies "</span>
+            <span class="s2">"no winsorization."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mean_c</span><span class="p">,</span> <span class="n">sem_c</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="n">m_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">means_t</span><span class="p">)</span>
+    <span class="n">s_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">sems_t</span><span class="p">)</span>
+    <span class="n">cov_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cov_means</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">m_t</span> <span class="o">/</span> <span class="n">mean_c</span>
+    <span class="n">r_hat</span> <span class="o">=</span> <span class="p">(</span><span class="n">m_t</span> <span class="o">-</span> <span class="n">mean_c</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">mean_c</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bias_correction</span><span class="p">:</span>
+        <span class="n">r_hat</span> <span class="o">=</span> <span class="n">r_hat</span> <span class="o">-</span> <span class="n">m_t</span> <span class="o">*</span> <span class="n">sem_c</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">mean_c</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span>
+    <span class="c1"># If everything's the same, then set r_hat to zero</span>
+    <span class="n">same</span> <span class="o">=</span> <span class="p">(</span><span class="n">m_t</span> <span class="o">==</span> <span class="n">mean_c</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">s_t</span> <span class="o">==</span> <span class="n">sem_c</span><span class="p">)</span>
+    <span class="n">r_hat</span> <span class="o">=</span> <span class="o">~</span><span class="n">same</span> <span class="o">*</span> <span class="n">r_hat</span>
+    <span class="n">var</span> <span class="o">=</span> <span class="p">((</span><span class="n">s_t</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">c</span> <span class="o">*</span> <span class="n">cov_t</span> <span class="o">+</span> <span class="p">(</span><span class="n">c</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">sem_c</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">mean_c</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">as_percent</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">r_hat</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">r_hat</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="agresti_coull_sem"><a class="viewcode-back" href="../../../../utils.html#ax.utils.stats.statstools.agresti_coull_sem">[docs]</a><span class="k">def</span> <span class="nf">agresti_coull_sem</span><span class="p">(</span>
+    <span class="n">n_numer</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">n_denom</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">prior_successes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">prior_failures</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sd">"""Compute the Agresti-Coull style standard error for a binomial proportion.</span>
+
+<span class="sd">    Reference:</span>
+<span class="sd">    *Agresti, Alan, and Brent A. Coull. Approximate Is Better than 'Exact' for</span>
+<span class="sd">    Interval Estimation of Binomial Proportions." The American Statistician,</span>
+<span class="sd">    vol. 52, no. 2, 1998, pp. 119-126. JSTOR, www.jstor.org/stable/2685469.*</span>
+
+<span class="sd">    """</span>
+    <span class="n">n_numer</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">n_numer</span><span class="p">)</span>
+    <span class="n">n_denom</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">n_denom</span><span class="p">)</span>
+    <span class="n">p_for_sem</span> <span class="o">=</span> <span class="p">(</span><span class="n">n_numer</span> <span class="o">+</span> <span class="n">prior_successes</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span>
+        <span class="n">n_denom</span> <span class="o">+</span> <span class="n">prior_successes</span> <span class="o">+</span> <span class="n">prior_failures</span>
+    <span class="p">)</span>
+    <span class="n">sem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">p_for_sem</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_for_sem</span><span class="p">)</span> <span class="o">/</span> <span class="n">n_denom</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sem</span></div>
+
+
+<div class="viewcode-block" id="marginal_effects"><a class="viewcode-back" href="../../../../utils.html#ax.utils.stats.statstools.marginal_effects">[docs]</a><span class="k">def</span> <span class="nf">marginal_effects</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sd">"""</span>
+<span class="sd">    This method calculates the relative (in %) change in the outcome achieved</span>
+<span class="sd">    by using any individual factor level versus randomizing across all factor</span>
+<span class="sd">    levels. It does this by estimating a baseline under the experiment by</span>
+<span class="sd">    marginalizing over all factors/levels. For each factor level, then,</span>
+<span class="sd">    it conditions on that level for the individual factor and then marginalizes</span>
+<span class="sd">    over all levels for all other factors.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df: Dataframe containing columns named mean and sem. All other columns</span>
+<span class="sd">            are assumed to be factors for which to calculate marginal effects.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A dataframe containing columns "Name", "Level", "Beta" and "SE"</span>
+<span class="sd">            corresponding to the factor, level, effect and standard error.</span>
+<span class="sd">            Results are relativized as percentage changes.</span>
+<span class="sd">    """</span>
+    <span class="n">covariates</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"mean"</span><span class="p">,</span> <span class="s2">"sem"</span><span class="p">]]</span>
+    <span class="n">formatted_vals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">overall_mean</span><span class="p">,</span> <span class="n">overall_sem</span> <span class="o">=</span> <span class="n">inverse_variance_weight</span><span class="p">(</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"sem"</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">cov</span> <span class="ow">in</span> <span class="n">covariates</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">cov</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">next</span>
+        <span class="n">df_gb</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">group_df</span> <span class="ow">in</span> <span class="n">df_gb</span><span class="p">:</span>
+            <span class="n">group_mean</span><span class="p">,</span> <span class="n">group_var</span> <span class="o">=</span> <span class="n">inverse_variance_weight</span><span class="p">(</span>
+                <span class="n">group_df</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">group_df</span><span class="p">[</span><span class="s2">"sem"</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">effect</span><span class="p">,</span> <span class="n">effect_sem</span> <span class="o">=</span> <span class="n">relativize</span><span class="p">(</span>
+                <span class="n">group_mean</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">group_var</span><span class="p">),</span>
+                <span class="n">overall_mean</span><span class="p">,</span>
+                <span class="n">overall_sem</span><span class="p">,</span>
+                <span class="n">cov_means</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+                <span class="n">as_percent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">formatted_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span><span class="s2">"Name"</span><span class="p">:</span> <span class="n">cov</span><span class="p">,</span> <span class="s2">"Level"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span> <span class="s2">"Beta"</span><span class="p">:</span> <span class="n">effect</span><span class="p">,</span> <span class="s2">"SE"</span><span class="p">:</span> <span class="n">effect_sem</span><span class="p">}</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">formatted_vals</span><span class="p">)[[</span><span class="s2">"Name"</span><span class="p">,</span> <span class="s2">"Level"</span><span class="p">,</span> <span class="s2">"Beta"</span><span class="p">,</span> <span class="s2">"SE"</span><span class="p">]]</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.8/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

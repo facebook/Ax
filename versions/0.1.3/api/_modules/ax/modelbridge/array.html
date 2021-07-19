@@ -1,0 +1,532 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.3/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.3/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.3/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.3/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.3/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.3/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.3/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.3/css/main.css"/><script src="/versions/0.1.3/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.3/"><img class="logo" src="/versions/0.1.3/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.3/versions.html"><h3>0.1.3</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.3/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.3/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.3/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.array</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="k">import</span> <span class="n">Objective</span><span class="p">,</span> <span class="n">ScalarizedObjective</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="k">import</span> <span class="n">ObservationData</span><span class="p">,</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="k">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="k">import</span> <span class="n">ComparisonOp</span><span class="p">,</span> <span class="n">OutcomeConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="k">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="k">import</span> <span class="n">TBounds</span><span class="p">,</span> <span class="n">TConfig</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.base</span> <span class="k">import</span> <span class="n">ModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.modelbridge_utils</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">extract_parameter_constraints</span><span class="p">,</span>
+    <span class="n">get_bounds_and_task</span><span class="p">,</span>
+    <span class="n">get_fixed_features</span><span class="p">,</span>
+    <span class="n">get_pending_observations</span><span class="p">,</span>
+    <span class="n">parse_observation_features</span><span class="p">,</span>
+    <span class="n">transform_callback</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="n">FIT_MODEL_ERROR</span> <span class="o">=</span> <span class="s2">"Model must be fit before </span><span class="si">{action}</span><span class="s2">."</span>
+
+
+<div class="viewcode-block" id="ArrayModelBridge"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.array.ArrayModelBridge">[docs]</a><span class="k">class</span> <span class="nc">ArrayModelBridge</span><span class="p">(</span><span class="n">ModelBridge</span><span class="p">):</span>
+    <span class="sd">"""A model bridge for using array-based models.</span>
+
+<span class="sd">    Requires that all non-task parameters have been transformed to</span>
+<span class="sd">    RangeParameters with float type and no log scale. Task parameters must be</span>
+<span class="sd">    transformed to RangeParameters with int type.</span>
+
+<span class="sd">    This will convert all parameter types to float and put data into arrays.</span>
+<span class="sd">    """</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Convert observations to arrays</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="c1"># move fidelity parameters to the last columns</span>
+        <span class="k">for</span> <span class="n">para</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">para</span><span class="p">]</span><span class="o">.</span><span class="n">is_fidelity</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">para</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">para</span><span class="p">)</span>
+        <span class="n">all_metric_names</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">od</span> <span class="ow">in</span> <span class="n">observation_data</span><span class="p">:</span>
+            <span class="n">all_metric_names</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">od</span><span class="o">.</span><span class="n">metric_names</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">all_metric_names</span><span class="p">)</span>
+        <span class="c1"># Convert observations to arrays</span>
+        <span class="n">Xs_array</span><span class="p">,</span> <span class="n">Ys_array</span><span class="p">,</span> <span class="n">Yvars_array</span><span class="p">,</span> <span class="n">in_design</span> <span class="o">=</span> <span class="n">_convert_observations</span><span class="p">(</span>
+            <span class="n">observation_data</span><span class="o">=</span><span class="n">observation_data</span><span class="p">,</span>
+            <span class="n">observation_features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">,</span>
+            <span class="n">outcomes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">training_in_design</span> <span class="o">=</span> <span class="n">in_design</span>
+        <span class="c1"># Extract bounds and task features</span>
+        <span class="n">bounds</span><span class="p">,</span> <span class="n">task_features</span><span class="p">,</span> <span class="n">fidelity_features</span> <span class="o">=</span> <span class="n">get_bounds_and_task</span><span class="p">(</span>
+            <span class="n">search_space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Fit</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model_fit</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="n">Xs_array</span><span class="p">,</span>
+            <span class="n">Ys</span><span class="o">=</span><span class="n">Ys_array</span><span class="p">,</span>
+            <span class="n">Yvars</span><span class="o">=</span><span class="n">Yvars_array</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">task_features</span><span class="o">=</span><span class="n">task_features</span><span class="p">,</span>
+            <span class="n">feature_names</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="n">fidelity_features</span><span class="o">=</span><span class="n">fidelity_features</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_model_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">task_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">feature_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">fidelity_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Fit the model, given numpy types.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="n">Xs</span><span class="p">,</span>
+            <span class="n">Ys</span><span class="o">=</span><span class="n">Ys</span><span class="p">,</span>
+            <span class="n">Yvars</span><span class="o">=</span><span class="n">Yvars</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">task_features</span><span class="o">=</span><span class="n">task_features</span><span class="p">,</span>
+            <span class="n">feature_names</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span>
+            <span class="n">fidelity_features</span><span class="o">=</span><span class="n">fidelity_features</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_update</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Apply terminal transform for update data, and pass along to model."""</span>
+        <span class="n">Xs_array</span><span class="p">,</span> <span class="n">Ys_array</span><span class="p">,</span> <span class="n">Yvars_array</span><span class="p">,</span> <span class="n">in_design</span> <span class="o">=</span> <span class="n">_convert_observations</span><span class="p">(</span>
+            <span class="n">observation_data</span><span class="o">=</span><span class="n">observation_data</span><span class="p">,</span>
+            <span class="n">observation_features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">,</span>
+            <span class="n">outcomes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Update in-design status for these new points.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">training_in_design</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">observation_features</span><span class="p">)</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">in_design</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model_update</span><span class="p">(</span><span class="n">Xs</span><span class="o">=</span><span class="n">Xs_array</span><span class="p">,</span> <span class="n">Ys</span><span class="o">=</span><span class="n">Ys_array</span><span class="p">,</span> <span class="n">Yvars</span><span class="o">=</span><span class="n">Yvars_array</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_model_update</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">Xs</span><span class="o">=</span><span class="n">Xs</span><span class="p">,</span> <span class="n">Ys</span><span class="o">=</span><span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span><span class="o">=</span><span class="n">Yvars</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+        <span class="c1"># Convert observations to array</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[[</span><span class="n">of</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">]</span> <span class="k">for</span> <span class="n">of</span> <span class="ow">in</span> <span class="n">observation_features</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_predict</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">)</span>
+        <span class="c1"># Convert arrays to observations</span>
+        <span class="k">return</span> <span class="n">array_to_observation_data</span><span class="p">(</span><span class="n">f</span><span class="o">=</span><span class="n">f</span><span class="p">,</span> <span class="n">cov</span><span class="o">=</span><span class="n">cov</span><span class="p">,</span> <span class="n">outcomes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_model_predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">pending_observations</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]],</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">ObservationFeatures</span><span class="p">,</span>
+        <span class="n">model_gen_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]]:</span>
+        <span class="sd">"""Generate new candidates according to search_space and</span>
+<span class="sd">        optimization_config.</span>
+
+<span class="sd">        The outcome constraints should be transformed to no longer be relative.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Validation</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">FIT_MODEL_ERROR</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s2">"_gen"</span><span class="p">))</span>
+        <span class="c1"># Extract bounds</span>
+        <span class="n">bounds</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">get_bounds_and_task</span><span class="p">(</span><span class="n">search_space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">optimization_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"ArrayModelBridge requires an OptimizationConfig to be specified"</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No outcomes found during model fit--data are missing."</span><span class="p">)</span>
+
+        <span class="n">validate_optimization_config</span><span class="p">(</span><span class="n">optimization_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">)</span>
+        <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">extract_objective_weights</span><span class="p">(</span>
+            <span class="n">objective</span><span class="o">=</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="p">,</span> <span class="n">outcomes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span>
+        <span class="p">)</span>
+        <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="n">extract_outcome_constraints</span><span class="p">(</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">outcomes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">linear_constraints</span> <span class="o">=</span> <span class="n">extract_parameter_constraints</span><span class="p">(</span>
+            <span class="n">search_space</span><span class="o">.</span><span class="n">parameter_constraints</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="p">)</span>
+        <span class="n">fixed_features_dict</span> <span class="o">=</span> <span class="n">get_fixed_features</span><span class="p">(</span><span class="n">fixed_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="n">pending_array</span> <span class="o">=</span> <span class="n">get_pending_observations</span><span class="p">(</span>
+            <span class="n">pending_observations</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="p">)</span>
+        <span class="c1"># Generate the candidates</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_gen</span><span class="p">(</span>
+            <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">linear_constraints</span><span class="o">=</span><span class="n">linear_constraints</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features_dict</span><span class="p">,</span>
+            <span class="n">pending_observations</span><span class="o">=</span><span class="n">pending_array</span><span class="p">,</span>
+            <span class="n">model_gen_options</span><span class="o">=</span><span class="n">model_gen_options</span><span class="p">,</span>
+            <span class="n">rounding_func</span><span class="o">=</span><span class="n">transform_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transforms</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="c1"># Transform array to observations</span>
+        <span class="n">observation_features</span> <span class="o">=</span> <span class="n">parse_observation_features</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="n">xbest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_best_point</span><span class="p">(</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">linear_constraints</span><span class="o">=</span><span class="n">linear_constraints</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features_dict</span><span class="p">,</span>
+            <span class="n">model_gen_options</span><span class="o">=</span><span class="n">model_gen_options</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">best_obsf</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">xbest</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="n">ObservationFeatures</span><span class="p">(</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">xbest</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">)}</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">observation_features</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">best_obsf</span>
+
+    <span class="k">def</span> <span class="nf">_model_gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+        <span class="n">linear_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">pending_observations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+        <span class="n">model_gen_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">],</span>
+        <span class="n">rounding_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+            <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">linear_constraints</span><span class="o">=</span><span class="n">linear_constraints</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">,</span>
+            <span class="n">pending_observations</span><span class="o">=</span><span class="n">pending_observations</span><span class="p">,</span>
+            <span class="n">model_gen_options</span><span class="o">=</span><span class="n">model_gen_options</span><span class="p">,</span>
+            <span class="n">rounding_func</span><span class="o">=</span><span class="n">rounding_func</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_model_best_point</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+        <span class="n">linear_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">model_gen_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">best_point</span><span class="p">(</span>
+                <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+                <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+                <span class="n">linear_constraints</span><span class="o">=</span><span class="n">linear_constraints</span><span class="p">,</span>
+                <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">,</span>
+                <span class="n">model_gen_options</span><span class="o">=</span><span class="n">model_gen_options</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_cross_validate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">obs_feats</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">obs_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">cv_test_points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+        <span class="sd">"""Make predictions at cv_test_points using only the data in obs_feats</span>
+<span class="sd">        and obs_data.</span>
+<span class="sd">        """</span>
+        <span class="n">Xs_train</span><span class="p">,</span> <span class="n">Ys_train</span><span class="p">,</span> <span class="n">Yvars_train</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_convert_observations</span><span class="p">(</span>
+            <span class="n">observation_data</span><span class="o">=</span><span class="n">obs_data</span><span class="p">,</span>
+            <span class="n">observation_features</span><span class="o">=</span><span class="n">obs_feats</span><span class="p">,</span>
+            <span class="n">outcomes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">X_test</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[[</span><span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">]</span> <span class="k">for</span> <span class="n">obsf</span> <span class="ow">in</span> <span class="n">cv_test_points</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="c1"># Use the model to do the cross validation</span>
+        <span class="n">f_test</span><span class="p">,</span> <span class="n">cov_test</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_cross_validate</span><span class="p">(</span>
+            <span class="n">Xs_train</span><span class="o">=</span><span class="n">Xs_train</span><span class="p">,</span> <span class="n">Ys_train</span><span class="o">=</span><span class="n">Ys_train</span><span class="p">,</span> <span class="n">Yvars_train</span><span class="o">=</span><span class="n">Yvars_train</span><span class="p">,</span> <span class="n">X_test</span><span class="o">=</span><span class="n">X_test</span>
+        <span class="p">)</span>
+        <span class="c1"># Convert array back to ObservationData</span>
+        <span class="k">return</span> <span class="n">array_to_observation_data</span><span class="p">(</span><span class="n">f</span><span class="o">=</span><span class="n">f_test</span><span class="p">,</span> <span class="n">cov</span><span class="o">=</span><span class="n">cov_test</span><span class="p">,</span> <span class="n">outcomes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_model_cross_validate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Xs_train</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">Ys_train</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">Yvars_train</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">X_test</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">cross_validate</span><span class="p">(</span>
+            <span class="n">Xs_train</span><span class="o">=</span><span class="n">Xs_train</span><span class="p">,</span> <span class="n">Ys_train</span><span class="o">=</span><span class="n">Ys_train</span><span class="p">,</span> <span class="n">Yvars_train</span><span class="o">=</span><span class="n">Yvars_train</span><span class="p">,</span> <span class="n">X_test</span><span class="o">=</span><span class="n">X_test</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_transform_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">"""A function that performs the `round trip` transformations.</span>
+<span class="sd">        This function is passed to _model_gen.</span>
+<span class="sd">        """</span>
+        <span class="c1"># apply reverse terminal transform to turn array to ObservationFeatures</span>
+        <span class="n">observation_features</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ObservationFeatures</span><span class="p">(</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">)}</span>
+            <span class="p">)</span>
+        <span class="p">]</span>
+        <span class="c1"># reverse loop through the transforms and do untransform</span>
+        <span class="c1"># pyre-fixme[6]: Expected `Sequence[_T]` for 1st param but got `ValuesView[Tr...</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+            <span class="n">observation_features</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">untransform_observation_features</span><span class="p">(</span>
+                <span class="n">observation_features</span>
+            <span class="p">)</span>
+        <span class="c1"># forward loop through the transforms and do transform</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">observation_features</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">transform_observation_features</span><span class="p">(</span>
+                <span class="n">observation_features</span>
+            <span class="p">)</span>
+        <span class="n">new_x</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="nb">float</span><span class="p">(</span><span class="n">observation_features</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">])</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="p">]</span>
+        <span class="c1"># turn it back into an array</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="array_to_observation_data"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.array.array_to_observation_data">[docs]</a><span class="k">def</span> <span class="nf">array_to_observation_data</span><span class="p">(</span>
+    <span class="n">f</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cov</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+    <span class="sd">"""Convert arrays of model predictions to a list of ObservationData.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        f: An (n x d) array</span>
+<span class="sd">        cov: An (n x d x d) array</span>
+<span class="sd">        outcomes: A list of d outcome names</span>
+
+<span class="sd">    Returns: A list of n ObservationData</span>
+<span class="sd">    """</span>
+    <span class="n">observation_data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">observation_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">ObservationData</span><span class="p">(</span>
+                <span class="n">metric_names</span><span class="o">=</span><span class="n">outcomes</span><span class="p">,</span>
+                <span class="n">means</span><span class="o">=</span><span class="n">f</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+                <span class="n">covariance</span><span class="o">=</span><span class="n">cov</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">observation_data</span></div>
+
+
+<span class="k">def</span> <span class="nf">_convert_observations</span><span class="p">(</span>
+    <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+    <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+    <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">bool</span><span class="p">]]:</span>
+    <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">outcomes</span><span class="p">]</span>
+    <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">outcomes</span><span class="p">]</span>
+    <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">outcomes</span><span class="p">]</span>
+    <span class="n">in_design</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">of</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">observation_features</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">x</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">of</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">])</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span>  <span class="c1"># pyre-ignore</span>
+            <span class="p">]</span>
+            <span class="n">in_design</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+            <span class="c1"># out-of-design point; leave out.</span>
+            <span class="n">in_design</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">observation_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">metric_names</span><span class="p">):</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="n">outcomes</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+            <span class="n">Xs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">Ys</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">observation_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">Yvars</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">observation_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span>
+    <span class="n">Xs_array</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_</span><span class="p">)</span> <span class="k">for</span> <span class="n">x_</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">]</span>
+    <span class="n">Ys_array</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y_</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="k">for</span> <span class="n">y_</span> <span class="ow">in</span> <span class="n">Ys</span><span class="p">]</span>
+    <span class="n">Yvars_array</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">var</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">Yvars</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">Xs_array</span><span class="p">,</span> <span class="n">Ys_array</span><span class="p">,</span> <span class="n">Yvars_array</span><span class="p">,</span> <span class="n">in_design</span>
+
+
+<div class="viewcode-block" id="extract_objective_weights"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.array.extract_objective_weights">[docs]</a><span class="k">def</span> <span class="nf">extract_objective_weights</span><span class="p">(</span><span class="n">objective</span><span class="p">:</span> <span class="n">Objective</span><span class="p">,</span> <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">"""Extract a weights for objectives.</span>
+
+<span class="sd">    Weights are for a maximization problem.</span>
+
+<span class="sd">    Give an objective weight to each modeled outcome. Outcomes that are modeled</span>
+<span class="sd">    but not part of the objective get weight 0.</span>
+
+<span class="sd">    In the single metric case, the objective is given either +/- 1, depending</span>
+<span class="sd">    on the minimize flag.</span>
+
+<span class="sd">    In the multiple metric case, each objective is given the input weight,</span>
+<span class="sd">    multiplied by the minimize flag.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        objective: Objective to extract weights from.</span>
+<span class="sd">        outcomes: n-length list of names of metrics.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        (n,) array of weights.</span>
+
+<span class="sd">    """</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span> <span class="k">if</span> <span class="n">objective</span><span class="o">.</span><span class="n">minimize</span> <span class="k">else</span> <span class="mf">1.0</span>
+    <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">outcomes</span><span class="p">))</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">ScalarizedObjective</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">obj_metric</span><span class="p">,</span> <span class="n">obj_weight</span> <span class="ow">in</span> <span class="n">objective</span><span class="o">.</span><span class="n">metric_weights</span><span class="p">:</span>
+            <span class="n">objective_weights</span><span class="p">[</span><span class="n">outcomes</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">obj_metric</span><span class="o">.</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">obj_weight</span> <span class="o">*</span> <span class="n">s</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">objective_weights</span><span class="p">[</span><span class="n">outcomes</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">s</span>
+    <span class="k">return</span> <span class="n">objective_weights</span></div>
+
+
+<div class="viewcode-block" id="extract_outcome_constraints"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.array.extract_outcome_constraints">[docs]</a><span class="k">def</span> <span class="nf">extract_outcome_constraints</span><span class="p">(</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">],</span> <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TBounds</span><span class="p">:</span>
+    <span class="c1"># Extract outcome constraints</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">outcomes</span><span class="p">)))</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">),</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">):</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">outcomes</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span>
+            <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">bound</span>
+        <span class="n">outcome_constraint_bounds</span><span class="p">:</span> <span class="n">TBounds</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">outcome_constraint_bounds</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">outcome_constraint_bounds</span></div>
+
+
+<div class="viewcode-block" id="validate_optimization_config"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.array.validate_optimization_config">[docs]</a><span class="k">def</span> <span class="nf">validate_optimization_config</span><span class="p">(</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span> <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">"""Validate optimization config against model fitted outcomes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        optimization_config: Config to validate.</span>
+<span class="sd">        outcomes: List of metric names w/ valid model fits.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError if:</span>
+<span class="sd">            1. Relative constraints are found</span>
+<span class="sd">            2. Optimization metrics are not present in model fitted outcomes.</span>
+<span class="sd">    """</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">relative</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">"</span><span class="si">{c}</span><span class="s2"> is a relative constraint."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">outcomes</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s2">"Outcome constraint metric </span><span class="si">{c.metric.name}</span><span class="s2"> not found in fitted data."</span>
+            <span class="p">)</span>
+    <span class="n">obj_metric_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metrics</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">obj_metric_name</span> <span class="ow">in</span> <span class="n">obj_metric_names</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">obj_metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">outcomes</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s2">"Objective metric </span><span class="si">{obj_metric_name}</span><span class="s2"> not found in fitted data."</span>
+            <span class="p">)</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3>Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input name="q" type="text"/>
+<input type="submit" value="Go"/>
+<input name="check_keywords" type="hidden" value="yes"/>
+<input name="area" type="hidden" value="default"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.3/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

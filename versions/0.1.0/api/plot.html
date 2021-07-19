@@ -1,0 +1,1058 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.0/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.0/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.0/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.0/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.0/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.0/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><link rel="stylesheet" href="/versions/0.1.0/css/main.css"/><script src="/versions/0.1.0/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.0/"><img class="logo" src="/versions/0.1.0/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.0/versions.html"><h3>0.1.0</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.0/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.0/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.0/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<div class="section" id="module-ax.plot">
+<span id="ax-plot"></span><h1>ax.plot<a class="headerlink" href="#module-ax.plot" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="plots">
+<h2>Plots<a class="headerlink" href="#plots" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.plot.base">
+<span id="base"></span><h3>Base<a class="headerlink" href="#module-ax.plot.base" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.plot.base.AxPlotConfig">
+<em class="property">class </em><code class="descclassname">ax.plot.base.</code><code class="descname">AxPlotConfig</code><a class="reference internal" href="_modules/ax/plot/base.html#AxPlotConfig"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.base.AxPlotConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ax.plot.base._AxPlotConfigBase</span></code></p>
+<p>Config for plots</p>
+</dd></dl>
+<dl class="class">
+<dt id="ax.plot.base.AxPlotTypes">
+<em class="property">class </em><code class="descclassname">ax.plot.base.</code><code class="descname">AxPlotTypes</code><a class="reference internal" href="_modules/ax/plot/base.html#AxPlotTypes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.base.AxPlotTypes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></a></p>
+<p>Enum of Ax plot types.</p>
+<dl class="attribute">
+<dt id="ax.plot.base.AxPlotTypes.BANDIT_ROLLOUT">
+<code class="descname">BANDIT_ROLLOUT</code><em class="property"> = 4</em><a class="headerlink" href="#ax.plot.base.AxPlotTypes.BANDIT_ROLLOUT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.AxPlotTypes.CONTOUR">
+<code class="descname">CONTOUR</code><em class="property"> = 0</em><a class="headerlink" href="#ax.plot.base.AxPlotTypes.CONTOUR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.AxPlotTypes.GENERIC">
+<code class="descname">GENERIC</code><em class="property"> = 1</em><a class="headerlink" href="#ax.plot.base.AxPlotTypes.GENERIC" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.AxPlotTypes.INTERACT_CONTOUR">
+<code class="descname">INTERACT_CONTOUR</code><em class="property"> = 3</em><a class="headerlink" href="#ax.plot.base.AxPlotTypes.INTERACT_CONTOUR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.AxPlotTypes.SLICE">
+<code class="descname">SLICE</code><em class="property"> = 2</em><a class="headerlink" href="#ax.plot.base.AxPlotTypes.SLICE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.plot.base.PlotData">
+<em class="property">class </em><code class="descclassname">ax.plot.base.</code><code class="descname">PlotData</code><a class="reference internal" href="_modules/ax/plot/base.html#PlotData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.base.PlotData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
+<p>Struct for plot data, including both in-sample and out-of-sample arms</p>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotData.in_sample">
+<code class="descname">in_sample</code><a class="headerlink" href="#ax.plot.base.PlotData.in_sample" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotData.metrics">
+<code class="descname">metrics</code><a class="headerlink" href="#ax.plot.base.PlotData.metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotData.out_of_sample">
+<code class="descname">out_of_sample</code><a class="headerlink" href="#ax.plot.base.PlotData.out_of_sample" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotData.status_quo_name">
+<code class="descname">status_quo_name</code><a class="headerlink" href="#ax.plot.base.PlotData.status_quo_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 3</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.plot.base.PlotInSampleArm">
+<em class="property">class </em><code class="descclassname">ax.plot.base.</code><code class="descname">PlotInSampleArm</code><a class="reference internal" href="_modules/ax/plot/base.html#PlotInSampleArm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.base.PlotInSampleArm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
+<p>Struct for in-sample arms (both observed and predicted data)</p>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotInSampleArm.context_stratum">
+<code class="descname">context_stratum</code><a class="headerlink" href="#ax.plot.base.PlotInSampleArm.context_stratum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 6</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotInSampleArm.name">
+<code class="descname">name</code><a class="headerlink" href="#ax.plot.base.PlotInSampleArm.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotInSampleArm.parameters">
+<code class="descname">parameters</code><a class="headerlink" href="#ax.plot.base.PlotInSampleArm.parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotInSampleArm.se">
+<code class="descname">se</code><a class="headerlink" href="#ax.plot.base.PlotInSampleArm.se" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 4</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotInSampleArm.se_hat">
+<code class="descname">se_hat</code><a class="headerlink" href="#ax.plot.base.PlotInSampleArm.se_hat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 5</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotInSampleArm.y">
+<code class="descname">y</code><a class="headerlink" href="#ax.plot.base.PlotInSampleArm.y" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotInSampleArm.y_hat">
+<code class="descname">y_hat</code><a class="headerlink" href="#ax.plot.base.PlotInSampleArm.y_hat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 3</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.plot.base.PlotMetric">
+<em class="property">class </em><code class="descclassname">ax.plot.base.</code><code class="descname">PlotMetric</code><a class="reference internal" href="_modules/ax/plot/base.html#PlotMetric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.base.PlotMetric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
+<p>Struct for metric</p>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotMetric.metric">
+<code class="descname">metric</code><a class="headerlink" href="#ax.plot.base.PlotMetric.metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotMetric.pred">
+<code class="descname">pred</code><a class="headerlink" href="#ax.plot.base.PlotMetric.pred" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.plot.base.PlotOutOfSampleArm">
+<em class="property">class </em><code class="descclassname">ax.plot.base.</code><code class="descname">PlotOutOfSampleArm</code><a class="reference internal" href="_modules/ax/plot/base.html#PlotOutOfSampleArm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.base.PlotOutOfSampleArm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
+<p>Struct for out-of-sample arms (only predicted data)</p>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotOutOfSampleArm.context_stratum">
+<code class="descname">context_stratum</code><a class="headerlink" href="#ax.plot.base.PlotOutOfSampleArm.context_stratum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 4</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotOutOfSampleArm.name">
+<code class="descname">name</code><a class="headerlink" href="#ax.plot.base.PlotOutOfSampleArm.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotOutOfSampleArm.parameters">
+<code class="descname">parameters</code><a class="headerlink" href="#ax.plot.base.PlotOutOfSampleArm.parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotOutOfSampleArm.se_hat">
+<code class="descname">se_hat</code><a class="headerlink" href="#ax.plot.base.PlotOutOfSampleArm.se_hat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 3</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.base.PlotOutOfSampleArm.y_hat">
+<code class="descname">y_hat</code><a class="headerlink" href="#ax.plot.base.PlotOutOfSampleArm.y_hat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.plot.color">
+<span id="color"></span><h3>Color<a class="headerlink" href="#module-ax.plot.color" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.plot.color.COLORS">
+<em class="property">class </em><code class="descclassname">ax.plot.color.</code><code class="descname">COLORS</code><a class="reference internal" href="_modules/ax/plot/color.html#COLORS"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.color.COLORS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></a></p>
+<p>An enumeration.</p>
+<dl class="attribute">
+<dt id="ax.plot.color.COLORS.CORAL">
+<code class="descname">CORAL</code><em class="property"> = (251, 128, 114)</em><a class="headerlink" href="#ax.plot.color.COLORS.CORAL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.color.COLORS.LIGHT_PURPLE">
+<code class="descname">LIGHT_PURPLE</code><em class="property"> = (190, 186, 218)</em><a class="headerlink" href="#ax.plot.color.COLORS.LIGHT_PURPLE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.color.COLORS.ORANGE">
+<code class="descname">ORANGE</code><em class="property"> = (253, 180, 98)</em><a class="headerlink" href="#ax.plot.color.COLORS.ORANGE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.color.COLORS.PINK">
+<code class="descname">PINK</code><em class="property"> = (188, 128, 189)</em><a class="headerlink" href="#ax.plot.color.COLORS.PINK" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.color.COLORS.STEELBLUE">
+<code class="descname">STEELBLUE</code><em class="property"> = (128, 177, 211)</em><a class="headerlink" href="#ax.plot.color.COLORS.STEELBLUE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.plot.color.COLORS.TEAL">
+<code class="descname">TEAL</code><em class="property"> = (141, 211, 199)</em><a class="headerlink" href="#ax.plot.color.COLORS.TEAL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.color.plotly_color_scale">
+<code class="descclassname">ax.plot.color.</code><code class="descname">plotly_color_scale</code><span class="sig-paren">(</span><em>list_of_rgb_tuples</em>, <em>reverse=False</em>, <em>alpha=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/color.html#plotly_color_scale"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.color.plotly_color_scale" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert list of RGB tuples to list of tuples, where each tuple is
+break in [0, 1] and stringified RGBA color.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.color.rgba">
+<code class="descclassname">ax.plot.color.</code><code class="descname">rgba</code><span class="sig-paren">(</span><em>rgb_tuple</em>, <em>alpha=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/color.html#rgba"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.color.rgba" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert RGB tuple to an RGBA string.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.plot.contour">
+<span id="contour-plot"></span><h3>Contour Plot<a class="headerlink" href="#module-ax.plot.contour" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.plot.contour.interact_contour">
+<code class="descclassname">ax.plot.contour.</code><code class="descname">interact_contour</code><span class="sig-paren">(</span><em>model</em>, <em>metric_name</em>, <em>generator_runs_dict=None</em>, <em>relative=False</em>, <em>density=50</em>, <em>slice_values=None</em>, <em>lower_is_better=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/contour.html#interact_contour"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.contour.interact_contour" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create interactive plot with predictions for a 2-d slice of the parameter
+space.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – ModelBridge that contains model for predictions</li>
+<li><strong>metric_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of metric to plot</li>
+<li><strong>generator_runs_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="core.html#ax.core.generator_run.GeneratorRun" title="ax.core.generator_run.GeneratorRun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorRun</span></code></a>]]) – A dictionary {name: generator run} of generator runs
+whose arms will be plotted, if they lie in the slice.</li>
+<li><strong>relative</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Predictions relative to status quo</li>
+<li><strong>density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Number of points along slice to evaluate predictions.</li>
+<li><strong>slice_values</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]]) – A dictionary {name: val} for the fixed values of the
+other parameters. If not provided, then the status quo values will
+be used if there is a status quo, otherwise the mean of numeric
+parameters or the mode of choice parameters.</li>
+<li><strong>lower_is_better</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Lower values for metric are better.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.contour.plot_contour">
+<code class="descclassname">ax.plot.contour.</code><code class="descname">plot_contour</code><span class="sig-paren">(</span><em>model</em>, <em>param_x</em>, <em>param_y</em>, <em>metric_name</em>, <em>generator_runs_dict=None</em>, <em>relative=False</em>, <em>density=50</em>, <em>slice_values=None</em>, <em>lower_is_better=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/contour.html#plot_contour"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.contour.plot_contour" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot predictions for a 2-d slice of the parameter space.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – ModelBridge that contains model for predictions</li>
+<li><strong>param_x</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of parameter that will be sliced on x-axis</li>
+<li><strong>param_y</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of parameter that will be sliced on y-axis</li>
+<li><strong>metric_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of metric to plot</li>
+<li><strong>generator_runs_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="core.html#ax.core.generator_run.GeneratorRun" title="ax.core.generator_run.GeneratorRun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorRun</span></code></a>]]) – A dictionary {name: generator run} of generator runs
+whose arms will be plotted, if they lie in the slice.</li>
+<li><strong>relative</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Predictions relative to status quo</li>
+<li><strong>density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Number of points along slice to evaluate predictions.</li>
+<li><strong>slice_values</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]]) – A dictionary {name: val} for the fixed values of the
+other parameters. If not provided, then the status quo values will
+be used if there is a status quo, otherwise the mean of numeric
+parameters or the mode of choice parameters.</li>
+<li><strong>lower_is_better</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Lower values for metric are better.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.plot.diagnostic">
+<span id="model-diagnostic-plot"></span><h3>Model Diagnostic Plot<a class="headerlink" href="#module-ax.plot.diagnostic" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.plot.diagnostic.interact_batch_comparison">
+<code class="descclassname">ax.plot.diagnostic.</code><code class="descname">interact_batch_comparison</code><span class="sig-paren">(</span><em>observations</em>, <em>experiment</em>, <em>batch_x</em>, <em>batch_y</em>, <em>rel=False</em>, <em>status_quo_name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/diagnostic.html#interact_batch_comparison"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.diagnostic.interact_batch_comparison" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compare repeated arms from two trials; select metric via dropdown.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>observations</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="core.html#ax.core.observation.Observation" title="ax.core.observation.Observation"><code class="xref py py-class docutils literal notranslate"><span class="pre">Observation</span></code></a>]) – List of observations to compute comparison.</li>
+<li><strong>batch_x</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index of batch for x-axis.</li>
+<li><strong>batch_y</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index of bach for y-axis.</li>
+<li><strong>rel</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether to relativize data against status_quo arm.</li>
+<li><strong>status_quo_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – Name of the status_quo arm.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.diagnostic.interact_cross_validation">
+<code class="descclassname">ax.plot.diagnostic.</code><code class="descname">interact_cross_validation</code><span class="sig-paren">(</span><em>cv_results</em>, <em>show_context=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/diagnostic.html#interact_cross_validation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.diagnostic.interact_cross_validation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Interactive cross-validation (CV) plotting; select metric via dropdown.</p>
+<p>Note: uses the Plotly version of dropdown (which means that all data is
+stored within the notebook).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>cv_results</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="modelbridge.html#ax.modelbridge.cross_validation.CVResult" title="ax.modelbridge.cross_validation.CVResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">CVResult</span></code></a>]) – cross-validation results.</li>
+<li><strong>show_context</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, show context on hover.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.diagnostic.interact_empirical_model_validation">
+<code class="descclassname">ax.plot.diagnostic.</code><code class="descname">interact_empirical_model_validation</code><span class="sig-paren">(</span><em>batch</em>, <em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/diagnostic.html#interact_empirical_model_validation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.diagnostic.interact_empirical_model_validation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compare the model predictions for the batch arms against observed data.</p>
+<p>Relies on the model predictions stored on the generator_runs of batch.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>batch</strong> (<a class="reference internal" href="core.html#ax.core.batch_trial.BatchTrial" title="ax.core.batch_trial.BatchTrial"><code class="xref py py-class docutils literal notranslate"><span class="pre">BatchTrial</span></code></a>) – Batch on which to perform analysis.</li>
+<li><strong>data</strong> (<a class="reference internal" href="core.html#ax.core.data.Data" title="ax.core.data.Data"><code class="xref py py-class docutils literal notranslate"><span class="pre">Data</span></code></a>) – Observed data for the batch.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">AxPlotConfig for the plot.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.diagnostic.tile_cross_validation">
+<code class="descclassname">ax.plot.diagnostic.</code><code class="descname">tile_cross_validation</code><span class="sig-paren">(</span><em>cv_results</em>, <em>show_arm_details_on_hover=True</em>, <em>show_context=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/diagnostic.html#tile_cross_validation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.diagnostic.tile_cross_validation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tile version of CV plots; sorted by ‘best fitting’ outcomes.</p>
+<p>Plots are sorted in decreasing order using the p-value of a Fisher exact
+test statistic.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>cv_results</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="modelbridge.html#ax.modelbridge.cross_validation.CVResult" title="ax.modelbridge.cross_validation.CVResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">CVResult</span></code></a>]) – cross-validation results.</li>
+<li><strong>include_measurement_error</strong> – if True, include
+measurement_error metrics in plot.</li>
+<li><strong>show_arm_details_on_hover</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, display
+parameterizations of arms on hover. Default is True.</li>
+<li><strong>show_context</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True (default), display context on
+hover.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.plot.helper">
+<span id="helpers"></span><h3>Helpers<a class="headerlink" href="#module-ax.plot.helper" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.plot.helper.arm_name_to_tuple">
+<code class="descclassname">ax.plot.helper.</code><code class="descname">arm_name_to_tuple</code><span class="sig-paren">(</span><em>arm_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/helper.html#arm_name_to_tuple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.helper.arm_name_to_tuple" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>], <code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.helper.get_fixed_values">
+<code class="descclassname">ax.plot.helper.</code><code class="descname">get_fixed_values</code><span class="sig-paren">(</span><em>model</em>, <em>slice_values=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/helper.html#get_fixed_values"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.helper.get_fixed_values" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get fixed values for parameters in a slice plot.</p>
+<p>If there is an in-design status quo, those values will be used. Otherwise,
+the mean of RangeParameters or the mode of ChoiceParameters is used.</p>
+<p>Any value in slice_values will override the above.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – ModelBridge being used for plotting</li>
+<li><strong>slice_values</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]]) – Map from parameter name to value at which is should be
+fixed.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Returns: Map from parameter name to fixed value.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.helper.get_grid_for_parameter">
+<code class="descclassname">ax.plot.helper.</code><code class="descname">get_grid_for_parameter</code><span class="sig-paren">(</span><em>parameter</em>, <em>density</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/helper.html#get_grid_for_parameter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.helper.get_grid_for_parameter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a grid of points along the range of the parameter.</p>
+<p>Will be a log-scale grid if parameter is log scale.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>parameter</strong> (<a class="reference internal" href="core.html#ax.core.parameter.RangeParameter" title="ax.core.parameter.RangeParameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RangeParameter</span></code></a>) – Parameter for which to generate grid.</li>
+<li><strong>density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Number of points in the grid.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.helper.get_plot_data">
+<code class="descclassname">ax.plot.helper.</code><code class="descname">get_plot_data</code><span class="sig-paren">(</span><em>model</em>, <em>generator_runs_dict</em>, <em>metric_names=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/helper.html#get_plot_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.helper.get_plot_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Format data object with metrics for in-sample and out-of-sample
+arms.</p>
+<p>Calculate both observed and predicted metrics for in-sample arms.
+Calculate predicted metrics for out-of-sample arms passed via the
+<cite>generator_runs_dict</cite> argument.</p>
+<p>In PlotData, in-sample observations are merged with IVW. In RawData, they
+are left un-merged and given as a list of dictionaries, one for each
+observation and having keys ‘arm_name’, ‘mean’, and ‘sem’.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – The model.</li>
+<li><strong>generator_runs_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="core.html#ax.core.generator_run.GeneratorRun" title="ax.core.generator_run.GeneratorRun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorRun</span></code></a>]) – a mapping from generator run name to generator run.</li>
+<li><strong>metric_names</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Set" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]) – Restrict predictions to this set. If None, all metrics
+in the model will be returned.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference internal" href="#ax.plot.base.PlotData" title="ax.plot.base.PlotData"><code class="xref py py-class docutils literal notranslate"><span class="pre">PlotData</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]], <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]]]]</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><p>A tuple containing</p>
+<ul>
+<li><p class="first">PlotData object with in-sample and out-of-sample predictions.</p>
+</li>
+<li><p class="first">List of observations like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s1">'metric_name'</span><span class="p">:</span> <span class="s1">'likes'</span><span class="p">,</span> <span class="s1">'arm_name'</span><span class="p">:</span> <span class="s1">'0_1'</span><span class="p">,</span> <span class="s1">'mean'</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span> <span class="s1">'sem'</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span><span class="o">.</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Mapping from arm name to parameters.</p>
+</li>
+</ul>
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.helper.get_range_parameter">
+<code class="descclassname">ax.plot.helper.</code><code class="descname">get_range_parameter</code><span class="sig-paren">(</span><em>model</em>, <em>param_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/helper.html#get_range_parameter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.helper.get_range_parameter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the range parameter with the given name from the model.</p>
+<p>Throws if parameter doesn’t exist or is not a range parameter.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – The model.</li>
+<li><strong>param_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The name of the RangeParameter to be found.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Returns: The RangeParameter named <cite>param_name</cite>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="core.html#ax.core.parameter.RangeParameter" title="ax.core.parameter.RangeParameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RangeParameter</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.helper.get_range_parameters">
+<code class="descclassname">ax.plot.helper.</code><code class="descname">get_range_parameters</code><span class="sig-paren">(</span><em>model</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/helper.html#get_range_parameters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.helper.get_range_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a list of range parameters from a model.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – The model.</td>
+</tr>
+</tbody>
+</table>
+<p>Returns: List of RangeParameters.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="core.html#ax.core.parameter.RangeParameter" title="ax.core.parameter.RangeParameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RangeParameter</span></code></a>]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.helper.resize_subtitles">
+<code class="descclassname">ax.plot.helper.</code><code class="descname">resize_subtitles</code><span class="sig-paren">(</span><em>figure</em>, <em>size</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/helper.html#resize_subtitles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.helper.resize_subtitles" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</div>
+<div class="section" id="module-ax.plot.render">
+<span id="rendering"></span><h3>Rendering<a class="headerlink" href="#module-ax.plot.render" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.plot.render.plot_config_to_html">
+<code class="descclassname">ax.plot.render.</code><code class="descname">plot_config_to_html</code><span class="sig-paren">(</span><em>plot_config</em>, <em>plot_module_name='ax.plot'</em>, <em>plot_resources={&lt;AxPlotTypes.CONTOUR: 0&gt;: 'contour.js'</em>, <em>&lt;AxPlotTypes.GENERIC: 1&gt;: 'generic_plotly.js'</em>, <em>&lt;AxPlotTypes.INTERACT_CONTOUR: 3&gt;: 'interact_contour.js'</em>, <em>&lt;AxPlotTypes.SLICE: 2&gt;: 'slice.js'</em>, <em>&lt;AxPlotTypes.BANDIT_ROLLOUT: 4&gt;: 'bandit_rollout.js'}</em>, <em>inject_helpers=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/render.html#plot_config_to_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.render.plot_config_to_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate HTML + JS corresponding from a plot config.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.plot.scatter">
+<span id="scatter-plots"></span><h3>Scatter Plots<a class="headerlink" href="#module-ax.plot.scatter" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.plot.scatter.interact_fitted">
+<code class="descclassname">ax.plot.scatter.</code><code class="descname">interact_fitted</code><span class="sig-paren">(</span><em>model</em>, <em>generator_runs_dict=None</em>, <em>rel=True</em>, <em>show_arm_details_on_hover=True</em>, <em>show_CI=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/scatter.html#interact_fitted"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.scatter.interact_fitted" title="Permalink to this definition">¶</a></dt>
+<dd><p>Interactive fitted outcome plots for each arm used in fitting the model.</p>
+<p>Choose the outcome to plot using a dropdown.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – model to use for predictions.</li>
+<li><strong>generator_runs_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="core.html#ax.core.generator_run.GeneratorRun" title="ax.core.generator_run.GeneratorRun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorRun</span></code></a>]]) – a mapping from
+generator run name to generator run.</li>
+<li><strong>rel</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, use relative effects. Default is True.</li>
+<li><strong>show_arm_details_on_hover</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, display
+parameterizations of arms on hover. Default is True.</li>
+<li><strong>show_CI</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, render confidence intervals.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.scatter.lattice_multiple_metrics">
+<code class="descclassname">ax.plot.scatter.</code><code class="descname">lattice_multiple_metrics</code><span class="sig-paren">(</span><em>model</em>, <em>generator_runs_dict=None</em>, <em>rel=True</em>, <em>show_arm_details_on_hover=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/scatter.html#lattice_multiple_metrics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.scatter.lattice_multiple_metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot raw values or predictions of combinations of two metrics for arms.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – model to draw predictions from.</li>
+<li><strong>generator_runs_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="core.html#ax.core.generator_run.GeneratorRun" title="ax.core.generator_run.GeneratorRun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorRun</span></code></a>]]) – a mapping from
+generator run name to generator run.</li>
+<li><strong>rel</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, use relative effects. Default is True.</li>
+<li><strong>show_arm_details_on_hover</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, display
+parameterizations of arms on hover. Default is False.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.scatter.plot_fitted">
+<code class="descclassname">ax.plot.scatter.</code><code class="descname">plot_fitted</code><span class="sig-paren">(</span><em>model</em>, <em>metric</em>, <em>generator_runs_dict=None</em>, <em>rel=True</em>, <em>custom_arm_order=None</em>, <em>custom_arm_order_name='Custom'</em>, <em>show_CI=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/scatter.html#plot_fitted"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.scatter.plot_fitted" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot fitted metrics.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – model to use for predictions.</li>
+<li><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – metric to plot predictions for.</li>
+<li><strong>generator_runs_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="core.html#ax.core.generator_run.GeneratorRun" title="ax.core.generator_run.GeneratorRun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorRun</span></code></a>]]) – a mapping from
+generator run name to generator run.</li>
+<li><strong>rel</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, use relative effects. Default is True.</li>
+<li><strong>custom_arm_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]) – a list of arm names in the
+order corresponding to how they should be plotted on the x-axis.
+If not None, this is the default ordering.</li>
+<li><strong>custom_arm_order_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – name for custom ordering to
+show in the ordering dropdown. Default is ‘Custom’.</li>
+<li><strong>show_CI</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, render confidence intervals.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.scatter.plot_multiple_metrics">
+<code class="descclassname">ax.plot.scatter.</code><code class="descname">plot_multiple_metrics</code><span class="sig-paren">(</span><em>model</em>, <em>metric_x</em>, <em>metric_y</em>, <em>generator_runs_dict=None</em>, <em>rel=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/scatter.html#plot_multiple_metrics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.scatter.plot_multiple_metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot raw values or predictions of two metrics for arms.</p>
+<p>All arms used in the model are included in the plot. Additional
+arms can be passed through the <cite>generator_runs_dict</cite> argument.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – model to draw predictions from.</li>
+<li><strong>metric_x</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – metric to plot on the x-axis.</li>
+<li><strong>metric_y</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – metric to plot on the y-axis.</li>
+<li><strong>generator_runs_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="core.html#ax.core.generator_run.GeneratorRun" title="ax.core.generator_run.GeneratorRun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorRun</span></code></a>]]) – a mapping from
+generator run name to generator run.</li>
+<li><strong>rel</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, use relative effects. Default is True.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.scatter.plot_objective_vs_constraints">
+<code class="descclassname">ax.plot.scatter.</code><code class="descname">plot_objective_vs_constraints</code><span class="sig-paren">(</span><em>model</em>, <em>objective</em>, <em>subset_metrics=None</em>, <em>generator_runs_dict=None</em>, <em>rel=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/scatter.html#plot_objective_vs_constraints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.scatter.plot_objective_vs_constraints" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot the tradeoff between an objetive and all other metrics in a model.</p>
+<p>All arms used in the model are included in the plot. Additional
+arms can be passed through via the <cite>generator_runs_dict</cite> argument.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – model to draw predictions from.</li>
+<li><strong>objective</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – metric to optimize. Plotted on the x-axis.</li>
+<li><strong>subset_metrics</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]) – list of metrics to plot on the y-axes
+if need a subset of all metrics in the model.</li>
+<li><strong>generator_runs_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="core.html#ax.core.generator_run.GeneratorRun" title="ax.core.generator_run.GeneratorRun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorRun</span></code></a>]]) – a mapping from
+generator run name to generator run.</li>
+<li><strong>rel</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, use relative effects. Default is True.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.scatter.tile_fitted">
+<code class="descclassname">ax.plot.scatter.</code><code class="descname">tile_fitted</code><span class="sig-paren">(</span><em>model</em>, <em>generator_runs_dict=None</em>, <em>rel=True</em>, <em>show_arm_details_on_hover=False</em>, <em>show_CI=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/scatter.html#tile_fitted"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.scatter.tile_fitted" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tile version of fitted outcome plots.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – model to use for predictions.</li>
+<li><strong>generator_runs_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="core.html#ax.core.generator_run.GeneratorRun" title="ax.core.generator_run.GeneratorRun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorRun</span></code></a>]]) – a mapping from
+generator run name to generator run.</li>
+<li><strong>rel</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, use relative effects. Default is True.</li>
+<li><strong>show_arm_details_on_hover</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, display
+parameterizations of arms on hover. Default is False.</li>
+<li><strong>show_CI</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, render confidence intervals.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.plot.slice">
+<span id="slice-plot"></span><h3>Slice Plot<a class="headerlink" href="#module-ax.plot.slice" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.plot.slice.plot_slice">
+<code class="descclassname">ax.plot.slice.</code><code class="descname">plot_slice</code><span class="sig-paren">(</span><em>model</em>, <em>param_name</em>, <em>metric_name</em>, <em>generator_runs_dict=None</em>, <em>relative=False</em>, <em>density=50</em>, <em>slice_values=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/slice.html#plot_slice"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.slice.plot_slice" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot predictions for a 1-d slice of the parameter space.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>model</strong> (<a class="reference internal" href="modelbridge.html#ax.modelbridge.base.ModelBridge" title="ax.modelbridge.base.ModelBridge"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelBridge</span></code></a>) – ModelBridge that contains model for predictions</li>
+<li><strong>param_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of parameter that will be sliced</li>
+<li><strong>metric_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of metric to plot</li>
+<li><strong>generator_runs_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="core.html#ax.core.generator_run.GeneratorRun" title="ax.core.generator_run.GeneratorRun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorRun</span></code></a>]]) – A dictionary {name: generator run} of generator runs
+whose arms will be plotted, if they lie in the slice.</li>
+<li><strong>relative</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Predictions relative to status quo</li>
+<li><strong>density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Number of points along slice to evaluate predictions.</li>
+<li><strong>slice_values</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]]) – A dictionary {name: val} for the fixed values of the
+other parameters. If not provided, then the status quo values will
+be used if there is a status quo, otherwise the mean of numeric
+parameters or the mode of choice parameters.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="module-ax.plot.table_view">
+<span id="table"></span><h2>Table<a class="headerlink" href="#module-ax.plot.table_view" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="ax.plot.table_view.get_color">
+<code class="descclassname">ax.plot.table_view.</code><code class="descname">get_color</code><span class="sig-paren">(</span><em>x</em>, <em>ci</em>, <em>rel</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/table_view.html#get_color"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.table_view.get_color" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine the color of the table cell.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.table_view.table_view_plot">
+<code class="descclassname">ax.plot.table_view.</code><code class="descname">table_view_plot</code><span class="sig-paren">(</span><em>experiment</em>, <em>data</em>, <em>use_empirical_bayes=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/table_view.html#table_view_plot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.table_view.table_view_plot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Table of means and confidence intervals.</p>
+<p>Table is of the form:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%"/>
+<col width="40%"/>
+<col width="37%"/>
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">arm</th>
+<th class="head">metric_1</th>
+<th class="head">metric_2</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>0_0</td>
+<td>mean +- CI</td>
+<td>…</td>
+</tr>
+<tr class="row-odd"><td>0_1</td>
+<td>…</td>
+<td>…</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.plot.trace">
+<span id="trace-plots"></span><h2>Trace Plots<a class="headerlink" href="#module-ax.plot.trace" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="ax.plot.trace.generator_changes_scatter">
+<code class="descclassname">ax.plot.trace.</code><code class="descname">generator_changes_scatter</code><span class="sig-paren">(</span><em>generator_changes</em>, <em>y_range</em>, <em>generator_change_color=(141</em>, <em>211</em>, <em>199)</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/trace.html#generator_changes_scatter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.trace.generator_changes_scatter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a graph object for the line(s) representing generator changes.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>generator_changes</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]) – iterations, before which generators
+changed</li>
+<li><strong>y_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – upper and lower values of the y-range of the plot</li>
+<li><strong>generator_change_color</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]) – tuple of 3 int values representing
+an RGB color. Defaults to orange.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><dl class="docutils">
+<dt>plotly graph objects for the lines representing generator</dt>
+<dd><p class="first last">changes</p>
+</dd>
+</dl>
+</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">go.Scatter</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.trace.mean_trace_scatter">
+<code class="descclassname">ax.plot.trace.</code><code class="descname">mean_trace_scatter</code><span class="sig-paren">(</span><em>y</em>, <em>trace_color=(128</em>, <em>177</em>, <em>211)</em>, <em>legend_label='mean'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/trace.html#mean_trace_scatter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.trace.mean_trace_scatter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a graph object for trace of the mean of the given series across
+runs.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>y</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>) – (r x t) array with results from  r runs and t trials.</li>
+<li><strong>trace_color</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]) – tuple of 3 int values representing an RGB color.
+Defaults to blue.</li>
+<li><strong>legend_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – label for this trace</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">plotly graph object</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">go.Scatter</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.trace.optimization_times">
+<code class="descclassname">ax.plot.trace.</code><code class="descname">optimization_times</code><span class="sig-paren">(</span><em>fit_times</em>, <em>gen_times</em>, <em>title=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/trace.html#optimization_times"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.trace.optimization_times" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots wall times for each method as a bar chart.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>fit_times</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]]) – A map from method name to a list of the model fitting times.</li>
+<li><strong>gen_times</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]]) – A map from method name to a list of the gen times.</li>
+<li><strong>title</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Title for this plot.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Returns: AxPlotConfig with the plot</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AxPlotConfig</span></code></a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.trace.optimization_trace_all_methods">
+<code class="descclassname">ax.plot.trace.</code><code class="descname">optimization_trace_all_methods</code><span class="sig-paren">(</span><em>y_dict, optimum=None, title='', ylabel='', trace_colors=[(128, 177, 211), (251, 128, 114), (141, 211, 199), (188, 128, 189), (190, 186, 218), (253, 180, 98)], optimum_color=(253, 180, 98)</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/trace.html#optimization_trace_all_methods"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.trace.optimization_trace_all_methods" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots a comparison of optimization traces with 2-SEM bands for multiple
+methods on the same problem.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>y</strong> – a mapping of method names to (r x t) arrays, where r is the number
+of runs in the test, and t is the number of trials.</li>
+<li><strong>optimum</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – value of the optimal objective.</li>
+<li><strong>title</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Title for this plot.</li>
+<li><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Label for y axis</li>
+<li><strong>trace_colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]]) – tuples of 3 int values representing
+RGB colors to use for different methods shown in the combination plot.
+Defaults to Ax discrete color scale.</li>
+<li><strong>optimum_color</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]) – tuple of 3 int values representing an RGB color.
+Defaults to orange.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">plot of the comparison of optimization traces with IQR</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig">AxPlotConfig</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.trace.optimization_trace_single_method">
+<code class="descclassname">ax.plot.trace.</code><code class="descname">optimization_trace_single_method</code><span class="sig-paren">(</span><em>y</em>, <em>optimum=None</em>, <em>generator_changes=None</em>, <em>title=''</em>, <em>ylabel=''</em>, <em>trace_color=(128</em>, <em>177</em>, <em>211)</em>, <em>optimum_color=(253</em>, <em>180</em>, <em>98)</em>, <em>generator_change_color=(141</em>, <em>211</em>, <em>199)</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/trace.html#optimization_trace_single_method"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.trace.optimization_trace_single_method" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots an optimization trace with mean and 2 SEMs</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>y</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>) – (r x t) array; result to plot, with r runs and t trials</li>
+<li><strong>optimum</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – value of the optimal objective</li>
+<li><strong>generator_changes</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]]) – iterations, before which generators
+changed</li>
+<li><strong>title</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – title of this plot</li>
+<li><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Label for y axis</li>
+<li><strong>trace_color</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]) – tuple of 3 int values representing an RGB color.
+Defaults to orange.</li>
+<li><strong>optimum_color</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]) – tuple of 3 int values representing an RGB color.
+Defaults to orange.</li>
+<li><strong>generator_change_color</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]) – tuple of 3 int values representing
+an RGB color. Defaults to orange.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">plot of the optimization trace with IQR</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#ax.plot.base.AxPlotConfig" title="ax.plot.base.AxPlotConfig">AxPlotConfig</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.trace.optimum_objective_scatter">
+<code class="descclassname">ax.plot.trace.</code><code class="descname">optimum_objective_scatter</code><span class="sig-paren">(</span><em>optimum</em>, <em>num_iterations</em>, <em>optimum_color=(253</em>, <em>180</em>, <em>98)</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/trace.html#optimum_objective_scatter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.trace.optimum_objective_scatter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a graph object for the line representing optimal objective.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>optimum</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – value of the optimal objective</li>
+<li><strong>num_iterations</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – how many trials were in the optimization (used to
+determine the width of the plot)</li>
+<li><strong>trace_color</strong> – tuple of 3 int values representing an RGB color.
+Defaults to orange.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">plotly graph objects for the optimal objective line</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">go.Scatter</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+<dl class="function">
+<dt id="ax.plot.trace.sem_range_scatter">
+<code class="descclassname">ax.plot.trace.</code><code class="descname">sem_range_scatter</code><span class="sig-paren">(</span><em>y</em>, <em>trace_color=(128</em>, <em>177</em>, <em>211)</em>, <em>legend_label=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/plot/trace.html#sem_range_scatter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.plot.trace.sem_range_scatter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a graph object for trace of mean +/- 2 SEMs for y, across runs.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name"/>
+<col class="field-body"/>
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>y</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>) – (r x t) array with results from  r runs and t trials.</li>
+<li><strong>trace_color</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]) – tuple of 3 int values representing an RGB color.
+Defaults to blue.</li>
+<li><strong>legend_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Label for the legend group.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">plotly graph objects for lower and upper bounds</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Tuple[go.Scatter]</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">ax.models</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ax.plot</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#plots">Plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.plot.table_view">Table</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.plot.trace">Trace Plots</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+<li>Previous: <a href="models.html" title="previous chapter">ax.models</a></li>
+<li>Next: <a href="runners.html" title="next chapter">ax.runners</a></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3>Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input name="q" type="text"/>
+<input type="submit" value="Go"/>
+<input name="check_keywords" type="hidden" value="yes"/>
+<input name="area" type="hidden" value="default"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.0/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.18/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.18/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.18/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.18/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.18/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.18/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.18/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.18/css/main.css"/><script src="/versions/0.1.18/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.18/"><img class="logo" src="/versions/0.1.18/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.18/versions.html"><h3>0.1.18</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.18/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.18/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.18/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<div class="section" id="module-ax.runners">
+<span id="ax-runners"></span><h1>ax.runners<a class="headerlink" href="#module-ax.runners" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-ax.runners.synthetic">
+<span id="synthetic-runner"></span><h2>Synthetic Runner<a class="headerlink" href="#module-ax.runners.synthetic" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="ax.runners.synthetic.SyntheticRunner">
+<em class="property">class </em><code class="sig-prename descclassname">ax.runners.synthetic.</code><code class="sig-name descname">SyntheticRunner</code><span class="sig-paren">(</span><em class="sig-param">dummy_metadata: Optional[str] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/runners/synthetic.html#SyntheticRunner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.runners.synthetic.SyntheticRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.core.runner.Runner</span></code></a></p>
+<p>Class for synthetic or dummy runner.</p>
+<p>Currently acts as a shell runner, only creating a name.</p>
+<dl class="method">
+<dt id="ax.runners.synthetic.SyntheticRunner.run">
+<code class="sig-name descname">run</code><span class="sig-paren">(</span><em class="sig-param">trial: ax.core.base_trial.BaseTrial</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/runners/synthetic.html#SyntheticRunner.run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.runners.synthetic.SyntheticRunner.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deploys a trial based on custom runner subclass implementation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>trial</strong> – The trial to deploy.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Dict of run metadata from the deployment process.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">ax.plot</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ax.runners</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.runners.synthetic">Synthetic Runner</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+<li>Previous: <a href="plot.html" title="previous chapter">ax.plot</a></li>
+<li>Next: <a href="service.html" title="next chapter">ax.service</a></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.18/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

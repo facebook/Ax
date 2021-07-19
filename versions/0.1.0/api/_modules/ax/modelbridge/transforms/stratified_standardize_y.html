@@ -1,0 +1,206 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.0/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.0/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.0/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.0/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.0/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.0/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><link rel="stylesheet" href="/versions/0.1.0/css/main.css"/><script src="/versions/0.1.0/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.0/"><img class="logo" src="/versions/0.1.0/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.0/versions.html"><h3>0.1.0</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.0/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.0/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.0/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.transforms.stratified_standardize_y</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">DefaultDict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="k">import</span> <span class="n">ObservationData</span><span class="p">,</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="k">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="k">import</span> <span class="n">ChoiceParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="k">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="k">import</span> <span class="n">TConfig</span><span class="p">,</span> <span class="n">TParamValue</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.base</span> <span class="k">import</span> <span class="n">Transform</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.standardize_y</span> <span class="k">import</span> <span class="n">compute_standardization_parameters</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="k">import</span> <span class="n">get_logger</span>
+
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="c1"># import as module to make sphinx-autodoc-typehints happy</span>
+    <span class="kn">from</span> <span class="nn">ax</span> <span class="k">import</span> <span class="n">modelbridge</span> <span class="k">as</span> <span class="n">modelbridge_module</span>  <span class="c1"># noqa F401  # pragma: no cover</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="s2">"StratifiedStandardizeY"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="StratifiedStandardizeY"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.stratified_standardize_y.StratifiedStandardizeY">[docs]</a><span class="k">class</span> <span class="nc">StratifiedStandardizeY</span><span class="p">(</span><span class="n">Transform</span><span class="p">):</span>
+    <span class="sd">"""Standardize Y, separately for each metric and for each value of a</span>
+<span class="sd">    ChoiceParameter.</span>
+
+<span class="sd">    The name of the parameter by which to stratify the standardization can be</span>
+<span class="sd">    specified in config["parameter_name"]. If not specified, will use a task</span>
+<span class="sd">    parameter if search space contains exactly 1 task parameter, and will raise</span>
+<span class="sd">    an exception otherwise.</span>
+
+<span class="sd">    The stratification parameter must be fixed during generation if there are</span>
+<span class="sd">    outcome constraints, in order to apply the standardization to the</span>
+<span class="sd">    constraints.</span>
+
+<span class="sd">    Transform is done in-place.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Get parameter name for standardization.</span>
+        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">"parameter_name"</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
+            <span class="c1"># pyre: Attribute `p_name` declared in class `ax.modelbridge.</span>
+            <span class="c1"># pyre: transforms.stratified_standardize_y.</span>
+            <span class="c1"># pyre: StratifiedStandardizeY` has type `str` but is used as type</span>
+            <span class="c1"># pyre-fixme[8]: `typing.Union[float, int, str]`.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"parameter_name"</span><span class="p">]</span>
+            <span class="n">strat_p</span> <span class="o">=</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">p_name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">strat_p</span><span class="p">,</span> <span class="n">ChoiceParameter</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">"</span><span class="si">{self.p_name}</span><span class="s2"> not a ChoiceParameter"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># See if there is a task parameter</span>
+            <span class="n">task_parameters</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">name</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">ChoiceParameter</span><span class="p">)</span> <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">is_task</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">task_parameters</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"Must specify parameter for stratified standardization"</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">task_parameters</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"Must specify which task parameter to use for stratified "</span>
+                    <span class="s2">"standardization"</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p_name</span> <span class="o">=</span> <span class="n">task_parameters</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Compute means and SDs</span>
+        <span class="n">Ys</span><span class="p">:</span> <span class="n">DefaultDict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TParamValue</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">obsd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">observation_data</span><span class="p">):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">observation_features</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">p_name</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">obsd</span><span class="o">.</span><span class="n">metric_names</span><span class="p">):</span>
+                <span class="n">Ys</span><span class="p">[(</span><span class="n">m</span><span class="p">,</span> <span class="n">v</span><span class="p">)]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obsd</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="c1"># Expected `DefaultDict[typing.Union[str, typing.Tuple[str,</span>
+        <span class="c1"># Optional[typing.Union[bool, float, str]]]], List[float]]` for 1st anonymous</span>
+        <span class="c1"># parameter to call</span>
+        <span class="c1"># `ax.modelbridge.transforms.standardize_y.compute_standardization_parameters`</span>
+        <span class="c1"># but got `DefaultDict[typing.Tuple[str, Optional[typing.Union[bool, float,</span>
+        <span class="c1"># str]]], List[float]]`.</span>
+        <span class="c1"># pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ymean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ystd</span> <span class="o">=</span> <span class="n">compute_standardization_parameters</span><span class="p">(</span><span class="n">Ys</span><span class="p">)</span>
+
+<div class="viewcode-block" id="StratifiedStandardizeY.transform_observation_data"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.stratified_standardize_y.StratifiedStandardizeY.transform_observation_data">[docs]</a>    <span class="k">def</span> <span class="nf">transform_observation_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+        <span class="c1"># Transform observation data</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">obsd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">observation_data</span><span class="p">):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">observation_features</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">p_name</span><span class="p">]</span>
+            <span class="n">means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">Ymean</span><span class="p">[(</span><span class="n">m</span><span class="p">,</span> <span class="n">v</span><span class="p">)]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">obsd</span><span class="o">.</span><span class="n">metric_names</span><span class="p">])</span>
+            <span class="n">stds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">Ystd</span><span class="p">[(</span><span class="n">m</span><span class="p">,</span> <span class="n">v</span><span class="p">)]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">obsd</span><span class="o">.</span><span class="n">metric_names</span><span class="p">])</span>
+            <span class="n">obsd</span><span class="o">.</span><span class="n">means</span> <span class="o">=</span> <span class="p">(</span><span class="n">obsd</span><span class="o">.</span><span class="n">means</span> <span class="o">-</span> <span class="n">means</span><span class="p">)</span> <span class="o">/</span> <span class="n">stds</span>
+            <span class="n">obsd</span><span class="o">.</span><span class="n">covariance</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">stds</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">stds</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">observation_data</span></div>
+
+<div class="viewcode-block" id="StratifiedStandardizeY.transform_optimization_config"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.stratified_standardize_y.StratifiedStandardizeY.transform_optimization_config">[docs]</a>    <span class="k">def</span> <span class="nf">transform_optimization_config</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span>
+        <span class="n">modelbridge</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">"modelbridge_module.base.ModelBridge"</span><span class="p">],</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">ObservationFeatures</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationConfig</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">optimization_config</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fixed_features</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s2">"StratifiedStandardizeY transform requires </span><span class="si">{self.p_name}</span><span class="s2"> to be fixed "</span>
+                <span class="s2">"during generation."</span>
+            <span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">fixed_features</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">p_name</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">relative</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="n">f</span><span class="s2">"StratifiedStandardizeY transform does not support relative "</span>
+                    <span class="s2">"constraint </span><span class="si">{c}</span><span class="s2">"</span>
+                <span class="p">)</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">bound</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">bound</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ymean</span><span class="p">[(</span><span class="n">c</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">v</span><span class="p">)])</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ystd</span><span class="p">[</span>
+                <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="k">return</span> <span class="n">optimization_config</span></div>
+
+<div class="viewcode-block" id="StratifiedStandardizeY.untransform_observation_data"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.stratified_standardize_y.StratifiedStandardizeY.untransform_observation_data">[docs]</a>    <span class="k">def</span> <span class="nf">untransform_observation_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">obsd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">observation_data</span><span class="p">):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">observation_features</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">p_name</span><span class="p">]</span>
+            <span class="n">means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">Ymean</span><span class="p">[(</span><span class="n">m</span><span class="p">,</span> <span class="n">v</span><span class="p">)]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">obsd</span><span class="o">.</span><span class="n">metric_names</span><span class="p">])</span>
+            <span class="n">stds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">Ystd</span><span class="p">[(</span><span class="n">m</span><span class="p">,</span> <span class="n">v</span><span class="p">)]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">obsd</span><span class="o">.</span><span class="n">metric_names</span><span class="p">])</span>
+            <span class="n">obsd</span><span class="o">.</span><span class="n">means</span> <span class="o">=</span> <span class="n">obsd</span><span class="o">.</span><span class="n">means</span> <span class="o">*</span> <span class="n">stds</span> <span class="o">+</span> <span class="n">means</span>
+            <span class="n">obsd</span><span class="o">.</span><span class="n">covariance</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">stds</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">stds</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">observation_data</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3>Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input name="q" type="text"/>
+<input type="submit" value="Go"/>
+<input name="check_keywords" type="hidden" value="yes"/>
+<input name="area" type="hidden" value="default"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.0/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

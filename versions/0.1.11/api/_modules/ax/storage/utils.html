@@ -1,0 +1,155 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.11/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.11/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.11/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.11/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.11/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.11/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.11/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.11/css/main.css"/><script src="/versions/0.1.11/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.11/"><img class="logo" src="/versions/0.1.11/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.11/versions.html"><h3>0.1.11</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.11/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.11/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.11/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.storage.utils</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">enum</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.base</span> <span class="kn">import</span> <span class="n">Base</span>
+
+
+<div class="viewcode-block" id="DomainType"><a class="viewcode-back" href="../../../storage.html#ax.storage.utils.DomainType">[docs]</a><span class="k">class</span> <span class="nc">DomainType</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">"""Class for enumerating domain types."""</span>
+
+    <span class="n">FIXED</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">RANGE</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">CHOICE</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span></div>
+
+
+<div class="viewcode-block" id="MetricIntent"><a class="viewcode-back" href="../../../storage.html#ax.storage.utils.MetricIntent">[docs]</a><span class="k">class</span> <span class="nc">MetricIntent</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">"""Class for enumerating metric use types."""</span>
+
+    <span class="n">OBJECTIVE</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"objective"</span>
+    <span class="n">MULTI_OBJECTIVE</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"multi_objective"</span>
+    <span class="n">SCALARIZED_OBJECTIVE</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"scalarized_objective"</span>
+    <span class="c1"># Additional objective is not yet supported in Ax open-source.</span>
+    <span class="n">ADDITIONAL_OBJECTIVE</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"additional_objective"</span>
+    <span class="n">OUTCOME_CONSTRAINT</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"outcome_constraint"</span>
+    <span class="n">TRACKING</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"tracking"</span></div>
+
+
+<div class="viewcode-block" id="ParameterConstraintType"><a class="viewcode-back" href="../../../storage.html#ax.storage.utils.ParameterConstraintType">[docs]</a><span class="k">class</span> <span class="nc">ParameterConstraintType</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">"""Class for enumerating parameter constraint types.</span>
+
+<span class="sd">    Linear constraint is base type whereas other constraint types are</span>
+<span class="sd">    special types of linear constraints.</span>
+<span class="sd">    """</span>
+
+    <span class="n">LINEAR</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">ORDER</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">SUM</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span></div>
+
+
+<div class="viewcode-block" id="EncodeDecodeFieldsMap"><a class="viewcode-back" href="../../../storage.html#ax.storage.utils.EncodeDecodeFieldsMap">[docs]</a><span class="k">class</span> <span class="nc">EncodeDecodeFieldsMap</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">python_only</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">encoded_only</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">python_to_encoded</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span></div>
+
+
+<div class="viewcode-block" id="remove_prefix"><a class="viewcode-back" href="../../../storage.html#ax.storage.utils.remove_prefix">[docs]</a><span class="k">def</span> <span class="nf">remove_prefix</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">prefix</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">text</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">text</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="p">:]</span>
+    <span class="k">return</span> <span class="n">text</span></div>
+
+
+<div class="viewcode-block" id="get_object_properties"><a class="viewcode-back" href="../../../storage.html#ax.storage.utils.get_object_properties">[docs]</a><span class="k">def</span> <span class="nf">get_object_properties</span><span class="p">(</span>
+    <span class="nb">object</span><span class="p">:</span> <span class="n">Base</span><span class="p">,</span> <span class="n">exclude_fields</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Given an Ax object, return a dictionary of the attributes that are</span>
+<span class="sd">    needed by its constructor, and which we therefore need to store.</span>
+<span class="sd">    """</span>
+    <span class="n">properties</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">exclude_args</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"self"</span><span class="p">,</span> <span class="s2">"args"</span><span class="p">,</span> <span class="s2">"kwargs"</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">exclude_fields</span> <span class="ow">or</span> <span class="p">[])</span>
+    <span class="n">signature</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="nb">object</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">arg</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">signature</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">exclude_args</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">object</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">object</span><span class="o">.</span><span class="vm">__class__</span><span class="si">}</span><span class="s2"> is missing a value for </span><span class="si">{</span><span class="n">arg</span><span class="si">}</span><span class="s2">, "</span>
+                <span class="sa">f</span><span class="s2">"which is needed by its constructor."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">default</span> <span class="o">==</span> <span class="n">value</span><span class="p">:</span>
+            <span class="c1"># If the constructor has a default value for the arg, and the</span>
+            <span class="c1"># object's value is the default, we do not need to store it</span>
+            <span class="k">continue</span>
+        <span class="n">properties</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="k">return</span> <span class="n">properties</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.11/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

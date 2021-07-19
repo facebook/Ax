@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/v0.1.14/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/v0.1.14/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/v0.1.14/img/ax.svg"/><link rel="shortcut icon" href="/versions/v0.1.14/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/v0.1.14/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/v0.1.14/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/v0.1.14/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/v0.1.14/css/main.css"/><script src="/versions/v0.1.14/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/v0.1.14/"><img class="logo" src="/versions/v0.1.14/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/v0.1.14/versions.html"><h3>v0.1.14</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/v0.1.14/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/v0.1.14/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/v0.1.14/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.storage.json_store.encoder</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">enum</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">isclass</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.storage</span> <span class="kn">import</span> <span class="n">JSONEncodeError</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.base</span> <span class="kn">import</span> <span class="n">Transform</span>
+<span class="kn">from</span> <span class="nn">ax.storage.json_store.registry</span> <span class="kn">import</span> <span class="n">ENCODER_REGISTRY</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.serialization</span> <span class="kn">import</span> <span class="n">_is_named_tuple</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">numpy_type_to_python_type</span><span class="p">,</span> <span class="n">torch_type_to_str</span>
+
+
+<div class="viewcode-block" id="object_to_json"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoder.object_to_json">[docs]</a><span class="k">def</span> <span class="nf">object_to_json</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="sd">"""Convert an Ax object to a JSON-serializable dictionary.</span>
+
+<span class="sd">    The root node passed to this function should always be an instance of a</span>
+<span class="sd">    core Ax class or a JSON-compatible python builtin. The sub-fields of the</span>
+<span class="sd">    input will then be recursively passed to this function.</span>
+
+<span class="sd">    e.g. if we pass an instance of Experiment, we will first fall through</span>
+<span class="sd">    to the line `object_dict = ENCODER_REGISTRY[_type](object)`, which</span>
+<span class="sd">    will convert the Experiment to a (shallow) dictionary, where search</span>
+<span class="sd">    subfield remains "unconverted", i.e.:</span>
+<span class="sd">    {"name": &lt;name: string&gt;, "search_space": &lt;search space: SearchSpace&gt;}.</span>
+<span class="sd">    We then pass each item of the dictionary back into this function to</span>
+<span class="sd">    recursively convert the entire object.</span>
+<span class="sd">    """</span>
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">numpy_type_to_python_type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+    <span class="n">_type</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+    <span class="c1"># Ax types</span>
+    <span class="k">if</span> <span class="n">isclass</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Transform</span><span class="p">):</span>
+        <span class="c1"># There is no other way to check is obj is of type Type[Transform].</span>
+        <span class="n">_type</span> <span class="o">=</span> <span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">_type</span> <span class="ow">in</span> <span class="n">ENCODER_REGISTRY</span><span class="p">:</span>
+        <span class="n">obj_dict</span> <span class="o">=</span> <span class="n">ENCODER_REGISTRY</span><span class="p">[</span><span class="n">_type</span><span class="p">](</span><span class="n">obj</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">object_to_json</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="c1"># Python built-in types + `typing` module types</span>
+    <span class="k">if</span> <span class="n">_type</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">obj</span>
+    <span class="k">elif</span> <span class="n">_type</span> <span class="ow">is</span> <span class="nb">list</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">object_to_json</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">_type</span> <span class="ow">is</span> <span class="nb">tuple</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">object_to_json</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">_type</span> <span class="ow">is</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">object_to_json</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="k">elif</span> <span class="n">_is_named_tuple</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"__type"</span><span class="p">:</span> <span class="n">_type</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">object_to_json</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">_asdict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+        <span class="p">}</span>
+
+    <span class="c1"># Types from libraries, commonly used in Ax (e.g., numpy, pandas, torch)</span>
+    <span class="k">elif</span> <span class="n">_type</span> <span class="ow">is</span> <span class="n">OrderedDict</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"__type"</span><span class="p">:</span> <span class="n">_type</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">"value"</span><span class="p">:</span> <span class="p">[(</span><span class="n">k</span><span class="p">,</span> <span class="n">object_to_json</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
+        <span class="p">}</span>
+    <span class="k">elif</span> <span class="n">_type</span> <span class="ow">is</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"__type"</span><span class="p">:</span> <span class="n">_type</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">"value"</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">"%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S.</span><span class="si">%f</span><span class="s2">"</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="k">elif</span> <span class="n">_type</span> <span class="ow">is</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"__type"</span><span class="p">:</span> <span class="n">_type</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">to_json</span><span class="p">()}</span>
+    <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">_type</span><span class="p">,</span> <span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"__type"</span><span class="p">:</span> <span class="n">_type</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">}</span>
+    <span class="k">elif</span> <span class="n">_type</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="ow">or</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">_type</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"__type"</span><span class="p">:</span> <span class="n">_type</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">tolist</span><span class="p">()}</span>
+    <span class="k">elif</span> <span class="n">_type</span> <span class="ow">is</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"__type"</span><span class="p">:</span> <span class="n">_type</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="c1"># TODO: check size and add warning for large tensors: T69137799</span>
+            <span class="s2">"value"</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">"dtype"</span><span class="p">:</span> <span class="n">object_to_json</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+            <span class="s2">"device"</span><span class="p">:</span> <span class="n">object_to_json</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">device</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="k">elif</span> <span class="n">_type</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">==</span> <span class="s2">"torch"</span><span class="p">:</span>
+        <span class="c1"># Torch does not support saving to string, so save to buffer first</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"__type"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"torch_</span><span class="si">{</span><span class="n">_type</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="n">torch_type_to_str</span><span class="p">(</span><span class="n">obj</span><span class="p">)}</span>
+
+    <span class="n">err</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"Object </span><span class="si">{</span><span class="n">obj</span><span class="si">}</span><span class="s2"> passed to `object_to_json` (of type </span><span class="si">{</span><span class="n">_type</span><span class="si">}</span><span class="s2">) is "</span>
+        <span class="sa">f</span><span class="s2">"not registered with a corresponding encoder in ENCODER_REGISTRY."</span>
+    <span class="p">)</span>
+    <span class="k">raise</span> <span class="n">JSONEncodeError</span><span class="p">(</span><span class="n">err</span><span class="p">)</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/v0.1.14/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

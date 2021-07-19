@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Core · Ax</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="### Overview"/><meta name="docsearch:version" content="v0.1.20"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Core · Ax"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/v0.1.20/index.html"/><meta property="og:description" content="### Overview"/><meta property="og:image" content="https://ax.dev//versions/v0.1.20/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/v0.1.20/img/ax.svg"/><link rel="shortcut icon" href="/versions/v0.1.20/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/v0.1.20/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/v0.1.20/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/v0.1.20/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/v0.1.20/css/main.css"/><script src="/versions/v0.1.20/js/codetabs.js"></script></head><body class="sideNavVisible separateOnPageNav"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/v0.1.20/"><img class="logo" src="/versions/v0.1.20/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/v0.1.20/versions.html"><h3>v0.1.20</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavGroupActive"><a href="/versions/v0.1.20/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/v0.1.20/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/v0.1.20/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span>Components</span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Introduction</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/v0.1.20/docs/why-ax.html">Why Ax?</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Getting Started</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/v0.1.20/docs/installation.html">Installation</a></li><li class="navListItem"><a class="navItem" href="/versions/v0.1.20/docs/api.html">APIs</a></li><li class="navListItem"><a class="navItem" href="/versions/v0.1.20/docs/glossary.html">Glossary</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Algorithms</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/v0.1.20/docs/bayesopt.html">Bayesian Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/v0.1.20/docs/banditopt.html">Bandit Optimization</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Components</h3><ul class=""><li class="navListItem navListItemActive"><a class="navItem" href="/versions/v0.1.20/docs/core.html">Core</a></li><li class="navListItem"><a class="navItem" href="/versions/v0.1.20/docs/trial-evaluation.html">Trial Evaluation</a></li><li class="navListItem"><a class="navItem" href="/versions/v0.1.20/docs/data.html">Data</a></li><li class="navListItem"><a class="navItem" href="/versions/v0.1.20/docs/models.html">Models</a></li><li class="navListItem"><a class="navItem" href="/versions/v0.1.20/docs/storage.html">Storage</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer docsContainer"><div class="wrapper"><div class="post"><header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">Core</h1></header><article><div><span><h3><a class="anchor" aria-hidden="true" id="overview"></a><a href="#overview" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Overview</h3>
+<p>In Ax, an <a href="/versions/v0.1.20/docs/glossary.html#experiment">experiment</a> keeps track of the whole optimization process. It contains a search space, optimization config, metadata, information on what metrics to track and how to run iterations, etc. An <a href="/versions/v0.1.20/docs/glossary.html#experiment">experiment</a> is composed of a sequence of <a href="/versions/v0.1.20/docs/glossary.html#trial">trials</a> each of which has a set of parameterizations (or <a href="/versions/v0.1.20/docs/glossary.html#arm">arms</a>) to be evaluated. A <a href="/versions/v0.1.20/docs/glossary.html#trial">trial</a> is added to the experiment when a new set of arms is proposed by the optimization algorithm. The trial is then evaluated to compute the values of each <a href="/versions/v0.1.20/docs/glossary.html#metric">metric</a> for each arm, which are fed into the algorithms to create a new trial. Most applications have one arm per trial, which is the default implementation.</p>
+<p>The core constructs that define the experiment are detailed below.</p>
+<h3><a class="anchor" aria-hidden="true" id="trial-vs-batch-trial"></a><a href="#trial-vs-batch-trial" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Trial VS. Batch Trial</h3>
+<p>An <a href="/versions/v0.1.20/docs/glossary.html#experiment">experiment</a> consists of <a href="/versions/v0.1.20/docs/glossary.html#trial">trials</a>, which can be one of two types: regular <a href="/versions/v0.1.20/docs/glossary.html#trial">trial</a> or <a href="/versions/v0.1.20/docs/glossary.html#batch-trial">batch trial</a>. A regular <a href="/versions/v0.1.20/docs/glossary.html#trial">trial</a> contains a single <a href="/versions/v0.1.20/docs/glossary.html#arm">arm</a> and relevant metadata. A <a href="/versions/v0.1.20/docs/glossary.html#batch-trial">batch trial</a> contains multiple <a href="/versions/v0.1.20/docs/glossary.html#arm">arms</a>, relevant metadata, and optionally a set of arm weights, which are a measure of how much of the total resources allocated to evaluating a batch should go towards evaluating the specific arm.</p>
+<p><strong>A <a href="/versions/v0.1.20/docs/glossary.html#batch-trial">batch trial</a> is not just a <a href="/versions/v0.1.20/docs/glossary.html#trial">trial</a> with many arms!</strong> It is a trial for which it is important that the arms are evaluated <strong>simultaneously and together</strong>. For instance, a batch trial would be appropriate in an A/B test where the evaluation results are subject to nonstationarity and require multiple arms to be deployed (and gathered data for) at the same time. For cases where multiple arms are evaluated separately and independently of each other, use multiple <a href="/versions/v0.1.20/docs/glossary.html#trial">trials</a> with a single arm each, which will allow Ax to keep track of their deployment and results appropriately.</p>
+<h3><a class="anchor" aria-hidden="true" id="search-space-and-parameters"></a><a href="#search-space-and-parameters" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Search Space and Parameters</h3>
+<p>A <a href="/versions/v0.1.20/docs/glossary.html#search-space">search space</a> is composed of a set of <a href="/versions/v0.1.20/docs/glossary.html#parameter">parameters</a> to be tuned in the experiment, and optionally a set of <a href="/versions/v0.1.20/docs/glossary.html#parameter-constraint">parameter constraints</a> that define restrictions across these parameters (e.g. <code>p_a &lt;= p_b</code>). Each parameter has a name, a type (<code>int</code>, <code>float</code>, <code>bool</code>, or <code>string</code>), and a domain, which is a representation of the possible values the parameter can take. The search space is used by the optimization algorithms to know which arms are valid to suggest.</p>
+<p>Ax supports three types of parameters:</p>
+<ul>
+<li><strong>Range parameters</strong>: must be of type <code>int</code> or <code>float</code>, and the domain is represented by a lower and upper bound. If the parameter is specified as an <code>int</code>, newly generated points are rounded to the nearest integer by default.</li>
+</ul>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> RangeParameter, ParameterType
+float_range_param = RangeParameter(name=<span class="hljs-string">"x1"</span>, parameter_type=ParameterType.FLOAT, lower=<span class="hljs-number">0.0</span>, upper=<span class="hljs-number">1.0</span>)
+int_range_param = RangeParameter(name=<span class="hljs-string">"x2"</span>, parameter_type=ParameterType.INT, lower=<span class="hljs-number">0</span>, upper=<span class="hljs-number">10</span>)
+</code></pre>
+<ul>
+<li><strong>Choice parameters</strong>: domain is a set of values</li>
+</ul>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> ChoiceParameter, ParameterType
+choice_param = ChoiceParameter(name=<span class="hljs-string">"y"</span>, parameter_type=ParameterType.STRING, values=[<span class="hljs-string">"foo"</span>, <span class="hljs-string">"bar"</span>])
+</code></pre>
+<ul>
+<li><strong>Fixed parameters</strong>: domain is a single value</li>
+</ul>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> FixedParameter, ParameterType
+fixed_param = FixedParameter(name=<span class="hljs-string">"z"</span>, parameter_type=ParameterType.BOOL, value=<span class="hljs-literal">True</span>)
+</code></pre>
+<p>Ax supports three types of parameter constraints, each of which can only be used on <code>int</code> or <code>float</code> parameters:</p>
+<ul>
+<li><strong>Linear constraints</strong>: <code>w * v</code> &lt;= b where w is the vector of parameter weights, v is a vector of parameter values, * is the dot product, and b is the specified bound. Linear constraints are specified with the bound and a dictionary that maps parameter name to the weight</li>
+</ul>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> ParameterConstraint
+
+param_a = RangeParameter(name=<span class="hljs-string">"a"</span>, parameter_type=ParameterType.FLOAT, lower=<span class="hljs-number">0.0</span>, upper=<span class="hljs-number">1.0</span>)
+param_b = RangeParameter(name=<span class="hljs-string">"b"</span>, parameter_type=ParameterType.FLOAT, lower=<span class="hljs-number">0.0</span>, upper=<span class="hljs-number">1.0</span>)
+
+<span class="hljs-comment"># 1.0 * a + 0.5 * b &lt;= 1.0</span>
+con_1 = ParameterConstraint(constraint_dict={<span class="hljs-string">"a"</span>: <span class="hljs-number">1.0</span>, <span class="hljs-string">"b"</span>: <span class="hljs-number">0.5</span>}, bound=<span class="hljs-number">1.0</span>)
+</code></pre>
+<ul>
+<li><strong>Order constraints</strong>: specifies that one parameter must be smaller than the other</li>
+</ul>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> OrderConstraint
+
+<span class="hljs-comment"># a &lt;= b</span>
+con_2 = OrderConstraint(lower_parameter=param_a, upper_parameter=param_b)
+</code></pre>
+<ul>
+<li><strong>Sum constraints</strong>: specifies that the sum of the parameters must be greater or less than a bound</li>
+</ul>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> SumConstraint
+
+<span class="hljs-comment"># a + b &gt;= 0.5</span>
+con_3 = SumConstraint(parameters=[param_a, param_b], is_upper_bound=<span class="hljs-literal">False</span>, bound=<span class="hljs-number">0.5</span>)
+</code></pre>
+<p>Given parameters and (optionally) parameter constraints, you can construct a search space:</p>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> SearchSpace
+
+SearchSpace(parameters=[param_a, param_b], parameter_constraints=[con_1, con_2, con_3])
+</code></pre>
+<h3><a class="anchor" aria-hidden="true" id="optimization-config"></a><a href="#optimization-config" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Optimization Config</h3>
+<p>An <a href="/versions/v0.1.20/docs/glossary.html#optimization-config">optimization config</a> is composed of an <a href="/versions/v0.1.20/docs/glossary.html#objective">objective metric</a> to be minimized or maximized, and optionally a set of <a href="/versions/v0.1.20/docs/glossary.html#outcome-constraint">outcome constraints</a> that place restrictions on how other metrics can be moved by the experiment. Note that you cannot constrain the objective metric.</p>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Metric
+<span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Objective
+
+objective = Objective(metric=Metric(name=<span class="hljs-string">"m1"</span>), minimize=<span class="hljs-literal">True</span>)
+</code></pre>
+<p>There is no minimum or maximum number of outcome constraints, but an individual metric can have at most two constraints — which is how we represent metrics with both upper and lower bounds.</p>
+<p>Outcome constraints may be of the form <code>metric &gt;= bound</code> or <code>metric &lt;= bound</code>. The bound can be expressed as an absolute measurement, or relative to the status quo (if applicable), in which case the bound is the acceptable percent change from the status quo's value.</p>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Metric
+<span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> OutcomeConstraint
+<span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> ComparisonOp
+
+<span class="hljs-comment"># m2 cannot regress the status quo by more than 5%</span>
+oc = OutcomeConstraint(metric=Metric(name=<span class="hljs-string">"m2"</span>), op = ComparisonOp.GEQ, bound=<span class="hljs-number">-5.0</span>, relative=<span class="hljs-literal">True</span>)
+</code></pre>
+<p>Finally, create the optimization config to attach to the experiment.</p>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> OptimizationConfig
+
+opt_config = OptimizationConfig(objective=objective, outcome_constraints=[oc])
+</code></pre>
+<h3><a class="anchor" aria-hidden="true" id="arm"></a><a href="#arm" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Arm</h3>
+<p>An <a href="/versions/v0.1.20/docs/glossary.html#arm">arm</a> in Ax is a set of <a href="/versions/v0.1.20/docs/glossary.html#parameter">parameters</a> and their values with a name attached to it. In the case of <strong>hyperparameter optimization</strong>, an <a href="/versions/v0.1.20/docs/glossary.html#arm">arm</a> corresponds to a hyperparameter configuration explored in the course of a given optimization.</p>
+<p>An arm is defined by specifying the value for each parameter, and optionally giving it a name:</p>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Arm
+
+Arm(parameters={<span class="hljs-string">"x"</span>: <span class="hljs-number">0</span>, <span class="hljs-string">"y"</span>: <span class="hljs-string">"Foo"</span>, z: <span class="hljs-literal">True</span>})
+
+<span class="hljs-comment"># Names are automatically assigned by the experiment</span>
+<span class="hljs-comment"># but can also be specified by the user</span>
+Arm(parameters={<span class="hljs-string">"x"</span>: <span class="hljs-number">0</span>, <span class="hljs-string">"y"</span>: <span class="hljs-string">"Foo"</span>, z: <span class="hljs-literal">True</span>}, name=<span class="hljs-string">"arm1"</span>)
+</code></pre>
+<p>Arms are typically attached to trials, as discussed in the <a href="#experiment-lifecycle">Experiment Lifecycle</a> section below.</p>
+<h3><a class="anchor" aria-hidden="true" id="status-quo"></a><a href="#status-quo" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Status Quo</h3>
+<p>An experiment can optionally contain a <a href="/versions/v0.1.20/docs/glossary.html#status-quo">status quo</a> arm, which represents the “control” parameterization. This allows viewing results and doing optimization using <a href="/versions/v0.1.20/docs/glossary.html#relative-outcome-constraint">relativized</a> outcomes, meaning all metrics will be presented as percentage deltas against the status quo.</p>
+<p>If the status quo is specified on the experiment, it will be automatically added to every trial that is created.</p>
+<h2><a class="anchor" aria-hidden="true" id="experiment-lifecycle"></a><a href="#experiment-lifecycle" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Experiment Lifecycle</h2>
+<p>An experiment consists of a sequence of trials, each of which evaluates one or more arms. For more details on the implementing the evaluation, see the <a href="/versions/v0.1.20/docs/trial-evaluation.html">trial evaluation</a> and <a href="/versions/v0.1.20/docs/data.html">metric</a> references.</p>
+<p>Based on the evaluation results, the optimization algorithm suggest one or more arms to evaluate. You then create a new trial containing these suggested arms, evaluate this trial, and repeat.</p>
+<p>You can directly add arm(s) to a new trial, or you can add a <a href="/versions/v0.1.20/docs/glossary.html#generator-run">generator run</a> –– output of the optimization algorithm:</p>
+<pre><code class="hljs css language-python"><span class="hljs-comment"># If only one arm should be evaluated</span>
+experiment.new_trial().add_arm(Arm(...))
+
+<span class="hljs-comment"># If multiple arms should be evaluated</span>
+experiment.new_batch_trial().add_arms_and_weights(arms=[Arm(...), Arm(...)])
+
+<span class="hljs-comment"># To evaluate the arms suggested by a GeneratorRun</span>
+experiment.new_batch_trial().add_generator_run(generator_run=GeneratorRun(...))
+</code></pre>
+<p>A trial goes through multiple phases during the experimentation cycle, tracked by its <a href="../api/core.html#ax.core.base_trial.TrialStatus"><code>TrialStatus</code></a> field. These stages are:</p>
+<ul>
+<li><code>CANDIDATE</code> - Trial has just been created and can still be modified before deployment.</li>
+<li><code>STAGED</code> - Relevant for external systems, where the trial configuration has been deployed but not begun the evaluation stage.</li>
+<li><code>RUNNING</code> - Trial is in the process of being evaluated.</li>
+<li><code>COMPLETED</code> - Trial completed evaluation successfully.</li>
+<li><code>FAILED</code> - Trial incurred a failure while being evaluated.</li>
+<li><code>ABANDONED</code> - User manually stopped the trial for some specified reason.</li>
+</ul>
+<p>When a trial is first created, its status is &quot;candidate&quot;. If applicable, we can call <code>trial.mark_staged</code> to move the trial into &quot;staged&quot; mode. We then call <code>trial.run</code>
+to run the trial, which moves it into the &quot;running&quot; stage. We can then call
+<code>trial.mark_completed</code>, <code>trial.mark_failed</code>, or <code>trial.mark_abandoned</code> to end the trial.</p>
+<p>If the trial's <a href="/versions/v0.1.20/docs/trial-evaluation.html#adding-your-own-runner">runner</a> has &quot;staging_required&quot; = True,
+then <code>trial.run</code> will first mark the trial as &quot;staged&quot;, and we can later call
+<code>trial.mark_running</code> explicitly to move the trial to &quot;running&quot;.</p>
+</span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/versions/v0.1.20/docs/banditopt.html"><span class="arrow-prev">← </span><span>Bandit Optimization</span></a><a class="docs-next button" href="/versions/v0.1.20/docs/trial-evaluation.html"><span>Trial Evaluation</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#experiment-lifecycle">Experiment Lifecycle</a></li></ul></nav></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/v0.1.20/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>

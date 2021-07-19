@@ -1,0 +1,504 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.8/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.8/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.8/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.8/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.8/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.8/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.8/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.8/css/main.css"/><script src="/versions/0.1.8/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.8/"><img class="logo" src="/versions/0.1.8/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.8/versions.html"><h3>0.1.8</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.8/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.8/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.8/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.batch_trial</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TYPE_CHECKING</span><span class="p">,</span>
+    <span class="n">DefaultDict</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">NamedTuple</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">BaseTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span><span class="p">,</span> <span class="n">GeneratorRunType</span>
+<span class="kn">from</span> <span class="nn">ax.core.trial</span> <span class="kn">import</span> <span class="n">immutable_once_run</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.equality</span> <span class="kn">import</span> <span class="n">datetime_equals</span><span class="p">,</span> <span class="n">equality_typechecker</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">checked_cast</span><span class="p">,</span> <span class="n">not_none</span>
+
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="c1"># import as module to make sphinx-autodoc-typehints happy</span>
+    <span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">core</span>  <span class="c1"># noqa F401  # pragma: no cover</span>
+
+
+<div class="viewcode-block" id="AbandonedArm"><a class="viewcode-back" href="../../../core.html#ax.AbandonedArm">[docs]</a><span class="k">class</span> <span class="nc">AbandonedArm</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">"""Tuple storing metadata of arm that has been abandoned within</span>
+<span class="sd">    a BatchTrial.</span>
+<span class="sd">    """</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span>
+    <span class="n">reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@equality_typechecker</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">"AbandonedArm"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">name</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">reason</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">reason</span>
+            <span class="ow">and</span> <span class="n">datetime_equals</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GeneratorRunStruct"><a class="viewcode-back" href="../../../core.html#ax.GeneratorRunStruct">[docs]</a><span class="k">class</span> <span class="nc">GeneratorRunStruct</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">"""Stores GeneratorRun object as well as the weight with which it was added."""</span>
+
+    <span class="n">generator_run</span><span class="p">:</span> <span class="n">GeneratorRun</span>
+    <span class="n">weight</span><span class="p">:</span> <span class="nb">float</span></div>
+
+
+<div class="viewcode-block" id="BatchTrial"><a class="viewcode-back" href="../../../core.html#ax.BatchTrial">[docs]</a><span class="k">class</span> <span class="nc">BatchTrial</span><span class="p">(</span><span class="n">BaseTrial</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="s2">"core.experiment.Experiment"</span><span class="p">,</span>
+        <span class="n">generator_run</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GeneratorRun</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">trial_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimize_for_power</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">trial_type</span><span class="o">=</span><span class="n">trial_type</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_generator_run_structs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">GeneratorRunStruct</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_abandoned_arms_metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AbandonedArm</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo_weight_override</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">generator_run</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span><span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimize_for_power</span> <span class="o">=</span> <span class="n">optimize_for_power</span>
+        <span class="n">status_quo</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">status_quo</span>
+        <span class="k">if</span> <span class="n">optimize_for_power</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">status_quo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"Can only optimize for power if experiment has a status quo."</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_status_quo_and_optimize_power</span><span class="p">(</span><span class="n">status_quo</span><span class="o">=</span><span class="n">status_quo</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Set the status quo for tracking purposes</span>
+            <span class="c1"># It will not be included in arm_weights</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span> <span class="o">=</span> <span class="n">status_quo</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">experiment</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"core.experiment.Experiment"</span><span class="p">:</span>
+        <span class="sd">"""The experiment this batch belongs to."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""The index of this batch within the experiment's batch list."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">generator_run_structs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">GeneratorRunStruct</span><span class="p">]:</span>
+        <span class="sd">"""List of generator run structs attached to this trial.</span>
+
+<span class="sd">        Struct holds generator_run object and the weight with which it was added.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generator_run_structs</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">arm_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">Arm</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">"""The set of arms and associated weights for the trial.</span>
+
+<span class="sd">        These are constructed by merging the arms and weights from</span>
+<span class="sd">        each generator run that is attached to the trial.</span>
+<span class="sd">        """</span>
+        <span class="n">arm_weights</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_generator_run_structs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_quo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">arm_weights</span>
+        <span class="k">for</span> <span class="n">struct</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generator_run_structs</span><span class="p">:</span>
+            <span class="n">multiplier</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">weight</span>
+            <span class="k">for</span> <span class="n">arm</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="n">struct</span><span class="o">.</span><span class="n">generator_run</span><span class="o">.</span><span class="n">arm_weights</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">scaled_weight</span> <span class="o">=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">multiplier</span>
+                <span class="k">if</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">arm_weights</span><span class="p">:</span>
+                    <span class="n">arm_weights</span><span class="p">[</span><span class="n">arm</span><span class="p">]</span> <span class="o">+=</span> <span class="n">scaled_weight</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">arm_weights</span><span class="p">[</span><span class="n">arm</span><span class="p">]</span> <span class="o">=</span> <span class="n">scaled_weight</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_quo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo_weight_override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># If override is specified, this is the weight the status quo gets,</span>
+            <span class="c1"># regardless of whether it appeared in any generator runs.</span>
+            <span class="c1"># If no override is specified, status quo does not appear in arm_weights.</span>
+            <span class="n">arm_weights</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">status_quo</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo_weight_override</span>
+        <span class="k">return</span> <span class="n">arm_weights</span>
+
+    <span class="nd">@arm_weights</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">arm_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm_weights</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">Arm</span><span class="p">,</span> <span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Use `trial.add_arms_and_weights`"</span><span class="p">)</span>
+
+    <span class="nd">@immutable_once_run</span>
+    <span class="k">def</span> <span class="nf">add_arm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm</span><span class="p">:</span> <span class="n">Arm</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"BatchTrial"</span><span class="p">:</span>
+        <span class="sd">"""Add a arm to the trial.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            arm: The arm to be added.</span>
+<span class="sd">            weight: The weight with which this arm should be added.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_arms_and_weights</span><span class="p">(</span><span class="n">arms</span><span class="o">=</span><span class="p">[</span><span class="n">arm</span><span class="p">],</span> <span class="n">weights</span><span class="o">=</span><span class="p">[</span><span class="n">weight</span><span class="p">])</span>
+
+    <span class="nd">@immutable_once_run</span>
+    <span class="k">def</span> <span class="nf">add_arms_and_weights</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">arms</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Arm</span><span class="p">],</span>
+        <span class="n">weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">multiplier</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"BatchTrial"</span><span class="p">:</span>
+        <span class="sd">"""Add arms and weights to the trial.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            arms: The arms to be added.</span>
+<span class="sd">            weights: The weights associated with the arms.</span>
+<span class="sd">            multiplier: The multiplier applied to input weights before merging with</span>
+<span class="sd">                the current set of arms and weights.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span>
+            <span class="n">generator_run</span><span class="o">=</span><span class="n">GeneratorRun</span><span class="p">(</span>
+                <span class="n">arms</span><span class="o">=</span><span class="n">arms</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">GeneratorRunType</span><span class="o">.</span><span class="n">MANUAL</span><span class="o">.</span><span class="n">name</span>
+            <span class="p">),</span>
+            <span class="n">multiplier</span><span class="o">=</span><span class="n">multiplier</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@immutable_once_run</span>
+    <span class="k">def</span> <span class="nf">add_generator_run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">generator_run</span><span class="p">:</span> <span class="n">GeneratorRun</span><span class="p">,</span> <span class="n">multiplier</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"BatchTrial"</span><span class="p">:</span>
+        <span class="sd">"""Add a generator run to the trial.</span>
+
+<span class="sd">        The arms and weights from the generator run will be merged with</span>
+<span class="sd">        the existing arms and weights on the trial, and the generator run</span>
+<span class="sd">        object will be linked to the trial for tracking.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            generator_run: The generator run to be added.</span>
+<span class="sd">            multiplier: The multiplier applied to input weights before merging with</span>
+<span class="sd">                the current set of arms and weights.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Copy the generator run, to preserve initial and skip mutations to arms.</span>
+        <span class="n">generator_run</span> <span class="o">=</span> <span class="n">generator_run</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+
+        <span class="c1"># First validate generator run arms</span>
+        <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">generator_run</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">check_types</span><span class="p">(</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Add names to arms</span>
+        <span class="c1"># For those not yet added to this experiment, create a new name</span>
+        <span class="c1"># Else, use the name of the existing arm</span>
+        <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">generator_run</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_existing_and_name_arm</span><span class="p">(</span><span class="n">arm</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_generator_run_structs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">GeneratorRunStruct</span><span class="p">(</span><span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">multiplier</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">generator_run</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_generator_run_structs</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_quo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimize_for_power</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_status_quo_and_optimize_power</span><span class="p">(</span><span class="n">status_quo</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">status_quo</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">status_quo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">]:</span>
+        <span class="sd">"""The control arm for this batch."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span>
+
+    <span class="nd">@status_quo</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">status_quo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status_quo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"Use `set_status_quo_with_weight` or "</span>
+            <span class="s2">"`set_status_quo_and_optimize_power` "</span>
+            <span class="s2">"to set the status quo arm."</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="BatchTrial.unset_status_quo"><a class="viewcode-back" href="../../../core.html#ax.BatchTrial.unset_status_quo">[docs]</a>    <span class="k">def</span> <span class="nf">unset_status_quo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Set the status quo to None."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+    <span class="nd">@immutable_once_run</span>
+    <span class="k">def</span> <span class="nf">set_status_quo_with_weight</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">status_quo</span><span class="p">:</span> <span class="n">Arm</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"BatchTrial"</span><span class="p">:</span>
+        <span class="sd">"""Sets status quo arm with given weight. This weight *overrides* any</span>
+<span class="sd">        weight the status quo has from generator runs attached to this batch.</span>
+<span class="sd">        Thus, this function is not the same as using add_arm, which will</span>
+<span class="sd">        result in the weight being additive over all generator runs.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Assign a name to this arm if none exists</span>
+        <span class="k">if</span> <span class="n">weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">weight</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Status quo weight must be positive."</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">status_quo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">check_types</span><span class="p">(</span>
+                <span class="n">status_quo</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_name_and_store_arm_if_not_exists</span><span class="p">(</span>
+                <span class="n">arm</span><span class="o">=</span><span class="n">status_quo</span><span class="p">,</span> <span class="n">proposed_name</span><span class="o">=</span><span class="s2">"status_quo_"</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span> <span class="o">=</span> <span class="n">status_quo</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo_weight_override</span> <span class="o">=</span> <span class="n">weight</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="nd">@immutable_once_run</span>
+    <span class="k">def</span> <span class="nf">set_status_quo_and_optimize_power</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status_quo</span><span class="p">:</span> <span class="n">Arm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"BatchTrial"</span><span class="p">:</span>
+        <span class="sd">"""Adds a status quo arm to the batch and optimizes for power.</span>
+
+<span class="sd">        Note: this optimization based on the arms that are currently attached</span>
+<span class="sd">        to the batch. If you add more arms later, you should re-run this function.</span>
+<span class="sd">        If you want the optimization to happen automatically,</span>
+<span class="sd">        set batch.optimize_for_power = True.</span>
+
+<span class="sd">        This function will maximize power across the multiple pair-wise</span>
+<span class="sd">        comparisons of existing arms against the status_quo.</span>
+
+<span class="sd">        Specifically, this function assigns sqrt(sum_weights) weight to the</span>
+<span class="sd">        status quo, where sum_weights is the sum of the weights of the existing</span>
+<span class="sd">        arms, excluding the status quo. This will be optimal in terms of</span>
+<span class="sd">        statistical power in the case where:</span>
+<span class="sd">            1) status quo is the only arm to compare against,</span>
+<span class="sd">            2) all other arms are of equal interest.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">arms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># If status quo is the only arm, just set its weight to 1</span>
+            <span class="c1"># Can't use logic below, because it will choose 0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_status_quo_with_weight</span><span class="p">(</span><span class="n">status_quo</span><span class="o">=</span><span class="n">status_quo</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="c1"># arm_weights should always have at least one arm now</span>
+        <span class="n">arm_weights</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">arm_weights</span><span class="p">)</span>
+        <span class="n">sum_weights</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span> <span class="k">for</span> <span class="n">arm</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">arm_weights</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">arm</span> <span class="o">!=</span> <span class="n">status_quo</span><span class="p">)</span>
+        <span class="n">optimal_status_quo_weight_override</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sum_weights</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_status_quo_with_weight</span><span class="p">(</span>
+            <span class="n">status_quo</span><span class="o">=</span><span class="n">status_quo</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">optimal_status_quo_weight_override</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">arms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Arm</span><span class="p">]:</span>
+        <span class="sd">"""All arms contained in the trial."""</span>
+        <span class="n">arm_weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arm_weights</span>
+        <span class="k">return</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">arm_weights</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">arm_weights</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">"""Weights corresponding to arms contained in the trial."""</span>
+        <span class="n">arm_weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arm_weights</span>
+        <span class="k">return</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">arm_weights</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">arm_weights</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">arms_by_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Arm</span><span class="p">]:</span>
+        <span class="sd">"""Map from arm name to object for all arms in trial."""</span>
+        <span class="n">arms_by_name</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">arm</span><span class="o">.</span><span class="n">has_name</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"Arms attached to a trial must have a name."</span>
+                <span class="p">)</span>
+            <span class="n">arms_by_name</span><span class="p">[</span><span class="n">arm</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">arm</span>
+        <span class="k">return</span> <span class="n">arms_by_name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">abandoned_arms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Arm</span><span class="p">]:</span>
+        <span class="sd">"""List of arms that have been abandoned within this trial"""</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">arms_by_name</span><span class="p">[</span><span class="n">arm</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_abandoned_arms_metadata</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">abandoned_arms_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">AbandonedArm</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_abandoned_arms_metadata</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_factorial</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Return true if the trial's arms are a factorial design with</span>
+<span class="sd">        no linked factors.</span>
+<span class="sd">        """</span>
+        <span class="c1"># To match the model behavior, this should probably actually be pulled</span>
+        <span class="c1"># from exp.parameters. However, that seems rather ugly when this function</span>
+        <span class="c1"># intuitively should just depend on the arms.</span>
+        <span class="n">sufficient_factors</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span> <span class="ow">or</span> <span class="p">[])</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">arms</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sufficient_factors</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">param_levels</span><span class="p">:</span> <span class="n">DefaultDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param_value</span> <span class="ow">in</span> <span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="c1"># Expected `Union[float, str]` for 2nd anonymous parameter to call</span>
+                <span class="c1"># `dict.__setitem__` but got `Optional[Union[bool, float, str]]`.</span>
+                <span class="c1"># pyre-fixme[6]: Expected `Union[float, str]` for 1st param but got `...</span>
+                <span class="n">param_levels</span><span class="p">[</span><span class="n">param_name</span><span class="p">][</span><span class="n">param_value</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">param_cardinality</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">param_values</span> <span class="ow">in</span> <span class="n">param_levels</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">param_cardinality</span> <span class="o">*=</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">arms</span><span class="p">)</span> <span class="o">==</span> <span class="n">param_cardinality</span>
+
+<div class="viewcode-block" id="BatchTrial.run"><a class="viewcode-back" href="../../../core.html#ax.BatchTrial.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"BatchTrial"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">checked_cast</span><span class="p">(</span><span class="n">BatchTrial</span><span class="p">,</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">run</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="BatchTrial.normalized_arm_weights"><a class="viewcode-back" href="../../../core.html#ax.BatchTrial.normalized_arm_weights">[docs]</a>    <span class="k">def</span> <span class="nf">normalized_arm_weights</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">total</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">trunc_digits</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">Arm</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">"""Returns arms with a new set of weights normalized</span>
+<span class="sd">        to the given total.</span>
+
+<span class="sd">        This method is useful for many runners where we need to normalize weights</span>
+<span class="sd">        to a certain total without mutating the weights attached to a trial.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            total: The total weight to which to normalize.</span>
+<span class="sd">                Default is 1, in which case arm weights</span>
+<span class="sd">                can be interpreted as probabilities.</span>
+<span class="sd">            trunc_digits: The number of digits to keep. If the</span>
+<span class="sd">                resulting total weight is not equal to `total`, re-allocate</span>
+<span class="sd">                weight in such a way to maintain relative weights as best as</span>
+<span class="sd">                possible.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Mapping from arms to the new set of weights.</span>
+
+<span class="sd">        """</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">trunc_digits</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">atomic_weight</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">**</span> <span class="o">-</span><span class="n">trunc_digits</span>
+            <span class="c1"># pyre-fixme[16]: `float` has no attribute `astype`.</span>
+            <span class="n">int_weights</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">total</span> <span class="o">/</span> <span class="n">atomic_weight</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">weights</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">))</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+            <span class="n">n_leftover</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">total</span> <span class="o">/</span> <span class="n">atomic_weight</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">int_weights</span><span class="p">)</span>
+            <span class="n">int_weights</span><span class="p">[:</span><span class="n">n_leftover</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">weights</span> <span class="o">=</span> <span class="n">int_weights</span> <span class="o">*</span> <span class="n">atomic_weight</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">*</span> <span class="p">(</span><span class="n">total</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">arms</span><span class="p">,</span> <span class="n">weights</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="BatchTrial.mark_arm_abandoned"><a class="viewcode-back" href="../../../core.html#ax.BatchTrial.mark_arm_abandoned">[docs]</a>    <span class="k">def</span> <span class="nf">mark_arm_abandoned</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">arm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"BatchTrial"</span><span class="p">:</span>
+        <span class="sd">"""Mark a arm abandoned.</span>
+
+<span class="sd">        Usually done after deployment when one arm causes issues but</span>
+<span class="sd">        user wants to continue running other arms in the batch.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            arm_name: The name of the arm to abandon.</span>
+<span class="sd">            reason: The reason for abandoning the arm.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The batch instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">arm_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">arms_by_name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Arm must be contained in batch."</span><span class="p">)</span>
+
+        <span class="n">abandoned_arm</span> <span class="o">=</span> <span class="n">AbandonedArm</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">arm_name</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(),</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_abandoned_arms_metadata</span><span class="p">[</span><span class="n">arm_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">abandoned_arm</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BatchTrial.clone"><a class="viewcode-back" href="../../../core.html#ax.BatchTrial.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"BatchTrial"</span><span class="p">:</span>
+        <span class="sd">"""Clone the trial.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A new instance of the trial.</span>
+<span class="sd">        """</span>
+        <span class="n">new_trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">struct</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generator_run_structs</span><span class="p">:</span>
+            <span class="n">new_trial</span><span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">generator_run</span><span class="p">,</span> <span class="n">struct</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="n">new_trial</span><span class="o">.</span><span class="n">trial_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_type</span>
+        <span class="n">new_trial</span><span class="o">.</span><span class="n">runner</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span>
+        <span class="k">return</span> <span class="n">new_trial</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="s2">"BatchTrial("</span>
+            <span class="sa">f</span><span class="s2">"experiment_name='</span><span class="si">{self._experiment._name}</span><span class="s2">', "</span>
+            <span class="sa">f</span><span class="s2">"index=</span><span class="si">{self._index}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"status=</span><span class="si">{self._status}</span><span class="s2">)"</span>
+        <span class="p">)</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.8/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

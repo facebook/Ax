@@ -1,0 +1,380 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.6/css/main.css"/><script src="/versions/0.1.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.6/"><img class="logo" src="/versions/0.1.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.6/versions.html"><h3>0.1.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<div class="section" id="module-ax.benchmark">
+<span id="ax-benchmark"></span><h1>ax.benchmark<a class="headerlink" href="#module-ax.benchmark" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-ax.benchmark.benchmark_problem">
+<span id="benchmark-problems"></span><h2>Benchmark Problems<a class="headerlink" href="#module-ax.benchmark.benchmark_problem" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem">
+<em class="property">class </em><code class="sig-prename descclassname">ax.benchmark.benchmark_problem.</code><code class="sig-name descname">BenchmarkProblem</code><a class="reference internal" href="_modules/ax/benchmark/benchmark_problem.html#BenchmarkProblem"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
+<p>Contains features that describe a benchmarking problem: its name, its
+global optimum (maximum for maximization problems, minimum for minimization),
+its optimization configuration, and its search space.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> – name of this problem</p></li>
+<li><p><strong>fbest</strong> – global optimum</p></li>
+<li><p><strong>optimization_config</strong> – optimization configuration</p></li>
+<li><p><strong>search_space</strong> – search space, on which this problem is defined</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem.fbest">
+<em class="property">property </em><code class="sig-name descname">fbest</code><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem.fbest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem.name">
+<em class="property">property </em><code class="sig-name descname">name</code><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem.optimization_config">
+<em class="property">property </em><code class="sig-name descname">optimization_config</code><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem.optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem.search_space">
+<em class="property">property </em><code class="sig-name descname">search_space</code><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem.search_space" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 3</p>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.benchmark.benchmark_runner">
+<span id="benchmark-runner"></span><h2>Benchmark Runner<a class="headerlink" href="#module-ax.benchmark.benchmark_runner" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="ax.benchmark.benchmark_runner.BOBenchmarkRunner">
+<em class="property">class </em><code class="sig-prename descclassname">ax.benchmark.benchmark_runner.</code><code class="sig-name descname">BOBenchmarkRunner</code><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BOBenchmarkRunner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BOBenchmarkRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.benchmark.benchmark_runner.BenchmarkRunner" title="ax.benchmark.benchmark_runner.BenchmarkRunner"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.benchmark.benchmark_runner.BenchmarkRunner</span></code></a></p>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BOBenchmarkRunner.run_benchmark_run">
+<code class="sig-name descname">run_benchmark_run</code><span class="sig-paren">(</span><em class="sig-param">setup</em>, <em class="sig-param">generation_strategy</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BOBenchmarkRunner.run_benchmark_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BOBenchmarkRunner.run_benchmark_run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run a single full benchmark run of the given problem and method
+combination.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#ax.benchmark.benchmark_runner.BenchmarkSetup" title="ax.benchmark.benchmark_runner.BenchmarkSetup"><code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkSetup</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.benchmark.benchmark_runner.BanditBenchmarkRunner">
+<em class="property">class </em><code class="sig-prename descclassname">ax.benchmark.benchmark_runner.</code><code class="sig-name descname">BanditBenchmarkRunner</code><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BanditBenchmarkRunner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BanditBenchmarkRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.benchmark.benchmark_runner.BenchmarkRunner" title="ax.benchmark.benchmark_runner.BenchmarkRunner"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.benchmark.benchmark_runner.BenchmarkRunner</span></code></a></p>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BanditBenchmarkRunner.run_benchmark_run">
+<code class="sig-name descname">run_benchmark_run</code><span class="sig-paren">(</span><em class="sig-param">setup</em>, <em class="sig-param">generation_strategy</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BanditBenchmarkRunner.run_benchmark_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BanditBenchmarkRunner.run_benchmark_run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run a single full benchmark run of the given problem and method
+combination.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#ax.benchmark.benchmark_runner.BenchmarkSetup" title="ax.benchmark.benchmark_runner.BenchmarkSetup"><code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkSetup</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkResult">
+<em class="property">class </em><code class="sig-prename descclassname">ax.benchmark.benchmark_runner.</code><code class="sig-name descname">BenchmarkResult</code><span class="sig-paren">(</span><em class="sig-param">objective_at_true_best</em>, <em class="sig-param">generator_changes</em>, <em class="sig-param">optimum</em>, <em class="sig-param">fit_times</em>, <em class="sig-param">gen_times</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BenchmarkResult"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkResult" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkResult.fit_times">
+<em class="property">property </em><code class="sig-name descname">fit_times</code><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkResult.fit_times" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 3</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkResult.gen_times">
+<em class="property">property </em><code class="sig-name descname">gen_times</code><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkResult.gen_times" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 4</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkResult.generator_changes">
+<em class="property">property </em><code class="sig-name descname">generator_changes</code><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkResult.generator_changes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkResult.objective_at_true_best">
+<em class="property">property </em><code class="sig-name descname">objective_at_true_best</code><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkResult.objective_at_true_best" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkResult.optimum">
+<em class="property">property </em><code class="sig-name descname">optimum</code><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkResult.optimum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkRunner">
+<em class="property">class </em><code class="sig-prename descclassname">ax.benchmark.benchmark_runner.</code><code class="sig-name descname">BenchmarkRunner</code><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BenchmarkRunner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Runner that keeps track of benchmark runs and failures encountered
+during benchmarking.</p>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkRunner.aggregate_results">
+<code class="sig-name descname">aggregate_results</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BenchmarkRunner.aggregate_results"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkRunner.aggregate_results" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pull results from each of the runs (BenchmarkSetups aka Experiments)
+and aggregate them into a BenchmarkResult for each problem.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="#ax.benchmark.benchmark_runner.BenchmarkResult" title="ax.benchmark.benchmark_runner.BenchmarkResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkResult</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkRunner.errors">
+<em class="property">property </em><code class="sig-name descname">errors</code><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkRunner.errors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Messages from errors encoutered while running benchmark test.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkRunner.run_benchmark_run">
+<em class="property">abstract </em><code class="sig-name descname">run_benchmark_run</code><span class="sig-paren">(</span><em class="sig-param">setup</em>, <em class="sig-param">generation_strategy</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BenchmarkRunner.run_benchmark_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkRunner.run_benchmark_run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run a single full benchmark run of the given problem and method
+combination.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#ax.benchmark.benchmark_runner.BenchmarkSetup" title="ax.benchmark.benchmark_runner.BenchmarkSetup"><code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkSetup</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkRunner.run_benchmark_test">
+<code class="sig-name descname">run_benchmark_test</code><span class="sig-paren">(</span><em class="sig-param">setup</em>, <em class="sig-param">generation_strategy</em>, <em class="sig-param">num_runs=20</em>, <em class="sig-param">raise_all_errors=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BenchmarkRunner.run_benchmark_test"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkRunner.run_benchmark_test" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run full benchmark test for the given method and problem combination.
+A benchmark test consists of repeated full benchmark runs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>setup</strong> (<a class="reference internal" href="#ax.benchmark.benchmark_runner.BenchmarkSetup" title="ax.benchmark.benchmark_runner.BenchmarkSetup"><code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkSetup</span></code></a>) – setup, runs on which to execute; includes
+a benchmarking problem, total number of iterations, etc.</p></li>
+<li><p><strong>strategy</strong> (<em>generation</em>) – generation strategy that defines which
+generation methods should be used in this benchmarking test</p></li>
+<li><p><strong>num_runs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – how many benchmark runs of given problem and method
+combination to run with the given setup for one benchmark test</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>], <a class="reference internal" href="#ax.benchmark.benchmark_runner.BenchmarkSetup" title="ax.benchmark.benchmark_runner.BenchmarkSetup"><code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkSetup</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkSetup">
+<em class="property">class </em><code class="sig-prename descclassname">ax.benchmark.benchmark_runner.</code><code class="sig-name descname">BenchmarkSetup</code><span class="sig-paren">(</span><em class="sig-param">problem</em>, <em class="sig-param">total_iterations=20</em>, <em class="sig-param">batch_size=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BenchmarkSetup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkSetup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.core.experiment.Experiment</span></code></a></p>
+<p>An extension of <cite>Experiment</cite>, specific to benchmarking. Contains
+additional data, such as the benchmarking problem, iterations to run per
+benchmarking method and problem combination, etc.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>problem</strong> (<a class="reference internal" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="ax.benchmark.benchmark_problem.BenchmarkProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkProblem</span></code></a>) – description of the benchmarking problem for
+this setup</p></li>
+<li><p><strong>total_iterations</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – how many optimization iterations to run</p></li>
+<li><p><strong>batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – if this benchmark requires batch trials,
+batch size for those. Defaults to None</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkSetup.clone_reset">
+<code class="sig-name descname">clone_reset</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BenchmarkSetup.clone_reset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkSetup.clone_reset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a clean copy of this benchmarking setup, with no run data
+attached to it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#ax.benchmark.benchmark_runner.BenchmarkSetup" title="ax.benchmark.benchmark_runner.BenchmarkSetup"><code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkSetup</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_runner.BenchmarkSetup.evaluation_function">
+<code class="sig-name descname">evaluation_function</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#BenchmarkSetup.evaluation_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.BenchmarkSetup.evaluation_function" title="Permalink to this definition">¶</a></dt>
+<dd><p>An interface for directly calling the benchmark problem evaluation
+function. Tracks each call as a Trial. Only works for unconstrained
+problems with a batch size of 1.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – A vector of the point to evaluate</p>
+</dd>
+</dl>
+<p>Returns: Value of the objective at x</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.benchmark.benchmark_runner.get_model_times">
+<code class="sig-prename descclassname">ax.benchmark.benchmark_runner.</code><code class="sig-name descname">get_model_times</code><span class="sig-paren">(</span><em class="sig-param">setup</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#get_model_times"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.get_model_times" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.benchmark.benchmark_runner.true_best_objective">
+<code class="sig-prename descclassname">ax.benchmark.benchmark_runner.</code><code class="sig-name descname">true_best_objective</code><span class="sig-paren">(</span><em class="sig-param">optimization_config</em>, <em class="sig-param">true_values</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_runner.html#true_best_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_runner.true_best_objective" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the true best objective value found by each iteration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>optimization_config</strong> (<a class="reference internal" href="core.html#ax.core.optimization_config.OptimizationConfig" title="ax.core.optimization_config.OptimizationConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimizationConfig</span></code></a>) – Optimization config</p></li>
+<li><p><strong>true_values</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>]) – Dictionary from metric name to array of value at each
+iteration.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns: Array of cumulative best feasible value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.benchmark.benchmark_suite">
+<span id="benchmark-suite"></span><h2>Benchmark Suite<a class="headerlink" href="#module-ax.benchmark.benchmark_suite" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="ax.benchmark.benchmark_suite.BOBenchmarkingSuite">
+<em class="property">class </em><code class="sig-prename descclassname">ax.benchmark.benchmark_suite.</code><code class="sig-name descname">BOBenchmarkingSuite</code><a class="reference internal" href="_modules/ax/benchmark/benchmark_suite.html#BOBenchmarkingSuite"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_suite.BOBenchmarkingSuite" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Suite that runs all standard Bayesian optimization benchmarks.</p>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_suite.BOBenchmarkingSuite.add_run">
+<code class="sig-name descname">add_run</code><span class="sig-paren">(</span><em class="sig-param">setup</em>, <em class="sig-param">strategy_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_suite.html#BOBenchmarkingSuite.add_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_suite.BOBenchmarkingSuite.add_run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a run (BenchmarkSetup) to the benchmark results.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>setup</strong> (<a class="reference internal" href="#ax.benchmark.benchmark_runner.BenchmarkSetup" title="ax.benchmark.benchmark_runner.BenchmarkSetup"><code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkSetup</span></code></a>) – Run to add</p></li>
+<li><p><strong>strategy_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of strategy used for this run</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_suite.BOBenchmarkingSuite.generate_report">
+<code class="sig-name descname">generate_report</code><span class="sig-paren">(</span><em class="sig-param">include_individual=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_suite.html#BOBenchmarkingSuite.generate_report"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_suite.BOBenchmarkingSuite.generate_report" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.benchmark.benchmark_suite.BOBenchmarkingSuite.run">
+<code class="sig-name descname">run</code><span class="sig-paren">(</span><em class="sig-param">num_runs</em>, <em class="sig-param">total_iterations</em>, <em class="sig-param">bo_strategies</em>, <em class="sig-param">bo_problems</em>, <em class="sig-param">batch_size=1</em>, <em class="sig-param">raise_all_errors=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_suite.html#BOBenchmarkingSuite.run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.benchmark.benchmark_suite.BOBenchmarkingSuite.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run all standard BayesOpt benchmarks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>num_runs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – How many time to run each test.</p></li>
+<li><p><strong>total_iterations</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – How many iterations to run each optimization for.</p></li>
+<li><p><strong>bo_strategies</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="modelbridge.html#ax.modelbridge.generation_strategy.GenerationStrategy" title="ax.modelbridge.generation_strategy.GenerationStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">GenerationStrategy</span></code></a>]) – GenerationStrategies representing each method to
+benchmark.</p></li>
+<li><p><strong>bo_problems</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference internal" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="ax.benchmark.benchmark_problem.BenchmarkProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkProblem</span></code></a>]) – Problems to benchmark the methods on.</p></li>
+<li><p><strong>batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Number of arms to be generated and evaluated in optimization
+at once.</p></li>
+<li><p><strong>raise_all_errors</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Debugging setting; set to true if all encountered
+errors should be raised right away (and interrupt the benchm arking)
+rather than logged and recorded.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#ax.benchmark.benchmark_runner.BOBenchmarkRunner" title="ax.benchmark.benchmark_runner.BOBenchmarkRunner"><code class="xref py py-class docutils literal notranslate"><span class="pre">BOBenchmarkRunner</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="ax.html">ax</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ax.benchmark</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.benchmark.benchmark_problem">Benchmark Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.benchmark.benchmark_runner">Benchmark Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.benchmark.benchmark_suite">Benchmark Suite</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+<li>Previous: <a href="ax.html" title="previous chapter">ax</a></li>
+<li>Next: <a href="core.html" title="next chapter">ax.core</a></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

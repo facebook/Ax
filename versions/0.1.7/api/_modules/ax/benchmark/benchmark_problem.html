@@ -1,0 +1,302 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.7/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.7/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.7/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.7/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.7/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.7/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.7/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.7/css/main.css"/><script src="/versions/0.1.7/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.7/"><img class="logo" src="/versions/0.1.7/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.7/versions.html"><h3>0.1.7</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.7/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.7/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.7/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.benchmark.benchmark_problem</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">FunctionType</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.base</span> <span class="kn">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TParamValue</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.equality</span> <span class="kn">import</span> <span class="n">equality_typechecker</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">checked_cast</span>
+<span class="kn">from</span> <span class="nn">ax.utils.measurement.synthetic_functions</span> <span class="kn">import</span> <span class="n">SyntheticFunction</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="n">NONE_DOMAIN_ERROR</span> <span class="o">=</span> <span class="s2">"""</span>
+<span class="s2">When creating a `BenchmarkProblem` with custom function, one of the `domain` or</span>
+<span class="s2">`search_space` argumetns is required to be non-null.</span>
+<span class="s2">"""</span>
+
+<span class="n">NONE_SYNTHETIC_FUNCTION_DOMAIN_ERROR</span> <span class="o">=</span> <span class="s2">"""</span>
+<span class="s2">When creating a `BenchmarkProblem` with a `SyntheticFunction`, a non-null `domain`</span>
+<span class="s2">argument or a non-null `domain` property on the `SyntheticFunction` is required.</span>
+<span class="s2">"""</span>
+
+<span class="n">ANONYMOUS_FUNCTION_ERROR</span> <span class="o">=</span> <span class="s2">"""</span>
+<span class="s2">If using anonymous function, please pass non-null `name` argument.</span>
+<span class="s2">"""</span>
+
+<span class="n">ADHOC_FUNCTION_NOISE_SET_ERROR</span> <span class="o">=</span> <span class="s2">"""</span>
+<span class="s2">Cannot set `noise_sd` setting for problems that use anonymous functions, as their</span>
+<span class="s2">inherent noise level is unknown. Add a known synthetic function to `ax.utils.</span>
+<span class="s2">measurement.synthetic_functions` to be able to add noise to the benchmark problem.</span>
+<span class="s2">"""</span>
+
+
+<div class="viewcode-block" id="BenchmarkProblem"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_problem.BenchmarkProblem">[docs]</a><span class="k">class</span> <span class="nc">BenchmarkProblem</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""Benchmark problem, represented in terms of Ax search space and optimization</span>
+<span class="sd">    config. Useful to represent complex problems that involve constaints, non-</span>
+<span class="sd">    range parameters, etc.</span>
+
+<span class="sd">    Note: if this problem is computationally intensive, consider setting</span>
+<span class="sd">    `evaluate_suggested` argument to False.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        search_space: Problem domain.</span>
+<span class="sd">        optimization_config: Problem objective and constraints. Note that by</span>
+<span class="sd">            default, an `Objective` in the `OptimizationConfig` has `minimize`</span>
+<span class="sd">            set to False, so by default an `OptimizationConfig` is that of</span>
+<span class="sd">            maximization.</span>
+<span class="sd">        name: Optional name of the problem, will default to the name of the</span>
+<span class="sd">            objective metric (e.g., "Branin" or "Branin_constrainted" if</span>
+<span class="sd">            constraints are present). The name of the problem is reflected in the</span>
+<span class="sd">            names of the benchmarking experiments (e.g. "Sobol_on_Branin").</span>
+<span class="sd">        optimal_value: Optional target objective value for the optimization.</span>
+<span class="sd">        evaluate_suggested: Whether the model-predicted best value should be</span>
+<span class="sd">            evaluated when benchmarking on this problem. Note that in practice,</span>
+<span class="sd">            this means that for every model-generated trial, an extra point will</span>
+<span class="sd">            be evaluated. This extra point is often different from the model-</span>
+<span class="sd">            generated trials, since those trials aim to both explore and exploit,</span>
+<span class="sd">            so the aim is not usually to suggest the current model-predicted</span>
+<span class="sd">            optimum.</span>
+<span class="sd">    """</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span>
+    <span class="n">optimal_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="c1"># Whether to evaluate model-predicted best values at each iteration to</span>
+    <span class="c1"># compare to the model predictions. Should only be `False` if the problem</span>
+    <span class="c1"># is expensive to evaluate and therefore no extra evaluations beyond the one</span>
+    <span class="c1"># optimization loop should be performed.</span>
+    <span class="n">evaluate_suggested</span><span class="p">:</span> <span class="nb">bool</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimal_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">evaluate_suggested</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_space</span> <span class="o">=</span> <span class="n">search_space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span> <span class="o">=</span> <span class="n">optimization_config</span>
+        <span class="n">suffix</span> <span class="o">=</span> <span class="p">(</span>  <span class="c1"># To avoid clashing of two problem names, mark constrained</span>
+            <span class="s2">"_constrained"</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">""</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="n">suffix</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimal_value</span> <span class="o">=</span> <span class="n">optimal_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_suggested</span> <span class="o">=</span> <span class="n">evaluate_suggested</span></div>
+
+
+<div class="viewcode-block" id="SimpleBenchmarkProblem"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_problem.SimpleBenchmarkProblem">[docs]</a><span class="k">class</span> <span class="nc">SimpleBenchmarkProblem</span><span class="p">(</span><span class="n">BenchmarkProblem</span><span class="p">):</span>
+    <span class="sd">"""Benchmark problem, represented in terms of simplified constructions: a</span>
+<span class="sd">    callable function, a domain that consists or ranges, etc. This problem does</span>
+<span class="sd">    not support parameter or outcome constraints.</span>
+
+<span class="sd">    Note: if this problem is computationally intensive, consider setting</span>
+<span class="sd">    `evaluate_suggested` argument to False.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        f: Ax `SyntheticFunction` or an ad-hoc callable that evaluates points</span>
+<span class="sd">            represented as nd-arrays. Input to the callable should be an (n x d)</span>
+<span class="sd">            array, where n is the number of points to evaluate, and d is the</span>
+<span class="sd">            dimensionality of the points. Returns a float or an (1 x n) array.</span>
+<span class="sd">            Used as problem objective.</span>
+<span class="sd">        name: Optional name of the problem, will default to the name of the</span>
+<span class="sd">            objective metric (e.g., "Branin" or "Branin_constrainted" if</span>
+<span class="sd">            constraints are present). The name of the problem is reflected in the</span>
+<span class="sd">            names of the benchmarking experiments (e.g. "Sobol_on_Branin").</span>
+<span class="sd">        domain: Problem domain as list of tuples. Parameter names will be derived</span>
+<span class="sd">            from the length of this list, as {"x1", ..., "xN"}, where N is the</span>
+<span class="sd">            length of this list.</span>
+<span class="sd">        optimal_value: Optional target objective value for the optimization.</span>
+<span class="sd">        minimize: Whether this is a minimization problem, defatuls to False.</span>
+<span class="sd">        noise_sd: Measure of the noise that will be added to the observations</span>
+<span class="sd">            during the optimization. During the evaluation phase, true values</span>
+<span class="sd">            will be extracted to measure a method's performance. Only applicable</span>
+<span class="sd">            when using a known `SyntetheticFunction` as the `f` argument.</span>
+<span class="sd">        evaluate_suggested: Whether the model-predicted best value should be</span>
+<span class="sd">            evaluated when benchmarking on this problem. Note that in practice,</span>
+<span class="sd">            this means that for every model-generated trial, an extra point will</span>
+<span class="sd">            be evaluated. This extra point is often different from the model-</span>
+<span class="sd">            generated trials, since those trials aim to both explore and exploit,</span>
+<span class="sd">            so the aim is not usually to suggest the current model-predicted</span>
+<span class="sd">            optimum.</span>
+<span class="sd">    """</span>
+
+    <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">SyntheticFunction</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">]</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">domain</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span>
+    <span class="n">optimal_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">minimize</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">noise_sd</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="c1"># Whether to evaluate model-predicted best values at each iteration to</span>
+    <span class="c1"># compare to the model predictions. Should only be `False` if the problem</span>
+    <span class="c1"># is expensive to evaluate and therefore no extra evaluations beyond the one</span>
+    <span class="c1"># optimization loop should be performed.</span>
+    <span class="n">evaluate_suggested</span><span class="p">:</span> <span class="nb">bool</span>  <span class="c1"># NOTE: not yet implemented</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">SyntheticFunction</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">],</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">domain</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimal_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">minimize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">noise_sd</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+        <span class="n">evaluate_suggested</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Whether we are using Ax `SyntheticFunction` custom ad-hoc function</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uses_synthetic_function</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">SyntheticFunction</span><span class="p">)</span>
+
+        <span class="c1"># Validate that domain is available, since it's used to make search space</span>
+        <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_synthetic_function</span><span class="p">:</span>
+                <span class="c1"># Custom callable was passed as `f`, ensure presence of `domain`</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">NONE_DOMAIN_ERROR</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">checked_cast</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># If no domain was passed, will use one from the `SyntheticFunction`</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">NONE_SYNTHETIC_FUNCTION_DOMAIN_ERROR</span><span class="p">)</span>
+
+        <span class="c1"># Validate that if noise setting specified, known synthetic function is used</span>
+        <span class="k">if</span> <span class="n">noise_sd</span> <span class="o">!=</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_synthetic_function</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">ADHOC_FUNCTION_NOISE_SET_ERROR</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">f</span> <span class="o">=</span> <span class="n">f</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="p">(</span>
+            <span class="n">checked_cast</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_synthetic_function</span>
+            <span class="k">else</span> <span class="n">checked_cast</span><span class="p">(</span><span class="n">FunctionType</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"&lt;lambda&gt;"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">ANONYMOUS_FUNCTION_ERROR</span><span class="p">)</span>
+        <span class="c1"># If domain is `None`, grab it from the `SyntheticFunction`</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">domain</span> <span class="o">=</span> <span class="n">domain</span> <span class="ow">or</span> <span class="n">checked_cast</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">domain</span>
+        <span class="k">if</span> <span class="n">optimal_value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_synthetic_function</span><span class="p">:</span>
+            <span class="c1"># If no optimal_value is passed, try extracting it from synthetic function.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">synt_f</span> <span class="o">=</span> <span class="n">checked_cast</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">f</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">optimal_value</span> <span class="o">=</span> <span class="n">synt_f</span><span class="o">.</span><span class="n">fmin</span> <span class="k">if</span> <span class="n">minimize</span> <span class="k">else</span> <span class="n">synt_f</span><span class="o">.</span><span class="n">fmax</span>
+            <span class="k">except</span> <span class="ne">NotImplementedError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>  <span class="c1"># optimal_value is unknown</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">optimal_value</span> <span class="o">=</span> <span class="n">optimal_value</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">minimize</span> <span class="o">=</span> <span class="n">minimize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">noise_sd</span> <span class="o">=</span> <span class="n">noise_sd</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_suggested</span> <span class="o">=</span> <span class="n">evaluate_suggested</span>
+
+<div class="viewcode-block" id="SimpleBenchmarkProblem.domain_as_ax_client_parameters"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_problem.SimpleBenchmarkProblem.domain_as_ax_client_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">domain_as_ax_client_parameters</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]]]]:</span>
+        <span class="k">return</span> <span class="p">[</span>  <span class="c1"># pyre-ignore[7]: Union subtype</span>
+            <span class="p">{</span>
+                <span class="s2">"name"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"x</span><span class="si">{i}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"range"</span><span class="p">,</span>
+                <span class="s2">"bounds"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span>
+                <span class="s2">"value_type"</span><span class="p">:</span> <span class="s2">"float"</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">))</span>
+        <span class="p">]</span></div>
+
+    <span class="nd">@equality_typechecker</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">"BenchmarkProblem"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">self_val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+            <span class="n">other_val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">field</span> <span class="o">==</span> <span class="s2">"f"</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="p">(</span>  <span class="c1"># For synthetic functions, they are same if same class.</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">uses_synthetic_function</span>
+                    <span class="ow">and</span> <span class="n">self_val</span><span class="o">.</span><span class="vm">__class__</span> <span class="ow">is</span> <span class="n">other_val</span><span class="o">.</span><span class="vm">__class__</span>
+                <span class="p">)</span>
+                <span class="ow">or</span> <span class="p">(</span>  <span class="c1"># For custom callables, considered same if same name.</span>
+                    <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_synthetic_function</span>
+                    <span class="ow">and</span> <span class="n">self_val</span><span class="o">.</span><span class="vm">__name__</span> <span class="ow">is</span> <span class="n">other_val</span><span class="o">.</span><span class="vm">__name__</span>
+                <span class="p">)</span>
+            <span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">self_val</span> <span class="o">!=</span> <span class="n">other_val</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.7/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

@@ -1,0 +1,605 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.13/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.13/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.13/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.13/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.13/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.13/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.13/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.13/css/main.css"/><script src="/versions/0.1.13/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.13/"><img class="logo" src="/versions/0.1.13/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.13/versions.html"><h3>0.1.13</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.13/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.13/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.13/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.parameter</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span><span class="p">,</span> <span class="n">abstractproperty</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.base</span> <span class="kn">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TParamValue</span>
+
+
+<span class="n">FIXED_CHOICE_PARAM_ERROR</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">"ChoiceParameters require multiple feasible values. "</span>
+    <span class="s2">"Please use FixedParameter instead when setting a single possible value."</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="ParameterType"><a class="viewcode-back" href="../../../core.html#ax.ParameterType">[docs]</a><span class="k">class</span> <span class="nc">ParameterType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">BOOL</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">INT</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">FLOAT</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">STRING</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_numeric</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">ParameterType</span><span class="o">.</span><span class="n">INT</span> <span class="ow">or</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span></div>
+
+
+<span class="n">TParameterType</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">Type</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">Type</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Type</span><span class="p">[</span><span class="nb">bool</span><span class="p">]]</span>
+
+<span class="c1"># pyre: PARAMETER_PYTHON_TYPE_MAP is declared to have type</span>
+<span class="c1"># pyre: `Dict[ParameterType, Union[Type[bool], Type[float], Type[int],</span>
+<span class="c1"># pyre: Type[str]]]` but is used as type `Dict[ParameterType,</span>
+<span class="c1"># pyre-fixme[9]: Type[Union[float, str]]]`.</span>
+<span class="n">PARAMETER_PYTHON_TYPE_MAP</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">ParameterType</span><span class="p">,</span> <span class="n">TParameterType</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">ParameterType</span><span class="o">.</span><span class="n">INT</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">ParameterType</span><span class="o">.</span><span class="n">STRING</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">ParameterType</span><span class="o">.</span><span class="n">BOOL</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="Parameter"><a class="viewcode-back" href="../../../core.html#ax.Parameter">[docs]</a><span class="k">class</span> <span class="nc">Parameter</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">ABCMeta</span><span class="p">):</span>
+    <span class="n">_is_fidelity</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">_target_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Parameter.cast"><a class="viewcode-back" href="../../../core.html#ax.Parameter.cast">[docs]</a>    <span class="k">def</span> <span class="nf">cast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TParamValue</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Parameter.validate"><a class="viewcode-back" href="../../../core.html#ax.Parameter.validate">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">python_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TParameterType</span><span class="p">:</span>
+        <span class="sd">"""The python type for the corresponding ParameterType enum.</span>
+
+<span class="sd">        Used primarily for casting values of unknown type to conform</span>
+<span class="sd">        to that of the parameter.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">PARAMETER_PYTHON_TYPE_MAP</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Parameter.is_valid_type"><a class="viewcode-back" href="../../../core.html#ax.Parameter.is_valid_type">[docs]</a>    <span class="k">def</span> <span class="nf">is_valid_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether a given value's type is allowed by this parameter."""</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_type</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_numeric</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="o">.</span><span class="n">is_numeric</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_fidelity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_fidelity</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">target_value</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_target_value</span>
+
+    <span class="nd">@abstractproperty</span>
+    <span class="k">def</span> <span class="nf">parameter_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterType</span><span class="p">:</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span>
+
+    <span class="nd">@abstractproperty</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span>
+
+<div class="viewcode-block" id="Parameter.clone"><a class="viewcode-back" href="../../../core.html#ax.Parameter.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Parameter"</span><span class="p">:</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span></div></div>
+
+
+<div class="viewcode-block" id="RangeParameter"><a class="viewcode-back" href="../../../core.html#ax.RangeParameter">[docs]</a><span class="k">class</span> <span class="nc">RangeParameter</span><span class="p">(</span><span class="n">Parameter</span><span class="p">):</span>
+    <span class="sd">"""Parameter object that specifies a continuous numerical range of values."""</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">parameter_type</span><span class="p">:</span> <span class="n">ParameterType</span><span class="p">,</span>
+        <span class="n">lower</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">upper</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">log_scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">digits</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">is_fidelity</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">target_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initialize RangeParameter</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name: Name of the parameter.</span>
+<span class="sd">            parameter_type: Enum indicating the type of parameter</span>
+<span class="sd">                value (e.g. string, int).</span>
+<span class="sd">            lower: Lower bound of the parameter range (inclusive).</span>
+<span class="sd">            upper: Upper bound of the parameter range (inclusive).</span>
+<span class="sd">            log_scale: Whether to sample in the log space when drawing</span>
+<span class="sd">                random values of the parameter.</span>
+<span class="sd">            digits: Number of digits to round values to for float type.</span>
+<span class="sd">            is_fidelity: Whether this parameter is a fidelity parameter.</span>
+<span class="sd">            target_value: Target value of this parameter if it is a fidelity.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">is_fidelity</span> <span class="ow">and</span> <span class="p">(</span><span class="n">target_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"`target_value` should not be None for the fidelity parameter: "</span>
+                <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_type</span> <span class="o">=</span> <span class="n">parameter_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_digits</span> <span class="o">=</span> <span class="n">digits</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_upper</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">upper</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_scale</span> <span class="o">=</span> <span class="n">log_scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fidelity</span> <span class="o">=</span> <span class="n">is_fidelity</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_target_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">target_value</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_range_param</span><span class="p">(</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_type</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="n">upper</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="n">log_scale</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_validate_range_param</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">lower</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">,</span>
+        <span class="n">upper</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">,</span>
+        <span class="n">log_scale</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">parameter_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ParameterType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">parameter_type</span> <span class="ow">and</span> <span class="n">parameter_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="n">ParameterType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
+            <span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"RangeParameter type must be int or float."</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[16]: `None` has no attribute `__ge__`.</span>
+        <span class="c1"># pyre-fixme[16]: `None` has no attribute `__lt__`.</span>
+        <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;=</span> <span class="n">upper</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"max must be strictly larger than min."</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[16]: `None` has no attribute `__gt__`.</span>
+        <span class="c1"># pyre-fixme[16]: `None` has no attribute `__le__`.</span>
+        <span class="k">if</span> <span class="n">log_scale</span> <span class="ow">and</span> <span class="n">lower</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Cannot take log when min &lt;= 0."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">is_valid_type</span><span class="p">(</span><span class="n">lower</span><span class="p">))</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">is_valid_type</span><span class="p">(</span><span class="n">upper</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">lower</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">upper</span><span class="si">}</span><span class="s2">] is an invalid range for this parameter."</span>
+            <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameter_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterType</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_type</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">upper</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">"""Upper bound of the parameter range.</span>
+
+<span class="sd">        Value is cast to parameter type upon set and also validated</span>
+<span class="sd">        to ensure the bound is strictly greater than lower bound.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upper</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">lower</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">"""Lower bound of the parameter range.</span>
+
+<span class="sd">        Value is cast to parameter type upon set and also validated</span>
+<span class="sd">        to ensure the bound is strictly less than upper bound.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">digits</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">"""Number of digits to round values to for float type.</span>
+
+<span class="sd">        Upper and lower bound are re-cast after this property is changed.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_digits</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">log_scale</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether to sample in log space when drawing random values of the parameter.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_scale</span>
+
+<div class="viewcode-block" id="RangeParameter.update_range"><a class="viewcode-back" href="../../../core.html#ax.RangeParameter.update_range">[docs]</a>    <span class="k">def</span> <span class="nf">update_range</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">lower</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">upper</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"RangeParameter"</span><span class="p">:</span>
+        <span class="sd">"""Set the range to the given values.</span>
+
+<span class="sd">        If lower or upper is not provided, it will be left at its current value.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            lower: New value for the lower bound.</span>
+<span class="sd">            upper: New value for the upper bound.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">lower</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower</span>
+        <span class="k">if</span> <span class="n">upper</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upper</span>
+        <span class="n">cast_lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span>
+        <span class="n">cast_upper</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">upper</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_range_param</span><span class="p">(</span>
+            <span class="n">lower</span><span class="o">=</span><span class="n">cast_lower</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="n">cast_upper</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log_scale</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lower</span> <span class="o">=</span> <span class="n">cast_lower</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_upper</span> <span class="o">=</span> <span class="n">cast_upper</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RangeParameter.set_digits"><a class="viewcode-back" href="../../../core.html#ax.RangeParameter.set_digits">[docs]</a>    <span class="k">def</span> <span class="nf">set_digits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">digits</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"RangeParameter"</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_digits</span> <span class="o">=</span> <span class="n">digits</span>
+
+        <span class="c1"># Re-scale min and max to new digits definition</span>
+        <span class="n">cast_lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lower</span><span class="p">)</span>
+        <span class="n">cast_upper</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_upper</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[16]: `None` has no attribute `__ge__`.</span>
+        <span class="c1"># pyre-fixme[16]: `None` has no attribute `__lt__`.</span>
+        <span class="k">if</span> <span class="n">cast_lower</span> <span class="o">&gt;=</span> <span class="n">cast_upper</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Lower bound </span><span class="si">{</span><span class="n">cast_lower</span><span class="si">}</span><span class="s2"> is &gt;= upper bound </span><span class="si">{</span><span class="n">cast_upper</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lower</span> <span class="o">=</span> <span class="n">cast_lower</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_upper</span> <span class="o">=</span> <span class="n">cast_upper</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RangeParameter.set_log_scale"><a class="viewcode-back" href="../../../core.html#ax.RangeParameter.set_log_scale">[docs]</a>    <span class="k">def</span> <span class="nf">set_log_scale</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log_scale</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"RangeParameter"</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_scale</span> <span class="o">=</span> <span class="n">log_scale</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RangeParameter.validate"><a class="viewcode-back" href="../../../core.html#ax.RangeParameter.validate">[docs]</a>    <span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Returns True if input is a valid value for the parameter.</span>
+
+<span class="sd">        Checks that value is of the right type and within</span>
+<span class="sd">        the valid range for the parameter. Returns False if value is None.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            value: Value being checked.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            True if valid, False otherwise.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_valid_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="n">value</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower</span> <span class="ow">and</span> <span class="n">value</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upper</span></div>
+
+<div class="viewcode-block" id="RangeParameter.is_valid_type"><a class="viewcode-back" href="../../../core.html#ax.RangeParameter.is_valid_type">[docs]</a>    <span class="k">def</span> <span class="nf">is_valid_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Same as default except allows floats whose value is an int</span>
+<span class="sd">           for Int parameters.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># This might have issues with ints &gt; 2^24</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span> <span class="ow">is</span> <span class="n">ParameterType</span><span class="o">.</span><span class="n">INT</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">is_integer</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="RangeParameter.clone"><a class="viewcode-back" href="../../../core.html#ax.RangeParameter.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"RangeParameter"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RangeParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameter_type</span><span class="p">,</span>
+            <span class="n">lower</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_lower</span><span class="p">,</span>
+            <span class="n">upper</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_upper</span><span class="p">,</span>
+            <span class="n">log_scale</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_log_scale</span><span class="p">,</span>
+            <span class="n">digits</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_digits</span><span class="p">,</span>
+            <span class="n">is_fidelity</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_is_fidelity</span><span class="p">,</span>
+            <span class="n">target_value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_target_value</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="RangeParameter.cast"><a class="viewcode-back" href="../../../core.html#ax.RangeParameter.cast">[docs]</a>    <span class="k">def</span> <span class="nf">cast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TParamValue</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span> <span class="ow">is</span> <span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_digits</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># pyre-fixme[6]: Expected `None` for 2nd param but got `Optional[int]`.</span>
+            <span class="k">return</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_digits</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">ret_val</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"RangeParameter("</span>
+            <span class="sa">f</span><span class="s2">"name='</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">', "</span>
+            <span class="sa">f</span><span class="s2">"parameter_type=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"range=[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_lower</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_upper</span><span class="si">}</span><span class="s2">]"</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_scale</span><span class="p">:</span>
+            <span class="n">ret_val</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">", log_scale=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_log_scale</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_digits</span><span class="p">:</span>
+            <span class="n">ret_val</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">", digits=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_digits</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_fidelity</span><span class="p">:</span>
+            <span class="n">ret_val</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">", fidelity=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">is_fidelity</span><span class="si">}</span><span class="s2">, target_value=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">target_value</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ret_val</span> <span class="o">+</span> <span class="s2">")"</span></div>
+
+
+<div class="viewcode-block" id="ChoiceParameter"><a class="viewcode-back" href="../../../core.html#ax.ChoiceParameter">[docs]</a><span class="k">class</span> <span class="nc">ChoiceParameter</span><span class="p">(</span><span class="n">Parameter</span><span class="p">):</span>
+    <span class="sd">"""Parameter object that specifies a discrete set of values."""</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">parameter_type</span><span class="p">:</span> <span class="n">ParameterType</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">],</span>
+        <span class="n">is_ordered</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">is_task</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">is_fidelity</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">target_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initialize ChoiceParameter.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name: Name of the parameter.</span>
+<span class="sd">            parameter_type: Enum indicating the type of parameter</span>
+<span class="sd">                value (e.g. string, int).</span>
+<span class="sd">            values: List of allowed values for the parameter.</span>
+<span class="sd">            is_ordered: If False, the parameter is a categorical variable.</span>
+<span class="sd">            is_task: Treat the parameter as a task parameter for modeling.</span>
+<span class="sd">            is_fidelity: Whether this parameter is a fidelity parameter.</span>
+<span class="sd">            target_value: Target value of this parameter if it's fidelity.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">is_fidelity</span> <span class="ow">and</span> <span class="p">(</span><span class="n">target_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"`target_value` should not be None for the fidelity parameter: "</span>
+                <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_type</span> <span class="o">=</span> <span class="n">parameter_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_ordered</span> <span class="o">=</span> <span class="n">is_ordered</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_task</span> <span class="o">=</span> <span class="n">is_task</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fidelity</span> <span class="o">=</span> <span class="n">is_fidelity</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_target_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">target_value</span><span class="p">)</span>
+        <span class="c1"># A choice parameter with only one value is a FixedParameter.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">FIXED_CHOICE_PARAM_ERROR</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cast_values</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_ordered</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_ordered</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_task</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_task</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameter_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterType</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_type</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+<div class="viewcode-block" id="ChoiceParameter.set_values"><a class="viewcode-back" href="../../../core.html#ax.ChoiceParameter.set_values">[docs]</a>    <span class="k">def</span> <span class="nf">set_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">"ChoiceParameter"</span><span class="p">:</span>
+        <span class="sd">"""Set the list of allowed values for parameter.</span>
+
+<span class="sd">        Cast all input values to the parameter type.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            values: New list of allowed values.</span>
+<span class="sd">        """</span>
+        <span class="c1"># A choice parameter with only one value is a FixedParameter.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">FIXED_CHOICE_PARAM_ERROR</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cast_values</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="ChoiceParameter.add_values"><a class="viewcode-back" href="../../../core.html#ax.ChoiceParameter.add_values">[docs]</a>    <span class="k">def</span> <span class="nf">add_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">"ChoiceParameter"</span><span class="p">:</span>
+        <span class="sd">"""Add input list to the set of allowed values for parameter.</span>
+
+<span class="sd">        Cast all input values to the parameter type.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            values: Values being added to the allowed list.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cast_values</span><span class="p">(</span><span class="n">values</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="ChoiceParameter.validate"><a class="viewcode-back" href="../../../core.html#ax.ChoiceParameter.validate">[docs]</a>    <span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Checks that the input is in the list of allowed values.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            value: Value being checked.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            True if valid, False otherwise.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span></div>
+
+    <span class="k">def</span> <span class="nf">_cast_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]</span>
+
+<div class="viewcode-block" id="ChoiceParameter.clone"><a class="viewcode-back" href="../../../core.html#ax.ChoiceParameter.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"ChoiceParameter"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ChoiceParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameter_type</span><span class="p">,</span>
+            <span class="n">values</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">,</span>
+            <span class="n">is_task</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_is_task</span><span class="p">,</span>
+            <span class="n">is_fidelity</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_is_fidelity</span><span class="p">,</span>
+            <span class="n">target_value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_target_value</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">ret_val</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">"ChoiceParameter("</span>
+            <span class="sa">f</span><span class="s2">"name='</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">', "</span>
+            <span class="sa">f</span><span class="s2">"parameter_type=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"values=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_fidelity</span><span class="p">:</span>
+            <span class="n">tval_rep</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_value</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span> <span class="o">==</span> <span class="n">ParameterType</span><span class="o">.</span><span class="n">STRING</span><span class="p">:</span>
+                <span class="n">tval_rep</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">tval_rep</span><span class="si">}</span><span class="s2">'"</span>
+            <span class="n">ret_val</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">", fidelity=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">is_fidelity</span><span class="si">}</span><span class="s2">, target_value=</span><span class="si">{</span><span class="n">tval_rep</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">return</span> <span class="n">ret_val</span> <span class="o">+</span> <span class="s2">")"</span></div>
+
+
+<div class="viewcode-block" id="FixedParameter"><a class="viewcode-back" href="../../../core.html#ax.FixedParameter">[docs]</a><span class="k">class</span> <span class="nc">FixedParameter</span><span class="p">(</span><span class="n">Parameter</span><span class="p">):</span>
+    <span class="sd">"""Parameter object that specifies a single fixed value."""</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">parameter_type</span><span class="p">:</span> <span class="n">ParameterType</span><span class="p">,</span>
+        <span class="n">value</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">,</span>
+        <span class="n">is_fidelity</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">target_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initialize FixedParameter</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name: Name of the parameter.</span>
+<span class="sd">            parameter_type: Enum indicating the type of parameter</span>
+<span class="sd">                value (e.g. string, int).</span>
+<span class="sd">            value: The fixed value of the parameter.</span>
+<span class="sd">            is_fidelity: Whether this parameter is a fidelity parameter.</span>
+<span class="sd">            target_value: Target value of this parameter if it is a fidelity.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">is_fidelity</span> <span class="ow">and</span> <span class="p">(</span><span class="n">target_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"`target_value` should not be None for the fidelity parameter: "</span>
+                <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_type</span> <span class="o">=</span> <span class="n">parameter_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fidelity</span> <span class="o">=</span> <span class="n">is_fidelity</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_target_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">target_value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TParamValue</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameter_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterType</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_type</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+<div class="viewcode-block" id="FixedParameter.set_value"><a class="viewcode-back" href="../../../core.html#ax.FixedParameter.set_value">[docs]</a>    <span class="k">def</span> <span class="nf">set_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"FixedParameter"</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="FixedParameter.validate"><a class="viewcode-back" href="../../../core.html#ax.FixedParameter.validate">[docs]</a>    <span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">TParamValue</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Checks that the input is equal to the fixed value.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            value: Value being checked.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            True if valid, False otherwise.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">value</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span></div>
+
+<div class="viewcode-block" id="FixedParameter.clone"><a class="viewcode-back" href="../../../core.html#ax.FixedParameter.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"FixedParameter"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">FixedParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameter_type</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="p">,</span>
+            <span class="n">is_fidelity</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_is_fidelity</span><span class="p">,</span>
+            <span class="n">target_value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_target_value</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">ret_val</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"FixedParameter("</span>
+            <span class="sa">f</span><span class="s2">"name='</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">', "</span>
+            <span class="sa">f</span><span class="s2">"parameter_type=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_type</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"value=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_fidelity</span><span class="p">:</span>
+            <span class="n">ret_val</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">", fidelity=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">is_fidelity</span><span class="si">}</span><span class="s2">, target_value=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">target_value</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ret_val</span> <span class="o">+</span> <span class="s2">")"</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.13/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

@@ -1,0 +1,329 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.18/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.18/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.18/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.18/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.18/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.18/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.18/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.18/css/main.css"/><script src="/versions/0.1.18/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.18/"><img class="logo" src="/versions/0.1.18/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.18/versions.html"><h3>0.1.18</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.18/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.18/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.18/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.multi_type_experiment</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">BaseTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.runner</span> <span class="kn">import</span> <span class="n">Runner</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.docutils</span> <span class="kn">import</span> <span class="n">copy_doc</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+
+<span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MultiTypeExperiment"><a class="viewcode-back" href="../../../core.html#ax.core.multi_type_experiment.MultiTypeExperiment">[docs]</a><span class="k">class</span> <span class="nc">MultiTypeExperiment</span><span class="p">(</span><span class="n">Experiment</span><span class="p">):</span>
+    <span class="sd">"""Class for experiment with multiple trial types.</span>
+
+<span class="sd">    A canonical use case for this is tuning a large production system</span>
+<span class="sd">    with limited evaluation budget and a simulator which approximates</span>
+<span class="sd">    evaluations on the main system. Trial deployment and data fetching</span>
+<span class="sd">    is separate for the two systems, but the final data is combined and</span>
+<span class="sd">    fed into multi-task models.</span>
+
+<span class="sd">    See the Multi-Task Modeling tutorial for more details.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        name: Name of the experiment.</span>
+<span class="sd">        description: Description of the experiment.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">default_trial_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">default_runner</span><span class="p">:</span> <span class="n">Runner</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">status_quo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">is_test</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">properties</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Inits Experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name: Name of the experiment.</span>
+<span class="sd">            search_space: Search space of the experiment.</span>
+<span class="sd">            default_trial_type: Default type for trials on this experiment.</span>
+<span class="sd">            default_runner: Default runner for trials of the default type.</span>
+<span class="sd">            optimization_config: Optimization config of the experiment.</span>
+<span class="sd">            tracking_metrics: Additional tracking metrics not used for optimization.</span>
+<span class="sd">            runner: Default runner used for trials on this experiment.</span>
+<span class="sd">            status_quo: Arm representing existing "control" arm.</span>
+<span class="sd">            description: Description of the experiment.</span>
+<span class="sd">            is_test: Convenience metadata tracker for the user to mark test experiments.</span>
+<span class="sd">            experiment_type: The class of experiments this one belongs to.</span>
+<span class="sd">            properties: Dictionary of this experiment's properties.</span>
+<span class="sd">        """</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_trial_type</span> <span class="o">=</span> <span class="n">default_trial_type</span>
+
+        <span class="c1"># Map from trial type to default runner of that type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trial_type_to_runner</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Runner</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">default_trial_type</span><span class="p">:</span> <span class="n">default_runner</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Specifies which trial type each metric belongs to</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_to_trial_type</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># Maps certain metric names to a canonical name. Useful for ancillary trial</span>
+        <span class="c1"># types' metrics, to specify which primary metrics they correspond to</span>
+        <span class="c1"># (e.g. 'comment_prediction' =&gt; 'comment')</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_to_canonical_name</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># call super.__init__() after defining fields above, because we need</span>
+        <span class="c1"># them to be populated before optimization config is set</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MultiTypeExperiment</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+            <span class="n">status_quo</span><span class="o">=</span><span class="n">status_quo</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
+            <span class="n">is_test</span><span class="o">=</span><span class="n">is_test</span><span class="p">,</span>
+            <span class="n">experiment_type</span><span class="o">=</span><span class="n">experiment_type</span><span class="p">,</span>
+            <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="MultiTypeExperiment.add_trial_type"><a class="viewcode-back" href="../../../core.html#ax.core.multi_type_experiment.MultiTypeExperiment.add_trial_type">[docs]</a>    <span class="k">def</span> <span class="nf">add_trial_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">runner</span><span class="p">:</span> <span class="n">Runner</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"MultiTypeExperiment"</span><span class="p">:</span>
+        <span class="sd">"""Add a new trial_type to be supported by this experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_type: The new trial_type to be added.</span>
+<span class="sd">            runner: The default runner for trials of this type.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">supports_trial_type</span><span class="p">(</span><span class="n">trial_type</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Experiment already contains trial_type `</span><span class="si">{</span><span class="n">trial_type</span><span class="si">}</span><span class="s2">`"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trial_type_to_runner</span><span class="p">[</span><span class="n">trial_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">runner</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="MultiTypeExperiment.update_runner"><a class="viewcode-back" href="../../../core.html#ax.core.multi_type_experiment.MultiTypeExperiment.update_runner">[docs]</a>    <span class="k">def</span> <span class="nf">update_runner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">runner</span><span class="p">:</span> <span class="n">Runner</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"MultiTypeExperiment"</span><span class="p">:</span>
+        <span class="sd">"""Update the default runner for an existing trial_type.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_type: The new trial_type to be added.</span>
+<span class="sd">            runner: The new runner for trials of this type.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">supports_trial_type</span><span class="p">(</span><span class="n">trial_type</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Experiment does not contain trial_type `</span><span class="si">{</span><span class="n">trial_type</span><span class="si">}</span><span class="s2">`"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trial_type_to_runner</span><span class="p">[</span><span class="n">trial_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">runner</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="MultiTypeExperiment.add_tracking_metric"><a class="viewcode-back" href="../../../core.html#ax.core.multi_type_experiment.MultiTypeExperiment.add_tracking_metric">[docs]</a>    <span class="k">def</span> <span class="nf">add_tracking_metric</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">trial_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">canonical_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"MultiTypeExperiment"</span><span class="p">:</span>
+        <span class="sd">"""Add a new metric to the experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            metric: The metric to add.</span>
+<span class="sd">            trial_type: The trial type for which this metric is used.</span>
+<span class="sd">            canonical_name: The default metric for which this metric is a proxy.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">supports_trial_type</span><span class="p">(</span><span class="n">trial_type</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"`</span><span class="si">{</span><span class="n">trial_type</span><span class="si">}</span><span class="s2">` is not a supported trial type."</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">MultiTypeExperiment</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">add_tracking_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_to_trial_type</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">trial_type</span>
+        <span class="k">if</span> <span class="n">canonical_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_to_canonical_name</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">canonical_name</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="MultiTypeExperiment.update_tracking_metric"><a class="viewcode-back" href="../../../core.html#ax.core.multi_type_experiment.MultiTypeExperiment.update_tracking_metric">[docs]</a>    <span class="k">def</span> <span class="nf">update_tracking_metric</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">trial_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">canonical_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"MultiTypeExperiment"</span><span class="p">:</span>
+        <span class="sd">"""Update an existing metric on the experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            metric: The metric to add.</span>
+<span class="sd">            trial_type: The trial type for which this metric is used.</span>
+<span class="sd">            canonical_name: The default metric for which this metric is a proxy.</span>
+<span class="sd">        """</span>
+        <span class="n">oc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span>
+        <span class="n">oc_metrics</span> <span class="o">=</span> <span class="n">oc</span><span class="o">.</span><span class="n">metrics</span> <span class="k">if</span> <span class="n">oc</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">oc_metrics</span> <span class="ow">and</span> <span class="n">trial_type</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_trial_type</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Metric `</span><span class="si">{</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">` must remain a `</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_default_trial_type</span><span class="si">}</span><span class="s2">` "</span>
+                <span class="s2">"metric because it is part of the optimization_config."</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">supports_trial_type</span><span class="p">(</span><span class="n">trial_type</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"`</span><span class="si">{</span><span class="n">trial_type</span><span class="si">}</span><span class="s2">` is not a supported trial type."</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">MultiTypeExperiment</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">update_tracking_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_to_trial_type</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">trial_type</span>
+        <span class="k">if</span> <span class="n">canonical_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_to_canonical_name</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">canonical_name</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="MultiTypeExperiment.remove_tracking_metric"><a class="viewcode-back" href="../../../core.html#ax.core.multi_type_experiment.MultiTypeExperiment.remove_tracking_metric">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">Experiment</span><span class="o">.</span><span class="n">remove_tracking_metric</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">remove_tracking_metric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"MultiTypeExperiment"</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Metric `</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">` doesn't exist on experiment."</span><span class="p">)</span>
+
+        <span class="c1"># Required fields</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_to_trial_type</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
+
+        <span class="c1"># Optional</span>
+        <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_to_canonical_name</span><span class="p">:</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_to_canonical_name</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="MultiTypeExperiment.fetch_data"><a class="viewcode-back" href="../../../core.html#ax.core.multi_type_experiment.MultiTypeExperiment.fetch_data">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">Experiment</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">fetch_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Data</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">trial</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">expecting_data</span>
+                <span class="k">else</span> <span class="n">Data</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+            <span class="p">]</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">Experiment</span><span class="o">.</span><span class="n">_fetch_trial_data</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_fetch_trial_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span>
+        <span class="n">metrics</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">metric</span>
+            <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="p">(</span><span class="n">metrics</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_to_trial_type</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">==</span> <span class="n">trial</span><span class="o">.</span><span class="n">trial_type</span>
+        <span class="p">]</span>
+        <span class="c1"># Invoke parent's fetch method using only metrics for this trial_type</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_fetch_trial_data</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">"""Return the indicies for trials of the default type."""</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">idx</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">trial_type</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_trial_type</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">metric_to_trial_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Map metrics to trial types.</span>
+
+<span class="sd">        Adds in default trial type for OC metrics to custom defined trial types..</span>
+<span class="sd">        """</span>
+        <span class="n">opt_config_types</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">metric_name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_trial_type</span>
+            <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `metrics`.</span>
+            <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="n">opt_config_types</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric_to_trial_type</span><span class="p">}</span>
+
+    <span class="c1"># -- Overridden functions from Base Experiment Class --</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default_trial_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Default trial type assigned to trials in this experiment."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_trial_type</span>
+
+<div class="viewcode-block" id="MultiTypeExperiment.runner_for_trial"><a class="viewcode-back" href="../../../core.html#ax.core.multi_type_experiment.MultiTypeExperiment.runner_for_trial">[docs]</a>    <span class="k">def</span> <span class="nf">runner_for_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Runner</span><span class="p">]:</span>
+        <span class="sd">"""The default runner to use for a given trial.</span>
+
+<span class="sd">        Looks up the appropriate runner for this trial type in the trial_type_to_runner.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">trial_type</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">supports_trial_type</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">trial_type</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Batch type `</span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">trial_type</span><span class="si">}</span><span class="s2">` is not supported."</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[6]: Expected `str` for 1st param but got `Optional[str]`.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_type_to_runner</span><span class="p">[</span><span class="n">trial</span><span class="o">.</span><span class="n">trial_type</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="MultiTypeExperiment.supports_trial_type"><a class="viewcode-back" href="../../../core.html#ax.core.multi_type_experiment.MultiTypeExperiment.supports_trial_type">[docs]</a>    <span class="k">def</span> <span class="nf">supports_trial_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether this experiment allows trials of the given type.</span>
+
+<span class="sd">        Only trial types defined in the trial_type_to_runner are allowed.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">trial_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_type_to_runner</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MultiTypeExperiment.reset_runners"><a class="viewcode-back" href="../../../core.html#ax.core.multi_type_experiment.MultiTypeExperiment.reset_runners">[docs]</a>    <span class="k">def</span> <span class="nf">reset_runners</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runner</span><span class="p">:</span> <span class="n">Runner</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"MultiTypeExperiment does not support resetting all runners."</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.18/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>
