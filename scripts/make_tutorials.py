@@ -134,21 +134,14 @@ def gen_tutorials(
             ep = ExecutePreprocessor(timeout=timeout, **kwargs)
             start_time = time.time()
 
-            # try / catch failures for now; should remove once tutorials
-            # more stable
-            try:
-                # execute notebook, using `tutorial_dir` as working directory
-                ep.preprocess(nb, {"metadata": {"path": tutorial_dir}})
-                total_time = time.time() - start_time
-                print(
-                    "Done executing tutorial {}. Took {:.2f} seconds.".format(
-                        tid, total_time
-                    )
+            # execute notebook, using `tutorial_dir` as working directory
+            ep.preprocess(nb, {"metadata": {"path": tutorial_dir}})
+            total_time = time.time() - start_time
+            print(
+                "Done executing tutorial {}. Took {:.2f} seconds.".format(
+                    tid, total_time
                 )
-            except Exception as exc:
-                print("Couldn't execute tutorial {}!".format(tid))
-                print(exc)
-                total_time = None
+            )
 
         # convert notebook to HTML
         exporter = HTMLExporter()
