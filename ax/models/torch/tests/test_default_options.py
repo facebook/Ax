@@ -18,6 +18,7 @@ from botorch.acquisition.monte_carlo import (
 )
 from botorch.acquisition.multi_objective.monte_carlo import (
     qExpectedHypervolumeImprovement,
+    qNoisyExpectedHypervolumeImprovement,
 )
 
 
@@ -54,16 +55,20 @@ class AcquisitionTest(TestCase):
         )
 
     def test_default_options_qEHVI(self):
-        self.assertIn(qExpectedHypervolumeImprovement, DEFAULT_OPTIMIZER_OPTIONS)
-        self.assertEqual(
-            get_default_optimizer_options(acqf_class=qExpectedHypervolumeImprovement),
-            {
-                "sequential": True,
-                "num_restarts": 20,
-                "raw_samples": 1024,
-                "options": {
-                    "init_batch_limit": 128,
-                    "batch_limit": 5,
+        for acqf_class in (
+            qExpectedHypervolumeImprovement,
+            qNoisyExpectedHypervolumeImprovement,
+        ):
+            self.assertIn(acqf_class, DEFAULT_OPTIMIZER_OPTIONS)
+            self.assertEqual(
+                get_default_optimizer_options(acqf_class=acqf_class),
+                {
+                    "sequential": True,
+                    "num_restarts": 40,
+                    "raw_samples": 1024,
+                    "options": {
+                        "init_batch_limit": 128,
+                        "batch_limit": 5,
+                    },
                 },
-            },
-        )
+            )
