@@ -423,6 +423,40 @@ class ExperimentTest(TestCase):
             exp.fetch_data(metrics=[Metric(name="not_on_experiment")]), Data()
         )
 
+    def testOverwriteExistingData(self):
+        n = 10
+        exp = self._setupBraninExperiment(n)
+
+        # automatically attaches data
+        data = exp.fetch_data()
+
+        # can't set both combine_with_last_data and overwrite_existing_data
+        with self.assertRaises(UnsupportedError):
+            exp.attach_data(
+                data, combine_with_last_data=True, overwrite_existing_data=True
+            )
+
+        # data exists for two trials
+        # data has been attached once for each trial
+        self.assertEqual(len(exp._data_by_trial), 2)
+        self.assertEqual(len(exp._data_by_trial[0]), 1)
+        self.assertEqual(len(exp._data_by_trial[1]), 1)
+
+        exp.attach_data(data)
+        # data has been attached twice for each trial
+        self.assertEqual(len(exp._data_by_trial), 2)
+        self.assertEqual(len(exp._data_by_trial[0]), 2)
+        self.assertEqual(len(exp._data_by_trial[1]), 2)
+
+        ts = exp.attach_data(data, overwrite_existing_data=True)
+        # previous two attachment are overwritten,
+        # now only one data (most recent one) per trial
+        self.assertEqual(len(exp._data_by_trial), 2)
+        self.assertEqual(len(exp._data_by_trial[0]), 1)
+        self.assertEqual(len(exp._data_by_trial[1]), 1)
+        self.assertTrue(ts in exp._data_by_trial[0])
+        self.assertTrue(ts in exp._data_by_trial[1])
+
     def testEmptyMetrics(self):
         empty_experiment = Experiment(
             name="test_experiment", search_space=get_search_space()

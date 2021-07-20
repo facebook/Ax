@@ -511,7 +511,10 @@ class Experiment(Base):
         )
 
     def attach_data(
-        self, data: AbstractDataFrameData, combine_with_last_data: bool = False
+        self,
+        data: AbstractDataFrameData,
+        combine_with_last_data: bool = False,
+        overwrite_existing_data: bool = False,
     ) -> int:
         """Attach data to experiment. Stores data in `experiment._data_by_trial`,
         to be looked up via `experiment.lookup_data_for_trial`.
@@ -534,10 +537,21 @@ class Experiment(Base):
                 will also validate that the newly added data does not contain
                 observations for the metrics that already have observations in
                 the most recent data stored.
+            overwrite_existing_data: By default, we keep around all data that has
+                ever been attached to the experiment. However, if we know that
+                the incoming data contains all the information we need for a given
+                trial, we can replace the existing data for that trial, thereby
+                reducing the amount we need to store in the database.
 
         Returns:
             Timestamp of storage in millis.
         """
+        if combine_with_last_data and overwrite_existing_data:
+            raise UnsupportedError(
+                "Cannot set both combine_with_last_data=True and "
+                "overwrite_existing_data=True. Data can either be "
+                "combined, or overwritten, or neither."
+            )
         data_type = type(data)
         data_init_args = data.serialize_init_args(data)
         if data.df.empty:
@@ -580,6 +594,13 @@ class Experiment(Base):
                         last_data,
                         last_data_type(trial_df, **data_init_args),
                     ]
+                )
+            elif overwrite_existing_data:
+                current_trial_data = OrderedDict(
+                    {
+                        # pyre-ignore [45]: Cannot instantiate `AbstractDataFrameData`.
+                        cur_time_millis: data_type(trial_df, **data_init_args)
+                    }
                 )
             else:
                 # pyre-ignore [45]: Cannot instantiate `AbstractDataFrameData`.
