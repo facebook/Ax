@@ -16,6 +16,7 @@ from botorch.acquisition.monte_carlo import (
 )
 from botorch.acquisition.multi_objective.monte_carlo import (
     qExpectedHypervolumeImprovement,
+    qNoisyExpectedHypervolumeImprovement,
 )
 
 # Options dictionary specifying optimizer defaults for acquisition functions.
@@ -31,6 +32,25 @@ def mk_generic_default_optimizer_options() -> Dict[str, Any]:
     default options returned subsequently.
     """
     return {"num_restarts": 40, "raw_samples": 1024}
+
+
+def mk_ehvi_default_optimizer_options() -> Dict[str, Any]:
+    """Makes a copy of dictionary for generic default optimizer options
+    for EHVI-based acquisition function, used when optimizer options
+    for a given acquisition function are not registered.
+
+    NOTE: Return of this function is safe to modify without affecting the
+    default options returned subsequently.
+    """
+    return {
+        "sequential": True,
+        "num_restarts": 40,
+        "raw_samples": 1024,
+        "options": {
+            "init_batch_limit": 128,  # Used in `gen_batch_initial_conditions`.
+            "batch_limit": 5,  # Batch limit prevents memory issues in initialization.
+        },
+    }
 
 
 def get_default_optimizer_options(
@@ -74,16 +94,11 @@ register_default_optimizer_options(
     acqf_class=qExpectedImprovement,
     default_options=mk_generic_default_optimizer_options(),
 )
-
 register_default_optimizer_options(
     acqf_class=qExpectedHypervolumeImprovement,
-    default_options={
-        "sequential": True,
-        "num_restarts": 20,
-        "raw_samples": 1024,
-        "options": {
-            "init_batch_limit": 128,  # Used in `gen_batch_initial_conditions`.
-            "batch_limit": 5,  # Batch limit prevents memory issues in initialization.
-        },
-    },
+    default_options=mk_ehvi_default_optimizer_options(),
+)
+register_default_optimizer_options(
+    acqf_class=qNoisyExpectedHypervolumeImprovement,
+    default_options=mk_ehvi_default_optimizer_options(),
 )
