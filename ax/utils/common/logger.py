@@ -50,6 +50,7 @@ def get_logger(name: str) -> logging.Logger:
     return logger
 
 
+# pyre-fixme[24]: Generic type `logging.StreamHandler` expects 1 type parameter.
 def build_stream_handler(level: int = DEFAULT_LOG_LEVEL) -> logging.StreamHandler:
     """Build the default stream handler used for most Ax logging. Sets
     default level to INFO, instead of WARNING.
@@ -68,7 +69,9 @@ def build_stream_handler(level: int = DEFAULT_LOG_LEVEL) -> logging.StreamHandle
 
 
 def build_file_handler(
-    filepath: str, level: int = DEFAULT_LOG_LEVEL
+    filepath: str,
+    level: int = DEFAULT_LOG_LEVEL
+    # pyre-fixme[24]: Generic type `logging.StreamHandler` expects 1 type parameter.
 ) -> logging.StreamHandler:
     """Build a file handle that logs entries to the given file, using the
     same formatting as the stream handler.
@@ -164,5 +167,6 @@ ROOT_LOGGER.propagate = False
 # Uses a permissive level on the logger, instead make each
 # handler as permissive/restrictive as desired
 ROOT_LOGGER.setLevel(logging.DEBUG)
+# pyre-fixme[24]: Generic type `logging.StreamHandler` expects 1 type parameter.
 ROOT_STREAM_HANDLER: logging.StreamHandler = build_stream_handler()
 ROOT_LOGGER.addHandler(ROOT_STREAM_HANDLER)
