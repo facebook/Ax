@@ -24,7 +24,6 @@ from ax.modelbridge.cross_validation import cross_validate
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
-from ax.plot.feature_importances import plot_feature_importance_by_feature_plotly
 from ax.plot.slice import plot_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.common.logger import get_logger
@@ -235,7 +234,6 @@ def get_standard_plots(
                     trials=experiment.trials,
                 )
             )
-            output_plot_list.append(plot_feature_importance_by_feature_plotly(model))
             output_plot_list.append(_get_cross_validation_plot(model))
         except NotImplementedError:
             # Model does not implement `predict` method.
