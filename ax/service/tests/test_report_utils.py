@@ -22,15 +22,16 @@ from ax.utils.testing.core_stubs import get_branin_experiment, get_multi_type_ex
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from plotly import graph_objects as go
 
+OBJECTIVE_NAME = "branin"
+PARAMETER_COLUMNS = ["x1", "x2"]
+FLOAT_COLUMNS = [OBJECTIVE_NAME] + PARAMETER_COLUMNS
 EXPECTED_COLUMNS = [
-    "branin",
     "trial_index",
     "arm_name",
-    "x1",
-    "x2",
     "trial_status",
     "generator_model",
-]
+] + FLOAT_COLUMNS
+DUMMY_OBJECTIVE_MEAN = 1.2345
 
 
 class ReportUtilsTest(TestCase):
@@ -39,12 +40,20 @@ class ReportUtilsTest(TestCase):
         exp = get_multi_type_experiment()
         with self.assertRaisesRegex(ValueError, "MultiTypeExperiment"):
             exp_to_df(exp=exp)
-        # empty case - no trials, should return empty results
+
+        # exp with no trials should return empty results
         exp = get_branin_experiment()
         df = exp_to_df(exp=exp)
         self.assertEqual(len(df), 0)
-        # set up working experiment
+
+        # set up experiment
         exp = get_branin_experiment(with_batch=True)
+
+        # check that pre-run experiment returns all columns except objective
+        df = exp_to_df(exp)
+        self.assertEqual(set(EXPECTED_COLUMNS) - set(df.columns), {OBJECTIVE_NAME})
+        self.assertEqual(len(df.index), len(exp.arms_by_name))
+
         exp.trials[0].run()
         # run_metadata_fields not List[str] should fail
         with self.assertRaisesRegex(
@@ -59,26 +68,29 @@ class ReportUtilsTest(TestCase):
         # assert result is df with expected columns and length
         df = exp_to_df(exp=exp)
         self.assertIsInstance(df, pd.DataFrame)
-        self.assertListEqual(list(df.columns), EXPECTED_COLUMNS)
+        self.assertListEqual(sorted(df.columns), sorted(EXPECTED_COLUMNS))
         self.assertEqual(len(df.index), len(exp.arms_by_name))
 
         # test with run_metadata_fields not empty
         df = exp_to_df(exp, run_metadata_fields=["name"])
         self.assertIn("name", df.columns)
 
-        # test column values
+        # test column values or types
         self.assertTrue(all(x == 0 for x in df.trial_index))
         self.assertTrue(all(x == "RUNNING" for x in df.trial_status))
         self.assertTrue(all(x == "Sobol" for x in df.generator_model))
         self.assertTrue(all(x == "branin_test_experiment_0" for x in df.name))
+        for float_column in FLOAT_COLUMNS:
+            self.assertTrue(all(isinstance(x, float) for x in df[float_column]))
+
         # works correctly for failed trials (will need to mock)
         dummy_struct = namedtuple("dummy_struct", "df")
         mock_results = dummy_struct(
             df=pd.DataFrame(
                 {
                     "arm_name": ["0_0"],
-                    "metric_name": ["branin"],
-                    "mean": [0],
+                    "metric_name": [OBJECTIVE_NAME],
+                    "mean": [DUMMY_OBJECTIVE_MEAN],
                     "sem": [0],
                     "trial_index": [0],
                     "n": [123],
@@ -90,7 +102,7 @@ class ReportUtilsTest(TestCase):
             df = exp_to_df(exp=exp)
 
         # all but one row should have a metric value of NaN
-        self.assertEqual(pd.isna(df["branin"]).sum(), len(df.index) - 1)
+        self.assertEqual(pd.isna(df[OBJECTIVE_NAME]).sum(), len(df.index) - 1)
 
         # an experiment with more results than arms raises an error
         with patch.object(
@@ -100,12 +112,58 @@ class ReportUtilsTest(TestCase):
 
     def test_get_best_trial(self):
         exp = get_branin_experiment(with_batch=True, minimize=True)
+
+        # exp with no completed trials should return None
+        self.assertIsNone(get_best_trial(exp))
+
+        # exp with completed trials should return optimal row
         # Hack in `noise_sd` value to ensure full reproducibility.
-        exp.metrics["branin"].noise_sd = 0.0
+        exp.metrics[OBJECTIVE_NAME].noise_sd = 0.0
         exp.trials[0].run()
         df = exp_to_df(exp)
         best_trial = get_best_trial(exp)
-        pd.testing.assert_frame_equal(df.sort_values("branin").head(1), best_trial)
+        pd.testing.assert_frame_equal(
+            df.sort_values(OBJECTIVE_NAME).head(1), best_trial
+        )
+
+        # exp with missing rows should return optimal row
+        dummy_struct = namedtuple("dummy_struct", "df")
+        mock_results = dummy_struct(
+            df=pd.DataFrame(
+                {
+                    "arm_name": ["0_0"],
+                    "metric_name": [OBJECTIVE_NAME],
+                    "mean": [DUMMY_OBJECTIVE_MEAN],
+                    "sem": [0],
+                    "trial_index": [0],
+                    "n": [123],
+                    "frac_nonnull": [1],
+                }
+            )
+        )
+        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
+            best_trial = get_best_trial(exp=exp)
+        self.assertEqual(best_trial[OBJECTIVE_NAME][0], DUMMY_OBJECTIVE_MEAN)
+
+        # when optimal objective is shared across multiple trials,
+        # arbitrarily return a single optimal row
+        mock_results = dummy_struct(
+            df=pd.DataFrame(
+                {
+                    "arm_name": ["0_0", "0_1"],
+                    "metric_name": [OBJECTIVE_NAME] * 2,
+                    "mean": [DUMMY_OBJECTIVE_MEAN] * 2,
+                    "sem": [0] * 2,
+                    "trial_index": [0, 1],
+                    "n": [123] * 2,
+                    "frac_nonnull": [1] * 2,
+                }
+            )
+        )
+        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
+            best_trial = get_best_trial(exp=exp)
+        self.assertEqual(len(best_trial.index), 1)
+        self.assertEqual(best_trial[OBJECTIVE_NAME][0], DUMMY_OBJECTIVE_MEAN)
 
     def test_get_shortest_unique_suffix_dict(self):
         expected_output = {
