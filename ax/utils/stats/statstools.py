@@ -104,7 +104,8 @@ def positive_part_james_stein(
     contribution from the uncertainty in the sum of squared deviations of `y_i`
     from the mean of all `y_i`.
 
-    For more information, see https://fburl.com/empirical_bayes.
+    For more information, see
+    https://ax.dev/docs/models.html#empirical-bayes-and-thompson-sampling.
 
     Args:
         means: Means of each arm
