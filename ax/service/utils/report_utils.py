@@ -246,6 +246,7 @@ def exp_to_df(
     exp: Experiment,
     metrics: Optional[List[Metric]] = None,
     run_metadata_fields: Optional[List[str]] = None,
+    trial_properties_fields: Optional[List[str]] = None,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Transforms an experiment to a DataFrame. Only supports Experiment and
@@ -260,6 +261,11 @@ def exp_to_df(
         run_metadata_fields: fields to extract from trial.run_metadata for trial
             in experiment.trials. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial.
+        trial_properties_fields: fields to extract from trial._properties for trial
+            in experiment.trials. If there are multiple arms per trial, these fields
+            will be replicated across the arms of a trial. Output columns names will be
+            prepended with "trial_properties_".
+
         **kwargs: Custom named arguments, useful for passing complex
             objects from call-site to the `fetch_data` callback.
 
@@ -315,7 +321,7 @@ def exp_to_df(
         trial_to_status[trial_index] for trial_index in arms_df.trial_index
     ]
 
-    # Add and generator_run model keys
+    # Add generator_run model keys
     arms_df["generator_model"] = [
         # This accounts for the generic case that generator_runs is a list of arbitrary
         # length. If all elements are `None`, this yields an empty string. Repeated
@@ -338,6 +344,42 @@ def exp_to_df(
         for generator_model in arms_df["generator_model"]
     ]
 
+    # Add any trial properties fields to arms_df
+    if trial_properties_fields is not None:
+        if not (
+            isinstance(trial_properties_fields, list)
+            and all(isinstance(field, str) for field in trial_properties_fields)
+        ):
+            raise ValueError(
+                "trial_properties_fields must be List[str] or None. "
+                f"Got {trial_properties_fields}"
+            )
+
+        # add trial._properties fields
+        for field in trial_properties_fields:
+            trial_to_properties_field = {
+                index: (
+                    trial._properties[field] if field in trial._properties else None
+                )
+                for index, trial in trials
+            }
+            if any(trial_to_properties_field.values()):  # field present for any trial
+                if not all(
+                    trial_to_properties_field.values()
+                ):  # not present for all trials
+                    logger.warning(
+                        f"Field {field} missing for some trials' properties. "
+                        "Returning None when missing."
+                    )
+                arms_df["trial_properties_" + field] = [
+                    trial_to_properties_field[key] for key in arms_df.trial_index
+                ]
+            else:
+                logger.warning(
+                    f"Field {field} missing for all trials' properties. "
+                    "Not appending column."
+                )
+
     # Add any run_metadata fields to arms_df
     if run_metadata_fields is not None:
         if not (
@@ -349,7 +391,7 @@ def exp_to_df(
                 f"Got {run_metadata_fields}"
             )
 
-        # add additional run_metadata fields
+        # add run_metadata fields
         for field in run_metadata_fields:
             trial_to_metadata_field = {
                 index: (

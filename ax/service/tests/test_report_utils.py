@@ -32,6 +32,7 @@ EXPECTED_COLUMNS = [
     "generator_model",
 ] + FLOAT_COLUMNS
 DUMMY_OBJECTIVE_MEAN = 1.2345
+DUMMY_SOURCE = "test_source"
 
 
 class ReportUtilsTest(TestCase):
@@ -71,14 +72,21 @@ class ReportUtilsTest(TestCase):
         self.assertListEqual(sorted(df.columns), sorted(EXPECTED_COLUMNS))
         self.assertEqual(len(df.index), len(exp.arms_by_name))
 
-        # test with run_metadata_fields not empty
-        df = exp_to_df(exp, run_metadata_fields=["name"])
+        # test with run_metadata_fields and trial_properties_fields not empty
+        # add source to properties
+        for _, trial in exp.trials.items():
+            trial._properties["source"] = DUMMY_SOURCE
+        df = exp_to_df(
+            exp, run_metadata_fields=["name"], trial_properties_fields=["source"]
+        )
         self.assertIn("name", df.columns)
+        self.assertIn("trial_properties_source", df.columns)
 
         # test column values or types
         self.assertTrue(all(x == 0 for x in df.trial_index))
         self.assertTrue(all(x == "RUNNING" for x in df.trial_status))
         self.assertTrue(all(x == "Sobol" for x in df.generator_model))
+        self.assertTrue(all(x == DUMMY_SOURCE for x in df.trial_properties_source))
         self.assertTrue(all(x == "branin_test_experiment_0" for x in df.name))
         for float_column in FLOAT_COLUMNS:
             self.assertTrue(all(isinstance(x, float) for x in df[float_column]))
