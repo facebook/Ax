@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
 from typing import Optional
 
 import numpy as np
@@ -15,6 +16,7 @@ from ax.core.types import TParameterization
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_search_space
+from mock import patch
 
 
 def _get_sum(parameterization: TParameterization) -> float:
@@ -109,6 +111,15 @@ class SimpleExperimentTest(TestCase):
         self.assertAlmostEqual(self.experiment.eval().df["mean"][1], 40)
         self.assertEqual(batch.fetch_data().df["mean"][0], 15)
         self.assertAlmostEqual(self.experiment.fetch_data().df["mean"][1], 40)
+
+    def testDeprecation(self) -> None:
+        with patch.object(warnings, "warn") as mock_warn:
+            SimpleExperiment(
+                name="test_branin",
+                search_space=get_branin_search_space(),
+                objective_name="sum",
+            )
+            mock_warn.assert_called_once()
 
     def testTrial(self) -> None:
         for i in range(len(self.arms)):

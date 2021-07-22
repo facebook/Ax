@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import inspect
+import warnings
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
@@ -80,6 +81,10 @@ class SimpleExperiment(Experiment):
         properties: Optional[Dict[str, Any]] = None,
         default_data_type: Optional[DataType] = None,
     ) -> None:
+        warnings.warn(
+            "`SimpleExperiment` is deprecated.  Use `Experiment` instead.",
+            DeprecationWarning,
+        )
         optimization_config = OptimizationConfig(
             objective=Objective(
                 metric=Metric(name=objective_name or DEFAULT_OBJECTIVE_NAME),
