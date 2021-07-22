@@ -550,6 +550,11 @@ class ExperimentTest(TestCase):
             exp.fetch_trials_data(trial_indices=[0, 1]),
             Data.from_multiple_data([batch_0_data, batch_1_data]),
         )
+
+        # Since NoisyFunction metric has overwrite_existing_data = False,
+        # we should have two dfs per trial now
+        self.assertEqual(len(exp.data_by_trial[0]), 2)
+
         with self.assertRaisesRegex(ValueError, ".* not associated .*"):
             exp.fetch_trials_data(trial_indices=[2])
         # Try to fetch data when there are only metrics and no attached data.
@@ -838,6 +843,11 @@ class ExperimentWithMapDataTest(TestCase):
             exp.fetch_trials_data(trial_indices=[0, 1]),
             MapData.from_multiple_data([batch_0_data, batch_1_data]),
         )
+
+        # Since NoisyFunctionMap metric has overwrite_existing_data = True,
+        # we should only have one df per trial now
+        self.assertEqual(len(exp.data_by_trial[0]), 1)
+
         with self.assertRaisesRegex(ValueError, ".* not associated .*"):
             exp.fetch_trials_data(trial_indices=[2])
         # Try to fetch data when there are only metrics and no attached data.

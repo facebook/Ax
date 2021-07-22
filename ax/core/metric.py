@@ -66,6 +66,12 @@ class Metric(SortableBase):
         """
         return False
 
+    @classmethod
+    def overwrite_existing_data(cls) -> bool:
+        """Indicates whether we should overwrite previously cached data when
+        caching new data on the experiment."""
+        return False
+
     @property
     def name(self) -> str:
         """Get name of metric."""
@@ -192,7 +198,10 @@ class Metric(SortableBase):
                 experiment=experiment, metrics=metrics, trials=trials, **kwargs
             )
             if not fetched_data.df.empty:
-                experiment.attach_data(fetched_data)
+                experiment.attach_data(
+                    fetched_data,
+                    overwrite_existing_data=cls.overwrite_existing_data(),
+                )
             return fetched_data
 
         # If this metric is available only upon trial completion, look up data
@@ -240,7 +249,9 @@ class Metric(SortableBase):
                 [cached_trial_data, fetched_trial_data]
             )
             if not final_data.df.empty:
-                experiment.attach_data(final_data)
+                experiment.attach_data(
+                    final_data, overwrite_existing_data=cls.overwrite_existing_data()
+                )
             trials_data.append(final_data)
 
         return cls.data_constructor.from_multiple_data(

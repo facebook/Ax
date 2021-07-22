@@ -63,6 +63,10 @@ class NoisyFunctionMapMetric(MapMetric):
     def is_available_while_running(cls) -> bool:
         return True
 
+    @classmethod
+    def overwrite_existing_data(cls) -> bool:
+        return True
+
     def clone(self) -> NoisyFunctionMapMetric:
         return self.__class__(
             name=self._name,
