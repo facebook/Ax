@@ -12,7 +12,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
-from ax.core.experiment import DataType, Experiment
+from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -32,9 +32,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_timestamp_map_metric,
     get_data,
     get_experiment,
-    get_experiment_with_map_data,
     get_experiment_with_map_data_type,
-    get_map_data,
     get_optimization_config,
     get_search_space,
     get_sobol,

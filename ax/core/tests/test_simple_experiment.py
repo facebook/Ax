@@ -6,6 +6,7 @@
 
 import warnings
 from typing import Optional
+from unittest.mock import patch
 
 import numpy as np
 from ax.core.arm import Arm
@@ -16,7 +17,6 @@ from ax.core.types import TParameterization
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_search_space
-from mock import patch
 
 
 def _get_sum(parameterization: TParameterization) -> float:
