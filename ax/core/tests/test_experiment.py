@@ -655,132 +655,6 @@ class ExperimentTest(TestCase):
             exp.fetch_data()
             mock_fetch_exp_data_multi.assert_not_called()
 
-
-class ExperimentWithMapDataTest(TestCase):
-    def setUp(self):
-        self.experiment = get_experiment_with_map_data_type()
-
-    def _setupBraninExperiment(self, n: int) -> Experiment:
-        exp = get_branin_experiment_with_timestamp_map_metric()
-        batch = exp.new_batch_trial()
-        batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
-        batch.run()
-
-        batch_2 = exp.new_batch_trial()
-        batch_2.add_arms_and_weights(arms=get_branin_arms(n=3 * n, seed=1))
-        batch_2.run()
-        return exp
-
-    def testEmptyMetrics(self):
-        empty_experiment = Experiment(
-            name="test_experiment",
-            search_space=get_search_space(),
-            default_data_type=DataType.MAP_DATA,
-        )
-        self.assertEqual(empty_experiment.num_trials, 0)
-        empty_experiment.add_tracking_metric(Metric(name="ax_test_metric"))
-        self.assertTrue(empty_experiment.fetch_data().df.empty)
-        empty_experiment.attach_data(get_map_data())
-
-    def testFetchDataWithMapData(self):
-        evaluations = {
-            "0_0": [
-                ({"epoch": 1}, {"no_fetch_impl_metric": (3.7, 0.5)}),
-                ({"epoch": 2}, {"no_fetch_impl_metric": (3.8, 0.5)}),
-                ({"epoch": 3}, {"no_fetch_impl_metric": (3.9, 0.5)}),
-                ({"epoch": 4}, {"no_fetch_impl_metric": (4.0, 0.5)}),
-            ],
-        }
-
-        self.experiment.add_tracking_metric(
-            metric=MapMetric(name="no_fetch_impl_metric")
-        )
-        self.experiment.new_trial()
-        self.experiment.trials[0].mark_running(no_runner_required=True)
-        first_epoch = MapData.from_map_evaluations(
-            evaluations={
-                arm_name: partial_results[0:1]
-                for arm_name, partial_results in evaluations.items()
-            },
-            trial_index=0,
-        )
-        self.experiment.attach_data(first_epoch)
-        remaining_epochs = MapData.from_map_evaluations(
-            evaluations={
-                arm_name: partial_results[1:4]
-                for arm_name, partial_results in evaluations.items()
-            },
-            trial_index=0,
-        )
-        self.experiment.attach_data(remaining_epochs)
-        self.experiment.trials[0].mark_completed()
-
-        # merge_across_timestamps = False
-        expected_data = remaining_epochs
-        actual_data = self.experiment.lookup_data()  # False by default.
-        self.assertEqual(expected_data, actual_data)
-
-        # merge_across_timestamps = True
-        expected_data = MapData.from_map_evaluations(
-            evaluations=evaluations, trial_index=0
-        )
-        actual_data = self.experiment.lookup_data(merge_across_timestamps=True)
-        self.assertEqual(expected_data, actual_data)
-
-    def testFetchTrialsData(self):
-        exp = self._setupBraninExperiment(n=5)
-        batch_0 = exp.trials[0]
-        batch_1 = exp.trials[1]
-        batch_0.mark_completed()
-        batch_1.mark_completed()
-        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
-        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
-        self.assertEqual(
-            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
-        )
-        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
-        self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
-        self.assertEqual(
-            set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
-        )
-        self.assertEqual(
-            exp.fetch_trials_data(trial_indices=[0, 1]),
-            MapData.from_multiple_data([batch_0_data, batch_1_data]),
-        )
-        with self.assertRaisesRegex(ValueError, ".* not associated .*"):
-            exp.fetch_trials_data(trial_indices=[2])
-        # Try to fetch data when there are only metrics and no attached data.
-        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
-        exp.add_tracking_metric(MapMetric(name="b"))  # Add unimplemented metric.
-        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).df), 30)
-        # Try fetching attached data.
-        exp.attach_data(batch_0_data)
-        exp.attach_data(batch_1_data)
-        self.assertEqual(exp.fetch_trials_data(trial_indices=[0]), batch_0_data)
-        self.assertEqual(exp.fetch_trials_data(trial_indices=[1]), batch_1_data)
-        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
-        self.assertEqual(
-            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
-        )
-
-    def testFetchTrialDataLookupOnly(self):
-        experiment = get_experiment_with_map_data()
-        self.assertTrue(experiment.optimization_config.objective.metric)
-        experiment.trials[0].mark_running(no_runner_required=True)
-        actual_data = experiment.fetch_trials_data(trial_indices=[0], lookup_only=True)
-        expected_data = get_map_data()
-        self.assertNotEqual(expected_data, actual_data)
-        with patch(
-            f"{MapMetric.__module__}.MapMetric.is_available_while_running",
-            return_value=True,
-        ):
-            experiment = get_experiment_with_map_data()
-            self.assertTrue(experiment.optimization_config.objective.metric)
-            experiment.trials[0].mark_running(no_runner_required=True)
-            actual_data = experiment.lookup_data()
-            expected_data = get_map_data()
-            self.assertEqual(expected_data, actual_data)
-
     def testWarmStartFromOldExperiment(self):
         # create old_experiment
         len_old_trials = 5
@@ -882,3 +756,100 @@ class ExperimentWithMapDataTest(TestCase):
                     f"INFO:{experiments_module}:{EXPERIMENT_IS_TEST_WARNING}",
                     logger.output,
                 )
+
+
+class ExperimentWithMapDataTest(TestCase):
+    def setUp(self):
+        self.experiment = get_experiment_with_map_data_type()
+
+    def _setupBraninExperiment(self, n: int) -> Experiment:
+        exp = get_branin_experiment_with_timestamp_map_metric()
+        batch = exp.new_batch_trial()
+        batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
+        batch.run()
+
+        batch_2 = exp.new_batch_trial()
+        batch_2.add_arms_and_weights(arms=get_branin_arms(n=3 * n, seed=1))
+        batch_2.run()
+        return exp
+
+    def testFetchDataWithMapData(self):
+        evaluations = {
+            "0_0": [
+                ({"epoch": 1}, {"no_fetch_impl_metric": (3.7, 0.5)}),
+                ({"epoch": 2}, {"no_fetch_impl_metric": (3.8, 0.5)}),
+                ({"epoch": 3}, {"no_fetch_impl_metric": (3.9, 0.5)}),
+                ({"epoch": 4}, {"no_fetch_impl_metric": (4.0, 0.5)}),
+            ],
+        }
+
+        self.experiment.add_tracking_metric(
+            metric=MapMetric(name="no_fetch_impl_metric")
+        )
+        self.experiment.new_trial()
+        self.experiment.trials[0].mark_running(no_runner_required=True)
+        first_epoch = MapData.from_map_evaluations(
+            evaluations={
+                arm_name: partial_results[0:1]
+                for arm_name, partial_results in evaluations.items()
+            },
+            trial_index=0,
+        )
+        self.experiment.attach_data(first_epoch)
+        remaining_epochs = MapData.from_map_evaluations(
+            evaluations={
+                arm_name: partial_results[1:4]
+                for arm_name, partial_results in evaluations.items()
+            },
+            trial_index=0,
+        )
+        self.experiment.attach_data(remaining_epochs)
+        self.experiment.trials[0].mark_completed()
+
+        # merge_across_timestamps = False
+        expected_data = remaining_epochs
+        actual_data = self.experiment.lookup_data()  # False by default.
+        self.assertEqual(expected_data, actual_data)
+
+        # merge_across_timestamps = True
+        expected_data = MapData.from_map_evaluations(
+            evaluations=evaluations, trial_index=0
+        )
+        actual_data = self.experiment.lookup_data(merge_across_timestamps=True)
+        self.assertEqual(expected_data, actual_data)
+
+    def testFetchTrialsData(self):
+        exp = self._setupBraninExperiment(n=5)
+        batch_0 = exp.trials[0]
+        batch_1 = exp.trials[1]
+        batch_0.mark_completed()
+        batch_1.mark_completed()
+        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
+        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
+        self.assertEqual(
+            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
+        )
+        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
+        self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
+        self.assertEqual(
+            set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
+        )
+        self.assertEqual(
+            exp.fetch_trials_data(trial_indices=[0, 1]),
+            MapData.from_multiple_data([batch_0_data, batch_1_data]),
+        )
+        with self.assertRaisesRegex(ValueError, ".* not associated .*"):
+            exp.fetch_trials_data(trial_indices=[2])
+        # Try to fetch data when there are only metrics and no attached data.
+        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
+        exp.add_tracking_metric(MapMetric(name="b"))  # Add unimplemented metric.
+        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).df), 30)
+        # Try fetching attached data.
+        exp.attach_data(batch_0_data)
+        exp.attach_data(batch_1_data)
+        self.assertEqual(exp.fetch_trials_data(trial_indices=[0]), batch_0_data)
+        self.assertEqual(exp.fetch_trials_data(trial_indices=[1]), batch_1_data)
+        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
+        self.assertEqual(
+            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
+        )
