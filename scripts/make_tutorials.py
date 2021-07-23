@@ -202,9 +202,7 @@ def gen_tutorials(
                 tar.add(tutorial_dir, arcname=os.path.basename(tutorial_dir))
 
     if has_errors:
-        raise Exception(
-            "There are errors in tutorials, will not continue to publish"
-        )
+        raise Exception("There are errors in tutorials, will not continue to publish")
 
 
 if __name__ == "__main__":
