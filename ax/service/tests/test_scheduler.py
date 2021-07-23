@@ -69,19 +69,16 @@ class BareBonesTestScheduler(Scheduler):
         return {}
 
     def report_results(self) -> Tuple[bool, Dict[str, Set[int]]]:
-        return (
-            True,
-            {
-                # use `set` constructor to copy the set, else the value
-                # will be a pointer and all will be the same
-                "trials_completed_so_far": set(
-                    self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
-                ),
-                "trials_early_stopped_so_far": set(
-                    self.experiment.trial_indices_by_status[TrialStatus.EARLY_STOPPED]
-                ),
-            },
-        )
+        return {
+            # use `set` constructor to copy the set, else the value
+            # will be a pointer and all will be the same
+            "trials_completed_so_far": set(
+                self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
+            ),
+            "trials_early_stopped_so_far": set(
+                self.experiment.trial_indices_by_status[TrialStatus.EARLY_STOPPED]
+            ),
+        }
 
 
 class TestScheduler(BareBonesTestScheduler):
@@ -639,7 +636,6 @@ class TestAxScheduler(TestCase):
         # obtaining each new result.
         res_list = list(scheduler.run_trials_and_yield_results(max_trials=total_trials))
         self.assertEqual(len(res_list), total_trials + 1)
-        self.assertIsInstance(res_list, list)
         self.assertEqual(len(res_list[0]["trials_completed_so_far"]), 1)
         self.assertEqual(len(res_list[1]["trials_completed_so_far"]), 2)
         self.assertEqual(len(res_list[2]["trials_completed_so_far"]), 3)
@@ -674,7 +670,6 @@ class TestAxScheduler(TestCase):
             # Two steps complete the experiment given parallelism.
             expected_num_polls = 2
             self.assertEqual(len(res_list), expected_num_polls + 1)
-            self.assertIsInstance(res_list, list)
             # Both trials in first batch of parallelism will be early stopped
             self.assertEqual(len(res_list[0]["trials_early_stopped_so_far"]), 2)
             # Third trial in second batch of parallelism will be early stopped

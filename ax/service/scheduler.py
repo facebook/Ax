@@ -490,19 +490,17 @@ class Scheduler(WithDBSettingsBase, ABC):
         )
         return expecting_data >= not_none(self.options.total_trials)
 
-    def report_results(self) -> Tuple[bool, Dict[str, Any]]:
+    def report_results(self) -> Dict[str, Any]:
         """Optional user-defined function for reporting intermediate
         and final optimization results (e.g. make some API call, write to some
         other db). This function is called whenever new results are available during
         the optimization.
 
         Returns:
-            A tuple of boolean representing success status of reporting (useful
-            if `report_results` performs some call to an external system) and
-            an optional dictionary with any relevant data about optimization.
+            An optional dictionary with any relevant data about optimization.
         """
         # TODO[T61776778]: add utility to get best trial from arbitrary exp.
-        return (True, {})
+        return {}
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def run_trial(self, trial: BaseTrial) -> Dict[str, Any]:
@@ -631,21 +629,27 @@ class Scheduler(WithDBSettingsBase, ABC):
             )
             sleep(seconds_between_polls)
             seconds_between_polls *= self.options.seconds_between_polls_backoff_factor
-        return self.report_results()[1]
+        return self.report_results()
 
-    def should_abort(self) -> bool:
+    def should_consider_optimization_complete(self) -> bool:
+        """Whether this scheduler should consider this optimization complete and not
+        run more trials (and conclude the optimization via ``_complete_optimization``).
+        An optimization is considered complete when a generation strategy signalled
+        completion or when the custom ``completion_criterion`` on this scheduler
+        evaluates to ``True``.
+        """
+        if self._optimization_complete:
+            return True
+
+        return self.completion_criterion()
+
+    def should_abort_optimization(self) -> bool:
         """Checks whether this scheduler has reached some intertuption / abort
         criterion, such as an overall optimization timeout, tolerated failure rate, etc.
         """
-
         # if failure rate is exceeded, raise an exception.
         # this check should precede others to ensure it is not skipped.
         self.error_if_failure_rate_exceeded()
-
-        # if optimization is complete, return True
-        if self._optimization_complete:
-            self.logger.info("Optimization completed, stopping early.")
-            return True
 
         # if sweep is timed out, return True, else return False
         timed_out = (
@@ -752,13 +756,12 @@ class Scheduler(WithDBSettingsBase, ABC):
 
         # Until completion criterion is reached or `max_trials` is scheduled,
         # schedule new trials and poll existing ones in a loop.
-        while not self.completion_criterion() and len(trials) - n_existing < max_trials:
-            if self.should_abort():
-                self._record_optimization_complete_message()
-                self._record_run_trials_status(
-                    num_preexisting_trials=n_existing, status=RunTrialsStatus.ABORTED
-                )
-                yield self.wait_for_completed_trials_and_report_results()
+        while (
+            not self.should_consider_optimization_complete()
+            and len(trials) - n_existing < max_trials
+        ):
+            if self.should_abort_optimization():
+                yield self._abort_optimization(num_preexisting_trials=n_existing)
                 return
 
             # Run new trial evaluations until `run` returns `False`, which
@@ -766,7 +769,8 @@ class Scheduler(WithDBSettingsBase, ABC):
             # Also check that `max_trials` is not reached to not exceed it.
             remaining_to_run = max_trials + n_existing - len(self.experiment.trials)
             while remaining_to_run > 0 and self.run(max_new_trials=remaining_to_run):
-                # Not checking `should_abort` on every iteration for perf. reasons.
+                # Not checking `should_abort_optimization` on every iteration for perf.
+                # reasons.
                 remaining_to_run = max_trials + n_existing - len(self.experiment.trials)
 
             # Wait for trial evaluations to complete and process results.
@@ -779,25 +783,15 @@ class Scheduler(WithDBSettingsBase, ABC):
                 "Done submitting trials, waiting for remaining "
                 f"{len(self.running_trials)} running trials..."
             )
+
         while self.running_trials:
-            if self.should_abort():
-                self._record_optimization_complete_message()
-                self._record_run_trials_status(
-                    num_preexisting_trials=n_existing, status=RunTrialsStatus.ABORTED
-                )
-                yield self.wait_for_completed_trials_and_report_results()
+            if self.should_abort_optimization():
+                yield self._abort_optimization(num_preexisting_trials=n_existing)
                 return
 
             yield self.wait_for_completed_trials_and_report_results()
 
-        self._record_optimization_complete_message()
-        res = self.wait_for_completed_trials_and_report_results()
-        # raise an error if the failure rate exceeds tolerance at the end of the sweep
-        self.error_if_failure_rate_exceeded(force_check=True)
-        self._record_run_trials_status(
-            num_preexisting_trials=n_existing, status=RunTrialsStatus.SUCCESS
-        )
-        yield res
+        yield self._complete_optimization(num_preexisting_trials=n_existing)
         return
 
     def run_n_trials(
@@ -859,14 +853,16 @@ class Scheduler(WithDBSettingsBase, ABC):
         Returns:
             Boolean representing success status.
         """
-        if self.completion_criterion():
+        if self.should_consider_optimization_complete():
             self.logger.info(
                 "`completion_criterion` is `True`, not running more trials."
             )
             return False
 
-        if self.should_abort():
-            self.logger.info("`should_abort` is `True`, not running more trials.")
+        if self.should_abort_optimization():
+            self.logger.info(
+                "`should_abort_optimization` is `True`, not running more trials."
+            )
             return False
 
         # Check if capacity allows for running new evaluations and generate as many
@@ -1069,6 +1065,32 @@ class Scheduler(WithDBSettingsBase, ABC):
         return early_stopping_strategy.should_stop_trials_early(
             trial_indices=trial_indices, experiment=self.experiment
         )
+
+    def _abort_optimization(self, num_preexisting_trials: int) -> Dict[str, Any]:
+        """Conclude optimization without waiting for anymore running trials and
+        return results so far via `report_results`.
+        """
+        self._record_optimization_complete_message()
+        self._record_run_trials_status(
+            num_preexisting_trials=num_preexisting_trials,
+            status=RunTrialsStatus.ABORTED,
+        )
+        return self.report_results()
+
+    def _complete_optimization(self, num_preexisting_trials: int) -> Dict[str, Any]:
+        """Conclude optimization with waiting for anymore running trials and
+        return final results via `wait_for_completed_trials_and_report_results`.
+        """
+        print("HERE!!")
+        self._record_optimization_complete_message()
+        res = self.wait_for_completed_trials_and_report_results()
+        # raise an error if the failure rate exceeds tolerance at the end of the sweep
+        self.error_if_failure_rate_exceeded(force_check=True)
+        self._record_run_trials_status(
+            num_preexisting_trials=num_preexisting_trials,
+            status=RunTrialsStatus.SUCCESS,
+        )
+        return res
 
     def _validate_options(self, options: SchedulerOptions) -> None:
         """Validates `SchedulerOptions` for compatibility with given
