@@ -371,14 +371,10 @@ class ExperimentTest(TestCase):
         # Test retrieving full exp data
         self.assertEqual(len(exp.lookup_data_for_ts(t2).df), 4 * n)
 
-        # Test merging multiple timestamps of data
-        self.assertEqual(
-            len(exp.lookup_data_for_trial(0, merge_across_timestamps=True)), 2
-        )
-
         with self.assertRaisesRegex(ValueError, ".* for metric"):
             exp.attach_data(batch_data, combine_with_last_data=True)
 
+        self.assertEqual(len(full_dict[0]), 5)  # 5 data objs for batch 0
         new_data = Data(
             df=pd.DataFrame.from_records(
                 [
@@ -393,7 +389,8 @@ class ExperimentTest(TestCase):
             )
         )
         t3 = exp.attach_data(new_data, combine_with_last_data=True)
-        self.assertEqual(len(full_dict[0]), 6)  # 6 data objs for batch 0 now
+        # still 5 data objs, since we combined last one
+        self.assertEqual(len(full_dict[0]), 5)
         self.assertIn("z", exp.lookup_data_for_ts(t3).df["metric_name"].tolist())
 
         # Verify we don't get the data if the trial is abandoned
@@ -809,16 +806,8 @@ class ExperimentWithMapDataTest(TestCase):
         self.experiment.attach_data(remaining_epochs)
         self.experiment.trials[0].mark_completed()
 
-        # merge_across_timestamps = False
         expected_data = remaining_epochs
-        actual_data = self.experiment.lookup_data()  # False by default.
-        self.assertEqual(expected_data, actual_data)
-
-        # merge_across_timestamps = True
-        expected_data = MapData.from_map_evaluations(
-            evaluations=evaluations, trial_index=0
-        )
-        actual_data = self.experiment.lookup_data(merge_across_timestamps=True)
+        actual_data = self.experiment.lookup_data()
         self.assertEqual(expected_data, actual_data)
 
     def testFetchTrialsData(self):

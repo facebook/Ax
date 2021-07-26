@@ -220,7 +220,6 @@ class Metric(SortableBase):
         for trial in completed_trials:
             cached_trial_data = experiment.lookup_data_for_trial(
                 trial_index=trial.index,
-                merge_across_timestamps=kwargs.get("merge_across_timestamps", False),
             )[0]
 
             cached_metric_names = cached_trial_data.metric_names

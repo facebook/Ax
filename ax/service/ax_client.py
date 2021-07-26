@@ -393,12 +393,12 @@ class AxClient(WithDBSettingsBase):
                 "`support_intermediate_data=True` and have `default_data_type` of "
                 "`DataType.MAP_DATA`."
             )
-        # TODO(jej)[T86911509]: Add support for efficient updates with single results.
         data_update_repr = self._update_trial_with_raw_data(
             trial_index=trial_index,
             raw_data=raw_data,
             metadata=metadata,
             sample_size=sample_size,
+            combine_with_last_data=True,
         )
         logger.info(f"Updated trial {trial_index} with data: " f"{data_update_repr}.")
 
@@ -449,6 +449,7 @@ class AxClient(WithDBSettingsBase):
             metadata=metadata,
             sample_size=sample_size,
             complete_trial=True,
+            combine_with_last_data=True,
         )
         logger.info(f"Completed trial {trial_index} with data: " f"{data_update_repr}.")
 

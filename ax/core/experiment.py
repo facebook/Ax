@@ -523,20 +523,21 @@ class Experiment(Base):
             data: Data object to store.
             combine_with_last_data: By default, when attaching data, it's identified
                 by its timestamp, and `experiment.lookup_data_for_trial` returns
-                data by most recent timestamp. Sometimes, however, we attach
-                data for some metrics at one point and data for the rest of the
-                metrics later on. In this case, we actually want to combine the
-                data so that one dataframe contains data for all metrics.
-                To achieve that goal, every call to `attach_data` after
-                the initial data is attached to trials, should be set to `True`.
+                data by most recent timestamp. Sometimes, however, we want to combine
+                the data from multiple calls to `attach_data` into one dataframe.
+                This might be because:
+                    - We attached data for some metrics at one point and data for
+                    the rest of the metrics later on.
+                    - We attached data for some fidelity at one point and data for
+                    another fidelity later one.
+                To achieve that goal, set `combine_with_last_data` to `True`.
                 In this case, we will take the most recent previously attached
-                data, append the newly attached data to it, and attach a new
-                Data object with the merged result. Afterwards, calls to
-                `lookup_data_for_trial` will return this combined data object,
-                rather than just the most recently added data. This operation
-                will also validate that the newly added data does not contain
-                observations for the metrics that already have observations in
-                the most recent data stored.
+                data, append the newly attached data to it, attach a new
+                Data object with the merged result, and delete the old one.
+                Afterwards, calls to `lookup_data_for_trial` will return this
+                new combined data object. This operation will also validate that the
+                newly added data does not contain observations for metrics that
+                already have observations at the same fidelity in the most recent data.
             overwrite_existing_data: By default, we keep around all data that has
                 ever been attached to the experiment. However, if we know that
                 the incoming data contains all the information we need for a given
@@ -577,10 +578,14 @@ class Experiment(Base):
             )
             if combine_with_last_data and len(current_trial_data) > 0:
                 last_ts, last_data = list(current_trial_data.items())[-1]
+                last_data_type = type(last_data)
+                merge_keys = ["trial_index", "metric_name", "arm_name"]
+                if issubclass(last_data_type, MapData):
+                    merge_keys.extend(last_data.map_keys)
                 merged = pd.merge(
                     last_data.df,
                     trial_df,
-                    on=["trial_index", "metric_name", "arm_name"],
+                    on=merge_keys,
                     how="inner",
                 )
                 if not merged.empty:
@@ -588,7 +593,7 @@ class Experiment(Base):
                         f"Last data for trial {trial_index} already contained an "
                         f"observation for metric {merged.head()['metric_name']}."
                     )
-                last_data_type = type(last_data)
+                del current_trial_data[last_ts]
                 current_trial_data[cur_time_millis] = last_data_type.from_multiple_data(
                     [
                         last_data,
@@ -634,7 +639,7 @@ class Experiment(Base):
         return self.default_data_constructor.from_multiple_data(trial_datas)
 
     def lookup_data_for_trial(
-        self, trial_index: int, merge_across_timestamps: bool = False
+        self, trial_index: int
     ) -> Tuple[AbstractDataFrameData, int]:
         """Lookup stored data for a specific trial.
 
@@ -643,8 +648,6 @@ class Experiment(Base):
 
         Args:
             trial_index: The index of the trial to lookup data for.
-            merge_across_timestamps: Whether to return Data from all timestamps instead
-                of only the latest.
 
         Returns:
             The requested data object, and its storage timestamp in milliseconds.
@@ -659,17 +662,11 @@ class Experiment(Base):
 
         storage_time = max(trial_data_dict.keys())
         trial_data = trial_data_dict[storage_time]
-        if merge_across_timestamps:
-            trial_data = trial_data.from_multiple_data(
-                data=list(trial_data_dict.values())
-            )
-            trial_data = checked_cast(AbstractDataFrameData, trial_data)
         return trial_data, storage_time
 
     def lookup_data(
         self,
         trial_indices: Optional[Iterable[int]] = None,
-        merge_across_timestamps: bool = False,
     ) -> AbstractDataFrameData:
         """Lookup data for all trials on this experiment and for either the
         specified metrics or all metrics currently on the experiment, if `metrics`
@@ -677,7 +674,6 @@ class Experiment(Base):
 
         Args:
             trial_indices: Indices of trials, for which to fetch data.
-            merge_across_timestamps: Whether to return data across all timestamps.
 
         Returns:
             Data for the experiment.
@@ -688,7 +684,6 @@ class Experiment(Base):
             data_by_trial.append(
                 self.lookup_data_for_trial(
                     trial_index=trial_index,
-                    merge_across_timestamps=merge_across_timestamps,
                 )[0]
             )
         if not data_by_trial:
