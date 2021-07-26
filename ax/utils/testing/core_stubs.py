@@ -56,7 +56,10 @@ from ax.core.types import (
     TParameterization,
 )
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
-from ax.metrics.branin_map import BraninTimestampMapMetric
+from ax.metrics.branin_map import (
+    BraninIncrementalTimestampMapMetric,
+    BraninTimestampMapMetric,
+)
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
@@ -152,19 +155,25 @@ def get_branin_experiment(
     return exp
 
 
-def get_branin_experiment_with_timestamp_map_metric(rate: Optional[float] = None):
+def get_branin_experiment_with_timestamp_map_metric(
+    rate: Optional[float] = None,
+    incremental: Optional[bool] = False,
+):
+    metric_cls = (
+        BraninTimestampMapMetric
+        if not incremental
+        else BraninIncrementalTimestampMapMetric
+    )
     return Experiment(
         name="branin_with_timestamp_map_metric",
         search_space=get_branin_search_space(),
         optimization_config=OptimizationConfig(
             objective=Objective(
-                metric=BraninTimestampMapMetric(
-                    name="branin", param_names=["x1", "x2"], rate=rate
-                ),
+                metric=metric_cls(name="branin", param_names=["x1", "x2"], rate=rate),
                 minimize=True,
             )
         ),
-        tracking_metrics=[BraninTimestampMapMetric(name="b", param_names=["x1", "x2"])],
+        tracking_metrics=[metric_cls(name="b", param_names=["x1", "x2"])],
         runner=SyntheticRunner(),
         default_data_type=DataType.MAP_DATA,
     )

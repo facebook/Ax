@@ -79,3 +79,38 @@ class BraninFidelityMapMetric(NoisyFunctionMapMetric):
         x1, x2, fidelity = x
         fidelity_penalty = random() * math.pow(1.0 - fidelity, 2.0)
         return checked_cast(float, branin(x1=x1, x2=x2)) - fidelity_penalty
+
+
+class BraninIncrementalTimestampMapMetric(BraninTimestampMapMetric):
+    def __init__(
+        self,
+        name: str,
+        param_names: List[str],
+        noise_sd: float = 0.0,
+        lower_is_better: Optional[bool] = None,
+        rate: Optional[float] = None,
+    ) -> None:
+        self.timestamp = 0
+        super().__init__(
+            name=name,
+            param_names=param_names,
+            noise_sd=noise_sd,
+            lower_is_better=lower_is_better,
+        )
+
+    @classmethod
+    def overwrite_existing_data(cls) -> bool:
+        return False
+
+    @classmethod
+    def combine_with_last_data(cls) -> bool:
+        return True
+
+    def fetch_trial_data(
+        self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
+    ) -> MapData:
+        timestamp_kwargs = {"map_keys": ["timestamp"], "timestamp": [self.timestamp]}
+        self.timestamp += 1
+        return NoisyFunctionMapMetric.fetch_trial_data(
+            self, trial=trial, noisy=noisy, **kwargs, **timestamp_kwargs
+        )

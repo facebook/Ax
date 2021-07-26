@@ -68,8 +68,16 @@ class Metric(SortableBase):
 
     @classmethod
     def overwrite_existing_data(cls) -> bool:
-        """Indicates whether we should overwrite previously cached data when
-        caching new data on the experiment."""
+        """Indicates whether, when attaching data, we should overwrite all previously
+        attached data with the new dataframe.
+        """
+        return False
+
+    @classmethod
+    def combine_with_last_data(cls) -> bool:
+        """Indicates whether, when attaching data, we should merge the new dataframe
+        into the most recently attached dataframe.
+        """
         return False
 
     @property
@@ -201,6 +209,7 @@ class Metric(SortableBase):
                 experiment.attach_data(
                     fetched_data,
                     overwrite_existing_data=cls.overwrite_existing_data(),
+                    combine_with_last_data=cls.combine_with_last_data(),
                 )
             return fetched_data
 
@@ -249,7 +258,9 @@ class Metric(SortableBase):
             )
             if not final_data.df.empty:
                 experiment.attach_data(
-                    final_data, overwrite_existing_data=cls.overwrite_existing_data()
+                    final_data,
+                    overwrite_existing_data=cls.overwrite_existing_data(),
+                    combine_with_last_data=cls.combine_with_last_data(),
                 )
             trials_data.append(final_data)
 

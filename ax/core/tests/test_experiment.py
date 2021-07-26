@@ -762,8 +762,8 @@ class ExperimentWithMapDataTest(TestCase):
     def setUp(self):
         self.experiment = get_experiment_with_map_data_type()
 
-    def _setupBraninExperiment(self, n: int) -> Experiment:
-        exp = get_branin_experiment_with_timestamp_map_metric()
+    def _setupBraninExperiment(self, n: int, incremental: bool = False) -> Experiment:
+        exp = get_branin_experiment_with_timestamp_map_metric(incremental=incremental)
         batch = exp.new_batch_trial()
         batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
         batch.run()
@@ -850,3 +850,19 @@ class ExperimentWithMapDataTest(TestCase):
         self.assertEqual(
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
         )
+
+    def testFetchTrialsDataIncremental(self):
+        exp = self._setupBraninExperiment(n=5, incremental=True)
+
+        first_data = exp.fetch_trials_data(trial_indices=[0])
+        self.assertEqual(set(first_data.df["timestamp"].values), {0})
+
+        more_data = exp.fetch_trials_data(trial_indices=[0])
+        self.assertEqual(set(more_data.df["timestamp"].values), {1})
+
+        # Since we're using BraninIncrementalTimestampMetric,
+        # which has combine_with_last_data = True,
+        # the cached data should be merged and contain both timestamps
+        self.assertEqual(len(exp.data_by_trial[0]), 1)
+        looked_up_data = exp.lookup_data()
+        self.assertEqual(set(looked_up_data.df["timestamp"].values), {0, 1})
