@@ -68,6 +68,7 @@ def gen_tutorials(
     Also create ipynb and py versions of tutorial in Docusaurus site for
     download.
     """
+    has_errors = False
     with open(os.path.join(repo_dir, "website", "tutorials.json"), "r") as infile:
         tutorial_config = json.loads(infile.read())
 
@@ -134,14 +135,22 @@ def gen_tutorials(
             ep = ExecutePreprocessor(timeout=timeout, **kwargs)
             start_time = time.time()
 
-            # execute notebook, using `tutorial_dir` as working directory
-            ep.preprocess(nb, {"metadata": {"path": tutorial_dir}})
-            total_time = time.time() - start_time
-            print(
-                "Done executing tutorial {}. Took {:.2f} seconds.".format(
-                    tid, total_time
+            # try / catch failures for now
+            # will re-raise at the end
+            try:
+                # execute notebook, using `tutorial_dir` as working directory
+                ep.preprocess(nb, {"metadata": {"path": tutorial_dir}})
+                total_time = time.time() - start_time
+                print(
+                    "Done executing tutorial {}. Took {:.2f} seconds.".format(
+                        tid, total_time
+                    )
                 )
-            )
+            except Exception as exc:
+                has_errors = True
+                print("Couldn't execute tutorial {}!".format(tid))
+                print(exc)
+                total_time = None
 
         # convert notebook to HTML
         exporter = HTMLExporter()
@@ -191,6 +200,9 @@ def gen_tutorials(
         if t_dir is not None:
             with tarfile.open(tar_path, "w:gz") as tar:
                 tar.add(tutorial_dir, arcname=os.path.basename(tutorial_dir))
+
+    if has_errors:
+        raise Exception("There are errors in tutorials, will not continue to publish")
 
 
 if __name__ == "__main__":
