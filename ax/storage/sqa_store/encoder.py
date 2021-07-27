@@ -417,7 +417,7 @@ class Encoder:
             )
             children_objectives.append(
                 objective_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
-                    id=objective.db_id,
+                    id=objective.metric.db_id,
                     name=objective.metric.name,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OBJECTIVE,

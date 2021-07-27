@@ -7,7 +7,7 @@
 import json
 from collections import OrderedDict, defaultdict
 from enum import Enum
-from typing import List, Optional, Tuple, Type, Union
+from typing import cast, List, Optional, Tuple, Type, Union
 
 import pandas as pd
 from ax.core.abstract_data import AbstractDataFrameData
@@ -45,6 +45,7 @@ from ax.modelbridge.registry import Models, ModelRegistryBase
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
 from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
+from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
@@ -62,6 +63,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
+from sqlalchemy.orm.exc import DetachedInstanceError
 
 
 class Decoder:
@@ -462,7 +464,13 @@ class Decoder:
             metric_sqa.intent == MetricIntent.MULTI_OBJECTIVE
         ):  # metric_sqa is a parent whose children are individual
             # metrics in MultiObjective
-            metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
+            try:
+                metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
+            except DetachedInstanceError:
+                metrics_sqa_children = _get_scalarized_objective_children_metrics(
+                    metric_id=metric_sqa.id, decoder=self
+                )
+
             if metrics_sqa_children is None:
                 raise SQADecodeError(  # pragma: no cover
                     "Cannot decode SQAMetric to MultiObjective \
@@ -490,7 +498,14 @@ class Decoder:
                     "Cannot decode SQAMetric to Scalarized Objective \
                     because minimize is None."
                 )
-            metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
+
+            try:
+                metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
+            except DetachedInstanceError:
+                metrics_sqa_children = _get_scalarized_objective_children_metrics(
+                    metric_id=metric_sqa.id, decoder=self
+                )
+
             if metrics_sqa_children is None:
                 raise SQADecodeError(  # pragma: no cover
                     "Cannot decode SQAMetric to Scalarized Objective \
@@ -510,8 +525,7 @@ class Decoder:
             scalarized_objective = ScalarizedObjective(
                 metrics=list(metrics),
                 weights=list(weights),
-                # pyre-fixme[6]: Expected `bool` for 3nd param but got `Optional[bool]`.
-                minimize=metric_sqa.minimize,
+                minimize=not_none(metric_sqa.minimize),
             )
             scalarized_objective.db_id = metric_sqa.id
             return scalarized_objective
@@ -543,9 +557,18 @@ class Decoder:
                     "Cannot decode SQAMetric to Scalarized OutcomeConstraint because "
                     "bound, op, or relative is None."
                 )
-            metrics_sqa_children = (
-                metric_sqa.scalarized_outcome_constraint_children_metrics
-            )
+
+            try:
+                metrics_sqa_children = (
+                    metric_sqa.scalarized_outcome_constraint_children_metrics
+                )
+            except DetachedInstanceError:
+                metrics_sqa_children = (
+                    _get_scalarized_outcome_constraint_children_metrics(
+                        metric_id=metric_sqa.id, decoder=self
+                    )
+                )
+
             if metrics_sqa_children is None:
                 raise SQADecodeError(  # pragma: no cover
                     "Cannot decode SQAMetric to Scalarized OutcomeConstraint \
@@ -565,11 +588,9 @@ class Decoder:
             scalarized_outcome_constraint = ScalarizedOutcomeConstraint(
                 metrics=list(metrics),
                 weights=list(weights),
-                # pyre-fixme[6]: Expected `float` for 2nd param but got
-                #  `Optional[float]`.
-                bound=metric_sqa.bound,
-                op=metric_sqa.op,
-                relative=metric_sqa.relative,
+                bound=not_none(metric_sqa.bound),
+                op=not_none(metric_sqa.op),
+                relative=not_none(metric_sqa.relative),
             )
             scalarized_outcome_constraint.db_id = metric_sqa.id
             return scalarized_outcome_constraint
@@ -967,3 +988,36 @@ class Decoder:
         )
         dat.db_id = data_sqa.id
         return dat
+
+
+def _get_scalarized_objective_children_metrics(
+    metric_id: int, decoder: Decoder
+) -> List[SQAMetric]:
+    """Given a metric db id, fetch its scalarized objective children metrics."""
+    metric_sqa_class = cast(
+        Type[SQAMetric],
+        decoder.config.class_to_sqa_class[Metric],
+    )
+    with session_scope() as session:
+        query = session.query(metric_sqa_class).filter_by(
+            scalarized_objective_id=metric_id
+        )
+        metrics_sqa = query.all()
+    return metrics_sqa
+
+
+def _get_scalarized_outcome_constraint_children_metrics(
+    metric_id: int, decoder: Decoder
+) -> List[SQAMetric]:
+    """Given a metric db id, fetch its scalarized outcome constraint
+    children metrics."""
+    metric_sqa_class = cast(
+        Type[SQAMetric],
+        decoder.config.class_to_sqa_class[Metric],
+    )
+    with session_scope() as session:
+        query = session.query(metric_sqa_class).filter_by(
+            scalarized_outcome_constraint_id=metric_id
+        )
+        metrics_sqa = query.all()
+    return metrics_sqa

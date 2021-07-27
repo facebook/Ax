@@ -166,8 +166,7 @@ class SQAMetric(Base):
     scalarized_objective_children_metrics = relationship(
         "SQAMetric",
         cascade="all, delete-orphan",
-        lazy="selectin",
-        join_depth=5,
+        lazy=True,
         foreign_keys=[scalarized_objective_id],
     )
 
@@ -180,8 +179,7 @@ class SQAMetric(Base):
     scalarized_outcome_constraint_children_metrics = relationship(
         "SQAMetric",
         cascade="all, delete-orphan",
-        lazy="selectin",
-        join_depth=5,
+        lazy=True,
         foreign_keys=[scalarized_outcome_constraint_id],
     )
     # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
