@@ -124,10 +124,7 @@ class Encoder:
             raise SQAEncodeError(f"Value {value} is invalid for enum {enum}.")
 
     def experiment_to_sqa(self, experiment: Experiment) -> SQAExperiment:
-        """Convert Ax Experiment to SQLAlchemy and compile a list of (object,
-        sqa_counterpart) tuples to set `db_id` on user-facing classes after
-        the conversion is complete and the SQL session is flushed (SQLAlchemy
-        classes receive their `id` attributes during `session.flush()`).
+        """Convert Ax Experiment to SQLAlchemy.
 
         In addition to creating and storing a new Experiment object, we need to
         create and store copies of the Trials, Metrics, Parameters,
@@ -298,10 +295,7 @@ class Encoder:
         self, search_space: Optional[SearchSpace]
     ) -> Tuple[List[SQAParameter], List[SQAParameterConstraint]]:
         """Convert Ax SearchSpace to a list of SQLAlchemy Parameters and
-        ParameterConstraints and compile a list of (object,
-        sqa_counterpart) tuples to set `db_id` on user-facing classes after
-        the conversion is complete and the SQL session is flushed (SQLAlchemy
-        classes receive their `id` attributes during `session.flush()`).
+        ParameterConstraints.
         """
         parameters, parameter_constraints = [], []
         if search_space is not None:
@@ -367,11 +361,7 @@ class Encoder:
         }
 
     def objective_to_sqa(self, objective: Objective) -> SQAMetric:
-        """Convert Ax Objective to SQLAlchemy and compile a list of (object,
-        sqa_counterpart) tuples to set `db_id` on user-facing classes after
-        the conversion is complete and the SQL session is flushed (SQLAlchemy
-        classes receive their `id` attributes during `session.flush()`).
-        """
+        """Convert Ax Objective to SQLAlchemy."""
         if isinstance(objective, ScalarizedObjective):
             objective_sqa = self.scalarized_objective_to_sqa(objective)
 
@@ -398,10 +388,7 @@ class Encoder:
         return checked_cast(SQAMetric, objective_sqa)
 
     def multi_objective_to_sqa(self, multi_objective: MultiObjective) -> SQAMetric:
-        """Convert Ax Multi Objective to SQLAlchemy and compile a list of (object,
-        sqa_counterpart) tuples to set `db_id` on user-facing classes after
-        the conversion is complete and the SQL session is flushed (SQLAlchemy
-        classes receive their `id` attributes during `session.flush()`).
+        """Convert Ax Multi Objective to SQLAlchemy.
 
         Returns: A parent `SQAMetric`, whose children are the `SQAMetric`-s
             corresponding to `metrics` attribute of `MultiObjective`.
@@ -442,10 +429,7 @@ class Encoder:
         return parent_metric
 
     def scalarized_objective_to_sqa(self, objective: ScalarizedObjective) -> SQAMetric:
-        """Convert Ax Scalarized Objective to SQLAlchemy and compile a list of
-        (object, sqa_counterpart) tuples to set `db_id` on user-facing classes after
-        the conversion is complete and the SQL session is flushed (SQLAlchemy
-        classes receive their `id` attributes during `session.flush()`).
+        """Convert Ax Scalarized Objective to SQLAlchemy.
 
         Returns: A parent `SQAMetric`, whose children are the `SQAMetric`-s
             corresponding to `metrics` attribute of `ScalarizedObjective`.
@@ -592,12 +576,7 @@ class Encoder:
     def optimization_config_to_sqa(
         self, optimization_config: Optional[OptimizationConfig]
     ) -> List[SQAMetric]:
-        """Convert Ax OptimizationConfig to a list of SQLAlchemy Metrics
-        and compile a list of (object, sqa_counterpart) tuples to set `db_id`
-        on user-facing classes after the conversion is complete and the SQL
-        session is flushed (SQLAlchemy classes receive their `id` attributes
-        during `session.flush()`).
-        """
+        """Convert Ax OptimizationConfig to a list of SQLAlchemy Metrics."""
         if optimization_config is None:
             return []
 
@@ -643,10 +622,7 @@ class Encoder:
     def generator_run_to_sqa(
         self, generator_run: GeneratorRun, weight: Optional[float] = None
     ) -> SQAGeneratorRun:
-        """Convert Ax GeneratorRun to SQLAlchemy and compile a list of (object,
-        sqa_counterpart) tuples to set `db_id` on user-facing classes after
-        the conversion is complete and the SQL session is flushed (SQLAlchemy
-        classes receive their `id` attributes during `session.flush()`).
+        """Convert Ax GeneratorRun to SQLAlchemy.
 
         In addition to creating and storing a new GeneratorRun object, we need to
         create and store copies of the Arms, Metrics, Parameters, and
@@ -769,10 +745,7 @@ class Encoder:
         )
 
     def trial_to_sqa(self, trial: BaseTrial) -> SQATrial:
-        """Convert Ax Trial to SQLAlchemy and compile a list of (object,
-        sqa_counterpart) tuples to set `db_id` on user-facing classes after
-        the conversion is complete and the SQL session is flushed (SQLAlchemy
-        classes receive their `id` attributes during `session.flush()`).
+        """Convert Ax Trial to SQLAlchemy.
 
         In addition to creating and storing a new Trial object, we need to
         create and store the GeneratorRuns and Runner that it owns.
