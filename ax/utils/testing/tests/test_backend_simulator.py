@@ -4,15 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import time
-
 from ax.core.base_trial import TrialStatus
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
+from mock import patch, Mock
 
 
 class BackendSimulatorTest(TestCase):
-    def test_backend_simulator(self):
+    @patch("ax.utils.testing.backend_simulator.time.time")
+    def test_backend_simulator(self, time_mock: Mock):
+        time_mock.return_value = 0.0
         dt = 0.001
         options = BackendSimulatorOptions(max_concurrency=2)
 
@@ -41,7 +42,9 @@ class BackendSimulatorTest(TestCase):
         self.assertEqual(status.running, [0, 1])
         self.assertEqual(status.failed, [])
         self.assertEqual(status.completed, [])
-        time.sleep(1.5 * dt)
+
+        # "Wait" some time
+        time_mock.return_value += 1.5 * dt
         sim.update()
         self.assertEqual(sim.num_queued, 0)
         self.assertEqual(sim.num_running, 1)
@@ -52,7 +55,7 @@ class BackendSimulatorTest(TestCase):
         state = sim.state()
 
         # let time pass and update
-        time.sleep(dt)
+        time_mock.return_value += 10 * dt
         sim.update()
         self.assertEqual(sim.num_queued, 0)
         self.assertEqual(sim.num_running, 0)
