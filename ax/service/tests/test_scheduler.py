@@ -186,7 +186,7 @@ class TestAxScheduler(TestCase):
                 "polls=10, min_seconds_before_poll=1.0, seconds_between_polls_backoff_"
                 "factor=1.5, run_trials_in_batches=False, "
                 "debug_log_run_metadata=False, early_stopping_strategy=None, "
-                "suppress_storage_errors_after_retries=False, max_pending_trials=None))"
+                "suppress_storage_errors_after_retries=False))"
             ),
         )
 
@@ -834,28 +834,3 @@ class TestAxScheduler(TestCase):
             db_settings=db_settings,
         )
         self.assertEqual(mock_save_exp.call_count, 3)
-
-    def test_max_pending_trials(self):
-        # With runners & metrics, `BareBonesTestScheduler.run_all_trials` should run.
-        scheduler = BareBonesTestScheduler(
-            experiment=self.branin_experiment,  # Has runner and metrics.
-            generation_strategy=self.sobol_GPEI_GS,
-            options=SchedulerOptions(
-                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
-                max_pending_trials=1,
-            ),
-        )
-        for idx, _ in enumerate(scheduler.run_trials_and_yield_results(max_trials=3)):
-            # Trials should be scheduled one-at-a-time w/ parallelism limit of 1.
-            self.assertEqual(
-                len(self.branin_experiment.trials), idx + 1 if idx < 3 else idx
-            )
-            # Trials also should be getting completed one-at-a-time.
-            self.assertEqual(
-                len(
-                    self.branin_experiment.trial_indices_by_status[
-                        TrialStatus.COMPLETED
-                    ]
-                ),
-                idx + 1 if idx < 3 else idx,
-            )

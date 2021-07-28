@@ -187,12 +187,6 @@ class SchedulerOptions:
             multiple times. Only use if SQL storage is not important for the given
             use case, since this will only log, but not raise, an exception if
             its encountered while saving to DB or loading from it.
-        max_pending_trials: Maximum number of pending trials the scheduler
-            can have ``STAGED`` or ``RUNNING`` at once. If ``None``, no limitation
-            will be applied to maximum number of trials pending at once, besides
-            parallelism limitations of the generation strategy
-            (``GenerationStep.max_parallelism``) and capacity limitations if
-            `poll_available_capacity` is implemented on given ``Scheduler``.
     """
 
     trial_type: Type[BaseTrial] = Trial
@@ -209,7 +203,6 @@ class SchedulerOptions:
     debug_log_run_metadata: bool = False
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None
     suppress_storage_errors_after_retries: bool = False
-    max_pending_trials: Optional[int] = None
 
 
 class Scheduler(WithDBSettingsBase, ABC):
@@ -412,23 +405,14 @@ class Scheduler(WithDBSettingsBase, ABC):
         return self.experiment.trials_by_status[TrialStatus.CANDIDATE]
 
     @property
-    def pending_trials(self) -> List[BaseTrial]:
-        """Running or staged trials on the experiment this scheduler is
-        running.
-
-        Returns:
-            List of trials that are currently running or staged.
-        """
-        return (
-            self.running_trials + self.experiment.trials_by_status[TrialStatus.STAGED]
-        )
-
-    @property
-    def has_pending_trials(self) -> bool:
+    def has_trials_in_flight(self) -> bool:
         """Whether the experiment on this scheduler currently has running or staged
         trials.
         """
-        return len(self.pending_trials) > 0
+        return (
+            len(self.running_trials) > 0
+            or len(self.experiment.trial_indices_by_status[TrialStatus.STAGED]) > 0
+        )
 
     def __repr__(self) -> str:
         """Short user-friendly string representation."""
@@ -630,7 +614,7 @@ class Scheduler(WithDBSettingsBase, ABC):
                 "option."
             )
         seconds_between_polls = not_none(self.options.init_seconds_between_polls)
-        while self.has_pending_trials and not self.poll_and_process_results():
+        while self.has_trials_in_flight and not self.poll_and_process_results():
             if seconds_between_polls > MAX_SECONDS_BETWEEN_POLLS:
                 break  # If maximum wait time reached, check the stopping
                 # criterion again and and re-attempt scheduling more trials.
@@ -749,15 +733,17 @@ class Scheduler(WithDBSettingsBase, ABC):
                 for `timeout_hours` even if stopping criterion has not been reached.
                 If set to `None`, no optimization timeout will be applied.
         """
-        if max_trials < 0:
-            raise ValueError(f"Expected `max_trials` >= 0, got {max_trials}.")
-
+        self._latest_optimization_start_timestamp = current_timestamp_in_millis()
         if timeout_hours is not None:
             if timeout_hours < 0:  # pragma: no cover
                 raise ValueError(f"Expected `timeout_hours` >= 0, got {timeout_hours}.")
             self._timeout_hours = timeout_hours
 
-        self._latest_optimization_start_timestamp = current_timestamp_in_millis()
+        if max_trials < 0:
+            raise ValueError(f"Expected `max_trials` >= 0, got {max_trials}.")
+        trials = self.experiment.trials
+        n_existing = len(self.experiment.trials)
+
         self._record_run_trials_status(
             num_preexisting_trials=None, status=RunTrialsStatus.STARTED
         )
@@ -770,8 +756,6 @@ class Scheduler(WithDBSettingsBase, ABC):
 
         # Until completion criterion is reached or `max_trials` is scheduled,
         # schedule new trials and poll existing ones in a loop.
-        trials = self.experiment.trials
-        n_existing = len(self.experiment.trials)
         while (
             not self.should_consider_optimization_complete()
             and len(trials) - n_existing < max_trials
@@ -894,7 +878,7 @@ class Scheduler(WithDBSettingsBase, ABC):
             if self._optimization_complete:
                 return False
 
-            if not self.has_pending_trials:
+            if not self.has_trials_in_flight:
                 raise SchedulerInternalError(  # pragma: no cover
                     "No trials are running but model requires more data. This is an "
                     "invalid state of the scheduler, as no more trials can be produced "
@@ -1097,6 +1081,7 @@ class Scheduler(WithDBSettingsBase, ABC):
         """Conclude optimization with waiting for anymore running trials and
         return final results via `wait_for_completed_trials_and_report_results`.
         """
+        print("HERE!!")
         self._record_optimization_complete_message()
         res = self.wait_for_completed_trials_and_report_results()
         # raise an error if the failure rate exceeds tolerance at the end of the sweep
@@ -1146,41 +1131,23 @@ class Scheduler(WithDBSettingsBase, ABC):
             - list of new candidate trials that were created in the course of
               this function (empty if no new trials were generated).
         """
-        # 1. Determine available capacity for running trials.
         if self.options.run_trials_in_batches:
-            capacity = self.poll_available_capacity()
-            if capacity is None:
+            n = self.poll_available_capacity()
+            if n is None:
                 raise UnsupportedError(
                     "Running trials in batches is supported only if "
                     "`poll_available_capacity` returns a non-null value."
                 )
-
-        else:  # Running 1 trial at a time, sequentially.
-            capacity = 1 if self.has_capacity() else 0
-
-        if capacity < 1:
-            self.logger.debug("There is no capacity to run any trials.")
-
-        # 2. Determine actual number of trials to run based on capacity,
-        # limit on pending trials and limit on total trials.
-        n = capacity
-        total_trials = self.options.total_trials
-        max_pending_trials = self.options.max_pending_trials
-
-        if total_trials is not None:
-            left_in_total = total_trials - len(self.experiment.trials_expecting_data)
-            n = min(capacity, left_in_total)
-
-        if max_pending_trials is not None:
-            max_pending_upper_bound = max_pending_trials - len(self.pending_trials)
-            if max_pending_upper_bound < 1:
-                self.logger.debug(
-                    f"`max_pending_trials={max_pending_trials}` trials are currently "
-                    "pending."
+            if self.options.total_trials:
+                n = min(
+                    n,
+                    not_none(self.options.total_trials)
+                    - len(self.experiment.trials_expecting_data),
                 )
-
-            n = min(max_pending_upper_bound, n)
-
+        else:  # Running 1 trial at a time, sequentially.
+            n = 1 if self.has_capacity() else 0
+        if n < 1:
+            self.logger.debug("There is no capacity to run any trials.")
         existing = self.candidate_trials[:n]
         n_new = min(n - len(existing), max_new_trials)
         new = self._get_next_trials(num_trials=n_new) if n_new > 0 else []
