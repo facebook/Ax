@@ -34,7 +34,7 @@ from ax.utils.common.constants import Keys, EXPERIMENT_IS_TEST_WARNING
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import not_none
 
 logger: logging.Logger = get_logger(__name__)
 
