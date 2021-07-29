@@ -6,62 +6,22 @@ title: Trial Evaluation
 There are 3 paradigms for evaluating [trials](glossary.md#trial) in Ax.
 Note: ensure that you are using the [appropriate type of trials](core.md#trial-vs-batched-trial) for your experiment, before proceeding to trial evaluation.
 
-### Synchronous
-
-In the synchronous paradigm, the user specifies an evaluation function which takes in parameters and outputs metric outcomes. This use case is supported by the [```SimpleExperiment```](/api/core.html#module-ax.core.simple_experiment) class:
+## Service API
+The [```AxClient```](/api/service.html#module-ax.service.ax_client) exposes [```get_next_trial```](/api/service.html#ax.service.ax_client.AxClient.get_next_trial), as well as [```complete_trial```](/api/service.html#ax.service.ax_client.AxClient.complete_trial).  The user is responsible for evaluating the trial parameters and passing the results to [```complete_trial```](/api/service.html#ax.service.ax_client.AxClient.complete_trial).
 
 ```python
-from ax import *
-
-def dummy_evaluation_function(
-    parameterization, # dict of parameter names to values of those parameters
-    weight=None, # optional weight argument
-):
-    # given parameterization, compute a value for each metric
-    x = parameterization["x"]
-    y = parameterization["y"]
-    objective_val = f(x, y)
-    return {"objective": objective_val}
-
-exp = SimpleExperiment(
-    name="simple_experiment",
-    search_space=SearchSpace(
-      parameters=[
-        RangeParameter(name="x", lower=0.0, upper=1.0, parameter_type=ParameterType.FLOAT),
-        RangeParameter(name="y", lower=0.0, upper=1.0, parameter_type=ParameterType.FLOAT),
-      ]
-    ),
-    evaluation_function=dummy_evaluation_function,
-    objective_name="objective",
-)
+...
+for i in range(25):
+    parameters, trial_index = ax_client.get_next_trial()
+    raw_data = evaluate_trial(parameters)
+    ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
 ```
 
-### Asynchronous
+### Evaluating Trial Parameters
 
-In the asynchronous paradigm, the trial is first deployed and the data is fetched at a later time. This is useful when evaluation happens on an external system and takes a long time to complete, such as for A/B tests. This is supported by the [```Experiment```](/api/core.html#module-ax.core.experiment) class. In this paradigm, the user specifies:
-  * [`Runner`](../api/core.html#ax.core.runner.Runner): Defines how to deploy the experiment.
-  * List of [`Metrics`](../api/core.html#ax.core.metric.Metric): Each defining how to compute/fetch data for a given metric.
+In the Service API, the [```complete_trial```](/api/service.html#ax.service.ax_client.AxClient.complete_trial) requires `raw_data` evaluated from the parameters suggested by [```get_next_trial```](/api/service.html#ax.service.ax_client.AxClient.get_next_trial).
 
-A default runner is specified on the experiment, which is attached to each trial right before deployment. Runners can also be manually added to a trial to override the experiment default.
-
-
-### Service-like
-
-It is also possible to use Ax in a service-like manner, where Ax just suggests
-[Arms](glossary.md#arm), which the client application evaluates and logs the results
-back to Ax. In this case, no runner or evaluation function is needed,
-since the evaluation is done on the client side. For more information,
-refer to [```Service```](/api/service.html) module
-reference and the [API docs](api.md).
-
-
-## Evaluation Function
-
-In synchronous cases where a parameterization can be evaluated right away (for example, when optimizing ML models locally or using a synthetic function), an evaluation function is a convenient way to automate evaluation. The arguments to an evaluation function must be:
-- `parameterization`, a mapping of parameter names to their values,
-- optionally a `weight` of the parameterization –– nullable `float` representing the fraction of available data on which the parameterization should be evaluated. For example, this could be a downsampling rate in case of hyperparameter optimization (what portion of data the ML model should be trained on for evaluation) or the percentage of users exposed to a given configuration in A/B testing. This `weight` is not used in unweighted experiments and defaults to `None`.
-
-An evaluation function can return:
+The data can be in the form of:
 - A dictionary of metric names to tuples of (mean and [SEM](glossary.md#sem))
 - A single (mean, SEM) tuple
 - A single mean
@@ -93,8 +53,54 @@ This form would be equivalent to the above, since SEM is 0:
 lambda parameterization: branin(parameterization.get("x1"), parameterization.get("x2"))
 ```
 
-For an example of an evaluation function that makes use of the `weight` argument, refer to the "Bandit Optimization" tutorial.
-## Adding Your Own Runner
+## Loop API
+The [```optimize```](/api/service.html#ax.service.managed_loop.optimize) function requires an `evaluation_function`, which accepts parameters and returns raw data in the format described above.
+It can also accept a `weight` parameter, a nullable `float` representing the fraction of available data on which the parameterization should be evaluated. For example, this could be a downsampling rate in case of hyperparameter optimization (what portion of data the ML model should be trained on for evaluation) or the percentage of users exposed to a given configuration in A/B testing. This weight is not used in unweighted experiments and defaults to `None`.
+
+## Developer API
+
+The Developer API is supported by the [```Experiment```](/api/core.html#module-ax.core.experiment) class. In this paradigm, the user specifies:
+  * [`Runner`](../api/core.html#ax.core.runner.Runner): Defines how to deploy the experiment.
+  * List of [`Metrics`](../api/core.html#ax.core.metric.Metric): Each defining how to compute/fetch data for a given objective or outcome.
+
+The experiment requires a `generator_run` to create a new trial or batch trial.  A generator run can be generated by a model.  The trial then has its own `run` and `mark_complete` methods.
+```python
+...
+sobol = Models.SOBOL(exp.search_space)
+for i in range(5):
+    trial = exp.new_trial(generator_run=sobol.gen(1))
+    trial.run()
+    trial.mark_completed()
+
+for i in range(15):
+    gpei = Models.GPEI(experiment=exp, data=exp.fetch_data())
+    generator_run = gpei.gen(1)
+    trial = exp.new_trial(generator_run=generator_run)
+    trial.run()
+    trial.mark_completed()
+```
+
+### Custom Metrics
+
+Similar to trial evaluation in the Service API, a custom metric computes a mean and SEM for each arm of a trial.  However, the metric's `fetch_trial_data` method will be called automatically by the experiment's [```fetch_data```](/api/core.html#ax.core.base_trial.BaseTrial.fetch_data) method.  If there are multiple objetives or outcomes that need to be optimized for, each needs its own metric.
+
+```python
+class MyMetric(Metric):
+    def fetch_trial_data(self, trial):
+        records = []
+        for arm_name, arm in trial.arms_by_name.items():
+            params = arm.parameters
+            records.append({
+                "arm_name": arm_name,
+                "metric_name": self.name,
+                "mean": self.foo(params["x1"], params["x2"]),
+                "sem": 0.0,
+                "trial_index": trial.index,
+            })
+        return Data(df=pd.DataFrame.from_records(records))
+```
+
+### Adding Your Own Runner
 
 In order to control how the experiment is deployed, you can add your own runner. To do so, subclass [`Runner`](../api/core.html#ax.core.runner.Runner) and implement the [`run`](../api/core.html#ax.core.runner.Runner.run) method and [`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required) property.
 
@@ -116,7 +122,7 @@ class FooRunner(Runner):
         name_to_params = {
             arm.name: arm.params for arm in trial.arms
         }
-        run_metadata = deploy_to_foo(foo_param, name_to_params)
+        run_metadata = deploy_to_foo(self.foo_param, name_to_params)
         return run_metadata
 
     @property
