@@ -80,10 +80,12 @@ def get_MOO_NEHVI(
     ),
     status_quo_features: Optional[ObservationFeatures] = None,
     use_input_warping: bool = False,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> MultiObjectiveTorchModelBridge:
     """Instantiates a multi-objective model using qNEHVI."""
+    opt_config = optimization_config or experiment.optimization_config
     # pyre-ignore: [16] `Optional` has no attribute `objective`.
-    if not isinstance(experiment.optimization_config.objective, MultiObjective):
+    if not isinstance(opt_config.objective, MultiObjective):
         raise ValueError("Multi-objective optimization requires multiple objectives.")
     if data.df.empty:  # pragma: no cover
         raise ValueError("MultiObjectiveOptimization requires non-empty data.")
@@ -106,6 +108,7 @@ def get_MOO_NEHVI(
                 },
             },
             use_input_warping=use_input_warping,
+            optimization_config=opt_config,
         ),
     )
 
