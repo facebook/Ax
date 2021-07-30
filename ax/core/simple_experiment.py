@@ -44,7 +44,7 @@ def unimplemented_evaluation_function(
 
 class SimpleExperiment(Experiment):
     """
-    Simplified experiment class with defaults.
+    [DEPRECATED] Simplified experiment class with defaults.
 
     Args:
         search_space: Parameter space.
