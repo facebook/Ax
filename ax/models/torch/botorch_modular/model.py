@@ -115,15 +115,54 @@ class BoTorchModel(TorchModel, Base):
 
     @property
     def surrogate(self) -> Surrogate:
+        """Ax ``Surrogate`` object (wrapper for BoTorch ``Model``), associated with
+        this model. Raises an error if one is not yet set.
+        """
         if not self._surrogate:
             raise ValueError("Surrogate has not yet been set.")
         return not_none(self._surrogate)
 
     @property
     def botorch_acqf_class(self) -> Type[AcquisitionFunction]:
+        """BoTorch ``AcquisitionFunction`` class, associated with this model.
+        Raises an error if one is not yet set.
+        """
         if not self._botorch_acqf_class:
             raise ValueError("BoTorch `AcquisitionFunction` has not yet been set.")
         return not_none(self._botorch_acqf_class)
+
+    @property
+    def Xs(self) -> List[Tensor]:
+        """A list of tensors, each of shape ``batch_shape x n_i x d``,
+        where `n_i` is the number of training inputs for the i-th model.
+
+        NOTE: This is an accessor for ``self.surrogate.training_data.Xs``
+        and returns it unchanged.
+        """
+        return self.surrogate.training_data.Xs
+
+    @property
+    def Ys(self) -> List[Tensor]:
+        """A list of tensors, each of shape ``batch_shape x n_i x 1``,
+        where `n_i` is the number of training observations for the i-th
+        (single-output) model.
+
+        NOTE: This is an accessor for ``self.surrogate.training_data.Ys``
+        and returns it unchanged.
+        """
+        return self.surrogate.training_data.Ys
+
+    @property
+    def Yvars(self) -> Optional[List[Tensor]]:
+        """An optional list of tensors, each of shape
+        ``batch_shape x n_i x 1``, where ``n_i`` is the number of training
+        observations of the  observation noise for the i-th  (single-output)
+        model. If `None`, the observation noise level is unobserved.
+
+        NOTE: This is an accessor for ``self.surrogate.training_data.Yvars``
+        and returns it unchanged.
+        """
+        return self.surrogate.training_data.Yvars
 
     @copy_doc(TorchModel.fit)
     def fit(
