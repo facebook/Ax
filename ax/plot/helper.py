@@ -768,7 +768,7 @@ def slice_config_to_trace(
 
     arm_res = relativize_data(arm_y, arm_sem, rel, arm_data, metric)
     arm_y_final = arm_res[0]
-    arm_sem_final = [x * 2 for x in arm_res[1]]
+    arm_sem_final = [x * 2 if x is not None else None for x in arm_res[1]]
 
     # create traces
     f_trace = {
