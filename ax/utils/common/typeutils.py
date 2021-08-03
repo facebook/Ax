@@ -121,7 +121,7 @@ def torch_type_to_str(value: Any) -> str:
     if isinstance(value, torch.dtype):
         return str(value)
     if isinstance(value, torch.device):
-        return checked_cast(str, value.type)  # pyre-fixme[16]: device has to attr. type
+        return checked_cast(str, value.type)
     raise ValueError(f"Object {value} was of unexpected torch type.")
 
 
