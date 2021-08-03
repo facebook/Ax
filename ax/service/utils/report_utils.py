@@ -21,7 +21,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
 from ax.plot.slice import plot_slice_plotly
@@ -156,19 +155,23 @@ def _get_shortest_unique_suffix_dict(
 
 
 def get_standard_plots(
-    experiment: Experiment, generation_strategy: Optional[GenerationStrategy]
+    experiment: Experiment,
+    model: Optional[ModelBridge],
+    model_transitions: Optional[List[int]] = None,
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
-    Extracts a list of plots from an Experiment and GenerationStrategy of general
+    Extracts a list of plots from an ``Experiment`` and ``ModelBridge`` of general
     interest to an Ax user. Currently not supported are
     - TODO: multi-objective optimization
     - TODO: ChoiceParameter plots
 
     Args:
-        - experiment: the Experiment from which to obtain standard plots.
-        - generation_strategy: the GenerationStrategy used to suggest trial parameters
-          in experiment
+        - experiment: The ``Experiment`` from which to obtain standard plots.
+        - model: The ``ModelBridge`` used to suggest trial parameters.
+        - data: If specified, data, to which to fit the model before generating plots.
+        - model_transitions: The arm numbers at which shifts in generation_strategy
+            occur.
 
     Returns:
         - a plot of objective value vs. trial index, to show experiment progression
@@ -205,10 +208,8 @@ def get_standard_plots(
         _get_objective_trace_plot(
             experiment=experiment,
             metric_name=not_none(experiment.optimization_config).objective.metric.name,
-            # TODO: Adjust `model_transitions` to case where custom trials are present
-            # and generation strategy does not start right away.
-            model_transitions=not_none(generation_strategy).model_transitions
-            if generation_strategy is not None
+            model_transitions=model_transitions
+            if model_transitions is not None
             else [],
             optimization_direction=(
                 "minimize"
@@ -221,8 +222,8 @@ def get_standard_plots(
     # Objective vs. parameter plot requires a `Model`, so add it only if model
     # is alrady available. In cases where initially custom trials are attached,
     # model might not yet be set on the generation strategy.
-    if generation_strategy and generation_strategy.model:
-        model = not_none(not_none(generation_strategy).model)
+    if model:
+        # TODO: Check if model can predict in favor of try/catch.
         try:
             output_plot_list.append(
                 _get_objective_v_param_plot(

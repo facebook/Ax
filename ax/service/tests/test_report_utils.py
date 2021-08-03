@@ -192,7 +192,7 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(
             len(
                 get_standard_plots(
-                    experiment=exp, generation_strategy=get_generation_strategy()
+                    experiment=exp, model=get_generation_strategy().model
                 )
             ),
             0,
@@ -204,6 +204,6 @@ class ReportUtilsTest(TestCase):
             experiment=exp,
             data=exp.fetch_data(),
         )
-        plots = get_standard_plots(experiment=exp, generation_strategy=gs)
+        plots = get_standard_plots(experiment=exp, model=gs.model)
         self.assertEqual(len(plots), 3)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
