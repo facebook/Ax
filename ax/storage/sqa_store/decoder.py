@@ -294,6 +294,8 @@ class Decoder:
                 # pyre-fixme[6]: Expected `float` for 3rd param but got
                 #  `Optional[float]`.
                 lower=parameter_sqa.lower,
+                # pyre-fixme[6]: Expected `float` for 4th param but got
+                #  `Optional[float]`.
                 upper=parameter_sqa.upper,
                 log_scale=parameter_sqa.log_scale or False,
                 digits=parameter_sqa.digits,
@@ -314,7 +316,9 @@ class Decoder:
                 values=parameter_sqa.choice_values,
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
+                # pyre-fixme[6]: Expected `bool` for 6th param but got `Optional[bool]`.
                 is_ordered=parameter_sqa.is_ordered,
+                # pyre-fixme[6]: Expected `bool` for 7th param but got `Optional[bool]`.
                 is_task=parameter_sqa.is_task,
             )
         elif parameter_sqa.domain_type == DomainType.FIXED:
@@ -544,7 +548,10 @@ class Decoder:
                 # pyre-fixme[6]: Expected `float` for 2nd param but got
                 #  `Optional[float]`.
                 bound=metric_sqa.bound,
+                # pyre-fixme[6]: Expected `ComparisonOp` for 3rd param but got
+                #  `Optional[ax.core.types.ComparisonOp]`.
                 op=metric_sqa.op,
+                # pyre-fixme[6]: Expected `bool` for 4th param but got `Optional[bool]`.
                 relative=metric_sqa.relative,
             )
         elif metric_sqa.intent == MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT:
@@ -605,6 +612,7 @@ class Decoder:
                 # pyre-fixme[6]: Expected `float` for 2nd param but got
                 #  `Optional[float]`.
                 bound=metric_sqa.bound,
+                # pyre-fixme[6]: Expected `bool` for 3rd param but got `Optional[bool]`.
                 relative=metric_sqa.relative,
                 op=metric_sqa.op,
             )
@@ -738,6 +746,10 @@ class Decoder:
             fit_time=generator_run_sqa.fit_time,
             gen_time=generator_run_sqa.gen_time,
             best_arm_predictions=best_arm_predictions,  # pyre-ignore[6]
+            # pyre-fixme[6]: Expected `Optional[Tuple[typing.Dict[str, List[float]],
+            #  typing.Dict[str, typing.Dict[str, List[float]]]]]` for 8th param but got
+            #  `Optional[typing.Tuple[Union[typing.Dict[str, List[float]],
+            #  typing.Dict[str, typing.Dict[str, List[float]]]], ...]]`.
             model_predictions=model_predictions,
             model_key=generator_run_sqa.model_key,
             model_kwargs=None

@@ -156,6 +156,8 @@ def get_NEHVI(
             "alpha", get_default_partitioning_alpha(num_objectives=num_objectives)
         ),
         qmc=kwargs.get("qmc", True),
+        # pyre-fixme[6]: Expected `Optional[int]` for 11th param but got
+        #  `Union[float, int]`.
         seed=torch.randint(1, 10000, (1,)).item(),
         ref_point=objective_thresholds.tolist(),
         marginalize_dim=kwargs.get("marginalize_dim"),
@@ -231,6 +233,8 @@ def get_EHVI(
         alpha=kwargs.get(
             "alpha", get_default_partitioning_alpha(num_objectives=num_objectives)
         ),
+        # pyre-fixme[6]: Expected `Optional[int]` for 10th param but got
+        #  `Union[float, int]`.
         seed=torch.randint(1, 10000, (1,)).item(),
         ref_point=objective_thresholds.tolist(),
         Y=Y,

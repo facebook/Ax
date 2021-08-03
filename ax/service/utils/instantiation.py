@@ -133,6 +133,9 @@ def _make_range_param(
         log_scale=checked_cast(bool, representation.get("log_scale", False)),
         digits=representation.get("digits", None),  # pyre-ignore[6]
         is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
+        # pyre-fixme[6]: Expected `Union[None, bool, float, int, str]` for 8th param
+        #  but got `Union[None, List[Union[None, bool, float, int, str]], bool, float,
+        #  int, str]`.
         target_value=representation.get("target_value", None),
     )
 
