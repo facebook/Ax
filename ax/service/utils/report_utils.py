@@ -4,8 +4,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-strict
-
 from collections import defaultdict
 from logging import Logger
 from typing import Any, Dict, List, Optional
@@ -14,6 +12,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
@@ -281,6 +280,52 @@ def exp_to_df(
     ) -> pd.DataFrame:
         return not_none(not_none(df.drop(drop_col, axis=1)).sort_values(sort_by))
 
+    def merge_trials_dict_with_df(
+        df: pd.DataFrame, trials_dict: Dict[int, Any], column_name: str
+    ) -> None:
+        """Add a column ``column_name`` to a DataFrame ``df`` containing a column
+        ``trial_index``. Each value of the new column is given by the element of
+        ``trials_dict`` indexed by ``trial_index``.
+
+        Args:
+            df: Pandas DataFrame with column ``trial_index``, to be appended with a new
+                column.
+            trials_dict: Dict mapping each ``trial_index`` to a value. The new column of
+                df will be populated with the value corresponding with the
+                ``trial_index`` of each row.
+            column_name: Name of the column to be appended to ``df``.
+        """
+
+        if "trial_index" not in df.columns:
+            raise ValueError("df must have trial_index column")
+        if any(trials_dict.values()):  # field present for any trial
+            if not all(trials_dict.values()):  # not present for all trials
+                logger.warning(
+                    f"Column {column_name} missing for some trials. "
+                    "Filling with None when missing."
+                )
+            df[column_name] = [
+                trials_dict[trial_index] for trial_index in df.trial_index
+            ]
+        else:
+            logger.warning(
+                f"Column {column_name} missing for all trials. " "Not appending column."
+            )
+
+    def get_generation_method_str(trial: BaseTrial) -> str:
+        generation_methods = {
+            not_none(generator_run._model_key)
+            for generator_run in trial.generator_runs
+            if generator_run._model_key is not None
+        }
+        # add "Manual" if any generator_runs are manual
+        if any(
+            generator_run.generator_run_type == GeneratorRunType.MANUAL.name
+            for generator_run in trial.generator_runs
+        ):
+            generation_methods.add("Manual")
+        return ", ".join(generation_methods) if generation_methods else "Unknown"
+
     # Accept Experiment and SimpleExperiment
     if isinstance(exp, MultiTypeExperiment):
         raise ValueError("Cannot transform MultiTypeExperiments to DataFrames.")
@@ -318,104 +363,54 @@ def exp_to_df(
     # Add trial status
     trials = exp.trials.items()
     trial_to_status = {index: trial.status.name for index, trial in trials}
-    arms_df["trial_status"] = [
-        trial_to_status[trial_index] for trial_index in arms_df.trial_index
-    ]
+    merge_trials_dict_with_df(
+        df=arms_df, trials_dict=trial_to_status, column_name="trial_status"
+    )
 
-    # Add generator_run model keys
-    arms_df["generator_model"] = [
-        # This accounts for the generic case that generator_runs is a list of arbitrary
-        # length. If all elements are `None`, this yields an empty string. Repeated
-        # generator models within a trial are condensed via a set comprehension.
-        ", ".join(
-            {
-                not_none(generator_run._model_key)
-                for generator_run in exp.trials[trial_index].generator_runs
-                if generator_run._model_key is not None
-            }
-        )
-        if trial_index in exp.trials
-        else ""
-        for trial_index in arms_df.trial_index
-    ]
+    # Add generation_method, accounting for the generic case that generator_runs is of
+    # arbitrary length. Repeated methods within a trial are condensed via `set` and an
+    # empty set will yield "Unknown" as the method.
+    trial_to_generation_method = {
+        trial_index: get_generation_method_str(trial) for trial_index, trial in trials
+    }
 
-    # replace all unknown generator_models (denoted by empty strings) with "Unknown"
-    arms_df["generator_model"] = [
-        "Unknown" if generator_model == "" else generator_model
-        for generator_model in arms_df["generator_model"]
-    ]
+    merge_trials_dict_with_df(
+        df=arms_df,
+        trials_dict=trial_to_generation_method,
+        column_name="generation_method",
+    )
 
     # Add any trial properties fields to arms_df
     if trial_properties_fields is not None:
-        if not (
-            isinstance(trial_properties_fields, list)
-            and all(isinstance(field, str) for field in trial_properties_fields)
-        ):
-            raise ValueError(
-                "trial_properties_fields must be List[str] or None. "
-                f"Got {trial_properties_fields}"
-            )
-
         # add trial._properties fields
         for field in trial_properties_fields:
             trial_to_properties_field = {
-                index: (
+                trial_index: (
                     trial._properties[field] if field in trial._properties else None
                 )
-                for index, trial in trials
+                for trial_index, trial in trials
             }
-            if any(trial_to_properties_field.values()):  # field present for any trial
-                if not all(
-                    trial_to_properties_field.values()
-                ):  # not present for all trials
-                    logger.warning(
-                        f"Field {field} missing for some trials' properties. "
-                        "Returning None when missing."
-                    )
-                arms_df["trial_properties_" + field] = [
-                    trial_to_properties_field[key] for key in arms_df.trial_index
-                ]
-            else:
-                logger.warning(
-                    f"Field {field} missing for all trials' properties. "
-                    "Not appending column."
-                )
+            merge_trials_dict_with_df(
+                df=arms_df,
+                trials_dict=trial_to_properties_field,
+                column_name="trial_properties_" + field,
+            )
 
     # Add any run_metadata fields to arms_df
     if run_metadata_fields is not None:
-        if not (
-            isinstance(run_metadata_fields, list)
-            and all(isinstance(field, str) for field in run_metadata_fields)
-        ):
-            raise ValueError(
-                "run_metadata_fields must be List[str] or None. "
-                f"Got {run_metadata_fields}"
-            )
-
         # add run_metadata fields
         for field in run_metadata_fields:
             trial_to_metadata_field = {
-                index: (
+                trial_index: (
                     trial.run_metadata[field] if field in trial.run_metadata else None
                 )
-                for index, trial in trials
+                for trial_index, trial in trials
             }
-            if any(trial_to_metadata_field.values()):  # field present for any trial
-                if not all(
-                    trial_to_metadata_field.values()
-                ):  # not present for all trials
-                    logger.warning(
-                        f"Field {field} missing for some trials' run_metadata. "
-                        "Returning None when missing."
-                    )
-                arms_df[field] = [
-                    trial_to_metadata_field[key] for key in arms_df.trial_index
-                ]
-            else:
-                logger.warning(
-                    f"Field {field} missing for all trials' run_metadata. "
-                    "Not appending column."
-                )
+            merge_trials_dict_with_df(
+                df=arms_df,
+                trials_dict=trial_to_metadata_field,
+                column_name=field,
+            )
 
     if len(results.index) == 0:
         logger.info(
