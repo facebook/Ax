@@ -864,7 +864,9 @@ class Experiment(Base):
         self._trials[index] = trial
         return index
 
-    def warm_start_from_old_experiment(self, old_experiment: Experiment) -> List[Trial]:
+    def warm_start_from_old_experiment(
+        self, old_experiment: Experiment, copy_run_metadata: bool = False
+    ) -> List[Trial]:
         """Copy all completed trials with data from an old Ax expeirment to this one.
         This function checks that the parameters of each trial are members of the
         current experiment's search_space.
@@ -874,6 +876,7 @@ class Experiment(Base):
 
         Args:
             old_experiment: The experiment from which to transfer trials and data
+            copy_run_metadata: whether to copy the run_metadata from the old experiment
 
         Returns:
             List of trials successfully copied from old_experiment to this one
@@ -931,6 +934,8 @@ class Experiment(Base):
                 # as completed.
                 self.attach_data(data=Data(df=new_df))
                 new_trial.mark_completed()
+                if copy_run_metadata:
+                    new_trial._run_metadata = trial.run_metadata
                 copied_trials.append(new_trial)
 
         if self._name is not None:
