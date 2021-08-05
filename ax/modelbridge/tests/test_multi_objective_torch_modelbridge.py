@@ -29,6 +29,9 @@ from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.registry import Cont_X_trans, Y_trans, ST_MTGP_trans
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.models.torch.botorch_moo_defaults import (
+    infer_objective_thresholds,
+)
 from ax.models.torch.botorch_moo_defaults import pareto_frontier_evaluator
 from ax.service.utils.report_utils import exp_to_df
 from ax.utils.common.testutils import TestCase
@@ -408,10 +411,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         )
         with ExitStack() as es:
             mock_model_infer_obj_t = es.enter_context(
-                patch.object(
-                    modelbridge.model,
-                    "infer_objective_thresholds",
-                    wraps=modelbridge.model.infer_objective_thresholds,
+                patch(
+                    "ax.modelbridge.multi_objective_torch.infer_objective_thresholds",
+                    wraps=infer_objective_thresholds,
                 )
             )
             mock_get_transformed_gen_args = es.enter_context(
@@ -518,10 +520,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             )
         with ExitStack() as es:
             mock_model_infer_obj_t = es.enter_context(
-                patch.object(
-                    modelbridge.model,
-                    "infer_objective_thresholds",
-                    wraps=modelbridge.model.infer_objective_thresholds,
+                patch(
+                    "ax.modelbridge.multi_objective_torch.infer_objective_thresholds",
+                    wraps=infer_objective_thresholds,
                 )
             )
             mock_untransform_objective_thresholds = es.enter_context(

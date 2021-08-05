@@ -279,7 +279,6 @@ class BoTorchModel(TorchModel, Base):
             pending_observations=pending_observations,
             acq_options=acq_options,
         )
-
         botorch_rounding_func = get_rounding_func(rounding_func)
         candidates, expected_acquisition_value = acqf.optimize(
             n=n,
@@ -291,10 +290,15 @@ class BoTorchModel(TorchModel, Base):
             rounding_func=botorch_rounding_func,
             optimizer_options=checked_cast(dict, opt_options),
         )
+        gen_metadata: TGenMetadata = {
+            Keys.EXPECTED_ACQF_VAL: expected_acquisition_value.tolist()
+        }
+        if objective_weights.nonzero().numel() > 1:  # pyre-ignore [16]
+            gen_metadata["objective_thresholds"] = acqf.objective_thresholds
         return (
             candidates.detach().cpu(),
             torch.ones(n, dtype=self.surrogate.dtype),
-            {Keys.EXPECTED_ACQF_VAL: expected_acquisition_value.tolist()},
+            gen_metadata,
             None,
         )
 
@@ -428,11 +432,11 @@ class BoTorchModel(TorchModel, Base):
         pending_observations: Optional[List[Tensor]] = None,
         acq_options: Optional[Dict[str, Any]] = None,
     ) -> Acquisition:
-        """Set an BoTorch acquisition function class for this model if needed and
+        """Set a BoTorch acquisition function class for this model if needed and
         instantiate it.
 
         Returns:
-            BoTorch ``AcquisitionFunction`` instance.
+            A BoTorch ``AcquisitionFunction`` instance.
         """
         if not self._botorch_acqf_class:
             self._botorch_acqf_class = choose_botorch_acqf_class(
@@ -442,7 +446,6 @@ class BoTorchModel(TorchModel, Base):
                 fixed_features=fixed_features,
                 pending_observations=pending_observations,
             )
-
         return self.acquisition_class(
             surrogate=self.surrogate,
             botorch_acqf_class=self.botorch_acqf_class,

@@ -28,6 +28,7 @@ from ax.models.torch.botorch_moo_defaults import (
     get_NEHVI,
     pareto_frontier_evaluator,
     scipy_optimizer_list,
+    infer_objective_thresholds,
 )
 from ax.models.torch.frontier_utils import TFrontierEvaluator
 from ax.models.torch.utils import (
@@ -36,7 +37,6 @@ from ax.models.torch.utils import (
     randomize_objective_weights,
     subset_model,
 )
-from ax.models.torch.utils import get_outcome_constraint_transforms
 from ax.models.torch_base import TorchModel
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
@@ -44,8 +44,6 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
-from botorch.utils.multi_objective.hypervolume import infer_reference_point
-from botorch.utils.multi_objective.pareto import is_non_dominated
 from torch import Tensor
 
 
@@ -232,82 +230,6 @@ class MultiObjectiveBotorchModel(BotorchModel):
         self.fidelity_features: List[int] = []
         self.metric_names: List[str] = []
 
-    def infer_objective_thresholds(
-        self,
-        objective_weights: Tensor,  # objective_directions
-        bounds: Optional[List[Tuple[float, float]]] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        X_observed: Optional[Tensor] = None,
-        model: Optional[Model] = None,
-        subset_idcs: Optional[Tensor] = None,
-    ) -> Tensor:
-        """Infer objective thresholds.
-
-        Returns:
-            A `m`-dim tensor of objective thresholds, where the objective
-                threshold is `nan` if the outcome is not an objective.
-        """
-        if X_observed is None:
-            if bounds is None:
-                raise ValueError(
-                    "bounds is required if X_observed is None."
-                )  # pragma: nocover
-            _, X_observed = _get_X_pending_and_observed(
-                Xs=self.Xs,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                bounds=bounds,
-                linear_constraints=linear_constraints,
-                fixed_features=fixed_features,
-            )
-        if model is not None:
-            if subset_idcs is None:
-                raise ValueError(
-                    "subset_idcs must be provided if the model is provided."
-                )  # pragma: nocover
-        else:
-            # subset the model
-            subset_model_results = subset_model(
-                model=self.model,  # pyre-ignore [6]
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-            )
-            model = subset_model_results.model
-            objective_weights = subset_model_results.objective_weights
-            outcome_constraints = subset_model_results.outcome_constraints
-            subset_idcs = subset_model_results.indices
-        with torch.no_grad():
-            pred = not_none(model).posterior(not_none(X_observed)).mean
-        if outcome_constraints is not None:
-            cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
-            # pyre-ignore [16]
-            feas = torch.stack([c(pred) <= 0 for c in cons_tfs], dim=-1).all(dim=-1)
-            pred = pred[feas]
-        if pred.shape[0] == 0:
-            raise AxError("There are no feasible observed points.")
-        # pyre-ignore [16]
-        obj_mask = objective_weights.nonzero().view(-1)
-        obj_weights_subset = objective_weights[obj_mask]
-        obj = pred[..., obj_mask] * obj_weights_subset
-        pareto_obj = obj[is_non_dominated(obj)]
-        objective_thresholds = infer_reference_point(
-            pareto_Y=pareto_obj,
-            scale=0.1,
-        )
-        # multiply by objective weights to return objective thresholds in the
-        # unweighted space
-        objective_thresholds = objective_thresholds * obj_weights_subset
-        full_objective_thresholds = torch.full(
-            (len(self.metric_names),),
-            float("nan"),
-            dtype=objective_weights.dtype,
-            device=objective_weights.device,
-        )
-        full_objective_thresholds[subset_idcs] = objective_thresholds.clone()
-        return full_objective_thresholds
-
     @copy_doc(TorchModel.gen)
     def gen(
         self,
@@ -352,8 +274,11 @@ class MultiObjectiveBotorchModel(BotorchModel):
 
         model = not_none(self.model)
         full_objective_thresholds = objective_thresholds
+        full_objective_weights = objective_weights
+        full_outcome_constraints = outcome_constraints
         # subset model only to the outcomes we need for the optimization
         if options.get(Keys.SUBSET_MODEL, True):
+            full_objective_weights
             subset_model_results = subset_model(
                 model=model,
                 objective_weights=objective_weights,
@@ -366,22 +291,21 @@ class MultiObjectiveBotorchModel(BotorchModel):
             objective_thresholds = subset_model_results.objective_thresholds
             idcs = subset_model_results.indices
         else:
-            idcs = torch.arange(
-                objective_weights.shape[0],
-                dtype=objective_weights.dtype,
-                device=objective_weights.device,
-            )
+            idcs = None
         if objective_thresholds is None:
-            full_objective_thresholds = self.infer_objective_thresholds(
-                X_observed=not_none(X_observed),
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
+            full_objective_thresholds = infer_objective_thresholds(
                 model=model,
+                X_observed=not_none(X_observed),
+                objective_weights=full_objective_weights,
+                outcome_constraints=full_outcome_constraints,
                 subset_idcs=idcs,
             )
-
             # subset the objective thresholds
-            objective_thresholds = full_objective_thresholds[idcs].clone()
+            objective_thresholds = (
+                full_objective_thresholds
+                if idcs is None
+                else full_objective_thresholds[idcs].clone()
+            )
         else:
             full_objective_thresholds = objective_thresholds
 

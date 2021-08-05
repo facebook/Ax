@@ -21,6 +21,12 @@ References
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
+from ax.exceptions.core import AxError
+from ax.models.torch.utils import (
+    _get_X_pending_and_observed,
+    _to_inequality_constraints,
+    subset_model,
+)
 from ax.models.torch.utils import (  # noqa F40
     _to_inequality_constraints,
     get_outcome_constraint_transforms,
@@ -28,6 +34,7 @@ from ax.models.torch.utils import (  # noqa F40
 )
 from ax.models.torch_base import TorchModel
 from ax.utils.common.constants import Keys
+from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.multi_objective.utils import get_default_partitioning_alpha
@@ -36,9 +43,9 @@ from botorch.acquisition.utils import (
 )
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf_list
+from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.pareto import is_non_dominated
 from torch import Tensor
-
 
 DEFAULT_EHVI_MC_SAMPLES = 128
 
@@ -334,6 +341,9 @@ def pareto_frontier_evaluator(
     """
     if X is not None:
         Y, Yvar = model.predict(X)
+        # model.predict returns cpu tensors
+        Y = Y.to(X.device)
+        Yvar = Yvar.to(X.device)
     elif Y is None or Yvar is None:
         raise ValueError(
             "Requires `X` to predict or both `Y` and `Yvar` to select a subset of "
@@ -350,7 +360,11 @@ def pareto_frontier_evaluator(
         objective_thresholds=(
             objective_thresholds
             if objective_thresholds is not None
-            else torch.zeros(objective_weights.shape)
+            else torch.zeros(
+                objective_weights.shape,
+                dtype=objective_weights.dtype,
+                device=objective_weights.device,
+            )
         ),
     )
     Y_obj = obj(Y)
@@ -377,7 +391,7 @@ def pareto_frontier_evaluator(
     if Y.shape[0] == 0:
         # if there are no feasible points that are better than the reference point
         # return empty tensors
-        return Y, Yvar, indx_frontier
+        return Y.cpu(), Yvar.cpu(), indx_frontier.cpu()
 
     # calculate pareto front with only objective outcomes:
     frontier_mask = is_non_dominated(Y_obj)
@@ -386,4 +400,133 @@ def pareto_frontier_evaluator(
     Y_frontier = Y[frontier_mask]
     Yvar_frontier = Yvar[frontier_mask]
     indx_frontier = indx_frontier[frontier_mask]
-    return Y_frontier, Yvar_frontier, indx_frontier
+    return Y_frontier.cpu(), Yvar_frontier.cpu(), indx_frontier.cpu()
+
+
+def infer_objective_thresholds(
+    model: Model,
+    objective_weights: Tensor,  # objective_directions
+    bounds: Optional[List[Tuple[float, float]]] = None,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    fixed_features: Optional[Dict[int, float]] = None,
+    subset_idcs: Optional[Tensor] = None,
+    Xs: Optional[List[Tensor]] = None,
+    X_observed: Optional[Tensor] = None,
+) -> Tensor:
+    """Infer objective thresholds.
+
+    This method uses the model-estimated Pareto frontier over the in-sample points
+    to infer absolute (not relativized) objective thresholds.
+
+    This uses a heuristic that sets the objective threshold to be a scaled nadir
+    point, where the nadir point is scaled back based on the range of each
+    objective across the current in-sample Pareto frontier.
+
+    See `botorch.utils.multi_objective.hypervolume.infer_reference_point` for
+    details on the heuristic.
+
+    Args:
+        model: A fitted botorch Model.
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights. These should not
+            be subsetted.
+        bounds: A list of (lower, upper) tuples for each column of X.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b. These should not be subsetted.
+        linear_constraints: A tuple of (A, b). For k linear constraints on
+            d-dimensional x, A is (k x d) and b is (k x 1) such that
+            A x <= b.
+        fixed_features: A map {feature_index: value} for features that
+            should be fixed to a particular value during generation.
+        subset_idcs: The indices of the outcomes that are modeled by the
+            provided model. If subset_idcs not None, this method infers
+            whether the model is subsetted.
+        Xs: A list of m (k_i x d) feature tensors X. Number of rows k_i can
+            vary from i=1,...,m.
+        X_observed: A `n x d`-dim tensor of in-sample points to use for
+            determining the current in-sample Pareto frontier.
+
+    Returns:
+        A `m`-dim tensor of objective thresholds, where the objective
+            threshold is `nan` if the outcome is not an objective.
+    """
+    if X_observed is None:
+        if bounds is None:
+            raise ValueError("bounds is required if X_observed is None.")
+        elif Xs is None:
+            raise ValueError("Xs is required if X_observed is None.")
+        _, X_observed = _get_X_pending_and_observed(
+            Xs=Xs,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            bounds=bounds,
+            linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
+        )
+    num_outcomes = objective_weights.shape[0]
+    if subset_idcs is None:
+        # check if only a subset of outcomes are modeled
+        nonzero = objective_weights != 0
+        if outcome_constraints is not None:
+            A, _ = outcome_constraints
+            nonzero = nonzero | torch.any(A != 0, dim=0)
+        expected_subset_idcs = nonzero.nonzero().view(-1)  # pyre-ignore [16]
+        if model.num_outputs > expected_subset_idcs.numel():
+            # subset the model so that we only compute the posterior
+            # over the relevant outcomes
+            subset_model_results = subset_model(
+                model=model,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+            )
+            model = subset_model_results.model
+            objective_weights = subset_model_results.objective_weights
+            outcome_constraints = subset_model_results.outcome_constraints
+            subset_idcs = subset_model_results.indices
+        else:
+            # model is already subsetted.
+            subset_idcs = expected_subset_idcs
+            # subset objective weights and outcome constraints
+            objective_weights = objective_weights[subset_idcs]
+            if outcome_constraints is not None:
+                outcome_constraints = (
+                    outcome_constraints[0][:, subset_idcs],
+                    outcome_constraints[1],
+                )
+    else:
+        objective_weights = objective_weights[subset_idcs]
+        if outcome_constraints is not None:
+            outcome_constraints = (
+                outcome_constraints[0][:, subset_idcs],
+                outcome_constraints[1],
+            )
+    with torch.no_grad():
+        pred = not_none(model).posterior(not_none(X_observed)).mean
+    if outcome_constraints is not None:
+        cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
+        # pyre-ignore [16]
+        feas = torch.stack([c(pred) <= 0 for c in cons_tfs], dim=-1).all(dim=-1)
+        pred = pred[feas]
+    if pred.shape[0] == 0:
+        raise AxError("There are no feasible observed points.")
+    obj_mask = objective_weights.nonzero().view(-1)
+    obj_weights_subset = objective_weights[obj_mask]
+    obj = pred[..., obj_mask] * obj_weights_subset
+    pareto_obj = obj[is_non_dominated(obj)]
+    objective_thresholds = infer_reference_point(
+        pareto_Y=pareto_obj,
+        scale=0.1,
+    )
+    # multiply by objective weights to return objective thresholds in the
+    # unweighted space
+    objective_thresholds = objective_thresholds * obj_weights_subset
+    full_objective_thresholds = torch.full(
+        (num_outcomes,),
+        float("nan"),
+        dtype=objective_weights.dtype,
+        device=objective_weights.device,
+    )
+    full_objective_thresholds[subset_idcs] = objective_thresholds.clone()
+    return full_objective_thresholds

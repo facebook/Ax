@@ -10,7 +10,6 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.models.base import Model as BaseModel
-from botorch.models.model import Model
 from torch import Tensor
 
 
@@ -229,35 +228,3 @@ class TorchModel(BaseModel):
             A single-element tensor with the acquisition value for these points.
         """
         raise NotImplementedError  # pragma: nocover
-
-    def infer_objective_thresholds(
-        self,
-        objective_weights: Tensor,  # objective_directions
-        bounds: Optional[List[Tuple[float, float]]] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        X_observed: Optional[Tensor] = None,
-        model: Optional[Model] = None,
-        subset_idcs: Optional[Tensor] = None,
-    ) -> Tensor:
-        """Infer objective thresholds.
-
-        Args:
-            objective_weights: The objective is to maximize a weighted sum of
-                the columns of f(x). These are the weights.
-            bounds: A list of (lower, upper) tuples for each column of X.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints
-                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                A f(x) <= b.
-            linear_constraints: A tuple of (A, b). For k linear constraints on
-                d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b.
-            fixed_features: A map {feature_index: value} for features that
-                should be fixed to a particular value during generation.
-            X_observed: A `n x d`-dim tensor of observed in-sample points
-            model: The model
-            subset_idcs: The indices of the outcomes are that are used in the
-                optimization config (if the model has been subset'd).
-        """
-        raise NotImplementedError
