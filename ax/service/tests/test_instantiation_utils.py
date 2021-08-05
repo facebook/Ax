@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.metric import Metric
-from ax.core.objective import Objective, MultiObjective
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.exceptions.core import UnsupportedError
 from ax.service.utils.instantiation import (
@@ -166,7 +165,7 @@ class TestRawDataToEvaluation(TestCase):
         with self.assertRaises(ValueError):
             raw_data_to_evaluation(
                 raw_data={"arm_0": {"objective_a": 6}},
-                objective=Objective(metric=Metric(name="objective_a")),
+                metric_names=["objective_a"],
             )
 
     def test_it_converts_to_floats_in_dict_and_leaves_tuples(self):
@@ -176,12 +175,7 @@ class TestRawDataToEvaluation(TestCase):
                 "objective_b": 1.0,
                 "objective_c": ("some", "tuple"),
             },
-            objective=MultiObjective(
-                objectives=[
-                    Objective(metric=Metric(name="objective_a")),
-                    Objective(metric=Metric(name="objective_b")),
-                ]
-            ),
+            metric_names=["objective_a", "objective_b"],
         )
         self.assertEqual(result["objective_a"], (6.0, None))
         self.assertEqual(result["objective_b"], (1.0, None))
@@ -191,26 +185,21 @@ class TestRawDataToEvaluation(TestCase):
         with self.assertRaises(ValueError):
             raw_data_to_evaluation(
                 raw_data={"objective_a": [6.0, None]},
-                objective=Objective(metric=Metric(name="objective_a")),
+                metric_names=["objective_a"],
             )
 
     def test_it_requires_a_dict_for_multi_objectives(self):
         with self.assertRaises(ValueError):
             raw_data_to_evaluation(
                 raw_data=(6.0, None),
-                objective=MultiObjective(
-                    objectives=[
-                        Objective(metric=Metric(name="objective_a")),
-                        Objective(metric=Metric(name="objective_b")),
-                    ]
-                ),
+                metric_names=["objective_a", "objective_b"],
             )
 
     def test_it_accepts_a_list_for_single_objectives(self):
         raw_data = [({"arm__0": {}}, {"objective_a": (1.4, None)})]
         result = raw_data_to_evaluation(
             raw_data=raw_data,
-            objective=Objective(metric=Metric(name="objective_a")),
+            metric_names=["objective_a"],
         )
         self.assertEqual(raw_data, result)
 
@@ -218,21 +207,21 @@ class TestRawDataToEvaluation(TestCase):
         raw_data = (1.4, None)
         result = raw_data_to_evaluation(
             raw_data=raw_data,
-            objective=Objective(metric=Metric(name="objective_a")),
+            metric_names=["objective_a"],
         )
         self.assertEqual(result["objective_a"], raw_data)
 
     def test_it_turns_an_int_into_a_dict_of_tuple(self):
         result = raw_data_to_evaluation(
             raw_data=1,
-            objective=Objective(metric=Metric(name="objective_a")),
+            metric_names=["objective_a"],
         )
         self.assertEqual(result["objective_a"], (1.0, None))
 
     def test_it_turns_a_float_into_a_dict_of_tuple(self):
         result = raw_data_to_evaluation(
             raw_data=1.6,
-            objective=Objective(metric=Metric(name="objective_a")),
+            metric_names=["objective_a"],
         )
         self.assertEqual(result["objective_a"], (1.6, None))
 
@@ -240,5 +229,5 @@ class TestRawDataToEvaluation(TestCase):
         with self.assertRaises(ValueError):
             raw_data_to_evaluation(
                 raw_data="1.6",
-                objective=Objective(metric=Metric(name="objective_a")),
+                metric_names=["objective_a"],
             )

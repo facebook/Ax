@@ -6,7 +6,7 @@
 
 import enum
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union, cast
+from typing import Tuple, Dict, List, Optional, Union, cast
 
 import numpy as np
 from ax.core.abstract_data import AbstractDataFrameData
@@ -623,7 +623,7 @@ def make_experiment(
 
 def raw_data_to_evaluation(
     raw_data: TEvaluationOutcome,
-    objective: Objective,
+    metric_names: List[str],
     start_time: Optional[int] = None,
     end_time: Optional[int] = None,
 ) -> TEvaluationOutcome:
@@ -647,7 +647,7 @@ def raw_data_to_evaluation(
                     )
                 raw_data[metric_name] = (float(dat), None)
         return raw_data
-    elif isinstance(objective, MultiObjective):
+    elif len(metric_names) > 1:
         raise ValueError(
             "Raw data must be a dictionary of metric names to mean "
             "for multi-objective optimizations."
@@ -655,11 +655,11 @@ def raw_data_to_evaluation(
     elif isinstance(raw_data, list):
         return raw_data
     elif isinstance(raw_data, tuple):
-        return {objective.metric.name: raw_data}
+        return {metric_names[0]: raw_data}
     elif isinstance(raw_data, (float, int)):
-        return {objective.metric.name: (raw_data, None)}
+        return {metric_names[0]: (raw_data, None)}
     elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
-        return {objective.metric.name: (numpy_type_to_python_type(raw_data), None)}
+        return {metric_names[0]: (numpy_type_to_python_type(raw_data), None)}
     else:
         raise ValueError(
             "Raw data has an invalid type. The data must either be in the form "
@@ -668,13 +668,14 @@ def raw_data_to_evaluation(
         )
 
 
-def data_from_evaluations(
-    evaluations: Dict[str, TEvaluationOutcome],
+def data_and_evaluations_from_raw_data(
+    raw_data: Dict[str, TEvaluationOutcome],
+    metric_names: List[str],
     trial_index: int,
     sample_sizes: Dict[str, int],
     start_time: Optional[int] = None,
     end_time: Optional[int] = None,
-) -> AbstractDataFrameData:
+) -> Tuple[Dict[str, TEvaluationOutcome], AbstractDataFrameData]:
     """Transforms evaluations into Ax Data.
 
     Each evaluation is either a trial evaluation: {metric_name -> (mean, SEM)}
@@ -682,7 +683,8 @@ def data_from_evaluations(
     [(fidelities, {metric_name -> (mean, SEM)})].
 
     Args:
-        evalutions: Mapping from arm name to evaluation.
+        raw_data: Mapping from arm name to raw_data.
+        metric_names: Names of metrics used to transform raw data to evaluations.
         trial_index: Index of the trial, for which the evaluations are.
         sample_sizes: Number of samples collected for each arm, may be empty
             if unavailable.
@@ -691,6 +693,15 @@ def data_from_evaluations(
         end_time: Optional end time of run of the trial that produced this
             data, in milliseconds.
     """
+    evaluations = {
+        arm_name: raw_data_to_evaluation(
+            raw_data=raw_data[arm_name],
+            metric_names=metric_names,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        for arm_name in raw_data
+    }
     if all(isinstance(evaluations[x], dict) for x in evaluations.keys()):
         # All evaluations are no-fidelity evaluations.
         data = Data.from_evaluations(
@@ -711,7 +722,7 @@ def data_from_evaluations(
             "Evaluations included a mixture of no-fidelity and with-fidelity "
             "evaluations, which is not currently supported."
         )
-    return data
+    return evaluations, data
 
 
 def build_objective_threshold(

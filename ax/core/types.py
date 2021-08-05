@@ -26,8 +26,11 @@ TModelPredict = Tuple[TModelMean, TModelCov]
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
 TModelPredictArm = Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]
 
+FloatLike = Union[float, np.floating, np.integer]
+SingleMetricDataTuple = Tuple[FloatLike, Optional[FloatLike]]
+SingleMetricData = Union[FloatLike, Tuple[FloatLike, Optional[FloatLike]]]
 # 1-arm `Trial` evaluation data: {metric_name -> (mean, standard error)}}.
-TTrialEvaluation = Dict[str, Tuple[float, Optional[float]]]
+TTrialEvaluation = Dict[str, SingleMetricData]
 
 # 1-arm evaluation data with trace fidelities
 TFidelityTrialEvaluation = List[Tuple[TParameterization, TTrialEvaluation]]
@@ -41,10 +44,10 @@ TMapTrialEvaluation = List[Tuple[TMapDict, TTrialEvaluation]]
 # 2) (mean, standard error) and we assume metric name == objective name
 # 3) only the mean, and we assume metric name == objective name and standard error == 0
 # 4) [({fidelity_param -> value}, {metric_name} -> (mean, standard error))]
+
 TEvaluationOutcome = Union[
     TTrialEvaluation,
-    Tuple[float, Optional[float]],
-    float,
+    SingleMetricData,
     TFidelityTrialEvaluation,
     TMapTrialEvaluation,
 ]

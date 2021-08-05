@@ -4,10 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Dict
+
 import numpy as np
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import (
     checked_cast,
+    checked_cast_complex,
     checked_cast_dict,
     checked_cast_list,
     checked_cast_optional,
@@ -26,6 +29,12 @@ class TestTypeUtils(TestCase):
         self.assertEqual(checked_cast(float, 2.0), 2.0)
         with self.assertRaises(ValueError):
             checked_cast(float, 2)
+
+    def test_checked_cast_complex(self):
+        t = Dict[int, str]
+        self.assertEqual(checked_cast_complex(t, {1: "one"}), {1: "one"})
+        with self.assertRaises(ValueError):
+            checked_cast_complex(t, {"one": 1})
 
     def test_checked_cast_list(self):
         self.assertEqual(checked_cast_list(float, [1.0, 2.0]), [1.0, 2.0])

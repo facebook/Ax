@@ -703,7 +703,9 @@ class TestAxClient(TestCase):
             parameterization, trial_index = ax_client.get_next_trial()
             x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(trial_index, raw_data=(branin(x, y), 0.0))
-        with self.assertRaisesRegex(ValueError, "Raw data has an invalid type"):
+        with self.assertRaisesRegex(
+            ValueError, AxClient.TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE
+        ):
             ax_client.update_trial_data(trial_index, raw_data="invalid_data")
 
     def test_raw_data_format_with_map_results(self):
