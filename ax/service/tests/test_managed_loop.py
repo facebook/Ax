@@ -146,11 +146,11 @@ class TestManagedLoop(TestCase):
         bp, vals = loop.full_run().get_best_point()
         branin_calls = batch_branin.call_args_list
         self.assertTrue(
-            all(len(call.args) == 2 for call in branin_calls),
+            all(len(args) == 2 for args, _ in branin_calls),
             branin_calls,
         )
         self.assertTrue(
-            all(type(call.args[1]) is np.float64 for call in branin_calls),
+            all(type(args[1]) is np.float64 for args, _ in branin_calls),
             branin_calls,
         )
         self.assertIn("x1", bp)
