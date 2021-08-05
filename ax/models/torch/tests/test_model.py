@@ -4,8 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from contextlib import ExitStack
 from unittest import mock
 
+import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
@@ -92,18 +94,21 @@ class BoTorchModelTest(TestCase):
         self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
         self.model_gen_options = {Keys.OPTIMIZER_KWARGS: self.optimizer_options}
         self.objective_weights = torch.tensor([1.0], **tkwargs)
-        self.moo_objective_weights = torch.tensor([1.0, 1.5], **tkwargs)
-        self.moo_objective_thresholds = torch.tensor([0.5, 1.5], **tkwargs)
+        self.moo_objective_weights = torch.tensor([1.0, 1.5, 0.0], **tkwargs)
+        self.moo_objective_thresholds = torch.tensor(
+            [0.5, 1.5, float("nan")], **tkwargs
+        )
         self.outcome_constraints = None
         self.linear_constraints = None
         self.fixed_features = None
         self.pending_observations = None
         self.rounding_func = "func"
         self.moo_training_data = TrainingData(
-            Xs=self.Xs * 2,
-            Ys=self.non_block_design_training_data.Ys,
-            Yvars=self.Yvars * 2,
+            Xs=self.Xs * 3,
+            Ys=self.non_block_design_training_data.Ys + self.Ys,
+            Yvars=self.Yvars * 3,
         )
+        self.moo_metric_names = ["y1", "y2", "y3"]
 
     def test_init(self):
         # Default model with no specifications.
@@ -510,11 +515,11 @@ class BoTorchModelTest(TestCase):
             Ys=self.moo_training_data.Ys,
             Yvars=self.moo_training_data.Yvars,
             search_space_digest=self.search_space_digest,
-            metric_names=self.metric_names_for_list_surrogate,
+            metric_names=self.moo_metric_names,
             candidate_metadata=self.candidate_metadata,
         )
         self.assertIsInstance(model.surrogate.model, FixedNoiseGP)
-        model.gen(
+        _, _, gen_metadata, _ = model.gen(
             n=1,
             bounds=self.search_space_digest.bounds,
             objective_weights=self.moo_objective_weights,
@@ -527,40 +532,118 @@ class BoTorchModelTest(TestCase):
             rounding_func=self.rounding_func,
             target_fidelities=self.mf_search_space_digest.target_fidelities,
         )
+        ckwargs = mock_input_constructor.call_args[1]
         self.assertIs(model.botorch_acqf_class, qNoisyExpectedHypervolumeImprovement)
         mock_input_constructor.assert_called_once()
-        mock_input_constructor.assert_called_with(
-            model=model.surrogate.model,
-            training_data=self.moo_training_data,
-            objective=mock.ANY,  # Checked objective equality separately below.
-            X_baseline=mock.ANY,  # Checked tensor equality separately below.
-            X_pending=None,
-            objective_thresholds=self.moo_objective_thresholds,
-            outcome_constraints=self.outcome_constraints,
+        m = ckwargs["model"]
+        self.assertIsInstance(m, FixedNoiseGP)
+        self.assertEqual(m.num_outputs, 2)
+        training_data = ckwargs["training_data"]
+        for attr in ("Xs", "Ys", "Yvars"):
+            self.assertTrue(
+                all(
+                    torch.equal(x1, x2)
+                    for x1, x2 in zip(
+                        getattr(training_data, attr),
+                        getattr(self.moo_training_data, attr),
+                    )
+                )
+            )
+        self.assertTrue(
+            torch.equal(
+                ckwargs["objective_thresholds"], self.moo_objective_thresholds[:2]
+            )
         )
+        self.assertIsNone(
+            ckwargs["outcome_constraints"],
+        )
+        self.assertIsNone(
+            ckwargs["X_pending"],
+        )
+        obj_t = gen_metadata["objective_thresholds"]
+        self.assertTrue(torch.equal(obj_t[:2], self.moo_objective_thresholds[:2]))
+        self.assertTrue(np.isnan(obj_t[2].item()))
+
         self.assertIsInstance(
-            mock_input_constructor.call_args[1].get("objective"),
+            ckwargs.get("objective"),
             WeightedMCMultiOutputObjective,
         )
         self.assertTrue(
             torch.equal(
                 mock_input_constructor.call_args[1].get("objective").weights,
-                self.moo_objective_weights,
+                self.moo_objective_weights[:2],
             )
+        )
+        expected_X_baseline = _filter_X_observed(
+            Xs=self.moo_training_data.Xs,
+            objective_weights=self.moo_objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            bounds=self.search_space_digest.bounds,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
         )
         self.assertTrue(
             torch.equal(
                 mock_input_constructor.call_args[1].get("X_baseline"),
-                _filter_X_observed(
-                    Xs=self.moo_training_data.Xs,
-                    objective_weights=self.moo_objective_weights,
-                    outcome_constraints=self.outcome_constraints,
-                    bounds=self.search_space_digest.bounds,
-                    linear_constraints=self.linear_constraints,
-                    fixed_features=self.fixed_features,
-                ),
+                expected_X_baseline,
             )
         )
+        # test inferred objective_thresholds
+        with ExitStack() as es:
+            _mock_model_infer_objective_thresholds = es.enter_context(
+                mock.patch(
+                    "ax.models.torch.botorch_modular.acquisition."
+                    "infer_objective_thresholds",
+                    return_value=torch.tensor([9.9, 3.3, float("nan")]),
+                )
+            )
+
+            objective_weights = torch.tensor([-1.0, -1.0, 0.0])
+            outcome_constraints = (
+                torch.tensor([[1.0, 0.0, 0.0]]),
+                torch.tensor([[10.0]]),
+            )
+            linear_constraints = (
+                torch.tensor([[1.0, 0.0, 0.0]]),
+                torch.tensor([[2.0]]),
+            )
+            _, _, gen_metadata, _ = model.gen(
+                n=1,
+                bounds=self.search_space_digest.bounds,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                linear_constraints=linear_constraints,
+                fixed_features=self.fixed_features,
+                pending_observations=self.pending_observations,
+                model_gen_options=self.model_gen_options,
+                rounding_func=self.rounding_func,
+                target_fidelities=self.mf_search_space_digest.target_fidelities,
+            )
+            expected_X_baseline = _filter_X_observed(
+                Xs=self.moo_training_data.Xs,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                bounds=self.search_space_digest.bounds,
+                linear_constraints=linear_constraints,
+                fixed_features=self.fixed_features,
+            )
+            ckwargs = _mock_model_infer_objective_thresholds.call_args[1]
+            self.assertTrue(
+                torch.equal(
+                    ckwargs["objective_weights"],
+                    objective_weights,
+                )
+            )
+            oc = ckwargs["outcome_constraints"]
+            self.assertTrue(torch.equal(oc[0], outcome_constraints[0]))
+            self.assertTrue(torch.equal(oc[1], outcome_constraints[1]))
+            m = ckwargs["model"]
+            self.assertIsInstance(m, FixedNoiseGP)
+            self.assertEqual(m.num_outputs, 2)
+            self.assertIn("objective_thresholds", gen_metadata)
+            obj_t = gen_metadata["objective_thresholds"]
+            self.assertTrue(torch.equal(obj_t[:2], torch.tensor([9.9, 3.3])))
+            self.assertTrue(np.isnan(obj_t[2].item()))
 
         # Avoid polluting the registry for other tests; re-register correct input
         # contructor for qNEHVI.
