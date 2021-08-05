@@ -517,6 +517,20 @@ class BotorchMOOModelTest(TestCase):
                 torch.equal(obj_t[:2], torch.tensor([9.9, 3.3], dtype=tkwargs["dtype"]))
             )
             self.assertTrue(np.isnan(obj_t[2]))
+            # test providing model with extra tracking metrics and objective thresholds
+            provided_obj_t = torch.tensor([10.0, 4.0, float("nan")], **tkwargs)
+            _, _, gen_metadata, _ = model.gen(
+                n,
+                bounds,
+                objective_weights=torch.tensor([-1.0, -1.0, 0.0], **tkwargs),
+                outcome_constraints=outcome_constraints,
+                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
+                objective_thresholds=provided_obj_t,
+            )
+            self.assertIn("objective_thresholds", gen_metadata)
+            obj_t = gen_metadata["objective_thresholds"]
+            self.assertTrue(torch.equal(obj_t[:2], provided_obj_t[:2].cpu()))
+            self.assertTrue(np.isnan(obj_t[2]))
 
     def test_BotorchMOOModel_with_random_scalarization_and_outcome_constraints(
         self, dtype=torch.float, cuda=False
