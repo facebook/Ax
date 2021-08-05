@@ -73,6 +73,7 @@ class TorchUtilsTest(TestCase):
         self.assertIsNone(obj_t_sub)
         self.assertIs(model_sub, model)  # check identity
         self.assertIs(obj_weights_sub, obj_weights)  # check identity
+        self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0, 1])))
         # test w/ outcome constraints, can subset
         obj_weights = torch.tensor([1.0, 0.0])
         ocs = (torch.tensor([[1.0, 0.0]]), torch.tensor([1.0]))
@@ -86,6 +87,7 @@ class TorchUtilsTest(TestCase):
         self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([1.0])))
         self.assertTrue(torch.equal(ocs_sub[0], torch.tensor([[1.0]])))
         self.assertTrue(torch.equal(ocs_sub[1], torch.tensor([1.0])))
+        self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0])))
         # test w/ outcome constraints, cannot subset
         obj_weights = torch.tensor([1.0, 0.0])
         ocs = (torch.tensor([[0.0, 1.0]]), torch.tensor([1.0]))
@@ -98,6 +100,7 @@ class TorchUtilsTest(TestCase):
         self.assertIsNone(obj_t_sub)
         self.assertIs(obj_weights_sub, obj_weights)  # check identity
         self.assertIs(ocs_sub, ocs)  # check identity
+        self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0, 1])))
         # test w/ objective thresholds, cannot subset
         obj_weights = torch.tensor([1.0, 0.0])
         ocs = (torch.tensor([[0.0, 1.0]]), torch.tensor([1.0]))
@@ -136,6 +139,7 @@ class TorchUtilsTest(TestCase):
         self.assertIsNone(ocs_sub)
         self.assertIs(model_sub, model)  # check identity
         self.assertIs(obj_weights_sub, obj_weights)  # check identity
+        self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0, 1])))
         # test error on size inconsistency
         obj_weights = torch.ones(3)
         with self.assertRaises(RuntimeError):

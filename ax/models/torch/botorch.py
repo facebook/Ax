@@ -227,6 +227,7 @@ class BotorchModel(TorchModel):
     Xs: List[Tensor]
     Ys: List[Tensor]
     Yvars: List[Tensor]
+    model: Optional[Model]
 
     def __init__(
         self,

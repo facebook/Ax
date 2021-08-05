@@ -275,7 +275,10 @@ def subset_model(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             objective_thresholds=objective_thresholds,
-            indices=idcs_t,
+            indices=torch.arange(
+                model.num_outputs,
+                device=objective_weights.device,
+            ),
         )
     elif len(idcs) > model.num_outputs:
         raise RuntimeError(
@@ -291,7 +294,10 @@ def subset_model(
         if objective_thresholds is not None:
             objective_thresholds = objective_thresholds[nonzero]
     except NotImplementedError:
-        pass
+        idcs_t = torch.arange(
+            model.num_outputs,
+            device=objective_weights.device,
+        )
     return SubsetModelData(
         model=model,
         objective_weights=objective_weights,
