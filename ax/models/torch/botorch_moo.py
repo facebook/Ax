@@ -306,8 +306,6 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 if idcs is None
                 else full_objective_thresholds[idcs].clone()
             )
-        else:
-            full_objective_thresholds = objective_thresholds
 
         bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
         bounds_ = bounds_.transpose(0, 1)
@@ -376,7 +374,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
             )
         gen_metadata = {
             "expected_acquisition_value": expected_acquisition_value.tolist(),
-            "objective_thresholds": full_objective_thresholds.cpu(),
+            "objective_thresholds": not_none(full_objective_thresholds).cpu(),
         }
         return (
             candidates.detach().cpu(),

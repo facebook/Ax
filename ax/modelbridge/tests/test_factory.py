@@ -4,8 +4,15 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import pandas as pd
 import torch
+from ax.core.data import Data
+from ax.core.metric import Metric
+from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+)
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.parameter import RangeParameter
 from ax.modelbridge.discrete import DiscreteModelBridge
@@ -423,6 +430,68 @@ class ModelBridgeFactoryTest(TestCase):
         self.assertIsInstance(moo_ehvi, MultiObjectiveTorchModelBridge)
         moo_ehvi_run = moo_ehvi.gen(n=1)
         self.assertEqual(len(moo_ehvi_run.arms), 1)
+
+    def test_MOO_with_more_outcomes_than_thresholds(self):
+        experiment = get_branin_experiment_with_multi_objective(
+            has_optimization_config=False
+        )
+        metric_c = Metric(name="c", lower_is_better=False)
+        metric_a = Metric(name="a", lower_is_better=False)
+        objective_thresholds = [
+            ObjectiveThreshold(
+                metric=metric_c,
+                bound=2.0,
+                relative=False,
+            ),
+            ObjectiveThreshold(
+                metric=metric_a,
+                bound=1.0,
+                relative=False,
+            ),
+        ]
+        experiment.optimization_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=metric_a),
+                    Objective(metric=metric_c),
+                ]
+            ),
+            objective_thresholds=objective_thresholds,
+        )
+        experiment.add_tracking_metric(Metric(name="b", lower_is_better=False))
+        sobol = get_sobol(
+            search_space=experiment.search_space,
+        )
+        sobol_run = sobol.gen(1)
+        experiment.new_batch_trial().add_generator_run(sobol_run).run().mark_completed()
+        data = Data(
+            pd.DataFrame(
+                data={
+                    "arm_name": ["0_0", "0_0", "0_0"],
+                    "metric_name": ["a", "b", "c"],
+                    "mean": [1.0, 2.0, 3.0],
+                    "trial_index": [0, 0, 0],
+                    "sem": [0, 0, 0],
+                }
+            )
+        )
+        test_names_to_fns = {
+            "MOO_NEHVI": get_MOO_NEHVI,
+            "MOO_EHVI": get_MOO_NEHVI,
+            "MOO_PAREGO": get_MOO_PAREGO,
+            "MOO_RS": get_MOO_RS,
+        }
+        for test_name, factory_fn in test_names_to_fns.items():
+            with self.subTest(test_name):
+                moo_model = factory_fn(
+                    experiment=experiment,
+                    data=data,
+                )
+                moo_gr = moo_model.gen(n=1)
+                obj_t = moo_gr.gen_metadata["objective_thresholds"]
+                self.assertEqual(obj_t[0], objective_thresholds[1])
+                self.assertEqual(obj_t[1], objective_thresholds[0])
+                self.assertEqual(len(obj_t), 2)
 
     def test_MTGP_NEHVI(self):
         single_obj_exp = get_branin_experiment(with_batch=True)
