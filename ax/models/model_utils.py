@@ -492,6 +492,8 @@ def get_observed(
     if isinstance(Xs[0], torch.Tensor):
         # pyre-fixme[7]: Expected `Union[np.ndarray, torch.Tensor]` but got implicit
         #  return value of `None`.
+        # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 3rd param but got
+        #  `Union[np.dtype, torch.dtype]`.
         return torch.tensor(list(X_obs_set), device=Xs[0].device, dtype=Xs[0].dtype)
 
 

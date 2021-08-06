@@ -289,14 +289,22 @@ def pyro_model(
     outputscale = pyro.sample(
         "outputscale",
         pyro.distributions.Gamma(  # pyre-ignore [16]
+            # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
+            #  `Union[torch.device, torch.dtype]`.
             torch.tensor(2.0, **tkwargs),
+            # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
+            #  `Union[torch.device, torch.dtype]`.
             torch.tensor(0.15, **tkwargs),
         ),
     )
     mean = pyro.sample(
         "mean",
         pyro.distributions.Uniform(  # pyre-ignore [16]
+            # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
+            #  `Union[torch.device, torch.dtype]`.
             torch.tensor(-1.0, **tkwargs),
+            # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
+            #  `Union[torch.device, torch.dtype]`.
             torch.tensor(1.0, **tkwargs),
         ),
     )
@@ -305,7 +313,11 @@ def pyro_model(
         noise = pyro.sample(
             "noise",
             pyro.distributions.Gamma(  # pyre-ignore [16]
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor(0.9, **tkwargs),
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor(10.0, **tkwargs),
             ),
         )
@@ -317,6 +329,8 @@ def pyro_model(
         tausq = pyro.sample(
             "kernel_tausq",
             pyro.distributions.HalfCauchy(  # pyre-ignore [16]
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor(0.1, **tkwargs)
             ),
         )
@@ -341,7 +355,11 @@ def pyro_model(
             # distribution with scalar parameters.
             # https://github.com/pyro-ppl/pyro/issues/2810
             pyro.distributions.Uniform(  # pyre-ignore [16]
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor(0.0, **tkwargs),
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor(10.0, **tkwargs),
             ).expand(torch.Size([dim])),
         )
@@ -351,14 +369,22 @@ def pyro_model(
         c0 = pyro.sample(
             "c0",
             pyro.distributions.LogNormal(  # pyre-ignore [16]
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor([0.0] * dim, **tkwargs),
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor([0.75 ** 0.5] * dim, **tkwargs),
             ),
         )
         c1 = pyro.sample(
             "c1",
             pyro.distributions.LogNormal(  # pyre-ignore [16]
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor([0.0] * dim, **tkwargs),
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor([0.75 ** 0.5] * dim, **tkwargs),
             ),
         )
