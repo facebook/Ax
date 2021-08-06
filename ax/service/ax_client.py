@@ -267,6 +267,7 @@ class AxClient(WithDBSettingsBase):
             objective_kwargs["objective_thresholds"] = [
                 build_objective_threshold(objective, properties)
                 for objective, properties in objectives.items()
+                if properties.threshold is not None
             ]
         elif objective_name or minimize is not None:
             objective_kwargs["objective_name"] = objective_name
