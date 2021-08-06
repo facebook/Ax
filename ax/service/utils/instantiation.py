@@ -87,7 +87,7 @@ class MetricObjective(enum.Enum):
 @dataclass
 class ObjectiveProperties:
     minimize: bool
-    threshold: float
+    threshold: Optional[float] = None
 
 
 def _get_parameter_type(python_type: TParameterType) -> ParameterType:
@@ -433,10 +433,12 @@ def optimization_config_from_objectives(
         objective_names = {m.metric.name for m in objectives}
         threshold_names = {oc.metric.name for oc in objective_thresholds}
         if objective_names != threshold_names:
-            diff = objective_names.symmetric_difference(threshold_names)
-            raise ValueError(
-                "Multi-objective optimization requires one objective threshold "
-                f"per objective metric; unmatched names are {diff}"
+            logger.info(
+                (
+                    "Due to non-specification, we will use the heuristic for selecting "
+                    "thresholds for these metrics: %s"
+                ),
+                objective_names.symmetric_difference(threshold_names),
             )
 
         return MultiObjectiveOptimizationConfig(
