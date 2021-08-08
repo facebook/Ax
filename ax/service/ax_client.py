@@ -714,7 +714,7 @@ class AxClient(WithDBSettingsBase):
                 logger.info(
                     f"Retrieving contour plot with parameter '{param_x}' on X-axis "
                     f"and '{param_y}' on Y-axis, for metric '{metric_name}'. "
-                    "Ramaining parameters are affixed to the middle of their range."
+                    "Remaining parameters are affixed to the middle of their range."
                 )
                 return plot_contour(
                     model=not_none(self.generation_strategy.model),
