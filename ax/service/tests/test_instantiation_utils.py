@@ -129,35 +129,55 @@ class TestInstantiationtUtils(TestCase):
     def test_make_optimization_config(self):
         objectives = {"branin": "minimize", "currin": "maximize"}
         objective_thresholds = ["branin <= 0", "currin >= 0"]
-        with self.assertRaisesRegex(ValueError, "not specify objective thresholds"):
-            make_optimization_config(
-                {"branin": "minimize"},
+        with self.subTest("Single-objective optimizations with objective thresholds"):
+            with self.assertRaisesRegex(ValueError, "not specify objective thresholds"):
+                make_optimization_config(
+                    {"branin": "minimize"},
+                    objective_thresholds,
+                    outcome_constraints=[],
+                    status_quo_defined=False,
+                )
+
+        with self.subTest("MOO missing objective thresholds"):
+            with self.assertLogs(
+                "ax.service.utils.instantiation", level="INFO"
+            ) as logs:
+                multi_optimization_config = make_optimization_config(
+                    objectives,
+                    objective_thresholds=objective_thresholds[:1],
+                    outcome_constraints=[],
+                    status_quo_defined=False,
+                )
+                self.assertTrue(
+                    any(
+                        "Due to non-specification" in output and "currin" in output
+                        for output in logs.output
+                    ),
+                    logs.output,
+                )
+                self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
+                self.assertEqual(len(multi_optimization_config.objective_thresholds), 1)
+
+        with self.subTest("MOO with all objective threshold"):
+            multi_optimization_config = make_optimization_config(
+                objectives,
                 objective_thresholds,
                 outcome_constraints=[],
                 status_quo_defined=False,
             )
-        with self.assertRaisesRegex(ValueError, "requires one objective threshold"):
-            make_optimization_config(
-                objectives,
-                objective_thresholds=objective_thresholds[:1],
+            self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
+            self.assertEqual(len(multi_optimization_config.objective_thresholds), 2)
+
+        with self.subTest(
+            "Single-objective optimizations without objective thresholds"
+        ):
+            single_optimization_config = make_optimization_config(
+                {"branin": "minimize"},
+                objective_thresholds=[],
                 outcome_constraints=[],
                 status_quo_defined=False,
             )
-        multi_optimization_config = make_optimization_config(
-            objectives,
-            objective_thresholds,
-            outcome_constraints=[],
-            status_quo_defined=False,
-        )
-        self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
-        self.assertEqual(len(multi_optimization_config.objective_thresholds), 2)
-        single_optimization_config = make_optimization_config(
-            {"branin": "minimize"},
-            objective_thresholds=[],
-            outcome_constraints=[],
-            status_quo_defined=False,
-        )
-        self.assertEqual(single_optimization_config.objective.metric.name, "branin")
+            self.assertEqual(single_optimization_config.objective.metric.name, "branin")
 
 
 class TestRawDataToEvaluation(TestCase):
