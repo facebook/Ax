@@ -12,7 +12,7 @@ Single step in the [experiment](glossary.md#experiment), contains multiple [arms
 ### Bayesian optimization
 Sequential optimization strategy for finding an optimal [arm](glossary.md#arm) in a continuous [search space](glossary.md#search-space).
 ### Evaluation function
-Function that takes a parameterization and an optional weight as input and outputs a set of metric evaluations ([more details](trial-evaluation.md#evaluation-function)). Used in [simple experiment](glossary.md#simple-experiment) and in the [Loop API](api.md).
+Function that takes a parameterization and an optional weight as input and outputs a set of metric evaluations ([more details](trial-evaluation.md#evaluation-function)). Used in the [Loop API](api.md).
 ### Experiment
 Object that keeps track of the whole optimization process. Contains a [search space](glossary.md#search-space), [optimization config](glossary.md#optimization-config), and other metadata. [```[Experiment]```](/api/core.html#module-ax.core.experiment)
 ### Generation strategy
