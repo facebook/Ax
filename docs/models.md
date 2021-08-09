@@ -95,6 +95,13 @@ GPs typically does a good job of modeling continuous parameters ([`RangeParamete
 
 In discrete spaces where the GP does not predict well, a multi-armed bandit approach is often preferred, and we now discuss the models suitable for that approach.
 
+#### Support for mixed search spaces and categorical variables
+
+The most common way of dealing with categorical variables in Bayesian optimization is to one-hot encode the categories to allow fitting a GP model in a continuous space. In this setting, a categorical variable with categories `["red", "blue", "green"]` is represented by three new variables (one for each category). While this is a convenient choice, it can drastically increase the dimensionality of the search space. In addition, the acquisition function is often optimized in the corresponding continuous space and the final candidate is selected by rounding back to the original space, which may result in selecting sub-optimal points according to the acquisition function.
+
+Our new approach uses separate kernels for the categorical and ordinal (continuous/integer) variables. In particular, we use a kernel of the form: $$k(x, y) = k_\text{cat}(x_\text{cat}, y_\text{cat}) \times k_\text{ord}(x_\text{ord}, y_\text{ord}) + k_\text{cat}(x_\text{cat}, y_\text{cat}) + k_\text{ord}(x_\text{ord}, y_\text{ord})$$
+For the ordinal variables we can use a standard kernel such as Matérn-5/2, but for the categorical variables we need a way to compute distances between the different categories. A natural choice is to set the distance is 0 if two categories are equal and 1 otherwise, similar to the idea of Hamming distances. This approach can be combined with the idea automatic relevance determination (ARD) where each categorical variable has its own lengthscale. Rather than optimizing the acquisition function in a continuously relaxed space, we optimize it separately over each combination of the categorical variables. While this is likely to result in better optimization performance, it may lead to slow optimization of the acquisition function when there are many categorical variables.
+
 #### Empirical Bayes and Thompson sampling
 For [Bandit optimization](banditopt.md), The [`get_empirical_bayes_thompson`](../api/modelbridge.html#ax.modelbridge.factory.get_empirical_bayes_thompson) factory function returns a model that applies [empirical Bayes shrinkage](banditopt.md#empirical-bayes) to a discrete set of arms, and then uses Thompson sampling to construct a policy with the weight that should be allocated to each arms. Here we apply empirical Bayes to the data and use Thompson sampling to generate a policy that is truncated at `n=10` arms:
 ```Python
@@ -196,7 +203,9 @@ The [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) obj
 
 If none of the existing Model interfaces work are suitable for the new model type, then a new interface will have to be created. This involves two steps: creating the new model interface and creating the new model bridge. The new model bridge must be a subclass of [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) that implements `ModelBridge._fit`,  `ModelBridge._predict`, `ModelBridge._gen`, and  `ModelBridge._cross_validate`. The implementation of each of these methods will transform the Ax objects in the inputs into objects required for the interface with the new model type. The model bridge will then call out to the new model interface to do the actual modeling work. All of the ModelBridge/Model pairs in the table above provide examples of how this interface can be defined. The main key is that the inputs on the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) side are fixed, but those inputs can then be transformed in whatever way is desired for the downstream Model interface to be that which is most convenient for implementing the model.
 
+```html
 <script type="text/javascript" src="assets/slice.js"></script>
 <script type="text/javascript" src="assets/contour.js"></script>
 <script type="text/javascript" src="assets/cv.js"></script>
 <script type="text/javascript" src="assets/fitted.js"></script>
+```
