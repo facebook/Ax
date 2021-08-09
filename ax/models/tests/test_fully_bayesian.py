@@ -179,7 +179,8 @@ try:
                         # Note each model in the model list is a batched model, where
                         # the batch dim corresponds to the MCMC samples
                         model_list = model.model.models
-                        m = model_list[i]
+                        # Put model in `eval` mode to transform the train inputs.
+                        m = model_list[i].eval()
                         # check mcmc samples
                         dummy_samples = dummy_samples_list[i]
                         expected_train_inputs = Xs[i].expand(4, *Xs[i].shape)
