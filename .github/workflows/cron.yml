@@ -28,6 +28,7 @@ jobs:
       run: |
         # will automatically install latest stable Botorch (pinned in setup.py)
         pip install -e .[dev,mysql,notebook]
+        pip list | grep botorch
       if: matrix.botorch == 'stable'
     - name: Install dependencies (Botorch master)
       env:
@@ -36,6 +37,7 @@ jobs:
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
+        pip list | grep botorch
       if: matrix.botorch == 'latest'
     - name: Import Ax
       run: |
@@ -100,6 +102,7 @@ jobs:
       env:
         DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
       run: |
+        pip list | grep botorch
         bash scripts/publish_site.sh -d
 
   deploy-test-pypi:
