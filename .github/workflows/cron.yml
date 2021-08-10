@@ -69,7 +69,7 @@ jobs:
         pip install pyro-ppl  # Required for to call run_inference
     - name: Publish latest website
       run: |
-        python scripts/make_tutorials.py -w (pwd) -e
+        python scripts/make_tutorials.py -w $(pwd) -e
 
   publish-latest-website:
 
