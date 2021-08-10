@@ -46,6 +46,31 @@ jobs:
       run: |
         pytest -ra
 
+  build-tutorials-with-pinned-botorch:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        # will automatically install latest stable Botorch (pinned in setup.py)
+        pip install -e .[dev,mysql,notebook]
+        pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
+        pip install torchvision  # required for tutorials
+        pip install ray  # Required for building RayTune tutorial notebook.
+        pip install tabulate  # Required for building RayTune tutorial notebook.
+        pip install tensorboardX  # Required for building RayTune tutorial notebook.
+        pip install matplotlib  # Required for building Multi-objective tutorial notebook.
+        pip install pyro-ppl  # Required for to call run_inference
+    - name: Publish latest website
+      run: |
+        python scripts/make_tutorials.py -w (pwd) -e
+
   publish-latest-website:
 
     runs-on: ubuntu-latest

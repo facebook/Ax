@@ -23,13 +23,14 @@ jobs:
         python-version: 3.7
     - name: Install dependencies (stable Botorch)
       run: |
-        # will automatically install latest stable Botorch
+        # use master Botorch
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
       if: matrix.botorch == 'stable'
     - name: Install dependencies (pinned Botorch)
       run: |
-        # TODO: read pinned Botorch version from a shared source
-        pip install botorch==0.5.0
+        # will automatically install latest stable Botorch (pinned in setup.py)
         pip install -e .[dev,mysql,notebook]
       if: matrix.botorch == 'pinned'
     - name: Import Ax
