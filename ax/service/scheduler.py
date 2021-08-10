@@ -179,6 +179,7 @@ class SchedulerOptions:
             the minimum of ``self.poll_available_capacity()`` and the number
             of generator runs that the generation strategy is able to produce
             without more data or reaching its allowed max paralellism limit.
+        debug_log_run_metadata: Whether to log run_metadata for debugging purposes.
         early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines
             whether a trial should be stopped given the current state of
             the experiment. Used in ``should_stop_trials_early``.
@@ -186,7 +187,7 @@ class SchedulerOptions:
             storage-related errors if encounted, after retrying the call
             multiple times. Only use if SQL storage is not important for the given
             use case, since this will only log, but not raise, an exception if
-            its encountered while saving to DB or loading from it.
+            it's encountered while saving to DB or loading from it.
     """
 
     trial_type: Type[BaseTrial] = Trial
@@ -1081,7 +1082,6 @@ class Scheduler(WithDBSettingsBase, ABC):
         """Conclude optimization with waiting for anymore running trials and
         return final results via `wait_for_completed_trials_and_report_results`.
         """
-        print("HERE!!")
         self._record_optimization_complete_message()
         res = self.wait_for_completed_trials_and_report_results()
         # raise an error if the failure rate exceeds tolerance at the end of the sweep
