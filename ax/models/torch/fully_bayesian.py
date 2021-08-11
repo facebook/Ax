@@ -54,7 +54,6 @@ from ax.models.torch.frontier_utils import TFrontierEvaluator
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.acquisition import AcquisitionFunction
-from botorch.fit import _set_transformed_inputs
 from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
@@ -184,7 +183,6 @@ def get_and_fit_model_mcmc(
                     .clone()
                     .view(m.input_transform.concentration1.shape),
                 )
-    _set_transformed_inputs(model=model)
     return model
 
 
