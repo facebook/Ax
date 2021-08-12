@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        botorch: ['stable', 'pinned']
+        botorch: ['latest', 'pinned']
 
     steps:
     - uses: actions/checkout@v2
@@ -21,15 +21,18 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.7
-    - name: Install dependencies (stable Botorch)
+    - name: Install dependencies (latest Botorch)
+      env:
+        ALLOW_BOTORCH_LATEST: true
       run: |
-        # will automatically install latest stable Botorch
+        # use master Botorch
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
-      if: matrix.botorch == 'stable'
+      if: matrix.botorch == 'latest'
     - name: Install dependencies (pinned Botorch)
       run: |
-        # TODO: read pinned Botorch version from a shared source
-        pip install botorch==0.5.0
+        # will install the version of Botorch that is pinned in setup.py
         pip install -e .[dev,mysql,notebook]
       if: matrix.botorch == 'pinned'
     - name: Import Ax

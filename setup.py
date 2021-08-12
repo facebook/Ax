@@ -9,8 +9,9 @@ from setuptools import find_packages, setup
 PINNED_BOTORCH_VERSION = "0.5.0"
 
 if os.environ.get("ALLOW_BOTORCH_LATEST"):
-    # allows installing using a more recent botorch dev version
-    botorch_req = "botorch"
+    # allows a more recent previously installed version of botorch to remain
+    # if there is no previously installed version, installs the latest release
+    botorch_req = f"botorch>={PINNED_BOTORCH_VERSION}"
 else:
     botorch_req = f"botorch=={PINNED_BOTORCH_VERSION}"
 
