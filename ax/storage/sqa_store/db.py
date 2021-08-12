@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager, nullcontext
+from os import remove as remove_file
 from typing import Any, Callable, ContextManager, Generator, Optional, TypeVar
 
 from sqlalchemy import create_engine
@@ -192,6 +193,11 @@ def init_test_engine_and_session_factory(
     SESSION_FACTORY = scoped_session(
         sessionmaker(bind=engine, expire_on_commit=EXPIRE_ON_COMMIT)
     )
+
+
+def remove_test_db_file(tier_or_path: str) -> None:
+    """Remove the test DB file from system, useful for cleanup in tests."""
+    remove_file(tier_or_path)
 
 
 def create_all_tables(engine: Engine) -> None:

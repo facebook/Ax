@@ -36,3 +36,13 @@ class ImmutabilityError(AxError):
     """Raised when an attempt is made to update an immutable object."""
 
     pass
+
+
+class IncorrectDBConfigurationError(AxError):
+    """Raised when an attempt is made to save and load an object, but
+    the current engine and session factory is setup up incorrectly to
+    process the call (e.g. current session factory will connect to a
+    wrong database for the call).
+    """
+
+    pass
