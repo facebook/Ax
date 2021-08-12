@@ -34,6 +34,7 @@ from ax.core.metric import Metric
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import (
+    UserInputError,
     AxError,
     DataRequiredError,
     OptimizationComplete,
@@ -737,29 +738,38 @@ class Scheduler(WithDBSettingsBase, ABC):
         self._latest_optimization_start_timestamp = current_timestamp_in_millis()
         if timeout_hours is not None:
             if timeout_hours < 0:  # pragma: no cover
-                raise ValueError(f"Expected `timeout_hours` >= 0, got {timeout_hours}.")
+                raise UserInputError(
+                    f"Expected `timeout_hours` >= 0, got {timeout_hours}."
+                )
             self._timeout_hours = timeout_hours
 
-        if max_trials < 0:
-            raise ValueError(f"Expected `max_trials` >= 0, got {max_trials}.")
+        n_initial_candidate_trials = len(self.candidate_trials)
+        if n_initial_candidate_trials == 0 and max_trials < 0:
+            raise UserInputError(f"Expected `max_trials` >= 0, got {max_trials}.")
+        elif max_trials < n_initial_candidate_trials:
+            raise UserInputError(
+                "The number of pre-attached candidate trials "
+                f"({n_initial_candidate_trials}) is greater than `max_trials = "
+                f"{max_trials}`. Increase `max_trials` or reduce the number of "
+                "pre-attached candidate trials."
+            )
         trials = self.experiment.trials
-        n_existing = len(self.experiment.trials)
+
+        # trials are pre-existing only if they do not still require running
+        n_existing = len(trials) - n_initial_candidate_trials
 
         self._record_run_trials_status(
             num_preexisting_trials=None, status=RunTrialsStatus.STARTED
         )
 
-        while len(self.candidate_trials) > 0:
-            self.run(max_new_trials=0)
-            # only wait for trials to complete if max_pending_trials are already running
-            if not self.has_capacity():
-                yield self.wait_for_completed_trials_and_report_results()
-
         # Until completion criterion is reached or `max_trials` is scheduled,
         # schedule new trials and poll existing ones in a loop.
+        n_already_run_by_scheduler = (
+            len(trials) - n_existing - len(self.candidate_trials)
+        )
+        n_remaining_to_run = max_trials - n_already_run_by_scheduler
         while (
-            not self.should_consider_optimization_complete()
-            and len(trials) - n_existing < max_trials
+            not self.should_consider_optimization_complete() and n_remaining_to_run > 0
         ):
             if self.should_abort_optimization():
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
@@ -768,11 +778,20 @@ class Scheduler(WithDBSettingsBase, ABC):
             # Run new trial evaluations until `run` returns `False`, which
             # means that there was a reason not to run more evaluations yet.
             # Also check that `max_trials` is not reached to not exceed it.
-            remaining_to_run = max_trials + n_existing - len(self.experiment.trials)
-            while remaining_to_run > 0 and self.run(max_new_trials=remaining_to_run):
+            n_remaining_to_generate = n_remaining_to_run - len(self.candidate_trials)
+            while (
+                n_remaining_to_run > 0
+                and self.run(max_new_trials=n_remaining_to_generate)
+            ):
                 # Not checking `should_abort_optimization` on every iteration for perf.
                 # reasons.
-                remaining_to_run = max_trials + n_existing - len(self.experiment.trials)
+                n_already_run_by_scheduler = (
+                    len(trials) - n_existing - len(self.candidate_trials)
+                )
+                n_remaining_to_run = max_trials - n_already_run_by_scheduler
+                n_remaining_to_generate = n_remaining_to_run - len(
+                    self.candidate_trials
+                )
 
             # Wait for trial evaluations to complete and process results.
             yield self.wait_for_completed_trials_and_report_results()

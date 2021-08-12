@@ -20,7 +20,7 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
-from ax.exceptions.core import OptimizationComplete, UnsupportedError
+from ax.exceptions.core import UserInputError, OptimizationComplete, UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -319,7 +319,8 @@ class TestAxScheduler(TestCase):
         self.assertEqual(set(dat["trial_index"].values), set(range(11)))
 
     def test_run_preattached_trials_only(self):
-        # assert that pre-attached trials run when max_trials = 0
+        # assert that pre-attached trials run when max_trials = number of
+        # pre-attached trials
         scheduler = BareBonesTestScheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
@@ -328,9 +329,17 @@ class TestAxScheduler(TestCase):
             ),
         )
         trial = scheduler.experiment.new_trial()
-        trial.add_arm(Arm(parameters={"x1": 5, "x2": 5}))
-        scheduler.run_n_trials(max_trials=0)
+        parameter_dict = {"x1": 5, "x2": 5}
+        trial.add_arm(Arm(parameters=parameter_dict))
+        with self.assertRaisesRegex(
+            UserInputError, "number of pre-attached candidate trials .* is greater than"
+        ):
+            scheduler.run_n_trials(max_trials=0)
+        scheduler.run_n_trials(max_trials=1)
         self.assertEqual(len(scheduler.experiment.trials), 1)
+        self.assertDictEqual(
+            scheduler.experiment.trials[0].arm.parameters, parameter_dict
+        )
         self.assertTrue(  # Make sure all trials got to complete.
             all(t.completed_successfully for t in scheduler.experiment.trials.values())
         )
