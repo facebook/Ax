@@ -46,7 +46,7 @@ jobs:
         python scripts/import_ax.py
     - name: Tests
       # run even if previous step (import Ax) failed
-      if: matrix.botorch != 'minimal' && ${{ always() }}
+      if: matrix.botorch != 'minimal'
       run: |
         pytest -ra
 
