@@ -779,9 +779,8 @@ class Scheduler(WithDBSettingsBase, ABC):
             # means that there was a reason not to run more evaluations yet.
             # Also check that `max_trials` is not reached to not exceed it.
             n_remaining_to_generate = n_remaining_to_run - len(self.candidate_trials)
-            while (
-                n_remaining_to_run > 0
-                and self.run(max_new_trials=n_remaining_to_generate)
+            while n_remaining_to_run > 0 and self.run(
+                max_new_trials=n_remaining_to_generate
             ):
                 # Not checking `should_abort_optimization` on every iteration for perf.
                 # reasons.
