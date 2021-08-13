@@ -19,14 +19,20 @@ class OneHotTransformTest(TestCase):
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x", lower=1, upper=3, parameter_type=ParameterType.FLOAT
+                    "x",
+                    lower=1,
+                    upper=3,
+                    parameter_type=ParameterType.FLOAT,
                 ),
                 RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
                 ChoiceParameter(
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
                 ),
                 ChoiceParameter(
-                    "c", parameter_type=ParameterType.BOOL, values=[True, False]
+                    "c",
+                    parameter_type=ParameterType.BOOL,
+                    values=[True, False],
+                    is_ordered=False,
                 ),
                 ChoiceParameter(
                     "d",

@@ -316,7 +316,6 @@ class Decoder:
                 values=parameter_sqa.choice_values,
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
-                # pyre-fixme[6]: Expected `bool` for 6th param but got `Optional[bool]`.
                 is_ordered=parameter_sqa.is_ordered,
                 # pyre-fixme[6]: Expected `bool` for 7th param but got `Optional[bool]`.
                 is_task=parameter_sqa.is_task,

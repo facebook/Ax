@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABCMeta, abstractmethod, abstractproperty
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
@@ -13,6 +14,9 @@ from typing import Dict, List, Optional, Type, Union
 from ax.core.types import TParamValue
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
+from ax.utils.common.logger import get_logger
+
+logger: logging.Logger = get_logger(__name__)
 
 
 FIXED_CHOICE_PARAM_ERROR = (
@@ -351,7 +355,7 @@ class ChoiceParameter(Parameter):
         name: str,
         parameter_type: ParameterType,
         values: List[TParamValue],
-        is_ordered: bool = False,
+        is_ordered: Optional[bool] = None,
         is_task: bool = False,
         is_fidelity: bool = False,
         target_value: Optional[TParamValue] = None,
@@ -364,6 +368,8 @@ class ChoiceParameter(Parameter):
                 value (e.g. string, int).
             values: List of allowed values for the parameter.
             is_ordered: If False, the parameter is a categorical variable.
+                Defaults to False if parameter_type is STRING and `values`
+                is longer than 2, else True.
             is_task: Treat the parameter as a task parameter for modeling.
             is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it's fidelity.
@@ -376,7 +382,6 @@ class ChoiceParameter(Parameter):
 
         self._name = name
         self._parameter_type = parameter_type
-        self._is_ordered = is_ordered
         self._is_task = is_task
         self._is_fidelity = is_fidelity
         self._target_value = self.cast(target_value)
@@ -384,6 +389,22 @@ class ChoiceParameter(Parameter):
         if not len(values) > 1:
             raise UserInputError(FIXED_CHOICE_PARAM_ERROR)
         self._values = self._cast_values(values)
+        # [TODO] Ax should override is_ordered of False if len(values) == 2.
+        self._is_ordered = (
+            is_ordered
+            if is_ordered is not None
+            else self._get_default_is_ordered_and_warn()
+        )
+
+    def _get_default_is_ordered_and_warn(self) -> bool:
+        default_is_ordered = self._parameter_type != ParameterType.STRING
+        logger.warn(
+            f'`is_ordered` is not specified for `ChoiceParameter` "{self._name}". '
+            f"Defaulting to `{default_is_ordered}` for parameters of `ParameterType` "
+            f"{self.parameter_type.name}. To override this behavior (or avoid this "
+            "warning), specify `is_ordered` during `ChoiceParameter` construction."
+        )
+        return default_is_ordered
 
     @property
     def is_ordered(self) -> bool:
