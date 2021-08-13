@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import copy
 from collections import OrderedDict
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, MutableMapping, NamedTuple, Optional, Set, Tuple
+from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -22,7 +23,7 @@ from ax.core.types import (
     TModelPredict,
     TModelPredictArm,
 )
-from ax.utils.common.base import SortableBase
+from ax.utils.common.base import Base, SortableBase
 from ax.utils.common.typeutils import not_none
 
 
@@ -33,7 +34,8 @@ class GeneratorRunType(Enum):
     MANUAL = 1
 
 
-class ArmWeight(NamedTuple):
+@dataclass
+class ArmWeight(Base):
     """NamedTuple for tying together arms and weights."""
 
     arm: Arm

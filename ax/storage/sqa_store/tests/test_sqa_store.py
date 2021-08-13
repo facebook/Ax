@@ -615,6 +615,9 @@ class SQAStoreTest(TestCase):
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAMetric).count(), 6)
+        self.assertIsNotNone(
+            experiment.optimization_config.objective_thresholds[0].metric.db_id
+        )
 
         # add outcome constraint
         outcome_constraint2 = OutcomeConstraint(

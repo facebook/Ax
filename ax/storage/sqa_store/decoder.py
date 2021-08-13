@@ -607,7 +607,7 @@ class Decoder:
                     "Cannot decode SQAMetric to ObjectiveThreshold because "
                     "bound, op, or relative is None."
                 )
-            return ObjectiveThreshold(
+            ot = ObjectiveThreshold(
                 metric=metric,
                 # pyre-fixme[6]: Expected `float` for 2nd param but got
                 #  `Optional[float]`.
@@ -616,6 +616,10 @@ class Decoder:
                 relative=metric_sqa.relative,
                 op=metric_sqa.op,
             )
+            # ObjectiveThreshold constructor clones the passed-in metric, which means
+            # the db id gets lost and so we need to reset it
+            ot.metric._db_id = metric.db_id
+            return ot
         else:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.intent} "
