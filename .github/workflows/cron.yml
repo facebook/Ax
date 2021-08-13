@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        botorch: ['pinned', 'latest']
+        botorch: ['pinned', 'latest', 'minimal']
       fail-fast: false
 
     steps:
@@ -42,7 +42,7 @@ jobs:
         python scripts/import_ax.py
     - name: Tests
       # run even if previous step (import Ax) failed
-      if: ${{ always() }}
+      if: matrix.botorch != 'minimal' && ${{ always() }}
       run: |
         pytest -ra
 
