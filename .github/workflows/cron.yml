@@ -29,7 +29,11 @@ jobs:
         # will install the version of Botorch that is pinned in setup.py
         pip install -e .[dev,mysql,notebook]
       if: matrix.botorch == 'pinned'
-    - name: Install dependencies (latest Botorch)
+    - name: Install minimal dependencies (only for import testing)
+      run: |
+        pip install -e .
+      if: matrix.botorch == 'minimal'
+    - name: Install dependencies (Botorch main)
       env:
         ALLOW_BOTORCH_LATEST: true
       run: |
