@@ -5,11 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 # ManyLinux build
-# Mount top-level Ax directory as Ax-master.
-docker container run --mount type=bind,source="$(pwd)/../",target=/Ax-master -it quay.io/pypa/manylinux2010_x86_64
+# Mount top-level Ax directory as Ax-main.
+docker container run --mount type=bind,source="$(pwd)/../",target=/Ax-main -it quay.io/pypa/manylinux2010_x86_64
 
 # MANUAL STEP FOR NOW
-# Now, in Docker container, cd Ax-master and MANUALLY RUN ./docker_install.sh
+# Now, in Docker container, cd Ax-main and MANUALLY RUN ./docker_install.sh
 
 # LOCAL BUILD
 # Requires Python 3.7 installed locally, and on path

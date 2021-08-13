@@ -6,7 +6,7 @@
 [![Build Status](https://img.shields.io/pypi/pyversions/ax-platform.svg)](https://pypi.org/project/ax-platform/)
 [![Build Status](https://img.shields.io/pypi/wheel/ax-platform.svg)](https://pypi.org/project/ax-platform/)
 [![Build Status](https://github.com/facebook/Ax/workflows/Build%20and%20Test%20Workflow/badge.svg)](https://github.com/facebook/Ax/actions?query=workflow%3A%22Build+and+Test+Workflow%22)
-[![codecov](https://codecov.io/gh/facebook/Ax/branch/master/graph/badge.svg)](https://codecov.io/gh/facebook/Ax)
+[![codecov](https://codecov.io/gh/facebook/Ax/branch/main/graph/badge.svg)](https://codecov.io/gh/facebook/Ax)
 [![Build Status](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Ax is an accessible, general-purpose platform for understanding, managing,

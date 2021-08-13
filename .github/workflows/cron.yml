@@ -24,12 +24,12 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.7
-    - name: Install dependencies (stable Botorch)
+    - name: Install dependencies (stable BoTorch)
       run: |
         # will install the version of Botorch that is pinned in setup.py
         pip install -e .[dev,mysql,notebook]
       if: matrix.botorch == 'pinned'
-    - name: Install dependencies (Botorch master)
+    - name: Install dependencies (latest Botorch)
       env:
         ALLOW_BOTORCH_LATEST: true
       run: |
@@ -85,7 +85,7 @@ jobs:
       env:
         ALLOW_BOTORCH_LATEST: true
       run: |
-        # use master Botorch
+        # use latest BoTorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
@@ -118,7 +118,7 @@ jobs:
       env:
         ALLOW_BOTORCH_LATEST: true
       run: |
-        # use master Botorch
+        # use latest BoTorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]

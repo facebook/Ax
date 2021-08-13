@@ -5,7 +5,7 @@ possible.
 ## Pull Requests
 We actively welcome your pull requests.
 
-1. Fork the repo and create your branch from `master`. 
+1. Fork the repo and create your branch from `main`.
   For the most seamless developer experience, we recommend that you install
   all optional dependencies for Ax.
 2. Please see the [Code Requirements](#code-requirements) section for requirements on unit testing, code style, documentation, etc. These requirements are enforced via Travis for each PR.
@@ -36,7 +36,7 @@ We use the [`Black` code formatter](https://github.com/ambv/black) for all Pytho
 The majority of our code is covered by unit tests and we are working to get to 100% code coverage. Please ensure that new code is covered by unit tests. To run all unit tests, we recommend installing pytest using `pip install pytest` and running `pytest -ra` from the root of the Ax repo. To get coverage, `pip install pytest-cov` and run `pytest -ra --cov=ax`.
 
 ### Linting
-Run the linter via `flake8` (`pip install flake8`) from the root of the Ax repository. Note that we have a [custom flake8 configuration](https://github.com/facebook/Ax/blob/master/.flake8).
+Run the linter via `flake8` (`pip install flake8`) from the root of the Ax repository. Note that we have a [custom flake8 configuration](https://github.com/facebook/Ax/blob/main/.flake8).
 
 ### Static Type Checking
 We use [Pyre](https://pyre-check.org/) for static type checking and require code to be fully type annotated. At the moment, static type checking is not supported within Travis.
@@ -45,7 +45,7 @@ We use [Pyre](https://pyre-check.org/) for static type checking and require code
 * We require docstrings on all public functions and classes (those not prepended with `_`).
 * We use the [Google docstring style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html) & use Sphinx to compile the complete API documentation.
 * To rule out parsing errors, you can run Sphinx from the Ax root via `sphinx-build -WT sphinx/source sphinx/build`. The `-W` flag will cause Sphinx to break on the first error.
-* If adding a new module to Ax, please add it to the appropriate Sphinx reStructuredText (rst) file (see [here](https://github.com/facebook/Ax/tree/master/sphinx/source)). We have a check in Travis for un-documented modules.
+* If adding a new module to Ax, please add it to the appropriate Sphinx reStructuredText (rst) file (see [here](https://github.com/facebook/Ax/tree/main/sphinx/source)). We have a check in Travis for un-documented modules.
 
 ## Website
 
@@ -73,7 +73,7 @@ Additional details:
 * Tutorials: we embed tutorials written in Jupyter notebooks into the site. By default, these tutorials are converted to HTML without execution. However, you can execute all tutorials via `./scripts/make_docs.sh -t`, optionally specifying the Jupyter kernel to use via `-k [kernel_name]`. If you do execute the tutorials, please keep in mind that the version of Ax you have installed should match the version of Ax you're trying to build tutorials for.
 
 ### Publishing
-The site is hosted as a GitHub page (on the `gh-pages` branch). We build the [latest version](https://ax.dev/versions/latest/index.html) of the site with every commit to the `master` branch via Travis. The latest version of the site can be manually updated using `./scripts/publish_site.sh` (assuming proper credentials).
+The site is hosted as a GitHub page (on the `gh-pages` branch). We build the [latest version](https://ax.dev/versions/latest/index.html) of the site with every commit to the `main` branch via GitHub Actions. The latest version of the site can be manually updated using `./scripts/publish_site.sh` (assuming proper credentials).
 
 When new version of Ax rolls out, we add a new version to the site via `./scripts/publish_site.sh -v [version]`.
 
