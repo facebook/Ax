@@ -32,6 +32,9 @@ from ax.core.parameter_constraint import (
 from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
+from ax.early_stopping.strategies import (
+    PercentileEarlyStoppingStrategy,
+)
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
@@ -483,3 +486,15 @@ def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
         f"{class_type} does not have a corresponding parent class in "
         "CLASS_TO_REGISTRY."
     )
+
+
+def percentile_early_stopping_strategy_to_dict(
+    strategy: PercentileEarlyStoppingStrategy,
+) -> Dict[str, Any]:
+    """Convert Ax percentile early stopping strategy to a dictionary."""
+    return {
+        "__type": strategy.__class__.__name__,
+        "percentile_threshold": strategy.percentile_threshold,
+        "min_progression": strategy.min_progression,
+        "min_curves": strategy.min_curves,
+    }
