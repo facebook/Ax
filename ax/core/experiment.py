@@ -733,6 +733,11 @@ class Experiment(Base):
         return self._trial_indices_by_status
 
     @property
+    def running_trial_indices(self) -> Set[int]:
+        """Indices of running trials, associated with the experiment."""
+        return self._trial_indices_by_status[TrialStatus.RUNNING]
+
+    @property
     def default_data_type(self) -> DataType:
         return self._default_data_type
 
