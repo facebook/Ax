@@ -49,6 +49,43 @@ class TestManagedLoop(TestCase):
             {"GPEI": MODEL_KEY_TO_MODEL_SETUP["Sobol"]},
         ).start()
 
+    def test_with_evaluation_function_propagates_parameter_constraints(self) -> None:
+        kwargs = {
+            "parameters": [
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [-5.0, 10.0],
+                    "value_type": "float",
+                    "log_scale": False,
+                },
+                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
+            ],
+            "experiment_name": "test",
+            "objective_name": "branin",
+            "minimize": True,
+            "evaluation_function": _branin_evaluation_function,
+            "outcome_constraints": ["constrained_metric <= 10"],
+            "total_trials": 6,
+        }
+
+        with self.subTest("With parameter_constraints"):
+            loop = OptimizationLoop.with_evaluation_function(
+                parameter_constraints=["x1 + x2 <= 20"],
+                **kwargs,
+            )
+            self.assertNotEqual(loop.experiment.search_space.parameter_constraints, [])
+            self.assertTrue(len(loop.experiment.search_space.parameter_constraints) > 0)
+
+        with self.subTest("Without parameter_constraints"):
+            loop = OptimizationLoop.with_evaluation_function(
+                **kwargs,
+            )
+            self.assertEqual(loop.experiment.search_space.parameter_constraints, [])
+            self.assertTrue(
+                len(loop.experiment.search_space.parameter_constraints) == 0
+            )
+
     def test_branin(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
@@ -73,6 +110,34 @@ class TestManagedLoop(TestCase):
         bp, _ = loop.full_run().get_best_point()
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
+        with self.assertRaisesRegex(ValueError, "Optimization is complete"):
+            loop.run_trial()
+
+    def test_branin_with_active_parameter_constraints(self) -> None:
+        """Basic async synthetic function managed loop case."""
+        loop = OptimizationLoop.with_evaluation_function(
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [-5.0, 10.0],
+                    "value_type": "float",
+                    "log_scale": False,
+                },
+                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
+            ],
+            experiment_name="test",
+            objective_name="branin",
+            minimize=True,
+            evaluation_function=_branin_evaluation_function,
+            parameter_constraints=["x1 + x2 <= 1"],
+            outcome_constraints=["constrained_metric <= 10"],
+            total_trials=6,
+        )
+        bp, _ = loop.full_run().get_best_point()
+        self.assertIn("x1", bp)
+        self.assertIn("x2", bp)
+        self.assertTrue(bp["x1"] + bp["x2"] <= 1)
         with self.assertRaisesRegex(ValueError, "Optimization is complete"):
             loop.run_trial()
 

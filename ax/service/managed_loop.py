@@ -102,6 +102,7 @@ class OptimizationLoop:
             parameters=parameters,
             objective_name=objective_name,
             minimize=minimize,
+            parameter_constraints=parameter_constraints,
             outcome_constraints=outcome_constraints,
         )
         return OptimizationLoop(
