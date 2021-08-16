@@ -13,9 +13,6 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.encoder import Encoder
-from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
@@ -25,6 +22,8 @@ RETRY_EXCEPTION_TYPES: Tuple[Type[Exception], ...] = ()
 
 try:  # We don't require SQLAlchemy by default.
     from ax.storage.sqa_store.db import init_engine_and_session_factory
+    from ax.storage.sqa_store.decoder import Decoder
+    from ax.storage.sqa_store.encoder import Encoder
     from ax.storage.sqa_store.load import (
         _get_experiment_id,
         _get_generation_strategy_id,
@@ -38,6 +37,7 @@ try:  # We don't require SQLAlchemy by default.
         _update_generation_strategy,
         update_properties_on_experiment,
     )
+    from ax.storage.sqa_store.sqa_config import SQAConfig
     from ax.storage.sqa_store.structs import DBSettings
     from sqlalchemy.exc import OperationalError
     from sqlalchemy.orm.exc import StaleDataError
@@ -46,6 +46,9 @@ try:  # We don't require SQLAlchemy by default.
     RETRY_EXCEPTION_TYPES = (OperationalError, StaleDataError)
 except ModuleNotFoundError:  # pragma: no cover
     DBSettings = None
+    Decoder = None
+    Encoder = None
+    SQAConfig = None
 
 
 STORAGE_MINI_BATCH_SIZE = 50

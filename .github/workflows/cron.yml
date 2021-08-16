@@ -16,6 +16,7 @@ jobs:
     strategy:
       matrix:
         botorch: ['pinned', 'latest']
+        requirements: ['minimal', 'full']
       fail-fast: false
 
     steps:
@@ -24,25 +25,37 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.7
-    - name: Install dependencies (stable BoTorch)
+    - name: Install dependencies (full requirements, stable Botorch)
       run: |
         # will install the version of Botorch that is pinned in setup.py
         pip install -e .[dev,mysql,notebook]
-      if: matrix.botorch == 'pinned'
-    - name: Install dependencies (latest Botorch)
+      if: matrix.botorch == 'pinned' && matrix.requirements == 'full'
+    - name: Install dependencies (minimal requirements, stable Botorch)
+      run: |
+        pip install -e .
+      if: matrix.botorch == 'pinned' && matrix.requirements == 'minimal'
+    - name: Install dependencies (full requirements, Botorch main)
       env:
         ALLOW_BOTORCH_LATEST: true
       run: |
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
-      if: matrix.botorch == 'latest'
+      if: matrix.botorch == 'latest' && matrix.requirements == 'full'
+    - name: Install dependencies (minimal requirements, Botorch main)
+      env:
+        ALLOW_BOTORCH_LATEST: true
+      run: |
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -e .
+      if: matrix.botorch == 'latest' && matrix.requirements == 'minimal'
     - name: Import Ax
       run: |
         python scripts/import_ax.py
     - name: Tests
       # run even if previous step (import Ax) failed
-      if: ${{ always() }}
+      if: matrix.requirements == 'full'
       run: |
         pytest -ra
 
