@@ -83,6 +83,7 @@ try:
 
         def test_FullyBayesianBotorchModel(self, dtype=torch.float, cuda=False):
             # test deprecation warning
+            warnings.resetwarnings()  # this is necessary for building in mode/opt
             warnings.simplefilter("always", append=True)
             with warnings.catch_warnings(record=True) as ws:
                 self.model_cls(use_saas=True)
