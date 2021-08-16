@@ -25,7 +25,7 @@ jobs:
       env:
         ALLOW_BOTORCH_LATEST: true
       run: |
-        # use master Botorch
+        # use latest Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
