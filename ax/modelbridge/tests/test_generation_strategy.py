@@ -4,12 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import List, cast
 from unittest.mock import patch
 
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.parameter import FixedParameter, Parameter, ParameterType, ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.exceptions.generation_strategy import GenerationStrategyCompleted
@@ -537,3 +539,42 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             set(mock_update.call_args[1].get("new_data").df["trial_index"].values), {3}
         )
+
+    def test_deduplication(self):
+        tiny_parameters = [
+            FixedParameter(
+                name="x1",
+                parameter_type=ParameterType.FLOAT,
+                value=1.0,
+            ),
+            ChoiceParameter(
+                name="x2",
+                parameter_type=ParameterType.FLOAT,
+                values=[float(x) for x in range(2)],
+            ),
+        ]
+        tiny_search_space = SearchSpace(
+            parameters=cast(List[Parameter], tiny_parameters)
+        )
+        exp = get_branin_experiment(search_space=tiny_search_space)
+        sobol = GenerationStrategy(
+            name="Sobol",
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=-1,
+                    model_kwargs=self.step_model_kwargs,
+                    should_deduplicate=True,
+                ),
+            ],
+        )
+        for _ in range(2):
+            g = sobol.gen(exp)
+            exp.new_trial(generator_run=g).run()
+
+        self.assertEqual(len(exp.arms_by_signature), 2)
+
+        with self.assertRaisesRegex(
+            GenerationStrategyCompleted, "exceeded `MAX_GEN_DRAWS`"
+        ):
+            g = sobol.gen(exp)

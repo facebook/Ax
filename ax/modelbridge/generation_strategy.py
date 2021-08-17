@@ -40,6 +40,12 @@ logger = get_logger(__name__)
 
 TModelFactory = Callable[..., ModelBridge]
 MAX_CONDITIONS_GENERATED = 10000
+MAX_GEN_DRAWS = 5
+MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
+    f"GenerationStrategy exceeded `MAX_GEN_DRAWS` of {MAX_GEN_DRAWS} while trying to "
+    "generate a unique parameterization. This indicates that the search space has "
+    "likely been fully explored. Considering GenerationStrategy complete."
+)
 
 
 def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
@@ -102,6 +108,15 @@ class GenerationStep(SortableBase):
         index: Index of this generation step, for use internally in `Generation
             Strategy`. Do not assign as it will be reassigned when instantiating
             `GenerationStrategy` with a list of its steps.
+        should_deduplicate: Whether to deduplicate the parameters of proposed arms
+            against those of previous arms via rejection sampling. If this is True,
+            the generation strategy will discard generator runs produced from the
+            generation step that has `should_deduplicate=True` if they contain arms
+            already present on the experiment and replace them with new generator runs.
+            If no generator run with entirely unique arms could be produced in 5
+            attempts, a `GenerationStrategyCompleted` error will be raised, as we
+            assume that the optimization converged when the model can no longer suggest
+            unique arms.
 
     """
 
@@ -116,6 +131,13 @@ class GenerationStep(SortableBase):
     # Kwargs to pass into the Model's `.gen` function.
     model_gen_kwargs: Optional[Dict[str, Any]] = None
     index: int = -1  # Index of this step, set internally.
+    # Whether the GS should deduplicate the suggested arms against
+    # the arms already present on the experiment. If this is `True`
+    # on a given generation step, during that step the generation
+    # strategy will discard a generator run that contains an arm
+    # already present on the experiment and produce a new generator
+    # run instead before returning it from `gen` or `_gen_multiple`.
+    should_deduplicate: bool = False
 
     @property
     def model_name(self) -> str:
@@ -514,6 +536,31 @@ class GenerationStrategy(Base):
                         keywords=get_function_argument_names(model.gen),
                     ),
                 )
+                # NOTE: Might need to revisit the behavior of deduplication when
+                # generating multi-arm generator runs (to be made into batch trials).
+                if self._curr.should_deduplicate:
+                    n_gen_draws = 1
+                    while any(
+                        arm.signature in self.experiment.arms_by_signature
+                        for arm in generator_run.arms
+                    ):
+                        n_gen_draws += 1
+                        if n_gen_draws > MAX_GEN_DRAWS:
+                            raise GenerationStrategyCompleted(
+                                MAX_GEN_DRAWS_EXCEEDED_MESSAGE
+                            )
+                        generator_run = model.gen(
+                            n=n,
+                            pending_observations=pending_observations,
+                            **consolidate_kwargs(
+                                kwargs_iterable=[
+                                    self._curr.model_gen_kwargs,
+                                    kwargs,
+                                ],
+                                keywords=get_function_argument_names(model.gen),
+                            ),
+                        )
+
                 generator_run._generation_step_index = self._curr.index
                 self._generator_runs.append(generator_run)
                 generator_runs.append(generator_run)
