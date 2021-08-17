@@ -74,6 +74,38 @@ class WinsorizeTransformTest(TestCase):
             },
         )
 
+        self.obsd3 = ObservationData(
+            metric_names=["m3", "m3", "m3", "m3"],
+            means=np.array([0.0, 1.0, 5.0, 3.0]),
+            covariance=np.eye(4),
+        )
+        self.t5 = Winsorize(
+            search_space=None,
+            observation_features=None,
+            observation_data=[
+                deepcopy(self.obsd1),
+                deepcopy(self.obsd2),
+                deepcopy(self.obsd3),
+            ],
+            config={
+                "winsorization_lower": {"m2": 0.4},
+                "winsorization_upper": {"m1": 0.6},
+            },
+        )
+        self.t6 = Winsorize(
+            search_space=None,
+            observation_features=None,
+            observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
+            config={
+                "winsorization_lower": {"m2": 0.4},
+                "winsorization_upper": {"m1": 0.6},
+                "percentile_bounds": {
+                    "m1": (None, None),
+                    "m2": (0.0, None),  # This should leave m2 untouched
+                },
+            },
+        )
+
     def testInit(self):
         self.assertEqual(self.t.percentiles["m1"], (0.0, 2.0))
         self.assertEqual(self.t.percentiles["m2"], (0.0, 2.0))
@@ -137,3 +169,24 @@ class WinsorizeTransformTest(TestCase):
             [deepcopy(self.obsd2)], []
         )[0]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
+
+    def testTransformObservationsDifferentLowerUpper(self):
+        observation_data = self.t5.transform_observation_data(
+            [deepcopy(self.obsd2)], []
+        )[0]
+        self.assertEqual(self.t5.percentiles["m1"], (0.0, 1.0))
+        self.assertEqual(self.t5.percentiles["m2"], (1.0, 2.0))
+        self.assertEqual(self.t5.percentiles["m3"], (0.0, 5.0))
+        self.assertListEqual(list(observation_data.means), [1.0, 1.0, 2.0, 1.0])
+        # Nothing should happen to m3
+        observation_data = self.t5.transform_observation_data(
+            [deepcopy(self.obsd3)], []
+        )[0]
+        self.assertListEqual(list(observation_data.means), [0.0, 1.0, 5.0, 3.0])
+        # With percentile_bounds
+        observation_data = self.t6.transform_observation_data(
+            [deepcopy(self.obsd2)], []
+        )[0]
+        self.assertEqual(self.t6.percentiles["m1"], (0.0, 1.0))
+        self.assertEqual(self.t6.percentiles["m2"], (0.0, 2.0))
+        self.assertListEqual(list(observation_data.means), [1.0, 1.0, 2.0, 1.0])

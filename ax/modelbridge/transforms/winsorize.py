@@ -21,14 +21,20 @@ logger = get_logger(__name__)
 
 class Winsorize(Transform):
     """Clip the mean values for each metric to lay within the limits provided in
-    the config as a tuple of (lower bound percentile, upper bound percentile).
-    These values are the percentile to trim from the lower and upper bounds,
-    specified as a float in [0.0, 1). To clip to the 10th and 90th percentile,
-    for instance, you'll pass (0.1, 0.1). Config should include those bounds
-    under the key "winsorization_limits". Additionally, you can pass in
-    percentile_bounds that specify the largest/smallest possible values for the
-    percentiles. This is useful in the MOO setting where we want to make sure
-    winsorization doesn't move values to the other side of the reference point.
+    the config. You can either specify different winsorization limits for each metric
+    such as:
+        "winsorization_lower": {"metric_1": 0.2},
+        "winsorization_upper": {"metric_2": 0.1}
+    which will winsorize 20% from below for metric_1 and 10% from above from metric_2.
+    Additional metrics won't be winsorized. It is also possible to specify the same
+    winsorization limits for all metrics, e.g.,
+        "winsorization_lower": None,
+        "winsorization_upper": 0.2
+    which will winsorize 20% from above for all metrics.
+
+    Additionally, you can pass in percentile_bounds that specify the largest/smallest
+    possible values for the percentiles. This is useful for MOO where we want to make
+    sure winsorization doesn't move values to the other side of the reference point.
     """
 
     def __init__(
@@ -44,25 +50,33 @@ class Winsorize(Transform):
         # we can just replace that limit(s) with 0.0, as in those cases the
         # percentile will just interpret them as 0-th or 100-th percentile,
         # leaving the data unclipped.
-        lower = 0.0
+        wins_l = 0.0
         if config is not None and "winsorization_lower" in config:
-            lower = checked_cast(float, (config.get("winsorization_lower") or 0.0))
-        upper = 0.0
+            wins_l = config.get("winsorization_lower") or 0.0
+        wins_u = 0.0
         if config is not None and "winsorization_upper" in config:
-            upper = checked_cast(float, (config.get("winsorization_upper") or 0.0))
-        metric_values = get_data(observation_data=observation_data)
-        if lower >= 1 - upper:
-            raise ValueError(  # pragma: no cover
-                f"Lower bound: {lower} was greater than the inverse of the upper "
-                f"bound: {1 - upper}. Decrease one or both of your "
-                f"winsorization_limits: {(lower, upper)}."
-            )
+            wins_u = config.get("winsorization_upper") or 0.0
         pct_bounds = {}
         if config is not None and "percentile_bounds" in config:
             pct_bounds = checked_cast(dict, config.get("percentile_bounds") or {})
+        metric_values = get_data(observation_data=observation_data)
 
         self.percentiles = {}
         for metric_name, vals in metric_values.items():
+            lower = (
+                wins_l.get(metric_name) or 0.0 if isinstance(wins_l, dict) else wins_l
+            )
+            upper = (
+                wins_u.get(metric_name) or 0.0 if isinstance(wins_u, dict) else wins_u
+            )
+
+            if lower >= 1 - upper:
+                raise ValueError(  # pragma: no cover
+                    f"Lower bound: {lower} was greater than the inverse of the upper "
+                    f"bound: {1 - upper} for metric {metric_name}. Decrease one or "
+                    f"both of your winsorization_limits: {(lower, upper)}."
+                )
+
             pct_l = np.percentile(vals, lower * 100, interpolation="lower")
             pct_u = np.percentile(vals, (1 - upper) * 100, interpolation="higher")
             if metric_name in pct_bounds:
