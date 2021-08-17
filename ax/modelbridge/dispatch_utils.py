@@ -32,6 +32,7 @@ def _make_sobol_step(
     enforce_num_trials: bool = True,
     max_parallelism: Optional[int] = None,
     seed: Optional[int] = None,
+    should_deduplicate: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a Sobol generation step."""
     return GenerationStep(
@@ -42,6 +43,7 @@ def _make_sobol_step(
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
         model_kwargs={"deduplicate": True, "seed": seed},
+        should_deduplicate=should_deduplicate,
     )
 
 
@@ -53,6 +55,7 @@ def _make_botorch_step(
     model: Models = Models.GPEI,
     winsorize: bool = False,
     winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
+    should_deduplicate: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
     if (winsorize and winsorization_limits is None) or (
@@ -82,6 +85,7 @@ def _make_botorch_step(
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
         model_kwargs=model_kwargs,
+        should_deduplicate=should_deduplicate,
     )
 
 
@@ -167,6 +171,7 @@ def choose_generation_strategy(
     max_parallelism_cap: Optional[int] = None,
     max_parallelism_override: Optional[int] = None,
     optimization_config: Optional[OptimizationConfig] = None,
+    should_deduplicate: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -265,12 +270,14 @@ def choose_generation_strategy(
                     enforce_num_trials=enforce_sequential_optimization,
                     seed=random_seed,
                     max_parallelism=sobol_parallelism,
+                    should_deduplicate=should_deduplicate,
                 ),
                 _make_botorch_step(
                     model=suggested_model,
                     winsorize=winsorize_botorch_model,
                     winsorization_limits=winsorization_limits,
                     max_parallelism=bo_parallelism,
+                    should_deduplicate=should_deduplicate,
                 ),
             ]
         )
@@ -282,4 +289,8 @@ def choose_generation_strategy(
         return gs
 
     logger.info("Using Sobol generation strategy.")
-    return GenerationStrategy(steps=[_make_sobol_step(seed=random_seed)])
+    return GenerationStrategy(
+        steps=[
+            _make_sobol_step(seed=random_seed, should_deduplicate=should_deduplicate)
+        ]
+    )
