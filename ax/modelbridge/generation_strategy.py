@@ -500,22 +500,12 @@ class GenerationStrategy(Base):
         self.experiment = experiment
         self._set_or_update_model(data=data)
         self._save_seen_trial_indices()
-        max_parallelism = self._curr.max_parallelism
-        num_running = self.num_running_trials_this_step
 
         # Make sure to not make too many generator runs and
         # exceed maximum allowed paralellism for the step.
-        if max_parallelism is not None:
-            if num_running >= max_parallelism:
-                raise MaxParallelismReachedException(
-                    step_index=self._curr.index,
-                    model_name=self._curr.model_name,
-                    num_running=num_running,
-                )
-            else:
-                num_generator_runs = min(
-                    num_generator_runs, max_parallelism - num_running
-                )
+        num_until_max_parallelism = self._num_remaining_trials_until_max_parallelism()
+        if num_until_max_parallelism is not None:
+            num_generator_runs = min(num_generator_runs, num_until_max_parallelism)
 
         # Make sure not to extend number of trials expected in step.
         if self._curr.enforce_num_trials and self._curr.num_trials > 0:
@@ -576,6 +566,33 @@ class GenerationStrategy(Base):
         return generator_runs
 
     # ------------------------- Model selection logic helpers. -------------------------
+
+    def _num_remaining_trials_until_max_parallelism(
+        self, raise_max_parallelism_reached_exception: bool = True
+    ) -> Optional[int]:
+        """Returns how many generator runs (to be made into a trial each) are left to
+        generate before the `max_parallelism` limit is reached for the current
+        generation step.
+
+        Args:
+            raise_max_parallelism_reached_exception: Whether to raise
+                ``MaxParallelismReachedException`` if number of trials running in
+                this generation step exceeds maximum parallelism for it.
+        """
+        max_parallelism = self._curr.max_parallelism
+        num_running = self.num_running_trials_this_step
+
+        if max_parallelism is None:
+            return None  # There was no `max_parallelism` limit.
+
+        if raise_max_parallelism_reached_exception and num_running >= max_parallelism:
+            raise MaxParallelismReachedException(
+                step_index=self._curr.index,
+                model_name=self._curr.model_name,
+                num_running=num_running,
+            )
+
+        return max_parallelism - num_running
 
     def _set_or_update_model(self, data: Optional[Data]) -> None:
         if self._curr.num_trials == -1:  # Unlimited trials, just use curr. model.
