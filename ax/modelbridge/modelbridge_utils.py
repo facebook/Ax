@@ -834,6 +834,7 @@ def hypervolume(
     objective_thresholds: Optional[TRefPoint] = None,
     observation_data: Optional[List[ObservationData]] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+    selected_metrics: Optional[List[str]] = None,
     use_model_predictions: bool = True,
 ) -> float:
     """Helper function that computes hypervolume of a given list of outcomes."""
@@ -850,11 +851,21 @@ def hypervolume(
         raise ValueError(
             "Cannot compute hypervolume without having objective thresholds specified."
         )
+    # Set to all metrics if unspecified
+    if selected_metrics is None:
+        selected_metrics = modelbridge.metric_names
+    # Create a mask indicating selected metrics
+    selected_metrics_mask = [
+        metric in selected_metrics for metric in modelbridge.metric_names
+    ]
     # Apply appropriate weights and thresholds
     obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
         objective_weights=obj_w, objective_thresholds=obj_t
     )
     f_t = obj(f)
+    # Only select the metrics of interest here
+    f_t = f_t[:, selected_metrics_mask]
+    obj_t = obj_t[selected_metrics_mask]
     hv = Hypervolume(ref_point=obj_t)
     return hv.compute(f_t)
 
@@ -864,6 +875,7 @@ def predicted_hypervolume(
     objective_thresholds: Optional[TRefPoint] = None,
     observation_features: Optional[List[ObservationFeatures]] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+    selected_metrics: Optional[List[str]] = None,
 ) -> float:
     """Calculate hypervolume of a pareto frontier based on the posterior means of
     given observation features.
@@ -878,6 +890,8 @@ def predicted_hypervolume(
         observation_features: observation features to predict. Model's training
             data used by default if unspecified.
         optimization_config: Optimization config
+        selected_metrics: If specified, hypervolume will only be evaluated on
+            the specified subset of metrics. Otherwise, all metrics will be used.
 
     Returns:
         calculated hypervolume.
@@ -898,6 +912,7 @@ def predicted_hypervolume(
         objective_thresholds=objective_thresholds,
         observation_features=observation_features,
         optimization_config=optimization_config,
+        selected_metrics=selected_metrics,
     )
 
 
@@ -905,6 +920,7 @@ def observed_hypervolume(
     modelbridge: modelbridge_module.array.ArrayModelBridge,
     objective_thresholds: Optional[TRefPoint] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+    selected_metrics: Optional[List[str]] = None,
 ) -> float:
     """Calculate hypervolume of a pareto frontier based on observed data.
 
@@ -918,6 +934,8 @@ def observed_hypervolume(
         observation_features: observation features to predict. Model's training
             data used by default if unspecified.
         optimization_config: Optimization config
+        selected_metrics: If specified, hypervolume will only be evaluated on
+            the specified subset of metrics. Otherwise, all metrics will be used.
 
     Returns:
         (float) calculated hypervolume.
@@ -932,6 +950,7 @@ def observed_hypervolume(
         observation_features=observation_features,
         observation_data=observation_data,
         optimization_config=optimization_config,
+        selected_metrics=selected_metrics,
         use_model_predictions=False,
     )
 
