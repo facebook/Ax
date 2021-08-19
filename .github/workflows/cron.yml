@@ -112,9 +112,7 @@ jobs:
     - name: Publish latest website
       env:
         DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
-        CURRENT_BRANCH: ${{ github.ref }}
       run: |
-        set -x
         bash scripts/publish_site.sh -d
 
   deploy-test-pypi:

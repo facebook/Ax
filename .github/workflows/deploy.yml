@@ -67,7 +67,6 @@ jobs:
     - name: Publish latest website
       env:
         DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
-        CURRENT_BRANCH: ${{ github.ref }}
       run: |
         bash scripts/publish_site.sh -d -k python3 -v ${{ github.event.release.tag_name }}
 
