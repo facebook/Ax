@@ -130,7 +130,7 @@ if [[ $VERSION == false ]]; then
 
   # Build site
   cd .. || exit
-  ./scripts/make_docs.sh -b -t -k "${KERNEL_NAME}"
+  ./scripts/make_docs.sh
   rm -rf ../website/build/Ax/docs/next  # don't need this
 
   # Move built site to gh-pages (but keep old versions.js)
@@ -183,7 +183,7 @@ else
   # Build new version of site (this will be stable, default version)
   # Execute tutorials
   cd .. || exit
-  ./scripts/make_docs.sh -b -t -k "${KERNEL_NAME}"
+  ./scripts/make_docs.sh
 
   # Move built site to new folder (new-site) & carry over old versions
   # from existing gh-pages
