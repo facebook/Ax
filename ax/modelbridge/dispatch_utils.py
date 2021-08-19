@@ -8,7 +8,6 @@ import logging
 from math import ceil
 from typing import cast, Optional, Tuple, Type, Union
 
-from ax.core.objective import MultiObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -24,6 +23,10 @@ logger: logging.Logger = get_logger(__name__)
 
 DEFAULT_BAYESIAN_PARALLELISM = 3
 MAX_DISCRETE_COMBINATIONS = 65
+SAASBO_INCOMPATIBLE_MESSAGE = (
+    "SAASBO is incompatible with {} generation strategy. "
+    "Disregarding user input `use_saasbo = True`."
+)
 
 
 def _make_sobol_step(
@@ -93,16 +96,21 @@ def _suggest_gp_model(
     search_space: SearchSpace,
     num_trials: Optional[int] = None,
     optimization_config: Optional[OptimizationConfig] = None,
+    use_saasbo: bool = False,
 ) -> Union[None, Models]:
     """Suggest a model based on the search space. None means we use Sobol.
 
     1. We use Sobol if the number of total iterations in the optimization is
-    known in advance and there are less distinct points in the search space
+    known in advance and there are fewer distinct points in the search space
     than the known intended number of total iterations.
-    2. We use BO_MIXED if there are less continuous parameters in the search
+    2. We use BO_MIXED if there are fewer continuous parameters in the search
     space than the sum of options for the *unordered* choice parameters.
-    3. We us MOO if `optimization_config` has multiple objectives.
-    4. In all other cases we use GPEI.
+    3. We use MOO if `optimization_config` has multiple objectives and `use_saasbo
+    is False`.
+    4. We use FULLYBAYESIANMOO if `optimization_config` has multiple objectives
+    and `use_saasbo is True`.
+    5. If none of the above and `use_saasbo is False`, we use GPEI.
+    6. If none of the above and `use_saasbo is True`, we use FULLYBAYESIAN.
     """
     num_continuous_parameters, num_discrete_choices = 0, 0
     num_discrete_combinations, num_possible_points = 1, 1
@@ -125,21 +133,23 @@ def _suggest_gp_model(
         and num_possible_points <= num_trials
     ):
         logger.info("Using Sobol since we can enumerate the search space.")
+        if use_saasbo:
+            logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
         return None
 
-    is_moo_problem = (
-        optimization_config
-        and optimization_config.objective
-        and isinstance(optimization_config.objective, MultiObjective)
-    )
+    is_moo_problem = optimization_config and optimization_config.is_moo_problem
     if num_continuous_parameters > num_discrete_choices:
         logger.info(
-            "Using GPEI (Bayesian optimization) since there are more continuous "
+            "Using Bayesian optimization since there are more continuous "
             "parameters than there are categories for the unordered categorical "
             "parameters."
         )
-        if is_moo_problem:
+        if is_moo_problem and use_saasbo:
+            return Models.FULLYBAYESIANMOO
+        elif is_moo_problem and not use_saasbo:
             return Models.MOO
+        elif use_saasbo:
+            return Models.FULLYBAYESIAN
         else:
             return Models.GPEI
     elif not is_moo_problem and num_discrete_combinations <= MAX_DISCRETE_COMBINATIONS:
@@ -147,6 +157,8 @@ def _suggest_gp_model(
             "Using Bayesian optimization with a categorical kernel for improved "
             "performance with a large number of unordered categorical parameters."
         )
+        if use_saasbo:
+            logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("`BO_MIXED`"))
         return Models.BO_MIXED
     else:
         logger.info(
@@ -155,6 +167,9 @@ def _suggest_gp_model(
             "categorical parameters for improved performance. If possible, turn "
             "all ordered categorical variables into RangeParameters"
         )
+        if use_saasbo:
+            logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
+
         return None
 
 
@@ -172,6 +187,7 @@ def choose_generation_strategy(
     max_parallelism_override: Optional[int] = None,
     optimization_config: Optional[OptimizationConfig] = None,
     should_deduplicate: bool = False,
+    use_saasbo: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -218,11 +234,13 @@ def choose_generation_strategy(
             cap. `max_parallelism_cap` is meant to just be a hard limit on parallelism
             (e.g. to avoid overloading machine(s) that evaluate the experiment trials).
             Specify only if not specifying `max_parallelism_override`.
+        use_saasbo: Whether to use SAAS prior for any GPEI generation steps.
     """
     suggested_model = _suggest_gp_model(
         search_space=search_space,
         num_trials=num_trials,
         optimization_config=optimization_config,
+        use_saasbo=use_saasbo,
     )
     if not no_bayesian_optimization and suggested_model is not None:
         if not enforce_sequential_optimization and (  # pragma: no cover

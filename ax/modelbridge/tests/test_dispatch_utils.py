@@ -72,6 +72,31 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed_2._steps[0].model.value, "Sobol")
             self.assertEqual(bo_mixed_2._steps[0].num_trials, 5)
             self.assertEqual(bo_mixed_2._steps[1].model.value, "BO_MIXED")
+        with self.subTest("SAASBO"):
+            sobol_fullybayesian = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                use_batch_trials=True,
+                num_initialization_trials=3,
+                use_saasbo=True,
+            )
+            self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
+            self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
+            self.assertEqual(sobol_fullybayesian._steps[1].model.value, "FullyBayesian")
+        with self.subTest("SAASBO MOO"):
+            sobol_fullybayesianmoo = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                use_batch_trials=True,
+                num_initialization_trials=3,
+                use_saasbo=True,
+                optimization_config=MultiObjectiveOptimizationConfig(
+                    objective=MultiObjective(objectives=[])
+                ),
+            )
+            self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
+            self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
+            self.assertEqual(
+                sobol_fullybayesianmoo._steps[1].model.value, "FullyBayesianMOO"
+            )
 
     def test_setting_random_seed(self):
         sobol = choose_generation_strategy(
