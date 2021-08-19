@@ -18,7 +18,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.exceptions.core import DataRequiredError, NoDataError
+from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     MaxParallelismReachedException,
@@ -199,13 +199,16 @@ class GenerationStrategy(Base):
         for idx, step in enumerate(self._steps):
             if step.num_trials == -1:
                 if idx < len(self._steps) - 1:
-                    raise ValueError(  # pragma: no cover
+                    raise UserInputError(  # pragma: no cover
                         "Only last step in generation strategy can have `num_trials` "
                         "set to -1 to indicate that the model in the step should "
                         "be used to generate new trials indefinitely."
                     )
             elif step.num_trials < 1:  # pragma: no cover
-                raise ValueError("`num_trials` must be positive or -1 for all models.")
+                raise UserInputError(
+                    "`num_trials` must be positive or -1 (indicating unlimited) "
+                    "for all generation steps."
+                )
             step.index = idx
             if not isinstance(step.model, ModelRegistryBase):
                 self._uses_registered_models = False

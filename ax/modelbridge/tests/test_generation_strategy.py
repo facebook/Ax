@@ -13,7 +13,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.parameter import FixedParameter, Parameter, ParameterType, ChoiceParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyCompleted
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import get_sobol
@@ -87,7 +87,7 @@ class TestGenerationStrategy(TestCase):
 
     def test_validation(self):
         # num_trials can be positive or -1.
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             GenerationStrategy(
                 steps=[
                     GenerationStep(model=Models.SOBOL, num_trials=5),
@@ -96,7 +96,7 @@ class TestGenerationStrategy(TestCase):
             )
 
         # only last num_trials can be -1.
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             GenerationStrategy(
                 steps=[
                     GenerationStep(model=Models.SOBOL, num_trials=-1),
