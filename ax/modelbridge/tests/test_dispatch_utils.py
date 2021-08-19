@@ -207,3 +207,8 @@ class TestDispatchUtils(TestCase):
         self.assertListEqual(
             [s.should_deduplicate for s in sobol_gpei._steps], [True] * 2
         )
+
+    def test_setting_experiment_attribute(self):
+        exp = get_experiment()
+        gs = choose_generation_strategy(search_space=exp.search_space, experiment=exp)
+        self.assertEqual(gs._experiment, exp)

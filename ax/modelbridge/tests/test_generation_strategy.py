@@ -13,7 +13,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.parameter import FixedParameter, Parameter, ParameterType, ChoiceParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyCompleted
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import get_sobol
@@ -21,6 +21,9 @@ from ax.modelbridge.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
     MaxParallelismReachedException,
+)
+from ax.modelbridge.modelbridge_utils import (
+    get_pending_observation_features_based_on_trial_status as get_pending,
 )
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Cont_X_trans, Models
@@ -84,7 +87,7 @@ class TestGenerationStrategy(TestCase):
 
     def test_validation(self):
         # num_trials can be positive or -1.
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             GenerationStrategy(
                 steps=[
                     GenerationStep(model=Models.SOBOL, num_trials=5),
@@ -93,7 +96,7 @@ class TestGenerationStrategy(TestCase):
             )
 
         # only last num_trials can be -1.
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             GenerationStrategy(
                 steps=[
                     GenerationStep(model=Models.SOBOL, num_trials=-1),
@@ -578,3 +581,53 @@ class TestGenerationStrategy(TestCase):
             GenerationStrategyCompleted, "exceeded `MAX_GEN_DRAWS`"
         ):
             g = sobol.gen(exp)
+
+    def test_current_generator_run_limit(self):
+        NUM_INIT_TRIALS = 5
+        SECOND_STEP_PARALLELISM = 3
+        NUM_ROUNDS = 4
+        exp = get_branin_experiment()
+        sobol_gs_with_parallelism_limits = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=NUM_INIT_TRIALS,
+                    min_trials_observed=3,
+                ),
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=-1,
+                    max_parallelism=SECOND_STEP_PARALLELISM,
+                ),
+            ]
+        )
+        sobol_gs_with_parallelism_limits._experiment = exp
+        could_gen = []
+        for _ in range(NUM_ROUNDS):
+            num_trials_to_gen = (
+                sobol_gs_with_parallelism_limits.current_generator_run_limit()
+            )
+            could_gen.append(num_trials_to_gen)
+            trials = []
+
+            for __ in range(num_trials_to_gen):
+                gr = sobol_gs_with_parallelism_limits.gen(
+                    experiment=exp,
+                    pending_observations=get_pending(experiment=exp),
+                )
+                trials.append(exp.new_trial(gr).mark_running(no_runner_required=True))
+
+            for trial in trials:
+                exp.attach_data(get_branin_data(trial_indices=[trial.index]))
+                trial.mark_completed()
+
+        # We expect trials from first generation step + trials from remaining rounds in
+        # batches limited by parallelism setting in the second step.
+        self.assertEqual(
+            len(exp.trials),
+            NUM_INIT_TRIALS + (NUM_ROUNDS - 1) * SECOND_STEP_PARALLELISM,
+        )
+        self.assertTrue(all(t.status.is_completed for t in exp.trials.values()))
+        self.assertEqual(
+            could_gen, [NUM_INIT_TRIALS] + [SECOND_STEP_PARALLELISM] * (NUM_ROUNDS - 1)
+        )

@@ -75,6 +75,7 @@ class OptimizationLoop:
                 search_space=experiment.search_space,
                 use_batch_trials=self.arms_per_trial > 1,
                 random_seed=self.random_seed,
+                experiment=experiment,
             )
         else:
             self.generation_strategy = generation_strategy

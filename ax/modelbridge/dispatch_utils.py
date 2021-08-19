@@ -8,6 +8,7 @@ import logging
 from math import ceil
 from typing import cast, Optional, Tuple, Type, Union
 
+from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -188,6 +189,7 @@ def choose_generation_strategy(
     optimization_config: Optional[OptimizationConfig] = None,
     should_deduplicate: bool = False,
     use_saasbo: bool = False,
+    experiment: Optional[Experiment] = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -235,6 +237,10 @@ def choose_generation_strategy(
             (e.g. to avoid overloading machine(s) that evaluate the experiment trials).
             Specify only if not specifying `max_parallelism_override`.
         use_saasbo: Whether to use SAAS prior for any GPEI generation steps.
+        experiment: If specified, `_experiment` attribute of the generation strategy
+            will be set to this experiment (useful for associating a generation
+            strategy with a given experiment before it's first used to ``gen`` with
+            that experiment).
     """
     suggested_model = _suggest_gp_model(
         search_space=search_space,
@@ -304,11 +310,15 @@ def choose_generation_strategy(
             f" {num_initialization_trials} will take longer to generate due to "
             " model-fitting."
         )
-        return gs
-
-    logger.info("Using Sobol generation strategy.")
-    return GenerationStrategy(
-        steps=[
-            _make_sobol_step(seed=random_seed, should_deduplicate=should_deduplicate)
-        ]
-    )
+    else:
+        gs = GenerationStrategy(
+            steps=[
+                _make_sobol_step(
+                    seed=random_seed, should_deduplicate=should_deduplicate
+                )
+            ]
+        )
+        logger.info("Using Sobol generation strategy.")
+    if experiment:
+        gs.experiment = experiment
+    return gs

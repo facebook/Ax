@@ -336,6 +336,14 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             expected_hv = 25  # (5 - 0) * (5 - 0)
             wrapped_frontier_evaluator.assert_called_once()
             self.assertEqual(expected_hv, hv)
+            # Test selected_metrics
+            hv = observed_hypervolume(
+                modelbridge=modelbridge,
+                objective_thresholds=objective_thresholds,
+                selected_metrics=["branin_a"],
+            )
+            expected_hv = 5  # (5 - 0)
+            self.assertEqual(expected_hv, hv)
 
         with self.assertRaises(ValueError):
             predicted_hypervolume(
@@ -352,6 +360,14 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             modelbridge=modelbridge,
             objective_thresholds=objective_thresholds,
             observation_features=observation_features,
+        )
+        self.assertTrue(predicted_hv >= 0)
+        # Test selected_metrics
+        predicted_hv = predicted_hypervolume(
+            modelbridge=modelbridge,
+            objective_thresholds=objective_thresholds,
+            observation_features=observation_features,
+            selected_metrics=["branin_a"],
         )
         self.assertTrue(predicted_hv >= 0)
 

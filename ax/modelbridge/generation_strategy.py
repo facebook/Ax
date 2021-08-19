@@ -10,7 +10,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from inspect import signature
-from typing import Any, Callable, Dict, List, Optional, Set, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, Tuple
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -18,7 +18,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.exceptions.core import DataRequiredError, NoDataError
+from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     MaxParallelismReachedException,
@@ -199,13 +199,16 @@ class GenerationStrategy(Base):
         for idx, step in enumerate(self._steps):
             if step.num_trials == -1:
                 if idx < len(self._steps) - 1:
-                    raise ValueError(  # pragma: no cover
+                    raise UserInputError(  # pragma: no cover
                         "Only last step in generation strategy can have `num_trials` "
                         "set to -1 to indicate that the model in the step should "
                         "be used to generate new trials indefinitely."
                     )
             elif step.num_trials < 1:  # pragma: no cover
-                raise ValueError("`num_trials` must be positive or -1 for all models.")
+                raise UserInputError(
+                    "`num_trials` must be positive or -1 (indicating unlimited) "
+                    "for all generation steps."
+                )
             step.index = idx
             if not isinstance(step.model, ModelRegistryBase):
                 self._uses_registered_models = False
@@ -433,6 +436,52 @@ class GenerationStrategy(Base):
             **kwargs,
         )[0]
 
+    def current_generator_run_limit(
+        self,
+    ) -> Optional[int]:
+        """How many generator runs can this generation strategy generate right now,
+        assuming each one of them becomes its own trial.
+
+        NOTE: This method might move the generation strategy to the next step, which
+        is safe, as the next call to ``gen`` will just pick up from there.
+
+        Returns: ``None`` if this generation strategy cannot generate any more
+            trials at all (e.g. if it is completed). Returns the number of generator
+            runs that can currently be produced otherwise, with "-1" meaning unlimited
+            generator runs.
+        """
+        try:
+            self._maybe_move_to_next_step(raise_data_required_error=False)
+        except GenerationStrategyCompleted:
+            return None
+
+        to_gen = self._num_trials_to_gen_and_complete_in_curr_step()[0]
+        if to_gen < -1:
+            # `_num_trials_to_gen_and_complete_in_curr_step()` should return value
+            # of -1 or greater always.
+            raise RuntimeError(
+                "Number of trials left to generate in current generation step is "
+                f"{to_gen}. This is an unexpected state of the generation strategy."
+            )
+
+        until_max_parallelism = self._num_remaining_trials_until_max_parallelism(
+            raise_max_parallelism_reached_exception=False
+        )
+
+        # If there is no limitation on the number of trials in the step and
+        # there is a parallelism limit, return number of trials until that limit.
+        if until_max_parallelism is not None and to_gen == -1:
+            return until_max_parallelism
+
+        # If there is a limitation on the number of trials in the step and also on
+        # parallelism, return the number of trials until either one of the limits.
+        if until_max_parallelism is not None:  # NOTE: to_gen must be >= 0 here
+            return min(to_gen, until_max_parallelism)
+
+        # If there is no limit on parallelism, return how many trials are left to
+        # gen in this step (might be -1 indicating unlimited).
+        return to_gen
+
     def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""
         return GenerationStrategy(name=self.name, steps=self._steps)
@@ -498,7 +547,8 @@ class GenerationStrategy(Base):
                 resuggesting points that are currently being evaluated.
         """
         self.experiment = experiment
-        self._set_or_update_model(data=data)
+        self._maybe_move_to_next_step()
+        self._set_or_update_current_model(data=data)
         self._save_seen_trial_indices()
 
         # Make sure to not make too many generator runs and
@@ -567,6 +617,33 @@ class GenerationStrategy(Base):
 
     # ------------------------- Model selection logic helpers. -------------------------
 
+    def _set_or_update_current_model(self, data: Optional[Data]) -> None:
+        if self._model is not None and self._curr.use_update:
+            self._update_current_model(data=data)
+        else:
+            self._set_current_model(data=data)
+
+    def _num_trials_to_gen_and_complete_in_curr_step(self) -> Tuple[int, int]:
+        """Returns how many generator runs (to be made into a trial each) are left to
+        generate in current step and how many are left to be completed in it before
+        this generation strategy can move to the next step.
+
+        NOTE: returns (-1, -1) if the number of trials to be generated from the given
+        step is unlimited (and therefore it must be the last generation step).
+        """
+        if self._curr.num_trials == -1:
+            return -1, -1
+
+        # More than `num_trials` can be generated (if not `enforce_num_trials=False`)
+        # and more than `min_trials_observed` can be completed (if `min_trials_observed
+        # < `num_trials`), so `left_to_gen` and `left_to_complete` should be clamped
+        # to lower bound of 0.
+        left_to_gen = max(self._curr.num_trials - self.num_can_complete_this_step, 0)
+        left_to_complete = max(
+            self._curr.min_trials_observed - self.num_completed_this_step, 0
+        )
+        return left_to_gen, left_to_complete
+
     def _num_remaining_trials_until_max_parallelism(
         self, raise_max_parallelism_reached_exception: bool = True
     ) -> Optional[int]:
@@ -594,44 +671,71 @@ class GenerationStrategy(Base):
 
         return max_parallelism - num_running
 
-    def _set_or_update_model(self, data: Optional[Data]) -> None:
-        if self._curr.num_trials == -1:  # Unlimited trials, just use curr. model.
-            self._set_or_update_current_model(data=data)
-            return
+    def _maybe_move_to_next_step(self, raise_data_required_error: bool = True) -> bool:
+        """Moves this generation strategy to next step if conditions for moving are met.
+        This method is safe to use both when generating candidates or simply checking
+        how many generator runs (to be made into trials) can currently be produced.
 
-        # Not unlimited trials => determine whether to transition to next model.
-        enough_generated = self.num_can_complete_this_step >= self._curr.num_trials
-        enough_observed = self.num_completed_this_step >= self._curr.min_trials_observed
+        Conditions for moving to next step:
+        1. ``num_trials`` in current generation step have been generated (generation
+            strategy produced that many generator runs, which were then attached to
+            trials),
+        2. ``min_trials_observed`` in current generation step have been completed,
+        3. current step is not the last in this generation strategy.
 
-        # Check that minimum observed_trials is satisfied if it's enforced.
-        if self._curr.enforce_num_trials and enough_generated and not enough_observed:
-            raise DataRequiredError(
-                "All trials for current model have been generated, but not enough "
-                "data has been observed to fit next model. Try again when more data "
-                "are available."
+
+        NOTE: this method raises ``GenerationStrategyComplete`` error if conditions 1
+        and 2 above are met, but the current step is the last in generation strategy.
+        It also raises ``DataRequiredError`` if all conditions below are true:
+        1. ``raise_data_required_error`` argument is ``True``,
+        2. ``num_trials`` in current generation step have been generated,
+        3. ``min_trials_observed`` in current generation step have not been completed,
+        4. ``enforce_num_trials`` in current generation step is ``True``.
+
+        Args:
+            raise_data_required_error: Whether to raise ``DataRequiredError`` in the
+                case detailed above. Not raising the error is useful if just looking to
+                check how many generator runs (to be made into trials) can be produced,
+                but not actually producing them yet.
+
+        Returns:
+            Whether generation strategy moved to the next step.
+        """
+        to_gen, to_complete = self._num_trials_to_gen_and_complete_in_curr_step()
+        if to_gen == to_complete == -1:  # Unlimited trials, never moving to next step.
+            return False
+
+        enforcing_num_trials = self._curr.enforce_num_trials
+        trials_left_to_gen = to_gen > 0
+        trials_left_to_complete = to_complete > 0
+
+        # If there is something left to gen or complete, we don't move to next step.
+        if trials_left_to_gen or trials_left_to_complete:
+            # Check that minimum observed_trials is satisfied if it's enforced.
+            raise_error = raise_data_required_error
+            if raise_error and enforcing_num_trials and not trials_left_to_gen:
+                raise DataRequiredError(
+                    "All trials for current model have been generated, but not enough "
+                    "data has been observed to fit next model. Try again when more data"
+                    " are available."
+                )
+            return False
+
+        # If nothing left to gen or complete, move to next step if one is available.
+        if len(self._steps) == self._curr.index + 1:
+            raise GenerationStrategyCompleted(
+                f"Generation strategy {self} generated all the trials as "
+                "specified in its steps."
             )
 
-        if enough_generated and enough_observed:
-            # Change to the next model.
-            if len(self._steps) == self._curr.index + 1:
-                raise GenerationStrategyCompleted(
-                    f"Generation strategy {self} generated all the trials as "
-                    "specified in its steps."
-                )
-            self._curr = self._steps[self._curr.index + 1]
-            # This is the first time this step's model is initialized, so we don't
-            # try to `update` it but rather initialize with all the data even if
-            # `use_update` is true for the now-current generation step.
-            self._set_current_model(data=data)
-        else:
-            # Continue generating from the current model.
-            self._set_or_update_current_model(data=data)
-
-    def _set_or_update_current_model(self, data: Optional[Data]) -> None:
-        if self._model is not None and self._curr.use_update:
-            self._update_current_model(data=data)
-        else:
-            self._set_current_model(data=data)
+        self._curr = self._steps[self._curr.index + 1]
+        # Moving to the next step also entails unsetting this GS's model (since
+        # new step's model will be initialized for the first time, so we don't
+        # try to `update` it but rather initialize with all the data even if
+        # `use_update` is true for the new generation step; this is done in
+        # `self._set_or_update_current_model).
+        self._model = None
+        return True
 
     def _set_current_model(self, data: Optional[Data]) -> None:
         """Instantiate the current model with all available data."""
