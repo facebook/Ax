@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.types import TConfig
@@ -18,6 +18,7 @@ from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjective
+from botorch.acquisition.penalized import PenalizedMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
 from botorch.fit import fit_gpytorch_model
@@ -191,7 +192,7 @@ def get_NEI(
     **kwargs: Any,
 ) -> AcquisitionFunction:
     r"""Instantiates a qNoisyExpectedImprovement acquisition function."""
-    return _get_acqusition_func(
+    return _get_acquisition_func(
         model=model,
         acquisition_function_name="qNEI",
         objective_weights=objective_weights,
@@ -202,13 +203,18 @@ def get_NEI(
     )
 
 
-def _get_acqusition_func(
+def _get_acquisition_func(
     model: Model,
     acquisition_function_name: str,
     objective_weights: Tensor,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
+    mc_objective: Type[GenericMCObjective] = GenericMCObjective,
+    constrained_mc_objective: Optional[
+        Type[ConstrainedMCObjective]
+    ] = ConstrainedMCObjective,
+    mc_objective_kwargs: Optional[Dict] = None,
     **kwargs: Any,
 ) -> AcquisitionFunction:
     r"""Instantiates a acquisition function.
@@ -229,6 +235,14 @@ def _get_acqusition_func(
             that have been submitted for evaluation) present for all objective
             outcomes and outcomes that appear in the outcome constraints (if
             there are any).
+        mc_objective: GenericMCObjective class, used for constructing a
+            MC-objective. If constructing a penalized MC-objective, pass in
+            PenalizedMCObjective together with mc_objective_kwargs .
+        constrained_mc_objective: ConstrainedMCObjective class, used when
+            applying constraints on the outcomes.
+        mc_objective_kwargs: kwargs for constructing MC-objective.
+            For GenericMCObjective, leave it as None. For PenalizedMCObjective,
+            it needs to be specified in the format of kwargs.
         mc_samples: The number of MC samples to use (default: 512).
         qmc: If True, use qMC instead of MC (default: True).
         prune_baseline: If True, prune the baseline points for NEI (default: True).
@@ -251,11 +265,21 @@ def _get_acqusition_func(
         return obj_tf(samples)
 
     if outcome_constraints is None:
-        objective = GenericMCObjective(objective=objective)
+        mc_objective_kwargs = {} if mc_objective_kwargs is None else mc_objective_kwargs
+        objective = mc_objective(objective=objective, **mc_objective_kwargs)
     else:
+        if constrained_mc_objective is None:
+            raise ValueError(
+                "constrained_mc_objective cannot be set to None "
+                "when applying outcome constraints."
+            )
+        if issubclass(mc_objective, PenalizedMCObjective):
+            raise RuntimeError(
+                "Outcome constraints are not supported for PenalizedMCObjective."
+            )
         con_tfs = get_outcome_constraint_transforms(outcome_constraints)
         inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=objective)
-        objective = ConstrainedMCObjective(
+        objective = constrained_mc_objective(
             objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
         )
     return get_acquisition_function(
