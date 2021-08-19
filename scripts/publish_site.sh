@@ -6,6 +6,7 @@
 
 # Exit if any error occurs
 set -e
+set -x
 
 usage() {
   echo "Usage: $0 [-d] [-k KERNEL_NAME] [-v VERSION]"
