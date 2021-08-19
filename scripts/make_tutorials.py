@@ -9,6 +9,7 @@ import json
 import os
 import tarfile
 import time
+import traceback
 from typing import Optional
 
 import nbformat
@@ -150,6 +151,7 @@ def gen_tutorials(
                 has_errors = True
                 print("Couldn't execute tutorial {}!".format(tid))
                 print(exc)
+                traceback.print_exc()
                 total_time = None
 
         # convert notebook to HTML
