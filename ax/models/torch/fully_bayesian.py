@@ -28,6 +28,7 @@ import math
 import sys
 import time
 import types
+import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -54,7 +55,6 @@ from ax.models.torch.frontier_utils import TFrontierEvaluator
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.acquisition import AcquisitionFunction
-from botorch.fit import _set_transformed_inputs
 from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
@@ -64,6 +64,11 @@ from torch import Tensor
 logger = get_logger(__name__)
 
 MIN_OBSERVED_NOISE_LEVEL_MCMC = 1e-6
+SAAS_DEPRECATION_MSG = (
+    "Passing `use_saas` is no longer supported and has no effect. "
+    "SAAS priors are used by default. "
+    "This will become an error in the future."
+)
 
 
 def get_and_fit_model_mcmc(
@@ -81,7 +86,6 @@ def get_and_fit_model_mcmc(
     warmup_steps: int = 1024,
     thinning: int = 16,
     max_tree_depth: int = 6,
-    use_saas: bool = False,
     disable_progbar: bool = False,
     **kwargs: Any,
 ) -> GPyTorchModel:
@@ -142,7 +146,6 @@ def get_and_fit_model_mcmc(
                 warmup_steps=warmup_steps,
                 thinning=thinning,
                 use_input_warping=use_input_warping,
-                use_saas=use_saas,
                 max_tree_depth=max_tree_depth,
                 disable_progbar=disable_progbar,
             )
@@ -184,7 +187,6 @@ def get_and_fit_model_mcmc(
                     .clone()
                     .view(m.input_transform.concentration1.shape),
                 )
-    _set_transformed_inputs(model=model)
     return model
 
 
@@ -274,7 +276,6 @@ def pyro_model(
     Y: Tensor,
     Yvar: Tensor,
     use_input_warping: bool = False,
-    use_saas: bool = False,
     eps: float = 1e-7,
 ) -> None:
     try:
@@ -289,14 +290,22 @@ def pyro_model(
     outputscale = pyro.sample(
         "outputscale",
         pyro.distributions.Gamma(  # pyre-ignore [16]
+            # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
+            #  `Union[torch.device, torch.dtype]`.
             torch.tensor(2.0, **tkwargs),
+            # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
+            #  `Union[torch.device, torch.dtype]`.
             torch.tensor(0.15, **tkwargs),
         ),
     )
     mean = pyro.sample(
         "mean",
-        pyro.distributions.Uniform(  # pyre-ignore [16]
-            torch.tensor(-1.0, **tkwargs),
+        pyro.distributions.Normal(  # pyre-ignore [16]
+            # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
+            #  `Union[torch.device, torch.dtype]`.
+            torch.tensor(0.0, **tkwargs),
+            # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
+            #  `Union[torch.device, torch.dtype]`.
             torch.tensor(1.0, **tkwargs),
         ),
     )
@@ -305,60 +314,55 @@ def pyro_model(
         noise = pyro.sample(
             "noise",
             pyro.distributions.Gamma(  # pyre-ignore [16]
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor(0.9, **tkwargs),
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor(10.0, **tkwargs),
             ),
         )
     else:
         # pyre-ignore [16]
         noise = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL_MCMC)
-
-    if use_saas:
-        tausq = pyro.sample(
-            "kernel_tausq",
-            pyro.distributions.HalfCauchy(  # pyre-ignore [16]
-                torch.tensor(0.1, **tkwargs)
-            ),
-        )
-        inv_length_sq = pyro.sample(
-            "_kernel_inv_length_sq",
-            pyro.distributions.HalfCauchy(  # pyre-ignore [16]
-                torch.ones(dim, **tkwargs)
-            ),
-        )
-        inv_length_sq = pyro.deterministic(
-            "kernel_inv_length_sq", tausq * inv_length_sq
-        )
-        lengthscale = pyro.deterministic(
-            "lengthscale",
-            (1.0 / inv_length_sq).sqrt(),  # pyre-ignore [16]
-        )
-    else:
-        lengthscale = pyro.sample(
-            "lengthscale",
-            # pyro.distributions.Uniform does not jit-compile with
-            # vector parameters, so use expand() instead on a
-            # distribution with scalar parameters.
-            # https://github.com/pyro-ppl/pyro/issues/2810
-            pyro.distributions.Uniform(  # pyre-ignore [16]
-                torch.tensor(0.0, **tkwargs),
-                torch.tensor(10.0, **tkwargs),
-            ).expand(torch.Size([dim])),
-        )
+    # use SAAS priors
+    tausq = pyro.sample(
+        "kernel_tausq",
+        # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+        #  got `Union[torch.device, torch.dtype]`.
+        pyro.distributions.HalfCauchy(torch.tensor(0.1, **tkwargs)),  # pyre-ignore [16]
+    )
+    inv_length_sq = pyro.sample(
+        "_kernel_inv_length_sq",
+        pyro.distributions.HalfCauchy(torch.ones(dim, **tkwargs)),  # pyre-ignore [16]
+    )
+    inv_length_sq = pyro.deterministic("kernel_inv_length_sq", tausq * inv_length_sq)
+    lengthscale = pyro.deterministic(
+        "lengthscale",
+        (1.0 / inv_length_sq).sqrt(),  # pyre-ignore [16]
+    )
 
     # transform inputs through kumaraswamy cdf
     if use_input_warping:
         c0 = pyro.sample(
             "c0",
             pyro.distributions.LogNormal(  # pyre-ignore [16]
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor([0.0] * dim, **tkwargs),
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor([0.75 ** 0.5] * dim, **tkwargs),
             ),
         )
         c1 = pyro.sample(
             "c1",
             pyro.distributions.LogNormal(  # pyre-ignore [16]
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor([0.0] * dim, **tkwargs),
+                # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but
+                #  got `Union[torch.device, torch.dtype]`.
                 torch.tensor([0.75 ** 0.5] * dim, **tkwargs),
             ),
         )
@@ -375,7 +379,8 @@ def pyro_model(
     pyro.sample(
         "Y",
         pyro.distributions.MultivariateNormal(  # pyre-ignore [16]
-            loc=mean.view(-1).expand(X.shape[0]), covariance_matrix=k
+            loc=mean.view(-1).expand(X.shape[0]),
+            covariance_matrix=k,
         ),
         obs=Y,
     )
@@ -391,7 +396,6 @@ def run_inference(
     thinning: int = 16,
     use_input_warping: bool = False,
     max_tree_depth: int = 6,
-    use_saas: bool = False,
     disable_progbar: bool = False,
 ) -> Tensor:
     start = time.time()
@@ -413,13 +417,10 @@ def run_inference(
         disable_progbar=disable_progbar,
     )
     mcmc.run(
-        # there is an issue with jit-compilation and cuda
-        # for now, we run MCMC on the CPU.
-        X.cpu(),
-        Y.cpu(),
-        Yvar.cpu(),
+        X,
+        Y,
+        Yvar,
         use_input_warping=use_input_warping,
-        use_saas=use_saas,
     )
     # this prints the summary
     orig_std_out = sys.stdout.write
@@ -428,16 +429,14 @@ def run_inference(
     sys.stdout.write = orig_std_out
     logger.info(f"MCMC elapsed time: {time.time() - start}")
     samples = mcmc.get_samples()
-    if use_saas:  # compute the lengthscale for saas and throw away everything else
-        inv_length_sq = (
-            samples["kernel_tausq"].unsqueeze(-1) * samples["_kernel_inv_length_sq"]
-        )
-        samples["lengthscale"] = (1.0 / inv_length_sq).sqrt()  # pyre-ignore [16]
-        del samples["kernel_tausq"], samples["_kernel_inv_length_sq"]
-    # thin
+    inv_length_sq = (
+        samples["kernel_tausq"].unsqueeze(-1) * samples["_kernel_inv_length_sq"]
+    )
+    samples["lengthscale"] = (1.0 / inv_length_sq).sqrt()  # pyre-ignore [16]
+    del samples["kernel_tausq"], samples["_kernel_inv_length_sq"]
     for k, v in samples.items():
-        # apply thinning and move back to X's device
-        samples[k] = v[::thinning].to(device=X.device)
+        # apply thinning
+        samples[k] = v[::thinning]
     return samples
 
 
@@ -536,7 +535,8 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
         refit_on_update: bool = True,
         warm_start_refitting: bool = True,
         use_input_warping: bool = False,
-        use_saas: bool = False,
+        # use_saas is deprecated. TODO: remove
+        use_saas: Optional[bool] = None,
         num_samples: int = 512,
         warmup_steps: int = 1024,
         thinning: int = 16,
@@ -564,7 +564,7 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
             warm_start_refitting: If True, start model refitting from previous
                 model parameters in order to speed up the fitting process.
             use_input_warping: A boolean indicating whether to use input warping
-            use_saas: A boolean indicating whether to use the SAAS model
+            use_saas: [deprecated] A boolean indicating whether to use the SAAS model
             num_samples: The number of MCMC samples. Note that with thinning,
                 num_samples/thinning samples are retained.
             warmup_steps: The number of burn-in steps for NUTS.
@@ -573,6 +573,9 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
             disable_progbar: A boolean indicating whether to print the progress
                 bar and diagnostics during MCMC.
         """
+        # use_saas is deprecated. TODO: remove
+        if use_saas is not None:
+            warnings.warn(SAAS_DEPRECATION_MSG, DeprecationWarning)
         BotorchModel.__init__(
             self,
             model_constructor=model_constructor,
@@ -584,7 +587,6 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
             refit_on_update=refit_on_update,
             warm_start_refitting=warm_start_refitting,
             use_input_warping=use_input_warping,
-            use_saas=use_saas,
             num_samples=num_samples,
             warmup_steps=warmup_steps,
             thinning=thinning,
@@ -629,10 +631,14 @@ class FullyBayesianMOOBotorchModel(
         warmup_steps: int = 1024,
         thinning: int = 16,
         max_tree_depth: int = 6,
-        use_saas: bool = False,
+        # use_saas is deprecated. TODO: remove
+        use_saas: Optional[bool] = None,
         disable_progbar: bool = False,
         **kwargs: Any,
     ) -> None:
+        # use_saas is deprecated. TODO: remove
+        if use_saas is not None:
+            warnings.warn(SAAS_DEPRECATION_MSG, DeprecationWarning)
         MultiObjectiveBotorchModel.__init__(
             self,
             model_constructor=model_constructor,
@@ -649,6 +655,5 @@ class FullyBayesianMOOBotorchModel(
             warmup_steps=warmup_steps,
             thinning=thinning,
             max_tree_depth=max_tree_depth,
-            use_saas=use_saas,
             disable_progbar=disable_progbar,
         )

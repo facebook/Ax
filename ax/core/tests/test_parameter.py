@@ -214,6 +214,23 @@ class ChoiceParameterTest(TestCase):
         self.assertFalse(self.param1.is_task)
         self.assertTrue(self.param2.is_ordered)
         self.assertTrue(self.param2.is_task)
+        # check is_ordered defaults
+        bool_param = ChoiceParameter(
+            name="x", parameter_type=ParameterType.BOOL, values=[True, False]
+        )
+        self.assertTrue(bool_param.is_ordered)
+        int_param = ChoiceParameter(
+            name="x", parameter_type=ParameterType.INT, values=[2, 1, 3]
+        )
+        self.assertTrue(int_param.is_ordered)
+        float_param = ChoiceParameter(
+            name="x", parameter_type=ParameterType.FLOAT, values=[1.5, 2.5, 3.5]
+        )
+        self.assertTrue(float_param.is_ordered)
+        string_param = ChoiceParameter(
+            name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
+        )
+        self.assertFalse(string_param.is_ordered)
 
     def testRepr(self):
         self.assertEqual(str(self.param1), self.param1_repr)

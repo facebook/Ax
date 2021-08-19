@@ -38,9 +38,8 @@ from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict, _get_in_sample_arms
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.instantiation import (
-    data_from_evaluations,
+    data_and_evaluations_from_raw_data,
     make_experiment,
-    raw_data_to_evaluation,
     ObjectiveProperties,
     build_objective_threshold,
 )
@@ -56,6 +55,7 @@ from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
+    checked_cast_complex,
     checked_cast_dict,
     checked_cast_optional,
     not_none,
@@ -124,6 +124,13 @@ class AxClient(WithDBSettingsBase):
             case, since this will only log, but not raise, an exception if its
             encountered while saving to DB or loading from it.
     """
+
+    BACH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
+        "Raw data must be a dict for batched trials."
+    )
+    TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
+        "Raw data must be data for a single arm for non batched trials."
+    )
 
     def __init__(
         self,
@@ -260,6 +267,7 @@ class AxClient(WithDBSettingsBase):
             objective_kwargs["objective_thresholds"] = [
                 build_objective_threshold(objective, properties)
                 for objective, properties in objectives.items()
+                if properties.threshold is not None
             ]
         elif objective_name or minimize is not None:
             objective_kwargs["objective_name"] = objective_name
@@ -707,7 +715,7 @@ class AxClient(WithDBSettingsBase):
                 logger.info(
                     f"Retrieving contour plot with parameter '{param_x}' on X-axis "
                     f"and '{param_y}' on Y-axis, for metric '{metric_name}'. "
-                    "Ramaining parameters are affixed to the middle of their range."
+                    "Remaining parameters are affixed to the middle of their range."
                 )
                 return plot_contour(
                     model=not_none(self.generation_strategy.model),
@@ -1116,6 +1124,40 @@ class AxClient(WithDBSettingsBase):
             f"No trial on experiment matches parameterization {parameterization}."
         )
 
+    @classmethod
+    def _raw_data_by_arm(
+        cls,
+        trial: BaseTrial,
+        raw_data: Union[TEvaluationOutcome, Dict[str, TEvaluationOutcome]],
+    ) -> Dict[str, TEvaluationOutcome]:
+        raw_data_by_arm: Dict[str, TEvaluationOutcome]
+        if isinstance(trial, BatchTrial):  # pragma: no cover
+            raw_data_by_arm = checked_cast_complex(
+                Dict[str, TEvaluationOutcome],
+                raw_data,
+                message=cls.BACH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
+            )
+        elif isinstance(trial, Trial):
+            arm_name = not_none(trial.arm).name
+            raw_data_by_arm = {
+                arm_name: checked_cast_complex(
+                    TEvaluationOutcome,
+                    raw_data,
+                    message=cls.TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
+                )
+            }
+        else:
+            raise ValueError(f"Unexpected trial type: {type(trial)}.")
+
+        not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
+            trial.arms_by_name.keys()
+        )
+        if not_trial_arm_names:
+            raise ValueError(
+                f"Arms {not_trial_arm_names} are not part of trial #{trial.index}."
+            )
+        return raw_data_by_arm
+
     def _make_evaluations_and_data(
         self,
         trial: BaseTrial,
@@ -1135,30 +1177,11 @@ class AxClient(WithDBSettingsBase):
             data_is_for_batched_trials: Whether making evaluations and data for
                 a batched trial or a 1-arm trial.
         """
-        if isinstance(trial, BatchTrial):
-            assert isinstance(  # pragma: no cover
-                raw_data, dict
-            ), "Raw data must be a dict for batched trials."
-        elif isinstance(trial, Trial):
-            arm_name = not_none(trial.arm).name
-            raw_data = {arm_name: raw_data}  # pyre-ignore[9]
-        else:  # pragma: no cover
-            raise ValueError(f"Unexpected trial type: {type(trial)}.")
-        assert isinstance(raw_data, dict)
-        not_trial_arm_names = set(raw_data.keys()) - set(trial.arms_by_name.keys())
-        if not_trial_arm_names:
-            raise ValueError(
-                f"Arms {not_trial_arm_names} are not part of trial #{trial.index}."
-            )
+        raw_data_by_arm = self._raw_data_by_arm(trial=trial, raw_data=raw_data)
 
-        evaluations = {
-            arm_name: raw_data_to_evaluation(
-                raw_data=raw_data[arm_name], objective=self.objective
-            )
-            for arm_name in raw_data
-        }
-        data = data_from_evaluations(
-            evaluations=evaluations,
+        evaluations, data = data_and_evaluations_from_raw_data(
+            raw_data=raw_data_by_arm,
+            metric_names=self.objective_names,
             trial_index=trial.index,
             sample_sizes=sample_sizes or {},
             start_time=(

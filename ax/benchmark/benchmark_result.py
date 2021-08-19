@@ -290,6 +290,8 @@ def _extract_optimization_trace_from_synthetic_function(
         # pyre-fixme[6]: Expected `OptimizationConfig` for 1st param but got
         #  `Optional[ax.core.optimization_config.OptimizationConfig]`.
         optimization_config=experiment.optimization_config,
+        # pyre-fixme[6]: Expected `Dict[str, np.ndarray]` for 2nd param but got
+        #  `Dict[str, List[typing.Any]]`.
         values={problem.name: true_values},
     )
 

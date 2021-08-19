@@ -181,6 +181,7 @@ class TestWithDBSettingsBase(TestCase):
         )
         self.assertTrue(updated)
         self.assertIsNotNone(generator_run.db_id)
+        self.assertIsNotNone(generator_run.arms[0].db_id)
 
     @patch(f"{WithDBSettingsBase.__module__}.STORAGE_MINI_BATCH_SIZE", 2)
     def test_update_generation_strategy_mini_batches(self):

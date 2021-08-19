@@ -13,13 +13,14 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
+from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
 logger = get_logger(__name__)
 
 
-class BaseEarlyStoppingStrategy(ABC):
+class BaseEarlyStoppingStrategy(ABC, Base):
     """Interface for heuristics that halt trials early, typically based on early
     results from that trial."""
 

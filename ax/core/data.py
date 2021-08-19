@@ -150,12 +150,12 @@ class Data(AbstractDataFrameData):
             {
                 "arm_name": name,
                 "metric_name": metric_name,
-                "mean": evaluation[metric_name][0],
-                "sem": evaluation[metric_name][1],
+                "mean": value[0] if isinstance(value, tuple) else value,
+                "sem": value[1] if isinstance(value, tuple) else 0.0,
                 "trial_index": trial_index,
             }
             for name, evaluation in evaluations.items()
-            for metric_name in evaluation.keys()
+            for metric_name, value in evaluation.items()
         ]
         if start_time is not None or end_time is not None:
             for record in records:
@@ -194,14 +194,14 @@ class Data(AbstractDataFrameData):
             {
                 "arm_name": name,
                 "metric_name": metric_name,
-                "mean": evaluation[metric_name][0],
-                "sem": evaluation[metric_name][1],
+                "mean": value[0] if isinstance(value, tuple) else value,
+                "sem": value[1] if isinstance(value, tuple) else 0.0,
                 "trial_index": trial_index,
                 "fidelities": json.dumps(fidelity),
             }
             for name, fidelity_and_metrics_list in evaluations.items()
             for fidelity, evaluation in fidelity_and_metrics_list
-            for metric_name in evaluation.keys()
+            for metric_name, value in evaluation.items()
         ]
         if start_time is not None or end_time is not None:
             for record in records:

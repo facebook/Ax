@@ -169,14 +169,14 @@ class MapData(AbstractDataFrameData):
             {
                 "arm_name": name,
                 "metric_name": metric_name,
-                "mean": mean,
-                "sem": sem,
+                "mean": value[0] if isinstance(value, tuple) else value,
+                "sem": value[1] if isinstance(value, tuple) else 0.0,
                 "trial_index": trial_index,
                 **map_dict,
             }
             for name, map_dict_and_metrics_list in evaluations.items()
             for map_dict, evaluation in map_dict_and_metrics_list
-            for metric_name, (mean, sem) in evaluation.items()
+            for metric_name, value in evaluation.items()
         ]
         map_keys_list = [
             list(map_dict.keys())

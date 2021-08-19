@@ -574,6 +574,7 @@ class ALEBO(BotorchModel):
             refit_on_cv=False,
             warm_start_refitting=False,
             acqf_constructor=ei_or_nei,  # pyre-ignore
+            # pyre-fixme[6]: Expected `(AcquisitionFunction, Tensor, int, Optional[Li...
             acqf_optimizer=alebo_acqf_optimizer,
         )
 

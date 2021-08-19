@@ -169,12 +169,7 @@ class ThompsonSampler(DiscreteModel):
         weights = winner_counts / winner_counts.sum()
         return weights.tolist()
 
-    def _produce_samples(
-        self,
-        num_samples: int,
-        objective_weights: np.ndarray,
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
-    ) -> Tuple[np.ndarray, float]:
+    def _generate_samples_per_metric(self, num_samples: int) -> np.ndarray:
         k = len(self.X)
         samples_per_metric = np.zeros(
             (k, num_samples, len(self.Ys))
@@ -186,6 +181,16 @@ class ThompsonSampler(DiscreteModel):
                 Y, cov, num_samples
             ).T  # (k x num_samples)
             samples_per_metric[:, :, i] = samples
+        return samples_per_metric
+
+    def _produce_samples(
+        self,
+        num_samples: int,
+        objective_weights: np.ndarray,
+        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]],
+    ) -> Tuple[np.ndarray, float]:
+        k = len(self.X)
+        samples_per_metric = self._generate_samples_per_metric(num_samples=num_samples)
 
         any_violation = np.zeros((k, num_samples), dtype=bool)  # (k x num_samples)
         if outcome_constraints:

@@ -4,10 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from contextlib import ExitStack
 from itertools import chain
 from typing import Any
 from unittest import mock
 
+import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
@@ -21,9 +23,13 @@ from botorch.acquisition.input_constructors import (
     _register_acqf_input_constructor,
 )
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.multi_objective.monte_carlo import (
+    qNoisyExpectedHypervolumeImprovement,
+)
 from botorch.acquisition.objective import LinearMCObjective
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.containers import TrainingData
+from botorch.utils.testing import MockPosterior
 
 
 ACQUISITION_PATH = Acquisition.__module__
@@ -102,7 +108,7 @@ class AcquisitionTest(TestCase):
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
     @mock.patch(
         f"{ACQUISITION_PATH}.subset_model",
-        return_value=SubsetModelData(None, None, None, None, None),
+        return_value=SubsetModelData(None, torch.ones(1), None, None, None),
     )
     @mock.patch(f"{ACQUISITION_PATH}.get_botorch_objective")
     @mock.patch(
@@ -140,6 +146,7 @@ class AcquisitionTest(TestCase):
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
             options=self.options,
+            objective_thresholds=self.objective_thresholds,
         )
 
         # Check `_get_X_pending_and_observed` kwargs
@@ -359,3 +366,86 @@ class AcquisitionTest(TestCase):
     def test_evaluate(self, mock_call):
         self.acquisition.evaluate(X=self.X)
         mock_call.assert_called_with(X=self.X)
+
+    @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
+    def test_init_moo(
+        self,
+        mock_get_X,
+    ):
+        moo_training_data = TrainingData(
+            Xs=[self.X] * 3,
+            Ys=[self.Y] * 3,
+            Yvars=[self.Yvar] * 3,
+        )
+        moo_objective_weights = torch.tensor(
+            [-1.0, -1.0, 0.0],
+        )
+        moo_objective_thresholds = torch.tensor(
+            [0.5, 1.5, float("nan")],
+        )
+        self.surrogate.construct(
+            training_data=moo_training_data,
+        )
+        mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
+        outcome_constraints = (
+            torch.tensor(
+                [[1.0, 0.0, 0.0]],
+            ),
+            torch.tensor(
+                [[10.0]],
+            ),
+        )
+
+        acquisition = Acquisition(
+            surrogate=self.surrogate,
+            botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
+            search_space_digest=self.search_space_digest,
+            objective_weights=moo_objective_weights,
+            pending_observations=self.pending_observations,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+            options=self.options,
+            objective_thresholds=moo_objective_thresholds,
+        )
+        self.assertTrue(
+            torch.equal(
+                moo_objective_thresholds[:2], acquisition.objective_thresholds[:2]
+            )
+        )
+        self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
+        # test inferred objective_thresholds
+        with ExitStack() as es:
+            preds = torch.tensor(
+                [
+                    [11.0, 2.0],
+                    [9.0, 3.0],
+                ],
+            )
+            es.enter_context(
+                mock.patch.object(
+                    self.surrogate.model,
+                    "posterior",
+                    return_value=MockPosterior(
+                        mean=preds,
+                        samples=preds,
+                    ),
+                )
+            )
+            acquisition = Acquisition(
+                surrogate=self.surrogate,
+                search_space_digest=self.search_space_digest,
+                objective_weights=moo_objective_weights,
+                botorch_acqf_class=self.botorch_acqf_class,
+                pending_observations=self.pending_observations,
+                outcome_constraints=outcome_constraints,
+                linear_constraints=self.linear_constraints,
+                fixed_features=self.fixed_features,
+                options=self.options,
+            )
+            self.assertTrue(
+                torch.equal(
+                    acquisition.objective_thresholds[:2], torch.tensor([9.9, 3.3])
+                )
+            )
+            self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))

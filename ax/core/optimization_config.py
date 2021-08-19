@@ -120,6 +120,10 @@ class OptimizationConfig(Base):
             **objective_metrics,
         }
 
+    @property
+    def is_moo_problem(self) -> bool:
+        return self.objective is not None and isinstance(self.objective, MultiObjective)
+
     @outcome_constraints.setter
     def outcome_constraints(self, outcome_constraints: List[OutcomeConstraint]) -> None:
         """Set outcome constraints if valid, else raise."""

@@ -33,7 +33,7 @@ versions.sort(function(a, b) {
     if (aInt === bInt) {
       continue;
     }
-    return aInt - bInt; 
+    return aInt - bInt;
   }
   return 0;
 }).reverse();
@@ -70,7 +70,7 @@ function Versions(props) {
               <tr>
                 <td>
                   {'latest'}
-                  {' (master)'}
+                  {' (main)'}
                 </td>
                 <td>
                   <code>

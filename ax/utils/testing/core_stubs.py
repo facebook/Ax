@@ -55,6 +55,9 @@ from ax.core.types import (
     TModelPredictArm,
     TParameterization,
 )
+from ax.early_stopping.strategies import (
+    PercentileEarlyStoppingStrategy,
+)
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.branin_map import (
     BraninIncrementalTimestampMapMetric,
@@ -1191,6 +1194,14 @@ def get_branin_data_multi_objective(
         for suffix in ["a", "b"]
     ]
     return Data(df=pd.DataFrame.from_records(df_dicts))
+
+
+def get_percentile_early_stopping_strategy() -> PercentileEarlyStoppingStrategy:
+    return PercentileEarlyStoppingStrategy(
+        percentile_threshold=0.25,
+        min_progression=0.2,
+        min_curves=10,
+    )
 
 
 ##############################

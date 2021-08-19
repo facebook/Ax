@@ -20,6 +20,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
+from ax.exceptions.core import AxError
 from ax.modelbridge.array import FIT_MODEL_ERROR
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
@@ -28,6 +29,7 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
+from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch.frontier_utils import (
     TFrontierEvaluator,
     get_default_frontier_evaluator,
@@ -280,12 +282,23 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             final_transform=self._array_to_tensor,
         )
         # infer objective thresholds
-        obj_thresholds_arr = not_none(self.model).infer_objective_thresholds(
+        model = not_none(self.model)
+        try:
+            torch_model = model.model  # pyre-ignore [16]
+            Xs = model.Xs  # pyre-ignore [16]
+        except AttributeError:
+            raise AxError(
+                "infer_objective_thresholds requires a TorchModel with model "
+                "and Xs attributes."
+            )
+        obj_thresholds_arr = infer_objective_thresholds(
+            model=torch_model,
             objective_weights=obj_w,
             bounds=array_model_gen_args.search_space_digest.bounds,
             outcome_constraints=oc_c,
             linear_constraints=l_c,
             fixed_features=array_model_gen_args.fixed_features,
+            Xs=Xs,
         )
         return self.untransform_objective_thresholds(
             objective_thresholds=obj_thresholds_arr,

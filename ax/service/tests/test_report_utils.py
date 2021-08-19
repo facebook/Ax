@@ -8,6 +8,7 @@ from collections import namedtuple
 from unittest.mock import patch
 
 import pandas as pd
+from ax.core.arm import Arm
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
 from ax.service.utils.report_utils import (
@@ -29,7 +30,7 @@ EXPECTED_COLUMNS = [
     "trial_index",
     "arm_name",
     "trial_status",
-    "generator_model",
+    "generation_method",
 ] + FLOAT_COLUMNS
 DUMMY_OBJECTIVE_MEAN = 1.2345
 DUMMY_SOURCE = "test_source"
@@ -56,15 +57,6 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(len(df.index), len(exp.arms_by_name))
 
         exp.trials[0].run()
-        # run_metadata_fields not List[str] should fail
-        with self.assertRaisesRegex(
-            ValueError, r"run_metadata_fields.*List\[str\] or None"
-        ):
-            exp_to_df(exp=exp, run_metadata_fields=[1, "asdf"])
-        with self.assertRaisesRegex(
-            ValueError, r"run_metadata_fields.*List\[str\] or None"
-        ):
-            exp_to_df(exp=exp, run_metadata_fields="asdf")
 
         # assert result is df with expected columns and length
         df = exp_to_df(exp=exp)
@@ -85,7 +77,7 @@ class ReportUtilsTest(TestCase):
         # test column values or types
         self.assertTrue(all(x == 0 for x in df.trial_index))
         self.assertTrue(all(x == "RUNNING" for x in df.trial_status))
-        self.assertTrue(all(x == "Sobol" for x in df.generator_model))
+        self.assertTrue(all(x == "Sobol" for x in df.generation_method))
         self.assertTrue(all(x == DUMMY_SOURCE for x in df.trial_properties_source))
         self.assertTrue(all(x == "branin_test_experiment_0" for x in df.name))
         for float_column in FLOAT_COLUMNS:
@@ -117,6 +109,14 @@ class ReportUtilsTest(TestCase):
             Experiment, "fetch_data", lambda self, metrics: mock_results
         ), self.assertRaisesRegex(ValueError, "inconsistent experimental state"):
             exp_to_df(exp=get_branin_experiment())
+
+        # custom added trial has a generation_method of Manual
+        custom_arm = Arm(name="custom", parameters={"x1": 0, "x2": 0})
+        exp.new_trial().add_arm(custom_arm)
+        df = exp_to_df(exp)
+        self.assertEqual(
+            df[df.arm_name == "custom"].iloc[0].generation_method, "Manual"
+        )
 
     def test_get_best_trial(self):
         exp = get_branin_experiment(with_batch=True, minimize=True)
@@ -192,7 +192,7 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(
             len(
                 get_standard_plots(
-                    experiment=exp, generation_strategy=get_generation_strategy()
+                    experiment=exp, model=get_generation_strategy().model
                 )
             ),
             0,
@@ -204,6 +204,6 @@ class ReportUtilsTest(TestCase):
             experiment=exp,
             data=exp.fetch_data(),
         )
-        plots = get_standard_plots(experiment=exp, generation_strategy=gs)
+        plots = get_standard_plots(experiment=exp, model=gs.model)
         self.assertEqual(len(plots), 3)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))

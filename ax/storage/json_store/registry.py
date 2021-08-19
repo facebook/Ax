@@ -40,6 +40,9 @@ from ax.core.search_space import SearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
+from ax.early_stopping.strategies import (
+    PercentileEarlyStoppingStrategy,
+)
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
 from ax.metrics.chemistry import ChemistryProblemType, ChemistryMetric
 from ax.metrics.factorial import FactorialMetric
@@ -80,6 +83,7 @@ from ax.storage.json_store.encoders import (
     order_parameter_constraint_to_dict,
     outcome_constraint_to_dict,
     parameter_constraint_to_dict,
+    percentile_early_stopping_strategy_to_dict,
     range_parameter_to_dict,
     runner_to_dict,
     scalarized_objective_to_dict,
@@ -121,6 +125,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,
+    PercentileEarlyStoppingStrategy: percentile_early_stopping_strategy_to_dict,
     SklearnMetric: metric_to_dict,
     ChemistryMetric: metric_to_dict,
     NegativeBraninMetric: metric_to_dict,
@@ -199,6 +204,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "ParameterConstraint": ParameterConstraint,
     "ParameterConstraintType": ParameterConstraintType,
     "ParameterType": ParameterType,
+    "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,
     "RangeParameter": RangeParameter,
     "ScalarizedObjective": ScalarizedObjective,
     "SearchSpace": SearchSpace,

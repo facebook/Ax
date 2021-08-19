@@ -40,6 +40,8 @@ from ax.utils.testing.core_stubs import (
     get_scalarized_outcome_constraint,
 )
 
+DUMMY_RUN_METADATA = {"test_run_metadata_key": "test_run_metadata_value"}
+
 
 class ExperimentTest(TestCase):
     def setUp(self):
@@ -687,7 +689,11 @@ class ExperimentTest(TestCase):
         new_experiment = get_branin_experiment()
         # make metric noiseless for exact reproducibility
         new_experiment.optimization_config.objective.metric.noise_sd = 0
-        new_experiment.warm_start_from_old_experiment(old_experiment=old_experiment)
+        for _, trial in old_experiment.trials.items():
+            trial._run_metadata = DUMMY_RUN_METADATA
+        new_experiment.warm_start_from_old_experiment(
+            old_experiment=old_experiment, copy_run_metadata=True
+        )
         self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 1)
         i_old_trial = 0
         for _, trial in new_experiment.trials.items():
@@ -699,6 +705,7 @@ class ExperimentTest(TestCase):
             self.assertRegex(
                 trial._properties["source"], "Warm start.*Experiment.*trial"
             )
+            self.assertDictEqual(trial.run_metadata, DUMMY_RUN_METADATA)
             i_old_trial += 1
 
         # Check that the data was attached for correct trials

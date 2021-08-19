@@ -4,8 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
+import numpy as np
+from ax.exceptions.core import UserInputError
 from ax.metrics.branin import branin
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
@@ -47,6 +49,43 @@ class TestManagedLoop(TestCase):
             {"GPEI": MODEL_KEY_TO_MODEL_SETUP["Sobol"]},
         ).start()
 
+    def test_with_evaluation_function_propagates_parameter_constraints(self) -> None:
+        kwargs = {
+            "parameters": [
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [-5.0, 10.0],
+                    "value_type": "float",
+                    "log_scale": False,
+                },
+                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
+            ],
+            "experiment_name": "test",
+            "objective_name": "branin",
+            "minimize": True,
+            "evaluation_function": _branin_evaluation_function,
+            "outcome_constraints": ["constrained_metric <= 10"],
+            "total_trials": 6,
+        }
+
+        with self.subTest("With parameter_constraints"):
+            loop = OptimizationLoop.with_evaluation_function(
+                parameter_constraints=["x1 + x2 <= 20"],
+                **kwargs,
+            )
+            self.assertNotEqual(loop.experiment.search_space.parameter_constraints, [])
+            self.assertTrue(len(loop.experiment.search_space.parameter_constraints) > 0)
+
+        with self.subTest("Without parameter_constraints"):
+            loop = OptimizationLoop.with_evaluation_function(
+                **kwargs,
+            )
+            self.assertEqual(loop.experiment.search_space.parameter_constraints, [])
+            self.assertTrue(
+                len(loop.experiment.search_space.parameter_constraints) == 0
+            )
+
     def test_branin(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
@@ -71,6 +110,34 @@ class TestManagedLoop(TestCase):
         bp, _ = loop.full_run().get_best_point()
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
+        with self.assertRaisesRegex(ValueError, "Optimization is complete"):
+            loop.run_trial()
+
+    def test_branin_with_active_parameter_constraints(self) -> None:
+        """Basic async synthetic function managed loop case."""
+        loop = OptimizationLoop.with_evaluation_function(
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [-5.0, 10.0],
+                    "value_type": "float",
+                    "log_scale": False,
+                },
+                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
+            ],
+            experiment_name="test",
+            objective_name="branin",
+            minimize=True,
+            evaluation_function=_branin_evaluation_function,
+            parameter_constraints=["x1 + x2 <= 1"],
+            outcome_constraints=["constrained_metric <= 10"],
+            total_trials=6,
+        )
+        bp, _ = loop.full_run().get_best_point()
+        self.assertIn("x1", bp)
+        self.assertIn("x2", bp)
+        self.assertTrue(bp["x1"] + bp["x2"] <= 1)
         with self.assertRaisesRegex(ValueError, "Optimization is complete"):
             loop.run_trial()
 
@@ -118,6 +185,9 @@ class TestManagedLoop(TestCase):
 
     def test_branin_batch(self) -> None:
         """Basic async synthetic function managed loop case."""
+
+        batch_branin = Mock(side_effect=_branin_evaluation_function)
+
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[
                 {
@@ -132,13 +202,22 @@ class TestManagedLoop(TestCase):
             experiment_name="test",
             objective_name="branin",
             minimize=True,
-            evaluation_function=_branin_evaluation_function,
+            evaluation_function=batch_branin,
             parameter_constraints=["x1 + x2 <= 20"],
             outcome_constraints=["constrained_metric <= 10"],
             total_trials=5,
             arms_per_trial=3,
         )
         bp, vals = loop.full_run().get_best_point()
+        branin_calls = batch_branin.call_args_list
+        self.assertTrue(
+            all(len(args) == 2 for args, _ in branin_calls),
+            branin_calls,
+        )
+        self.assertTrue(
+            all(type(args[1]) is np.float64 for args, _ in branin_calls),
+            branin_calls,
+        )
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
         assert vals is not None
@@ -342,4 +421,37 @@ class TestManagedLoop(TestCase):
             expected_exception=RuntimeError,
             expected_regex="Cholesky errors typically occur",
         ):
+            loop.run_trial()
+
+    def test_invalid_arms_per_trial(self) -> None:
+        with self.assertRaisesRegex(
+            UserInputError, "Invalid number of arms per trial: 0"
+        ):
+            loop = OptimizationLoop.with_evaluation_function(
+                parameters=[  # pyre-fixme[6]
+                    {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                    {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
+                ],
+                experiment_name="test",
+                objective_name="foo",
+                evaluation_function=lambda p: 0.0,
+                minimize=True,
+                total_trials=5,
+                arms_per_trial=0,
+            )
+            loop.run_trial()
+
+    def test_eval_function_with_wrong_parameter_count_generates_error(self):
+        with self.assertRaises(UserInputError):
+            loop = OptimizationLoop.with_evaluation_function(
+                parameters=[  # pyre-fixme[6]
+                    {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                    {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
+                ],
+                experiment_name="test",
+                objective_name="foo",
+                evaluation_function=lambda: 1.0,
+                minimize=True,
+                total_trials=5,
+            )
             loop.run_trial()

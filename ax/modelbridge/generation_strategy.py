@@ -40,6 +40,12 @@ logger = get_logger(__name__)
 
 TModelFactory = Callable[..., ModelBridge]
 MAX_CONDITIONS_GENERATED = 10000
+MAX_GEN_DRAWS = 5
+MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
+    f"GenerationStrategy exceeded `MAX_GEN_DRAWS` of {MAX_GEN_DRAWS} while trying to "
+    "generate a unique parameterization. This indicates that the search space has "
+    "likely been fully explored. Considering GenerationStrategy complete."
+)
 
 
 def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
@@ -102,6 +108,15 @@ class GenerationStep(SortableBase):
         index: Index of this generation step, for use internally in `Generation
             Strategy`. Do not assign as it will be reassigned when instantiating
             `GenerationStrategy` with a list of its steps.
+        should_deduplicate: Whether to deduplicate the parameters of proposed arms
+            against those of previous arms via rejection sampling. If this is True,
+            the generation strategy will discard generator runs produced from the
+            generation step that has `should_deduplicate=True` if they contain arms
+            already present on the experiment and replace them with new generator runs.
+            If no generator run with entirely unique arms could be produced in 5
+            attempts, a `GenerationStrategyCompleted` error will be raised, as we
+            assume that the optimization converged when the model can no longer suggest
+            unique arms.
 
     """
 
@@ -116,6 +131,13 @@ class GenerationStep(SortableBase):
     # Kwargs to pass into the Model's `.gen` function.
     model_gen_kwargs: Optional[Dict[str, Any]] = None
     index: int = -1  # Index of this step, set internally.
+    # Whether the GS should deduplicate the suggested arms against
+    # the arms already present on the experiment. If this is `True`
+    # on a given generation step, during that step the generation
+    # strategy will discard a generator run that contains an arm
+    # already present on the experiment and produce a new generator
+    # run instead before returning it from `gen` or `_gen_multiple`.
+    should_deduplicate: bool = False
 
     @property
     def model_name(self) -> str:
@@ -478,22 +500,12 @@ class GenerationStrategy(Base):
         self.experiment = experiment
         self._set_or_update_model(data=data)
         self._save_seen_trial_indices()
-        max_parallelism = self._curr.max_parallelism
-        num_running = self.num_running_trials_this_step
 
         # Make sure to not make too many generator runs and
         # exceed maximum allowed paralellism for the step.
-        if max_parallelism is not None:
-            if num_running >= max_parallelism:
-                raise MaxParallelismReachedException(
-                    step_index=self._curr.index,
-                    model_name=self._curr.model_name,
-                    num_running=num_running,
-                )
-            else:
-                num_generator_runs = min(
-                    num_generator_runs, max_parallelism - num_running
-                )
+        num_until_max_parallelism = self._num_remaining_trials_until_max_parallelism()
+        if num_until_max_parallelism is not None:
+            num_generator_runs = min(num_generator_runs, num_until_max_parallelism)
 
         # Make sure not to extend number of trials expected in step.
         if self._curr.enforce_num_trials and self._curr.num_trials > 0:
@@ -514,6 +526,31 @@ class GenerationStrategy(Base):
                         keywords=get_function_argument_names(model.gen),
                     ),
                 )
+                # NOTE: Might need to revisit the behavior of deduplication when
+                # generating multi-arm generator runs (to be made into batch trials).
+                if self._curr.should_deduplicate:
+                    n_gen_draws = 1
+                    while any(
+                        arm.signature in self.experiment.arms_by_signature
+                        for arm in generator_run.arms
+                    ):
+                        n_gen_draws += 1
+                        if n_gen_draws > MAX_GEN_DRAWS:
+                            raise GenerationStrategyCompleted(
+                                MAX_GEN_DRAWS_EXCEEDED_MESSAGE
+                            )
+                        generator_run = model.gen(
+                            n=n,
+                            pending_observations=pending_observations,
+                            **consolidate_kwargs(
+                                kwargs_iterable=[
+                                    self._curr.model_gen_kwargs,
+                                    kwargs,
+                                ],
+                                keywords=get_function_argument_names(model.gen),
+                            ),
+                        )
+
                 generator_run._generation_step_index = self._curr.index
                 self._generator_runs.append(generator_run)
                 generator_runs.append(generator_run)
@@ -529,6 +566,33 @@ class GenerationStrategy(Base):
         return generator_runs
 
     # ------------------------- Model selection logic helpers. -------------------------
+
+    def _num_remaining_trials_until_max_parallelism(
+        self, raise_max_parallelism_reached_exception: bool = True
+    ) -> Optional[int]:
+        """Returns how many generator runs (to be made into a trial each) are left to
+        generate before the `max_parallelism` limit is reached for the current
+        generation step.
+
+        Args:
+            raise_max_parallelism_reached_exception: Whether to raise
+                ``MaxParallelismReachedException`` if number of trials running in
+                this generation step exceeds maximum parallelism for it.
+        """
+        max_parallelism = self._curr.max_parallelism
+        num_running = self.num_running_trials_this_step
+
+        if max_parallelism is None:
+            return None  # There was no `max_parallelism` limit.
+
+        if raise_max_parallelism_reached_exception and num_running >= max_parallelism:
+            raise MaxParallelismReachedException(
+                step_index=self._curr.index,
+                model_name=self._curr.model_name,
+                num_running=num_running,
+            )
+
+        return max_parallelism - num_running
 
     def _set_or_update_model(self, data: Optional[Data]) -> None:
         if self._curr.num_trials == -1:  # Unlimited trials, just use curr. model.

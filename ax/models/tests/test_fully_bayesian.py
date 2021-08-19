@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
 from abc import ABC
 from contextlib import ExitStack
 from itertools import product
@@ -47,7 +48,6 @@ def _get_dummy_mcmc_samples(
     dtype: torch.dtype,
     device: torch.device,
     perturb_sd: float = 1e-5,
-    use_saas: bool = False,
 ) -> Dict[str, torch.Tensor]:
     tkwargs = {"dtype": dtype, "device": device}
     dummy_sample_list = []
@@ -63,11 +63,10 @@ def _get_dummy_mcmc_samples(
             "mean": torch.tensor([3.5000], **tkwargs)
             + perturb_sd * torch.randn(num_samples, **tkwargs),
         }
-        if use_saas:
-            dummy_samples["kernel_tausq"] = torch.tensor(0.5, **tkwargs)
-            dummy_samples["_kernel_inv_length_sq"] = (
-                1.0 / dummy_samples["lengthscale"].sqrt()
-            )
+        dummy_samples["kernel_tausq"] = torch.tensor(0.5, **tkwargs)
+        dummy_samples["_kernel_inv_length_sq"] = (
+            1.0 / dummy_samples["lengthscale"].sqrt()
+        )
         dummy_sample_list.append(dummy_samples)
     return dummy_sample_list
 
@@ -83,6 +82,20 @@ try:
         model_cls: Type[FullyBayesianBotorchModel]
 
         def test_FullyBayesianBotorchModel(self, dtype=torch.float, cuda=False):
+            # test deprecation warning
+            warnings.resetwarnings()  # this is necessary for building in mode/opt
+            warnings.simplefilter("always", append=True)
+            with warnings.catch_warnings(record=True) as ws:
+                self.model_cls(use_saas=True)
+                self.assertTrue(
+                    any(issubclass(w.category, DeprecationWarning) for w in ws)
+                )
+                self.assertTrue(
+                    any(
+                        "Passing `use_saas` is no longer supported" in str(w.message)
+                        for w in ws
+                    )
+                )
             Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
                 dtype=dtype, cuda=cuda, constant_noise=True
             )
@@ -98,15 +111,12 @@ try:
             Xs = Xs1 + Xs2_diff
             Ys = Ys1 + Ys2
 
-            for inferred_noise, use_input_warping, use_saas in product(
-                (True, False), repeat=3
-            ):
+            for inferred_noise, use_input_warping in product((True, False), repeat=2):
                 Yvars = Yvars_inferred_noise if inferred_noise else Yvars1 + Yvars2
                 model = self.model_cls(
                     use_input_warping=use_input_warping,
                     thinning=1,
                     num_samples=4,
-                    use_saas=use_saas,
                     disable_progbar=True,
                     max_tree_depth=1,
                 )
@@ -167,7 +177,6 @@ try:
                         self.assertEqual(
                             ckwargs["use_input_warping"], use_input_warping
                         )
-                        self.assertEqual(ckwargs["use_saas"], use_saas)
 
                         # Check attributes
                         self.assertTrue(torch.equal(model.Xs[i], Xs[i]))
@@ -179,7 +188,8 @@ try:
                         # Note each model in the model list is a batched model, where
                         # the batch dim corresponds to the MCMC samples
                         model_list = model.model.models
-                        m = model_list[i]
+                        # Put model in `eval` mode to transform the train inputs.
+                        m = model_list[i].eval()
                         # check mcmc samples
                         dummy_samples = dummy_samples_list[i]
                         expected_train_inputs = Xs[i].expand(4, *Xs[i].shape)
@@ -301,7 +311,6 @@ try:
                     use_input_warping=use_input_warping,
                     thinning=1,
                     num_samples=4,
-                    use_saas=use_saas,
                     disable_progbar=True,
                     max_tree_depth=1,
                 )
@@ -503,7 +512,7 @@ try:
                     unfit_model.feature_importances()
 
         def test_saasbo_sample(self):
-            for use_saas, use_input_warping in product((False, True), repeat=2):
+            for use_input_warping in (False, True):
                 with torch.random.fork_rng():
                     torch.manual_seed(0)
                     X = torch.randn(3, 2)
@@ -516,17 +525,11 @@ try:
                         Y,
                         Yvar,
                         use_input_warping=use_input_warping,
-                        use_saas=use_saas,
                     )
                     samples = mcmc.get_samples()
-                    if use_saas:
-                        self.assertTrue("kernel_tausq" in samples)
-                        self.assertTrue("_kernel_inv_length_sq" in samples)
-                        self.assertTrue("lengthscale" not in samples)
-                    else:
-                        self.assertTrue("kernel_tausq" not in samples)
-                        self.assertTrue("_kernel_inv_length_sq" not in samples)
-                        self.assertTrue("lengthscale" in samples)
+                    self.assertTrue("kernel_tausq" in samples)
+                    self.assertTrue("_kernel_inv_length_sq" in samples)
+                    self.assertTrue("lengthscale" not in samples)
                     if use_input_warping:
                         self.assertIn("c0", samples)
                         self.assertIn("c1", samples)
@@ -595,15 +598,14 @@ try:
                 Xs2, Ys2, raw_Yvars2, _, _, _, _ = get_torch_test_data(
                     dtype=dtype, cuda=cuda, constant_noise=True
                 )
-                for inferred_noise, use_input_warping, use_saas in product(
-                    (False, True), repeat=3
+                for inferred_noise, use_input_warping in product(
+                    (False, True), repeat=2
                 ):
                     model = self.model_cls(
                         num_samples=4,
                         warmup_steps=0,
                         thinning=1,
                         use_input_warping=use_input_warping,
-                        use_saas=use_saas,
                         disable_progbar=True,
                         max_tree_depth=1,
                     )
@@ -619,7 +621,6 @@ try:
                         num_outputs=2,
                         dtype=dtype,
                         device=Xs1[0].device,
-                        use_saas=use_saas,
                     )
                     with ExitStack() as es:
                         _mock_fit_model = es.enter_context(
@@ -654,7 +655,6 @@ try:
                         self.assertEqual(
                             ckwargs["use_input_warping"], use_input_warping
                         )
-                        self.assertEqual(ckwargs["use_saas"], use_saas)
                     with ExitStack() as es:
                         _mock_mcmc = es.enter_context(mock.patch(MCMC_PATH))
                         _mock_mcmc.return_value.get_samples.side_effect = dummy_samples
@@ -766,12 +766,11 @@ try:
             Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
                 dtype=torch.float, cuda=False, constant_noise=True
             )
-            for use_input_warping, use_saas in product((True, False), repeat=2):
+            for use_input_warping in (True, False):
                 model = self.model_cls(
                     use_input_warping=use_input_warping,
                     num_samples=4,
                     thinning=1,
-                    use_saas=use_saas,
                     disable_progbar=True,
                     max_tree_depth=1,
                 )

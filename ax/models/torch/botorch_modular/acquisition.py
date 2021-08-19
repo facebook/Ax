@@ -20,6 +20,7 @@ from ax.models.torch.botorch_modular.default_options import (
     get_default_optimizer_options,
 )
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     get_botorch_objective,
@@ -28,6 +29,7 @@ from ax.models.torch.utils import (
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import AnalyticAcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
@@ -102,7 +104,10 @@ class Acquisition(Base):
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
         )
-
+        # store objective thresholds for all outcomes (including non-objectives)
+        self._objective_thresholds = objective_thresholds
+        full_objective_weights = objective_weights
+        full_outcome_constraints = outcome_constraints
         # Subset model only to the outcomes we need for the optimization.
         if self.options.get(Keys.SUBSET_MODEL, True):
             subset_model_results = subset_model(
@@ -115,9 +120,30 @@ class Acquisition(Base):
             objective_weights = subset_model_results.objective_weights
             outcome_constraints = subset_model_results.outcome_constraints
             objective_thresholds = subset_model_results.objective_thresholds
+            subset_idcs = subset_model_results.indices
         else:
             model = self.surrogate.model
-
+            subset_idcs = None
+        # If objective weights suggest multiple objectives but objective
+        # thresholds are not specified, infer them using the model that
+        # has already been subset to avoid re-subsetting it within
+        # `inter_objective_thresholds`.
+        if (
+            objective_weights.nonzero().numel() > 1  # pyre-ignore [16]
+            and self._objective_thresholds is None
+        ):
+            self._objective_thresholds = infer_objective_thresholds(
+                model=model,
+                objective_weights=full_objective_weights,
+                outcome_constraints=full_outcome_constraints,
+                X_observed=X_observed,
+                subset_idcs=subset_idcs,
+            )
+            objective_thresholds = (
+                not_none(self._objective_thresholds)[subset_idcs]
+                if subset_idcs is not None
+                else self._objective_thresholds
+            )
         objective = self.get_botorch_objective(
             botorch_acqf_class=botorch_acqf_class,
             model=model,
@@ -172,6 +198,14 @@ class Acquisition(Base):
         """
         return self.surrogate.device
 
+    @property
+    def objective_thresholds(self) -> Optional[Tensor]:
+        """The objective thresholds for all outcomes.
+
+        For non-objective outcomes, the objective thresholds are nans.
+        """
+        return self._objective_thresholds
+
     def optimize(
         self,
         n: int,
@@ -208,6 +242,8 @@ class Acquisition(Base):
         }
         ssd = search_space_digest
         tkwargs = {"dtype": self.dtype, "device": self.device}
+        # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
+        #  `Union[torch.device, torch.dtype]`.
         bounds = torch.tensor(ssd.bounds, **tkwargs).transpose(0, 1)
         discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
 
@@ -236,6 +272,8 @@ class Acquisition(Base):
             # For now we just enumerate all possible discrete combinations. This is not
             # scalable and and only works for a reasonably small number of choices.
             all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
+            # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
+            #  `Union[torch.device, torch.dtype]`.
             all_choices = torch.tensor(list(itertools.product(*all_choices)), **tkwargs)
 
             return optimize_acqf_discrete(

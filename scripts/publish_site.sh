@@ -10,11 +10,11 @@ set -e
 usage() {
   echo "Usage: $0 [-d] [-k KERNEL_NAME] [-v VERSION]"
   echo ""
-  echo "Build and push updated Ax site. Will either update master or bump stable version."
+  echo "Build and push updated Ax site. Will either update latest or bump stable version."
   echo ""
   echo "  -d                Use Docusaurus bot GitHub credentials. If not specified, will use default GitHub credentials."
   echo "  -k=KERNEL_NAME    Kernel name to use for executing tutorials. Use Jupyter default if not set."
-  echo "  -v=VERSION        Build site for new library version. If not specified, will update master."
+  echo "  -v=VERSION        Build site for new library version. If not specified, will update latest."
   echo ""
   exit 1
 }
@@ -61,11 +61,11 @@ if [[ $DOCUSAURUS_BOT == true ]]; then
   git config --global user.email "docusaurus-bot@users.noreply.github.com"
   echo "machine github.com login docusaurus-bot password ${DOCUSAURUS_PUBLISH_TOKEN}" > ~/.netrc
 
-  # Clone both master & gh-pages branches
-  git clone https://docusaurus-bot@github.com/facebook/Ax.git Ax-master
+  # Clone both main & gh-pages branches
+  git clone https://docusaurus-bot@github.com/facebook/Ax.git Ax-main
   git clone --branch gh-pages https://docusaurus-bot@github.com/facebook/Ax.git Ax-gh-pages
 else
-  git clone git@github.com:facebook/Ax.git Ax-master
+  git clone git@github.com:facebook/Ax.git Ax-main
   git clone --branch gh-pages git@github.com:facebook/Ax.git Ax-gh-pages
 fi
 
@@ -98,11 +98,11 @@ fi
 #   the site or the latest version. Instead, we determine this at runtime.
 #   We use what's on gh-pages in the versions subdirectory as the
 #   source of truth for available versions and use the latest tag on
-#   the master branch as the source of truth for the latest version.
+#   the main branch as the source of truth for the latest version.
 
 if [[ $VERSION == false ]]; then
   echo "-----------------------------------------"
-  echo "Updating latest (master) version of site "
+  echo "Updating latest (main) version of site "
   echo "-----------------------------------------"
 
   # Populate _versions.json from existing versions; this is used
@@ -112,12 +112,12 @@ if [[ $VERSION == false ]]; then
   CMD="import os, json; "
   CMD+="vs = [v for v in os.listdir('Ax-gh-pages/versions') if v != 'latest' and not v.startswith('.')]; "
   CMD+="print(json.dumps(vs))"
-  python3 -c "$CMD" > Ax-master/website/_versions.json
+  python3 -c "$CMD" > Ax-main/website/_versions.json
 
   # Move versions.js to website subdirectory.
   # This is the page you see when click on version in navbar.
-  cp Ax-master/scripts/versions.js Ax-master/website/pages/en/versions.js
-  cd Ax-master/website || exit
+  cp Ax-main/scripts/versions.js Ax-main/website/pages/en/versions.js
+  cd Ax-main/website || exit
 
   # Replace baseUrl (set to /versions/latest/) & disable Algolia
   CONFIG_FILE=$(fullpath "siteConfig.js")
@@ -136,7 +136,7 @@ if [[ $VERSION == false ]]; then
   cd "${WORK_DIR}" || exit
   cp Ax-gh-pages/versions/latest/versions.html versions.html
   rm -rf Ax-gh-pages/versions/latest
-  mv Ax-master/website/build/Ax Ax-gh-pages/versions/latest
+  mv Ax-main/website/build/Ax Ax-gh-pages/versions/latest
   # versions.html goes both in top-level and under en/ (default language)
   cp versions.html Ax-gh-pages/versions/latest/versions.html
   cp versions.html Ax-gh-pages/versions/latest/en/versions.html
@@ -147,15 +147,15 @@ if [[ $VERSION == false ]]; then
   git init
   git add --all
   git commit -m 'Update latest version of site'
-  git push --force "https://github.com/facebook/Ax" master:gh-pages
+  git push --force "https://github.com/facebook/Ax" main:gh-pages
 
 else
   echo "-----------------------------------------"
   echo "Building new version ($VERSION) of site "
   echo "-----------------------------------------"
 
-  # Checkout master branch with specified tag
-  cd Ax-master || exit
+  # Checkout main branch with specified tag
+  cd Ax-main || exit
   git fetch --tags
   git checkout "${VERSION}"
 
@@ -187,15 +187,15 @@ else
   # Move built site to new folder (new-site) & carry over old versions
   # from existing gh-pages
   cd "${WORK_DIR}" || exit
-  rm -rf Ax-master/website/build/Ax/docs/next  # don't need this
-  mv Ax-master/website/build/Ax new-site
+  rm -rf Ax-main/website/build/Ax/docs/next  # don't need this
+  mv Ax-main/website/build/Ax new-site
   mv Ax-gh-pages/versions new-site/versions
 
   # Build new version of site (to be placed in versions/$VERSION/)
   # the only thing that changes here is the baseUrl (for nav purposes)
   # we build this now so that in the future, we can just bump version and not move
   # previous stable to versions
-  cd Ax-master/website || exit
+  cd Ax-main/website || exit
 
   # Replace baseUrl & disable Algolia
   CONFIG_FILE=$(fullpath "siteConfig.js")
@@ -217,14 +217,14 @@ else
   # newer versions. This is the only part of the old versions that
   # needs to be updated when a new version is built.
   cd "${WORK_DIR}" || exit
-  python3 Ax-master/scripts/update_versions_html.py -p "${WORK_DIR}"
+  python3 Ax-main/scripts/update_versions_html.py -p "${WORK_DIR}"
 
   # Init as Git repo and push to gh-pages
   cd new-site || exit
   git init
   git add --all
   git commit -m "Publish version ${VERSION} of site"
-  git push --force "https://github.com/facebook/Ax" master:gh-pages
+  git push --force "https://github.com/facebook/Ax" main:gh-pages
 
 fi
 

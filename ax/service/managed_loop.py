@@ -6,15 +6,23 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
-from typing import List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
+from ax.core.arm import Arm
+from ax.core.base_trial import BaseTrial
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
-from ax.core.search_space import SearchSpace
-from ax.core.simple_experiment import SimpleExperiment, TEvaluationFunction
-from ax.core.types import TModelPredictArm, TParameterization
+from ax.core.simple_experiment import TEvaluationFunction
+from ax.core.trial import Trial
+from ax.core.types import (
+    TEvaluationOutcome,
+    TModelPredictArm,
+    TParameterization,
+)
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
-from ax.exceptions.core import SearchSpaceExhausted
+from ax.exceptions.core import UserInputError, SearchSpaceExhausted
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -24,13 +32,13 @@ from ax.service.utils.best_point import (
     get_best_raw_objective_point,
 )
 from ax.service.utils.instantiation import (
+    make_experiment,
     TParameterRepresentation,
-    constraint_from_str,
-    outcome_constraint_from_str,
-    parameter_from_json,
+    data_and_evaluations_from_raw_data,
 )
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -43,6 +51,7 @@ class OptimizationLoop:
     def __init__(
         self,
         experiment: Experiment,
+        evaluation_function: TEvaluationFunction,
         total_trials: int = 20,
         arms_per_trial: int = 1,
         random_seed: Optional[int] = None,
@@ -55,6 +64,7 @@ class OptimizationLoop:
         self.total_trials = total_trials
         self.arms_per_trial = arms_per_trial
         self.random_seed = random_seed
+        self.evaluation_function = evaluation_function
         assert len(experiment.trials) == 0, (
             "Optimization Loop should not be initialized with an experiment "
             "that has trials already."
@@ -87,24 +97,13 @@ class OptimizationLoop:
     ) -> "OptimizationLoop":
         """Constructs a synchronous `OptimizationLoop` using an evaluation
         function."""
-        exp_parameters = [parameter_from_json(p) for p in parameters]
-        parameter_map = {p.name: p for p in exp_parameters}
-        experiment = SimpleExperiment(
+        experiment = make_experiment(
             name=experiment_name,
-            search_space=SearchSpace(
-                parameters=exp_parameters,
-                parameter_constraints=None
-                if parameter_constraints is None
-                else [
-                    constraint_from_str(c, parameter_map) for c in parameter_constraints
-                ],
-            ),
+            parameters=parameters,
             objective_name=objective_name,
-            evaluation_function=evaluation_function,
             minimize=minimize,
-            outcome_constraints=[
-                outcome_constraint_from_str(c) for c in (outcome_constraints or [])
-            ],
+            parameter_constraints=parameter_constraints,
+            outcome_constraints=outcome_constraints,
         )
         return OptimizationLoop(
             experiment=experiment,
@@ -113,6 +112,7 @@ class OptimizationLoop:
             random_seed=random_seed,
             wait_time=wait_time,
             generation_strategy=generation_strategy,
+            evaluation_function=evaluation_function,
         )
 
     @classmethod
@@ -133,8 +133,59 @@ class OptimizationLoop:
     ) -> "OptimizationLoop":
         """Constructs an asynchronous `OptimizationLoop` using Ax runners and
         metrics."""
-        # TODO[drfreund], T42401002
+        # NOTE: Could use `Scheduler` to implement this if needed.
         raise NotImplementedError  # pragma: no cover
+
+    def _call_evaluation_function(
+        self, parameterization: TParameterization, weight: Optional[float] = None
+    ) -> TEvaluationOutcome:
+        signature = inspect.signature(self.evaluation_function)
+        num_evaluation_function_params = len(signature.parameters.items())
+        if num_evaluation_function_params == 1:
+            # pyre-fixme[20]: Anonymous call expects argument `$1`.
+            evaluation = self.evaluation_function(parameterization)
+        elif num_evaluation_function_params == 2:
+            evaluation = self.evaluation_function(parameterization, weight)
+        else:
+            raise UserInputError(
+                "Evaluation function must take either one parameter "
+                "(parameterization) or two parameters (parameterization and weight)."
+            )
+
+        return evaluation
+
+    def _get_new_trial(self) -> BaseTrial:
+        if self.arms_per_trial == 1:
+            return self.experiment.new_trial(
+                generator_run=self.generation_strategy.gen(
+                    experiment=self.experiment,
+                    pending_observations=get_pending_observation_features(
+                        experiment=self.experiment
+                    ),
+                )
+            )
+        elif self.arms_per_trial > 1:
+            return self.experiment.new_batch_trial(
+                generator_run=self.generation_strategy.gen(
+                    experiment=self.experiment, n=self.arms_per_trial
+                )
+            )
+        else:
+            raise UserInputError(
+                f"Invalid number of arms per trial: {self.arms_per_trial}"
+            )
+
+    def _get_weights_by_arm(
+        self, trial: BaseTrial
+    ) -> Iterable[Tuple[Arm, Optional[float]]]:
+        if isinstance(trial, Trial):
+            if trial.arm is not None:
+                return [(not_none(trial.arm), None)]
+            return []
+        elif isinstance(trial, BatchTrial):
+            return trial.normalized_arm_weights().items()
+        else:
+            raise UserInputError(f"Invalid trial type: {type(trial)}")
 
     @retry_on_exception(
         logger=logger,
@@ -147,25 +198,24 @@ class OptimizationLoop:
         if self.current_trial >= self.total_trials:
             raise ValueError("Optimization is complete, cannot run another trial.")
         logger.info(f"Running optimization trial {self.current_trial + 1}...")
-        arms_per_trial = self.arms_per_trial
-        if arms_per_trial == 1:
-            trial = self.experiment.new_trial(
-                generator_run=self.generation_strategy.gen(
-                    experiment=self.experiment,
-                    pending_observations=get_pending_observation_features(
-                        experiment=self.experiment
-                    ),
-                )
-            )
-        elif arms_per_trial > 1:
-            trial = self.experiment.new_batch_trial(
-                generator_run=self.generation_strategy.gen(
-                    experiment=self.experiment, n=arms_per_trial
-                )
-            )
-        else:  # pragma: no cover
-            raise ValueError(f"Invalid number of arms per trial: {arms_per_trial}")
-        trial.fetch_data()
+
+        trial = self._get_new_trial()
+
+        trial.mark_running(no_runner_required=True)
+        _, data = data_and_evaluations_from_raw_data(
+            raw_data={
+                arm.name: self._call_evaluation_function(arm.parameters, weight)
+                for arm, weight in self._get_weights_by_arm(trial)
+            },
+            trial_index=self.current_trial,
+            sample_sizes={},
+            metric_names=not_none(
+                self.experiment.optimization_config
+            ).objective.metric_names,
+        )
+
+        self.experiment.attach_data(data=data)
+        trial.mark_completed()
         self.current_trial += 1
 
     def full_run(self) -> OptimizationLoop:

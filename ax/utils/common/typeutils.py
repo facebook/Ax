@@ -4,10 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import cast, Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch
+from typeguard import check_type
 
 
 T = TypeVar("T")
@@ -55,6 +56,34 @@ def checked_cast(typ: Type[T], val: V) -> T:
     if not isinstance(val, typ):
         raise ValueError(f"Value was not of type {typ}:\n{val}")
     return val
+
+
+def checked_cast_complex(typ: Type[T], val: V, message: Optional[str] = None) -> T:
+    """
+    Cast a value to a type (with a runtime safety check).  Used for subscripted generics
+    which isinstance cannot run against.
+
+    Returns the value unchanged and checks its type at runtime. This signals to the
+    typechecker that the value has the designated type.
+
+    Like `typing.cast`_ ``check_cast`` performs no runtime conversion on its argument,
+    but, unlike ``typing.cast``, ``checked_cast`` will throw an error if the value is
+    not of the expected type.
+
+    Args:
+        typ: the type to cast to
+        val: the value that we are casting
+        message: message to print on error
+    Returns:
+        the ``val`` argument casted to typ
+
+    .. _typing.cast: https://docs.python.org/3/library/typing.html#typing.cast
+    """
+    try:
+        check_type("val", val, typ)
+        return cast(T, val)
+    except TypeError:
+        raise ValueError(message or f"Value was not of type {typ}: {val}")
 
 
 def checked_cast_optional(typ: Type[T], val: Optional[V]) -> Optional[T]:
@@ -121,7 +150,7 @@ def torch_type_to_str(value: Any) -> str:
     if isinstance(value, torch.dtype):
         return str(value)
     if isinstance(value, torch.device):
-        return checked_cast(str, value.type)  # pyre-fixme[16]: device has to attr. type
+        return checked_cast(str, value.type)
     raise ValueError(f"Object {value} was of unexpected torch type.")
 
 

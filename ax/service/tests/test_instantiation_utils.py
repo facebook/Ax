@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.metric import Metric
-from ax.core.objective import Objective, MultiObjective
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.exceptions.core import UnsupportedError
 from ax.service.utils.instantiation import (
@@ -130,35 +129,55 @@ class TestInstantiationtUtils(TestCase):
     def test_make_optimization_config(self):
         objectives = {"branin": "minimize", "currin": "maximize"}
         objective_thresholds = ["branin <= 0", "currin >= 0"]
-        with self.assertRaisesRegex(ValueError, "not specify objective thresholds"):
-            make_optimization_config(
-                {"branin": "minimize"},
+        with self.subTest("Single-objective optimizations with objective thresholds"):
+            with self.assertRaisesRegex(ValueError, "not specify objective thresholds"):
+                make_optimization_config(
+                    {"branin": "minimize"},
+                    objective_thresholds,
+                    outcome_constraints=[],
+                    status_quo_defined=False,
+                )
+
+        with self.subTest("MOO missing objective thresholds"):
+            with self.assertLogs(
+                "ax.service.utils.instantiation", level="INFO"
+            ) as logs:
+                multi_optimization_config = make_optimization_config(
+                    objectives,
+                    objective_thresholds=objective_thresholds[:1],
+                    outcome_constraints=[],
+                    status_quo_defined=False,
+                )
+                self.assertTrue(
+                    any(
+                        "Due to non-specification" in output and "currin" in output
+                        for output in logs.output
+                    ),
+                    logs.output,
+                )
+                self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
+                self.assertEqual(len(multi_optimization_config.objective_thresholds), 1)
+
+        with self.subTest("MOO with all objective threshold"):
+            multi_optimization_config = make_optimization_config(
+                objectives,
                 objective_thresholds,
                 outcome_constraints=[],
                 status_quo_defined=False,
             )
-        with self.assertRaisesRegex(ValueError, "requires one objective threshold"):
-            make_optimization_config(
-                objectives,
-                objective_thresholds=objective_thresholds[:1],
+            self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
+            self.assertEqual(len(multi_optimization_config.objective_thresholds), 2)
+
+        with self.subTest(
+            "Single-objective optimizations without objective thresholds"
+        ):
+            single_optimization_config = make_optimization_config(
+                {"branin": "minimize"},
+                objective_thresholds=[],
                 outcome_constraints=[],
                 status_quo_defined=False,
             )
-        multi_optimization_config = make_optimization_config(
-            objectives,
-            objective_thresholds,
-            outcome_constraints=[],
-            status_quo_defined=False,
-        )
-        self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
-        self.assertEqual(len(multi_optimization_config.objective_thresholds), 2)
-        single_optimization_config = make_optimization_config(
-            {"branin": "minimize"},
-            objective_thresholds=[],
-            outcome_constraints=[],
-            status_quo_defined=False,
-        )
-        self.assertEqual(single_optimization_config.objective.metric.name, "branin")
+            self.assertEqual(single_optimization_config.objective.metric.name, "branin")
 
 
 class TestRawDataToEvaluation(TestCase):
@@ -166,7 +185,7 @@ class TestRawDataToEvaluation(TestCase):
         with self.assertRaises(ValueError):
             raw_data_to_evaluation(
                 raw_data={"arm_0": {"objective_a": 6}},
-                objective=Objective(metric=Metric(name="objective_a")),
+                metric_names=["objective_a"],
             )
 
     def test_it_converts_to_floats_in_dict_and_leaves_tuples(self):
@@ -176,12 +195,7 @@ class TestRawDataToEvaluation(TestCase):
                 "objective_b": 1.0,
                 "objective_c": ("some", "tuple"),
             },
-            objective=MultiObjective(
-                objectives=[
-                    Objective(metric=Metric(name="objective_a")),
-                    Objective(metric=Metric(name="objective_b")),
-                ]
-            ),
+            metric_names=["objective_a", "objective_b"],
         )
         self.assertEqual(result["objective_a"], (6.0, None))
         self.assertEqual(result["objective_b"], (1.0, None))
@@ -191,26 +205,21 @@ class TestRawDataToEvaluation(TestCase):
         with self.assertRaises(ValueError):
             raw_data_to_evaluation(
                 raw_data={"objective_a": [6.0, None]},
-                objective=Objective(metric=Metric(name="objective_a")),
+                metric_names=["objective_a"],
             )
 
     def test_it_requires_a_dict_for_multi_objectives(self):
         with self.assertRaises(ValueError):
             raw_data_to_evaluation(
                 raw_data=(6.0, None),
-                objective=MultiObjective(
-                    objectives=[
-                        Objective(metric=Metric(name="objective_a")),
-                        Objective(metric=Metric(name="objective_b")),
-                    ]
-                ),
+                metric_names=["objective_a", "objective_b"],
             )
 
     def test_it_accepts_a_list_for_single_objectives(self):
         raw_data = [({"arm__0": {}}, {"objective_a": (1.4, None)})]
         result = raw_data_to_evaluation(
             raw_data=raw_data,
-            objective=Objective(metric=Metric(name="objective_a")),
+            metric_names=["objective_a"],
         )
         self.assertEqual(raw_data, result)
 
@@ -218,21 +227,21 @@ class TestRawDataToEvaluation(TestCase):
         raw_data = (1.4, None)
         result = raw_data_to_evaluation(
             raw_data=raw_data,
-            objective=Objective(metric=Metric(name="objective_a")),
+            metric_names=["objective_a"],
         )
         self.assertEqual(result["objective_a"], raw_data)
 
     def test_it_turns_an_int_into_a_dict_of_tuple(self):
         result = raw_data_to_evaluation(
             raw_data=1,
-            objective=Objective(metric=Metric(name="objective_a")),
+            metric_names=["objective_a"],
         )
         self.assertEqual(result["objective_a"], (1.0, None))
 
     def test_it_turns_a_float_into_a_dict_of_tuple(self):
         result = raw_data_to_evaluation(
             raw_data=1.6,
-            objective=Objective(metric=Metric(name="objective_a")),
+            metric_names=["objective_a"],
         )
         self.assertEqual(result["objective_a"], (1.6, None))
 
@@ -240,5 +249,5 @@ class TestRawDataToEvaluation(TestCase):
         with self.assertRaises(ValueError):
             raw_data_to_evaluation(
                 raw_data="1.6",
-                objective=Objective(metric=Metric(name="objective_a")),
+                metric_names=["objective_a"],
             )

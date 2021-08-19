@@ -163,7 +163,10 @@ def get_MTGP_NEHVI(
         status_quo_features = None
     else:
         status_quo_features = ObservationFeatures(
-            parameters=status_quo.parameters, trial_index=trial_index
+            parameters=status_quo.parameters,
+            # pyre-fixme[6]: Expected `Optional[numpy.int64]` for 2nd param but got
+            #  `int`.
+            trial_index=trial_index,
         )
 
     return checked_cast(
@@ -377,7 +380,10 @@ def get_MTGP(
         status_quo_features = None
     else:
         status_quo_features = ObservationFeatures(
-            parameters=status_quo.parameters, trial_index=trial_index
+            parameters=status_quo.parameters,
+            # pyre-fixme[6]: Expected `Optional[numpy.int64]` for 2nd param but got
+            #  `int`.
+            trial_index=trial_index,
         )
 
     return TorchModelBridge(
@@ -663,7 +669,10 @@ def get_MTGP_PAREGO(
         status_quo_features = None
     else:
         status_quo_features = ObservationFeatures(
-            parameters=status_quo.parameters, trial_index=trial_index
+            parameters=status_quo.parameters,
+            # pyre-fixme[6]: Expected `Optional[numpy.int64]` for 2nd param but got
+            #  `int`.
+            trial_index=trial_index,
         )
     return checked_cast(
         MultiObjectiveTorchModelBridge,
