@@ -36,7 +36,8 @@ DEV_REQUIRES = [
     "sphinx<4.0",
     "sphinx-autodoc-typehints",
     "torchvision>=0.5.0",
-    "nbconvert<=6.1.0",
+    "nbconvert<=5.6.1",
+    "jupyter-client==6.1.12",
 ]
 
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
