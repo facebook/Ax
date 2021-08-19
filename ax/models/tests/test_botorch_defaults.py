@@ -8,11 +8,13 @@ from unittest import mock
 
 import torch
 from ax.models.torch.botorch_defaults import (
+    _get_acquisition_func,
     _get_model,
     get_and_fit_model,
     get_warping_transform,
 )
 from ax.utils.common.testutils import TestCase
+from botorch.acquisition.penalized import PenalizedMCObjective
 from botorch.models import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
@@ -153,6 +155,41 @@ class BotorchDefaultsTest(TestCase):
                 metric_names=["L2NormMetric"],
                 state_dict=None,
                 refit_model=False,
+            )
+
+    def test_get_acquisition_func(self):
+        x = torch.zeros(2, 2)
+        y = torch.zeros(2, 1)
+        unknown_var = torch.tensor([float("nan"), float("nan")]).unsqueeze(-1)
+        model = _get_model(x, y, unknown_var, None)
+        objective_weights = torch.tensor([1.0])
+        outcome_constraints = (
+            torch.tensor([[0.0, 1.0]]),
+            torch.tensor([[5.0]]),
+        )
+        X_observed = torch.zeros(2, 2)
+        with self.assertRaises(ValueError) as cm:
+            _get_acquisition_func(
+                model=model,
+                acquisition_function_name="qNEI",
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_observed,
+                constrained_mc_objective=None,
+            )
+        self.assertEqual(
+            "constrained_mc_objective cannot be set to None "
+            "when applying outcome constraints.",
+            str(cm.exception),
+        )
+        with self.assertRaises(RuntimeError):
+            _get_acquisition_func(
+                model=model,
+                acquisition_function_name="qNEI",
+                objective_weights=objective_weights,
+                mc_objective=PenalizedMCObjective,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_observed,
             )
 
     def test_get_warping_transform(self):
