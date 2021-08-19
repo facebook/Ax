@@ -1074,6 +1074,7 @@ class AxClient(WithDBSettingsBase):
                 optimization_config=self.experiment.optimization_config,
                 enforce_sequential_optimization=enforce_sequential_optimization,
                 random_seed=random_seed,
+                experiment=self.experiment,
                 **choose_generation_strategy_kwargs,
             )
 
