@@ -63,6 +63,8 @@ class TorchModelBridge(ArrayModelBridge):
     ) -> None:
         if torch_dtype is None:  # pragma: no cover
             torch_dtype = torch.float  # noqa T484
+        # pyre-fixme[8]: Attribute has type `Optional[torch.dtype]`; used as
+        #  `Union[Type[torch.float], torch.dtype]`.
         self.dtype = torch_dtype
         self.device = torch_device
         self._default_model_gen_options = default_model_gen_options or {}
