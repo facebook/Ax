@@ -11,6 +11,8 @@ import pandas as pd
 import torch
 from ax.core.data import Data
 from ax.core.observation import ObservationFeatures
+from ax.core.outcome_constraint import ObjectiveThreshold
+from ax.core.types import ComparisonOp
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
@@ -31,6 +33,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_multi_objective,
     get_branin_data,
     get_branin_experiment,
     get_branin_optimization_config,
@@ -362,3 +365,49 @@ class ModelRegistryTest(TestCase):
         self.assertIsInstance(m, TorchModelBridge)
         self.assertIsInstance(m.model, ALEBO)
         self.assertTrue(np.array_equal(m.model.B.numpy(), B))
+
+    def test_ST_MTGP_NEHVI(self):
+        """Tests single type MTGP NEHVI instantiation."""
+        multi_obj_exp = get_branin_experiment_with_multi_objective(
+            with_batch=True,
+            with_status_quo=True,
+        )
+        metrics = multi_obj_exp.optimization_config.objective.metrics
+        multi_objective_thresholds = [
+            ObjectiveThreshold(
+                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            ),
+            ObjectiveThreshold(
+                metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            ),
+        ]
+        sobol = Models.SOBOL(search_space=multi_obj_exp.search_space)
+        self.assertIsInstance(sobol, RandomModelBridge)
+        for _ in range(2):
+            sobol_run = sobol.gen(n=1)
+            t = multi_obj_exp.new_batch_trial().add_generator_run(sobol_run)
+            t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
+            t.run().mark_completed()
+        status_quo_features = ObservationFeatures(
+            parameters=multi_obj_exp.trials[0].status_quo.parameters,
+            trial_index=0,
+        )
+        mtgp = Models.ST_MTGP_NEHVI(
+            experiment=multi_obj_exp,
+            data=multi_obj_exp.fetch_data(),
+            status_quo_features=status_quo_features,
+            objective_thresholds=multi_objective_thresholds,
+        )
+        self.assertIsInstance(mtgp, TorchModelBridge)
+        self.assertIsInstance(mtgp.model, BoTorchModel)
+
+        # test it can generate
+        mtgp_run = mtgp.gen(
+            n=1, fixed_features=ObservationFeatures(parameters={}, trial_index=1)
+        )
+        self.assertEqual(len(mtgp_run.arms), 1)
+
+        # test a generated trial can be completed
+        t = multi_obj_exp.new_batch_trial().add_generator_run(mtgp_run)
+        t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
+        t.run().mark_completed()

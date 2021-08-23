@@ -248,6 +248,12 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
+    "ST_MTGP_NEHVI": ModelSetup(
+        bridge_class=MultiObjectiveTorchModelBridge,
+        model_class=ModularBoTorchModel,
+        transforms=ST_MTGP_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
 }
 
 
@@ -419,6 +425,7 @@ class Models(ModelRegistryBase):
     ST_MTGP = "ST_MTGP"
     ALEBO = "ALEBO"
     BO_MIXED = "BO_MIXED"
+    ST_MTGP_NEHVI = "ST_MTGP_NEHVI"
 
 
 def get_model_from_generator_run(
