@@ -21,10 +21,10 @@ class COLORS(enum.Enum):
 DISCRETE_COLOR_SCALE = [
     COLORS.STEELBLUE.value,
     COLORS.CORAL.value,
-    COLORS.TEAL.value,
     COLORS.PINK.value,
     COLORS.LIGHT_PURPLE.value,
     COLORS.ORANGE.value,
+    COLORS.TEAL.value,
 ]
 
 # 11-class PiYG from ColorBrewer (for contour plots)
