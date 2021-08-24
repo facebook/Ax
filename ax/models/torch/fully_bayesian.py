@@ -480,10 +480,11 @@ class FullyBayesianBotorchModelMixin:
                 "Cannot calculate feature_importances without a fitted model"
             )
         elif isinstance(self.model, ModelListGP):
-            models = self.model.models  # pyre-ignore: [16]
+            models = self.model.models
         else:
             models = [self.model]
         lengthscales = []
+        # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(Tensor.__iter__)[[Named(...
         for m in models:
             ls = m.covar_module.base_kernel.lengthscale
             lengthscales.append(ls)

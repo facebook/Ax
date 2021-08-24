@@ -447,7 +447,7 @@ class BotorchModel(TorchModel):
         if self.refit_on_cv:
             state_dict = None
         else:
-            state_dict = deepcopy(self.model.state_dict())  # pyre-ignore: [16]
+            state_dict = deepcopy(self.model.state_dict())
         model = self.model_constructor(  # pyre-ignore: [28]
             Xs=Xs_train,
             Ys=Ys_train,
@@ -480,7 +480,7 @@ class BotorchModel(TorchModel):
         if self.refit_on_update and not self.warm_start_refitting:
             state_dict = None  # pragma: no cover
         else:
-            state_dict = deepcopy(self.model.state_dict())  # pyre-ignore: [16]
+            state_dict = deepcopy(self.model.state_dict())
         self.model = self.model_constructor(  # pyre-ignore: [28]
             Xs=self.Xs,
             Ys=self.Ys,
@@ -501,10 +501,11 @@ class BotorchModel(TorchModel):
                 "Cannot calculate feature_importances without a fitted model"
             )
         elif isinstance(self.model, ModelListGP):
-            models = self.model.models  # pyre-ignore: [16]
+            models = self.model.models
         else:
             models = [self.model]
         lengthscales = []
+        # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(Tensor.__iter__)[[Named(...
         for m in models:
             ls = m.covar_module.base_kernel.lengthscale
             if ls.ndim == 2:

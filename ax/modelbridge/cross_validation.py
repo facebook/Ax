@@ -134,8 +134,6 @@ def cross_validate_by_trial(model: ModelBridge, trial: int = -1) -> List[CVResul
         if model.training_in_design[i]
     ]
     all_trials = {
-        # pyre-fixme[6]: Expected `Union[bytes, str, typing.SupportsInt]` for 1st
-        #  param but got `Optional[np.int64]`.
         int(d.features.trial_index)
         for d in training_data
         if d.features.trial_index is not None
@@ -153,8 +151,6 @@ def cross_validate_by_trial(model: ModelBridge, trial: int = -1) -> List[CVResul
     for obs in training_data:
         if obs.features.trial_index is None:
             continue
-        # pyre-fixme[58]: `<` is not supported for operand types
-        #  `Optional[np.int64]` and `int`.
         elif obs.features.trial_index < trial:
             cv_training_data.append(obs)
         elif obs.features.trial_index == trial:

@@ -355,7 +355,6 @@ def get_plot_data(
         metric_names=metrics_plot,
         fixed_features=fixed_features,
     )
-    # pyre-fixme[16]: `Optional` has no attribute `arm_name`.
     status_quo_name = None if model.status_quo is None else model.status_quo.arm_name
     plot_data = PlotData(
         metrics=list(metrics_plot),
@@ -451,7 +450,6 @@ def get_fixed_values(
 
     # Check if status_quo is in design
     if model.status_quo is not None and model.model_space.check_membership(
-        # pyre-fixme[16]: `Optional` has no attribute `features`.
         model.status_quo.features.parameters
     ):
         setx = model.status_quo.features.parameters

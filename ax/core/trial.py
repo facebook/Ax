@@ -141,8 +141,6 @@ class Trial(BaseTrial):
             arms: list of a single arm
                 attached to this trial if there is one, else None.
         """
-        # pyre-fixme[7]: Expected `List[Arm]` but got `Union[List[Optional[Arm]],
-        #  List[_T]]`.
         return [self.arm] if self.arm is not None else []
 
     @property
@@ -155,7 +153,6 @@ class Trial(BaseTrial):
                 arm name to arm if one is attached to this trial,
                 else None.
         """
-        # pyre-fixme[16]: `Optional` has no attribute `name`.
         return {self.arm.name: self.arm} if self.arm is not None else {}
 
     @property

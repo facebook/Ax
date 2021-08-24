@@ -57,7 +57,6 @@ class Derelativize(Transform):
                 "not fit with status quo."
             )
         try:
-            # pyre-fixme[16]: `Optional` has no attribute `features`.
             f, _ = modelbridge.predict([modelbridge.status_quo.features])
         except Exception:
             # Check if it is out-of-design.

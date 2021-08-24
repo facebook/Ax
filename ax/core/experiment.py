@@ -138,7 +138,6 @@ class Experiment(Base):
         """Get experiment name. Throws if name is None."""
         if self._name is None:
             raise ValueError("Experiment's name is None.")
-        # pyre-fixme[7]: Expected `str` but got `Optional[str]`.
         return self._name
 
     @name.setter
@@ -402,7 +401,6 @@ class Experiment(Base):
         """The metrics attached to the experiment."""
         optimization_config_metrics: Dict[str, Metric] = {}
         if self.optimization_config is not None:
-            # pyre-fixme[16]: `Optional` has no attribute `metrics`.
             optimization_config_metrics = self.optimization_config.metrics
         return {**self._tracking_metrics, **optimization_config_metrics}
 

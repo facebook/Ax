@@ -109,9 +109,6 @@ class Decoder:
             )
         status_quo = (
             Arm(
-                # pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float,
-                #  int, str]]]` for 1st param but got `Optional[Dict[str,
-                #  Optional[Union[bool, float, int, str]]]]`.
                 parameters=experiment_sqa.status_quo_parameters,
                 name=experiment_sqa.status_quo_name,
             )
@@ -184,9 +181,6 @@ class Decoder:
             )
         status_quo = (
             Arm(
-                # pyre-fixme[6]: Expected `Dict[str, Optional[Union[bool, float,
-                #  int, str]]]` for 1st param but got `Optional[Dict[str,
-                #  Optional[Union[bool, float, int, str]]]]`.
                 parameters=experiment_sqa.status_quo_parameters,
                 name=experiment_sqa.status_quo_name,
             )
@@ -291,11 +285,7 @@ class Decoder:
             parameter = RangeParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                # pyre-fixme[6]: Expected `float` for 3rd param but got
-                #  `Optional[float]`.
                 lower=parameter_sqa.lower,
-                # pyre-fixme[6]: Expected `float` for 4th param but got
-                #  `Optional[float]`.
                 upper=parameter_sqa.upper,
                 log_scale=parameter_sqa.log_scale or False,
                 digits=parameter_sqa.digits,
@@ -310,9 +300,6 @@ class Decoder:
             parameter = ChoiceParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                # pyre-fixme[6]: Expected `List[Optional[Union[bool, float, int,
-                #  str]]]` for 3rd param but got `Optional[List[Optional[Union[bool,
-                #  float, int, str]]]]`.
                 values=parameter_sqa.choice_values,
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
@@ -544,13 +531,8 @@ class Decoder:
                 )
             return OutcomeConstraint(
                 metric=metric,
-                # pyre-fixme[6]: Expected `float` for 2nd param but got
-                #  `Optional[float]`.
                 bound=metric_sqa.bound,
-                # pyre-fixme[6]: Expected `ComparisonOp` for 3rd param but got
-                #  `Optional[ax.core.types.ComparisonOp]`.
                 op=metric_sqa.op,
-                # pyre-fixme[6]: Expected `bool` for 4th param but got `Optional[bool]`.
                 relative=metric_sqa.relative,
             )
         elif metric_sqa.intent == MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT:
@@ -608,10 +590,7 @@ class Decoder:
                 )
             ot = ObjectiveThreshold(
                 metric=metric,
-                # pyre-fixme[6]: Expected `float` for 2nd param but got
-                #  `Optional[float]`.
                 bound=metric_sqa.bound,
-                # pyre-fixme[6]: Expected `bool` for 3rd param but got `Optional[bool]`.
                 relative=metric_sqa.relative,
                 op=metric_sqa.op,
             )
@@ -951,19 +930,13 @@ class Decoder:
         # pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as
         #  `Optional[typing.Dict[Variable[_KT], Variable[_VT]]]`.
         trial._run_metadata = (
-            # pyre-fixme[6]: Expected `Mapping[Variable[_KT], Variable[_VT]]` for
-            #  1st param but got `Optional[Dict[str, typing.Any]]`.
-            dict(trial_sqa.run_metadata)
-            if trial_sqa.run_metadata is not None
-            else None
+            dict(trial_sqa.run_metadata) if trial_sqa.run_metadata is not None else None
         )
         # pyre-fixme[9]: _run_metadata has type `Dict[str, Any]`; used as
         #  `Optional[Dict[str, Any]]`.
         # pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as
         #  `Optional[typing.Dict[Variable[_KT], Variable[_VT]]]`.
         trial._stop_metadata = (
-            # pyre-fixme[6]: Expected `Mapping[Variable[_KT], Variable[_VT]]` for
-            #  1st param but got `Optional[Dict[str, typing.Any]]`.
             dict(trial_sqa.stop_metadata)
             if trial_sqa.stop_metadata is not None
             else None

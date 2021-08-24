@@ -51,7 +51,6 @@ class Arm(SortableBase):
         """Get arm name. Throws if name is None."""
         if self._name is None:
             raise ValueError("Arm's name is None.")
-        # pyre-fixme[7]: Expected `str` but got `Optional[str]`.
         return self._name
 
     @property

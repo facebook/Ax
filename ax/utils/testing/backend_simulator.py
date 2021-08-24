@@ -414,7 +414,7 @@ class BackendSimulator:
                 )
             elif (
                 trial.sim_completed_time is not None
-                and timestamp >= trial.sim_completed_time  # pyre-ignore[58]
+                and timestamp >= trial.sim_completed_time
             ):
                 completed_since_last.append(trial)  # was early stopped
             else:

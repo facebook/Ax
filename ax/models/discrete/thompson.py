@@ -91,8 +91,6 @@ class ThompsonSampler(DiscreteModel):
         weighted_arms = [
             (weights[i], np.random.random(), arms[i])
             for i in range(k)
-            # pyre-fixme[58]: `>` is not supported for operand types `float` and
-            #  `Optional[float]`.
             if weights[i] > min_weight
         ]
 
