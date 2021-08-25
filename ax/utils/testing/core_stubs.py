@@ -84,6 +84,7 @@ from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 
 logger = get_logger(__name__)
 
+TEST_SOBOL_SEED = 1234
 
 ##############################
 # Experiments
@@ -381,8 +382,8 @@ def get_branin_experiment_with_multi_objective(
         exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
 
     if with_batch:
-        sobol_generator = get_sobol(search_space=exp.search_space)
-        sobol_run = sobol_generator.gen(n=15)
+        sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
+        sobol_run = sobol_generator.gen(n=5)
         exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
             sobol_run
         )
