@@ -707,9 +707,12 @@ class Scheduler(WithDBSettingsBase, ABC):
 
         if failure_rate_exceeded:
             raise FailureRateExceededError(
-                "Tolerated trial failure rate exceeded (at least "
+                "Failure rate exceeds the tolerated trial failure rate of "
+                f"{self.options.tolerated_trial_failure_rate} (at least "
                 f"{num_failed_in_scheduler} out of first {num_ran_in_scheduler} trials "
-                " failed)."
+                "failed). Checks are triggered both at the end of a sweep and if "
+                f"at least {self.options.min_failed_trials_for_failure_rate_check} "
+                "trials have failed."
             )
 
     def summarize_final_result(self) -> OptimizationResult:
