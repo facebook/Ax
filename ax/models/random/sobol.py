@@ -164,4 +164,5 @@ class SobolGenerator(RandomModel):
             raise ValueError(  # pragma: no cover
                 "Sobol Engine must be initialized before candidate generation."
             )
+        # pyre-fixme[6]: Expected `dtype` for 2nd param but got `Type[torch.double]`.
         return not_none(self.engine).draw(n, dtype=torch.double).numpy()

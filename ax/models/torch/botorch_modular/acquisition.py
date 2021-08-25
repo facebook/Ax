@@ -242,8 +242,6 @@ class Acquisition(Base):
         }
         ssd = search_space_digest
         tkwargs = {"dtype": self.dtype, "device": self.device}
-        # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
-        #  `Union[torch.device, torch.dtype]`.
         bounds = torch.tensor(ssd.bounds, **tkwargs).transpose(0, 1)
         discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
 
@@ -272,8 +270,6 @@ class Acquisition(Base):
             # For now we just enumerate all possible discrete combinations. This is not
             # scalable and and only works for a reasonably small number of choices.
             all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
-            # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 2nd param but got
-            #  `Union[torch.device, torch.dtype]`.
             all_choices = torch.tensor(list(itertools.product(*all_choices)), **tkwargs)
 
             return optimize_acqf_discrete(

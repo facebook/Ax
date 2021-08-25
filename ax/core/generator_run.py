@@ -314,11 +314,9 @@ class GeneratorRun(SortableBase):
         generator_run = GeneratorRun(
             arms=[a.clone() for a in self.arms],
             weights=self.weights[:] if self.weights is not None else None,
-            # pyre-fixme[16]: `Optional` has no attribute `clone`.
             optimization_config=self.optimization_config.clone()
             if self.optimization_config is not None
             else None,
-            # pyre-fixme[16]: `Optional` has no attribute `clone`.
             search_space=self.search_space.clone()
             if self.search_space is not None
             else None,
@@ -339,10 +337,7 @@ class GeneratorRun(SortableBase):
         generator_run._index = self._index
         generator_run._model_key = self._model_key
         generator_run._model_kwargs = (
-            # pyre-fixme[16]: `Optional` has no attribute `copy`.
-            self._model_kwargs.copy()
-            if self._model_kwargs is not None
-            else None
+            self._model_kwargs.copy() if self._model_kwargs is not None else None
         )
         generator_run._bridge_kwargs = (
             self._bridge_kwargs.copy() if self._bridge_kwargs is not None else None

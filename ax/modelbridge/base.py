@@ -337,7 +337,6 @@ class ModelBridge(ABC):
             and experiment is not None
             and experiment.status_quo is not None
         ):
-            # pyre-fixme[16]: `Optional` has no attribute `name`.
             status_quo_name = experiment.status_quo.name
 
         if status_quo_name is not None:
@@ -599,7 +598,6 @@ class ModelBridge(ABC):
 
         if optimization_config is None:
             optimization_config = (
-                # pyre-fixme[16]: `Optional` has no attribute `clone`.
                 self._optimization_config.clone()
                 if self._optimization_config is not None
                 else None
@@ -625,6 +623,8 @@ class ModelBridge(ABC):
             fixed_features = t.transform_observation_features([fixed_features])[0]
         return BaseGenArgs(
             search_space=search_space,
+            # pyre-fixme[6]: Expected `OptimizationConfig` for 2nd param but got
+            #  `Optional[OptimizationConfig]`.
             optimization_config=optimization_config,
             pending_observations=pending_observations,
             fixed_features=fixed_features,

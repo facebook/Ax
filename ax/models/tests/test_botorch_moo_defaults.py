@@ -446,6 +446,51 @@ class BotorchMOODefaultsTest(TestCase):
                 torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
             )
             self.assertTrue(np.isnan(obj_thresholds[2].item()))
+            # test without subsetting (e.g. if there are
+            # 3 metrics for 2 objectives + 1 outcome constraint)
+            outcome_constraints = (
+                torch.tensor([[0.0, 0.0, 1.0]], **tkwargs),
+                torch.tensor([[5.0]], **tkwargs),
+            )
+            with ExitStack() as es:
+                _mock_get_X_pending_and_observed = es.enter_context(
+                    mock.patch(
+                        "ax.models.torch.botorch_moo_defaults."
+                        "_get_X_pending_and_observed",
+                        wraps=_get_X_pending_and_observed,
+                    )
+                )
+                _mock_infer_reference_point = es.enter_context(
+                    mock.patch(
+                        "ax.models.torch.botorch_moo_defaults.infer_reference_point",
+                        wraps=infer_reference_point,
+                    )
+                )
+                model = MockModel(
+                    MockPosterior(
+                        mean=torch.tensor(
+                            [
+                                [11.0, 2.0, 6.0],
+                                [9.0, 3.0, 4.0],
+                            ],
+                            **tkwargs,
+                        )
+                    )
+                )
+                # test passing Xs
+                obj_thresholds = infer_objective_thresholds(
+                    model,
+                    bounds=bounds,
+                    objective_weights=objective_weights,
+                    outcome_constraints=outcome_constraints,
+                    fixed_features={},
+                    linear_constraints=linear_constraints,
+                    Xs=Xs + Xs + Xs,
+                )
+                self.assertTrue(
+                    torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
+                )
+                self.assertTrue(np.isnan(obj_thresholds[2].item()))
 
     def test_infer_objective_thresholds_cuda(self):
         if torch.cuda.is_available():

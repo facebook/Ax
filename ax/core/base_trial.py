@@ -32,19 +32,40 @@ class TrialStatus(int, Enum):
     General lifecycle of a trial is:::
 
         CANDIDATE --> STAGED --> RUNNING --> COMPLETED
-                  ------------->         --> FAILED (machine failure)
+                  ------------->         --> FAILED (retryable)
                                          --> EARLY_STOPPED (deemed unpromising)
-                  -------------------------> ABANDONED (human-initiated action)
+                  -------------------------> ABANDONED (non-retryable)
 
-    Trials may be abandoned at any time prior to completion or failure
-    via human intervention. The difference between abandonment and failure
-    is that the former is human-directed, while the latter is an internal
-    failure state. Early-stopped refers to trials that were deemed
+    Trial is marked as a ``CANDIDATE`` immediately upon its creation.
+
+    Trials may be abandoned at any time prior to completion or failure.
+    The difference between abandonment and failure is that the ``FAILED`` state
+    is meant to express a possibly transient or retryable error, so trials in
+    that state may be re-run and arm(s) in them may be resuggested by Ax models
+    to be added to new trials.
+
+    ``ABANDONED`` trials on the other end, indicate
+    that the trial (and arms(s) in it) should not be rerun or added to new
+    trials. A trial might be marked ``ABANDONED`` as a result of human-initiated
+    action (if some trial in experiment is poorly-performing, deterministically
+    failing etc., and should not be run again in the experiment). It might also
+    be marked ``ABANDONED`` in an automated way if the trial's execution
+    encounters an error that indicates that the arm(s) in the trial should bot
+    be evaluated in the experiment again (e.g. the parameterization in a given
+    arm deterministically causes trial evaluation to fail). Note that it's also
+    possible to abandon a single arm in a `BatchTrial` via
+    ``batch.mark_arm_abandoned``.
+
+    Early-stopped refers to trials that were deemed
     unpromising by an early-stopping strategy and therefore terminated.
 
     Additionally, when trials are deployed, they may be in an intermediate
     staged state (e.g. scheduled but waiting for resources) or immediately
-    transition to running.
+    transition to running. Note that ``STAGED`` trial status is not always
+    applicable and depends on the ``Runner`` trials are deployed with
+    (and whether a ``Runner`` is present at all; for example, in Ax Service
+    API, trials are marked as ``RUNNING`` immediately when generated from
+    ``get_next_trial``, skipping the ``STAGED`` status).
 
     NOTE: Data for abandoned trials (or abandoned arms in batch trials) is
     not passed to the model as part of training data, unless ``fit_abandoned``

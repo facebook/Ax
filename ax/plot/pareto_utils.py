@@ -157,9 +157,7 @@ def get_observed_pareto_frontiers(
     # Relativize as needed
     if rel and experiment.status_quo is not None:
         # Get status quo values
-        sq_df = data.df[
-            data.df["arm_name"] == experiment.status_quo.name  # pyre-ignore
-        ]
+        sq_df = data.df[data.df["arm_name"] == experiment.status_quo.name]
         sq_df = sq_df.to_dict(orient="list")
         sq_means = {}
         sq_sems = {}

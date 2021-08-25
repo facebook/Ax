@@ -528,5 +528,6 @@ def infer_objective_thresholds(
         dtype=objective_weights.dtype,
         device=objective_weights.device,
     )
-    full_objective_thresholds[subset_idcs] = objective_thresholds.clone()
+    obj_idcs = subset_idcs[obj_mask]
+    full_objective_thresholds[obj_idcs] = objective_thresholds.clone()
     return full_objective_thresholds

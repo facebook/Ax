@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
 from ax.core.metric import Metric
@@ -242,89 +243,171 @@ def get_standard_plots(
     return [plot for plot in output_plot_list if plot is not None]
 
 
+def _merge_trials_dict_with_df(
+    df: pd.DataFrame, trials_dict: Dict[int, Any], column_name: str
+) -> None:
+    """Add a column ``column_name`` to a DataFrame ``df`` containing a column
+    ``trial_index``. Each value of the new column is given by the element of
+    ``trials_dict`` indexed by ``trial_index``.
+
+    Args:
+        df: Pandas DataFrame with column ``trial_index``, to be appended with a new
+            column.
+        trials_dict: Dict mapping each ``trial_index`` to a value. The new column of
+            df will be populated with the value corresponding with the
+            ``trial_index`` of each row.
+        column_name: Name of the column to be appended to ``df``.
+    """
+
+    if "trial_index" not in df.columns:
+        raise ValueError("df must have trial_index column")
+    if any(trials_dict.values()):  # field present for any trial
+        if not all(trials_dict.values()):  # not present for all trials
+            logger.warning(
+                f"Column {column_name} missing for some trials. "
+                "Filling with None when missing."
+            )
+        df[column_name] = [trials_dict[trial_index] for trial_index in df.trial_index]
+    else:
+        logger.warning(
+            f"Column {column_name} missing for all trials. " "Not appending column."
+        )
+
+
+def _get_generation_method_str(trial: BaseTrial) -> str:
+    generation_methods = {
+        not_none(generator_run._model_key)
+        for generator_run in trial.generator_runs
+        if generator_run._model_key is not None
+    }
+    # add "Manual" if any generator_runs are manual
+    if any(
+        generator_run.generator_run_type == GeneratorRunType.MANUAL.name
+        for generator_run in trial.generator_runs
+    ):
+        generation_methods.add("Manual")
+    return ", ".join(generation_methods) if generation_methods else "Unknown"
+
+
+def _merge_results_if_no_duplicates(
+    arms_df: pd.DataFrame,
+    data: AbstractDataFrameData,
+    key_components: List[str],
+    deduplicate_on_map_keys: bool,
+    metrics: List[Metric],
+):
+    """Formats ``data.df`` and merges it with ``arms_df`` if all of the following are
+    True:
+        - ``data.df`` is not empty
+        - ``data.df`` contains columns corresponding to ``key_components``
+        - after any formatting, ``data.df`` contains no duplicates of the column
+            ``results_key_col``
+
+    If ``deduplicate_on_map_keys is True``, this function also deduplicates rows of
+    ``data.df``, keeping the row with the largest ``map_keys`` value for each
+    ``key_component * metric_name``. Else, any ``map_keys`` are added to
+    ``results_key_call``.
+    """
+    results = data.df
+    # pyre-ignore[16]: data has no attribute `map_keys`.
+    map_keys = data.map_keys if hasattr(data, "map_keys") and data.map_keys else []
+    if len(results.index) == 0:
+        logger.info(
+            f"No results present for the specified metrics `{metrics}`. "
+            "Returning arm parameters and metadata only."
+        )
+        return arms_df
+    if not all(col in results.columns for col in key_components):
+        logger.warn(
+            f"At least one of key columns `{key_components}` not present in results df "
+            f"`{results}`. Returning arm parameters and metadata only."
+        )
+        return arms_df
+    # prepare results for merge
+    key_vals = results[key_components[0]].astype("str")
+    for key_component in key_components[1:]:
+        key_vals += results[key_component].astype("str")
+    results_key_col = "-".join(key_components)
+    # Deduplicate if data has `map_keys` and therefore came from a `MapMetric`,
+    # keeping the row with the largest `map_keys` value for each `results_key_col`
+    if len(map_keys) > 0:
+        if deduplicate_on_map_keys:
+            results = results.sort_values(map_keys).drop_duplicates(
+                key_components + ["metric_name"], keep="last"
+            )
+        else:
+            for map_key in map_keys:
+                key_vals += results[map_key].astype(str)
+            results_key_col = "-".join(map_keys + key_components)
+    elif deduplicate_on_map_keys:
+        logger.warn(
+            "Ignoring user-specified `deduplicate_on_map_keys = True` since "
+            "`exp.fetch_data().map_keys` is empty or does not exist. Check "
+            "that at least one element of `metrics` (or `exp.metrics` if "
+            "`metrics is None`) inherits from `MapMetric`."
+        )
+    results[results_key_col] = key_vals
+    # Don't return results if duplicates remain
+    if any(results.duplicated(subset=[results_key_col, "metric_name"])):
+        logger.warn(
+            "Experimental results dataframe contains multiple rows with the same "
+            f"keys {results_key_col}. Returning dataframe without results."
+        )
+        return arms_df
+    metric_vals = results.pivot(
+        index=results_key_col, columns="metric_name", values="mean"
+    ).reset_index()
+
+    # dedupe results by key_components
+    metadata = results[key_components + map_keys + [results_key_col]].drop_duplicates()
+    metrics_df = pd.merge(metric_vals, metadata, on=results_key_col)
+    # drop synthetic key column
+    metrics_df = metrics_df.drop(results_key_col, axis=1)
+    # merge and return
+    return pd.merge(metrics_df, arms_df, on=key_components, how="outer")
+
+
 def exp_to_df(
     exp: Experiment,
     metrics: Optional[List[Metric]] = None,
     run_metadata_fields: Optional[List[str]] = None,
     trial_properties_fields: Optional[List[str]] = None,
+    deduplicate_on_map_keys: bool = True,
     **kwargs: Any,
 ) -> pd.DataFrame:
-    """Transforms an experiment to a DataFrame. Only supports Experiment and
-    SimpleExperiment.
+    """Transforms an experiment to a DataFrame with rows keyed by trial_index
+    and arm_name, metrics pivoted into one row. If the pivot results in more than
+    one row per arm (or one row per ``arm * map_keys`` combination if ``map_keys`` are
+    present), results are omitted and warning is produced. Only supports
+    ``Experiment``.
 
-    Transforms an Experiment into a dataframe with rows keyed by trial_index
-    and arm_name, metrics pivoted into one row.
+    Transforms an ``Experiment`` into a ``pd.DataFrame``.
 
     Args:
-        exp: An Experiment that may have pending trials.
-        metrics: Override list of metrics to return. Return all metrics if None.
-        run_metadata_fields: fields to extract from trial.run_metadata for trial
-            in experiment.trials. If there are multiple arms per trial, these
+        exp: An ``Experiment`` that may have pending trials.
+        metrics: Override list of metrics to return. Return all metrics if ``None``.
+        run_metadata_fields: fields to extract from ``trial.run_metadata`` for trial
+            in ``experiment.trials``. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial.
-        trial_properties_fields: fields to extract from trial._properties for trial
-            in experiment.trials. If there are multiple arms per trial, these fields
-            will be replicated across the arms of a trial. Output columns names will be
-            prepended with "trial_properties_".
-
+        trial_properties_fields: fields to extract from ``trial._properties`` for trial
+            in ``experiment.trials``. If there are multiple arms per trial, these
+            fields will be replicated across the arms of a trial. Output columns names
+            will be prepended with ``"trial_properties_"``.
+        deduplicate_on_map_keys: Whether each ``trial_index * arm_name * metric``
+            combination should correspond to one row in the df output by this function.
+            If ``True``, for each such combination, keep the row of maximum
+            ``map_keys`` column(s) values. Note that if ``map_keys`` is a list, its
+            order may affect which row is kept. If ``False``, keep rows for all unique
+            combinations of ``arm * map_keys``.
         **kwargs: Custom named arguments, useful for passing complex
             objects from call-site to the `fetch_data` callback.
 
     Returns:
-        DataFrame: A dataframe of inputs, metadata and metrics by trial and arm. If
-        no trials are available, returns an empty dataframe. If no metric ouputs are
-        available, returns a dataframe of inputs and metadata.
+        DataFrame: A dataframe of inputs, metadata and metrics by trial and arm (and
+        ``map_keys``, if present). If no trials are available, returns an empty
+        dataframe. If no metric ouputs are available, returns a dataframe of inputs and
+        metadata.
     """
-
-    def prep_return(
-        df: pd.DataFrame, drop_col: str, sort_by: List[str]
-    ) -> pd.DataFrame:
-        return not_none(not_none(df.drop(drop_col, axis=1)).sort_values(sort_by))
-
-    def merge_trials_dict_with_df(
-        df: pd.DataFrame, trials_dict: Dict[int, Any], column_name: str
-    ) -> None:
-        """Add a column ``column_name`` to a DataFrame ``df`` containing a column
-        ``trial_index``. Each value of the new column is given by the element of
-        ``trials_dict`` indexed by ``trial_index``.
-
-        Args:
-            df: Pandas DataFrame with column ``trial_index``, to be appended with a new
-                column.
-            trials_dict: Dict mapping each ``trial_index`` to a value. The new column of
-                df will be populated with the value corresponding with the
-                ``trial_index`` of each row.
-            column_name: Name of the column to be appended to ``df``.
-        """
-
-        if "trial_index" not in df.columns:
-            raise ValueError("df must have trial_index column")
-        if any(trials_dict.values()):  # field present for any trial
-            if not all(trials_dict.values()):  # not present for all trials
-                logger.warning(
-                    f"Column {column_name} missing for some trials. "
-                    "Filling with None when missing."
-                )
-            df[column_name] = [
-                trials_dict[trial_index] for trial_index in df.trial_index
-            ]
-        else:
-            logger.warning(
-                f"Column {column_name} missing for all trials. " "Not appending column."
-            )
-
-    def get_generation_method_str(trial: BaseTrial) -> str:
-        generation_methods = {
-            not_none(generator_run._model_key)
-            for generator_run in trial.generator_runs
-            if generator_run._model_key is not None
-        }
-        # add "Manual" if any generator_runs are manual
-        if any(
-            generator_run.generator_run_type == GeneratorRunType.MANUAL.name
-            for generator_run in trial.generator_runs
-        ):
-            generation_methods.add("Manual")
-        return ", ".join(generation_methods) if generation_methods else "Unknown"
 
     # Accept Experiment and SimpleExperiment
     if isinstance(exp, MultiTypeExperiment):
@@ -342,7 +425,8 @@ def exp_to_df(
             )
 
     # Fetch results; in case arms_df is empty, return empty results (legacy behavior)
-    results = exp.fetch_data(metrics, **kwargs).df
+    data = exp.fetch_data(metrics, **kwargs)
+    results = data.df
     if len(arms_df.index) == 0:
         if len(results.index) != 0:
             raise ValueError(
@@ -354,16 +438,11 @@ def exp_to_df(
 
     # Create key column from key_components
     arms_df["trial_index"] = arms_df["trial_index"].astype(int)
-    key_col = "-".join(key_components)
-    key_vals = arms_df[key_components[0]].astype("str") + arms_df[
-        key_components[1]
-    ].astype("str")
-    arms_df[key_col] = key_vals
 
     # Add trial status
     trials = exp.trials.items()
     trial_to_status = {index: trial.status.name for index, trial in trials}
-    merge_trials_dict_with_df(
+    _merge_trials_dict_with_df(
         df=arms_df, trials_dict=trial_to_status, column_name="trial_status"
     )
 
@@ -371,10 +450,10 @@ def exp_to_df(
     # arbitrary length. Repeated methods within a trial are condensed via `set` and an
     # empty set will yield "Unknown" as the method.
     trial_to_generation_method = {
-        trial_index: get_generation_method_str(trial) for trial_index, trial in trials
+        trial_index: _get_generation_method_str(trial) for trial_index, trial in trials
     }
 
-    merge_trials_dict_with_df(
+    _merge_trials_dict_with_df(
         df=arms_df,
         trials_dict=trial_to_generation_method,
         column_name="generation_method",
@@ -390,7 +469,7 @@ def exp_to_df(
                 )
                 for trial_index, trial in trials
             }
-            merge_trials_dict_with_df(
+            _merge_trials_dict_with_df(
                 df=arms_df,
                 trials_dict=trial_to_properties_field,
                 column_name="trial_properties_" + field,
@@ -406,43 +485,20 @@ def exp_to_df(
                 )
                 for trial_index, trial in trials
             }
-            merge_trials_dict_with_df(
+            _merge_trials_dict_with_df(
                 df=arms_df,
                 trials_dict=trial_to_metadata_field,
                 column_name=field,
             )
+    exp_df = _merge_results_if_no_duplicates(
+        arms_df=arms_df,
+        data=data,
+        key_components=key_components,
+        deduplicate_on_map_keys=deduplicate_on_map_keys,
+        metrics=metrics or list(exp.metrics.values()),
+    )
 
-    if len(results.index) == 0:
-        logger.info(
-            f"No results present for the specified metrics `{metrics}`. "
-            "Returning arm parameters and metadata only."
-        )
-        exp_df = arms_df
-    elif not all(col in results.columns for col in key_components):
-        logger.warn(
-            f"At least one of key columns `{key_components}` not present in results df "
-            f"`{results}`. Returning arm parameters and metadata only."
-        )
-        exp_df = arms_df
-    else:
-        # prepare results for merge
-        key_vals = results[key_components[0]].astype("str") + results[
-            key_components[1]
-        ].astype("str")
-        results[key_col] = key_vals
-        metric_vals = results.pivot(
-            index=key_col, columns="metric_name", values="mean"
-        ).reset_index()
-
-        # dedupe results by key_components
-        metadata = results[key_components + [key_col]].drop_duplicates()
-        metrics_df = pd.merge(metric_vals, metadata, on=key_col)
-
-        # merge and return
-        exp_df = pd.merge(
-            metrics_df, arms_df, on=key_components + [key_col], how="outer"
-        )
-    return prep_return(df=exp_df, drop_col=key_col, sort_by=["arm_name"])
+    return not_none(not_none(exp_df).sort_values(["arm_name"]))
 
 
 def get_best_trial(

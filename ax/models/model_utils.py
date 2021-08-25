@@ -479,21 +479,10 @@ def get_observed(
             {tuple(float(x_i) for x_i in x) for x in Xs[idx]}
         )
     if isinstance(Xs[0], np.ndarray):
-        # pyre-fixme[6]: Expected `Union[None, Dict[str, Tuple[typing.Any, int]],
-        #  Dict[str, Union[typing.Sequence[typing.Any], typing.Sequence[Union[None,
-        #  bytes, str]], typing.Sequence[int], typing.Sequence[str], int]],
-        #  List[Union[Tuple[Union[Tuple[str, str], str], typing.Any],
-        #  Tuple[Union[Tuple[str, str], str], typing.Any, Union[typing.Sequence[int],
-        #  int]]]], Tuple[typing.Any, typing.Any], Tuple[typing.Any,
-        #  Union[typing.Sequence[int], int]], Tuple[typing.Any, int],
-        #  typing.Type[typing.Any], np.dtype, str]` for 2nd param but got
-        #  `Union[np.dtype, torch.dtype]`.
         return np.array(list(X_obs_set), dtype=Xs[0].dtype)  # (n x d)
     if isinstance(Xs[0], torch.Tensor):
         # pyre-fixme[7]: Expected `Union[np.ndarray, torch.Tensor]` but got implicit
         #  return value of `None`.
-        # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 3rd param but got
-        #  `Union[np.dtype, torch.dtype]`.
         return torch.tensor(list(X_obs_set), device=Xs[0].device, dtype=Xs[0].dtype)
 
 

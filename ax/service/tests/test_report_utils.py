@@ -34,6 +34,7 @@ EXPECTED_COLUMNS = [
 ] + FLOAT_COLUMNS
 DUMMY_OBJECTIVE_MEAN = 1.2345
 DUMMY_SOURCE = "test_source"
+DUMMY_MAP_KEY = "test_map_key"
 
 
 class ReportUtilsTest(TestCase):
@@ -117,6 +118,26 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(
             df[df.arm_name == "custom"].iloc[0].generation_method, "Manual"
         )
+
+        # handle metrics for which `fetch_data` reports multiple rows per arm
+        mock_results = dummy_struct(
+            df=mock_results.df.append(mock_results.df, ignore_index=True)
+        )
+        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
+            df = exp_to_df(exp=exp, deduplicate_on_map_keys=True)
+        self.assertTrue(OBJECTIVE_NAME not in df.columns)
+        dummy_struct = namedtuple("dummy_struct", ["df", "map_keys"])
+        mock_results = dummy_struct(df=mock_results.df, map_keys=[DUMMY_MAP_KEY])
+        mock_results.df[DUMMY_MAP_KEY] = [1, 2]
+        mock_results.df["mean"] = [1.0, 2.0]
+        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
+            df = exp_to_df(exp=exp, deduplicate_on_map_keys=True)
+        self.assertTrue(OBJECTIVE_NAME in df.columns)
+        self.assertCountEqual(df.dropna()[OBJECTIVE_NAME], [2.0])
+        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
+            df = exp_to_df(exp=exp, deduplicate_on_map_keys=False)
+        self.assertTrue(OBJECTIVE_NAME in df.columns)
+        self.assertCountEqual(df.dropna()[OBJECTIVE_NAME], [1.0, 2.0])
 
     def test_get_best_trial(self):
         exp = get_branin_experiment(with_batch=True, minimize=True)

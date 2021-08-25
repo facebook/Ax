@@ -262,8 +262,6 @@ def _extract_optimization_trace_from_metrics(experiment: Experiment) -> np.ndarr
         true_values[metric] = df_b["mean"].values
     if isinstance(experiment.optimization_config, MultiObjectiveOptimizationConfig):
         return feasible_hypervolume(
-            # pyre-fixme[6]: Expected `OptimizationConfig` for 1st param but got
-            #  `Optional[ax.core.optimization_config.OptimizationConfig]`.
             optimization_config=experiment.optimization_config,
             values=true_values,
         )

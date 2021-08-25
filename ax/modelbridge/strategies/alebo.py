@@ -74,6 +74,7 @@ class ALEBOStrategy(GenerationStrategy):
         d: int,
         init_size: int,
         name: str = "ALEBO",
+        # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
         dtype: torch.dtype = torch.double,
         device: torch.device = DEFAULT_TORCH_DEVICE,
         random_kwargs: Optional[Dict[str, Any]] = None,

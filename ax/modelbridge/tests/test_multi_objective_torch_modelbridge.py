@@ -38,6 +38,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
+    TEST_SOBOL_SEED,
 )
 from botorch.utils.multi_objective.pareto import is_non_dominated
 
@@ -506,7 +507,14 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             )
         )
         # test using MTGP
-        sobol_generator = get_sobol(search_space=exp.search_space)
+        sobol_generator = get_sobol(
+            search_space=exp.search_space,
+            seed=TEST_SOBOL_SEED,
+            # set initial position equal to the number of sobol arms generated
+            # so far. This means that new sobol arms will complement the previous
+            # arms in a space-filling fashion
+            init_position=len(exp.arms_by_name) - 1,
+        )
         sobol_run = sobol_generator.gen(n=5)
         trial = exp.new_batch_trial(optimize_for_power=True)
         trial.add_generator_run(sobol_run)
