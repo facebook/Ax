@@ -300,9 +300,11 @@ class Scheduler(WithDBSettingsBase, ABC):
         # when trials are not generated for the same reason multiple times in
         # a row.
         self._log_next_no_trials_reason = True
-        self.markdown_messages = {
-            "generation_strategy": GS_TYPE_MSG.format(gs_name=generation_strategy.name)
-        }
+        if not hasattr(self, "markdown_messages"):
+            self.markdown_messages = {}
+        self.markdown_messages["Generation strategy"] = GS_TYPE_MSG.format(
+            gs_name=generation_strategy.name
+        )
 
     @classmethod
     def get_default_db_settings(cls) -> DBSettings:
@@ -1197,7 +1199,7 @@ class Scheduler(WithDBSettingsBase, ABC):
         except OptimizationComplete as err:
             completion_str = f"Optimization complete: {err}"
             self.logger.info(completion_str)
-            self.markdown_messages["optimization_completion"] = completion_str
+            self.markdown_messages["Optimization complete"] = completion_str
             self._optimization_complete = True
             return []
         except DataRequiredError as err:
@@ -1407,10 +1409,10 @@ class Scheduler(WithDBSettingsBase, ABC):
             if self.experiment._name is not None
             else "unnamed",
         )
-        if "optimization_completion" in self.markdown_messages:
-            self.markdown_messages["optimization_completion"] += "\n\n" + completion_msg
+        if "Optimization complete" in self.markdown_messages:
+            self.markdown_messages["Optimization complete"] += "\n\n" + completion_msg
         else:
-            self.markdown_messages["optimization_completion"] = completion_msg
+            self.markdown_messages["Optimization complete"] = completion_msg
 
     def _append_to_experiment_properties(self, to_append: Dict[str, Any]) -> None:
         """Appends to list fields in experiment properties based on ``to_append``
