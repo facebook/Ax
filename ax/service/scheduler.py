@@ -1195,7 +1195,9 @@ class Scheduler(WithDBSettingsBase, ABC):
                 pending_observations=pending,
             )
         except OptimizationComplete as err:
-            self.logger.info(f"Optimization complete: {err}.")
+            completion_str = f"Optimization complete: {err}"
+            self.logger.info(completion_str)
+            self.markdown_messages["optimization_completion"] = completion_str
             self._optimization_complete = True
             return []
         except DataRequiredError as err:
@@ -1399,14 +1401,16 @@ class Scheduler(WithDBSettingsBase, ABC):
         """Adds a simple optimization completion message to this scheduler's markdown
         messages.
         """
-        self.markdown_messages[
-            "optimization_completion"
-        ] = OPTIMIZATION_COMPLETION_MSG.format(
+        completion_msg = OPTIMIZATION_COMPLETION_MSG.format(
             num_trials=len(self.experiment.trials),
             experiment_name=self.experiment.name
             if self.experiment._name is not None
             else "unnamed",
         )
+        if "optimization_completion" in self.markdown_messages:
+            self.markdown_messages["optimization_completion"] += "\n\n" + completion_msg
+        else:
+            self.markdown_messages["optimization_completion"] = completion_msg
 
     def _append_to_experiment_properties(self, to_append: Dict[str, Any]) -> None:
         """Appends to list fields in experiment properties based on ``to_append``
