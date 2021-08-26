@@ -182,6 +182,17 @@ class SQAStoreTest(TestCase):
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
 
+    def testLoadExperimentTrialsInBatches(self):
+        print(self.experiment.trials)
+        for _ in range(4):
+            self.experiment.new_trial()
+        self.assertEqual(len(self.experiment.trials), 5)
+        save_experiment(self.experiment)
+        loaded_experiment = load_experiment(
+            self.experiment.name, load_trials_in_batches_of_size=2
+        )
+        self.assertEqual(self.experiment, loaded_experiment)
+
     @patch(
         f"{Decoder.__module__}.Decoder.generator_run_from_sqa",
         side_effect=Decoder(SQAConfig()).generator_run_from_sqa,

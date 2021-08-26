@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from math import ceil
 from typing import Any, List, Optional, Type, cast
 
 from ax.core.experiment import Experiment
@@ -31,6 +32,7 @@ def load_experiment(
     experiment_name: str,
     config: Optional[SQAConfig] = None,
     reduced_state: bool = False,
+    load_trials_in_batches_of_size: Optional[int] = None,
 ) -> Experiment:
     """Load experiment by name.
 
@@ -45,7 +47,10 @@ def load_experiment(
     config = config or SQAConfig()
     decoder = Decoder(config=config)
     return _load_experiment(
-        experiment_name=experiment_name, decoder=decoder, reduced_state=reduced_state
+        experiment_name=experiment_name,
+        decoder=decoder,
+        reduced_state=reduced_state,
+        load_trials_in_batches_of_size=load_trials_in_batches_of_size,
     )
 
 
@@ -131,16 +136,36 @@ def _get_trials_sqa(
     load_trials_in_batches_of_size: Optional[int] = None,
     trials_query_options: Optional[List[Any]] = None,
 ) -> List[SQATrial]:
-    if load_trials_in_batches_of_size is not None:
-        raise NotImplementedError  # TODO
 
+    """Obtains SQLAlchemy trial objects for given experiment ID from DB,
+    optionally in mini-batches and with specified query options.
+    """
     with session_scope() as session:
-        query = session.query(trial_sqa_class).filter_by(experiment_id=experiment_id)
+        query = session.query(trial_sqa_class.id).filter_by(experiment_id=experiment_id)
+        trial_db_ids = query.all()
+        trial_db_ids = [db_id_tuple[0] for db_id_tuple in trial_db_ids]
 
-        if trials_query_options is not None:
-            query = query.options(*trials_query_options)
+    if len(trial_db_ids) == 0:
+        return []
 
-        sqa_trials = query.all()
+    batch_size = (
+        len(trial_db_ids)
+        if load_trials_in_batches_of_size is None
+        else load_trials_in_batches_of_size
+    )
+
+    sqa_trials = []
+    for i in range(ceil(len(trial_db_ids) / batch_size)):
+        mini_batch_db_ids = trial_db_ids[batch_size * i : batch_size * (i + 1)]
+        with session_scope() as session:
+            query = session.query(trial_sqa_class).filter(
+                trial_sqa_class.id.in_(mini_batch_db_ids)  # pyre-ignore[16]
+            )
+
+            if trials_query_options is not None:
+                query = query.options(*trials_query_options)
+
+            sqa_trials.extend(query.all())
 
     return sqa_trials
 
