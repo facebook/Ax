@@ -52,6 +52,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 STORAGE_MINI_BATCH_SIZE = 50
+LOADING_MINI_BATCH_SIZE = 10000
 
 logger = get_logger(__name__)
 
@@ -209,12 +210,14 @@ class WithDBSettingsBase:
             experiment_name,
             decoder=self.db_settings.decoder,
             reduced_state=reduced_state,
+            load_trials_in_batches_of_size=LOADING_MINI_BATCH_SIZE,
         )
         if not isinstance(experiment, Experiment) or experiment.is_simple_experiment:
             raise ValueError("Service API only supports `Experiment`.")
         logger.info(
             f"Loaded experiment {experiment_name} in "
-            f"{_round_floats_for_logging(time.time() - start_time)} seconds."
+            f"{_round_floats_for_logging(time.time() - start_time)} seconds, "
+            f"loading trials in mini-batches of {LOADING_MINI_BATCH_SIZE}."
         )
 
         try:
