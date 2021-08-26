@@ -18,7 +18,7 @@ from ax.core.outcome_constraint import (
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.modelbridge_utils import (
-    get_pareto_frontier_and_transformed_configs,
+    get_pareto_frontier_and_configs,
     pareto_frontier,
     predicted_hypervolume,
     predicted_pareto_frontier,
@@ -229,12 +229,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
-            (
-                observed_frontier,
-                f,
-                obj_w,
-                obj_t,
-            ) = get_pareto_frontier_and_transformed_configs(
+            (observed_frontier, f, obj_w, obj_t,) = get_pareto_frontier_and_configs(
                 modelbridge=modelbridge,
                 objective_thresholds=objective_thresholds,
                 observation_features=observation_features,
@@ -261,12 +256,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
-            (
-                observed_frontier,
-                f,
-                obj_w,
-                obj_t,
-            ) = get_pareto_frontier_and_transformed_configs(
+            (observed_frontier, f, obj_w, obj_t,) = get_pareto_frontier_and_configs(
                 modelbridge=modelbridge,
                 objective_thresholds=objective_thresholds,
                 observation_features=observation_features,
@@ -291,86 +281,109 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         return_value=False,
     )
     def test_hypervolume(self, _, cuda=False):
-        exp = get_branin_experiment_with_multi_objective(
-            has_optimization_config=True, with_batch=True
-        )
-        for trial in exp.trials.values():
-            trial.mark_running(no_runner_required=True).mark_completed()
-        metrics_dict = exp.optimization_config.metrics
-        objective_thresholds = [
-            ObjectiveThreshold(
-                metric=metrics_dict["branin_a"],
-                bound=0.0,
-                relative=False,
-                op=ComparisonOp.GEQ,
-            ),
-            ObjectiveThreshold(
-                metric=metrics_dict["branin_b"],
-                bound=0.0,
-                relative=False,
-                op=ComparisonOp.GEQ,
-            ),
-        ]
-        optimization_config = exp.optimization_config.clone_with_args(
-            objective_thresholds=objective_thresholds
-        )
-        exp.attach_data(
-            get_branin_data_multi_objective(trial_indices=exp.trials.keys())
-        )
-        modelbridge = MultiObjectiveTorchModelBridge(
-            search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
-            optimization_config=optimization_config,
-            transforms=[],
-            experiment=exp,
-            data=exp.fetch_data(),
-            torch_device=torch.device("cuda" if cuda else "cpu"),
-            objective_thresholds=objective_thresholds,
-        )
-        with patch(
-            PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
-        ) as wrapped_frontier_evaluator:
-            modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
-            hv = observed_hypervolume(
-                modelbridge=modelbridge, objective_thresholds=objective_thresholds
+        for num_objectives in (2, 3):
+            exp = get_branin_experiment_with_multi_objective(
+                has_optimization_config=True,
+                with_batch=True,
+                num_objectives=num_objectives,
             )
-            expected_hv = 25  # (5 - 0) * (5 - 0)
-            wrapped_frontier_evaluator.assert_called_once()
-            self.assertEqual(expected_hv, hv)
-            # Test selected_metrics
-            hv = observed_hypervolume(
+            for trial in exp.trials.values():
+                trial.mark_running(no_runner_required=True).mark_completed()
+            metrics_dict = exp.optimization_config.metrics
+            objective_thresholds = [
+                ObjectiveThreshold(
+                    metric=metrics_dict["branin_a"],
+                    bound=0.0,
+                    relative=False,
+                    op=ComparisonOp.GEQ,
+                ),
+                ObjectiveThreshold(
+                    metric=metrics_dict["branin_b"],
+                    bound=1.0,
+                    relative=False,
+                    op=ComparisonOp.GEQ,
+                ),
+            ]
+            if num_objectives == 3:
+                objective_thresholds.append(
+                    ObjectiveThreshold(
+                        metric=metrics_dict["branin_c"],
+                        bound=2.0,
+                        relative=False,
+                        op=ComparisonOp.GEQ,
+                    )
+                )
+            optimization_config = exp.optimization_config.clone_with_args(
+                objective_thresholds=objective_thresholds
+            )
+            exp.attach_data(
+                get_branin_data_multi_objective(
+                    trial_indices=exp.trials.keys(), num_objectives=num_objectives
+                )
+            )
+            modelbridge = MultiObjectiveTorchModelBridge(
+                search_space=exp.search_space,
+                model=MultiObjectiveBotorchModel(),
+                optimization_config=optimization_config,
+                transforms=[],
+                experiment=exp,
+                data=exp.fetch_data(),
+                torch_device=torch.device("cuda" if cuda else "cpu"),
+                objective_thresholds=objective_thresholds,
+            )
+            with patch(
+                PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
+            ) as wrapped_frontier_evaluator:
+                modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
+                hv = observed_hypervolume(
+                    modelbridge=modelbridge, objective_thresholds=objective_thresholds
+                )
+                expected_hv = 20 if num_objectives == 2 else 60  # 5 * 4 (* 3)
+                wrapped_frontier_evaluator.assert_called_once()
+                self.assertEqual(expected_hv, hv)
+                if num_objectives == 3:
+                    # Test selected_metrics
+                    hv = observed_hypervolume(
+                        modelbridge=modelbridge,
+                        objective_thresholds=objective_thresholds,
+                        selected_metrics=["branin_a", "branin_c"],
+                    )
+                    expected_hv = 15  # (5 - 0) * (5 - 2)
+                    self.assertEqual(expected_hv, hv)
+                    # test that non-objective outcome raises value error
+                    with self.assertRaises(ValueError):
+                        hv = observed_hypervolume(
+                            modelbridge=modelbridge,
+                            objective_thresholds=objective_thresholds,
+                            selected_metrics=["tracking"],
+                        )
+
+            with self.assertRaises(ValueError):
+                predicted_hypervolume(
+                    modelbridge=modelbridge,
+                    objective_thresholds=objective_thresholds,
+                    observation_features=[],
+                )
+
+            observation_features = [
+                ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0}),
+                ObservationFeatures(parameters={"x1": 2.0, "x2": 1.0}),
+            ]
+            predicted_hv = predicted_hypervolume(
                 modelbridge=modelbridge,
                 objective_thresholds=objective_thresholds,
-                selected_metrics=["branin_a"],
+                observation_features=observation_features,
             )
-            expected_hv = 5  # (5 - 0)
-            self.assertEqual(expected_hv, hv)
-
-        with self.assertRaises(ValueError):
-            predicted_hypervolume(
-                modelbridge=modelbridge,
-                objective_thresholds=objective_thresholds,
-                observation_features=[],
-            )
-
-        observation_features = [
-            ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0}),
-            ObservationFeatures(parameters={"x1": 2.0, "x2": 1.0}),
-        ]
-        predicted_hv = predicted_hypervolume(
-            modelbridge=modelbridge,
-            objective_thresholds=objective_thresholds,
-            observation_features=observation_features,
-        )
-        self.assertTrue(predicted_hv >= 0)
-        # Test selected_metrics
-        predicted_hv = predicted_hypervolume(
-            modelbridge=modelbridge,
-            objective_thresholds=objective_thresholds,
-            observation_features=observation_features,
-            selected_metrics=["branin_a"],
-        )
-        self.assertTrue(predicted_hv >= 0)
+            self.assertTrue(predicted_hv >= 0)
+            if num_objectives == 3:
+                # Test selected_metrics
+                predicted_hv = predicted_hypervolume(
+                    modelbridge=modelbridge,
+                    objective_thresholds=objective_thresholds,
+                    observation_features=observation_features,
+                    selected_metrics=["branin_a", "branin_c"],
+                )
+                self.assertTrue(predicted_hv >= 0)
 
     def test_hypervolume_cuda(self):
         if torch.cuda.is_available():

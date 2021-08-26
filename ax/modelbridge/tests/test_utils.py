@@ -21,7 +21,6 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.types import ComparisonOp
 from ax.modelbridge.modelbridge_utils import (
-    clamp_observation_features,
     get_pending_observation_features,
     pending_observations_as_array,
     extract_outcome_constraints,
@@ -229,54 +228,6 @@ class TestModelbridgeUtils(TestCase):
             ],
             [[], [["1", "foo", "True", "4"]]],
         )
-
-    def testClampObservationFeaturesNearBounds(self):
-        cases = [
-            (
-                ObservationFeatures(
-                    parameters={"w": 1.0, "x": 2, "y": "foo", "z": True}
-                ),
-                ObservationFeatures(
-                    parameters={"w": 1.0, "x": 2, "y": "foo", "z": True}
-                ),
-            ),
-            (
-                ObservationFeatures(
-                    parameters={"w": 0.0, "x": 2, "y": "foo", "z": True}
-                ),
-                ObservationFeatures(
-                    parameters={"w": 0.5, "x": 2, "y": "foo", "z": True}
-                ),
-            ),
-            (
-                ObservationFeatures(
-                    parameters={"w": 100.0, "x": 2, "y": "foo", "z": True}
-                ),
-                ObservationFeatures(
-                    parameters={"w": 5.5, "x": 2, "y": "foo", "z": True}
-                ),
-            ),
-            (
-                ObservationFeatures(
-                    parameters={"w": 1.0, "x": 0, "y": "foo", "z": True}
-                ),
-                ObservationFeatures(
-                    parameters={"w": 1.0, "x": 1, "y": "foo", "z": True}
-                ),
-            ),
-            (
-                ObservationFeatures(
-                    parameters={"w": 1.0, "x": 11, "y": "foo", "z": True}
-                ),
-                ObservationFeatures(
-                    parameters={"w": 1.0, "x": 10, "y": "foo", "z": True}
-                ),
-            ),
-        ]
-        search_space = get_experiment().search_space
-        for obs_ft, expected_obs_ft in cases:
-            actual_obs_ft = clamp_observation_features([obs_ft], search_space)
-            self.assertEqual(actual_obs_ft[0], expected_obs_ft)
 
     def test_extract_outcome_constraints(self):
         outcomes = ["m1", "m2", "m3"]

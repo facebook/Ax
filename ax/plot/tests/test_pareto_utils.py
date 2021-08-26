@@ -70,7 +70,7 @@ class ParetoUtilsTest(TestCase):
         )
 
     def testObservedParetoFrontiers(self):
-        experiment = get_branin_experiment(
+        experiment = get_branin_experiment_with_multi_objective(
             with_batch=True, has_optimization_config=False, with_status_quo=True
         )
 

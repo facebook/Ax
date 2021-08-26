@@ -26,7 +26,11 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig, TRefPoint
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    TRefPoint,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import (
     ComparisonOp,
     OutcomeConstraint,
@@ -38,18 +42,20 @@ from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.models.torch.frontier_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
     get_default_frontier_evaluator,
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
-    checked_cast,
     checked_cast_optional,
     not_none,
     checked_cast_to_tuple,
 )
-from botorch.utils.multi_objective.hypervolume import Hypervolume
+from botorch.utils.multi_objective.box_decompositions.dominated import (
+    DominatedPartitioning,
+)
 from torch import Tensor
 
 logger = get_logger(__name__)
@@ -542,36 +548,7 @@ def get_pending_observation_features_based_on_trial_status(
     return dict(pending_features) if any(x for x in pending_features.values()) else None
 
 
-def clamp_observation_features(
-    observation_features: List[ObservationFeatures], search_space: SearchSpace
-) -> List[ObservationFeatures]:
-    range_parameters = [
-        p for p in search_space.parameters.values() if isinstance(p, RangeParameter)
-    ]
-    for obsf in observation_features:
-        for p in range_parameters:
-            if p.name not in obsf.parameters:
-                continue
-            if p.parameter_type == ParameterType.FLOAT:
-                val = checked_cast(float, obsf.parameters[p.name])
-            else:
-                val = checked_cast(int, obsf.parameters[p.name])
-            if val < p.lower:
-                logger.info(
-                    f"Untransformed parameter {val} "
-                    f"less than lower bound {p.lower}, clamping"
-                )
-                obsf.parameters[p.name] = p.lower
-            elif val > p.upper:
-                logger.info(
-                    f"Untransformed parameter {val} "
-                    f"greater than upper bound {p.upper}, clamping"
-                )
-                obsf.parameters[p.name] = p.upper
-    return observation_features
-
-
-def get_pareto_frontier_and_transformed_configs(
+def get_pareto_frontier_and_configs(
     modelbridge: modelbridge_module.array.ArrayModelBridge,
     observation_features: List[ObservationFeatures],
     observation_data: Optional[List[ObservationData]] = None,
@@ -579,10 +556,11 @@ def get_pareto_frontier_and_transformed_configs(
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
     arm_names: Optional[List[Optional[str]]] = None,
     use_model_predictions: bool = True,
+    transform_outcomes_and_configs: bool = True,
 ) -> Tuple[List[Observation], Tensor, Tensor, Optional[Tensor]]:
     """Helper that applies transforms and calls frontier_evaluator.
 
-    Returns transformed configs in addition to the Pareto observations.
+    Returns the configs in addition to the Pareto observations.
 
     Args:
         modelbridge: Modelbridge used to predict metrics outcomes.
@@ -598,6 +576,8 @@ def get_pareto_frontier_and_transformed_configs(
             observation_features to compute Pareto front, if provided. If False,
             will use observation_data directly to compute Pareto front, regardless
             of whether observation_features are provided.
+        transform_outcomes_and_configs: If true, will transform the optimization
+            config.
 
     Returns:
         frontier_observations: Observations of points on the pareto frontier.
@@ -617,35 +597,50 @@ def get_pareto_frontier_and_transformed_configs(
     X = array_to_tensor(X) if X is not None else None
     Y, Yvar = (None, None)
     if observation_data is not None:
-        Y, Yvar = modelbridge.transform_observation_data(observation_data)
+        if transform_outcomes_and_configs:
+            Y, Yvar = modelbridge.transform_observation_data(observation_data)
+        else:
+            Y, Yvar = observation_data_to_array(
+                outcomes=modelbridge.outcomes, observation_data=observation_data
+            )
         Y, Yvar = (array_to_tensor(Y), array_to_tensor(Yvar))
     if arm_names is None:
         arm_names = [None] * len(observation_features)
 
     # Optimization_config
-    mooc = optimization_config or checked_cast_optional(
-        MultiObjectiveOptimizationConfig, modelbridge._optimization_config
+    optimization_config = _get_multiobjective_optimization_config(
+        modelbridge=modelbridge,
+        optimization_config=optimization_config,
+        objective_thresholds=objective_thresholds,
     )
-    if not mooc:
-        raise ValueError(
-            (
-                "Experiment must have an existing optimization_config "
-                "of type `MultiObjectiveOptimizationConfig` "
-                "or `optimization_config` must be passed as an argument."
-            )
-        )
-    if not isinstance(mooc, MultiObjectiveOptimizationConfig):
-        mooc = not_none(MultiObjectiveOptimizationConfig.from_opt_conf(mooc))
-    if objective_thresholds:
-        mooc = mooc.clone_with_args(objective_thresholds=objective_thresholds)
-
-    optimization_config = mooc
 
     # Transform OptimizationConfig.
-    optimization_config = modelbridge.transform_optimization_config(
-        optimization_config=optimization_config,
-        fixed_features=ObservationFeatures(parameters={}),
-    )
+    fixed_features = ObservationFeatures(parameters={})
+    if transform_outcomes_and_configs:
+        optimization_config = modelbridge.transform_optimization_config(
+            optimization_config=optimization_config,
+            fixed_features=fixed_features,
+        )
+    else:
+        # de-relativize outcome constraints and objective thresholds
+        obs = modelbridge.get_training_data()
+        obs_feats = []
+        obs_data = []
+        for ob in obs:
+            obs_feats.append(ob.features)
+            obs_data.append(ob.data)
+        tf = Derelativize(
+            search_space=modelbridge.model_space.clone(),
+            observation_data=obs_data,
+            observation_features=obs_feats,
+            config={"use_raw_status_quo": True},
+        )
+        # pyre-ignore [9]
+        optimization_config = tf.transform_optimization_config(
+            optimization_config=optimization_config.clone(),
+            modelbridge=modelbridge,
+            fixed_features=fixed_features,
+        )
     # Extract weights, constraints, and objective_thresholds
     objective_weights = extract_objective_weights(
         objective=optimization_config.objective, outcomes=modelbridge.outcomes
@@ -684,11 +679,18 @@ def get_pareto_frontier_and_transformed_configs(
     frontier_observation_data = array_to_observation_data(
         f=f.numpy(), cov=cov.numpy(), outcomes=not_none(modelbridge.outcomes)
     )
-    # Untransform observations
-    for t in reversed(modelbridge.transforms.values()):  # noqa T484
-        frontier_observation_data = t.untransform_observation_data(
-            frontier_observation_data, []
+
+    if use_model_predictions:
+        # Untransform observations
+        for t in reversed(modelbridge.transforms.values()):  # noqa T484
+            frontier_observation_data = t.untransform_observation_data(
+                frontier_observation_data, []
+            )
+        # reconstruct tensor representation of untransformed predictions
+        Y_arr, _ = observation_data_to_array(
+            outcomes=modelbridge.outcomes, observation_data=frontier_observation_data
         )
+        f = _array_to_tensor(Y_arr)
     # Construct observations
     frontier_observations = []
     for i, obsd in enumerate(frontier_observation_data):
@@ -711,7 +713,7 @@ def pareto_frontier(
     arm_names: Optional[List[Optional[str]]] = None,
     use_model_predictions: bool = True,
 ) -> List[Observation]:
-    """Helper that applies transforms and calls frontier_evaluator.
+    """Helper that calls frontier_evaluator.
 
     Args:
         modelbridge: Modelbridge used to predict metrics outcomes.
@@ -731,7 +733,7 @@ def pareto_frontier(
     Returns:
         frontier_observations: Observations of points on the pareto frontier.
     """
-    return get_pareto_frontier_and_transformed_configs(
+    return get_pareto_frontier_and_configs(
         modelbridge=modelbridge,
         observation_features=observation_features,
         observation_data=observation_data,
@@ -739,6 +741,7 @@ def pareto_frontier(
         optimization_config=optimization_config,
         arm_names=arm_names,
         use_model_predictions=use_model_predictions,
+        transform_outcomes_and_configs=False,
     )[0]
 
 
@@ -837,37 +840,99 @@ def hypervolume(
     selected_metrics: Optional[List[str]] = None,
     use_model_predictions: bool = True,
 ) -> float:
-    """Helper function that computes hypervolume of a given list of outcomes."""
-    # Get Pareto front
-    observations, f, obj_w, obj_t = get_pareto_frontier_and_transformed_configs(
+    """Helper function that computes (feasible) hypervolume.
+
+    Args:
+        modelbridge: The modelbridge.
+        observation_features: The observation features for the in-sample arms.
+        objective_thresholds: The objective thresholds to be used for computing
+            the hypervolume. If None, these are extracted from the optimization
+            config.
+        observation_data: The observed outcomes for the in-sample arms.
+        optimization_config: The optimization config specifying the objectives,
+            objectives thresholds, and outcome constraints.
+        selected_metrics: A list of objective metric names specifying which
+            objectives to use in hypervolume computation. By default, all
+            objectives are used.
+        use_model_predictions: A boolean indicating whether to use model predictions
+            for determining the in-sample Pareto frontier instead of the raw observed
+            values.
+
+    Returns:
+        The (feasible) hypervolume.
+
+    """
+    frontier_observations, f, obj_w, obj_t = get_pareto_frontier_and_configs(
         modelbridge=modelbridge,
-        objective_thresholds=objective_thresholds,
         observation_features=observation_features,
         observation_data=observation_data,
+        objective_thresholds=objective_thresholds,
         optimization_config=optimization_config,
         use_model_predictions=use_model_predictions,
+        transform_outcomes_and_configs=False,
     )
     if obj_t is None:
         raise ValueError(
             "Cannot compute hypervolume without having objective thresholds specified."
         )
+    oc = _get_multiobjective_optimization_config(
+        modelbridge=modelbridge,
+        optimization_config=optimization_config,
+        objective_thresholds=objective_thresholds,
+    )
     # Set to all metrics if unspecified
     if selected_metrics is None:
-        selected_metrics = modelbridge.metric_names
+        selected_metrics = oc.objective.metric_names
+    # filter to only include objectives
+    else:
+        if any(m not in oc.objective.metric_names for m in selected_metrics):
+            raise ValueError("All selected metrics must be objectives.")
+
     # Create a mask indicating selected metrics
-    selected_metrics_mask = [
-        metric in selected_metrics for metric in modelbridge.metric_names
-    ]
+    selected_metrics_mask = torch.tensor(
+        [metric in selected_metrics for metric in modelbridge.outcomes],
+        dtype=torch.bool,
+        device=f.device,
+    )
     # Apply appropriate weights and thresholds
     obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
-        objective_weights=obj_w, objective_thresholds=obj_t
+        objective_weights=obj_w, objective_thresholds=not_none(obj_t)
     )
     f_t = obj(f)
-    # Only select the metrics of interest here
+    # pyre-ignore [16]
+    obj_mask = obj_w.nonzero().view(-1)
+    selected_metrics_mask = selected_metrics_mask[obj_mask]
     f_t = f_t[:, selected_metrics_mask]
     obj_t = obj_t[selected_metrics_mask]
-    hv = Hypervolume(ref_point=obj_t)
-    return hv.compute(f_t)
+    bd = DominatedPartitioning(ref_point=obj_t, Y=f_t)
+    return bd.compute_hypervolume().item()
+
+
+def _get_multiobjective_optimization_config(
+    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    optimization_config: Optional[OptimizationConfig] = None,
+    objective_thresholds: Optional[TRefPoint] = None,
+) -> MultiObjectiveOptimizationConfig:
+    # Optimization_config
+    mooc = optimization_config or checked_cast_optional(
+        MultiObjectiveOptimizationConfig, modelbridge._optimization_config
+    )
+    if not mooc:
+        raise ValueError(
+            (
+                "Experiment must have an existing optimization_config "
+                "of type `MultiObjectiveOptimizationConfig` "
+                "or `optimization_config` must be passed as an argument."
+            )
+        )
+    if not isinstance(mooc, MultiObjectiveOptimizationConfig):
+        raise ValueError(
+            "optimization_config must be a MultiObjectiveOptimizationConfig."
+        )
+    if objective_thresholds:
+        mooc = mooc.clone_with_args(objective_thresholds=objective_thresholds)
+
+    return mooc
 
 
 def predicted_hypervolume(

@@ -92,7 +92,9 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
                 )
             )
         if not isinstance(mooc, MultiObjectiveOptimizationConfig):
-            mooc = not_none(MultiObjectiveOptimizationConfig.from_opt_conf(mooc))
+            raise ValueError(
+                "optimization_config must be a MultiObjectiveOptimizationConfig."
+            )
         if objective_thresholds:
             mooc = mooc.clone_with_args(objective_thresholds=objective_thresholds)
 
