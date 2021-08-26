@@ -24,6 +24,10 @@ from botorch.acquisition.monte_carlo import (
     qExpectedImprovement,
     qNoisyExpectedImprovement,
 )
+from botorch.acquisition.multi_objective.monte_carlo import (
+    qExpectedHypervolumeImprovement,
+    qNoisyExpectedHypervolumeImprovement,
+)
 
 # BoTorch `Model` imports
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
@@ -73,6 +77,8 @@ Mapping of Botorch `AcquisitionFunction` classes to class name strings.
 """
 ACQUISITION_FUNCTION_REGISTRY: Dict[Type[AcquisitionFunction], str] = {
     ExpectedImprovement: "ExpectedImprovement",
+    qExpectedHypervolumeImprovement: "qExpectedHypervolumeImprovement",
+    qNoisyExpectedHypervolumeImprovement: "qNoisyExpectedHypervolumeImprovement",
     qExpectedImprovement: "qExpectedImprovement",
     qKnowledgeGradient: "qKnowledgeGradient",
     qMaxValueEntropy: "qMaxValueEntropy",
