@@ -20,11 +20,17 @@ from ax.core.observation import (
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.base import ModelBridge, gen_arms, unwrap_observation_data
+from ax.modelbridge.base import (
+    ModelBridge,
+    gen_arms,
+    unwrap_observation_data,
+    clamp_observation_features,
+)
 from ax.modelbridge.transforms.log import Log
 from ax.models.base import Model
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_experiment
 from ax.utils.testing.core_stubs import (
     get_experiment_with_repeated_arms,
     get_optimization_config_no_constraints,
@@ -552,3 +558,53 @@ class BaseModelBridgeTest(TestCase):
                 ),
                 experiment=exp,
             )
+
+
+class testClampObservationFeatures(TestCase):
+    def testClampObservationFeaturesNearBounds(self):
+        cases = [
+            (
+                ObservationFeatures(
+                    parameters={"w": 1.0, "x": 2, "y": "foo", "z": True}
+                ),
+                ObservationFeatures(
+                    parameters={"w": 1.0, "x": 2, "y": "foo", "z": True}
+                ),
+            ),
+            (
+                ObservationFeatures(
+                    parameters={"w": 0.0, "x": 2, "y": "foo", "z": True}
+                ),
+                ObservationFeatures(
+                    parameters={"w": 0.5, "x": 2, "y": "foo", "z": True}
+                ),
+            ),
+            (
+                ObservationFeatures(
+                    parameters={"w": 100.0, "x": 2, "y": "foo", "z": True}
+                ),
+                ObservationFeatures(
+                    parameters={"w": 5.5, "x": 2, "y": "foo", "z": True}
+                ),
+            ),
+            (
+                ObservationFeatures(
+                    parameters={"w": 1.0, "x": 0, "y": "foo", "z": True}
+                ),
+                ObservationFeatures(
+                    parameters={"w": 1.0, "x": 1, "y": "foo", "z": True}
+                ),
+            ),
+            (
+                ObservationFeatures(
+                    parameters={"w": 1.0, "x": 11, "y": "foo", "z": True}
+                ),
+                ObservationFeatures(
+                    parameters={"w": 1.0, "x": 10, "y": "foo", "z": True}
+                ),
+            ),
+        ]
+        search_space = get_experiment().search_space
+        for obs_ft, expected_obs_ft in cases:
+            actual_obs_ft = clamp_observation_features([obs_ft], search_space)
+            self.assertEqual(actual_obs_ft[0], expected_obs_ft)

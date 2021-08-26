@@ -313,8 +313,8 @@ def pareto_frontier_evaluator(
 ) -> Tuple[Tensor, Tensor, Tensor]:
     """Return outcomes predicted to lie on a pareto frontier.
 
-    Given a model and a points to evaluate use the model to predict which points
-    lie on the pareto frontier.
+    Given a model and points to evaluate, use the model to predict which points
+    lie on the Pareto frontier.
 
     Args:
         model: Model used to predict outcomes.

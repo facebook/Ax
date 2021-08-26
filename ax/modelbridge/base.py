@@ -25,6 +25,7 @@ from ax.core.observation import (
 from ax.core.optimization_config import (
     OptimizationConfig,
 )
+from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import (
     TCandidateMetadata,
@@ -34,11 +35,10 @@ from ax.core.types import (
     TModelMean,
     TModelPredict,
 )
-from ax.modelbridge.modelbridge_utils import clamp_observation_features
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger = get_logger(__name__)
@@ -987,3 +987,32 @@ def gen_arms(
         if of.metadata:
             candidate_metadata[arm.signature] = of.metadata
     return arms, candidate_metadata or None  # None if empty cand. metadata.
+
+
+def clamp_observation_features(
+    observation_features: List[ObservationFeatures], search_space: SearchSpace
+) -> List[ObservationFeatures]:
+    range_parameters = [
+        p for p in search_space.parameters.values() if isinstance(p, RangeParameter)
+    ]
+    for obsf in observation_features:
+        for p in range_parameters:
+            if p.name not in obsf.parameters:
+                continue
+            if p.parameter_type == ParameterType.FLOAT:
+                val = checked_cast(float, obsf.parameters[p.name])
+            else:
+                val = checked_cast(int, obsf.parameters[p.name])
+            if val < p.lower:
+                logger.info(
+                    f"Untransformed parameter {val} "
+                    f"less than lower bound {p.lower}, clamping"
+                )
+                obsf.parameters[p.name] = p.lower
+            elif val > p.upper:
+                logger.info(
+                    f"Untransformed parameter {val} "
+                    f"greater than upper bound {p.upper}, clamping"
+                )
+                obsf.parameters[p.name] = p.upper
+    return observation_features

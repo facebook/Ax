@@ -363,6 +363,7 @@ def get_branin_experiment_with_multi_objective(
     with_batch: bool = False,
     with_status_quo: bool = False,
     with_fidelity_parameter: bool = False,
+    num_objectives: int = 2,
 ) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
@@ -370,7 +371,8 @@ def get_branin_experiment_with_multi_objective(
             with_fidelity_parameter=with_fidelity_parameter
         ),
         optimization_config=get_branin_multi_objective_optimization_config(
-            has_objective_thresholds=has_objective_thresholds
+            has_objective_thresholds=has_objective_thresholds,
+            num_objectives=num_objectives,
         )
         if has_optimization_config
         else None,
@@ -857,13 +859,15 @@ def get_branin_objective(minimize: bool = False) -> Objective:
     return Objective(metric=get_branin_metric(), minimize=minimize)
 
 
-def get_branin_multi_objective() -> Objective:
-    return MultiObjective(
-        objectives=[
-            Objective(metric=get_branin_metric(name="branin_a")),
-            Objective(metric=get_branin_metric(name="branin_b")),
-        ],
-    )
+def get_branin_multi_objective(num_objectives: int = 2) -> Objective:
+    _validate_num_objectives(num_objectives=num_objectives)
+    objectives = [
+        Objective(metric=get_branin_metric(name="branin_a")),
+        Objective(metric=get_branin_metric(name="branin_b")),
+    ]
+    if num_objectives == 3:
+        objectives.append(Objective(metric=get_branin_metric(name="branin_c")))
+    return MultiObjective(objectives=objectives)
 
 
 def get_augmented_branin_objective() -> Objective:
@@ -915,11 +919,18 @@ def get_branin_optimization_config(minimize: bool = False) -> OptimizationConfig
     return OptimizationConfig(objective=get_branin_objective(minimize=minimize))
 
 
+def _validate_num_objectives(num_objectives: int) -> None:
+    if num_objectives not in (2, 3):
+        raise NotImplementedError("Only 2 and 3 objectives are supported.")
+
+
 def get_branin_multi_objective_optimization_config(
     has_objective_thresholds: bool = False,
+    num_objectives: int = 2,
 ) -> OptimizationConfig:
-    objective_thresholds = (
-        [
+    _validate_num_objectives(num_objectives=num_objectives)
+    if has_objective_thresholds:
+        objective_thresholds = [
             ObjectiveThreshold(
                 metric=get_branin_metric(name="branin_a"),
                 bound=10,
@@ -933,11 +944,19 @@ def get_branin_multi_objective_optimization_config(
                 relative=False,
             ),
         ]
-        if has_objective_thresholds
-        else None
-    )
+        if num_objectives == 3:
+            objective_thresholds.append(
+                ObjectiveThreshold(
+                    metric=get_branin_metric(name="branin_c"),
+                    bound=5.0,
+                    op=ComparisonOp.GEQ,
+                    relative=False,
+                )
+            )
+    else:
+        objective_thresholds = None
     return MultiObjectiveOptimizationConfig(
-        objective=get_branin_multi_objective(),
+        objective=get_branin_multi_objective(num_objectives=num_objectives),
         objective_thresholds=objective_thresholds,
     )
 
@@ -1181,8 +1200,12 @@ def get_branin_data_batch(batch: BatchTrial) -> Data:
 
 
 def get_branin_data_multi_objective(
-    trial_indices: Optional[Iterable[int]] = None,
+    trial_indices: Optional[Iterable[int]] = None, num_objectives: int = 2
 ) -> Data:
+    _validate_num_objectives(num_objectives=num_objectives)
+    suffixes = ["a", "b"]
+    if num_objectives == 3:
+        suffixes.append("c")
     df_dicts = [
         {
             "trial_index": trial_index,
@@ -1192,7 +1215,7 @@ def get_branin_data_multi_objective(
             "sem": 0.0,
         }
         for trial_index in (trial_indices or [0])
-        for suffix in ["a", "b"]
+        for suffix in suffixes
     ]
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
