@@ -8,6 +8,7 @@ from typing import Any, List, Optional, Type, cast
 
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
@@ -15,11 +16,12 @@ from ax.storage.sqa_store.sqa_classes import (
     SQAExperiment,
     SQAGenerationStrategy,
     SQAGeneratorRun,
+    SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
-from sqlalchemy.orm import defaultload, lazyload
+from sqlalchemy.orm import defaultload, lazyload, noload
 
 
 # ---------------------------- Loading `Experiment`. ---------------------------
@@ -48,7 +50,10 @@ def load_experiment(
 
 
 def _load_experiment(
-    experiment_name: str, decoder: Decoder, reduced_state: bool = False
+    experiment_name: str,
+    decoder: Decoder,
+    reduced_state: bool = False,
+    load_trials_in_batches_of_size: Optional[int] = None,
 ) -> Experiment:
     """Load experiment by name, using given Decoder instance.
 
@@ -58,49 +63,93 @@ def _load_experiment(
     # pyre-ignore Incompatible variable type [9]: exp_sqa_class is declared to have type
     # `Type[SQAExperiment]` but is used as type `Type[ax.storage.sqa_store.db.SQABase]`
     exp_sqa_class: Type[SQAExperiment] = decoder.config.class_to_sqa_class[Experiment]
+    # pyre-ignore Incompatible variable type [9]: trial_sqa_class is decl. to have type
+    # `Type[SQATrial]` but is used as type `Type[ax.storage.sqa_store.db.SQABase]`
+    trial_sqa_class: Type[SQATrial] = decoder.config.class_to_sqa_class[Trial]
 
     if reduced_state:
-        return decoder.experiment_from_sqa(
-            experiment_sqa=_get_experiment_sqa_reduced_state(
-                experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
-            ),
-            reduced_state=reduced_state,
+        _get_experiment_sqa_func = _get_experiment_sqa_reduced_state
+
+    else:
+        imm_OC_and_SS = _get_experiment_immutable_opt_config_and_search_space(
+            experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
         )
 
-    immutable_opt_config_and_search_space = (
-        _get_experiment_immutable_opt_config_and_search_space(
-            experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
+        _get_experiment_sqa_func = (
+            _get_experiment_sqa_immutable_opt_config_and_search_space
+            if imm_OC_and_SS
+            else _get_experiment_sqa
         )
+
+    experiment_sqa = _get_experiment_sqa_func(
+        experiment_name=experiment_name,
+        exp_sqa_class=exp_sqa_class,
+        trial_sqa_class=trial_sqa_class,
+        load_trials_in_batches_of_size=load_trials_in_batches_of_size,
     )
-    if immutable_opt_config_and_search_space:
-        experiment_sqa = _get_experiment_sqa_immutable_opt_config_and_search_space(
-            experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
-        )
-    else:
-        experiment_sqa = _get_experiment_sqa(
-            experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
-        )
-    return decoder.experiment_from_sqa(experiment_sqa=experiment_sqa)
+
+    return decoder.experiment_from_sqa(
+        experiment_sqa=experiment_sqa,
+        reduced_state=reduced_state,
+    )
 
 
 def _get_experiment_sqa(
     experiment_name: str,
     exp_sqa_class: Type[SQAExperiment],
-    query_options: Optional[List[Any]] = None,
+    trial_sqa_class: Type[SQATrial],
+    trials_query_options: Optional[List[Any]] = None,
+    load_trials_in_batches_of_size: Optional[int] = None,
 ) -> SQAExperiment:
     """Obtains SQLAlchemy experiment object from DB."""
     with session_scope() as session:
-        query = session.query(exp_sqa_class).filter_by(name=experiment_name)
-        if query_options is not None:
-            query = query.options(*query_options)
+        query = (
+            session.query(exp_sqa_class).filter_by(name=experiment_name)
+            # Delay loading trials to a separate call to `_get_trials_sqa` below
+            .options(noload("trials"))
+        )
         sqa_experiment = query.one_or_none()
-        if sqa_experiment is None:
-            raise ValueError(f"Experiment '{experiment_name}' not found.")
+
+    if sqa_experiment is None:
+        raise ValueError(f"Experiment '{experiment_name}' not found.")
+
+    sqa_trials = _get_trials_sqa(
+        experiment_id=sqa_experiment.id,
+        trial_sqa_class=trial_sqa_class,
+        trials_query_options=trials_query_options,
+        load_trials_in_batches_of_size=load_trials_in_batches_of_size,
+    )
+
+    sqa_experiment.trials = sqa_trials
+
     return sqa_experiment
 
 
+def _get_trials_sqa(
+    experiment_id: int,
+    trial_sqa_class: Type[SQATrial],
+    load_trials_in_batches_of_size: Optional[int] = None,
+    trials_query_options: Optional[List[Any]] = None,
+) -> List[SQATrial]:
+    if load_trials_in_batches_of_size is not None:
+        raise NotImplementedError  # TODO
+
+    with session_scope() as session:
+        query = session.query(trial_sqa_class).filter_by(experiment_id=experiment_id)
+
+        if trials_query_options is not None:
+            query = query.options(*trials_query_options)
+
+        sqa_trials = query.all()
+
+    return sqa_trials
+
+
 def _get_experiment_sqa_reduced_state(
-    experiment_name: str, exp_sqa_class: Type[SQAExperiment]
+    experiment_name: str,
+    exp_sqa_class: Type[SQAExperiment],
+    trial_sqa_class: Type[SQATrial],
+    load_trials_in_batches_of_size: Optional[int] = None,
 ) -> SQAExperiment:
     """Obtains most of the SQLAlchemy experiment object from DB, with some attributes
     (model state on generator runs, abandoned arms) omitted. Used for loading
@@ -109,29 +158,26 @@ def _get_experiment_sqa_reduced_state(
     return _get_experiment_sqa(
         experiment_name=experiment_name,
         exp_sqa_class=exp_sqa_class,
-        query_options=[
-            lazyload("trials.generator_runs.parameters"),
-            lazyload("trials.generator_runs.parameter_constraints"),
-            lazyload("trials.generator_runs.metrics"),
-            lazyload("trials.abandoned_arms"),
-            defaultload(exp_sqa_class.trials)
-            .defaultload("generator_runs")
-            .defer("model_kwargs"),
-            defaultload(exp_sqa_class.trials)
-            .defaultload("generator_runs")
-            .defer("bridge_kwargs"),
-            defaultload(exp_sqa_class.trials)
-            .defaultload("generator_runs")
-            .defer("model_state_after_gen"),
-            defaultload(exp_sqa_class.trials)
-            .defaultload("generator_runs")
-            .defer("gen_metadata"),
+        trial_sqa_class=trial_sqa_class,
+        trials_query_options=[
+            lazyload("generator_runs.parameters"),
+            lazyload("generator_runs.parameter_constraints"),
+            lazyload("generator_runs.metrics"),
+            lazyload("abandoned_arms"),
+            defaultload("generator_runs").defer("model_kwargs"),
+            defaultload("generator_runs").defer("bridge_kwargs"),
+            defaultload("generator_runs").defer("model_state_after_gen"),
+            defaultload("generator_runs").defer("gen_metadata"),
         ],
+        load_trials_in_batches_of_size=load_trials_in_batches_of_size,
     )
 
 
 def _get_experiment_sqa_immutable_opt_config_and_search_space(
-    experiment_name: str, exp_sqa_class: Type[SQAExperiment]
+    experiment_name: str,
+    exp_sqa_class: Type[SQAExperiment],
+    trial_sqa_class: Type[SQATrial],
+    load_trials_in_batches_of_size: Optional[int] = None,
 ) -> SQAExperiment:
     """For experiments where the search space and opt config are
     immutable, we don't store copies of search space and opt config
@@ -142,11 +188,13 @@ def _get_experiment_sqa_immutable_opt_config_and_search_space(
     return _get_experiment_sqa(
         experiment_name=experiment_name,
         exp_sqa_class=exp_sqa_class,
-        query_options=[
-            lazyload("trials.generator_runs.parameters"),
-            lazyload("trials.generator_runs.parameter_constraints"),
-            lazyload("trials.generator_runs.metrics"),
+        trial_sqa_class=trial_sqa_class,
+        trials_query_options=[
+            lazyload("generator_runs.parameters"),
+            lazyload("generator_runs.parameter_constraints"),
+            lazyload("generator_runs.metrics"),
         ],
+        load_trials_in_batches_of_size=load_trials_in_batches_of_size,
     )
 
 
