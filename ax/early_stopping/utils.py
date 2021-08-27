@@ -23,7 +23,7 @@ def align_partial_results(
     """Helper function to align partial results with heterogeneous index
 
     Args:
-        df: The DataFrame containining the raw data (in long format).
+        df: The DataFrame containing the raw data (in long format).
         progr_key: The key of the column indexing progression (such as
             the number of training examples, timestamps, etc.).
         metrics: The names of the metrics to consider.
@@ -32,7 +32,7 @@ def align_partial_results(
             available options.
 
     Returns:
-        A two-tuple containig a dict mapping the provided metric names to the
+        A two-tuple containing a dict mapping the provided metric names to the
         index-normalized and interpolated mean (sem).
     """
     missing_metrics = set(metrics) - set(df["metric_name"])

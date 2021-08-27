@@ -184,7 +184,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             information on why the trial should or should not be stopped.
         """
         logger.debug(f"Considering trial {trial_index} for early stopping.")
-        if trial_index not in df:
+        if trial_index not in df or len(not_none(df[trial_index].dropna())) == 0:
             logger.info(
                 f"There is not yet any data associated with trial {trial_index}. "
                 "Not early stopping this trial."
@@ -192,6 +192,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             return False, "No data available to make an early stopping decision."
 
         trial_last_progression = not_none(df[trial_index].dropna()).index.max()
+        logger.info(
+            f"Last progression of Trial {trial_index} is {trial_last_progression}."
+        )
         if trial_last_progression < self.min_progression:
             reason = (
                 f"Most recent progression ({trial_last_progression}) is less than "
@@ -207,6 +210,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         # last progression of the trial under consideration, and therefore
         # can't be included in the comparison
         data_at_last_progression = df.loc[trial_last_progression].dropna()
+        logger.info(f"Data at last progression is:\n{data_at_last_progression}.")
         if len(data_at_last_progression) < self.min_curves:
             logger.info(
                 f"The number of trials with data ({len(data_at_last_progression)}) "
@@ -231,7 +235,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             if minimize
             else trial_objective_value < percentile_value
         )
-        comp = "better" if should_early_stop else "worse"
+        comp = "worse" if should_early_stop else "better"
         reason = (
             f"Trial objective value {trial_objective_value} is {comp} than "
             f"{percentile_threshold:.1f}-th percentile ({percentile_value}) "
