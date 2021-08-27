@@ -100,14 +100,7 @@ class Experiment(Base):
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
         self._properties: Dict[str, Any] = properties or {}
-        self._default_data_type = default_data_type or (
-            DataType.MAP_DATA
-            if (
-                optimization_config is not None
-                and isinstance(optimization_config.objective.metrics[0], MapMetric)
-            )
-            else DataType.DATA
-        )
+        self._default_data_type = default_data_type or DataType.DATA
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
@@ -310,6 +303,11 @@ class Experiment(Base):
             if metric_name in self._tracking_metrics:
                 self.remove_tracking_metric(metric_name)
         self._optimization_config = optimization_config
+        if (
+            isinstance(optimization_config.objective.metrics[0], MapMetric)
+            and self._default_data_type is not DataType.MAP_DATA
+        ):
+            self._default_data_type = DataType.MAP_DATA
 
     @property
     def data_by_trial(self) -> Dict[int, OrderedDict]:
