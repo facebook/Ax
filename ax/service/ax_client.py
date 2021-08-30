@@ -20,6 +20,7 @@ from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective
 from ax.core.objective import Objective
+from ax.core.observation import ObservationFeatures
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
@@ -32,7 +33,9 @@ from ax.exceptions.core import OptimizationComplete
 from ax.exceptions.core import UnsupportedPlotError, UnsupportedError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.modelbridge_utils import get_pending_observation_features
+from ax.modelbridge.modelbridge_utils import (
+    get_pending_observation_features_based_on_trial_status,
+)
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
@@ -1170,7 +1173,7 @@ class AxClient(WithDBSettingsBase):
             return not_none(self.generation_strategy).gen(
                 experiment=self.experiment,
                 n=n,
-                pending_observations=get_pending_observation_features(
+                pending_observations=self._get_pending_observation_features(
                     experiment=self.experiment
                 ),
             )
@@ -1197,6 +1200,21 @@ class AxClient(WithDBSettingsBase):
                 return trial_idx
         raise ValueError(
             f"No trial on experiment matches parameterization {parameterization}."
+        )
+
+    @classmethod
+    def _get_pending_observation_features(
+        cls, experiment
+    ) -> Optional[Dict[str, List[ObservationFeatures]]]:
+        """Extract pending points for the given experiment.
+
+        NOTE: With one-arm `Trial`-s, we use a more performant
+        ``get_pending_observation_features_based_on_trial_status`` utility instead
+        of ``get_pending_observation_features``, since we can determine whether a point
+        is pending based on the status of the corresponding trial.
+        """
+        return get_pending_observation_features_based_on_trial_status(
+            experiment=experiment
         )
 
     @classmethod
