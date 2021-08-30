@@ -28,6 +28,7 @@ from ax.core.types import (
     TParamValue,
 )
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
+from ax.exceptions.core import OptimizationComplete
 from ax.exceptions.core import UnsupportedPlotError, UnsupportedError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -343,6 +344,79 @@ class AxClient(WithDBSettingsBase):
             new_generator_runs=[self.generation_strategy._generator_runs[-1]],
         )
         return not_none(trial.arm).parameters, trial.index
+
+    def get_current_trial_generation_limit(self) -> Tuple[int, bool]:
+        """How many trials this ``AxClient`` instance can currently produce via
+        calls to ``get_next_trial``, before more trials are completed, and whether
+        the optimization is complete.
+
+        NOTE: If return value of this function is ``(0, False)``, no more trials
+        can currently be procuded by this ``AxClient`` instance, but optimization
+        is not completed; once more trials are completed with data, more new
+        trials can be generated.
+
+        Returns: a two-item tuple of:
+              - the number of trials that can currently be produced, with -1
+                meaning unlimited trials,
+              - whether no more trials can be produced by this ``AxClient``
+                instance at any point (e.g. if the search space is exhausted or
+                generation strategy is completed.
+        """
+        # Ensure that experiment is set on the generation strategy.
+        if self.generation_strategy._experiment is None:
+            self.generation_strategy.experiment = self.experiment
+
+        return self.generation_strategy.current_generator_run_limit()
+
+    def get_next_trials(
+        self, max_trials: int, ttl_seconds: Optional[int] = None
+    ) -> Tuple[Dict[int, TParameterization], bool]:
+        """Generate as many trials as currently possible.
+
+        NOTE: Useful for running multiple trials in parallel: produces multiple trials,
+        with their number limited by:
+          - parallelism limit on current generation step,
+          - number of trials in current generation step,
+          - number of trials required to complete before moving to next generation step,
+            if applicable,
+          - and ``max_trials`` argument to this method.
+
+        Args:
+            max_trials: Limit on how many trials the call to this method should produce.
+            ttl_seconds: If specified, will consider the trial failed after this
+                many seconds. Used to detect dead trials that were not marked
+                failed properly.
+
+        Returns: two-item tuple of:
+              - mapping from trial indices to parameterizations in those trials,
+              - boolean indicator of whether optimization is completed and no more
+                trials can be generated going forward.
+        """
+        gen_limit, optimization_complete = self.get_current_trial_generation_limit()
+        if optimization_complete:
+            return {}, True
+
+        # Trial generation limit of -1 indicates that unlimited trials can be
+        # generated, so we only want to limit `max_trials` if `trial_generation_
+        # limit` is non-negative.
+        if gen_limit >= 0:
+            max_trials = min(gen_limit, max_trials)
+
+        trials_dict = {}
+        for _ in range(max_trials):
+            try:
+                params, trial_index = self.get_next_trial(ttl_seconds=ttl_seconds)
+                trials_dict[trial_index] = params
+            except OptimizationComplete as err:
+                logger.info(
+                    f"Encountered exception indicating optimization completion: {err}"
+                )
+                return trials_dict, True
+
+        # Check whether optimization is complete now that we generated a batch
+        # of trials.
+        _, optimization_complete = self.get_current_trial_generation_limit()
+        return trials_dict, optimization_complete
 
     def abandon_trial(self, trial_index: int, reason: Optional[str] = None) -> None:
         """Abandons a trial and adds optional metadata to it.
@@ -787,7 +861,7 @@ class AxClient(WithDBSettingsBase):
         experiment, generation_strategy = self._load_experiment_and_generation_strategy(
             experiment_name=experiment_name
         )
-        if experiment is None:
+        if experiment is None:  # pragma: no cover
             raise ValueError(f"Experiment by name '{experiment_name}' not found.")
         self._experiment = experiment
         logger.info(f"Loaded {experiment}.")
@@ -1051,7 +1125,7 @@ class AxClient(WithDBSettingsBase):
             # raising an error from saving the experiment, to avoid a case where
             # overall `create_experiment` call fails with a storage error, but
             # `self._experiment` is still set and user has to specify the
-            # `ooverwrite_existing_experiment` kwarg to re-attempt exp. creation.
+            # `overwrite_existing_experiment` kwarg to re-attempt exp. creation.
             self._experiment = None
             raise
 
@@ -1147,14 +1221,14 @@ class AxClient(WithDBSettingsBase):
                     message=cls.TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
                 )
             }
-        else:
+        else:  # pragma: no cover
             raise ValueError(f"Unexpected trial type: {type(trial)}.")
 
         not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
             trial.arms_by_name.keys()
         )
         if not_trial_arm_names:
-            raise ValueError(
+            raise ValueError(  # pragma: no cover
                 f"Arms {not_trial_arm_names} are not part of trial #{trial.index}."
             )
         return raw_data_by_arm

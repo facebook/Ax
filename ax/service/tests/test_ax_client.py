@@ -27,6 +27,7 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError, UnsupportedPlotError
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import branin
+from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.service.ax_client import AxClient
@@ -146,6 +147,12 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(ValueError, ".* no trials"):
             ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         for i in range(6):
+            gen_limit, opt_complete = ax_client.get_current_trial_generation_limit()
+            self.assertFalse(opt_complete)
+            if i < 5:
+                self.assertEqual(gen_limit, 5 - i)
+            else:
+                self.assertEqual(gen_limit, DEFAULT_BAYESIAN_PARALLELISM)
             parameterization, trial_index = ax_client.get_next_trial()
             x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(
@@ -170,6 +177,76 @@ class TestAxClient(TestCase):
         self.assertIn("y", trials_df)
         self.assertIn("a", trials_df)
         self.assertEqual(len(trials_df), 6)
+
+    @patch(
+        "ax.modelbridge.base.observations_from_data",
+        autospec=True,
+        return_value=([get_observation1()]),
+    )
+    def test_default_generation_strategy_continuous_gen_trials_in_batches(
+        self, _
+    ) -> None:
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[  # pyre-fixme[6]: expected union that should include
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            objective_name="a",
+            minimize=True,
+        )
+        # All Sobol trials should be able to be generated at once.
+        sobol_trials_dict, is_complete = ax_client.get_next_trials(max_trials=10)
+        self.assertEqual(len(sobol_trials_dict), 5)
+        self.assertFalse(is_complete)
+        # Now no trials should be generated since more need completion before GPEI.
+        empty_trials_dict, is_complete = ax_client.get_next_trials(max_trials=10)
+        self.assertEqual(len(empty_trials_dict), 0)
+        self.assertFalse(is_complete)
+        for idx, parameterization in sobol_trials_dict.items():
+            ax_client.complete_trial(
+                idx,
+                raw_data={
+                    "a": (
+                        checked_cast(
+                            float,
+                            branin(
+                                checked_cast(float, parameterization.get("x")),
+                                checked_cast(float, parameterization.get("y")),
+                            ),
+                        ),
+                        0.0,
+                    )
+                },
+            )
+        # Now one batch of GPEI trials can be produced, limited by parallelism.
+        trials_dict, is_complete = ax_client.get_next_trials(max_trials=10)
+        self.assertEqual(len(trials_dict), 3)
+        self.assertFalse(is_complete)
+
+    def test_sobol_generation_strategy_completion(self) -> None:
+        ax_client = AxClient(
+            generation_strategy=GenerationStrategy(
+                [GenerationStep(Models.SOBOL, num_trials=3)]
+            )
+        )
+        ax_client.create_experiment(
+            parameters=[  # pyre-fixme[6]: expected union that should include
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            objective_name="a",
+            minimize=True,
+        )
+        # All Sobol trials should be able to be generated at once and optimization
+        # should be completed once they are generated.
+        sobol_trials_dict, is_complete = ax_client.get_next_trials(max_trials=10)
+        self.assertEqual(len(sobol_trials_dict), 3)
+        self.assertTrue(is_complete)
+
+        empty_trials_dict, is_complete = ax_client.get_next_trials(max_trials=10)
+        self.assertEqual(len(empty_trials_dict), 0)
+        self.assertTrue(is_complete)
 
     @patch(
         "ax.modelbridge.base.observations_from_data",

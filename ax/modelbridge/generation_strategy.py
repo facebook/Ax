@@ -439,22 +439,24 @@ class GenerationStrategy(Base):
 
     def current_generator_run_limit(
         self,
-    ) -> Optional[int]:
+    ) -> Tuple[int, bool]:
         """How many generator runs can this generation strategy generate right now,
-        assuming each one of them becomes its own trial.
+        assuming each one of them becomes its own trial, and whether optimization
+        is completed.
 
         NOTE: This method might move the generation strategy to the next step, which
         is safe, as the next call to ``gen`` will just pick up from there.
 
-        Returns: ``None`` if this generation strategy cannot generate any more
-            trials at all (e.g. if it is completed). Returns the number of generator
-            runs that can currently be produced otherwise, with "-1" meaning unlimited
-            generator runs.
+        Returns: a two-item tuple of:
+              - the number of generator runs that can currently be produced, with -1
+                meaning unlimited generator runs,
+              - whether optimization is completed and the generation strategy cannot
+                generate any more generator runs at all.
         """
         try:
             self._maybe_move_to_next_step(raise_data_required_error=False)
         except GenerationStrategyCompleted:
-            return None
+            return 0, True
 
         to_gen = self._num_trials_to_gen_and_complete_in_curr_step()[0]
         if to_gen < -1:
@@ -472,16 +474,16 @@ class GenerationStrategy(Base):
         # If there is no limitation on the number of trials in the step and
         # there is a parallelism limit, return number of trials until that limit.
         if until_max_parallelism is not None and to_gen == -1:
-            return until_max_parallelism
+            return until_max_parallelism, False
 
         # If there is a limitation on the number of trials in the step and also on
         # parallelism, return the number of trials until either one of the limits.
         if until_max_parallelism is not None:  # NOTE: to_gen must be >= 0 here
-            return min(to_gen, until_max_parallelism)
+            return min(to_gen, until_max_parallelism), False
 
         # If there is no limit on parallelism, return how many trials are left to
         # gen in this step (might be -1 indicating unlimited).
-        return to_gen
+        return to_gen, False
 
     def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""

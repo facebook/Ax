@@ -604,13 +604,15 @@ class TestGenerationStrategy(TestCase):
         sobol_gs_with_parallelism_limits._experiment = exp
         could_gen = []
         for _ in range(NUM_ROUNDS):
-            num_trials_to_gen = (
-                sobol_gs_with_parallelism_limits.current_generator_run_limit()
-            )
+            (
+                num_trials_to_gen,
+                opt_complete,
+            ) = sobol_gs_with_parallelism_limits.current_generator_run_limit()
+            self.assertFalse(opt_complete)
             could_gen.append(num_trials_to_gen)
             trials = []
 
-            for __ in range(num_trials_to_gen):
+            for _ in range(num_trials_to_gen):
                 gr = sobol_gs_with_parallelism_limits.gen(
                     experiment=exp,
                     pending_observations=get_pending(experiment=exp),
