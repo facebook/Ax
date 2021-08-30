@@ -21,6 +21,7 @@ from ax.models.torch.fully_bayesian import (
     get_and_fit_model_mcmc,
     pyro_model,
     matern_kernel,
+    rbf_kernel,
 )
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -47,7 +48,7 @@ def _get_dummy_mcmc_samples(
     num_outputs: int,
     dtype: torch.dtype,
     device: torch.device,
-    perturb_sd: float = 1e-5,
+    perturb_sd: float = 1e-6,
 ) -> Dict[str, torch.Tensor]:
     tkwargs = {"dtype": dtype, "device": device}
     dummy_sample_list = []
@@ -56,7 +57,7 @@ def _get_dummy_mcmc_samples(
             # use real MAP values with tiny perturbations
             # so that the generation code below has feasible in-sample
             # points
-            "lengthscale": torch.tensor([[0.3333, 0.3333, 0.3333]], **tkwargs)
+            "lengthscale": torch.tensor([[1 / 3, 1 / 3, 1 / 3]], **tkwargs)
             + perturb_sd * torch.randn(num_samples, 1, 3, **tkwargs),
             "outputscale": torch.tensor(2.3436, **tkwargs)
             + perturb_sd * torch.randn(num_samples, **tkwargs),
@@ -90,12 +91,8 @@ try:
                 self.assertTrue(
                     any(issubclass(w.category, DeprecationWarning) for w in ws)
                 )
-                self.assertTrue(
-                    any(
-                        "Passing `use_saas` is no longer supported" in str(w.message)
-                        for w in ws
-                    )
-                )
+                msg = "Passing `use_saas` is no longer supported"
+                self.assertTrue(any(msg in str(w.message) for w in ws))
             Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
                 dtype=dtype, cuda=cuda, constant_noise=True
             )
@@ -111,7 +108,8 @@ try:
             Xs = Xs1 + Xs2_diff
             Ys = Ys1 + Ys2
 
-            for inferred_noise, use_input_warping in product((True, False), repeat=2):
+            options = product([True, False], [True, False], ["matern", "rbf"])
+            for inferred_noise, use_input_warping, gp_kernel in options:
                 Yvars = Yvars_inferred_noise if inferred_noise else Yvars1 + Yvars2
                 model = self.model_cls(
                     use_input_warping=use_input_warping,
@@ -119,6 +117,8 @@ try:
                     num_samples=4,
                     disable_progbar=True,
                     max_tree_depth=1,
+                    gp_kernel=gp_kernel,
+                    verbose=True,
                 )
                 if use_input_warping:
                     self.assertTrue(model.use_input_warping)
@@ -177,6 +177,8 @@ try:
                         self.assertEqual(
                             ckwargs["use_input_warping"], use_input_warping
                         )
+                        self.assertEqual(ckwargs["gp_kernel"], gp_kernel)
+                        self.assertTrue(ckwargs["verbose"])
 
                         # Check attributes
                         self.assertTrue(torch.equal(model.Xs[i], Xs[i]))
@@ -222,13 +224,14 @@ try:
                             )
                         )
                         self.assertIsInstance(m.likelihood, _GaussianLikelihoodBase)
-
                         self.assertTrue(
                             torch.allclose(
                                 m.covar_module.base_kernel.lengthscale.detach(),
                                 dummy_samples["lengthscale"].view(
                                     m.covar_module.base_kernel.lengthscale.shape
                                 ),
+                                rtol=1e-4,
+                                atol=1e-6,
                             )
                         )
                         self.assertTrue(
@@ -313,6 +316,7 @@ try:
                     num_samples=4,
                     disable_progbar=True,
                     max_tree_depth=1,
+                    gp_kernel=gp_kernel,
                 )
                 Yvars = Yvars1 + Yvars2
                 dummy_samples_list = _get_dummy_mcmc_samples(
@@ -512,7 +516,9 @@ try:
                     unfit_model.feature_importances()
 
         def test_saasbo_sample(self):
-            for use_input_warping in (False, True):
+            for use_input_warping, gp_kernel in product(
+                [False, True], ["rbf", "matern"]
+            ):
                 with torch.random.fork_rng():
                     torch.manual_seed(0)
                     X = torch.randn(3, 2)
@@ -525,6 +531,7 @@ try:
                         Y,
                         Yvar,
                         use_input_warping=use_input_warping,
+                        gp_kernel=gp_kernel,
                     )
                     samples = mcmc.get_samples()
                     self.assertTrue("kernel_tausq" in samples)
@@ -536,6 +543,21 @@ try:
                     else:
                         self.assertNotIn("c0", samples)
                         self.assertNotIn("c1", samples)
+
+        def test_gp_kernels(self):
+            torch.manual_seed(0)
+            X = torch.randn(3, 2)
+            Y = torch.randn(3, 1)
+            Yvar = torch.randn(3, 1)
+            kernel = NUTS(pyro_model, max_tree_depth=1)
+            with self.assertRaises(ValueError):
+                mcmc = MCMC(kernel, warmup_steps=0, num_samples=1)
+                mcmc.run(
+                    X,
+                    Y,
+                    Yvar,
+                    gp_kernel="some_kernel_we_dont_support",
+                )
 
         def test_FullyBayesianBotorchModel_cuda(self):
             if torch.cuda.is_available():
@@ -598,9 +620,8 @@ try:
                 Xs2, Ys2, raw_Yvars2, _, _, _, _ = get_torch_test_data(
                     dtype=dtype, cuda=cuda, constant_noise=True
                 )
-                for inferred_noise, use_input_warping in product(
-                    (False, True), repeat=2
-                ):
+                options = product([False, True], [False, True], ["rbf", "matern"])
+                for inferred_noise, use_input_warping, gp_kernel in options:
                     model = self.model_cls(
                         num_samples=4,
                         warmup_steps=0,
@@ -608,6 +629,8 @@ try:
                         use_input_warping=use_input_warping,
                         disable_progbar=True,
                         max_tree_depth=1,
+                        gp_kernel=gp_kernel,
+                        verbose=True,
                     )
                     if inferred_noise:
                         Yvars1 = [torch.full_like(raw_Yvars1[0], float("nan"))]
@@ -655,6 +678,9 @@ try:
                         self.assertEqual(
                             ckwargs["use_input_warping"], use_input_warping
                         )
+                        self.assertEqual(ckwargs["gp_kernel"], gp_kernel)
+                        self.assertTrue(ckwargs["verbose"])
+
                     with ExitStack() as es:
                         _mock_mcmc = es.enter_context(mock.patch(MCMC_PATH))
                         _mock_mcmc.return_value.get_samples.side_effect = dummy_samples
@@ -766,13 +792,16 @@ try:
             Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
                 dtype=torch.float, cuda=False, constant_noise=True
             )
-            for use_input_warping in (True, False):
+            for use_input_warping, gp_kernel in product(
+                [True, False], ["rbf", "matern"]
+            ):
                 model = self.model_cls(
                     use_input_warping=use_input_warping,
                     num_samples=4,
                     thinning=1,
                     disable_progbar=True,
                     max_tree_depth=1,
+                    gp_kernel=gp_kernel,
                 )
                 dummy_samples = _get_dummy_mcmc_samples(
                     num_samples=4,
@@ -814,7 +843,7 @@ except ImportError:
     pass
 
 
-class TestMaternKernel(TestCase):
+class TestKernels(TestCase):
     def test_matern_kernel(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
@@ -852,3 +881,17 @@ class TestMaternKernel(TestCase):
         # test unsupported nu
         with self.assertRaises(AxError):
             matern_kernel(b, b, nu=0.0, lengthscale=2.0)
+
+    def test_rbf_kernel(self):
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
+        lengthscale = 2
+        # test rbf
+        res = rbf_kernel(a, b, lengthscale=lengthscale)
+        actual = (
+            torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float)
+            .pow_(2.0)
+            .mul_(-0.5 / (lengthscale ** 2))
+            .exp()
+        )
+        self.assertLess(torch.norm(res - actual), 1e-3)

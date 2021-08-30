@@ -43,7 +43,7 @@ from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 from torch import Tensor
 
 
-MIN_OBSERVED_NOISE_LEVEL = 1e-7
+MIN_OBSERVED_NOISE_LEVEL = 1e-6
 
 
 def get_and_fit_model(
