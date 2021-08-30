@@ -45,6 +45,7 @@ from ax.models.torch.botorch import (
 from ax.models.torch.botorch_defaults import (
     _get_model,
     get_NEI,
+    MIN_OBSERVED_NOISE_LEVEL,
     recommend_best_observed_point,
     scipy_optimizer,
 )
@@ -59,16 +60,24 @@ from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
+from gpytorch.kernels import RBFKernel, ScaleKernel
 from torch import Tensor
+
 
 logger = get_logger(__name__)
 
-MIN_OBSERVED_NOISE_LEVEL_MCMC = 1e-6
 SAAS_DEPRECATION_MSG = (
     "Passing `use_saas` is no longer supported and has no effect. "
     "SAAS priors are used by default. "
     "This will become an error in the future."
 )
+
+
+def _get_rbf_kernel(num_samples: int, dim: int) -> ScaleKernel:
+    return ScaleKernel(
+        base_kernel=RBFKernel(ard_num_dims=dim, batch_shape=torch.Size([num_samples])),
+        batch_shape=torch.Size([num_samples]),
+    )
 
 
 def get_and_fit_model_mcmc(
@@ -87,6 +96,8 @@ def get_and_fit_model_mcmc(
     thinning: int = 16,
     max_tree_depth: int = 6,
     disable_progbar: bool = False,
+    gp_kernel: str = "matern",
+    verbose: bool = False,
     **kwargs: Any,
 ) -> GPyTorchModel:
     if len(task_features) > 0:
@@ -102,6 +113,12 @@ def get_and_fit_model_mcmc(
     # (ii) a multi-task model is used
 
     num_mcmc_samples = num_samples // thinning
+    covar_module = (
+        _get_rbf_kernel(num_samples=num_mcmc_samples, dim=Xs[0].shape[-1])
+        if gp_kernel == "rbf"
+        else None
+    )
+
     if len(Xs) == 1:
         # Use single output, single task GP
         model = _get_model(
@@ -110,6 +127,7 @@ def get_and_fit_model_mcmc(
             Yvar=Yvars[0].unsqueeze(0).expand(num_mcmc_samples, Xs[0].shape[0], -1),
             fidelity_features=fidelity_features,
             use_input_warping=use_input_warping,
+            covar_module=covar_module,
             **kwargs,
         )
     else:
@@ -121,6 +139,7 @@ def get_and_fit_model_mcmc(
                 .expand(num_mcmc_samples, Yvar.shape[0], -1)
                 .clone(),
                 use_input_warping=use_input_warping,
+                covar_module=covar_module,
                 **kwargs,
             )
             for X, Y, Yvar in zip(Xs, Ys, Yvars)
@@ -132,8 +151,8 @@ def get_and_fit_model_mcmc(
     else:
         models = [model]
     if state_dict is not None:
-        # pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st
-        #  param but got `Dict[str, Tensor]`.
+        # pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st param
+        # but got `Dict[str, Tensor]`.
         model.load_state_dict(state_dict)
     if state_dict is None or refit_model:
         for X, Y, Yvar, m in zip(Xs, Ys, Yvars, models):
@@ -148,6 +167,8 @@ def get_and_fit_model_mcmc(
                 use_input_warping=use_input_warping,
                 max_tree_depth=max_tree_depth,
                 disable_progbar=disable_progbar,
+                gp_kernel=gp_kernel,
+                verbose=verbose,
             )
             if "noise" in samples:
                 m.likelihood.noise_covar.noise = (
@@ -222,8 +243,8 @@ def predict_from_model_mcmc(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     return mean, cov
 
 
-def matern_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor, nu: float = 2.5) -> Tensor:
-    """Scaled Matern kernel.
+def compute_dists(X: Tensor, Z: Tensor, lengthscale: Tensor) -> Tensor:
+    """Compute kernel distances.
 
     TODO: use gpytorch `Distance` module. This will require some care to make sure
     jit compilation works as expected.
@@ -257,7 +278,13 @@ def matern_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor, nu: float = 2.5) ->
         res.diagonal(dim1=-2, dim2=-1).fill_(0)  # pyre-ignore [16]
 
     # Zero out negative values
-    dist = res.clamp_min_(1e-30).sqrt_()
+    dist = res.clamp_min_(1e-30).sqrt()
+    return dist
+
+
+def matern_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor, nu: float = 2.5) -> Tensor:
+    """Scaled Matern kernel."""
+    dist = compute_dists(X=X, Z=Z, lengthscale=lengthscale)
     exp_component = torch.exp(-math.sqrt(nu * 2) * dist)
 
     if nu == 0.5:
@@ -265,10 +292,16 @@ def matern_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor, nu: float = 2.5) ->
     elif nu == 1.5:
         constant_component = (math.sqrt(3) * dist).add(1)  # pyre-ignore [16]
     elif nu == 2.5:
-        constant_component = (math.sqrt(5) * dist).add(1).add(5.0 / 3.0 * dist ** 2)
+        constant_component = (math.sqrt(5) * dist).add(1).add(5.0 / 3.0 * (dist ** 2))
     else:
         raise AxError(f"Unsupported value of nu: {nu}")
     return constant_component * exp_component
+
+
+def rbf_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor) -> Tensor:
+    """Scaled RBF kernel."""
+    dist = compute_dists(X=X, Z=Z, lengthscale=lengthscale)
+    return torch.exp(-0.5 * (dist ** 2))
 
 
 def pyro_model(
@@ -277,6 +310,7 @@ def pyro_model(
     Yvar: Tensor,
     use_input_warping: bool = False,
     eps: float = 1e-7,
+    gp_kernel: str = "matern",
 ) -> None:
     try:
         import pyro
@@ -312,7 +346,7 @@ def pyro_model(
         )
     else:
         # pyre-ignore [16]
-        noise = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL_MCMC)
+        noise = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)
     # use SAAS priors
     tausq = pyro.sample(
         "kernel_tausq",
@@ -350,7 +384,13 @@ def pyro_model(
     else:
         X_tf = X
     # compute kernel
-    k = matern_kernel(X=X_tf, Z=X_tf, lengthscale=lengthscale)
+    if gp_kernel == "matern":
+        k = matern_kernel(X=X_tf, Z=X_tf, lengthscale=lengthscale)
+    elif gp_kernel == "rbf":
+        k = rbf_kernel(X=X_tf, Z=X_tf, lengthscale=lengthscale)
+    else:
+        raise ValueError(f"Expected kernel to be 'rbf' or 'matern', got {gp_kernel}")
+
     # add noise
     k = outputscale * k + noise * torch.eye(X.shape[0], dtype=X.dtype, device=X.device)
 
@@ -365,7 +405,7 @@ def pyro_model(
 
 
 def run_inference(
-    pyro_model: Callable[[Tensor, Tensor, Tensor, bool, str, float], None],
+    pyro_model: Callable[[Tensor, Tensor, Tensor, bool, str, float, str], None],
     X: Tensor,
     Y: Tensor,
     Yvar: Tensor,
@@ -375,10 +415,13 @@ def run_inference(
     use_input_warping: bool = False,
     max_tree_depth: int = 6,
     disable_progbar: bool = False,
+    gp_kernel: str = "matern",
+    verbose: bool = False,
 ) -> Tensor:
     start = time.time()
     try:
         from pyro.infer.mcmc import NUTS, MCMC
+        from pyro.infer.mcmc.util import print_summary
     except ImportError:  # pragma: no cover
         raise RuntimeError("Cannot call run_inference without pyro installed!")
     kernel = NUTS(
@@ -399,22 +442,27 @@ def run_inference(
         Y,
         Yvar,
         use_input_warping=use_input_warping,
+        gp_kernel=gp_kernel,
     )
-    # this prints the summary
-    orig_std_out = sys.stdout.write
-    sys.stdout.write = logger.info
-    mcmc.summary()
-    sys.stdout.write = orig_std_out
-    logger.info(f"MCMC elapsed time: {time.time() - start}")
+
+    # compute the true lengthscales and get rid of the temporary variables
     samples = mcmc.get_samples()
     inv_length_sq = (
         samples["kernel_tausq"].unsqueeze(-1) * samples["_kernel_inv_length_sq"]
     )
     samples["lengthscale"] = (1.0 / inv_length_sq).sqrt()  # pyre-ignore [16]
     del samples["kernel_tausq"], samples["_kernel_inv_length_sq"]
+
+    # this prints the summary
+    if verbose:
+        orig_std_out = sys.stdout.write
+        sys.stdout.write = logger.info
+        print_summary(samples, prob=0.9, group_by_chain=False)
+        sys.stdout.write = orig_std_out
+        logger.info(f"MCMC elapsed time: {time.time() - start}")
+
     for k, v in samples.items():
-        # apply thinning
-        samples[k] = v[::thinning]
+        samples[k] = v[::thinning]  # apply thinning
     return samples
 
 
@@ -521,6 +569,8 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
         thinning: int = 16,
         max_tree_depth: int = 6,
         disable_progbar: bool = False,
+        gp_kernel: str = "matern",
+        verbose: bool = False,
         **kwargs: Any,
     ) -> None:
         """Initialize Fully Bayesian Botorch Model.
@@ -551,6 +601,9 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
             max_tree_depth: The max_tree_depth for NUTS.
             disable_progbar: A boolean indicating whether to print the progress
                 bar and diagnostics during MCMC.
+            gp_kernel: The type of ARD base kernel. "matern" corresponds to a Matern-5/2
+                kernel and "rbf" corresponds to an RBF kernel.
+            verbose: A boolean indicating whether to print summary stats from MCMC.
         """
         # use_saas is deprecated. TODO: remove
         if use_saas is not None:
@@ -571,6 +624,8 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
             thinning=thinning,
             max_tree_depth=max_tree_depth,
             disable_progbar=disable_progbar,
+            gp_kernel=gp_kernel,
+            verbose=verbose,
         )
 
 
@@ -613,6 +668,8 @@ class FullyBayesianMOOBotorchModel(
         # use_saas is deprecated. TODO: remove
         use_saas: Optional[bool] = None,
         disable_progbar: bool = False,
+        gp_kernel: str = "matern",
+        verbose: bool = False,
         **kwargs: Any,
     ) -> None:
         # use_saas is deprecated. TODO: remove
@@ -635,4 +692,6 @@ class FullyBayesianMOOBotorchModel(
             thinning=thinning,
             max_tree_depth=max_tree_depth,
             disable_progbar=disable_progbar,
+            gp_kernel=gp_kernel,
+            verbose=verbose,
         )
