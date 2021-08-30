@@ -866,7 +866,10 @@ class Experiment(Base):
         return index
 
     def warm_start_from_old_experiment(
-        self, old_experiment: Experiment, copy_run_metadata: bool = False
+        self,
+        old_experiment: Experiment,
+        copy_run_metadata: bool = False,
+        trial_statuses_to_copy: Optional[List[TrialStatus]] = None,
     ) -> List[Trial]:
         """Copy all completed trials with data from an old Ax expeirment to this one.
         This function checks that the parameters of each trial are members of the
@@ -878,6 +881,8 @@ class Experiment(Base):
         Args:
             old_experiment: The experiment from which to transfer trials and data
             copy_run_metadata: whether to copy the run_metadata from the old experiment
+            trial_statuses_to_copy: All trials with a status in this list will be
+                copied. By default, copies all ``COMPLETED`` and ``ABANDONED`` trials.
 
         Returns:
             List of trials successfully copied from old_experiment to this one
@@ -899,9 +904,19 @@ class Experiment(Base):
                 f"{parameter_names - old_parameter_names}."
             )
 
-        old_completed_trials = old_experiment.trials_by_status[TrialStatus.COMPLETED]
+        trial_statuses_to_copy = (
+            trial_statuses_to_copy
+            if trial_statuses_to_copy is not None
+            else [TrialStatus.COMPLETED, TrialStatus.ABANDONED]
+        )
+
+        warm_start_trials = [
+            trial
+            for trial in old_experiment.trials.values()
+            if trial.status in trial_statuses_to_copy
+        ]
         copied_trials = []
-        for trial in old_completed_trials:
+        for trial in warm_start_trials:
             if not isinstance(trial, Trial):
                 raise NotImplementedError(  # pragma: no cover
                     "Only experiments with 1-arm trials currently supported."
@@ -910,8 +925,11 @@ class Experiment(Base):
                 not_none(trial.arm).parameters, raise_error=True
             )
             dat, ts = old_experiment.lookup_data_for_trial(trial_index=trial.index)
-            if ts != -1 and not dat.df.empty:
-                # Trial has data, so we replicate it on the new experiment.
+            is_completed_with_data = (
+                trial.status == TrialStatus.COMPLETED and ts != -1 and not dat.df.empty
+            )
+            if is_completed_with_data or trial.status == TrialStatus.ABANDONED:
+                # Set trial index and arm name to their values in new trial.
                 new_trial = self.new_trial()
                 new_trial.add_arm(not_none(trial.arm).clone(clear_name=True))
                 new_trial.mark_running(no_runner_required=True)
@@ -922,21 +940,24 @@ class Experiment(Base):
                     f"Warm start from Experiment: `{old_experiment.name}`, "
                     f"trial: `{trial.index}`"
                 )
-                # Set trial index and arm name to their values in new trial.
-                new_df = dat.df.copy()
-                new_df["trial_index"].replace(
-                    {trial.index: new_trial.index}, inplace=True
-                )
-                new_df["arm_name"].replace(
-                    {not_none(trial.arm).name: not_none(new_trial.arm).name},
-                    inplace=True,
-                )
-                # Attach updated data to new trial on experiment and mark trial
-                # as completed.
-                self.attach_data(data=Data(df=new_df))
-                new_trial.mark_completed()
                 if copy_run_metadata:
                     new_trial._run_metadata = trial.run_metadata
+                # Trial has data, so we replicate it on the new experiment.
+                if is_completed_with_data:
+                    new_df = dat.df.copy()
+                    new_df["trial_index"].replace(
+                        {trial.index: new_trial.index}, inplace=True
+                    )
+                    new_df["arm_name"].replace(
+                        {not_none(trial.arm).name: not_none(new_trial.arm).name},
+                        inplace=True,
+                    )
+                    # Attach updated data to new trial on experiment and mark trial
+                    # as completed.
+                    self.attach_data(data=Data(df=new_df))
+                    new_trial.mark_completed()
+                else:
+                    new_trial.mark_abandoned(reason=trial.abandoned_reason)
                 copied_trials.append(new_trial)
 
         if self._name is not None:

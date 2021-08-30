@@ -41,6 +41,7 @@ from ax.utils.testing.core_stubs import (
 )
 
 DUMMY_RUN_METADATA = {"test_run_metadata_key": "test_run_metadata_value"}
+DUMMY_ABANDONED_REASON = "test abandoned reason"
 
 
 class ExperimentTest(TestCase):
@@ -660,7 +661,8 @@ class ExperimentTest(TestCase):
     def testWarmStartFromOldExperiment(self):
         # create old_experiment
         len_old_trials = 5
-        i_failed_trial = 3
+        i_failed_trial = 1
+        i_abandoned_trial = 3
         old_experiment = get_branin_experiment()
         for i_old_trial in range(len_old_trials):
             sobol_run = get_sobol(search_space=old_experiment.search_space).gen(n=1)
@@ -668,6 +670,8 @@ class ExperimentTest(TestCase):
             trial.mark_running(no_runner_required=True)
             if i_old_trial == i_failed_trial:
                 trial.mark_failed()
+            elif i_old_trial == i_abandoned_trial:
+                trial.mark_abandoned(reason=DUMMY_ABANDONED_REASON)
             else:
                 trial.mark_completed()
         # make metric noiseless for exact reproducibility
@@ -712,11 +716,22 @@ class ExperimentTest(TestCase):
         old_df = old_experiment.fetch_data().df
         new_df = new_experiment.fetch_data().df
 
-        self.assertEqual(len(new_df), len_old_trials - 1)
+        self.assertEqual(len(new_df), len_old_trials - 2)
         pd.testing.assert_frame_equal(
             old_df.drop(["arm_name", "trial_index"], axis=1),
             new_df.drop(["arm_name", "trial_index"], axis=1),
         )
+
+        # check that all non-failed/abandoned trials are copied to new_experiment
+        new_experiment = get_branin_experiment()
+        # make metric noiseless for exact reproducibility
+        new_experiment.optimization_config.objective.metric.noise_sd = 0
+        new_experiment.warm_start_from_old_experiment(
+            old_experiment=old_experiment,
+            copy_run_metadata=True,
+            trial_statuses_to_copy=[TrialStatus.COMPLETED],
+        )
+        self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 2)
 
     def test_is_test_warning(self):
         experiments_module = "ax.core.experiment"
