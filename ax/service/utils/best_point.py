@@ -109,6 +109,35 @@ def get_best_from_model_predictions(
     return None
 
 
+def _get_best_row_for_scalarized_objective(
+    df: pd.DataFrame,
+    objective: ScalarizedObjective,
+) -> pd.DataFrame:
+    df = df.copy()
+    # First, add a weight column, setting 0.0 if the metric is not part
+    # of the objective
+    metric_to_weight = {
+        m.name: objective.weights[i] for i, m in enumerate(objective.metrics)
+    }
+    df["weight"] = df["metric_name"].apply(lambda x: metric_to_weight.get(x) or 0.0)
+    # Now, calculate the weighted linear combination via groupby,
+    # filtering out NaN for missing data
+    df["weighted_mean"] = df["mean"] * df["weight"]
+    groupby_df = (
+        df[["arm_name", "trial_index", "weighted_mean"]]
+        .groupby(["arm_name", "trial_index"], as_index=False)
+        .sum(min_count=1)
+        .dropna()
+    )
+    if groupby_df.empty:
+        raise ValueError("No data has been logged for scalarized objective.")
+    return (
+        groupby_df.loc[groupby_df["weighted_mean"].idxmin()]
+        if objective.minimize
+        else groupby_df.loc[groupby_df["weighted_mean"].idxmax()]
+    )
+
+
 def get_best_parameters(
     experiment: Experiment,
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
@@ -149,35 +178,6 @@ def get_best_parameters(
             {k: v[0] for k, v in values.items()},  # v[0] is mean
             {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
         ),
-    )
-
-
-def _get_best_row_for_scalarized_objective(
-    df: pd.DataFrame,
-    objective: ScalarizedObjective,
-) -> pd.DataFrame:
-    df = df.copy()
-    # First, add a weight column, setting 0.0 if the metric is not part
-    # of the objective
-    metric_to_weight = {
-        m.name: objective.weights[i] for i, m in enumerate(objective.metrics)
-    }
-    df["weight"] = df["metric_name"].apply(lambda x: metric_to_weight.get(x) or 0.0)
-    # Now, calculate the weighted linear combination via groupby,
-    # filtering out NaN for missing data
-    df["weighted_mean"] = df["mean"] * df["weight"]
-    groupby_df = (
-        df[["arm_name", "trial_index", "weighted_mean"]]
-        .groupby(["arm_name", "trial_index"], as_index=False)
-        .sum(min_count=1)
-        .dropna()
-    )
-    if groupby_df.empty:
-        raise ValueError("No data has been logged for scalarized objective.")
-    return (
-        groupby_df.loc[groupby_df["weighted_mean"].idxmin()]
-        if objective.minimize
-        else groupby_df.loc[groupby_df["weighted_mean"].idxmax()]
     )
 
 
