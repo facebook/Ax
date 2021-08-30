@@ -121,7 +121,12 @@ def _obs_vs_pred_dropdown_plot(
             x_axis_var=PlotMetric(metric, pred=False, rel=rel),
             status_quo_arm=status_quo_arm,
         )
-        min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw or [], se_hat)
+        se_raw = (
+            [0.0 if np.isnan(se) else se for se in se_raw]
+            if se_raw is not None
+            else [0.0] * len(y_raw)
+        )
+        min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw, se_hat)
         traces.append(_diagonal_trace(min_, max_, visible=(i == 0)))
         traces.append(
             _error_scatter_trace(
