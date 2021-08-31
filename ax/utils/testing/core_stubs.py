@@ -493,15 +493,11 @@ def get_large_factorial_search_space() -> SearchSpace:
     return SearchSpace(
         parameters=[
             ChoiceParameter(
-                name="factor1",
+                name=f"factor{j}",
                 parameter_type=ParameterType.STRING,
-                values=[f"level1{i}" for i in range(7)],
-            ),
-            ChoiceParameter(
-                name="factor2",
-                parameter_type=ParameterType.STRING,
-                values=[f"level2{i}" for i in range(10)],
-            ),
+                values=[f"level1{i}" for i in range(10)],
+            )
+            for j in range(6)
         ]
     )
 

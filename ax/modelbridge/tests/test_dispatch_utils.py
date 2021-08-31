@@ -48,6 +48,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol._steps[0].model.value, "Sobol")
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("Sobol (because of too many categories)"):
+            ss = get_large_factorial_search_space()
             sobol_large = choose_generation_strategy(
                 search_space=get_large_factorial_search_space()
             )
@@ -66,9 +67,9 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed._steps[0].num_trials, 5)
             self.assertEqual(bo_mixed._steps[1].model.value, "BO_MIXED")
         with self.subTest("BO_MIXED (mixed search space)"):
-            bo_mixed_2 = choose_generation_strategy(
-                search_space=get_branin_search_space(with_choice_parameter=True)
-            )
+            ss = get_branin_search_space(with_choice_parameter=True)
+            ss.parameters["x2"]._is_ordered = False
+            bo_mixed_2 = choose_generation_strategy(search_space=ss)
             self.assertEqual(bo_mixed_2._steps[0].model.value, "Sobol")
             self.assertEqual(bo_mixed_2._steps[0].num_trials, 5)
             self.assertEqual(bo_mixed_2._steps[1].model.value, "BO_MIXED")
@@ -138,11 +139,11 @@ class TestDispatchUtils(TestCase):
     def test_num_trials(self):
         ss = get_discrete_search_space()
         # Check that with budget that is lower than exhaustive, BayesOpt is used.
-        sobol_gpei = choose_generation_strategy(search_space=ss, num_trials=11)
+        sobol_gpei = choose_generation_strategy(search_space=ss, num_trials=23)
         self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
         self.assertEqual(sobol_gpei._steps[1].model.value, "BO_MIXED")
         # Check that with budget that is exhaustive, Sobol is used.
-        sobol = choose_generation_strategy(search_space=ss, num_trials=12)
+        sobol = choose_generation_strategy(search_space=ss, num_trials=24)
         self.assertEqual(sobol._steps[0].model.value, "Sobol")
         self.assertEqual(len(sobol._steps), 1)
 

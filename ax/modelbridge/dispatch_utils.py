@@ -23,7 +23,12 @@ logger: logging.Logger = get_logger(__name__)
 
 
 DEFAULT_BAYESIAN_PARALLELISM = 3
-MAX_DISCRETE_COMBINATIONS = 65
+# `BO_MIXED` optimizes all range parameters once for each combination of choice
+# parameters, then takes the optimum of those optima. The cost associated with this
+# method grows with the number of combinations, and so it is only used when the
+# number of enumerated discrete combinations is below some maximum value.
+MAX_DISCRETE_ENUMERATIONS_MIXED = 65
+MAX_DISCRETE_ENUMERATIONS_CHOICE_ONLY = 1e4
 SAASBO_INCOMPATIBLE_MESSAGE = (
     "SAASBO is incompatible with {} generation strategy. "
     "Disregarding user input `use_saasbo = True`."
@@ -104,32 +109,43 @@ def _suggest_gp_model(
     1. We use Sobol if the number of total iterations in the optimization is
     known in advance and there are fewer distinct points in the search space
     than the known intended number of total iterations.
-    2. We use BO_MIXED if there are fewer continuous parameters in the search
-    space than the sum of options for the *unordered* choice parameters.
-    3. We use MOO if `optimization_config` has multiple objectives and `use_saasbo
-    is False`.
-    4. We use FULLYBAYESIANMOO if `optimization_config` has multiple objectives
+    2. We use ``BO_MIXED`` if there are fewer ordered parameters in the search space
+    than the sum of options for the *unordered* choice parameters, and the number
+    of discrete enumerations to be performed by the optimizer is less than
+    ``MAX_DISCRETE_ENUMERATIONS_MIXED``, or if there are only choice parameters and
+    the number of choice combinations to enumerate is less than
+    ``MAX_DISCRETE_ENUMERATIONS_CHOICE_ONLY``. ``BO_MIXED`` is not currently enabled
+    for multi-objective optimization.
+    3. We use ``MOO`` if ``optimization_config`` has multiple objectives and
+    ``use_saasbo is False``.
+    4. We use ``FULLYBAYESIANMOO`` if ``optimization_config`` has multiple objectives
     and `use_saasbo is True`.
-    5. If none of the above and `use_saasbo is False`, we use GPEI.
-    6. If none of the above and `use_saasbo is True`, we use FULLYBAYESIAN.
+    5. If none of the above and ``use_saasbo is False``, we use ``GPEI``.
+    6. If none of the above and ``use_saasbo is True``, we use ``FULLYBAYESIAN``.
     """
-    num_continuous_parameters, num_discrete_choices = 0, 0
-    num_discrete_combinations, num_possible_points = 1, 1
+    num_ordered_parameters, num_unordered_choices = 0, 0
+    num_choice_combinations, num_unordered_combinations, num_possible_points = 1, 1, 1
     all_range_parameters_are_int = True
     for parameter in search_space.parameters.values():
         if isinstance(parameter, ChoiceParameter):
-            num_discrete_choices += len(parameter.values)
-            num_discrete_combinations *= len(parameter.values)
             num_possible_points *= len(parameter.values)
+            num_choice_combinations *= len(parameter.values)
+            if parameter.is_ordered is False:
+                num_unordered_choices += len(parameter.values)
+                num_unordered_combinations *= len(parameter.values)
+            else:
+                num_ordered_parameters += 1
         elif isinstance(parameter, RangeParameter):
-            num_continuous_parameters += 1
+            num_ordered_parameters += 1
             if parameter.parameter_type != ParameterType.INT:
                 all_range_parameters_are_int = False
             else:
-                num_possible_points *= int(parameter.upper - parameter.lower)
+                num_possible_points *= int(parameter.upper - parameter.lower) + 1
 
-    if (  # If number of trials is known and it enough to try all possible points,
-        num_trials is not None  # we should use Sobol and not BO.
+    # If number of trials is known and sufficient to try all possible points,
+    # we should use Sobol and not BO
+    if (
+        num_trials is not None
         and all_range_parameters_are_int
         and num_possible_points <= num_trials
     ):
@@ -139,21 +155,29 @@ def _suggest_gp_model(
         return None
 
     is_moo_problem = optimization_config and optimization_config.is_moo_problem
-    if num_continuous_parameters > num_discrete_choices:
+    all_discrete_parameters_are_choice = num_choice_combinations == num_possible_points
+    if num_ordered_parameters > num_unordered_choices:
         logger.info(
-            "Using Bayesian optimization since there are more continuous "
+            "Using Bayesian optimization since there are more ordered "
             "parameters than there are categories for the unordered categorical "
             "parameters."
         )
         if is_moo_problem and use_saasbo:
             return Models.FULLYBAYESIANMOO
-        elif is_moo_problem and not use_saasbo:
+        if is_moo_problem and not use_saasbo:
             return Models.MOO
-        elif use_saasbo:
+        if use_saasbo:
             return Models.FULLYBAYESIAN
-        else:
-            return Models.GPEI
-    elif not is_moo_problem and num_discrete_combinations <= MAX_DISCRETE_COMBINATIONS:
+        return Models.GPEI
+    # The latter condition below is tied to the logic in `BO_MIXED`, which currently
+    # enumerates all combinations of choice parameters.
+    if not is_moo_problem and (
+        num_choice_combinations <= MAX_DISCRETE_ENUMERATIONS_MIXED
+        or (
+            all_discrete_parameters_are_choice
+            and num_choice_combinations < MAX_DISCRETE_ENUMERATIONS_CHOICE_ONLY
+        )
+    ):
         logger.info(
             "Using Bayesian optimization with a categorical kernel for improved "
             "performance with a large number of unordered categorical parameters."
@@ -161,17 +185,17 @@ def _suggest_gp_model(
         if use_saasbo:
             logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("`BO_MIXED`"))
         return Models.BO_MIXED
-    else:
-        logger.info(
-            f"Using Sobol since there are more than {MAX_DISCRETE_COMBINATIONS} "
-            "combinations for the categorical parameters. Consider removing a few "
-            "categorical parameters for improved performance. If possible, turn "
-            "all ordered categorical variables into RangeParameters"
-        )
-        if use_saasbo:
-            logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
+    logger.info(
+        f"Using Sobol since there are more than {MAX_DISCRETE_ENUMERATIONS_MIXED} "
+        "combinations of `ChoiceParameter`s. Consider removing a few "
+        "`c`s for improved performance. Make sure that all ordered choices "
+        "are encoded as such (`is_ordered=True`). If possible, turn "
+        "all ordered `ChoiceParameter`s into `RangeParameter`s."
+    )
+    if use_saasbo:
+        logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
 
-        return None
+    return None
 
 
 def choose_generation_strategy(
