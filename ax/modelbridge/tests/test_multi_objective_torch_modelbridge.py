@@ -528,11 +528,12 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             # arms in a space-filling fashion
             init_position=len(exp.arms_by_name) - 1,
         )
-        sobol_run = sobol_generator.gen(n=5)
+        sobol_run = sobol_generator.gen(n=2)
         trial = exp.new_batch_trial(optimize_for_power=True)
         trial.add_generator_run(sobol_run)
         trial.mark_running(no_runner_required=True).mark_completed()
         data = exp.fetch_data()
+        torch.manual_seed(0)  # make model fitting deterministic
         modelbridge = MultiObjectiveTorchModelBridge(
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
