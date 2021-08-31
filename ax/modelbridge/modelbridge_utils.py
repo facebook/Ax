@@ -558,44 +558,46 @@ def get_pareto_frontier_and_configs(
     use_model_predictions: bool = True,
     transform_outcomes_and_configs: bool = True,
 ) -> Tuple[List[Observation], Tensor, Tensor, Optional[Tensor]]:
-    """Helper that applies transforms and calls frontier_evaluator.
+    """Helper that applies transforms and calls ``frontier_evaluator``.
 
-    Returns the configs in addition to the Pareto observations.
+    Returns the ``frontier_evaluator`` configs in addition to the Pareto
+    observations.
 
     Args:
-        modelbridge: Modelbridge used to predict metrics outcomes.
-        observation_features: observation features to predict, if provided and
-            use_model_predictions is True.
-        observation_data: data for computing the Pareto front, unless features
-            are provided and model_predictions is True.
-        objective_thresholds: metric values bounding the region of interest in
-            the objective outcome space.
-        optimization_config: Optimization config.
-        arm_names: Arm names for each observation.
-        use_model_predictions: If True, will use model predictions at
-            observation_features to compute Pareto front, if provided. If False,
-            will use observation_data directly to compute Pareto front, regardless
-            of whether observation_features are provided.
-        transform_outcomes_and_configs: If true, will transform the optimization
-            config.
+        modelbridge: ``Modelbridge`` used to predict metrics outcomes.
+        observation_features: Observation features to consider for the Pareto
+            frontier.
+        observation_data: Data for computing the Pareto front, unless
+            ``observation_features`` are provided and ``model_predictions is True``.
+        objective_thresholds: Metric values bounding the region of interest in
+            the objective outcome space; used to override objective thresholds
+            specified in ``optimization_config``, if necessary.
+        optimization_config: Multi-objective optimization config.
+        arm_names: Arm names for each observation in ``observation_features``.
+        use_model_predictions: If ``True``, will use model predictions at
+            ``observation_features`` to compute Pareto front. If ``False``,
+            will use ``observation_data`` directly to compute Pareto front, ignoring
+            ``observation_features``.
+        transform_outcomes_and_configs: If ``True``, will transform the optimization
+            config, observation features and observation data, before calling
+            ``frontier_evaluator``, then will untransform all of the above before
+            returning the observations.
 
-    Returns:
-        frontier_observations: Observations of points on the pareto frontier.
-        f: n x m tensor representation of the Pareto frontier values where n is the
-        length of frontier_observations and m is the number of metrics.
-        obj_w: m tensor of objective weights.
-        obj_t: m tensor of objective thresholds corresponding to Y, or None if no
-        objective thresholds used.
+    Returns: Four-item tuple of:
+          - frontier_observations: Observations of points on the pareto frontier,
+          - f: n x m tensor representation of the Pareto frontier values where n is the
+            length of frontier_observations and m is the number of metrics,
+          - obj_w: m tensor of objective weights,
+          - obj_t: m tensor of objective thresholds corresponding to Y, or None if no
+            objective thresholds used.
     """
 
     array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
-    X = (
-        modelbridge.transform_observation_features(observation_features)
-        if use_model_predictions
-        else None
-    )
-    X = array_to_tensor(X) if X is not None else None
-    Y, Yvar = (None, None)
+    X, Y, Yvar = None, None, None
+    if use_model_predictions:
+        X = array_to_tensor(
+            modelbridge.transform_observation_features(observation_features)
+        )
     if observation_data is not None:
         if transform_outcomes_and_configs:
             Y, Yvar = modelbridge.transform_observation_data(observation_data)
@@ -607,14 +609,17 @@ def get_pareto_frontier_and_configs(
     if arm_names is None:
         arm_names = [None] * len(observation_features)
 
-    # Optimization_config
+    # Extract optimization config: make sure that the problem is a MOO
+    # problem and clone the optimization config with specified
+    # `objective_thresholds` if those are provided. If `optimization_config`
+    # is not specified, uses the one stored on `modelbridge`.
     optimization_config = _get_multiobjective_optimization_config(
         modelbridge=modelbridge,
         optimization_config=optimization_config,
         objective_thresholds=objective_thresholds,
     )
 
-    # Transform OptimizationConfig.
+    # Transform optimization config.
     fixed_features = ObservationFeatures(parameters={})
     if transform_outcomes_and_configs:
         optimization_config = modelbridge.transform_optimization_config(
@@ -623,12 +628,7 @@ def get_pareto_frontier_and_configs(
         )
     else:
         # de-relativize outcome constraints and objective thresholds
-        obs = modelbridge.get_training_data()
-        obs_feats = []
-        obs_data = []
-        for ob in obs:
-            obs_feats.append(ob.features)
-            obs_data.append(ob.data)
+        obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=modelbridge)
         tf = Derelativize(
             search_space=modelbridge.model_space.clone(),
             observation_data=obs_data,
@@ -713,25 +713,26 @@ def pareto_frontier(
     arm_names: Optional[List[Optional[str]]] = None,
     use_model_predictions: bool = True,
 ) -> List[Observation]:
-    """Helper that calls frontier_evaluator.
+    """Compute the list of points on the Pareto frontier as `Observation`-s
+    in the untransformed search space.
 
     Args:
-        modelbridge: Modelbridge used to predict metrics outcomes.
-        observation_features: observation features to predict, if provided and
-            use_model_predictions is True.
-        observation_data: data for computing the Pareto front, unless features
-            are provided and model_predictions is True.
-        objective_thresholds: metric values bounding the region of interest in
-            the objective outcome space.
-        optimization_config: Optimization config.
-        arm_names: Arm names for each observation.
-        use_model_predictions: If True, will use model predictions at
-            observation_features to compute Pareto front, if provided. If False,
-            will use observation_data directly to compute Pareto front, regardless
-            of whether observation_features are provided.
+        modelbridge: ``Modelbridge`` used to predict metrics outcomes.
+        observation_features: Observation features to consider for the Pareto
+            frontier.
+        observation_data: Data for computing the Pareto front, unless
+            ``observation_features`` are provided and ``model_predictions is True``.
+        objective_thresholds: Metric values bounding the region of interest in
+            the objective outcome space; used to override objective thresholds
+            specified in ``optimization_config``, if necessary.
+        optimization_config: Multi-objective optimization config.
+        arm_names: Arm names for each observation in ``observation_features``.
+        use_model_predictions: If ``True``, will use model predictions at
+            ``observation_features`` to compute Pareto front. If ``False``,
+            will use ``observation_data`` directly to compute Pareto front, ignoring
+            ``observation_features``.
 
-    Returns:
-        frontier_observations: Observations of points on the pareto frontier.
+    Returns: Points on the Pareto frontier as `Observation`-s.
     """
     return get_pareto_frontier_and_configs(
         modelbridge=modelbridge,
@@ -751,29 +752,27 @@ def predicted_pareto_frontier(
     observation_features: Optional[List[ObservationFeatures]] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
 ) -> List[Observation]:
-    """Generate a pareto frontier based on the posterior means of given
-    observation features.
-
-    Given a model and features to evaluate use the model to predict which points
-    lie on the pareto frontier.
+    """Generate a Pareto frontier based on the posterior means of given
+    observation features. Given a model and optionally features to evaluate
+    (will use model training data if not specified), use the model to predict
+    which points lie on the Pareto frontier.
 
     Args:
-        modelbridge: Modelbridge used to predict metrics outcomes.
-        objective_thresholds: metric values bounding the region of interest in
-            the objective outcome space.
-        observation_features: observation features to predict. Model's training
-            data used by default if unspecified.
-        optimization_config: Optimization config
+        modelbridge: ``Modelbridge`` used to predict metrics outcomes.
+        observation_features: Observation features to predict, if provided and
+            ``use_model_predictions is True``.
+        objective_thresholds: Metric values bounding the region of interest in
+            the objective outcome space; used to override objective thresholds
+            specified in ``optimization_config``, if necessary.
+        optimization_config: Multi-objective optimization config.
 
     Returns:
-        Observations representing points on the pareto frontier.
+        Observations representing points on the Pareto frontier.
     """
     if observation_features is None:
-        observation_features = []
-        arm_names = []
-        for obs in modelbridge.get_training_data():
-            observation_features.append(obs.features)
-            arm_names.append(obs.arm_name)
+        observation_features, _, arm_names = _get_modelbridge_training_data(
+            modelbridge=modelbridge
+        )
     else:
         arm_names = None
     if not observation_features:
@@ -797,33 +796,30 @@ def observed_pareto_frontier(
     objective_thresholds: Optional[TRefPoint] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
 ) -> List[Observation]:
-    """Generate a pareto frontier based on observed data.
-
-    Given observed data, return those outcomes in the pareto frontier.
+    """Generate a pareto frontier based on observed data. Given observed data
+    (sourced from model training data), return points on the Pareto frontier
+    as `Observation`-s.
 
     Args:
-        modelbridge: Modelbridge that holds previous training data.
-        objective_thresholds: metric values bounding the region of interest in
-            the objective outcome space.
-        optimization_config: Optimization config
+        modelbridge: ``Modelbridge`` that holds previous training data.
+        objective_thresholds: Metric values bounding the region of interest in
+            the objective outcome space; used to override objective thresholds
+            in the optimization config, if needed.
+        optimization_config: Multi-objective optimization config.
 
     Returns:
         Data representing points on the pareto frontier.
     """
     # Get observation_data from current training data
-    observation_data = []
-    observation_features = []
-    arm_names = []
-    for obs in modelbridge.get_training_data():
-        observation_data.append(obs.data)
-        observation_features.append(obs.features)
-        arm_names.append(obs.arm_name)
+    obs_feats, obs_data, arm_names = _get_modelbridge_training_data(
+        modelbridge=modelbridge
+    )
 
     pareto_observations = pareto_frontier(
         modelbridge=modelbridge,
         objective_thresholds=objective_thresholds,
-        observation_data=observation_data,
-        observation_features=observation_features,
+        observation_data=obs_data,
+        observation_features=obs_feats,
         optimization_config=optimization_config,
         arm_names=arm_names,
         use_model_predictions=False,
@@ -961,11 +957,10 @@ def predicted_hypervolume(
     Returns:
         calculated hypervolume.
     """
-    observation_features = (
-        observation_features
-        if observation_features is not None
-        else [obs.features for obs in modelbridge.get_training_data()]
-    )
+    if observation_features is None:
+        observation_features, _, __ = _get_modelbridge_training_data(
+            modelbridge=modelbridge
+        )
     if not observation_features:
         raise ValueError(
             "Must receive observation_features as input or the model must "
@@ -1006,14 +1001,13 @@ def observed_hypervolume(
         (float) calculated hypervolume.
     """
     # Get observation_data from current training data.
-    observation_data = [obs.data for obs in modelbridge.get_training_data()]
-    observation_features = [obs.features for obs in modelbridge.get_training_data()]
+    obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=modelbridge)
 
     return hypervolume(
         modelbridge=modelbridge,
         objective_thresholds=objective_thresholds,
-        observation_features=observation_features,
-        observation_data=observation_data,
+        observation_features=obs_feats,
+        observation_data=obs_data,
         optimization_config=optimization_config,
         selected_metrics=selected_metrics,
         use_model_predictions=False,
@@ -1083,3 +1077,15 @@ def _array_to_tensor(
         return modelbridge._array_to_tensor(array)
     else:
         return torch.tensor(array)
+
+
+def _get_modelbridge_training_data(
+    modelbridge: modelbridge_module.array.ArrayModelBridge,
+) -> Tuple[List[ObservationFeatures], List[ObservationData], List[Optional[str]]]:
+    obs = modelbridge.get_training_data()
+    obs_feats, obs_data, arm_names = [], [], []
+    for ob in obs:
+        obs_feats.append(ob.features)
+        obs_data.append(ob.data)
+        arm_names.append(ob.arm_name)
+    return obs_feats, obs_data, arm_names
