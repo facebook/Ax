@@ -346,9 +346,7 @@ class Decoder:
                     "Cannot decode SQAParameterConstraint because `lower_name` or "
                     "`upper_name` was not found."
                 )
-            # pyre-fixme[6]: Expected `str` for 1st param but got `None`.
             lower_parameter = parameter_map[lower_name]
-            # pyre-fixme[6]: Expected `str` for 1st param but got `None`.
             upper_parameter = parameter_map[upper_name]
             constraint = OrderConstraint(
                 lower_parameter=lower_parameter, upper_parameter=upper_parameter
