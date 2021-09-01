@@ -17,6 +17,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment,
     get_factorial_search_space,
     get_large_factorial_search_space,
+    get_large_ordinal_search_space,
 )
 
 
@@ -97,6 +98,18 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
             self.assertEqual(
                 sobol_fullybayesianmoo._steps[1].model.value, "FullyBayesianMOO"
+            )
+        with self.subTest("SAASBO"):
+            sobol_fullybayesian_large = choose_generation_strategy(
+                search_space=get_large_ordinal_search_space(
+                    n_ordinal_choice_parameters=5, n_continuous_range_parameters=10
+                ),
+                use_saasbo=True,
+            )
+            self.assertEqual(sobol_fullybayesian_large._steps[0].model.value, "Sobol")
+            self.assertEqual(sobol_fullybayesian_large._steps[0].num_trials, 15)
+            self.assertEqual(
+                sobol_fullybayesian_large._steps[1].model.value, "FullyBayesian"
             )
 
     def test_setting_random_seed(self):

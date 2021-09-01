@@ -126,7 +126,7 @@ def _suggest_gp_model(
     num_ordered_parameters, num_unordered_choices = 0, 0
     num_choice_combinations, num_unordered_combinations, num_possible_points = 1, 1, 1
     all_range_parameters_are_int = True
-    for parameter in search_space.parameters.values():
+    for parameter in search_space.tunable_parameters.values():
         if isinstance(parameter, ChoiceParameter):
             num_possible_points *= len(parameter.values)
             num_choice_combinations *= len(parameter.values)

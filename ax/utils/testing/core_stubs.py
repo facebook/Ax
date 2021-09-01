@@ -502,6 +502,30 @@ def get_large_factorial_search_space() -> SearchSpace:
     )
 
 
+def get_large_ordinal_search_space(
+    n_ordinal_choice_parameters, n_continuous_range_parameters
+) -> SearchSpace:
+    return SearchSpace(
+        parameters=[  # pyre-ignore[6]
+            RangeParameter(
+                name=f"x{i}",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            for i in range(n_continuous_range_parameters)
+        ]
+        + [  # pyre-ignore[58]
+            ChoiceParameter(
+                name=f"y{i}",
+                parameter_type=ParameterType.INT,
+                values=[2, 4, 8, 16],
+            )
+            for i in range(n_ordinal_choice_parameters)
+        ]
+    )
+
+
 def get_hartmann_search_space(with_fidelity_parameter: bool = False) -> SearchSpace:
     parameters = [
         RangeParameter(
