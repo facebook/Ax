@@ -16,6 +16,7 @@ from ax.core.outcome_constraint import (
     ScalarizedOutcomeConstraint,
 )
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
 
@@ -210,7 +211,17 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             self.additional_outcome_constraint,
         ]
         self.objective_thresholds = [
-            ObjectiveThreshold(metric=self.metrics["m2"], bound=-1.0, relative=False)
+            ObjectiveThreshold(metric=self.metrics["m1"], bound=-1.0, relative=False),
+            ObjectiveThreshold(metric=self.metrics["m2"], bound=-1.0, relative=False),
+        ]
+        self.relative_objective_thresholds = [
+            ObjectiveThreshold(metric=self.metrics["m1"], bound=-1.0, relative=True),
+            ObjectiveThreshold(
+                metric=self.metrics["m2"],
+                op=ComparisonOp.GEQ,
+                bound=-1.0,
+                relative=True,
+            ),
         ]
         self.m1_constraint = OutcomeConstraint(
             metric=self.metrics["m1"], op=ComparisonOp.LEQ, bound=0.1, relative=True
@@ -262,14 +273,14 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         # verify relative_objective_thresholds works:
         config5 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective,
-            objective_thresholds=[self.outcome_constraint],
+            objective_thresholds=self.relative_objective_thresholds,
         )
         threshold = config5.objective_thresholds[0]
         self.assertTrue(threshold.relative)
-        self.assertEqual(threshold.bound, -0.25)
+        self.assertEqual(threshold.bound, -1.0)
 
         # ValueError on wrong direction constraints
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             MultiObjectiveOptimizationConfig(
                 objective=self.multi_objective,
                 objective_thresholds=[self.additional_outcome_constraint],
@@ -372,10 +383,12 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         )
         config2 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective_just_m2,
-            objective_thresholds=self.objective_thresholds,
+            objective_thresholds=[self.objective_thresholds[1]],
             outcome_constraints=[self.m1_constraint],
         )
         self.assertEqual(
-            config1.clone_with_args(objective_thresholds=self.objective_thresholds),
+            config1.clone_with_args(
+                objective_thresholds=[self.objective_thresholds[1]]
+            ),
             config2,
         )

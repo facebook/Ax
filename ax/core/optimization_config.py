@@ -15,6 +15,7 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
+from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 
@@ -149,7 +150,7 @@ class OptimizationConfig(Base):
             outcome_constraints: Constraints to validate.
         """
         if type(objective) == MultiObjective:
-            # Raise error on exact equality; scalarizedObjective is OK
+            # Raise error on exact equality; `ScalarizedObjective` is OK
             raise ValueError(
                 (
                     "OptimizationConfig does not support MultiObjective. "
@@ -157,7 +158,7 @@ class OptimizationConfig(Base):
                 )
             )
         outcome_constraints = outcome_constraints or []
-        # only vaidate outcome_constraints
+        # Only vaidate `outcome_constraints`
         outcome_constraints = [
             constraint
             for constraint in outcome_constraints
@@ -367,10 +368,12 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             )
         outcome_constraints = outcome_constraints or []
         objective_thresholds = objective_thresholds or []
-
-        maybe_raise_wrong_direction_warning(
-            objective=objective, objective_thresholds=objective_thresholds
-        )
+        if isinstance(objective, MultiObjective):
+            objectives_by_name = {obj.metric.name: obj for obj in objective.objectives}
+            check_objective_thresholds_match_objectives(
+                objectives_by_name=objectives_by_name,
+                objective_thresholds=objective_thresholds,
+            )
 
         unconstrainable_metrics = objective.get_unconstrainable_metrics()
         OptimizationConfig._validate_outcome_constraints(
@@ -390,26 +393,43 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         )
 
 
-def maybe_raise_wrong_direction_warning(
-    objective: Objective,
+def check_objective_thresholds_match_objectives(
+    objectives_by_name: Dict[str, Objective],
     objective_thresholds: List[ObjectiveThreshold],
 ) -> None:
-    """Warn if thresholds on objective_metrics bound from the wrong direction."""
-    if not isinstance(objective, MultiObjective):
-        return
-
-    objectives_by_name = {obj.metric.name: obj for obj in objective.objectives}
+    """Error if thresholds on objective_metrics bound from the wrong direction or
+    if there is a mismatch between objective thresholds and objectives.
+    """
+    obj_thresh_metrics = set()
     for threshold in objective_thresholds:
         metric_name = threshold.metric.name
+        if metric_name not in objectives_by_name:
+            raise UserInputError(
+                f"Objective threshold {threshold} is on metric '{metric_name}', "
+                f"but that metric is not among the objectives."
+            )
+        if metric_name in obj_thresh_metrics:
+            raise UserInputError(
+                "More than one objective threshold specified for metric "
+                f"{metric_name}."
+            )
+        obj_thresh_metrics.add(metric_name)
+
         if metric_name in objectives_by_name:
             minimize = objectives_by_name[metric_name].minimize
             bounded_above = threshold.op == ComparisonOp.LEQ
             is_aligned = minimize == bounded_above
             if not is_aligned:
-                message = (
-                    f"Constraint on {metric_name} bounds from "
+                raise UserInputError(
+                    f"Objective threshold on {metric_name} bounds from "
                     f"{'above' if bounded_above else 'below'} "
                     f"but {metric_name} is being "
                     f"{'minimized' if minimize else 'maximized'}."
-                ).format(metric_name)
-                raise ValueError(message)
+                )
+
+    obj_metrics = set(objectives_by_name.keys())
+    if objective_thresholds and obj_thresh_metrics.symmetric_difference(obj_metrics):
+        raise UserInputError(
+            f"Objective thresholds: {obj_thresh_metrics} do not match objectives: "
+            f"{obj_metrics}."
+        )

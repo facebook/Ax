@@ -798,9 +798,11 @@ def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
 ##############################
 
 
-def get_objective_threshold() -> ObjectiveThreshold:
+def get_objective_threshold(
+    metric_name: str = "m1", bound=-0.25, comparison_op: ComparisonOp = ComparisonOp.GEQ
+) -> ObjectiveThreshold:
     return ObjectiveThreshold(
-        metric=Metric(name="m1"), bound=-0.25, op=ComparisonOp.GEQ
+        metric=Metric(name=metric_name), bound=bound, op=comparison_op
     )
 
 
@@ -899,7 +901,10 @@ def get_map_optimization_config() -> OptimizationConfig:
 def get_multi_objective_optimization_config() -> OptimizationConfig:
     objective = get_multi_objective()
     outcome_constraints = [get_outcome_constraint()]
-    objective_thresholds = [get_objective_threshold()]
+    objective_thresholds = [
+        get_objective_threshold(metric_name="m1"),
+        get_objective_threshold(metric_name="m3", comparison_op=ComparisonOp.LEQ),
+    ]
     return MultiObjectiveOptimizationConfig(
         objective=objective,
         outcome_constraints=outcome_constraints,

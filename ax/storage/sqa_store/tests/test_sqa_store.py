@@ -622,10 +622,16 @@ class SQAStoreTest(TestCase):
         # (should perform update in place)
         optimization_config = get_multi_objective_optimization_config()
         objective_threshold = get_objective_threshold()
-        optimization_config.objective_thresholds = [objective_threshold]
+        objective_threshold2 = get_objective_threshold(
+            "m3", bound=3.0, comparison_op=ComparisonOp.LEQ
+        )
+        optimization_config.objective_thresholds = [
+            objective_threshold,
+            objective_threshold2,
+        ]
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAMetric).count(), 6)
+        self.assertEqual(get_session().query(SQAMetric).count(), 7)
         self.assertIsNotNone(
             experiment.optimization_config.objective_thresholds[0].metric.db_id
         )
@@ -640,14 +646,14 @@ class SQAStoreTest(TestCase):
         ]
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAMetric).count(), 7)
+        self.assertEqual(get_session().query(SQAMetric).count(), 8)
 
         # remove outcome constraint
         # (old one should become tracking metric)
         optimization_config.outcome_constraints = []
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAMetric).count(), 5)
+        self.assertEqual(get_session().query(SQAMetric).count(), 6)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)

@@ -6,7 +6,7 @@
 
 from ax.core.metric import Metric
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.service.utils.instantiation import (
     _get_parameter_type,
     constraint_from_str,
@@ -139,24 +139,13 @@ class TestInstantiationtUtils(TestCase):
                 )
 
         with self.subTest("MOO missing objective thresholds"):
-            with self.assertLogs(
-                "ax.service.utils.instantiation", level="INFO"
-            ) as logs:
+            with self.assertRaises(UserInputError):
                 multi_optimization_config = make_optimization_config(
                     objectives,
                     objective_thresholds=objective_thresholds[:1],
                     outcome_constraints=[],
                     status_quo_defined=False,
                 )
-                self.assertTrue(
-                    any(
-                        "Due to non-specification" in output and "currin" in output
-                        for output in logs.output
-                    ),
-                    logs.output,
-                )
-                self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
-                self.assertEqual(len(multi_optimization_config.objective_thresholds), 1)
 
         with self.subTest("MOO with all objective threshold"):
             multi_optimization_config = make_optimization_config(

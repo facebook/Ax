@@ -429,23 +429,18 @@ def optimization_config_from_objectives(
             objective=objectives[0],
             outcome_constraints=outcome_constraints,
         )
-    else:
-        objective_names = {m.metric.name for m in objectives}
-        threshold_names = {oc.metric.name for oc in objective_thresholds}
-        if objective_names != threshold_names:
-            logger.info(
-                (
-                    "Due to non-specification, we will use the heuristic for selecting "
-                    "thresholds for these metrics: %s"
-                ),
-                objective_names.symmetric_difference(threshold_names),
-            )
 
-        return MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(objectives=objectives),
-            outcome_constraints=outcome_constraints,
-            objective_thresholds=objective_thresholds,
+    if not objective_thresholds:
+        logger.info(
+            "Due to non-specification, we will use the heuristic for selecting "
+            "objective thresholds."
         )
+
+    return MultiObjectiveOptimizationConfig(
+        objective=MultiObjective(objectives=objectives),
+        outcome_constraints=outcome_constraints,
+        objective_thresholds=objective_thresholds,
+    )
 
 
 def make_optimization_config(
