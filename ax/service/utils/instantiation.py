@@ -143,7 +143,6 @@ def _make_range_param(
 def _make_choice_param(
     name: str, representation: TParameterRepresentation, parameter_type: Optional[str]
 ) -> ChoiceParameter:
-    assert "values" in representation, "Values are required for choice parameters."
     values = representation["values"]
     assert isinstance(values, list) and len(values) > 1, (
         f"Cannot parse parameter {name}: for choice parameters, json representation"
@@ -217,9 +216,22 @@ def parameter_from_json(
         )
 
     if parameter_class == "choice":
-        return _make_choice_param(
-            name=name, representation=representation, parameter_type=parameter_type
-        )
+        assert "values" in representation, "Values are required for choice parameters."
+        values = representation["values"]
+        if isinstance(values, list) and len(values) == 1:
+            logger.info(
+                f"Choice parameter {name} contains only one value, converting to a"
+                + " fixed parameter instead."
+            )
+            # update the representation to a fixed parameter class
+            parameter_class = "fixed"
+            representation["type"] = parameter_class
+            representation["value"] = values[0]
+            del representation["values"]
+        else:
+            return _make_choice_param(
+                name=name, representation=representation, parameter_type=parameter_type
+            )
 
     if parameter_class == "fixed":
         assert not any(isinstance(val, list) for val in representation.values())

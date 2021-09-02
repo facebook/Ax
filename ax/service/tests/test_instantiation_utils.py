@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.metric import Metric
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import ParameterType, RangeParameter, FixedParameter
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.service.utils.instantiation import (
     _get_parameter_type,
@@ -15,6 +15,7 @@ from ax.service.utils.instantiation import (
     make_objectives,
     make_optimization_config,
     raw_data_to_evaluation,
+    parameter_from_json,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -167,6 +168,16 @@ class TestInstantiationtUtils(TestCase):
                 status_quo_defined=False,
             )
             self.assertEqual(single_optimization_config.objective.metric.name, "branin")
+
+    def test_single_valued_choice_to_fixed_param_conversion(self):
+        representation = {
+            "name": "test",
+            "type": "choice",
+            "values": [1.0],
+        }
+        output = parameter_from_json(representation)
+        self.assertIsInstance(output, FixedParameter)
+        self.assertEqual(output.value, 1.0)
 
 
 class TestRawDataToEvaluation(TestCase):
