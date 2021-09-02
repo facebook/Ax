@@ -829,7 +829,7 @@ class ExperimentWithMapDataTest(TestCase):
         self.experiment.trials[0].mark_completed()
 
         expected_data = remaining_epochs
-        actual_data = self.experiment.lookup_data()
+        actual_data = self.experiment.lookup_data(keep_latest_map_values_only=False)
         self.assertEqual(expected_data, actual_data)
 
     def testFetchTrialsData(self):
@@ -886,5 +886,5 @@ class ExperimentWithMapDataTest(TestCase):
         # which has combine_with_last_data = True,
         # the cached data should be merged and contain both timestamps
         self.assertEqual(len(exp.data_by_trial[0]), 1)
-        looked_up_data = exp.lookup_data()
+        looked_up_data = exp.lookup_data(keep_latest_map_values_only=False)
         self.assertEqual(set(looked_up_data.df["timestamp"].values), {0, 1})

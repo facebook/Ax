@@ -663,6 +663,7 @@ class Experiment(Base):
     def lookup_data(
         self,
         trial_indices: Optional[Iterable[int]] = None,
+        keep_latest_map_values_only: bool = True,
     ) -> AbstractDataFrameData:
         """Lookup data for all trials on this experiment and for either the
         specified metrics or all metrics currently on the experiment, if `metrics`
@@ -670,6 +671,11 @@ class Experiment(Base):
 
         Args:
             trial_indices: Indices of trials, for which to fetch data.
+            keep_latest_map_values_only: If true, then if Data is an instance of
+                MapData, we keep only the latest value for each map key. This way,
+                the returned dataframe will only contain one row for each trial,
+                arm, and metric.
+
 
         Returns:
             Data for the experiment.
@@ -686,7 +692,10 @@ class Experiment(Base):
             return self.default_data_constructor()
         last_data = data_by_trial[-1]
         last_data_type = type(last_data)
-        return last_data_type.from_multiple_data(data_by_trial)
+        data = last_data_type.from_multiple_data(data_by_trial)
+        if isinstance(data, MapData) and keep_latest_map_values_only:
+            data = data.to_standard_data()
+        return data
 
     @property
     def num_trials(self) -> int:

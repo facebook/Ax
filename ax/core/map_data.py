@@ -36,6 +36,8 @@ class MapData(AbstractDataFrameData):
     # either in your Metric class or in Data explicitly.
     REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
 
+    DEDUPLICATE_BY_COLUMNS = ["arm_name", "metric_name"]
+
     def __init__(
         self,
         df: Optional[pd.DataFrame] = None,
@@ -188,5 +190,35 @@ class MapData(AbstractDataFrameData):
             raise ValueError("Inconsistent map_key sets in evaluations.")
         return MapData(df=pd.DataFrame(records), map_keys=map_keys)
 
-    def to_standard_data(self) -> Data:
-        return Data(df=self.df)
+    def to_standard_data(self, keep: str = "last") -> Data:
+        """
+        Convert instance of MapData to a standard Ax Data object.
+        First deduplicate by arm_name and metric_name, and then
+        drop the map_keys columns entirely.
+
+        Args:
+            keep: Determines which duplicates (rows that differ by map key) to keep.
+                - first:  Drop duplicates except for the first occurrence.
+                - last: Drop duplicates except for the last occurrence.
+                - False: Drop all duplicates.
+
+        Returns:
+            Ax Data object.
+        """
+
+        if keep not in {"last", "first", False}:
+            raise ValueError(
+                "Invalid value for `keep`: must be one of {'last', 'first', False}."
+            )
+
+        df = self.df
+        map_keys = self.map_keys
+        if len(map_keys) > 0:
+            df = (
+                df.sort_values(map_keys)
+                .drop_duplicates(
+                    MapData.DEDUPLICATE_BY_COLUMNS, keep=keep  # pyre-ignore
+                )
+                .drop(columns=map_keys)
+            )
+        return Data(df=df)

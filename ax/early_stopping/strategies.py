@@ -105,7 +105,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         objective_name = optimization_config.objective.metric.name
         minimize = optimization_config.objective.minimize
 
-        data = experiment.lookup_data()
+        data = experiment.lookup_data(keep_latest_map_values_only=False)
         if data.df.empty:
             logger.info(
                 "PercentileEarlyStoppingStrategy received empty data. "
