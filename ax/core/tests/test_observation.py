@@ -102,6 +102,11 @@ class ObservationsTest(TestCase):
         printstr = "ObservationData(metric_names=['a', 'b'], means=[ 4.  5.], "
         printstr += "covariance=[[ 1.  4.]\n [ 3.  6.]])"
         self.assertEqual(repr(obsd), printstr)
+        self.assertEqual(obsd.means_dict, {"a": 4.0, "b": 5.0})
+        self.assertEqual(
+            obsd.covariance_matrix,
+            {"a": {"a": 1.0, "b": 4.0}, "b": {"a": 3.0, "b": 6.0}},
+        )
 
     def testObservationDataValidation(self):
         with self.assertRaises(ValueError):

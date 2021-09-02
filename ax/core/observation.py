@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 
 import numpy as np
 import pandas as pd
@@ -167,6 +167,27 @@ class ObservationData(Base):
         self.metric_names = metric_names
         self.means = means
         self.covariance = covariance
+
+    @property
+    def means_dict(self) -> Dict[str, float]:
+        """Extract means from this observation data as mapping from metric name to
+        mean.
+        """
+        return dict(zip(self.metric_names, self.means))
+
+    @property
+    def covariance_matrix(self) -> Dict[str, Dict[str, float]]:
+        """Extract covariance matric from this observation data as mapping from
+        metric name (m1) to mapping of another metric name (m2) to the covariance
+        of the two metrics (m1 and m2).
+        """
+        return {
+            m1: {
+                m2: float(self.covariance[idx1][idx2])
+                for idx2, m2 in enumerate(self.metric_names)
+            }
+            for idx1, m1 in enumerate(self.metric_names)
+        }
 
     def __repr__(self) -> str:
         return "ObservationData(metric_names={mn}, means={m}, covariance={c})".format(
