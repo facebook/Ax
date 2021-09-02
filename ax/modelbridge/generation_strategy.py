@@ -384,12 +384,19 @@ class GenerationStrategy(Base):
 
     @property
     def num_completed_this_step(self) -> int:
-        """Number of trials in status `COMPLETD` for the current generation step
-        of this strategy.
+        """Number of trials in status `COMPLETED` or `EARLY_STOPPED` for
+        the current generation step of this strategy. We include early
+        stopped trials because their data will be used in the model,
+        so they are completed from the model's point of view and should
+        count towards that total.
         """
         step_trials = self.trial_indices_by_step[self._curr.index]
         by_status = self.experiment.trial_indices_by_status
-        return len(step_trials.intersection(by_status[TrialStatus.COMPLETED]))
+        return len(
+            step_trials.intersection(
+                by_status[TrialStatus.COMPLETED] | by_status[TrialStatus.EARLY_STOPPED]
+            )
+        )
 
     def gen(
         self,
