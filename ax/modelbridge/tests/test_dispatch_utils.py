@@ -65,7 +65,7 @@ class TestDispatchUtils(TestCase):
                 search_space=get_factorial_search_space()
             )
             self.assertEqual(bo_mixed._steps[0].model.value, "Sobol")
-            self.assertEqual(bo_mixed._steps[0].num_trials, 5)
+            self.assertEqual(bo_mixed._steps[0].num_trials, 6)
             self.assertEqual(bo_mixed._steps[1].model.value, "BO_MIXED")
         with self.subTest("BO_MIXED (mixed search space)"):
             ss = get_branin_search_space(with_choice_parameter=True)
@@ -107,10 +107,34 @@ class TestDispatchUtils(TestCase):
                 use_saasbo=True,
             )
             self.assertEqual(sobol_fullybayesian_large._steps[0].model.value, "Sobol")
-            self.assertEqual(sobol_fullybayesian_large._steps[0].num_trials, 15)
+            self.assertEqual(sobol_fullybayesian_large._steps[0].num_trials, 30)
             self.assertEqual(
                 sobol_fullybayesian_large._steps[1].model.value, "FullyBayesian"
             )
+        with self.subTest("num_initialization_trials"):
+            ss = get_large_factorial_search_space()
+            for _, param in ss.parameters.items():
+                param._is_ordered = True
+            # 2 * len(ss.parameters) init trials are performed if num_trials is large
+            gs_12_init_trials = choose_generation_strategy(
+                search_space=ss, num_trials=100
+            )
+            self.assertEqual(gs_12_init_trials._steps[0].model.value, "Sobol")
+            self.assertEqual(gs_12_init_trials._steps[0].num_trials, 12)
+            self.assertEqual(gs_12_init_trials._steps[1].model.value, "GPEI")
+            # at least 5 initialization trials are performed
+            gs_5_init_trials = choose_generation_strategy(search_space=ss, num_trials=0)
+            self.assertEqual(gs_5_init_trials._steps[0].model.value, "Sobol")
+            self.assertEqual(gs_5_init_trials._steps[0].num_trials, 5)
+            self.assertEqual(gs_5_init_trials._steps[1].model.value, "GPEI")
+            # avoid spending >20% of budget on initialization trials if there are
+            # more than 5 initialization trials
+            gs_6_init_trials = choose_generation_strategy(
+                search_space=ss, num_trials=30
+            )
+            self.assertEqual(gs_6_init_trials._steps[0].model.value, "Sobol")
+            self.assertEqual(gs_6_init_trials._steps[0].num_trials, 6)
+            self.assertEqual(gs_6_init_trials._steps[1].model.value, "GPEI")
 
     def test_setting_random_seed(self):
         sobol = choose_generation_strategy(

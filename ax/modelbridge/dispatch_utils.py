@@ -17,6 +17,7 @@ from ax.modelbridge.registry import Cont_X_trans, Models, Y_trans
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -290,8 +291,18 @@ def choose_generation_strategy(
         if num_initialization_trials is None:
             if use_batch_trials:  # Batched trials.
                 num_initialization_trials = 1
+            elif num_trials is not None:  # 1-arm trials with specified `num_trials`.
+                num_initialization_trials = max(
+                    5,
+                    min(
+                        not_none(num_trials) // 5,
+                        2 * len(search_space.tunable_parameters),
+                    ),
+                )
             else:  # 1-arm trials.
-                num_initialization_trials = max(5, len(search_space.parameters))
+                num_initialization_trials = max(
+                    5, 2 * len(search_space.tunable_parameters)
+                )
 
         # Determine max parallelism for the generation steps.
         if max_parallelism_override == -1:
