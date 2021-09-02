@@ -81,7 +81,7 @@ class TutorialHome extends React.Component {
                   Modular <code>BoTorchModel</code>
                 </a>
                 &nbsp; walks though a new beta-feature &mdash; an improved
-                interface between Ax and <a href="botorch.org">BoTorch</a>{' '}
+                interface between Ax and <a href="https://botorch.org/">BoTorch</a>{' '}
                 &mdash; which allows for combining arbitrary BoTorch components
                 like
                 <code>AcquisitionFunction</code>, <code>Model</code>,
