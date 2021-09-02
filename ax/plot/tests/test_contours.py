@@ -33,9 +33,19 @@ class ContoursTest(TestCase):
         self.assertIsInstance(plot, go.Figure)
         plot = interact_contour_plotly(model, list(model.metric_names)[0])
         self.assertIsInstance(plot, go.Figure)
+        plot = interact_contour(model, list(model.metric_names)[0])
+        self.assertIsInstance(plot, AxPlotConfig)
         plot = plot = plot_contour(
             model, model.parameters[0], model.parameters[1], list(model.metric_names)[0]
         )
         self.assertIsInstance(plot, AxPlotConfig)
-        plot = interact_contour(model, list(model.metric_names)[0])
-        self.assertIsInstance(plot, AxPlotConfig)
+
+        # Make sure all parameters and metrics are displayed in tooltips
+        tooltips = list(exp.parameters.keys()) + list(exp.metrics.keys())
+        for d in plot.data["data"]:
+            # Only check scatter plots hoverovers
+            if d["type"] != "scatter":
+                continue
+            for text in d["text"]:
+                for tt in tooltips:
+                    self.assertTrue(tt in text)

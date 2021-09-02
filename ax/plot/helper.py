@@ -566,13 +566,26 @@ def contour_config_to_trace(config):
     sd_trace.update(CONTOUR_CONFIG)
 
     # get in-sample arms
-    arm_text = list(arm_data["in_sample"].keys())
+    arm_names = list(arm_data["in_sample"].keys())
     arm_x = [
-        arm_data["in_sample"][arm_name]["parameters"][xvar] for arm_name in arm_text
+        arm_data["in_sample"][arm_name]["parameters"][xvar] for arm_name in arm_names
     ]
     arm_y = [
-        arm_data["in_sample"][arm_name]["parameters"][yvar] for arm_name in arm_text
+        arm_data["in_sample"][arm_name]["parameters"][yvar] for arm_name in arm_names
     ]
+    arm_text = []
+    for arm_name in arm_names:
+        atext = f"Arm {arm_name}"
+        params = arm_data["in_sample"][arm_name]["parameters"]
+        ys = arm_data["in_sample"][arm_name]["y"]
+        ses = arm_data["in_sample"][arm_name]["se"]
+        for yname in ys.keys():
+            sem_str = f"{ses[yname]}" if ses[yname] is None else f"{ses[yname]:.6g}"
+            y_str = f"{ys[yname]}" if ys[yname] is None else f"{ys[yname]:.6g}"
+            atext += f"<br>{yname}: {y_str} (SEM: {sem_str})"
+        for pname in params.keys():
+            atext += f"<br>{pname}: {params[pname]:.6g}"
+        arm_text.append(atext)
 
     # configs for in-sample arms
     base_in_sample_arm_config = {
