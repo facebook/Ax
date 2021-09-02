@@ -769,10 +769,7 @@ class Scheduler(WithDBSettingsBase, ABC):
 
         # Until completion criterion is reached or `max_trials` is scheduled,
         # schedule new trials and poll existing ones in a loop.
-        n_already_run_by_scheduler = (
-            len(trials) - n_existing - len(self.candidate_trials)
-        )
-        n_remaining_to_run = max_trials - n_already_run_by_scheduler
+        n_remaining_to_run = max_trials
         while (
             not self.should_consider_optimization_complete() and n_remaining_to_run > 0
         ):
