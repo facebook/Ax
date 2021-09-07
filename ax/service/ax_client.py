@@ -212,6 +212,7 @@ class AxClient(WithDBSettingsBase):
                 parameters,
                 4. "is_ordered" (bool) for choice parameters, and
                 5. "is_task" (bool) for task parameters.
+                6. "digits" (int) for float-valued range parameters.
             name: Name of the experiment to be created.
             objective_name[DEPRECATED]: Name of the metric used as objective
                 in this experiment. This metric must be present in `raw_data`
