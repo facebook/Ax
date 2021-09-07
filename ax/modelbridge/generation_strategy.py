@@ -813,6 +813,9 @@ class GenerationStrategy(Base):
                 "implement fetching logic (check your metrics) or no data was "
                 "attached to experiment for completed trials."
             )
+        if not data.df.empty:
+            trial_indices_in_data = sorted(data.df["trial_index"].unique())
+            logger.debug(f"Setting model with data for trials: {trial_indices_in_data}")
         # TODO(jej)[T87591836] Support non-`Data` data types.
         if isinstance(self._curr.model, ModelRegistryBase):
             # pyre-fixme [6]: Incompat param: Expect `Data` got `AbstractDataFrameData`

@@ -12,6 +12,7 @@ from typing import List, Tuple
 from unittest.mock import patch
 
 import numpy as np
+import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.generator_run import GeneratorRun
@@ -31,6 +32,11 @@ from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.service.ax_client import AxClient
+from ax.service.utils.best_point import (
+    get_pareto_optimal_parameters,
+    predicted_pareto,
+    observed_pareto,
+)
 from ax.service.utils.instantiation import ObjectiveProperties
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
@@ -41,6 +47,11 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
+from botorch.test_functions.multi_objective import BraninCurrin
+from botorch.utils.sampling import manual_seed
+
+
+RANDOM_SEED = 239
 
 
 def run_trials_using_recommended_parallelism(
@@ -65,6 +76,58 @@ def run_trials_using_recommended_parallelism(
                 ax_client.complete_trial(idx, branin(params["x"], params["y"]))
     # If all went well and no errors were raised, remaining_trials should be 0.
     return remaining_trials
+
+
+def get_branin_currin(minimize: bool = False) -> BraninCurrin:
+    return BraninCurrin(negate=not minimize).to(
+        dtype=torch.double,
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    )
+
+
+def get_branin_currin_optimization_with_N_sobol_trials(
+    num_trials: int,
+    minimize: bool = False,
+    include_objective_thresholds: bool = True,
+    random_seed: int = RANDOM_SEED,
+) -> AxClient:
+    branin_currin = get_branin_currin(minimize=minimize)
+    ax_client = AxClient()
+    ax_client.create_experiment(
+        parameters=[
+            {"name": "x", "type": "range", "bounds": [0.0, 1.0]},
+            {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
+        ],
+        objectives={
+            "branin": ObjectiveProperties(
+                minimize=False,
+                threshold=branin_currin.ref_point[0]
+                if include_objective_thresholds
+                else None,
+            ),
+            "currin": ObjectiveProperties(
+                minimize=False,
+                threshold=branin_currin.ref_point[1]
+                if include_objective_thresholds
+                else None,
+            ),
+        },
+        choose_generation_strategy_kwargs={
+            "num_initialization_trials": num_trials,
+            "random_seed": random_seed,
+        },
+    )
+    for _ in range(num_trials):
+        parameterization, trial_index = ax_client.get_next_trial()
+        x, y = parameterization.get("x"), parameterization.get("y")
+        ax_client.complete_trial(
+            trial_index,
+            raw_data={
+                "branin": float(branin_currin(torch.tensor([x, y]))[0]),
+                "currin": float(branin_currin(torch.tensor([x, y]))[1]),
+            },
+        )
+    return ax_client, branin_currin
 
 
 class TestAxClient(TestCase):
@@ -1307,7 +1370,7 @@ class TestAxClient(TestCase):
         )
 
     def test_fixed_random_seed_reproducibility(self):
-        ax_client = AxClient(random_seed=239)
+        ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
@@ -1320,7 +1383,7 @@ class TestAxClient(TestCase):
         trial_parameters_1 = [
             t.arm.parameters for t in ax_client.experiment.trials.values()
         ]
-        ax_client = AxClient(random_seed=239)
+        ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
@@ -1336,7 +1399,7 @@ class TestAxClient(TestCase):
         self.assertEqual(trial_parameters_1, trial_parameters_2)
 
     def test_init_position_saved(self):
-        ax_client = AxClient(random_seed=239)
+        ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
@@ -1366,7 +1429,7 @@ class TestAxClient(TestCase):
             ax_client.complete_trial(idx, branin(params.get("x"), params.get("y")))
 
     def test_unnamed_experiment_snapshot(self):
-        ax_client = AxClient(random_seed=239)
+        ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
@@ -1496,3 +1559,100 @@ class TestAxClient(TestCase):
             expected_regex="Cholesky errors typically occur",
         ):
             ax_client.get_next_trial()
+
+    @patch(
+        f"{get_pareto_optimal_parameters.__module__}.predicted_pareto",
+        wraps=predicted_pareto,
+    )
+    @patch(
+        f"{get_pareto_optimal_parameters.__module__}.observed_pareto",
+        wraps=observed_pareto,
+    )
+    def test_get_pareto_optimal_points(
+        self, mock_observed_pareto, mock_predicted_pareto
+    ):
+        ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
+            num_trials=20
+        )
+        ax_client.generation_strategy._maybe_move_to_next_step()
+        ax_client.generation_strategy._set_current_model(data=None)
+        self.assertEqual(ax_client.generation_strategy._curr.model_name, "MOO")
+
+        # Check model-predicted Pareto frontier using model on GS.
+        predicted_pareto = ax_client.get_pareto_optimal_parameters()
+        self.assertEqual(len(predicted_pareto), 3)
+        self.assertEqual(sorted(predicted_pareto.keys()), [11, 12, 14])
+        observed_pareto = ax_client.get_pareto_optimal_parameters(
+            use_model_predictions=False
+        )
+        # Check that we did not specify objective threshold overrides (because we
+        # did not have to infer them)
+        self.assertIsNone(
+            mock_predicted_pareto.call_args[1].get("objective_thresholds")
+        )
+        # Observed Pareto values should be better than the reference point.
+        for obs in observed_pareto.values():
+            self.assertGreater(obs[1][0].get("branin"), branin_currin.ref_point[0])
+            self.assertGreater(obs[1][0].get("currin"), branin_currin.ref_point[1])
+        self.assertEqual(len(observed_pareto), 1)
+        self.assertEqual(sorted(observed_pareto.keys()), [14])
+        # Check that we did not specify objective threshold overrides (because we
+        # did not have to infer them)
+        self.assertIsNone(mock_observed_pareto.call_args[1].get("objective_thresholds"))
+
+    def test_get_pareto_optimal_points_from_sobol_step(self):
+        ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
+            num_trials=20
+        )
+        self.assertEqual(ax_client.generation_strategy._curr.model_name, "Sobol")
+
+        with manual_seed(seed=RANDOM_SEED):
+            predicted_pareto = ax_client.get_pareto_optimal_parameters()
+        self.assertEqual(len(predicted_pareto), 3)
+        self.assertEqual(sorted(predicted_pareto.keys()), [11, 12, 14])
+        observed_pareto = ax_client.get_pareto_optimal_parameters(
+            use_model_predictions=False
+        )
+        self.assertEqual(len(observed_pareto), 1)
+        self.assertEqual(sorted(observed_pareto.keys()), [14])
+
+    @patch(
+        f"{get_pareto_optimal_parameters.__module__}.predicted_pareto",
+        wraps=predicted_pareto,
+    )
+    @patch(
+        f"{get_pareto_optimal_parameters.__module__}.observed_pareto",
+        wraps=observed_pareto,
+    )
+    def test_get_pareto_optimal_points_objective_threshold_inference(
+        self, mock_observed_pareto, mock_predicted_pareto
+    ):
+        ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
+            num_trials=20, include_objective_thresholds=False
+        )
+        ax_client.generation_strategy._maybe_move_to_next_step()
+        ax_client.generation_strategy._set_current_model(data=None)
+
+        with manual_seed(seed=RANDOM_SEED):
+            predicted_pareto = ax_client.get_pareto_optimal_parameters()
+
+        # Check that we specified objective threshold overrides (because we
+        # inferred them)
+        self.assertIsNotNone(
+            mock_predicted_pareto.call_args[1].get("objective_thresholds")
+        )
+        mock_predicted_pareto.reset_mock()
+        mock_observed_pareto.assert_not_called()
+        self.assertGreater(len(predicted_pareto), 0)
+
+        with manual_seed(seed=RANDOM_SEED):
+            observed_pareto = ax_client.get_pareto_optimal_parameters(
+                use_model_predictions=False
+            )
+        # Check that we specified objective threshold overrides (because we
+        # inferred them)
+        self.assertIsNotNone(
+            mock_observed_pareto.call_args[1].get("objective_thresholds")
+        )
+        mock_predicted_pareto.assert_not_called()
+        self.assertGreater(len(observed_pareto), 0)

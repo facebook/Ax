@@ -174,16 +174,28 @@ def get_pareto_optimal_parameters(
     observed values from the experiment otherwise. By default, uses model
     predictions to account for observation noise.
 
+    NOTE: The format of this method's output is as follows:
+    { trial_index --> (parameterization, (means, covariances) }, where means
+    are a dictionary of form { metric_name --> metric_mean } and covariances
+    are a nested dictionary of form
+    { one_metric_name --> { another_metric_name: covariance } }.
+
     Args:
         experiment: Experiment, from which to find Pareto-optimal arms.
-        generation_strategy: Generation strategy containing the modelbridge
+        generation_strategy: Generation strategy containing the modelbridge.
+        use_model_predictions: Whether to extract the Pareto frontier using
+            model predictions or directly observed values. If ``True``,
+            the metric means and covariances in this method's output will
+            also be based on model predictions and may differ from the
+            observed values.
 
     Returns:
         ``None`` if it was not possible to extract the Pareto frontier,
         otherwise a mapping from trial index to the tuple of:
-          - the parameterization of the arm in that trial,
-          - two-item tuple of model-predicted or observed metric means
-            dictionary and covariance matrix.
+        - the parameterization of the arm in that trial,
+        - two-item tuple of metric means dictionary and covariance matrix
+            (model-predicted if ``use_model_predictions=True`` and observed
+            otherwise).
     """
     # Validate aspects of the experiment: that it is a MOO experiment and
     # that the current model can be used to produce the Pareto frontier.
@@ -237,11 +249,12 @@ def get_pareto_optimal_parameters(
             "configuration on the experiment."
         )
 
+    # Extract the Pareto frontier and format it as follows:
+    # { trial_index --> (parameterization, (means, covariances) }
     pareto_util = predicted_pareto if use_model_predictions else observed_pareto
     pareto_optimal_observations = pareto_util(
         modelbridge=mb, objective_thresholds=objective_thresholds_override
     )
-
     return {
         int(not_none(obs.features.trial_index)): (
             obs.features.parameters,
