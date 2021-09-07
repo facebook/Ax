@@ -98,10 +98,12 @@ class TrialAsTask(Transform):
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, level_dict in self.trial_level_map.items():
             level_values = sorted(set(level_dict.values()))
-            if len(level_values) == 1:
+            if len(level_values) < 2:
+                details = (
+                    f"only 1 found: {level_values}" if level_values else "none found"
+                )
                 raise ValueError(
-                    "TrialAsTask transform expects 2+ task params, "
-                    + f"only 1 found: {level_values}"
+                    f"TrialAsTask transform expects 2+ task params, {details}"
                 )
             trial_param = ChoiceParameter(
                 name=p_name,

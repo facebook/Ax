@@ -387,7 +387,7 @@ class ChoiceParameter(Parameter):
         self._target_value = self.cast(target_value)
         # A choice parameter with only one value is a FixedParameter.
         if not len(values) > 1:
-            raise UserInputError(FIXED_CHOICE_PARAM_ERROR)
+            raise UserInputError(f"{self._name}({values}): {FIXED_CHOICE_PARAM_ERROR}")
         self._values = self._cast_values(values)
         # [TODO] Ax should override is_ordered of False if len(values) == 2.
         self._is_ordered = (

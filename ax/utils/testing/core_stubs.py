@@ -184,7 +184,7 @@ def get_branin_experiment_with_timestamp_map_metric(
 
 
 def get_multi_type_experiment(
-    add_trial_type: bool = True, add_trials: bool = False
+    add_trial_type: bool = True, add_trials: bool = False, num_arms: int = 10
 ) -> MultiTypeExperiment:
     oc = OptimizationConfig(Objective(BraninMetric("m1", ["x1", "x2"])))
     experiment = MultiTypeExperiment(
@@ -204,7 +204,7 @@ def get_multi_type_experiment(
 
     if add_trials and add_trial_type:
         generator = get_sobol(experiment.search_space)
-        gr = generator.gen(10)
+        gr = generator.gen(num_arms)
         t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
         t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
         t1.set_status_quo_with_weight(status_quo=t1.arms[0], weight=0.5)
@@ -389,6 +389,31 @@ def get_branin_experiment_with_multi_objective(
         exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
             sobol_run
         )
+
+    return exp
+
+
+def get_branin_with_multi_task(with_multi_objective: bool = False):
+    exp = Experiment(
+        name="branin_test_experiment",
+        search_space=get_branin_search_space(),
+        optimization_config=get_branin_multi_objective_optimization_config(
+            has_objective_thresholds=True,
+        )
+        if with_multi_objective
+        else get_branin_optimization_config(),
+        runner=SyntheticRunner(),
+        is_test=True,
+    )
+
+    exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+
+    sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
+    sobol_run = sobol_generator.gen(n=5)
+    exp.new_batch_trial(optimize_for_power=True).add_generator_run(sobol_run)
+    not_none(exp.trials.get(0)).run()
+    exp.new_batch_trial(optimize_for_power=True).add_generator_run(sobol_run)
+    not_none(exp.trials.get(1)).run()
 
     return exp
 
@@ -582,8 +607,10 @@ def get_discrete_search_space() -> SearchSpace:
 ##############################
 
 
-def get_batch_trial(abandon_arm: bool = True) -> BatchTrial:
-    experiment = get_experiment()
+def get_batch_trial(
+    abandon_arm: bool = True, experiment: Optional[Experiment] = None
+) -> BatchTrial:
+    experiment = experiment or get_experiment()
     batch = experiment.new_batch_trial()
     arms = get_arms_from_dict(get_arm_weights1())
     weights = get_weights_from_dict(get_arm_weights1())
