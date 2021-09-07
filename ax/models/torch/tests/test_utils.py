@@ -25,6 +25,7 @@ from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
     SingleTaskMultiFidelityGP,
 )
+from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 
 
@@ -112,6 +113,21 @@ class BoTorchModelUtilsTest(TestCase):
                 Yvars=self.Yvars,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[], bounds=[], task_features=[1]
+                ),
+            ),
+        )
+
+    def test_choose_model_class_discrete_features(self):
+        # With discrete features, use MixedSingleTaskyGP.
+        self.assertEqual(
+            MixedSingleTaskGP,
+            choose_model_class(
+                Yvars=self.none_Yvars,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[],
+                    bounds=[],
+                    task_features=[],
+                    categorical_features=[1],
                 ),
             ),
         )

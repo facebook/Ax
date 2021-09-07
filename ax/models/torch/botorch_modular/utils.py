@@ -10,6 +10,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TConfig
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
@@ -21,6 +22,7 @@ from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
     SingleTaskMultiFidelityGP,
 )
+from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel
 from botorch.models.model import Model
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
@@ -28,6 +30,7 @@ from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
+logger = get_logger(__name__)
 
 
 def use_model_list(Xs: List[Tensor], botorch_model_class: Type[Model]) -> bool:
@@ -89,20 +92,36 @@ def choose_model_class(
 
     # Multi-task cases (when `task_features` specified).
     if search_space_digest.task_features and all_nan_Yvar:
-        return MultiTaskGP  # Unknown observation noise.
+        model_class = MultiTaskGP  # Unknown observation noise.
     elif search_space_digest.task_features:
-        return FixedNoiseMultiTaskGP  # Known observation noise.
+        model_class = FixedNoiseMultiTaskGP  # Known observation noise.
 
     # Single-task multi-fidelity cases.
-    if search_space_digest.fidelity_features and all_nan_Yvar:
-        return SingleTaskMultiFidelityGP  # Unknown observation noise.
+    elif search_space_digest.fidelity_features and all_nan_Yvar:
+        model_class = SingleTaskMultiFidelityGP  # Unknown observation noise.
     elif search_space_digest.fidelity_features:
-        return FixedNoiseMultiFidelityGP  # Known observation noise.
+        model_class = FixedNoiseMultiFidelityGP  # Known observation noise.
+
+    # Mixed optimization case. Note that presence of categorical
+    # features in search space digest indicates that downstream in the
+    # stack we chose not to perform continuous relaxation on those
+    # features.
+    elif search_space_digest.categorical_features:
+        if not all_nan_Yvar:
+            logger.warning(
+                "Using `MixedSingleTaskGP` despire the known `Yvar` values. This "
+                "is a temporary measure while fixed-noise mixed BO is in the works."
+            )
+        model_class = MixedSingleTaskGP
 
     # Single-task single-fidelity cases.
     elif all_nan_Yvar:  # Unknown observation noise.
-        return SingleTaskGP
-    return FixedNoiseGP  # Known observation noise.
+        model_class = SingleTaskGP
+    else:
+        model_class = FixedNoiseGP  # Known observation noise.
+
+    logger.debug(f"Chose BoTorch model class: {model_class}.")
+    return model_class
 
 
 def choose_botorch_acqf_class(
@@ -114,8 +133,12 @@ def choose_botorch_acqf_class(
 ) -> Type[AcquisitionFunction]:
     """Chooses a BoTorch `AcquisitionFunction` class."""
     if objective_thresholds is not None:
-        return qNoisyExpectedHypervolumeImprovement
-    return qNoisyExpectedImprovement
+        acqf_class = qNoisyExpectedHypervolumeImprovement
+    else:
+        acqf_class = qNoisyExpectedImprovement
+
+    logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
+    return acqf_class
 
 
 def validate_data_format(
