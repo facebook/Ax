@@ -8,13 +8,25 @@ from typing import Dict, Optional, Tuple
 
 import pandas as pd
 from ax.core.batch_trial import BatchTrial
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    OptimizationConfig,
+    MultiObjectiveOptimizationConfig,
+)
 from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
+from ax.exceptions.core import UnsupportedError
+from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.modelbridge_utils import (
+    predicted_pareto_frontier as predicted_pareto,
+    observed_pareto_frontier as observed_pareto,
+)
+from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
+from ax.modelbridge.registry import Models
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import not_none, checked_cast
 
 
 logger = get_logger(__name__)
@@ -150,6 +162,93 @@ def get_best_parameters(
             {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
         ),
     )
+
+
+def get_pareto_optimal_parameters(
+    experiment: Experiment,
+    generation_strategy: GenerationStrategy,
+    use_model_predictions: bool,
+) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
+    """Identifies the best parameterizations tried in the experiment so far,
+    using model predictions if ``use_model_predictions`` is true and using
+    observed values from the experiment otherwise. By default, uses model
+    predictions to account for observation noise.
+
+    Args:
+        experiment: Experiment, from which to find Pareto-optimal arms.
+        generation_strategy: Generation strategy containing the modelbridge
+
+    Returns:
+        ``None`` if it was not possible to extract the Pareto frontier,
+        otherwise a mapping from trial index to the tuple of:
+          - the parameterization of the arm in that trial,
+          - two-item tuple of model-predicted or observed metric means
+            dictionary and covariance matrix.
+    """
+    # Validate aspects of the experiment: that it is a MOO experiment and
+    # that the current model can be used to produce the Pareto frontier.
+    if not not_none(experiment.optimization_config).is_moo_problem:
+        raise UnsupportedError(
+            "Please use `get_best_parameters` for single-objective problems."
+        )
+
+    moo_optimization_config = checked_cast(
+        MultiObjectiveOptimizationConfig, experiment.optimization_config
+    )
+    if moo_optimization_config.outcome_constraints:
+        # TODO[drfreund]: Test this flow and remove error.
+        raise NotImplementedError(
+            "Support for outcome constraints is currently under development."
+        )
+
+    # Extract or instantiate modelbridge to use for Pareto frontier extraction.
+    mb = generation_strategy.model
+    if mb is None or not isinstance(mb, MultiObjectiveTorchModelBridge):
+        logger.info(
+            "Can only extract a Pareto frontier using a multi-objective model bridge"
+            f", but currently used model bridge is: {mb} of type {type(mb)}. Will "
+            "use `Models.MOO` instead to extract Pareto frontier."
+        )
+        mb = checked_cast(
+            MultiObjectiveTorchModelBridge,
+            Models.MOO(
+                experiment=experiment, data=checked_cast(Data, experiment.lookup_data())
+            ),
+        )
+    else:
+        # Make sure the model is up-to-date with the most recent data.
+        generation_strategy._set_or_update_current_model(data=None)
+
+    # If objective thresholds are not specified in optimization config, extract
+    # the inferred ones if possible or infer them anew if not.
+    objective_thresholds_override = None
+    if not moo_optimization_config.objective_thresholds:
+        lgr = generation_strategy.last_generator_run
+        if lgr and lgr.gen_metadata and "objective_thresholds" in lgr.gen_metadata:
+            objective_thresholds_override = lgr.gen_metadata["objective_thresholds"]
+        objective_thresholds_override = mb.infer_objective_thresholds(
+            search_space=experiment.search_space,
+            optimization_config=experiment.optimization_config,
+            fixed_features=None,
+        )
+        logger.info(
+            f"Using inferred objective thresholds: {objective_thresholds_override}, "
+            "as objective thresholds were not specified as part of the optimization "
+            "configuration on the experiment."
+        )
+
+    pareto_util = predicted_pareto if use_model_predictions else observed_pareto
+    pareto_optimal_observations = pareto_util(
+        modelbridge=mb, objective_thresholds=objective_thresholds_override
+    )
+
+    return {
+        int(not_none(obs.features.trial_index)): (
+            obs.features.parameters,
+            (obs.data.means_dict, obs.data.covariance_matrix),
+        )
+        for obs in pareto_optimal_observations
+    }
 
 
 def _get_best_row_for_scalarized_objective(
