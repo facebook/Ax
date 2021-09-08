@@ -12,9 +12,11 @@
 import contextlib
 import io
 import linecache
+import signal
 import sys
 import types
 import unittest
+from types import FrameType
 from typing import (
     Any,
     Callable,
@@ -216,8 +218,36 @@ def _build_comparison_str(
 class TestCase(unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
+    MAX_TEST_SECONDS = 540
+
     def __init__(self, methodName: str = "runTest") -> None:
+        def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
+            raise Exception(f"Test timed out at {self.MAX_TEST_SECONDS} seconds")
+
         super().__init__(methodName=methodName)
+        signal.signal(signal.SIGALRM, signal_handler)
+        self.setUp_called = False
+
+    def _callSetUp(self) -> None:
+        # Arrange for a SIGALRM signal to be delivered to the calling process
+        # in specified number of seconds.
+        signal.alarm(self.MAX_TEST_SECONDS)
+        self.setUp_called = True
+        super()._callSetUp()  # pyre-ignore[16]... it does
+
+    def run(
+        self, result: Optional[unittest.result.TestResult] = ...
+    ) -> Optional[unittest.result.TestResult]:
+        result = super().run(result)
+        self.assertTrue(
+            self.setUp_called, "`_callSetUp` must call `super()._callSetUp()`"
+        )
+        return result
+
+    def _callTearDown(self) -> None:
+        # When seconds argument to alarm is zero, any pending alarm is canceled.
+        signal.alarm(0)
+        super()._callTearDown()  # pyre-ignore[16]... it does
 
     def assertEqual(
         self,
