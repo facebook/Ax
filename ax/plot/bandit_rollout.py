@@ -49,7 +49,6 @@ def plot_bandit_rollout(experiment: Experiment) -> AxPlotConfig:
     for key in arms.keys():
         data.append(arms[key])
 
-    # pyre-fixme[6]: Expected `typing.Tuple[...g.Tuple[int, int, int]`.
     colors = [rgba(c) for c in MIXED_SCALE]
 
     layout = go.Layout(

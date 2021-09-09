@@ -5,7 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 import enum
+from numbers import Real
 from typing import List, Tuple
+
+# type aliases
+TRGB = Tuple[Real, ...]
 
 
 class COLORS(enum.Enum):
@@ -92,13 +96,15 @@ MIXED_SCALE = [
 ]
 
 
-def rgba(rgb_tuple: Tuple[float], alpha: float = 1) -> str:
+def rgba(rgb_tuple: TRGB, alpha: float = 1) -> str:
     """Convert RGB tuple to an RGBA string."""
     return "rgba({},{},{},{alpha})".format(*rgb_tuple, alpha=alpha)
 
 
 def plotly_color_scale(
-    list_of_rgb_tuples: List[Tuple[float]], reverse: bool = False, alpha: float = 1
+    list_of_rgb_tuples: List[TRGB],
+    reverse: bool = False,
+    alpha: float = 1,
 ) -> List[Tuple[float, str]]:
     """Convert list of RGB tuples to list of tuples, where each tuple is
     break in [0, 1] and stringified RGBA color.
