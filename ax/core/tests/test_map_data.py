@@ -322,10 +322,10 @@ class MapDataTest(TestCase):
         new_map_data = map_data.copy_structure_with_df(df=small_df)
         self.assertEqual(new_map_data.map_keys, ["epoch"])
 
-    def testToStandardData(self):
+    def testDeduplicateData(self):
         map_data = MapData(df=self.df, map_keys=self.map_keys)
-        standard_data = map_data.to_standard_data()
-        df = standard_data.df
+        dedup_data = map_data.deduplicate_data()
+        df = dedup_data.df
         self.assertEqual(df.shape[0], 4)
         self.assertEqual(
             float(df[df["arm_name"] == "0_1"][df["metric_name"] == "a"]["mean"]), 0.5

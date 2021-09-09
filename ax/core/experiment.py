@@ -665,7 +665,7 @@ class Experiment(Base):
         storage_time = max(trial_data_dict.keys())
         trial_data = trial_data_dict[storage_time]
         if isinstance(trial_data, MapData) and keep_latest_map_values_only:
-            trial_data = trial_data.to_standard_data()
+            trial_data = trial_data.deduplicate_data()
         return trial_data, storage_time
 
     def lookup_data(

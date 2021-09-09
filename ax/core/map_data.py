@@ -10,7 +10,6 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
 from ax.core.abstract_data import AbstractDataFrameData
-from ax.core.data import Data
 from ax.core.types import TMapTrialEvaluation
 
 
@@ -190,10 +189,9 @@ class MapData(AbstractDataFrameData):
             raise ValueError("Inconsistent map_key sets in evaluations.")
         return MapData(df=pd.DataFrame(records), map_keys=map_keys)
 
-    def to_standard_data(self, keep: str = "last") -> Data:
+    def deduplicate_data(self, keep: str = "last") -> MapData:
         """
-        Convert instance of MapData to a standard Ax Data object.
-        First deduplicate by arm_name and metric_name, and then
+        Deduplicate by arm_name and metric_name, and then
         drop the map_keys columns entirely.
 
         Args:
@@ -203,7 +201,7 @@ class MapData(AbstractDataFrameData):
                 - False: Drop all duplicates.
 
         Returns:
-            Ax Data object.
+            Deduplicated MapData object.
         """
 
         if keep not in {"last", "first", False}:
@@ -214,11 +212,7 @@ class MapData(AbstractDataFrameData):
         df = self.df
         map_keys = self.map_keys
         if len(map_keys) > 0:
-            df = (
-                df.sort_values(map_keys)
-                .drop_duplicates(
-                    MapData.DEDUPLICATE_BY_COLUMNS, keep=keep  # pyre-ignore
-                )
-                .drop(columns=map_keys)
+            df = df.sort_values(map_keys).drop_duplicates(
+                MapData.DEDUPLICATE_BY_COLUMNS, keep=keep  # pyre-ignore
             )
-        return Data(df=df)
+        return MapData(df=df, map_keys=map_keys)
