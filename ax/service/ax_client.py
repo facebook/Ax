@@ -637,7 +637,7 @@ class AxClient(WithDBSettingsBase):
         return not_none(self._get_trial(trial_index).arm).parameters
 
     def get_best_parameters(
-        self,
+        self, use_model_predictions: bool = True
     ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
         """Identifies the best parameterization tried in the experiment so far.
 
@@ -647,6 +647,13 @@ class AxClient(WithDBSettingsBase):
 
         NOTE: ``TModelPredictArm`` is of the form:
             ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
+
+        Args:
+            use_model_predictions: Whether to extract the best point using
+                model predictions or directly observed values. If ``True``,
+                the metric means and covariances in this method's output will
+                also be based on model predictions and may differ from the
+                observed values.
 
         Returns:
             Tuple of parameterization and model predictions for it.
@@ -658,7 +665,9 @@ class AxClient(WithDBSettingsBase):
             )
         # TODO[drfreund]: Find a way to include data for last trial in the
         # calculation of best parameters.
-        return best_point_utils.get_best_parameters(experiment=self.experiment)
+        return best_point_utils.get_best_parameters(
+            experiment=self.experiment, use_model_predictions=use_model_predictions
+        )
 
     def get_pareto_optimal_parameters(
         self, use_model_predictions: bool = True

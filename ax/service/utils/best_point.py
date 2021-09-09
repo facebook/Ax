@@ -123,6 +123,7 @@ def get_best_from_model_predictions(
 
 def get_best_parameters(
     experiment: Experiment,
+    use_model_predictions: bool = True,
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the best arm.
 
@@ -135,6 +136,11 @@ def get_best_parameters(
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
+        use_model_predictions: Whether to extract the best point using
+            model predictions or directly observed values. If ``True``,
+            the metric means and covariances in this method's output will
+            also be based on model predictions and may differ from the
+            observed values.
 
     Returns:
         Tuple of parameterization and model predictions for it.
@@ -146,9 +152,14 @@ def get_best_parameters(
             "This method will return an arbitrary point on the pareto frontier."
         )
     # Find latest trial which has a generator_run attached and get its predictions
-    model_predictions = get_best_from_model_predictions(experiment=experiment)
-    if model_predictions is not None:  # pragma: no cover
-        return model_predictions
+    if use_model_predictions:
+        model_predictions = get_best_from_model_predictions(experiment=experiment)
+        if model_predictions is not None:  # pragma: no cover
+            return model_predictions
+        logger.info(
+            "Could not use model predictions to identify best point, will use raw "
+            "objective values."
+        )
 
     # Could not find through model, default to using raw objective.
     try:
@@ -167,7 +178,7 @@ def get_best_parameters(
 def get_pareto_optimal_parameters(
     experiment: Experiment,
     generation_strategy: GenerationStrategy,
-    use_model_predictions: bool,
+    use_model_predictions: bool = True,
 ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
     """Identifies the best parameterizations tried in the experiment so far,
     using model predictions if ``use_model_predictions`` is true and using
