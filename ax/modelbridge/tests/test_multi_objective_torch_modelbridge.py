@@ -38,6 +38,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
+    get_non_monolithic_branin_moo_data,
     TEST_SOBOL_SEED,
 )
 from botorch.utils.multi_objective.pareto import is_non_dominated
@@ -598,3 +599,26 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 < nadir.numpy()
             )
         )
+
+    def test_status_quo_for_non_monolithic_data(self):
+        exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
+        sobol_generator = get_sobol(
+            search_space=exp.search_space,
+        )
+        sobol_run = sobol_generator.gen(n=5)
+        exp.new_batch_trial(sobol_run).set_status_quo_and_optimize_power(
+            status_quo=exp.status_quo
+        ).run()
+
+        # create data where metrics vary in start and end times
+        data = get_non_monolithic_branin_moo_data()
+
+        bridge = MultiObjectiveTorchModelBridge(
+            search_space=exp.search_space,
+            model=MultiObjectiveBotorchModel(),
+            optimization_config=exp.optimization_config,
+            experiment=exp,
+            data=data,
+            transforms=[],
+        )
+        self.assertEqual(bridge.status_quo.arm_name, "status_quo")

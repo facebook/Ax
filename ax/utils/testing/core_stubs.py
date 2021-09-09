@@ -6,7 +6,7 @@
 
 
 from collections import OrderedDict
-from datetime import datetime
+from datetime import timedelta, datetime
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Type, cast
 
 import numpy as np
@@ -381,6 +381,7 @@ def get_branin_experiment_with_multi_objective(
     )
 
     if with_status_quo:
+        # Experiment chooses the name "status_quo" by default
         exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
 
     if with_batch:
@@ -1169,6 +1170,52 @@ def get_data(
         "n": [100, 100, 100, 100, 100][:num_arms],
     }
     return Data(df=pd.DataFrame.from_records(df_dict))
+
+
+def get_non_monolithic_branin_moo_data() -> Data:
+    now = datetime.now()
+    return Data(
+        df=pd.DataFrame.from_records(
+            [
+                {
+                    "arm_name": "status_quo",
+                    "trial_index": "0",
+                    "metric_name": "branin_a",  # Obj. metric for experiment.
+                    "mean": 2.0,
+                    "sem": 0.01,
+                    "start_time": now - timedelta(days=3),
+                    "end_time": now,
+                },
+                {
+                    "arm_name": "0_0",
+                    "trial_index": "0",
+                    "metric_name": "branin_a",  # Obj. metric for experiment.
+                    "mean": 1.0,
+                    "sem": 0.01,
+                    "start_time": now - timedelta(days=3),
+                    "end_time": now,
+                },
+                {
+                    "arm_name": "status_quo",
+                    "trial_index": "0",
+                    "metric_name": "branin_b",  # Obj. metric for experiment.
+                    "mean": 2.0,
+                    "sem": 0.01,
+                    "start_time": now - timedelta(days=2),
+                    "end_time": now - timedelta(days=1),
+                },
+                {
+                    "arm_name": "0_0",
+                    "trial_index": "0",
+                    "metric_name": "branin_b",  # Obj. metric for experiment.
+                    "mean": 1.0,
+                    "sem": 0.01,
+                    "start_time": now - timedelta(days=2),
+                    "end_time": now - timedelta(days=1),
+                },
+            ]
+        )
+    )
 
 
 def get_map_data(trial_index: int = 0) -> MapData:

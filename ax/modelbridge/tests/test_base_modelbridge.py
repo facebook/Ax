@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
 from unittest import mock
 
 import numpy as np
@@ -26,11 +27,16 @@ from ax.modelbridge.base import (
     unwrap_observation_data,
     clamp_observation_features,
 )
+from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.log import Log
 from ax.models.base import Model
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_experiment
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_multi_objective,
+    get_experiment,
+    get_non_monolithic_branin_moo_data,
+)
 from ax.utils.testing.core_stubs import (
     get_experiment_with_repeated_arms,
     get_optimization_config_no_constraints,
@@ -345,6 +351,43 @@ class BaseModelBridgeTest(TestCase):
             status_quo_features=ObservationFeatures(parameters={"x": 3.0, "y": 10.0}),
         )
         self.assertIsNone(modelbridge.status_quo)
+
+    @mock.patch(
+        "ax.modelbridge.base.ModelBridge._gen",
+        autospec=True,
+    )
+    def test_status_quo_for_non_monolithic_data(self, mock_gen):
+        mock_gen.return_value = (
+            [
+                ObservationFeatures(
+                    parameters={"x1": float(i), "x2": float(i)}, trial_index=np.int64(1)
+                )
+                for i in range(5)
+            ],
+            [1] * 5,
+            None,
+            {},
+        )
+        exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
+        sobol = Models.SOBOL(search_space=exp.search_space)
+        exp.new_batch_trial(sobol.gen(5)).set_status_quo_and_optimize_power(
+            status_quo=exp.status_quo
+        ).run()
+
+        # create data where metrics vary in start and end times
+        data = get_non_monolithic_branin_moo_data()
+        with warnings.catch_warnings(record=True) as ws:
+            bridge = ModelBridge(
+                experiment=exp,
+                data=data,
+                model=Model(),
+                search_space=exp.search_space,
+            )
+        # just testing it doesn't error
+        bridge.gen(5)
+        self.assertTrue(any("start_time" in str(w.message) for w in ws))
+        self.assertTrue(any("end_time" in str(w.message) for w in ws))
+        self.assertEqual(bridge.status_quo.arm_name, "status_quo")
 
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",

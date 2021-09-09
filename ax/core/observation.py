@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from copy import deepcopy
 from typing import List, Optional, Tuple, Dict
 
@@ -23,16 +24,11 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
 
 
-OBS_COLS = {
-    "arm_name",
-    "trial_index",
-    "start_time",
-    "end_time",
-    "random_split",
-    "fidelities",
-}
+TIME_COLS = {"start_time", "end_time"}
 
-OBS_KWARGS = {"trial_index", "start_time", "end_time", "random_split"}
+OBS_COLS = {"arm_name", "trial_index", "random_split", "fidelities", *TIME_COLS}
+
+OBS_KWARGS = {"trial_index", "random_split", *TIME_COLS}
 
 
 class ObservationFeatures(Base):
@@ -305,6 +301,24 @@ def _observations_from_dataframe(
     return observations
 
 
+def get_map_keys_and_feature_cols(data: Data) -> Tuple[List[str], List[str]]:
+    if isinstance(data, MapData):
+        map_keys = data.map_keys
+    else:
+        map_keys = []
+
+    feature_cols = (OBS_COLS.intersection(data.df.columns)).union(map_keys)
+
+    for column in TIME_COLS:
+        if column in feature_cols and len(data.df[column].unique()) > 1:
+            warnings.warn(
+                f"`{column} is not consistent and being discarded from observation data"
+            )
+            feature_cols.discard(column)
+
+    return map_keys, list(feature_cols)
+
+
 def observations_from_data(
     experiment: Experiment, data: Data, include_abandoned: bool = False
 ) -> List[Observation]:
@@ -325,11 +339,7 @@ def observations_from_data(
     Returns:
         List of Observation objects.
     """
-    if isinstance(data, MapData):
-        map_keys = data.map_keys
-    else:
-        map_keys = []
-    feature_cols = list((OBS_COLS.intersection(data.df.columns)).union(map_keys))
+    map_keys, feature_cols = get_map_keys_and_feature_cols(data)
     observations = []
     arm_name_only = len(feature_cols) == 1  # there will always be an arm name
     # One DataFrame where all rows have all features.
