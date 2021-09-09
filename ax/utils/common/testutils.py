@@ -235,6 +235,12 @@ class TestCase(unittest.TestCase):
         self.setUp_called = True
         super()._callSetUp()  # pyre-ignore[16]... it does
 
+    def run(
+        self, result: Optional[unittest.result.TestResult] = ...
+    ) -> Optional[unittest.result.TestResult]:
+        result = super().run(result)
+        return result
+
     def _callTearDown(self) -> None:
         # When seconds argument to alarm is zero, any pending alarm is canceled.
         signal.alarm(0)
