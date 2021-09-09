@@ -239,6 +239,9 @@ class TestCase(unittest.TestCase):
         self, result: Optional[unittest.result.TestResult] = ...
     ) -> Optional[unittest.result.TestResult]:
         result = super().run(result)
+        self.assertTrue(
+            self.setUp_called, "`_callSetUp` must call `super()._callSetUp()`"
+        )
         return result
 
     def _callTearDown(self) -> None:
