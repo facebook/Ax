@@ -635,7 +635,9 @@ class Experiment(Base):
         return self.default_data_constructor.from_multiple_data(trial_datas)
 
     def lookup_data_for_trial(
-        self, trial_index: int
+        self,
+        trial_index: int,
+        keep_latest_map_values_only: bool = True,
     ) -> Tuple[AbstractDataFrameData, int]:
         """Lookup stored data for a specific trial.
 
@@ -644,6 +646,10 @@ class Experiment(Base):
 
         Args:
             trial_index: The index of the trial to lookup data for.
+            keep_latest_map_values_only: If true, then if Data is an instance of
+                MapData, we keep only the latest value for each map key. This way,
+                the returned dataframe will only contain one row for each trial,
+                arm, and metric.
 
         Returns:
             The requested data object, and its storage timestamp in milliseconds.
@@ -658,6 +664,8 @@ class Experiment(Base):
 
         storage_time = max(trial_data_dict.keys())
         trial_data = trial_data_dict[storage_time]
+        if isinstance(trial_data, MapData) and keep_latest_map_values_only:
+            trial_data = trial_data.to_standard_data()
         return trial_data, storage_time
 
     def lookup_data(
@@ -676,7 +684,6 @@ class Experiment(Base):
                 the returned dataframe will only contain one row for each trial,
                 arm, and metric.
 
-
         Returns:
             Data for the experiment.
         """
@@ -686,6 +693,7 @@ class Experiment(Base):
             data_by_trial.append(
                 self.lookup_data_for_trial(
                     trial_index=trial_index,
+                    keep_latest_map_values_only=keep_latest_map_values_only,
                 )[0]
             )
         if not data_by_trial:
@@ -693,8 +701,6 @@ class Experiment(Base):
         last_data = data_by_trial[-1]
         last_data_type = type(last_data)
         data = last_data_type.from_multiple_data(data_by_trial)
-        if isinstance(data, MapData) and keep_latest_map_values_only:
-            data = data.to_standard_data()
         return data
 
     @property

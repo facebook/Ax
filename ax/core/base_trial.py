@@ -474,8 +474,15 @@ class BaseTrial(ABC, SortableBase):
 
     def lookup_data(
         self,
+        keep_latest_map_values_only: bool = True,
     ) -> AbstractDataFrameData:
         """Lookup cached data on experiment for this trial.
+
+        Args:
+            keep_latest_map_values_only: If true, then if Data is an instance of
+                MapData, we keep only the latest value for each map key. This way,
+                the returned dataframe will only contain one row for each trial,
+                arm, and metric.
 
         Returns:
             If not merging across timestamps, the latest ``Data`` object
@@ -484,6 +491,7 @@ class BaseTrial(ABC, SortableBase):
         """
         return self.experiment.lookup_data_for_trial(
             trial_index=self.index,
+            keep_latest_map_values_only=keep_latest_map_values_only,
         )[0]
 
     def _check_existing_and_name_arm(self, arm: Arm) -> None:

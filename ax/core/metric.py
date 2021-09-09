@@ -229,6 +229,7 @@ class Metric(SortableBase):
         for trial in completed_trials:
             cached_trial_data = experiment.lookup_data_for_trial(
                 trial_index=trial.index,
+                keep_latest_map_values_only=False,
             )[0]
 
             cached_metric_names = cached_trial_data.metric_names
