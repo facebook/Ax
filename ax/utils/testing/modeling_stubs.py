@@ -37,7 +37,9 @@ def get_observation_features() -> ObservationFeatures:
     )
 
 
-def get_observation() -> Observation:
+def get_observation(
+    first_metric_name: str = "a", second_metric_name="b"
+) -> Observation:
     return Observation(
         features=ObservationFeatures(
             parameters={"x": 2.0, "y": 10.0}, trial_index=np.int64(0)
@@ -45,13 +47,15 @@ def get_observation() -> Observation:
         data=ObservationData(
             means=np.array([2.0, 4.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=["a", "b"],
+            metric_names=[first_metric_name, second_metric_name],
         ),
         arm_name="1_1",
     )
 
 
-def get_observation1() -> Observation:
+def get_observation1(
+    first_metric_name: str = "a", second_metric_name="b"
+) -> Observation:
     return Observation(
         features=ObservationFeatures(
             parameters={"x": 2.0, "y": 10.0}, trial_index=np.int64(0)
@@ -59,13 +63,15 @@ def get_observation1() -> Observation:
         data=ObservationData(
             means=np.array([2.0, 4.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=["a", "b"],
+            metric_names=[first_metric_name, second_metric_name],
         ),
         arm_name="1_1",
     )
 
 
-def get_observation_status_quo0() -> Observation:
+def get_observation_status_quo0(
+    first_metric_name: str = "a", second_metric_name="b"
+) -> Observation:
     return Observation(
         features=ObservationFeatures(
             parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
@@ -74,13 +80,15 @@ def get_observation_status_quo0() -> Observation:
         data=ObservationData(
             means=np.array([2.0, 4.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=["a", "b"],
+            metric_names=[first_metric_name, second_metric_name],
         ),
         arm_name="0_0",
     )
 
 
-def get_observation_status_quo1() -> Observation:
+def get_observation_status_quo1(
+    first_metric_name: str = "a", second_metric_name="b"
+) -> Observation:
     return Observation(
         features=ObservationFeatures(
             parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
@@ -89,13 +97,15 @@ def get_observation_status_quo1() -> Observation:
         data=ObservationData(
             means=np.array([2.0, 4.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=["a", "b"],
+            metric_names=[first_metric_name, second_metric_name],
         ),
         arm_name="0_0",
     )
 
 
-def get_observation1trans() -> Observation:
+def get_observation1trans(
+    first_metric_name: str = "a", second_metric_name="b"
+) -> Observation:
     return Observation(
         features=ObservationFeatures(
             parameters={"x": 9.0, "y": 10.0}, trial_index=np.int64(0)
@@ -103,13 +113,15 @@ def get_observation1trans() -> Observation:
         data=ObservationData(
             means=np.array([9.0, 25.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=["a", "b"],
+            metric_names=[first_metric_name, second_metric_name],
         ),
         arm_name="1_1",
     )
 
 
-def get_observation2() -> Observation:
+def get_observation2(
+    first_metric_name: str = "a", second_metric_name="b"
+) -> Observation:
     return Observation(
         features=ObservationFeatures(
             parameters={"x": 3.0, "y": 2.0}, trial_index=np.int64(1)
@@ -117,13 +129,15 @@ def get_observation2() -> Observation:
         data=ObservationData(
             means=np.array([2.0, 1.0]),
             covariance=np.array([[2.0, 3.0], [4.0, 5.0]]),
-            metric_names=["a", "b"],
+            metric_names=[first_metric_name, second_metric_name],
         ),
         arm_name="1_1",
     )
 
 
-def get_observation2trans() -> Observation:
+def get_observation2trans(
+    first_metric_name: str = "a", second_metric_name="b"
+) -> Observation:
     return Observation(
         features=ObservationFeatures(
             parameters={"x": 16.0, "y": 2.0}, trial_index=np.int64(1)
@@ -131,7 +145,7 @@ def get_observation2trans() -> Observation:
         data=ObservationData(
             means=np.array([9.0, 4.0]),
             covariance=np.array([[2.0, 3.0], [4.0, 5.0]]),
-            metric_names=["a", "b"],
+            metric_names=[first_metric_name, second_metric_name],
         ),
         arm_name="1_1",
     )

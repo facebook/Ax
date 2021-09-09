@@ -8,7 +8,7 @@ import math
 import sys
 import time
 from math import ceil
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from unittest.mock import patch
 
 import numpy as np
@@ -31,13 +31,12 @@ from ax.metrics.branin import branin
 from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
-from ax.service.ax_client import AxClient
+from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
     get_pareto_optimal_parameters,
     predicted_pareto,
     observed_pareto,
 )
-from ax.service.utils.instantiation import ObjectiveProperties
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -130,6 +129,21 @@ def get_branin_currin_optimization_with_N_sobol_trials(
     return ax_client, branin_currin
 
 
+def get_branin_optimization(
+    generation_strategy: Optional[GenerationStrategy] = None,
+) -> AxClient:
+    ax_client = AxClient(generation_strategy=generation_strategy)
+    ax_client.create_experiment(
+        name="test_experiment",
+        parameters=[
+            {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+            {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+        ],
+        objectives={"branin": ObjectiveProperties(minimize=True)},
+    )
+    return ax_client
+
+
 class TestAxClient(TestCase):
     """Tests service-like API functionality."""
 
@@ -175,17 +189,17 @@ class TestAxClient(TestCase):
     @patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
-        return_value=([get_observation1()]),
+        return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
         "ax.modelbridge.random.RandomModelBridge.get_training_data",
         autospec=True,
-        return_value=([get_observation1()]),
+        return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
         "ax.modelbridge.random.RandomModelBridge._predict",
         autospec=True,
-        return_value=[get_observation1trans().data],
+        return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     @patch(
         "ax.modelbridge.random.RandomModelBridge.feature_importances",
@@ -194,15 +208,7 @@ class TestAxClient(TestCase):
     )
     def test_default_generation_strategy_continuous(self, _a, _b, _c, _d) -> None:
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            parameters=[  # pyre-fixme[6]: expected union that should include
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-            objective_name="a",
-            minimize=True,
-        )
+        ax_client = get_branin_optimization()
         self.assertEqual(
             [s.model for s in not_none(ax_client.generation_strategy)._steps],
             [Models.SOBOL, Models.GPEI],
@@ -221,7 +227,7 @@ class TestAxClient(TestCase):
             ax_client.complete_trial(
                 trial_index,
                 raw_data={
-                    "a": (
+                    "branin": (
                         checked_cast(
                             float,
                             branin(checked_cast(float, x), checked_cast(float, y)),
@@ -238,26 +244,18 @@ class TestAxClient(TestCase):
         trials_df = ax_client.get_trials_data_frame()
         self.assertIn("x", trials_df)
         self.assertIn("y", trials_df)
-        self.assertIn("a", trials_df)
+        self.assertIn("branin", trials_df)
         self.assertEqual(len(trials_df), 6)
 
     @patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
-        return_value=([get_observation1()]),
+        return_value=([get_observation1(first_metric_name="branin")]),
     )
     def test_default_generation_strategy_continuous_gen_trials_in_batches(
         self, _
     ) -> None:
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            parameters=[  # pyre-fixme[6]: expected union that should include
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-            objective_name="a",
-            minimize=True,
-        )
+        ax_client = get_branin_optimization()
         # All Sobol trials should be able to be generated at once.
         sobol_trials_dict, is_complete = ax_client.get_next_trials(max_trials=10)
         self.assertEqual(len(sobol_trials_dict), 5)
@@ -270,7 +268,7 @@ class TestAxClient(TestCase):
             ax_client.complete_trial(
                 idx,
                 raw_data={
-                    "a": (
+                    "branin": (
                         checked_cast(
                             float,
                             branin(
@@ -288,18 +286,10 @@ class TestAxClient(TestCase):
         self.assertFalse(is_complete)
 
     def test_sobol_generation_strategy_completion(self) -> None:
-        ax_client = AxClient(
+        ax_client = get_branin_optimization(
             generation_strategy=GenerationStrategy(
                 [GenerationStep(Models.SOBOL, num_trials=3)]
             )
-        )
-        ax_client.create_experiment(
-            parameters=[  # pyre-fixme[6]: expected union that should include
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-            objective_name="a",
-            minimize=True,
         )
         # All Sobol trials should be able to be generated at once and optimization
         # should be completed once they are generated.
@@ -314,17 +304,17 @@ class TestAxClient(TestCase):
     @patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
-        return_value=([get_observation1()]),
+        return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
         "ax.modelbridge.random.RandomModelBridge.get_training_data",
         autospec=True,
-        return_value=([get_observation1()]),
+        return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
         "ax.modelbridge.random.RandomModelBridge._predict",
         autospec=True,
-        return_value=[get_observation1trans().data],
+        return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     @patch(
         "ax.modelbridge.random.RandomModelBridge.feature_importances",
@@ -342,7 +332,7 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             objectives={
-                "a": ObjectiveProperties(minimize=True, threshold=1.0),
+                "branin": ObjectiveProperties(minimize=True, threshold=1.0),
                 "b": ObjectiveProperties(minimize=True, threshold=1.0),
             },
         )
@@ -358,7 +348,7 @@ class TestAxClient(TestCase):
             ax_client.complete_trial(
                 trial_index,
                 raw_data={
-                    "a": (
+                    "branin": (
                         checked_cast(
                             float,
                             branin(checked_cast(float, x), checked_cast(float, y)),
@@ -376,13 +366,13 @@ class TestAxClient(TestCase):
                 sample_size=i,
             )
         self.assertEqual(ax_client.generation_strategy.model._model_key, "MOO")
-        ax_client.get_contour_plot(metric_name="a")
+        ax_client.get_contour_plot(metric_name="branin")
         ax_client.get_contour_plot(metric_name="b")
         ax_client.get_feature_importances()
         trials_df = ax_client.get_trials_data_frame()
         self.assertIn("x", trials_df)
         self.assertIn("y", trials_df)
-        self.assertIn("a", trials_df)
+        self.assertIn("branin", trials_df)
         self.assertIn("b", trials_df)
         self.assertEqual(len(trials_df), 6)
 
@@ -871,14 +861,7 @@ class TestAxClient(TestCase):
 
     def test_keep_generating_without_data(self):
         # Check that normally numebr of arms to generate is enforced.
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            parameters=[
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-            minimize=True,
-        )
+        ax_client = get_branin_optimization()
         for _ in range(5):
             parameterization, trial_index = ax_client.get_next_trial()
         with self.assertRaisesRegex(DataRequiredError, "All trials for current model"):
@@ -909,6 +892,7 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
             support_intermediate_data=True,
+            objective_name="branin",
         )
         parameterization, trial_index = ax_client.get_next_trial()
         # Launch Trial and update it 3 times with additional data.
@@ -917,12 +901,12 @@ class TestAxClient(TestCase):
             if t < 2:
                 ax_client.update_running_trial_with_intermediate_data(
                     0,
-                    raw_data=[({"t": t}, {"objective": (branin(x, y) + t, 0.0)})],
+                    raw_data=[({"t": t}, {"branin": (branin(x, y) + t, 0.0)})],
                 )
             if t == 2:
                 ax_client.complete_trial(
                     0,
-                    raw_data=[({"t": t}, {"objective": (branin(x, y) + t, 0.0)})],
+                    raw_data=[({"t": t}, {"branin": (branin(x, y) + t, 0.0)})],
                 )
             current_data = ax_client.experiment.fetch_data().df
             self.assertEqual(len(current_data), 0 if t < 2 else 3)
@@ -941,42 +925,31 @@ class TestAxClient(TestCase):
             no_intermediate_data_ax_client.update_running_trial_with_intermediate_data(
                 0,
                 raw_data=[
-                    ({"t": p_t}, {"objective": (branin(x, y) + t, 0.0)})
+                    ({"t": p_t}, {"branin": (branin(x, y) + t, 0.0)})
                     for p_t in range(t + 1)
                 ],
             )
 
     def test_trial_completion(self):
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            parameters=[
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-            minimize=True,
-        )
+        ax_client = get_branin_optimization()
         params, idx = ax_client.get_next_trial()
         # Can't update before completing.
         with self.assertRaisesRegex(ValueError, ".* not yet"):
-            ax_client.update_trial_data(
-                trial_index=idx, raw_data={"objective": (0, 0.0)}
-            )
-        ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
+            ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (0, 0.0)})
+        ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
         # Cannot complete a trial twice, should use `update_trial_data`.
         with self.assertRaisesRegex(ValueError, ".* already been completed"):
-            ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
+            ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
         # Cannot update trial data with observation for a metric it already has.
         with self.assertRaisesRegex(ValueError, ".* contained an observation"):
-            ax_client.update_trial_data(
-                trial_index=idx, raw_data={"objective": (0, 0.0)}
-            )
+            ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (0, 0.0)})
         # Same as above, except objective name should be getting inferred.
         with self.assertRaisesRegex(ValueError, ".* contained an observation"):
             ax_client.update_trial_data(trial_index=idx, raw_data=1.0)
         ax_client.update_trial_data(trial_index=idx, raw_data={"m1": (1, 0.0)})
         metrics_in_data = ax_client.experiment.fetch_data().df["metric_name"].values
         self.assertNotIn("m1", metrics_in_data)
-        self.assertIn("objective", metrics_in_data)
+        self.assertIn("branin", metrics_in_data)
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         params2, idy = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
@@ -990,18 +963,11 @@ class TestAxClient(TestCase):
             ax_client.experiment.trials.get(2).run_metadata.get("dummy"), "test"
         )
         best_trial_values = ax_client.get_best_parameters()[1]
-        self.assertEqual(best_trial_values[0], {"objective": -2.0})
-        self.assertTrue(math.isnan(best_trial_values[1]["objective"]["objective"]))
+        self.assertEqual(best_trial_values[0], {"branin": -2.0})
+        self.assertTrue(math.isnan(best_trial_values[1]["branin"]["branin"]))
 
     def test_abandon_trial(self):
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            parameters=[
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-            minimize=True,
-        )
+        ax_client = get_branin_optimization()
 
         # An abandoned trial adds no data.
         params, idx = ax_client.get_next_trial()
@@ -1011,7 +977,7 @@ class TestAxClient(TestCase):
 
         # Can't update a completed trial.
         params2, idx2 = ax_client.get_next_trial()
-        ax_client.complete_trial(trial_index=idx2, raw_data={"objective": (0, 0.0)})
+        ax_client.complete_trial(trial_index=idx2, raw_data={"branin": (0, 0.0)})
         with self.assertRaisesRegex(ValueError, ".* in a terminal state."):
             ax_client.abandon_trial(trial_index=idx2)
 
@@ -1443,32 +1409,23 @@ class TestAxClient(TestCase):
     @patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
-        return_value=([get_observation1()]),
+        return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
         "ax.modelbridge.random.RandomModelBridge.get_training_data",
         autospec=True,
-        return_value=([get_observation1()]),
+        return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
         "ax.modelbridge.random.RandomModelBridge._predict",
         autospec=True,
-        return_value=[get_observation1trans().data],
+        return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     def test_get_model_predictions(self, _predict, _tr_data, _obs_from_data):
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            name="test_experiment",
-            parameters=[
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-            minimize=True,
-            objective_name="a",
-        )
+        ax_client = get_branin_optimization()
         ax_client.get_next_trial()
         ax_client.experiment.trials[0].arm._name = "1_1"
-        self.assertEqual(ax_client.get_model_predictions(), {0: {"a": (9.0, 1.0)}})
+        self.assertEqual(ax_client.get_model_predictions(), {0: {"branin": (9.0, 1.0)}})
 
     def test_deprecated_save_load_method_errors(self):
         ax_client = AxClient()
@@ -1490,7 +1447,7 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
-            objective_name="a",
+            objective_name="branin",
         )
         params, trial_idx = ax_client.get_next_trial()
         found_trial_idx = ax_client._find_last_trial_with_parameterization(
@@ -1517,7 +1474,7 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
-            objective_name="a",
+            objective_name="branin",
         )
         params, trial_idx = ax_client.get_next_trial()
         self.assertTrue(
@@ -1552,7 +1509,7 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             minimize=True,
-            objective_name="a",
+            objective_name="branin",
         )
         with self.assertRaisesRegex(
             expected_exception=RuntimeError,
