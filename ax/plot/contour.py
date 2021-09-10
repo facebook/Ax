@@ -502,20 +502,7 @@ def interact_contour_plotly(
                 arm_data["in_sample"][arm_name]["parameters"][param_name]
             )
 
-    # format and add hovertext to contour plots
-    insample_arm_text = []
-    for arm_name in arm_data["in_sample"].keys():
-        atext = f"Arm {arm_name}"
-        params = arm_data["in_sample"][arm_name]["parameters"]
-        ys = arm_data["in_sample"][arm_name]["y"]
-        ses = arm_data["in_sample"][arm_name]["se"]
-        for yname in ys.keys():
-            sem_str = f"{ses[yname]}" if ses[yname] is None else f"{ses[yname]:.6g}"
-            y_str = f"{ys[yname]}" if ys[yname] is None else f"{ys[yname]:.6g}"
-            atext += f"<br>{yname}: {y_str} (SEM: {sem_str})"
-        for pname in params.keys():
-            atext += f"<br>{pname}: {params[pname]:.6g}"
-        insample_arm_text.append(atext)
+    insample_arm_text = list(arm_data["in_sample"].keys())
 
     out_of_sample_param_values = {}
     for param_name in param_names:
