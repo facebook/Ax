@@ -123,6 +123,7 @@ def get_branin_experiment(
     with_status_quo: bool = False,
     with_fidelity_parameter: bool = False,
     with_choice_parameter: bool = False,
+    with_str_choice_param: bool = False,
     search_space: Optional[SearchSpace] = None,
     minimize: bool = False,
     named: bool = True,
@@ -130,6 +131,7 @@ def get_branin_experiment(
     search_space = search_space or get_branin_search_space(
         with_fidelity_parameter=with_fidelity_parameter,
         with_choice_parameter=with_choice_parameter,
+        with_str_choice_param=with_str_choice_param,
     )
     exp = Experiment(
         name="branin_test_experiment" if named else None,
@@ -462,7 +464,9 @@ def get_search_space() -> SearchSpace:
 
 
 def get_branin_search_space(
-    with_fidelity_parameter: bool = False, with_choice_parameter: bool = False
+    with_fidelity_parameter: bool = False,
+    with_choice_parameter: bool = False,
+    with_str_choice_param: bool = False,
 ) -> SearchSpace:
     parameters = [
         RangeParameter(
@@ -478,6 +482,14 @@ def get_branin_search_space(
             name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=15
         ),
     ]
+    if with_str_choice_param:
+        parameters.append(
+            ChoiceParameter(
+                name="str_param",
+                parameter_type=ParameterType.STRING,
+                values=["foo", "bar", "baz"],
+            )
+        )
     if with_fidelity_parameter:
         parameters.append(
             RangeParameter(

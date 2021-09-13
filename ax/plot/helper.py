@@ -584,7 +584,9 @@ def contour_config_to_trace(config):
             y_str = f"{ys[yname]}" if ys[yname] is None else f"{ys[yname]:.6g}"
             atext += f"<br>{yname}: {y_str} (SEM: {sem_str})"
         for pname in params.keys():
-            atext += f"<br>{pname}: {params[pname]:.6g}"
+            pval = params[pname]
+            pstr = f"{pval:.6g}" if isinstance(pval, float) else f"{pval}"
+            atext += f"<br>{pname}: {pstr}"
         arm_text.append(atext)
 
     # configs for in-sample arms

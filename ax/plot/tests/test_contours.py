@@ -19,7 +19,7 @@ from ax.utils.testing.core_stubs import get_branin_experiment
 
 class ContoursTest(TestCase):
     def testContours(self):
-        exp = get_branin_experiment(with_batch=True)
+        exp = get_branin_experiment(with_str_choice_param=True, with_batch=True)
         exp.trials[0].run()
         model = Models.BOTORCH(
             # Model bridge kwargs
