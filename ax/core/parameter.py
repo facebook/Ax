@@ -359,6 +359,7 @@ class ChoiceParameter(Parameter):
         is_task: bool = False,
         is_fidelity: bool = False,
         target_value: Optional[TParamValue] = None,
+        sort_values: Optional[bool] = None,
     ) -> None:
         """Initialize ChoiceParameter.
 
@@ -368,11 +369,14 @@ class ChoiceParameter(Parameter):
                 value (e.g. string, int).
             values: List of allowed values for the parameter.
             is_ordered: If False, the parameter is a categorical variable.
-                Defaults to False if parameter_type is STRING and `values`
+                Defaults to False if parameter_type is STRING and ``values``
                 is longer than 2, else True.
             is_task: Treat the parameter as a task parameter for modeling.
             is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it's fidelity.
+            sort_values: Whether to sort ``values`` before encoding.
+                Defaults to False if ``parameter_type`` is STRING, else
+                True.
         """
         if is_fidelity and (target_value is None):
             raise UserInputError(
@@ -389,22 +393,32 @@ class ChoiceParameter(Parameter):
         if not len(values) > 1:
             raise UserInputError(f"{self._name}({values}): {FIXED_CHOICE_PARAM_ERROR}")
         self._values = self._cast_values(values)
-        # [TODO] Ax should override is_ordered of False if len(values) == 2.
-        self._is_ordered = (
-            is_ordered
-            if is_ordered is not None
-            else self._get_default_is_ordered_and_warn()
-        )
+        if is_ordered is None:
+            self._is_ordered = self._get_default_bool_and_warn(
+                param_string="is_ordered"
+            )
+        else:
+            self._is_ordered = is_ordered
+        # sort_values defaults to True if the parameter is not a string
+        if sort_values is None:
+            sort_values = self._get_default_bool_and_warn(param_string="sort_values")
+        if sort_values:
+            # pyre-ignore[6]: values/self._values expects List[Union[None, bool, float,
+            # int, str]] but sorted() takes/returns
+            # List[Variable[_typeshed.SupportsLessThanT (bound to
+            # _typeshed.SupportsLessThan)]]
+            self._values = self._cast_values(sorted(values))
 
-    def _get_default_is_ordered_and_warn(self) -> bool:
-        default_is_ordered = self._parameter_type != ParameterType.STRING
+    def _get_default_bool_and_warn(self, param_string: str) -> bool:
+        default_bool = self._parameter_type != ParameterType.STRING
         logger.warn(
-            f'`is_ordered` is not specified for `ChoiceParameter` "{self._name}". '
-            f"Defaulting to `{default_is_ordered}` for parameters of `ParameterType` "
+            f'`{param_string}` is not specified for `ChoiceParameter` "{self._name}". '
+            f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
             f"{self.parameter_type.name}. To override this behavior (or avoid this "
-            "warning), specify `is_ordered` during `ChoiceParameter` construction."
+            f"warning), specify `{param_string}` during `ChoiceParameter` "
+            "construction."
         )
-        return default_is_ordered
+        return default_bool
 
     @property
     def is_ordered(self) -> bool:

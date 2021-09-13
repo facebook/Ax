@@ -223,6 +223,7 @@ class ChoiceParameterTest(TestCase):
             name="x", parameter_type=ParameterType.INT, values=[2, 1, 3]
         )
         self.assertTrue(int_param.is_ordered)
+        self.assertListEqual(int_param.values, sorted(int_param.values))
         float_param = ChoiceParameter(
             name="x", parameter_type=ParameterType.FLOAT, values=[1.5, 2.5, 3.5]
         )
