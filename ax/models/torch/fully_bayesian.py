@@ -113,11 +113,12 @@ def get_and_fit_model_mcmc(
     # (ii) a multi-task model is used
 
     num_mcmc_samples = num_samples // thinning
-    covar_module = (
+    covar_modules = [
         _get_rbf_kernel(num_samples=num_mcmc_samples, dim=Xs[0].shape[-1])
         if gp_kernel == "rbf"
         else None
-    )
+        for _ in range(len(Xs))
+    ]
 
     if len(Xs) == 1:
         # Use single output, single task GP
@@ -127,7 +128,7 @@ def get_and_fit_model_mcmc(
             Yvar=Yvars[0].unsqueeze(0).expand(num_mcmc_samples, Xs[0].shape[0], -1),
             fidelity_features=fidelity_features,
             use_input_warping=use_input_warping,
-            covar_module=covar_module,
+            covar_module=covar_modules[0],
             **kwargs,
         )
     else:
@@ -142,7 +143,7 @@ def get_and_fit_model_mcmc(
                 covar_module=covar_module,
                 **kwargs,
             )
-            for X, Y, Yvar in zip(Xs, Ys, Yvars)
+            for X, Y, Yvar, covar_module in zip(Xs, Ys, Yvars, covar_modules)
         ]
         model = ModelListGP(*models)
     model.to(Xs[0])

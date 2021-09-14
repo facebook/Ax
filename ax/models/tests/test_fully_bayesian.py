@@ -52,19 +52,19 @@ def _get_dummy_mcmc_samples(
 ) -> Dict[str, torch.Tensor]:
     tkwargs = {"dtype": dtype, "device": device}
     dummy_sample_list = []
-    for _ in range(num_outputs):
+    for i in range(num_outputs):
         dummy_samples = {
             # use real MAP values with tiny perturbations
             # so that the generation code below has feasible in-sample
             # points
-            "lengthscale": torch.tensor([[1 / 3, 1 / 3, 1 / 3]], **tkwargs)
+            "lengthscale": (i + 1) * torch.tensor([[1 / 3, 1 / 3, 1 / 3]], **tkwargs)
             + perturb_sd * torch.randn(num_samples, 1, 3, **tkwargs),
-            "outputscale": torch.tensor(2.3436, **tkwargs)
+            "outputscale": (i + 1) * torch.tensor(2.3436, **tkwargs)
             + perturb_sd * torch.randn(num_samples, **tkwargs),
-            "mean": torch.tensor([3.5000], **tkwargs)
+            "mean": (i + 1) * torch.tensor([3.5000], **tkwargs)
             + perturb_sd * torch.randn(num_samples, **tkwargs),
         }
-        dummy_samples["kernel_tausq"] = torch.tensor(0.5, **tkwargs)
+        dummy_samples["kernel_tausq"] = (i + 1) * torch.tensor(0.5, **tkwargs)
         dummy_samples["_kernel_inv_length_sq"] = (
             1.0 / dummy_samples["lengthscale"].sqrt()
         )
@@ -337,6 +337,35 @@ try:
                         ),
                         metric_names=mns,
                     )
+
+                # Check the hyperparameters and shapes
+                self.assertEqual(len(model.model.models), 2)
+                m1, m2 = model.model.models[0], model.model.models[1]
+                # Mean
+                self.assertEqual(m1.mean_module.constant.shape, (4, 1))
+                self.assertFalse(
+                    torch.isclose(
+                        m1.mean_module.constant, m2.mean_module.constant
+                    ).any()
+                )
+                # Outputscales
+                self.assertEqual(m1.covar_module.outputscale.shape, (4,))
+                self.assertFalse(
+                    torch.isclose(
+                        m1.covar_module.outputscale, m2.covar_module.outputscale
+                    ).any()
+                )
+                # Lengthscales
+                self.assertEqual(
+                    m1.covar_module.base_kernel.lengthscale.shape, (4, 1, 3)
+                )
+                self.assertFalse(
+                    torch.isclose(
+                        m1.covar_module.base_kernel.lengthscale,
+                        m2.covar_module.base_kernel.lengthscale,
+                    ).any()
+                )
+
                 # Check infeasible cost can be computed on the model
                 device = torch.device("cuda") if cuda else torch.device("cpu")
                 objective_weights = torch.tensor([1.0, 0.0], dtype=dtype, device=device)
