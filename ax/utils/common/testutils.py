@@ -226,19 +226,18 @@ class TestCase(unittest.TestCase):
 
         super().__init__(methodName=methodName)
         signal.signal(signal.SIGALRM, signal_handler)
-        self.setUp_called = False
 
-    def _callSetUp(self) -> None:
+    def run(
+        self, result: Optional[unittest.result.TestResult] = ...
+    ) -> Optional[unittest.result.TestResult]:
         # Arrange for a SIGALRM signal to be delivered to the calling process
         # in specified number of seconds.
         signal.alarm(self.MAX_TEST_SECONDS)
-        self.setUp_called = True
-        super()._callSetUp()  # pyre-ignore[16]... it does
-
-    def _callTearDown(self) -> None:
-        # When seconds argument to alarm is zero, any pending alarm is canceled.
-        signal.alarm(0)
-        super()._callTearDown()  # pyre-ignore[16]... it does
+        try:
+            result = super().run(result)
+        finally:
+            signal.alarm(0)
+        return result
 
     def assertEqual(
         self,
