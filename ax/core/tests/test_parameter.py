@@ -163,7 +163,7 @@ class ChoiceParameterTest(TestCase):
         )
         self.param1_repr = (
             "ChoiceParameter(name='x', parameter_type=STRING, "
-            "values=['foo', 'bar', 'baz'])"
+            "values=['foo', 'bar', 'baz'], is_ordered=False, sort_values=False)"
         )
         self.param2 = ChoiceParameter(
             name="x",
@@ -181,7 +181,17 @@ class ChoiceParameterTest(TestCase):
         )
         self.param3_repr = (
             "ChoiceParameter(name='x', parameter_type=STRING, "
-            "values=['foo', 'bar'], fidelity=True, target_value='bar')"
+            "values=['foo', 'bar'], is_ordered=False, sort_values=False, "
+            "is_fidelity=True, target_value='bar')"
+        )
+        self.param4 = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.INT,
+            values=[1, 2],
+        )
+        self.param4_repr = (
+            "ChoiceParameter(name='x', parameter_type=INT, "
+            "values=[1, 2], is_ordered=True, sort_values=True)"
         )
 
     def testBadCreations(self):
@@ -236,6 +246,7 @@ class ChoiceParameterTest(TestCase):
     def testRepr(self):
         self.assertEqual(str(self.param1), self.param1_repr)
         self.assertEqual(str(self.param3), self.param3_repr)
+        self.assertEqual(str(self.param4), self.param4_repr)
 
     def testValidate(self):
         self.assertFalse(self.param1.validate(None))

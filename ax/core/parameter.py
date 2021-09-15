@@ -393,16 +393,18 @@ class ChoiceParameter(Parameter):
         if not len(values) > 1:
             raise UserInputError(f"{self._name}({values}): {FIXED_CHOICE_PARAM_ERROR}")
         self._values = self._cast_values(values)
-        if is_ordered is None:
-            self._is_ordered = self._get_default_bool_and_warn(
-                param_string="is_ordered"
-            )
-        else:
-            self._is_ordered = is_ordered
+        self._is_ordered = (
+            is_ordered
+            if is_ordered is not None
+            else self._get_default_bool_and_warn(param_string="is_ordered")
+        )
         # sort_values defaults to True if the parameter is not a string
-        if sort_values is None:
-            sort_values = self._get_default_bool_and_warn(param_string="sort_values")
-        if sort_values:
+        self._sort_values = (
+            sort_values
+            if sort_values is not None
+            else self._get_default_bool_and_warn(param_string="sort_values")
+        )
+        if self.sort_values:
             # pyre-ignore[6]: values/self._values expects List[Union[None, bool, float,
             # int, str]] but sorted() takes/returns
             # List[Variable[_typeshed.SupportsLessThanT (bound to
@@ -419,6 +421,10 @@ class ChoiceParameter(Parameter):
             "construction."
         )
         return default_bool
+
+    @property
+    def sort_values(self) -> bool:
+        return self._sort_values
 
     @property
     def is_ordered(self) -> bool:
@@ -488,6 +494,7 @@ class ChoiceParameter(Parameter):
             is_task=self._is_task,
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
+            sort_values=self._sort_values,
         )
 
     def __repr__(self) -> str:
@@ -495,13 +502,17 @@ class ChoiceParameter(Parameter):
             "ChoiceParameter("
             f"name='{self._name}', "
             f"parameter_type={self.parameter_type.name}, "
-            f"values={self._values}"
+            f"values={self._values}, "
+            f"is_ordered={self._is_ordered}, "
+            f"sort_values={self._sort_values}"
         )
+        if self._is_task:
+            ret_val += f", is_task={self._is_task}"
         if self._is_fidelity:
             tval_rep = self.target_value
             if self.parameter_type == ParameterType.STRING:
                 tval_rep = f"'{tval_rep}'"
-            ret_val += f", fidelity={self.is_fidelity}, target_value={tval_rep}"
+            ret_val += f", is_fidelity={self.is_fidelity}, target_value={tval_rep}"
         return ret_val + ")"
 
 
