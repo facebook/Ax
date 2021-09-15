@@ -157,7 +157,9 @@ def get_observation2trans(
 def get_generation_strategy(
     with_experiment: bool = False, with_callable_model_kwarg: bool = True
 ) -> GenerationStrategy:
-    gs = choose_generation_strategy(search_space=get_search_space())
+    gs = choose_generation_strategy(
+        search_space=get_search_space(), should_deduplicate=True
+    )
     if with_experiment:
         gs._experiment = get_experiment()
     fake_func = get_experiment

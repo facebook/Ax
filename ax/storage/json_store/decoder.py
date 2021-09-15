@@ -372,6 +372,9 @@ def generation_step_from_json(generation_step_json: Dict[str, Any]) -> Generatio
         if gen_kwargs
         else None,
         index=generation_step_json.pop("index", -1),
+        should_deduplicate=generation_step_json.pop("should_deduplicate")
+        if "should_deduplicate" in generation_step_json
+        else False,
     )
 
 
