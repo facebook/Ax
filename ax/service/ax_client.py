@@ -1047,7 +1047,8 @@ class AxClient(WithDBSettingsBase):
         serialized_generation_strategy = serialized.pop("generation_strategy")
         ax_client = cls(
             generation_strategy=generation_strategy_from_json(
-                generation_strategy_json=serialized_generation_strategy
+                generation_strategy_json=serialized_generation_strategy,
+                experiment=experiment,
             )
             if serialized_generation_strategy is not None
             else None,

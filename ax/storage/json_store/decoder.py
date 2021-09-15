@@ -9,7 +9,7 @@ import pickle
 from collections import OrderedDict
 from enum import Enum
 from inspect import isclass
-from typing import Any, Dict, List, Tuple, Type, cast
+from typing import Any, Dict, List, Tuple, Type, cast, Optional
 
 import numpy as np
 import pandas as pd
@@ -379,13 +379,15 @@ def generation_step_from_json(generation_step_json: Dict[str, Any]) -> Generatio
 
 
 def generation_strategy_from_json(
-    generation_strategy_json: Dict[str, Any]
+    generation_strategy_json: Dict[str, Any], experiment: Optional[Experiment] = None
 ) -> GenerationStrategy:
     """Load generation strategy from JSON."""
     steps = object_from_json(generation_strategy_json.pop("steps"))
     gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
     gs._db_id = object_from_json(generation_strategy_json.pop("db_id"))
-    gs._experiment = object_from_json(generation_strategy_json.pop("experiment"))
+    gs._experiment = experiment or object_from_json(
+        generation_strategy_json.pop("experiment")
+    )
     gs._curr = gs._steps[generation_strategy_json.pop("curr_index")]
     gs._generator_runs = object_from_json(
         generation_strategy_json.pop("generator_runs")
