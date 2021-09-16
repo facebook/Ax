@@ -6,6 +6,8 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -289,7 +291,7 @@ class SearchSpace(Base):
             final_parameters.update(not_none(parameters))
         return Arm(parameters=final_parameters, name=name)
 
-    def clone(self) -> "SearchSpace":
+    def clone(self) -> SearchSpace:
         return SearchSpace(
             parameters=[p.clone() for p in self._parameters.values()],
             parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
