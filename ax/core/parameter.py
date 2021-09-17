@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from abc import ABCMeta, abstractmethod, abstractproperty
+from abc import ABCMeta, abstractmethod
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
@@ -62,6 +62,7 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     _is_fidelity: bool = False
     _name: str
     _target_value: Optional[TParamValue] = None
+    _parameter_type: ParameterType
 
     def cast(self, value: TParamValue) -> TParamValue:
         if value is None:
@@ -97,13 +98,13 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     def target_value(self) -> Optional[TParamValue]:
         return self._target_value
 
-    @abstractproperty
+    @property
     def parameter_type(self) -> ParameterType:
-        pass  # pragma: no cover
+        return self._parameter_type
 
-    @abstractproperty
+    @property
     def name(self) -> str:
-        pass  # pragma: no cover
+        return self._name
 
     def clone(self) -> Parameter:
         pass  # pragma: no cover
@@ -111,6 +112,13 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     @property
     def _unique_id(self) -> str:
         return str(self)
+
+    def _base_repr(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"name='{self._name}', "
+            f"parameter_type={self.parameter_type.name}, "
+        )
 
 
 class RangeParameter(Parameter):
@@ -187,14 +195,6 @@ class RangeParameter(Parameter):
             raise UserInputError(
                 f"[{lower}, {upper}] is an invalid range for this parameter."
             )
-
-    @property
-    def parameter_type(self) -> ParameterType:
-        return self._parameter_type
-
-    @property
-    def name(self) -> str:
-        return self._name
 
     @property
     def upper(self) -> float:
@@ -327,12 +327,9 @@ class RangeParameter(Parameter):
         return self.python_type(value)
 
     def __repr__(self) -> str:
-        ret_val = (
-            f"RangeParameter("
-            f"name='{self._name}', "
-            f"parameter_type={self.parameter_type.name}, "
-            f"range=[{self._lower}, {self._upper}]"
-        )
+        ret_val = self._base_repr()
+        ret_val += f"range=[{self._lower}, {self._upper}]"
+
         if self._log_scale:
             ret_val += f", log_scale={self._log_scale}"
 
@@ -438,14 +435,6 @@ class ChoiceParameter(Parameter):
     def values(self) -> List[TParamValue]:
         return self._values
 
-    @property
-    def parameter_type(self) -> ParameterType:
-        return self._parameter_type
-
-    @property
-    def name(self) -> str:
-        return self._name
-
     def set_values(self, values: List[TParamValue]) -> ChoiceParameter:
         """Set the list of allowed values for parameter.
 
@@ -498,21 +487,20 @@ class ChoiceParameter(Parameter):
         )
 
     def __repr__(self) -> str:
-        ret_val = (
-            "ChoiceParameter("
-            f"name='{self._name}', "
-            f"parameter_type={self.parameter_type.name}, "
-            f"values={self._values}, "
-            f"is_ordered={self._is_ordered}, "
-            f"sort_values={self._sort_values}"
-        )
+        ret_val = self._base_repr()
+        ret_val += f"values={self._values}, "
+        ret_val += f"is_ordered={self._is_ordered}, "
+        ret_val += f"sort_values={self._sort_values}"
+
         if self._is_task:
             ret_val += f", is_task={self._is_task}"
+
         if self._is_fidelity:
             tval_rep = self.target_value
             if self.parameter_type == ParameterType.STRING:
                 tval_rep = f"'{tval_rep}'"
             ret_val += f", is_fidelity={self.is_fidelity}, target_value={tval_rep}"
+
         return ret_val + ")"
 
 
@@ -553,14 +541,6 @@ class FixedParameter(Parameter):
     def value(self) -> TParamValue:
         return self._value
 
-    @property
-    def parameter_type(self) -> ParameterType:
-        return self._parameter_type
-
-    @property
-    def name(self) -> str:
-        return self._name
-
     def set_value(self, value: TParamValue) -> FixedParameter:
         self._value = self.cast(value)
         return self
@@ -586,12 +566,9 @@ class FixedParameter(Parameter):
         )
 
     def __repr__(self) -> str:
-        ret_val = (
-            f"FixedParameter("
-            f"name='{self._name}', "
-            f"parameter_type={self.parameter_type.name}, "
-            f"value={self._value}"
-        )
+        ret_val = self._base_repr()
+        ret_val += f"value={self._value}"
+
         if self._is_fidelity:
             ret_val += (
                 f", fidelity={self.is_fidelity}, target_value={self.target_value}"
