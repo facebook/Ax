@@ -74,7 +74,6 @@ def get_MOO_NEHVI(
     data: Data,
     objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: torch.device = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -119,7 +118,6 @@ def get_MTGP_NEHVI(
     data: Data,
     objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
     search_space: Optional[SearchSpace] = None,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
     trial_index: Optional[int] = None,
@@ -245,7 +243,6 @@ def get_botorch(
     experiment: Experiment,
     data: Data,
     search_space: Optional[SearchSpace] = None,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
     transforms: List[Type[Transform]] = Cont_X_trans + Y_trans,
@@ -286,7 +283,6 @@ def get_GPEI(
     experiment: Experiment,
     data: Data,
     search_space: Optional[SearchSpace] = None,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
 ) -> TorchModelBridge:
@@ -310,7 +306,6 @@ def get_GPKG(
     data: Data,
     search_space: Optional[SearchSpace] = None,
     cost_intercept: float = 0.01,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
     transforms: List[Type[Transform]] = Cont_X_trans + Y_trans,
@@ -404,8 +399,6 @@ def get_MTGP(
         #  typing.Union[botorch.acquisition.acquisition.AcquisitionFunction, float,
         #  int, str]]]]]`.
         transform_configs=transform_configs,
-        # pyre-fixme[6]: Expected `Optional[torch.dtype]` for 7th param but got
-        #  `Type[torch.double]`.
         torch_dtype=torch.double,
         torch_device=DEFAULT_TORCH_DEVICE,
         status_quo_features=status_quo_features,
@@ -475,7 +468,6 @@ def get_GPMES(
     data: Data,
     search_space: Optional[SearchSpace] = None,
     cost_intercept: float = 0.01,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
     transforms: List[Type[Transform]] = Cont_X_trans + Y_trans,
@@ -509,7 +501,6 @@ def get_MOO_EHVI(
     data: Data,
     objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: Optional[torch.device] = None,
 ) -> MultiObjectiveTorchModelBridge:
@@ -558,7 +549,6 @@ def get_MOO_PAREGO(
     data: Data,
     objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
 ) -> MultiObjectiveTorchModelBridge:
@@ -597,7 +587,6 @@ def get_MOO_RS(
     data: Data,
     objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
 ) -> MultiObjectiveTorchModelBridge:
@@ -638,7 +627,6 @@ def get_MTGP_PAREGO(
     trial_index: Optional[int] = None,
     objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
 ) -> MultiObjectiveTorchModelBridge:

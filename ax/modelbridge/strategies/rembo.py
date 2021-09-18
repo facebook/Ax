@@ -56,7 +56,6 @@ def get_REMBO(
     initial_X_d: torch.Tensor,
     bounds_d: List[Tuple[float, float]],
     search_space: Optional[SearchSpace] = None,
-    # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
     **model_kwargs: Any,
@@ -103,7 +102,6 @@ class REMBOStrategy(GenerationStrategy):
         init_per_proj: int,
         k: int = 4,
         name: str = "REMBO",
-        # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
         dtype: torch.dtype = torch.double,
         device: torch.device = DEFAULT_TORCH_DEVICE,
         gp_kwargs: Optional[Dict[str, Any]] = None,
@@ -274,7 +272,6 @@ class HeSBOStrategy(REMBOStrategy):
         init_per_proj: int,
         k: int = 1,
         name: str = "HeSBO",
-        # pyre-fixme[9]: dtype has type `dtype`; used as `Type[torch.double]`.
         dtype: torch.dtype = torch.double,
         device: torch.device = DEFAULT_TORCH_DEVICE,
         gp_kwargs: Optional[Dict[str, Any]] = None,
