@@ -410,7 +410,7 @@ class ChoiceParameter(Parameter):
 
     def _get_default_bool_and_warn(self, param_string: str) -> bool:
         default_bool = self._parameter_type != ParameterType.STRING
-        logger.warn(
+        logger.warning(
             f'`{param_string}` is not specified for `ChoiceParameter` "{self._name}". '
             f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
             f"{self.parameter_type.name}. To override this behavior (or avoid this "
