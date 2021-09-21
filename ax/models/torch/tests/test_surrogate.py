@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -77,6 +77,22 @@ class SurrogateTest(TestCase):
             Surrogate(
                 botorch_model_class=self.botorch_model_class, kernel_class=Kernel()
             )
+
+    @patch(f"{SURROGATE_PATH}.fit_gpytorch_model")
+    def test_mll_options(self, _):
+        mock_mll = MagicMock(self.mll_class)
+        surrogate = Surrogate(
+            botorch_model_class=self.botorch_model_class,
+            mll_class=mock_mll,
+            mll_options={"some_option": "some_value"},
+        )
+        surrogate.fit(
+            training_data=self.training_data,
+            search_space_digest=self.search_space_digest,
+            metric_names=self.metric_names,
+            refit=self.refit,
+        )
+        self.assertEqual(mock_mll.call_args[1]["some_option"], "some_value")
 
     def test_model_property(self):
         with self.assertRaisesRegex(

@@ -81,15 +81,17 @@ class Surrogate(Base):
         # TODO: make optional when BoTorch model factory is checked in.
         # Construction will then be possible from likelihood, kernel, etc.
         botorch_model_class: Type[Model],
-        mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
         model_options: Optional[Dict[str, Any]] = None,
+        mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
         kernel_class: Optional[Type[Kernel]] = None,  # TODO: use.
-        kernel_options: Optional[Dict[str, Any]] = None,  # TODO: use.
         likelihood: Optional[Type[Likelihood]] = None,  # TODO: use.
+        mll_options: Optional[Dict[str, Any]] = None,
+        kernel_options: Optional[Dict[str, Any]] = None,  # TODO: use.
     ) -> None:
         self.botorch_model_class = botorch_model_class
         self.mll_class = mll_class
         self.model_options = model_options or {}
+        self.mll_options = mll_options or {}
 
         # Temporary validation while we develop these customizations.
         if likelihood is not None:
@@ -229,7 +231,7 @@ class Surrogate(Base):
             self.model.load_state_dict(not_none(state_dict))
 
         if state_dict is None or refit:
-            mll = self.mll_class(self.model.likelihood, self.model)
+            mll = self.mll_class(self.model.likelihood, self.model, **self.mll_options)
             fit_gpytorch_model(mll)
 
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
@@ -397,4 +399,5 @@ class Surrogate(Base):
             "botorch_model_class": self.botorch_model_class,
             "mll_class": self.mll_class,
             "model_options": self.model_options,
+            "mll_options": self.mll_options,
         }

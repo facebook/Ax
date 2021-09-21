@@ -66,6 +66,7 @@ class ListSurrogate(Surrogate):
         submodel_options_per_outcome: Optional[Dict[str, Dict[str, Any]]] = None,
         submodel_options: Optional[Dict[str, Any]] = None,
         mll_class: Type[MarginalLogLikelihood] = SumMarginalLogLikelihood,
+        mll_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         if not bool(botorch_submodel_class_per_outcome) ^ bool(botorch_submodel_class):
             raise ValueError(  # pragma: no cover
@@ -79,7 +80,11 @@ class ListSurrogate(Surrogate):
         self.botorch_submodel_class = botorch_submodel_class
         self.submodel_options_per_outcome = submodel_options_per_outcome or {}
         self.submodel_options = submodel_options or {}
-        super().__init__(botorch_model_class=ModelListGP, mll_class=mll_class)
+        super().__init__(
+            botorch_model_class=ModelListGP,
+            mll_class=mll_class,
+            mll_options=mll_options,
+        )
 
     @property
     def training_data_per_outcome(self) -> Dict[str, TrainingData]:
@@ -173,4 +178,5 @@ class ListSurrogate(Surrogate):
             "submodel_options_per_outcome": self.submodel_options_per_outcome,
             "submodel_options": self.submodel_options,
             "mll_class": self.mll_class,
+            "mll_options": self.mll_options,
         }
