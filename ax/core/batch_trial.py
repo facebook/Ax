@@ -406,6 +406,14 @@ class BatchTrial(BaseTrial):
         """Set of names of arms that have been abandoned within this trial."""
         return set(self._abandoned_arms_metadata.keys())
 
+    @property
+    def in_design_arms(self) -> List[Arm]:
+        return [
+            arm
+            for arm in self.arms
+            if self.experiment.search_space.check_membership(arm.parameters)
+        ]
+
     # pyre-ignore[6]: T77111662.
     @copy_doc(BaseTrial.generator_runs)
     @property
