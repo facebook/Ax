@@ -32,6 +32,11 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
             self.assertEqual(sobol_gpei._steps[1].model.value, "GPEI")
+            self.assertIsNone(sobol_gpei._steps[1].model_kwargs)
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_branin_search_space(), verbose=True
+            )
+            self.assertIsNone(sobol_gpei._steps[1].model_kwargs)
         with self.subTest("MOO"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -42,6 +47,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
             self.assertEqual(sobol_gpei._steps[1].model.value, "MOO")
+            self.assertIsNone(sobol_gpei._steps[1].model_kwargs)
         with self.subTest("Sobol (we can try every option)"):
             sobol = choose_generation_strategy(
                 search_space=get_factorial_search_space(), num_trials=1000
@@ -51,7 +57,7 @@ class TestDispatchUtils(TestCase):
         with self.subTest("Sobol (because of too many categories)"):
             ss = get_large_factorial_search_space()
             sobol_large = choose_generation_strategy(
-                search_space=get_large_factorial_search_space()
+                search_space=get_large_factorial_search_space(), verbose=True
             )
             self.assertEqual(sobol_large._steps[0].model.value, "Sobol")
             self.assertEqual(len(sobol_large._steps), 1)
@@ -67,6 +73,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed._steps[0].model.value, "Sobol")
             self.assertEqual(bo_mixed._steps[0].num_trials, 6)
             self.assertEqual(bo_mixed._steps[1].model.value, "BO_MIXED")
+            self.assertIsNone(bo_mixed._steps[1].model_kwargs)
         with self.subTest("BO_MIXED (mixed search space)"):
             ss = get_branin_search_space(with_choice_parameter=True)
             ss.parameters["x2"]._is_ordered = False
@@ -74,6 +81,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed_2._steps[0].model.value, "Sobol")
             self.assertEqual(bo_mixed_2._steps[0].num_trials, 5)
             self.assertEqual(bo_mixed_2._steps[1].model.value, "BO_MIXED")
+            self.assertIsNone(bo_mixed_2._steps[1].model_kwargs)
         with self.subTest("SAASBO"):
             sobol_fullybayesian = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -81,9 +89,10 @@ class TestDispatchUtils(TestCase):
                 num_initialization_trials=3,
                 use_saasbo=True,
             )
-            self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
-            self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
+            self.assertEqual(sobol_fullybayesian._steps[0].model.value, "Sobol")
+            self.assertEqual(sobol_fullybayesian._steps[0].num_trials, 3)
             self.assertEqual(sobol_fullybayesian._steps[1].model.value, "FullyBayesian")
+            self.assertTrue(sobol_fullybayesian._steps[1].model_kwargs["verbose"])
         with self.subTest("SAASBO MOO"):
             sobol_fullybayesianmoo = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -94,11 +103,12 @@ class TestDispatchUtils(TestCase):
                     objective=MultiObjective(objectives=[])
                 ),
             )
-            self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
-            self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
+            self.assertEqual(sobol_fullybayesianmoo._steps[0].model.value, "Sobol")
+            self.assertEqual(sobol_fullybayesianmoo._steps[0].num_trials, 3)
             self.assertEqual(
                 sobol_fullybayesianmoo._steps[1].model.value, "FullyBayesianMOO"
             )
+            self.assertTrue(sobol_fullybayesianmoo._steps[1].model_kwargs["verbose"])
         with self.subTest("SAASBO"):
             sobol_fullybayesian_large = choose_generation_strategy(
                 search_space=get_large_ordinal_search_space(
@@ -111,6 +121,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(
                 sobol_fullybayesian_large._steps[1].model.value, "FullyBayesian"
             )
+            self.assertTrue(sobol_fullybayesian_large._steps[1].model_kwargs["verbose"])
         with self.subTest("num_initialization_trials"):
             ss = get_large_factorial_search_space()
             for _, param in ss.parameters.items():

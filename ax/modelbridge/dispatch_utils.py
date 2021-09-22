@@ -66,6 +66,7 @@ def _make_botorch_step(
     winsorize: bool = False,
     winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
     should_deduplicate: bool = False,
+    verbose: Optional[bool] = None,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
     if (winsorize and winsorization_limits is None) or (
@@ -75,18 +76,24 @@ def _make_botorch_step(
             "To apply winsorization, specify `winsorize=True` and provide the "
             "winsorization limits."
         )
-    model_kwargs = None
+    model_kwargs = {}
     if winsorize:
         assert winsorization_limits is not None
-        model_kwargs = {
-            "transforms": [cast(Type[Transform], Winsorize)] + Cont_X_trans + Y_trans,
-            "transform_configs": {
-                "Winsorize": {
-                    "winsorization_lower": winsorization_limits[0],
-                    "winsorization_upper": winsorization_limits[1],
-                }
-            },
-        }
+        model_kwargs.update(
+            {
+                "transforms": [cast(Type[Transform], Winsorize)]
+                + Cont_X_trans
+                + Y_trans,
+                "transform_configs": {
+                    "Winsorize": {
+                        "winsorization_lower": winsorization_limits[0],
+                        "winsorization_upper": winsorization_limits[1],
+                    }
+                },
+            }
+        )
+    if verbose is not None:
+        model_kwargs.update({"verbose": verbose})
     return GenerationStep(
         model=model,
         num_trials=num_trials,
@@ -94,7 +101,8 @@ def _make_botorch_step(
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
-        model_kwargs=model_kwargs,
+        # `model_kwargs` should default to `None` if empty
+        model_kwargs=model_kwargs if len(model_kwargs) > 0 else None,
         should_deduplicate=should_deduplicate,
     )
 
@@ -214,6 +222,7 @@ def choose_generation_strategy(
     optimization_config: Optional[OptimizationConfig] = None,
     should_deduplicate: bool = False,
     use_saasbo: bool = False,
+    verbose: Optional[bool] = None,
     experiment: Optional[Experiment] = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
@@ -262,6 +271,12 @@ def choose_generation_strategy(
             (e.g. to avoid overloading machine(s) that evaluate the experiment trials).
             Specify only if not specifying `max_parallelism_override`.
         use_saasbo: Whether to use SAAS prior for any GPEI generation steps.
+        verbose: Whether GP model should produce verbose logs. If not ``None``, its
+            value gets added to ``model_kwargs`` during ``generation_strategy``
+            construction. Defaults to ``True`` for SAASBO, else ``None``. Verbose
+            outputs are currently only available for SAASBO, so if ``verbose is not
+            None`` for a different model type, it will be overridden to ``None`` with
+            a warning.
         experiment: If specified, `_experiment` attribute of the generation strategy
             will be set to this experiment (useful for associating a generation
             strategy with a given experiment before it's first used to ``gen`` with
@@ -322,6 +337,20 @@ def choose_generation_strategy(
             sobol_parallelism = None  # No restriction on Sobol phase
             bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
 
+        # `verbose` default behavior and overrides
+        model_is_saasbo = not_none(suggested_model).name in [
+            "FULLYBAYESIANMOO",
+            "FULLYBAYESIAN",
+        ]
+        if verbose is None and model_is_saasbo:
+            verbose = True
+        elif verbose is not None and not model_is_saasbo:
+            logger.warning(
+                f"Overriding `verbose = {verbose}` to `None` for non-SAASBO GP step."
+            )
+            verbose = None
+
+        # create `generation_strategy`
         gs = GenerationStrategy(
             steps=[
                 _make_sobol_step(
@@ -337,6 +366,7 @@ def choose_generation_strategy(
                     winsorization_limits=winsorization_limits,
                     max_parallelism=bo_parallelism,
                     should_deduplicate=should_deduplicate,
+                    verbose=verbose,
                 ),
             ]
         )
@@ -346,6 +376,11 @@ def choose_generation_strategy(
             " model-fitting."
         )
     else:
+        if verbose is not None:
+            logger.warning(
+                f"Ignoring `verbose = {verbose}` for `generation_strategy` "
+                "without a GP step."
+            )
         gs = GenerationStrategy(
             steps=[
                 _make_sobol_step(
