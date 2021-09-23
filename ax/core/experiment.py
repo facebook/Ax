@@ -332,7 +332,7 @@ class Experiment(Base):
         """
         return self._properties.get(Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF, False)
 
-    def add_tracking_metric(self, metric: Metric) -> "Experiment":
+    def add_tracking_metric(self, metric: Metric) -> Experiment:
         """Add a new metric to the experiment.
 
         Args:
@@ -355,7 +355,7 @@ class Experiment(Base):
         self._tracking_metrics[metric.name] = metric
         return self
 
-    def add_tracking_metrics(self, metrics: List[Metric]) -> "Experiment":
+    def add_tracking_metrics(self, metrics: List[Metric]) -> Experiment:
         """Add a list of new metrics to the experiment.
 
         If any of the metrics are already defined on the experiment,
@@ -370,7 +370,7 @@ class Experiment(Base):
             self.add_tracking_metric(metric)
         return self
 
-    def update_tracking_metric(self, metric: Metric) -> "Experiment":
+    def update_tracking_metric(self, metric: Metric) -> Experiment:
         """Redefine a metric that already exists on the experiment.
 
         Args:
@@ -382,7 +382,7 @@ class Experiment(Base):
         self._tracking_metrics[metric.name] = metric
         return self
 
-    def remove_tracking_metric(self, metric_name: str) -> "Experiment":
+    def remove_tracking_metric(self, metric_name: str) -> Experiment:
         """Remove a metric that already exists on the experiment.
 
         Args:
