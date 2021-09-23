@@ -147,6 +147,13 @@ pip3 install git+ssh://git@github.com/facebook/Ax.git#egg=ax-platform[mysql]
 ```
 
 ## Join the Ax Community
+
+### Getting help
+
+Please open an issue on our [issues page](https://github.com/facebook/Ax/issues) with any questions, feature requests or bug reports! If posting a bug report, please include a minimal reproducible example (as a code snippet) that we can use to reproduce and debug the problem you encountered.
+
+### Contributing
+
 See the [CONTRIBUTING](CONTRIBUTING.md) file for how to help out.
 
 When contributing to Ax, we recommend cloning the [repository](https://github.com/facebook/Ax) and installing all optional dependencies:
