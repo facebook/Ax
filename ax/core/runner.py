@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Iterable
 
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import extract_init_args, serialize_init_args
@@ -20,6 +20,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class Runner(Base, ABC):
     """Abstract base class for custom runner classes"""
+
+    @property
+    def staging_required(self) -> bool:
+        """Whether the trial goes to staged or running state once deployed."""
+        return False
 
     @classmethod
     def serialize_init_args(cls, runner: Runner) -> Dict[str, Any]:
@@ -47,6 +52,52 @@ class Runner(Base, ABC):
         """
         pass  # pragma: no cover
 
+    def run_multiple(
+        self, trials: Iterable[core.base_trial.BaseTrial]
+    ) -> Dict[int, Dict[str, Any]]:
+        """Runs a single evaluation for each of the given trials. Useful when deploying
+        multiple trials at once is more efficient than deploying them one-by-one.
+        Used in Ax ``Scheduler``.
+
+        NOTE: By default simply loops over `run_trial`. Should be overwritten
+        if deploying multiple trials in batch is preferable.
+
+        Args:
+            trials: Iterable of trials to be deployed, each containing arms with
+                parameterizations to be evaluated. Can be a `Trial`
+                if contains only one arm or a `BatchTrial` if contains
+                multiple arms.
+
+        Returns:
+            Dict of trial index to the run metadata of that trial from the deployment
+            process.
+        """
+        return {trial.index: self.run(trial=trial) for trial in trials}
+
+    def poll_trial_status(
+        self, trials: Iterable[core.base_trial.BaseTrial]
+    ) -> Dict[core.base_trial.TrialStatus, Set[int]]:
+        """Checks the status of any non-terminal trials and returns their
+        indices as a mapping from TrialStatus to a list of indices. Required
+        for runners used with Ax ``Scheduler``.
+
+        NOTE: Does not need to handle waiting between polling calls while trials
+        are running; this function should just perform a single poll.
+
+        Args:
+            trials: Trials to poll.
+
+        Returns:
+            A dictionary mapping TrialStatus to a list of trial indices that have
+            the respective status at the time of the polling. This does not need to
+            include trials that at the time of polling already have a terminal
+            (ABANDONED, FAILED, COMPLETED) status (but it may).
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a `poll_trial_status` "
+            "method."
+        )
+
     def stop(
         self, trial: core.base_trial.BaseTrial, reason: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -64,11 +115,6 @@ class Runner(Base, ABC):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not implement a `stop` method."
         )
-
-    @property
-    def staging_required(self) -> bool:
-        """Whether the trial goes to staged or running state once deployed."""
-        return False
 
     def clone(self) -> Runner:
         """Create a copy of this Runner."""
