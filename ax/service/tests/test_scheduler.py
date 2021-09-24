@@ -132,7 +132,18 @@ class TestAxScheduler(TestCase):
 
     def test_init(self):
         with self.assertRaisesRegex(
-            UnsupportedError, ".* metrics .* implemented fetching"
+            UnsupportedError,
+            "`Scheduler` requires that experiment specifies a `Runner`.",
+        ):
+            scheduler = BareBonesTestScheduler(
+                experiment=self.branin_experiment_no_impl_metrics,
+                generation_strategy=self.sobol_GPEI_GS,
+                options=SchedulerOptions(total_trials=10),
+            )
+        self.branin_experiment_no_impl_metrics.runner = self.branin_experiment.runner
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            ".*Metrics {'branin'} do not implement fetching logic.",
         ):
             scheduler = BareBonesTestScheduler(
                 experiment=self.branin_experiment_no_impl_metrics,
@@ -189,19 +200,6 @@ class TestAxScheduler(TestCase):
                 "suppress_storage_errors_after_retries=False))"
             ),
         )
-
-    def test_validate_runners_if_required(self):
-        # `BareBonesTestScheduler` does not have runner and metrics, so it cannot
-        # run on experiment that does not specify those (or specifies base Metric,
-        # which do not implement data-fetching logic).
-        scheduler = BareBonesTestScheduler(
-            experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
-            options=SchedulerOptions(total_trials=10),
-        )
-        self.branin_experiment.runner = None
-        with self.assertRaisesRegex(NotImplementedError, ".* runner is required"):
-            scheduler.run_all_trials()
 
     def test_validate_early_stopping_strategy(self):
         class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):

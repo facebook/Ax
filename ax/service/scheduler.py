@@ -30,6 +30,7 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
+from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import (
@@ -283,7 +284,7 @@ class Scheduler(WithDBSettingsBase):
         # search space and opt. config to avoid storing their  copies on each
         # generator run.
         self._validate_remaining_trials(experiment=experiment)
-        self._validate_implemented_metrics(experiment=experiment)
+        self._validate_runner_and_implemented_metrics(experiment=experiment)
         self._enforce_immutable_search_space_and_opt_config()
         self._initialize_experiment_status_properties()
 
@@ -415,6 +416,13 @@ class Scheduler(WithDBSettingsBase):
             or len(self.experiment.trial_indices_by_status[TrialStatus.STAGED]) > 0
         )
 
+    @property
+    def runner(self) -> Runner:
+        """``Runner`` specified on the experiment associated with this ``Scheduler``
+        instance.
+        """
+        return not_none(self.experiment.runner)
+
     def __repr__(self) -> str:
         """Short user-friendly string representation."""
         if not hasattr(self, "experiment"):  # pragma: no cover
@@ -506,19 +514,14 @@ class Scheduler(WithDBSettingsBase):
 
         Args:
             trials: Iterable of trials to be deployed, each containing arms with
-                parameterizations to be evaluated. Can be a `Trial`
-                if contains only one arm or a `BatchTrial` if contains
+                parameterizations to be evaluated. Can be a ``Trial``
+                if contains only one arm or a ``BatchTrial`` if contains
                 multiple arms.
 
         Returns:
             Dict of trial index to the run metadata of that trial from the deployment
             process.
         """
-        if self.experiment.runner is None:
-            raise NotImplementedError(
-                "A runner is required on experiment to use its `run` method to "
-                "run a trial evaluation."
-            )
         return {
             trial.index: not_none(self.experiment.runner).run(trial=trial)
             for trial in trials
@@ -530,7 +533,7 @@ class Scheduler(WithDBSettingsBase):
         and returns their indices as a mapping from TrialStatus to a list of indices.
 
         NOTE: Does not need to handle waiting between polling while trials
-        are running; that logic is handled in `Scheduler.poll`, which calls
+        are running; that logic is handled in ``Scheduler.poll``, which calls
         this function.
 
         Returns:
@@ -561,18 +564,11 @@ class Scheduler(WithDBSettingsBase):
         if len(trials) == 0:
             return
 
-        if self.experiment.runner is None:
-            raise NotImplementedError(  # pragma: no cover
-                "A runner is required on experiment to use its `stop` method to "
-                "stop a trial evaluation."
-            )
-
-        runner = not_none(self.experiment.runner)
         if reasons is None:
             reasons = [None] * len(trials)
 
         for trial, reason in zip(trials, reasons):
-            runner.stop(trial=trial, reason=reason)
+            self.runner.stop(trial=trial, reason=reason)
 
     def wait_for_completed_trials_and_report_results(self) -> Dict[str, Any]:
         """Continuously poll for successful trials, with limited exponential
@@ -1302,10 +1298,14 @@ class Scheduler(WithDBSettingsBase):
                 f"{total_trials - preexisting}."
             )
 
-    def _validate_implemented_metrics(self, experiment: Experiment) -> None:
-        """Ensure that the experiment specifies metrics and that they are not base
-        `Metric`-s, which do not implement fetching logic.
+    def _validate_runner_and_implemented_metrics(self, experiment: Experiment) -> None:
+        """Ensure that the experiment specifies runner and metrics; check that metrics are
+        not base ``Metric``-s, which do not implement fetching logic.
         """
+        if experiment.runner is None:
+            raise UnsupportedError(
+                "`Scheduler` requires that experiment specifies a `Runner`."
+            )
         msg = (
             "`Scheduler` requires that experiment specifies metrics "
             "with implemented fetching logic."
