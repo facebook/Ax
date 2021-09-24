@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -207,7 +206,7 @@ class SchedulerOptions:
     suppress_storage_errors_after_retries: bool = False
 
 
-class Scheduler(WithDBSettingsBase, ABC):
+class Scheduler(WithDBSettingsBase):
     """Closed-loop manager class for Ax optimization.
 
     Attributes:
@@ -370,8 +369,6 @@ class Scheduler(WithDBSettingsBase, ABC):
                 "specify the `geneneration_strategy` kwarg."
             )
 
-        # pyre-ignore[45]: Let Python error if instantiation of abstract
-        # base `Scheduler` is attempted, as error will be informative.
         scheduler = cls(
             experiment=exp,
             generation_strategy=not_none(generation_strategy or gs),
@@ -430,25 +427,6 @@ class Scheduler(WithDBSettingsBase, ABC):
             f"{self.options})"
         )
 
-    # ----------------- User-defined, required. -----------------
-
-    @abstractmethod
-    def poll_trial_status(self) -> Dict[TrialStatus, Set[int]]:
-        """Required polling function, checks the status of any non-terminal trials
-        and returns their indices as a mapping from TrialStatus to a list of indices.
-
-        NOTE: Does not need to handle waiting between polling while trials
-        are running; that logic is handled in `Scheduler.poll`, which calls
-        this function.
-
-        Returns:
-            A dictionary mapping TrialStatus to a list of trial indices that have
-            the respective status at the time of the polling. This does not need to
-            include trials that at the time of polling already have a terminal
-            (ABANDONED, FAILED, COMPLETED) status (but it may).
-        """
-        ...  # pragma: no cover
-
     # ----------------- User-defined, optional. -----------------
 
     def has_capacity(self, n: int = 1) -> bool:
@@ -506,82 +484,21 @@ class Scheduler(WithDBSettingsBase, ABC):
         # TODO[T61776778]: add utility to get best trial from arbitrary exp.
         return {}
 
-    @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
-    def run_trial(self, trial: BaseTrial) -> Dict[str, Any]:
-        """Optional deployment function, runs a single evaluation of the
-        given trial. Can be used instead of `runner.run(trial)` if no
-        runner is defined on the experiment; will be required in that case.
-
-        NOTE: the `retry_on_exception` decorator applied to this function should also
-        be applied to its subclassing override if one is provided and retry behavior
-        is desired.
-
-        Args:
-            trial: Trial to be deployed, contains arms with
-                parameterizations to be evaluated. Can be a `Trial`
-                if contains only one arm or a `BatchTrial` if contains
-                multiple arms.
-
-        Returns:
-            Dict of run metadata from the deployment process.
+    def summarize_final_result(self) -> OptimizationResult:
+        """Get some summary of result: which trial did best, what
+        were the metric values, what were encountered failures, etc.
         """
-        if self.experiment.runner is None:
-            raise NotImplementedError(
-                "A runner is required on experiment to use its `run` method to "
-                "run a trial evaluation. Alternatively, `run_trial` can be defined "
-                "on a subclass of `Scheduler` as a substitute of a runner."
-            )
-        return not_none(self.experiment.runner).run(trial=trial)
+        return OptimizationResult()  # pragma: no cover, TODO[T61776778]
 
-    def stop_trial_runs(
-        self, trials: List[BaseTrial], reasons: Optional[List[Optional[str]]] = None
-    ) -> None:
-        """Stops the jobs that execute given trials.
-
-        Used if, for example, TTL for a trial was specified and expired, or poor
-        early results suggest the trial is not worth running to completion.
-
-        Requires a runner to be defined on the experiment in this base class
-        implementation, but can be overridden in subclasses to not require a runner.
-
-        Overwrite default implementation if its desirable to stop trials in bulk.
-
-        Args:
-            trials: Trials to be stopped.
-            reasons: A list of strings describing the reasons for why the
-                trials are to be stopped (in the same order).
-        """
-        if len(trials) == 0:
-            return
-
-        if self.experiment.runner is None:
-            raise NotImplementedError(  # pragma: no cover
-                "A runner is required on experiment to use its `stop` method to "
-                "stop a trial evaluation. Alternatively, `stop_trial` can be defined "
-                "on a subclass of `Scheduler` as a substitute of a runner."
-            )
-
-        runner = not_none(self.experiment.runner)
-        if reasons is None:
-            reasons = [None] * len(trials)
-
-        for trial, reason in zip(trials, reasons):
-            runner.stop(trial=trial, reason=reason)
-
-    def stop_trial_run(self, trial: BaseTrial, reason: Optional[str] = None) -> None:
-        """Stops the job that executes a given trial.
-
-        Args:
-            trial: Trial to be stopped.
-            reason: The reason the trial is to be stopped.
-        """
-        self.stop_trial_runs(trials=[trial], reasons=[reason])
+    # ---------- Methods below should generally not be modified in subclasses. ---------
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def run_trials(self, trials: Iterable[BaseTrial]) -> Dict[int, Dict[str, Any]]:
-        """Optional deployment function, runs a single evaluation for each of the
-        given trials. By default simply loops over `run_trial`. Should be overwritten
-        if deploying multiple trials in batch is preferable.
+        """Deployment function, runs a single evaluation for each of the
+        given trials.
+
+        Override default implementation on the ``Runner`` if its desirable to deploy
+        trials in bulk.
 
         NOTE: the `retry_on_exception` decorator applied to this function should also
         be applied to its subclassing override if one is provided and retry behavior
@@ -597,7 +514,65 @@ class Scheduler(WithDBSettingsBase, ABC):
             Dict of trial index to the run metadata of that trial from the deployment
             process.
         """
-        return {trial.index: self.run_trial(trial=trial) for trial in trials}
+        if self.experiment.runner is None:
+            raise NotImplementedError(
+                "A runner is required on experiment to use its `run` method to "
+                "run a trial evaluation."
+            )
+        return {
+            trial.index: not_none(self.experiment.runner).run(trial=trial)
+            for trial in trials
+        }
+
+    @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
+    def poll_trial_status(self) -> Dict[TrialStatus, Set[int]]:
+        """Polling function, checks the status of any non-terminal trials
+        and returns their indices as a mapping from TrialStatus to a list of indices.
+
+        NOTE: Does not need to handle waiting between polling while trials
+        are running; that logic is handled in `Scheduler.poll`, which calls
+        this function.
+
+        Returns:
+            A dictionary mapping TrialStatus to a list of trial indices that have
+            the respective status at the time of the polling. This does not need to
+            include trials that at the time of polling already have a terminal
+            (ABANDONED, FAILED, COMPLETED) status (but it may).
+        """
+        raise NotImplementedError  # TODO[drfreund]
+
+    @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
+    def stop_trial_runs(
+        self, trials: List[BaseTrial], reasons: Optional[List[Optional[str]]] = None
+    ) -> None:
+        """Stops the jobs that execute given trials.
+
+        Used if, for example, TTL for a trial was specified and expired, or poor
+        early results suggest the trial is not worth running to completion.
+
+        Override default implementation on the ``Runner`` if its desirable to stop
+        trials in bulk.
+
+        Args:
+            trials: Trials to be stopped.
+            reasons: A list of strings describing the reasons for why the
+                trials are to be stopped (in the same order).
+        """
+        if len(trials) == 0:
+            return
+
+        if self.experiment.runner is None:
+            raise NotImplementedError(  # pragma: no cover
+                "A runner is required on experiment to use its `stop` method to "
+                "stop a trial evaluation."
+            )
+
+        runner = not_none(self.experiment.runner)
+        if reasons is None:
+            reasons = [None] * len(trials)
+
+        for trial, reason in zip(trials, reasons):
+            runner.stop(trial=trial, reason=reason)
 
     def wait_for_completed_trials_and_report_results(self) -> Dict[str, Any]:
         """Continuously poll for successful trials, with limited exponential
@@ -716,14 +691,6 @@ class Scheduler(WithDBSettingsBase, ABC):
                 f"at least {self.options.min_failed_trials_for_failure_rate_check} "
                 "trials have failed."
             )
-
-    def summarize_final_result(self) -> OptimizationResult:
-        """Get some summary of result: which trial did best, what
-        were the metric values, what were encountered failures, etc.
-        """
-        return OptimizationResult()  # pragma: no cover, TODO[T61776778]
-
-    # ---------- Methods below should generally not be modified in subclasses. ---------
 
     def run_trials_and_yield_results(
         self, max_trials: int, timeout_hours: Optional[int] = None

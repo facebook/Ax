@@ -10,7 +10,7 @@ from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Iterable, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, Optional, Set, Tuple, List
 from unittest.mock import patch
 
 from ax.core.arm import Arm
@@ -357,7 +357,7 @@ class TestAxScheduler(TestCase):
             scheduler.experiment.runner, "stop", return_value=None
         ) as mock_runner_stop:
             scheduler.run_n_trials(max_trials=1)
-            scheduler.stop_trial_run(scheduler.experiment.trials[0])
+            scheduler.stop_trial_runs(trials=[scheduler.experiment.trials[0]])
             mock_runner_stop.assert_called_once()
 
     def test_run_all_trials_not_using_runner(self):
@@ -461,7 +461,7 @@ class TestAxScheduler(TestCase):
 
             run_trial_call_count = 0
 
-            def run_trial(self, trial: BaseTrial) -> Dict[str, Any]:
+            def run_trials(self, trials: List[BaseTrial]) -> Dict[str, Any]:
                 self.run_trial_call_count += 1
                 raise RuntimeError("Failing for testing purposes.")
 
@@ -482,7 +482,7 @@ class TestAxScheduler(TestCase):
 
             run_trial_call_count = 0
 
-            def run_trial(self, trial: BaseTrial) -> Dict[str, Any]:
+            def run_trials(self, trials: List[BaseTrial]) -> Dict[str, Any]:
                 self.run_trial_call_count += 1
                 raise ValueError("Failing for testing purposes.")
 
