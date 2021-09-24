@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
-import time
 from logging import WARNING
 from math import ceil
 from random import randint
@@ -28,6 +27,7 @@ from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status,
 )
 from ax.modelbridge.registry import Models
+from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
     FailureRateExceededError,
     Scheduler,
@@ -39,6 +39,7 @@ from ax.service.scheduler import (
 from ax.service.utils.with_db_settings_base import (
     WithDBSettingsBase,
 )
+from ax.storage.runner_registry import register_runner
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -55,23 +56,33 @@ from ax.utils.testing.core_stubs import (
 from sqlalchemy.orm.exc import StaleDataError
 
 
-class BareBonesTestScheduler(Scheduler):
-    """Test scheduler that only implements the required `poll_trial_status` and
-    therefore requires full-fleshed runners and metrics to be set on the experiment.
-    """
+class SyntheticRunnerWithStatusPolling(SyntheticRunner):
+    """Test runner that implements `poll_trial_status`, required for compatibility
+    with the ``Scheduler``."""
 
-    def poll_trial_status(self) -> Dict[TrialStatus, Set[int]]:
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> Dict[TrialStatus, Set[int]]:
         # Pretend that sometimes trials take a few seconds to complete and that they
         # might get completed out of order.
         if randint(0, 3) > 0:
-            running = [t.index for t in self.running_trials]
+            running = [t.index for t in trials]
             return {TrialStatus.COMPLETED: {running[randint(0, len(running) - 1)]}}
         return {}
 
+
+register_runner(SyntheticRunnerWithStatusPolling)
+
+
+class TestScheduler(Scheduler):
+    """Test scheduler that only implements ``report_results`` for convenience in
+    testing.
+    """
+
     def report_results(self) -> Tuple[bool, Dict[str, Set[int]]]:
         return {
-            # use `set` constructor to copy the set, else the value
-            # will be a pointer and all will be the same
+            # Use `set` constructor to copy the set, else the value
+            # will be a pointer and all will be the same.
             "trials_completed_so_far": set(
                 self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
             ),
@@ -81,20 +92,86 @@ class BareBonesTestScheduler(Scheduler):
         }
 
 
-class TestScheduler(BareBonesTestScheduler):
-    """Test scheduler that extends the `BareBonesTestScheduler` with logic for running
-    trials and fetching trial data –– and therefore does not require implemented runners
-    or metrics.
-    """
+class EarlyStopsInsteadOfNormalCompletionScheduler(TestScheduler):
+    """Test scheduler that marks all trials as ones that should be early-stopped."""
 
-    def run_trial(self, trial: BaseTrial) -> Dict[str, Any]:
-        return {"name": f"depl_{trial.index}", "run_timestamp": time.time()}
+    def should_stop_trials_early(self, trial_indices: Set[int]):
+        return {i: None for i in trial_indices}
 
-    def run_trials(self, trials: Iterable[BaseTrial]) -> Dict[int, Dict[str, Any]]:
-        return {
-            t.index: {"name": f"depl_{t.index}", "run_timestamp": time.time()}
-            for t in trials
-        }
+
+# ---- Runners below simulate different usage and failure modes for scheduler ----
+
+
+class RunnerWithFrequentFailedTrials(SyntheticRunner):
+
+    poll_failed_next_time = True
+
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> Dict[TrialStatus, Set[int]]:
+        running = [t.index for t in trials]
+        status = (
+            TrialStatus.FAILED if self.poll_failed_next_time else TrialStatus.COMPLETED
+        )
+        # Poll different status next time.
+        self.poll_failed_next_time = not self.poll_failed_next_time
+        return {status: {running[randint(0, len(running) - 1)]}}
+
+
+class RunnerWithAllFailedTrials(SyntheticRunner):
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> Dict[TrialStatus, Set[int]]:
+        running = [t.index for t in trials]
+        return {TrialStatus.FAILED: {running[randint(0, len(running) - 1)]}}
+
+
+class NoReportResultsRunner(SyntheticRunner):
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> Dict[TrialStatus, Set[int]]:
+        if randint(0, 3) > 0:
+            running = [t.index for t in trials]
+            return {TrialStatus.COMPLETED: {running[randint(0, len(running) - 1)]}}
+        return {}
+
+
+class InfinitePollRunner(SyntheticRunner):
+    def poll_trial_status(self, trials: Iterable[BaseTrial]):
+        return {}
+
+
+class RunnerWithEarlyStoppingStrategy(SyntheticRunner):
+    poll_trial_status_count = 0
+
+    def poll_trial_status(self, trials: Iterable[BaseTrial]):
+        # In the first step, don't complete any trials
+        # Trial #1 will be early stopped
+        if self.poll_trial_status_count == 0:
+            self.poll_trial_status_count += 1
+            return {}
+
+        # In the second step, complete trials 0 and 2
+        self.poll_trial_status_count += 1
+        return {TrialStatus.COMPLETED: {0, 2}}
+
+
+class BrokenRunnerValueError(SyntheticRunnerWithStatusPolling):
+
+    run_trial_call_count = 0
+
+    def run_multiple(self, trials: List[BaseTrial]) -> Dict[str, Any]:
+        self.run_trial_call_count += 1
+        raise ValueError("Failing for testing purposes.")
+
+
+class BrokenRunnerRuntimeError(SyntheticRunnerWithStatusPolling):
+
+    run_trial_call_count = 0
+
+    def run_multiple(self, trials: List[BaseTrial]) -> Dict[str, Any]:
+        self.run_trial_call_count += 1
+        raise RuntimeError("Failing for testing purposes.")
 
 
 class TestAxScheduler(TestCase):
@@ -102,10 +179,12 @@ class TestAxScheduler(TestCase):
 
     def setUp(self):
         self.branin_experiment = get_branin_experiment()
+        self.runner = SyntheticRunnerWithStatusPolling()
+        self.branin_experiment.runner = self.runner
         self.branin_experiment._properties[
             Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF
         ] = True
-        self.branin_experiment_no_impl_metrics = Experiment(
+        self.branin_experiment_no_impl_runner_or_metrics = Experiment(
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
                 objective=Objective(metric=Metric(name="branin"))
@@ -135,22 +214,22 @@ class TestAxScheduler(TestCase):
             UnsupportedError,
             "`Scheduler` requires that experiment specifies a `Runner`.",
         ):
-            scheduler = BareBonesTestScheduler(
-                experiment=self.branin_experiment_no_impl_metrics,
+            scheduler = Scheduler(
+                experiment=self.branin_experiment_no_impl_runner_or_metrics,
                 generation_strategy=self.sobol_GPEI_GS,
                 options=SchedulerOptions(total_trials=10),
             )
-        self.branin_experiment_no_impl_metrics.runner = self.branin_experiment.runner
+        self.branin_experiment_no_impl_runner_or_metrics.runner = self.runner
         with self.assertRaisesRegex(
             UnsupportedError,
             ".*Metrics {'branin'} do not implement fetching logic.",
         ):
-            scheduler = BareBonesTestScheduler(
-                experiment=self.branin_experiment_no_impl_metrics,
+            scheduler = Scheduler(
+                experiment=self.branin_experiment_no_impl_runner_or_metrics,
                 generation_strategy=self.sobol_GPEI_GS,
                 options=SchedulerOptions(total_trials=10),
             )
-        scheduler = BareBonesTestScheduler(
+        scheduler = Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_GPEI_GS,
             options=SchedulerOptions(
@@ -175,7 +254,7 @@ class TestAxScheduler(TestCase):
         )
 
     def test_repr(self):
-        scheduler = BareBonesTestScheduler(
+        scheduler = Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_GPEI_GS,
             options=SchedulerOptions(
@@ -187,7 +266,7 @@ class TestAxScheduler(TestCase):
         self.assertEqual(
             f"{scheduler}",
             (
-                "BareBonesTestScheduler(experiment=Experiment(branin_test_experiment), "
+                "Scheduler(experiment=Experiment(branin_test_experiment), "
                 "generation_strategy=GenerationStrategy(name='Sobol+GPEI', "
                 "steps=[Sobol for 5 trials, GPEI for subsequent trials]), "
                 "options=SchedulerOptions(trial_type=<class 'ax.core.trial.Trial'>, "
@@ -215,7 +294,7 @@ class TestAxScheduler(TestCase):
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,
         ), self.assertRaises(ValueError):
-            BareBonesTestScheduler(
+            Scheduler(
                 experiment=self.branin_experiment,
                 generation_strategy=self.sobol_GPEI_GS,
                 options=SchedulerOptions(
@@ -224,7 +303,7 @@ class TestAxScheduler(TestCase):
             )
 
         # should not error
-        BareBonesTestScheduler(
+        Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_GPEI_GS,
             options=SchedulerOptions(
@@ -237,7 +316,7 @@ class TestAxScheduler(TestCase):
         return_value=[get_generator_run()],
     )
     def test_run_multi_arm_generator_run_error(self, mock_gen):
-        scheduler = TestScheduler(
+        scheduler = Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_GPEI_GS,
             options=SchedulerOptions(total_trials=1),
@@ -254,8 +333,8 @@ class TestAxScheduler(TestCase):
         side_effect=get_pending_observation_features_based_on_trial_status,
     )
     def test_run_all_trials_using_runner_and_metrics(self, mock_get_pending):
-        # With runners & metrics, `BareBonesTestScheduler.run_all_trials` should run.
-        scheduler = BareBonesTestScheduler(
+        # With runners & metrics, `Scheduler.run_all_trials` should run.
+        scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -266,7 +345,7 @@ class TestAxScheduler(TestCase):
         scheduler.run_all_trials()
         # Check that we got pending feat. at least 8 times (1 for each new trial and
         # maybe more for cases where we tried to generate trials but ran into limit on
-        # paralel., as polling trial statuses is randomized in BareBonesTestScheduler),
+        # paralel., as polling trial statuses is randomized in Scheduler),
         # so some trials might not yet have come back.
         self.assertGreaterEqual(len(mock_get_pending.call_args_list), 8)
         self.assertTrue(  # Make sure all trials got to complete.
@@ -297,8 +376,8 @@ class TestAxScheduler(TestCase):
         )
 
     def test_run_n_trials(self):
-        # With runners & metrics, `BareBonesTestScheduler.run_all_trials` should run.
-        scheduler = BareBonesTestScheduler(
+        # With runners & metrics, `Scheduler.run_all_trials` should run.
+        scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -319,7 +398,7 @@ class TestAxScheduler(TestCase):
     def test_run_preattached_trials_only(self):
         # assert that pre-attached trials run when max_trials = number of
         # pre-attached trials
-        scheduler = BareBonesTestScheduler(
+        scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -343,8 +422,8 @@ class TestAxScheduler(TestCase):
         )
 
     def test_stop_trial(self):
-        # With runners & metrics, `BareBonesTestScheduler.run_all_trials` should run.
-        scheduler = BareBonesTestScheduler(
+        # With runners & metrics, `Scheduler.run_all_trials` should run.
+        scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -358,35 +437,10 @@ class TestAxScheduler(TestCase):
             scheduler.stop_trial_runs(trials=[scheduler.experiment.trials[0]])
             mock_runner_stop.assert_called_once()
 
-    def test_run_all_trials_not_using_runner(self):
-        # `TestScheduler` has `run_trial` and `fetch_trial_data` logic, so runner &
-        # implemented metrics are not required.
-        scheduler = TestScheduler(
-            experiment=self.branin_experiment,
-            generation_strategy=self.two_sobol_steps_GS,
-            options=SchedulerOptions(
-                total_trials=8,
-                init_seconds_between_polls=0,  # No wait between polls so test is fast.
-            ),
-        )
-        self.branin_experiment.runner = None
-        scheduler.run_all_trials()
-        self.assertTrue(  # Make sure all trials got to complete.
-            all(t.completed_successfully for t in scheduler.experiment.trials.values())
-        )
-        self.assertEqual(len(scheduler.experiment.trials), 8)
-        # Check that all the data, fetched during optimization, was attached to the
-        # experiment.
-        dat = scheduler.experiment.fetch_data().df
-        self.assertEqual(set(dat["trial_index"].values), set(range(8)))
-
     @patch(f"{Scheduler.__module__}.MAX_SECONDS_BETWEEN_POLLS", 2)
     def test_stop_at_MAX_SECONDS_BETWEEN_POLLS(self):
-        class InfinitePollScheduler(BareBonesTestScheduler):
-            def poll_trial_status(self):
-                return {}
-
-        scheduler = InfinitePollScheduler(
+        self.branin_experiment.runner = InfinitePollRunner()
+        scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -406,9 +460,7 @@ class TestAxScheduler(TestCase):
             )
 
     def test_timeout(self):
-        # `TestScheduler` has `run_trial` and `fetch_trial_data` logic, so runner &
-        # implemented metrics are not required.
-        scheduler = TestScheduler(
+        scheduler = Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -422,7 +474,7 @@ class TestAxScheduler(TestCase):
 
     def test_logging(self):
         with NamedTemporaryFile() as temp_file:
-            BareBonesTestScheduler(
+            Scheduler(
                 experiment=self.branin_experiment,
                 generation_strategy=self.sobol_GPEI_GS,
                 options=SchedulerOptions(
@@ -439,7 +491,7 @@ class TestAxScheduler(TestCase):
         # We don't have any warnings yet, so warning level of logging shouldn't yield
         # any logs as of now.
         with NamedTemporaryFile() as temp_file:
-            BareBonesTestScheduler(
+            Scheduler(
                 experiment=self.branin_experiment,
                 generation_strategy=self.sobol_GPEI_GS,
                 options=SchedulerOptions(
@@ -455,15 +507,8 @@ class TestAxScheduler(TestCase):
 
     def test_retries(self):
         # Check that retries will be performed for a retriable error.
-        class BrokenSchedulerRuntimeError(BareBonesTestScheduler):
-
-            run_trial_call_count = 0
-
-            def run_trials(self, trials: List[BaseTrial]) -> Dict[str, Any]:
-                self.run_trial_call_count += 1
-                raise RuntimeError("Failing for testing purposes.")
-
-        scheduler = BrokenSchedulerRuntimeError(
+        self.branin_experiment.runner = BrokenRunnerRuntimeError()
+        scheduler = Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(total_trials=1),
@@ -476,15 +521,8 @@ class TestAxScheduler(TestCase):
     def test_retries_nonretriable_error(self):
         # Check that no retries will be performed for `ValueError`, since we
         # exclude it from the retriable errors.
-        class BrokenSchedulerValueError(BareBonesTestScheduler):
-
-            run_trial_call_count = 0
-
-            def run_trials(self, trials: List[BaseTrial]) -> Dict[str, Any]:
-                self.run_trial_call_count += 1
-                raise ValueError("Failing for testing purposes.")
-
-        scheduler = BrokenSchedulerValueError(
+        self.branin_experiment.runner = BrokenRunnerValueError()
+        scheduler = Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(total_trials=1),
@@ -495,7 +533,7 @@ class TestAxScheduler(TestCase):
             self.assertEqual(scheduler.run_trial_call_count, 1)
 
     def test_set_ttl(self):
-        scheduler = TestScheduler(
+        scheduler = Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -511,26 +549,6 @@ class TestAxScheduler(TestCase):
         )
 
     def test_failure_rate(self):
-        class SchedulerWithFrequentFailedTrials(TestScheduler):
-
-            poll_failed_next_time = True
-
-            def poll_trial_status(self) -> Dict[TrialStatus, Set[int]]:
-                running = [t.index for t in self.running_trials]
-                status = (
-                    TrialStatus.FAILED
-                    if self.poll_failed_next_time
-                    else TrialStatus.COMPLETED
-                )
-                # Poll different status next time.
-                self.poll_failed_next_time = not self.poll_failed_next_time
-                return {status: {running[randint(0, len(running) - 1)]}}
-
-        class SchedulerWithAllFailedTrials(TestScheduler):
-            def poll_trial_status(self) -> Dict[TrialStatus, Set[int]]:
-                running = [t.index for t in self.running_trials]
-                return {TrialStatus.FAILED: {running[randint(0, len(running) - 1)]}}
-
         options = SchedulerOptions(
             total_trials=8,
             tolerated_trial_failure_rate=0.5,
@@ -538,7 +556,8 @@ class TestAxScheduler(TestCase):
             min_failed_trials_for_failure_rate_check=2,
         )
 
-        scheduler = SchedulerWithFrequentFailedTrials(
+        self.branin_experiment.runner = RunnerWithFrequentFailedTrials()
+        scheduler = Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_GS_no_parallelism,
             options=options,
@@ -553,7 +572,8 @@ class TestAxScheduler(TestCase):
         # If all trials fail, we can be certain that the sweep will
         # fail after only 2 trials.
         num_preexisting_trials = len(scheduler.experiment.trials)
-        scheduler = SchedulerWithAllFailedTrials(
+        self.branin_experiment.runner = RunnerWithAllFailedTrials()
+        scheduler = Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_GS_no_parallelism,
             options=options,
@@ -573,7 +593,7 @@ class TestAxScheduler(TestCase):
         # Scheduler currently requires that the experiment be pre-saved.
         with self.assertRaisesRegex(ValueError, ".* must specify a name"):
             experiment._name = None
-            scheduler = TestScheduler(
+            scheduler = Scheduler(
                 experiment=experiment,
                 generation_strategy=self.two_sobol_steps_GS,
                 options=SchedulerOptions(total_trials=1),
@@ -581,7 +601,7 @@ class TestAxScheduler(TestCase):
             )
         experiment._name = "test_experiment"
         NUM_TRIALS = 5
-        scheduler = TestScheduler(
+        scheduler = Scheduler(
             experiment=experiment,
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -602,7 +622,7 @@ class TestAxScheduler(TestCase):
         self.assertEqual(len(exp.trials), NUM_TRIALS)
         self.assertEqual(len(gs._generator_runs), NUM_TRIALS)
         # Test `from_stored_experiment`.
-        new_scheduler = TestScheduler.from_stored_experiment(
+        new_scheduler = Scheduler.from_stored_experiment(
             experiment_name=experiment.name,
             options=SchedulerOptions(
                 total_trials=NUM_TRIALS + 1,
@@ -630,14 +650,14 @@ class TestAxScheduler(TestCase):
 
     def test_run_trials_and_yield_results(self):
         total_trials = 3
-        scheduler = BareBonesTestScheduler(
+        scheduler = TestScheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
                 init_seconds_between_polls=0,
             ),
         )
-        # `BaseBonesTestScheduler.poll_trial_status` is written to mark one
+        # `BaseBonesScheduler.poll_trial_status` is written to mark one
         # trial as `COMPLETED` at a time, so we should be obtaining results
         # as many times as `total_trials` and yielding from generator after
         # obtaining each new result.
@@ -648,14 +668,8 @@ class TestAxScheduler(TestCase):
         self.assertEqual(len(res_list[2]["trials_completed_so_far"]), 3)
 
     def test_run_trials_and_yield_results_with_early_stopper(self):
-        class EarlyStopsInsteadOfNormalCompletionScheduler(BareBonesTestScheduler):
-            def poll_trial_status(self):
-                return {}
-
-            def should_stop_trials_early(self, trial_indices: Set[int]):
-                return {i: None for i in trial_indices}
-
         total_trials = 3
+        self.branin_experiment.runner = InfinitePollRunner()
         scheduler = EarlyStopsInsteadOfNormalCompletionScheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
@@ -708,21 +722,8 @@ class TestAxScheduler(TestCase):
                     )
                 return {idx: None for idx in trial_indices if idx % 2 == 1}
 
-        class SchedulerWithEarlyStoppingStrategy(BareBonesTestScheduler):
-            poll_trial_status_count = 0
-
-            def poll_trial_status(self):
-                # In the first step, don't complete any trials
-                # Trial #1 will be early stopped
-                if self.poll_trial_status_count == 0:
-                    self.poll_trial_status_count += 1
-                    return {}
-
-                # In the second step, complete trials 0 and 2
-                self.poll_trial_status_count += 1
-                return {TrialStatus.COMPLETED: {0, 2}}
-
-        scheduler = SchedulerWithEarlyStoppingStrategy(
+        self.branin_experiment.runner = RunnerWithEarlyStoppingStrategy()
+        scheduler = TestScheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -749,7 +750,7 @@ class TestAxScheduler(TestCase):
         with self.assertRaisesRegex(
             UnsupportedError, "only if `poll_available_capacity`"
         ):
-            scheduler = BareBonesTestScheduler(
+            scheduler = Scheduler(
                 experiment=self.branin_experiment,  # Has runner and metrics.
                 generation_strategy=self.two_sobol_steps_GS,
                 options=SchedulerOptions(
@@ -759,7 +760,9 @@ class TestAxScheduler(TestCase):
             )
             scheduler.run_n_trials(max_trials=3)
 
-        class PollAvailableCapacityScheduler(BareBonesTestScheduler):
+        # TODO[drfreund]: Use `Runner` instead when `poll_available_capacity`
+        # is moved to `Runner`
+        class PollAvailableCapacityScheduler(Scheduler):
             def poll_available_capacity(self):
                 return 2
 
@@ -781,16 +784,8 @@ class TestAxScheduler(TestCase):
             self.assertEqual(mock_run_trials.call_count, ceil(3 / 2))
 
     def test_base_report_results(self):
-        class NoReportResultsScheduler(Scheduler):
-            def poll_trial_status(self) -> Dict[TrialStatus, Set[int]]:
-                if randint(0, 3) > 0:
-                    running = [t.index for t in self.running_trials]
-                    return {
-                        TrialStatus.COMPLETED: {running[randint(0, len(running) - 1)]}
-                    }
-                return {}
-
-        scheduler = NoReportResultsScheduler(
+        self.branin_experiment.runner = NoReportResultsRunner()
+        scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -804,8 +799,8 @@ class TestAxScheduler(TestCase):
         side_effect=OptimizationComplete("test error"),
     )
     def test_optimization_complete(self, _):
-        # With runners & metrics, `BareBonesTestScheduler.run_all_trials` should run.
-        scheduler = BareBonesTestScheduler(
+        # With runners & metrics, `Scheduler.run_all_trials` should run.
+        scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
@@ -831,7 +826,7 @@ class TestAxScheduler(TestCase):
         encoder = Encoder(config=config)
         decoder = Decoder(config=config)
         db_settings = DBSettings(encoder=encoder, decoder=decoder)
-        BareBonesTestScheduler(
+        Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(

@@ -398,6 +398,18 @@ class Scheduler(WithDBSettingsBase):
         return self.experiment.trials_by_status[TrialStatus.RUNNING]
 
     @property
+    def pending_trials(self) -> List[BaseTrial]:
+        """Running or staged trials on the experiment this scheduler is
+        running.
+
+        Returns:
+            List of trials that are currently running or staged.
+        """
+        return (
+            self.running_trials + self.experiment.trials_by_status[TrialStatus.STAGED]
+        )
+
+    @property
     def candidate_trials(self) -> List[BaseTrial]:
         """Candidate trials on the experiment this scheduler is running.
 
@@ -522,10 +534,7 @@ class Scheduler(WithDBSettingsBase):
             Dict of trial index to the run metadata of that trial from the deployment
             process.
         """
-        return {
-            trial.index: not_none(self.experiment.runner).run(trial=trial)
-            for trial in trials
-        }
+        return self.runner.run_multiple(trials=trials)
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def poll_trial_status(self) -> Dict[TrialStatus, Set[int]]:
@@ -542,7 +551,7 @@ class Scheduler(WithDBSettingsBase):
             include trials that at the time of polling already have a terminal
             (ABANDONED, FAILED, COMPLETED) status (but it may).
         """
-        raise NotImplementedError  # TODO[drfreund]
+        return self.runner.poll_trial_status(trials=self.pending_trials)
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def stop_trial_runs(
@@ -1039,8 +1048,8 @@ class Scheduler(WithDBSettingsBase):
             trial_indices: Indices of trials to consider for early stopping.
 
         Returns:
-            A set of indices of trials to early-stop (will be a subset of
-            initially-passed trials).
+            A dictionary mapping trial indices that should be early stopped to
+            (optional) messages with the associated reason.
         """
         if self.options.early_stopping_strategy is None:
             return {}
