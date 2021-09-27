@@ -59,6 +59,7 @@ class SearchSpaceToChoice(Transform):
                 parameter_type=ParameterType.STRING,
                 values=values,
                 is_ordered=checked_cast(bool, self.config.get("use_ordered", False)),
+                sort_values=False,
             )
         else:
             parameter = FixedParameter(
