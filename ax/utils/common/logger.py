@@ -9,7 +9,7 @@
 import logging
 import os
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, Iterable
 
 AX_ROOT_LOGGER_NAME = "ax"
 DEFAULT_LOG_LEVEL: int = logging.INFO
@@ -170,3 +170,14 @@ ROOT_LOGGER.setLevel(logging.DEBUG)
 # pyre-fixme[24]: Generic type `logging.StreamHandler` expects 1 type parameter.
 ROOT_STREAM_HANDLER: logging.StreamHandler = build_stream_handler()
 ROOT_LOGGER.addHandler(ROOT_STREAM_HANDLER)
+
+
+def make_indices_str(indices: Iterable[int]) -> str:
+    """Generate a string representation of an iterable of indices;
+    if indices are contiguous, returns a string formatted like like
+    '<min_idx> - <max_idx>', otherwise a string formatted like
+    '[idx_1, idx_2, ..., idx_n'].
+    """
+    idcs = sorted(indices)
+    contiguous = len(idcs) > 1 and (idcs[-1] - idcs[0] == len(idcs) - 1)
+    return f"{idcs[0]} - {idcs[-1]}" if contiguous else f"{idcs}"

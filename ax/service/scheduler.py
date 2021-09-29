@@ -48,7 +48,12 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.executils import retry_on_exception
-from ax.utils.common.logger import build_file_handler, get_logger, set_stderr_log_level
+from ax.utils.common.logger import (
+    build_file_handler,
+    get_logger,
+    set_stderr_log_level,
+    make_indices_str,
+)
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import not_none
 
@@ -886,9 +891,7 @@ class Scheduler(WithDBSettingsBase):
             self.logger.debug(f"Will run pre-existing candidate trials: {idcs}.")
 
         all_trials = [*existing_trials, *new_trials]
-        idcs = sorted(t.index for t in all_trials)
-        contiguous = len(idcs) > 1 and (idcs[-1] - idcs[0] == len(idcs) - 1)
-        idcs_str = f"{idcs[0]} - {idcs[-1]}" if contiguous else f"{idcs}"
+        idcs_str = make_indices_str(indices=(t.index for t in all_trials))
         self.logger.info(f"Running trials {idcs_str}...")
         # TODO: Add optional timeout between retries of `run_trial(s)`.
         metadata = self.run_trials(trials=all_trials)
@@ -979,9 +982,16 @@ class Scheduler(WithDBSettingsBase):
         # 2. If any experiment metrics are available while running,
         #    fetch data for running trials
         already_fetched_trial_idcs = set()
-        if any(m.is_available_while_running for m in self.experiment.metrics.values()):
-            # Note: Metrics that are *not* available_while_running will be skipped
+        if any(
+            m.is_available_while_running() for m in self.experiment.metrics.values()
+        ):
+            # NOTE: Metrics that are *not* available_while_running will be skipped
             # in fetch_trials_data
+            idcs = make_indices_str(indices=running_trial_indices)
+            self.logger.info(
+                f"Fetching data for trials: {idcs} because some metrics "
+                "on experiment are available while trials are running."
+            )
             self.experiment.fetch_trials_data(trial_indices=running_trial_indices)
             already_fetched_trial_idcs = running_trial_indices
 
@@ -1009,7 +1019,8 @@ class Scheduler(WithDBSettingsBase):
                 continue
 
             if len(trial_idcs) > 0:
-                self.logger.info(f"Retrieved {status.name} trials: {trial_idcs}.")
+                idcs = make_indices_str(indices=trial_idcs)
+                self.logger.info(f"Retrieved {status.name} trials: {idcs}.")
                 updated_any_trial = True
 
             # Update trial statuses and record which trials were updated.
@@ -1025,6 +1036,8 @@ class Scheduler(WithDBSettingsBase):
                 # Fetch the data for newly completed trials; this will cache the data
                 # for all metrics. By pre-caching the data now, we remove the need to
                 # fetch it during candidate generation.
+                idcs = make_indices_str(indices=newly_completed)
+                self.logger.info(f"Fetching data for trials: {idcs}.")
                 self.experiment.fetch_trials_data(trial_indices=newly_completed)
 
             updated_trials.extend(trials)
