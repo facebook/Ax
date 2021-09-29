@@ -223,7 +223,9 @@ class AxClient(WithDBSettingsBase):
             parameter_constraints: List of string representation of parameter
                 constraints, such as "x3 >= x4" or "-x3 + 2*x4 - 3.5*x5 >= 2". For
                 the latter constraints, any number of arguments is accepted, and
-                acceptable operators are "<=" and ">=".
+                acceptable operators are "<=" and ">=". Note that parameter
+                constraints may only be placed on range parameters, not choice
+                parameters or fixed parameters.
             outcome_constraints: List of string representation of outcome
                 constraints of form "metric_name >= bound", like "m1 <= 3."
             status_quo: Parameterization of the current state of the system.

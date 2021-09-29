@@ -21,6 +21,7 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
+from ax.service.ax_client import AxClient
 from ax.utils.common.constants import Keys, EXPERIMENT_IS_TEST_WARNING
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -135,6 +136,69 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.search_space, get_search_space())
         self.assertEqual(self.experiment.optimization_config, get_optimization_config())
         self.assertEqual(self.experiment.is_test, True)
+
+    def testOnlyRangeParameterConstraints(self):
+        self.assertEqual(0, 0)
+        self.assertTrue(True)
+
+        ax_client = AxClient()
+
+        # Create an experiment with valid parameter constraints
+        ax_client.create_experiment(
+            name="experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                },
+                {
+                    "name": "x2",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                },
+            ],
+            objective_name="objective",
+            parameter_constraints=["x1 + x2 <= 1"],
+        )
+
+        # Try (and fail) to create an experiment with constraints on choice
+        # paramaters
+        with self.assertRaises(UnsupportedError):
+            ax_client.create_experiment(
+                name="experiment",
+                parameters=[
+                    {
+                        "name": "x1",
+                        "type": "choice",
+                        "values": [0.0, 1.0],
+                    },
+                    {
+                        "name": "x2",
+                        "type": "range",
+                        "bounds": [0.0, 1.0],
+                    },
+                ],
+                objective_name="objective",
+                parameter_constraints=["x1 + x2 <= 1"],
+            )
+
+        # Try (and fail) to create an experiment with constraints on fixed
+        # parameters
+        with self.assertRaises(UnsupportedError):
+            ax_client.create_experiment(
+                name="experiment",
+                parameters=[
+                    {"name": "x1", "type": "fixed", "value": 0.0},
+                    {
+                        "name": "x2",
+                        "type": "range",
+                        "bounds": [0.0, 1.0],
+                    },
+                ],
+                objective_name="objective",
+                parameter_constraints=["x1 + x2 <= 1"],
+            )
 
     def testMetricSetters(self):
         # Establish current metrics size

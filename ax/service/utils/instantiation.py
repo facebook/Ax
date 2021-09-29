@@ -481,6 +481,30 @@ def make_search_space(
         constraint_from_str(c, parameter_map) for c in parameter_constraints
     ]
 
+    if any(
+        any(
+            isinstance(parameter_map[parameter], ChoiceParameter)
+            for parameter in constraint.constraint_dict
+        )
+        for constraint in typed_parameter_constraints
+    ):
+        raise UnsupportedError(
+            "Constraints on ChoiceParameters are not allowed. Try absorbing "
+            "this constraint into the associated range parameter's bounds."
+        )
+
+    if any(
+        any(
+            isinstance(parameter_map[parameter], FixedParameter)
+            for parameter in constraint.constraint_dict
+        )
+        for constraint in typed_parameter_constraints
+    ):
+        raise UnsupportedError(
+            "Constraints on FixedParameters are not allowed. Try absorbing "
+            "this constraint into the associated range parameter's bounds."
+        )
+
     return SearchSpace(
         parameters=typed_parameters,
         parameter_constraints=typed_parameter_constraints,
