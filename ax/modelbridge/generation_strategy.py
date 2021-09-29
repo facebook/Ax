@@ -210,6 +210,11 @@ class GenerationStrategy(Base):
                     "`num_trials` must be positive or -1 (indicating unlimited) "
                     "for all generation steps."
                 )
+            if step.max_parallelism is not None and step.max_parallelism < 1:
+                raise UserInputError(
+                    "Maximum parallelism should be None (if no limit) or a positive"
+                    f" number. Got: {step.max_parallelism} for step {step.model_name}."
+                )
             step.index = idx
             if not isinstance(step.model, ModelRegistryBase):
                 self._uses_registered_models = False

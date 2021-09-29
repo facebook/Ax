@@ -120,6 +120,15 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaises(ValueError):
             factorial_thompson_generation_strategy.gen(exp)
         self.assertEqual(GenerationStep(model=sum, num_trials=1).model_name, "sum")
+        with self.assertRaisesRegex(UserInputError, "Maximum parallelism should be"):
+            GenerationStrategy(
+                steps=[
+                    GenerationStep(
+                        model=Models.SOBOL, num_trials=5, max_parallelism=-1
+                    ),
+                    GenerationStep(model=Models.GPEI, num_trials=-1),
+                ]
+            )
 
     def test_custom_callables_for_models(self):
         exp = get_branin_experiment()
