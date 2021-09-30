@@ -4,9 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, List
+from typing import Any, List, Callable, TypeVar
 
 from ax.storage.sqa_store.db import SQABase
+from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS
 from ax.storage.sqa_store.sqa_classes import (
     ONLY_ONE_FIELDS,
     ONLY_ONE_METRIC_FIELDS,
@@ -15,9 +16,33 @@ from ax.storage.sqa_store.sqa_classes import (
     SQAParameterConstraint,
     SQARunner,
 )
+from ax.utils.common.logger import get_logger
 from sqlalchemy import event
 from sqlalchemy.engine import Connection
+from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.mapper import Mapper
+
+
+T = TypeVar("T")
+
+
+logger = get_logger(__name__)
+
+
+def listens_for_multiple(
+    targets: List[InstrumentedAttribute], identifier: str, *args: Any, **kwargs: Any
+) -> Callable:
+    """Analogue of SQLAlchemy `listen_for`, but applies the same listening handler
+    function to multiple instrumented attributes.
+    """
+
+    def wrapper(fn: Callable):
+        for target in targets:
+            event.listen(target, identifier, fn, *args, **kwargs)
+        return fn
+
+    return wrapper
 
 
 def consistency_exactly_one(instance: SQABase, exactly_one_fields: List[str]) -> Any:
@@ -30,8 +55,37 @@ def consistency_exactly_one(instance: SQABase, exactly_one_fields: List[str]) ->
         )
 
 
-@event.listens_for(SQAParameter, "before_insert")
-@event.listens_for(SQAParameter, "before_update")
+@listens_for_multiple(
+    targets=GR_LARGE_MODEL_ATTRS,
+    identifier="set",
+    # `retval=True` instruct the operation ('set' on attributes in `targets`) to use
+    # the return value of decorated function to set the attribute.
+    retval=True,
+    # `propagate=True` ensures that targets with subclasses of SQA classes used by
+    # default Ax OSS encoder inherit the event listeners.
+    propagate=True,
+)
+def do_not_set_existing_value_to_null(
+    instance: SQABase, new_value: T, old_value: T, initiator_event: event.Events
+) -> T:
+    no_value = [None, NO_VALUE]
+    if new_value in no_value and old_value not in no_value:
+        logger.debug(
+            f"New value for attribute is `None` or has no value, but old value "
+            f"was set, so keeping the old value ({old_value})."
+        )
+        return old_value
+    return new_value
+
+
+@event.listens_for(
+    SQAParameter,
+    "before_insert",
+)
+@event.listens_for(
+    SQAParameter,
+    "before_update",
+)
 # pyre-fixme[11]: Annotation `Mapper` is not defined as a type.
 def validate_parameter(mapper: Mapper, connection: Connection, target: SQABase) -> None:
     consistency_exactly_one(target, ONLY_ONE_FIELDS)

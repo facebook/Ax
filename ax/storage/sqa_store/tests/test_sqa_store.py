@@ -42,6 +42,7 @@ from ax.storage.sqa_store.load import (
     _get_experiment_sqa_immutable_opt_config_and_search_space,
     _get_generation_strategy_sqa_immutable_opt_config_and_search_space,
 )
+from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS
 from ax.storage.sqa_store.save import (
     save_experiment,
     save_generation_strategy,
@@ -1421,3 +1422,36 @@ class SQAStoreTest(TestCase):
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
+
+    def testGeneratorRunValidatedFields(self):
+        # Set up an experiment with a generator run that will have modeling-related
+        # fields that are not loaded on most generator runs during reduced-stat
+        # experiment loading.
+        exp = get_branin_experiment()
+        gs = get_generation_strategy(with_callable_model_kwarg=False)
+        trial = exp.new_trial(gs.gen(exp))
+        for instrumented_attr in GR_LARGE_MODEL_ATTRS:
+            self.assertIsNotNone(
+                getattr(trial.generator_run, f"_{instrumented_attr.key}")
+            )
+
+        # Save and reload the experiment, ensure the modeling-related fields were
+        # loaded are non-null.
+        save_experiment(exp)
+        loaded_exp = load_experiment(exp.name)
+        loaded_gr = loaded_exp.trials.get(0).generator_run
+        for instrumented_attr in GR_LARGE_MODEL_ATTRS:
+            self.assertIsNotNone(getattr(loaded_gr, f"_{instrumented_attr.key}"))
+
+        # Set modeling-related fields to `None`.
+        for instrumented_attr in GR_LARGE_MODEL_ATTRS:
+            setattr(loaded_gr, f"_{instrumented_attr.key}", None)
+            self.assertIsNone(getattr(loaded_gr, f"_{instrumented_attr.key}"))
+
+        # Save and reload the experiment, ensuring that setting the fields to `None`
+        # was not propagated to the DB.
+        save_experiment(loaded_exp)
+        newly_loaded_exp = load_experiment(exp.name)
+        newly_loaded_gr = newly_loaded_exp.trials.get(0).generator_run
+        for instrumented_attr in GR_LARGE_MODEL_ATTRS:
+            self.assertIsNotNone(getattr(newly_loaded_gr, f"_{instrumented_attr.key}"))
