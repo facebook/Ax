@@ -503,7 +503,7 @@ def _benchmark_replication_Dev_API(
         optimization_config=problem.optimization_config,
         runner=SyntheticRunner(),
     )
-    for trial_index in range(num_trials):
+    for _ in range(num_trials):
         try:
             gr = method.gen(experiment=experiment, n=batch_size)
             if batch_size == 1:
@@ -512,10 +512,6 @@ def _benchmark_replication_Dev_API(
                 assert batch_size > 1
                 trial = experiment.new_batch_trial(generator_run=gr)
             trial.run()
-            # TODO[T94059549]: Rm 3 lines below when attaching data in fetch is fixed.
-            data = benchmark_trial(experiment=experiment, trial_index=trial_index)
-            if not data.df.empty:
-                experiment.attach_data(data=data)
         except Exception as err:  # TODO[T53975770]: test
             if raise_all_exceptions:
                 raise

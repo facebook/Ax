@@ -202,12 +202,45 @@ class Metric(SortableBase):
         # If this metric is available while trial is running, just default to
         # `fetch_experiment_data_multi`.
         if cls.is_available_while_running():
+            cached_data = (
+                experiment.lookup_data(
+                    trial_indices=[trial.index for trial in trials],
+                    keep_latest_map_values_only=False,
+                )
+                if trials
+                else None
+            )
+
             fetched_data = cls.fetch_experiment_data_multi(
                 experiment=experiment, metrics=metrics, trials=trials, **kwargs
             )
+
+            # If there is cached data, consider combining it with fetched data.
+            # That way, if this function is being called from within a loop over
+            # multiple metric classes (as is currently the case in lookup_data),
+            # we'll combine data from all metric classes into a single dataframe
+            # before attaching it to the experiment.
+            if cached_data:
+                cached_metric_names = cached_data.metric_names
+
+                # if there is a collision (ie fetched = A cached = AB), just use
+                # the recently fetched. That way, if we call `fetch_data` twice
+                # in a row (not within a for loop), we don't end up with
+                # duplicate data
+                if len(cached_metric_names.intersection({m.name for m in metrics})) > 0:
+                    final_data = fetched_data
+                else:
+                    final_data = cls.data_constructor.from_multiple_data(
+                        # pyre-fixme [6]: Incompatible paramtype: Expected `Data`
+                        #   but got `AbstractDataFrameData`.
+                        [cached_data, fetched_data]
+                    )
+            else:
+                final_data = fetched_data
+
             if not fetched_data.df.empty:
                 experiment.attach_data(
-                    fetched_data,
+                    final_data,
                     overwrite_existing_data=cls.overwrite_existing_data(),
                     combine_with_last_data=cls.combine_with_last_data(),
                 )
