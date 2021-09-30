@@ -13,6 +13,10 @@ from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
+from ax.storage.sqa_store.reduced_state import (
+    get_query_options_to_defer_immutable_duplicates,
+    get_query_options_to_defer_large_model_cols,
+)
 from ax.storage.sqa_store.sqa_classes import (
     SQAExperiment,
     SQAGenerationStrategy,
@@ -180,20 +184,15 @@ def _get_experiment_sqa_reduced_state(
     (model state on generator runs, abandoned arms) omitted. Used for loading
     large experiments, in cases where model state history is not required.
     """
+    options = get_query_options_to_defer_immutable_duplicates()
+    options.append(lazyload("abandoned_arms"))
+    options.extend(get_query_options_to_defer_large_model_cols())
+
     return _get_experiment_sqa(
         experiment_name=experiment_name,
         exp_sqa_class=exp_sqa_class,
         trial_sqa_class=trial_sqa_class,
-        trials_query_options=[
-            lazyload("generator_runs.parameters"),
-            lazyload("generator_runs.parameter_constraints"),
-            lazyload("generator_runs.metrics"),
-            lazyload("abandoned_arms"),
-            defaultload("generator_runs").defer("model_kwargs"),
-            defaultload("generator_runs").defer("bridge_kwargs"),
-            defaultload("generator_runs").defer("model_state_after_gen"),
-            defaultload("generator_runs").defer("gen_metadata"),
-        ],
+        trials_query_options=options,
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
     )
 
@@ -214,11 +213,7 @@ def _get_experiment_sqa_immutable_opt_config_and_search_space(
         experiment_name=experiment_name,
         exp_sqa_class=exp_sqa_class,
         trial_sqa_class=trial_sqa_class,
-        trials_query_options=[
-            lazyload("generator_runs.parameters"),
-            lazyload("generator_runs.parameter_constraints"),
-            lazyload("generator_runs.metrics"),
-        ],
+        trials_query_options=get_query_options_to_defer_immutable_duplicates(),
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
     )
 
