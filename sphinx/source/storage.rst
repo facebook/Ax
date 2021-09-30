@@ -183,6 +183,14 @@ ax.storage.sqa\_store.validation module
     :undoc-members:
     :show-inheritance:
 
+ax.storage.sqa\_store.reduced_state module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.storage.sqa_store.reduced_state
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Registries
 -----------------
 
