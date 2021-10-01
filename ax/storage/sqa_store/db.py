@@ -105,6 +105,10 @@ def create_test_engine(path: Optional[str] = None, echo: bool = True) -> Engine:
 
     """
     if path is None:
+        # From SQLALchemy docs:
+        # "To use a SQLite :memory: database, specify an empty URL:
+        # `engine = create_engine('sqlite://')`"
+        # (https://docs.sqlalchemy.org/en/14/core/engines.html#sqlite)
         db_path = "sqlite://"
     else:
         db_path = "sqlite:///{path}".format(path=path)
