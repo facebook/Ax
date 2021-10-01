@@ -46,8 +46,7 @@ MAX_GEN_DRAWS = 5
 MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
     f"GenerationStrategy exceeded `MAX_GEN_DRAWS` of {MAX_GEN_DRAWS} while trying to "
     "generate a unique parameterization. This indicates that the search space has "
-    "likely been fully explored, or that the sweep has converged. Considering "
-    "GenerationStrategy complete."
+    "likely been fully explored, or that the sweep has converged."
 )
 
 
