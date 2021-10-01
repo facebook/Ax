@@ -580,44 +580,40 @@ class GenerationStrategy(Base):
             )
 
         model = not_none(self.model)
+        model_gen_kwargs = consolidate_kwargs(
+            kwargs_iterable=[self._curr.model_gen_kwargs, kwargs],
+            keywords=get_function_argument_names(model.gen),
+        )
         generator_runs = []
         for _ in range(num_generator_runs):
             try:
-                generator_run = model.gen(
-                    n=n,
-                    pending_observations=pending_observations,
-                    **consolidate_kwargs(
-                        kwargs_iterable=[self._curr.model_gen_kwargs, kwargs],
-                        keywords=get_function_argument_names(model.gen),
-                    ),
-                )
                 # NOTE: Might need to revisit the behavior of deduplication when
                 # generating multi-arm generator runs (to be made into batch trials).
-                if self._curr.should_deduplicate:
-                    n_gen_draws = 1
-                    while any(
+                should_generate_run = True
+                n_gen_draws = 0
+                while should_generate_run:
+                    if n_gen_draws > MAX_GEN_DRAWS:
+                        raise GenerationStrategyCompleted(
+                            MAX_GEN_DRAWS_EXCEEDED_MESSAGE
+                        )
+                    generator_run = model.gen(
+                        n=n,
+                        pending_observations=pending_observations,
+                        **model_gen_kwargs,
+                    )
+                    # Keep generating until each of `generator_run.arms` is not a
+                    # duplicate of a previous arm, if `should_deduplicate is True`
+                    should_generate_run = self._curr.should_deduplicate and any(
                         arm.signature in self.experiment.arms_by_signature
                         for arm in generator_run.arms
-                    ):
-                        n_gen_draws += 1
-                        if n_gen_draws > MAX_GEN_DRAWS:
-                            raise GenerationStrategyCompleted(
-                                MAX_GEN_DRAWS_EXCEEDED_MESSAGE
-                            )
-                        generator_run = model.gen(
-                            n=n,
-                            pending_observations=pending_observations,
-                            **consolidate_kwargs(
-                                kwargs_iterable=[
-                                    self._curr.model_gen_kwargs,
-                                    kwargs,
-                                ],
-                                keywords=get_function_argument_names(model.gen),
-                            ),
-                        )
+                    )
+                    n_gen_draws += 1
 
                 generator_run._generation_step_index = self._curr.index
+                # pyre-fixme[61]: Local variable `generator_run` may not be
+                # initialized here.
                 self._generator_runs.append(generator_run)
+                # pyre-fixme[61]: as above.
                 generator_runs.append(generator_run)
             except DataRequiredError as err:
                 # Model needs more data, so we log the error and return
