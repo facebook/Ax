@@ -13,6 +13,7 @@ from inspect import signature
 from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, Tuple
 
 import pandas as pd
+from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -587,33 +588,17 @@ class GenerationStrategy(Base):
         generator_runs = []
         for _ in range(num_generator_runs):
             try:
-                # NOTE: Might need to revisit the behavior of deduplication when
-                # generating multi-arm generator runs (to be made into batch trials).
-                should_generate_run = True
-                n_gen_draws = 0
-                while should_generate_run:
-                    if n_gen_draws > MAX_GEN_DRAWS:
-                        raise GenerationStrategyCompleted(
-                            MAX_GEN_DRAWS_EXCEEDED_MESSAGE
-                        )
-                    generator_run = model.gen(
-                        n=n,
-                        pending_observations=pending_observations,
-                        **model_gen_kwargs,
-                    )
-                    # Keep generating until each of `generator_run.arms` is not a
-                    # duplicate of a previous arm, if `should_deduplicate is True`
-                    should_generate_run = self._curr.should_deduplicate and any(
-                        arm.signature in self.experiment.arms_by_signature
-                        for arm in generator_run.arms
-                    )
-                    n_gen_draws += 1
-
+                generator_run = _produce_generator_run_from_model(
+                    model=model,
+                    input_max_gen_draws=MAX_GEN_DRAWS,
+                    n=n,
+                    pending_observations=pending_observations,
+                    model_gen_kwargs=model_gen_kwargs,
+                    should_deduplicate=self._curr.should_deduplicate,
+                    arms_by_signature=self.experiment.arms_by_signature,
+                )
                 generator_run._generation_step_index = self._curr.index
-                # pyre-fixme[61]: Local variable `generator_run` may not be
-                # initialized here.
                 self._generator_runs.append(generator_run)
-                # pyre-fixme[61]: as above.
                 generator_runs.append(generator_run)
             except DataRequiredError as err:
                 # Model needs more data, so we log the error and return
@@ -949,3 +934,40 @@ class GenerationStrategy(Base):
                 "Updating completed trials with new data is not yet supported for "
                 "generation strategies that leverage `model.update` functionality."
             )
+
+
+def _produce_generator_run_from_model(
+    input_max_gen_draws: int,
+    model: ModelBridge,
+    n: int,
+    pending_observations: Optional[Dict[str, List[ObservationFeatures]]],
+    model_gen_kwargs: Any,
+    should_deduplicate: bool,
+    arms_by_signature: Dict[str, Arm],
+) -> GeneratorRun:
+    """Produces a ``GeneratorRun`` with ``n`` arms using the provided ``model``. if
+    ``should_deduplicate is True``, these arms are deduplicated against previous arms
+    using rejection sampling before returning. If more than ``input_max_gen_draws``
+    samples are generated during deduplication, this function produces a
+    ``GenerationStrategyCompleted`` exception.
+    """
+    # NOTE: Might need to revisit the behavior of deduplication when
+    # generating multi-arm generator runs (to be made into batch trials).
+    should_generate_run = True
+    generator_run = None
+    n_gen_draws = 0
+    # Keep generating until each of `generator_run.arms` is not a duplicate
+    # of a previous arm, if `should_deduplicate is True`
+    while should_generate_run:
+        if n_gen_draws > input_max_gen_draws:
+            raise GenerationStrategyCompleted(MAX_GEN_DRAWS_EXCEEDED_MESSAGE)
+        generator_run = model.gen(
+            n=n,
+            pending_observations=pending_observations,
+            **model_gen_kwargs,
+        )
+        should_generate_run = should_deduplicate and any(
+            arm.signature in arms_by_signature for arm in generator_run.arms
+        )
+        n_gen_draws += 1
+    return not_none(generator_run)
