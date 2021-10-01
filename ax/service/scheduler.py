@@ -29,7 +29,9 @@ from typing import (
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
+from ax.core.observation import ObservationFeatures
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
@@ -1173,10 +1175,8 @@ class Scheduler(WithDBSettingsBase):
             experiment=self.experiment
         )
         try:
-            generator_runs = self.generation_strategy._gen_multiple(
-                experiment=self.experiment,
-                num_generator_runs=num_trials,
-                pending_observations=pending,
+            generator_runs = self._gen_new_trials_from_generation_strategy(
+                num_trials=num_trials, pending=pending
             )
         except OptimizationComplete as err:
             completion_str = f"Optimization complete: {err}"
@@ -1222,6 +1222,19 @@ class Scheduler(WithDBSettingsBase):
             )
             for generator_run in generator_runs
         ]
+
+    def _gen_new_trials_from_generation_strategy(
+        self, num_trials: int, pending: Optional[Dict[str, List[ObservationFeatures]]]
+    ) -> List[GeneratorRun]:
+        """Generates a list ``GeneratorRun``s of length of ``num_trials`` using the
+        ``_gen_multiple`` method of the scheduler's ``generation_strategy``, taking
+        into account any ``pending`` observations.
+        """
+        return self.generation_strategy._gen_multiple(
+            experiment=self.experiment,
+            num_generator_runs=num_trials,
+            pending_observations=pending,
+        )
 
     def _update_and_save_trials(
         self,
