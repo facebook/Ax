@@ -22,6 +22,7 @@ from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
+    GenerationStrategyRepeatedPoints,
     MaxParallelismReachedException,
 )
 from ax.modelbridge.base import ModelBridge
@@ -116,7 +117,7 @@ class GenerationStep(SortableBase):
             generation step that has `should_deduplicate=True` if they contain arms
             already present on the experiment and replace them with new generator runs.
             If no generator run with entirely unique arms could be produced in 5
-            attempts, a `GenerationStrategyCompleted` error will be raised, as we
+            attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we
             assume that the optimization converged when the model can no longer suggest
             unique arms.
 
@@ -680,7 +681,7 @@ class GenerationStrategy(Base):
         3. current step is not the last in this generation strategy.
 
 
-        NOTE: this method raises ``GenerationStrategyComplete`` error if conditions 1
+        NOTE: this method raises ``GenerationStrategyCompleted`` error if conditions 1
         and 2 above are met, but the current step is the last in generation strategy.
         It also raises ``DataRequiredError`` if all conditions below are true:
         1. ``raise_data_required_error`` argument is ``True``,
@@ -949,7 +950,7 @@ def _produce_generator_run_from_model(
     ``should_deduplicate is True``, these arms are deduplicated against previous arms
     using rejection sampling before returning. If more than ``input_max_gen_draws``
     samples are generated during deduplication, this function produces a
-    ``GenerationStrategyCompleted`` exception.
+    ``GenerationStrategyRepeatedPoints`` exception.
     """
     # NOTE: Might need to revisit the behavior of deduplication when
     # generating multi-arm generator runs (to be made into batch trials).
@@ -960,7 +961,7 @@ def _produce_generator_run_from_model(
     # of a previous arm, if `should_deduplicate is True`
     while should_generate_run:
         if n_gen_draws > input_max_gen_draws:
-            raise GenerationStrategyCompleted(MAX_GEN_DRAWS_EXCEEDED_MESSAGE)
+            raise GenerationStrategyRepeatedPoints(MAX_GEN_DRAWS_EXCEEDED_MESSAGE)
         generator_run = model.gen(
             n=n,
             pending_observations=pending_observations,

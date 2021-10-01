@@ -14,7 +14,10 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.parameter import FixedParameter, Parameter, ParameterType, ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.exceptions.generation_strategy import GenerationStrategyCompleted
+from ax.exceptions.generation_strategy import (
+    GenerationStrategyCompleted,
+    GenerationStrategyRepeatedPoints,
+)
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_strategy import (
@@ -587,7 +590,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(len(exp.arms_by_signature), 2)
 
         with self.assertRaisesRegex(
-            GenerationStrategyCompleted, "exceeded `MAX_GEN_DRAWS`"
+            GenerationStrategyRepeatedPoints, "exceeded `MAX_GEN_DRAWS`"
         ):
             g = sobol.gen(exp)
 

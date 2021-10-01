@@ -32,3 +32,11 @@ class GenerationStrategyCompleted(OptimizationComplete):
     """
 
     pass
+
+
+class GenerationStrategyRepeatedPoints(GenerationStrategyCompleted):
+    """Special exception indicating that the generation strategy is repeatedly
+    suggesting previously sampled points.
+    """
+
+    pass
