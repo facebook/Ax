@@ -32,6 +32,15 @@ Chemistry
     :undoc-members:
     :show-inheritance:
 
+Curve
+~~~~~~~~~
+
+.. automodule:: ax.metrics.curve
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Factorial
 ~~~~~~~~~
 
