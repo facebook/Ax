@@ -102,9 +102,7 @@ class Metric(SortableBase):
         """Serialize the properties needed to initialize the metric.
         Used for storage.
         """
-        return serialize_init_args(
-            object=metric, exclude_fields=["name", "lower_is_better", "precomp_config"]
-        )
+        return serialize_init_args(object=metric)
 
     @classmethod
     def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
