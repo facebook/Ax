@@ -189,8 +189,6 @@ class SimpleBenchmarkProblem(BenchmarkProblem):
         if self.name == "<lambda>":
             raise ValueError(ANONYMOUS_FUNCTION_ERROR)
         # If domain is `None`, grab it from the `SyntheticFunction`
-        # pyre-fixme[8]: Attribute has type `List[Tuple[float, float]]`; used as
-        #  `Union[List[Tuple[float, float]], List[typing.Tuple[float, ...]]]`.
         self.domain = domain or checked_cast(SyntheticFunction, self.f).domain
         if optimal_value is None and self.uses_synthetic_function:
             # If no optimal_value is passed, try extracting it from synthetic function.
