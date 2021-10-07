@@ -95,7 +95,7 @@ class AsyncSimulatedBackendScheduler(Scheduler):
         """
         return not_none(self.poll_available_capacity()) >= n
 
-    def poll_available_capacity(self) -> Optional[int]:
+    def poll_available_capacity(self) -> int:
         """Get the capacity remaining after accounting for staged and running
         trials, with the maximum being ``max_pending_trials``.
 

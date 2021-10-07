@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -457,8 +458,8 @@ class Scheduler(WithDBSettingsBase):
     # ----------------- User-defined, optional. -----------------
 
     def has_capacity(self, n: int = 1) -> bool:
-        """Optional method to checks if there is available capacity to
-        schedule `n` trials.
+        """[DEPRECATED] Optional method to checks if there is available capacity
+        to schedule `n` trials.
 
         Args:
             n: Number of trials, the capacity to run which is being checked.
@@ -467,18 +468,25 @@ class Scheduler(WithDBSettingsBase):
         Returns:
             A boolean, representing whether `n` trials can be ran.
         """
+        warnings.warn(
+            "`Scheduler.has_capacity` is deprecated and will be removed "
+            "soon. Please implement `Scheduler.poll_available_capacity` "
+            "instead.",
+            DeprecationWarning,
+        )
         return True
 
-    def poll_available_capacity(self) -> Optional[int]:
+    def poll_available_capacity(self) -> int:
         """Optional method to checks how much available capacity there is
         to schedule trial evaluations.
 
         Returns:
             An optional integer, representing how many trials there is
-            available capacity for, if available. If not available,
-            returns `None`.
+            available capacity for, if available. If the given system
+            does not support polling capacity, returns ``None``.
         """
-        return None
+        # TODO[drfreund]: Move to `Runner`
+        return 1 if self.has_capacity() else 0
 
     def completion_criterion(self) -> bool:
         """Optional stopping criterion for optimization, defaults to a check
@@ -1138,8 +1146,8 @@ class Scheduler(WithDBSettingsBase):
             - list of new candidate trials that were created in the course of
               this function (empty if no new trials were generated).
         """
+        n = self.poll_available_capacity()
         if self.options.run_trials_in_batches:
-            n = self.poll_available_capacity()
             if n is None:
                 raise UnsupportedError(
                     "Running trials in batches is supported only if "

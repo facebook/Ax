@@ -747,19 +747,6 @@ class TestAxScheduler(TestCase):
             self.assertEqual(mock_stop_trial_runs.call_count, expected_num_steps)
 
     def test_run_trials_in_batches(self):
-        with self.assertRaisesRegex(
-            UnsupportedError, "only if `poll_available_capacity`"
-        ):
-            scheduler = Scheduler(
-                experiment=self.branin_experiment,  # Has runner and metrics.
-                generation_strategy=self.two_sobol_steps_GS,
-                options=SchedulerOptions(
-                    init_seconds_between_polls=0,
-                    run_trials_in_batches=True,
-                ),
-            )
-            scheduler.run_n_trials(max_trials=3)
-
         # TODO[drfreund]: Use `Runner` instead when `poll_available_capacity`
         # is moved to `Runner`
         class PollAvailableCapacityScheduler(Scheduler):
