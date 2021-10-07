@@ -498,7 +498,7 @@ def exp_to_df(
         metrics=metrics or list(exp.metrics.values()),
     )
 
-    return not_none(not_none(exp_df).sort_values(["arm_name"]))
+    return not_none(not_none(exp_df).sort_values(["trial_index"]))
 
 
 def get_best_trial(
