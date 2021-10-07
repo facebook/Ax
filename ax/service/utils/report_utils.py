@@ -318,7 +318,7 @@ def _merge_results_if_no_duplicates(
         )
         return arms_df
     if not all(col in results.columns for col in key_components):
-        logger.warn(
+        logger.warning(
             f"At least one of key columns `{key_components}` not present in results df "
             f"`{results}`. Returning arm parameters and metadata only."
         )
@@ -340,7 +340,7 @@ def _merge_results_if_no_duplicates(
                 key_vals += results[map_key].astype(str)
             results_key_col = "-".join(map_keys + key_components)
     elif deduplicate_on_map_keys:
-        logger.warn(
+        logger.warning(
             "Ignoring user-specified `deduplicate_on_map_keys = True` since "
             "`exp.fetch_data().map_keys` is empty or does not exist. Check "
             "that at least one element of `metrics` (or `exp.metrics` if "
@@ -349,7 +349,7 @@ def _merge_results_if_no_duplicates(
     results[results_key_col] = key_vals
     # Don't return results if duplicates remain
     if any(results.duplicated(subset=[results_key_col, "metric_name"])):
-        logger.warn(
+        logger.warning(
             "Experimental results dataframe contains multiple rows with the same "
             f"keys {results_key_col}. Returning dataframe without results."
         )
