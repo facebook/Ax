@@ -88,3 +88,11 @@ Sklearn
     :members:
     :undoc-members:
     :show-inheritance:
+
+Tensorboard
+~~~~~~~~~~~
+
+.. automodule:: ax.metrics.tensorboard
+    :members:
+    :undoc-members:
+    :show-inheritance:
