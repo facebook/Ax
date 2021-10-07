@@ -481,8 +481,7 @@ class Scheduler(WithDBSettingsBase):
             An integer, representing how many trials there is available capacity
             for. By default, returns -1, indicating unlimited capacity.
         """
-        # TODO[drfreund]: Move to `Runner`
-        return -1 if self.has_capacity() else 0
+        return self.runner.poll_available_capacity()
 
     def completion_criterion(self) -> bool:
         """Optional stopping criterion for optimization, defaults to a check
