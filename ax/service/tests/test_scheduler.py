@@ -269,7 +269,8 @@ class TestAxScheduler(TestCase):
                 "Scheduler(experiment=Experiment(branin_test_experiment), "
                 "generation_strategy=GenerationStrategy(name='Sobol+GPEI', "
                 "steps=[Sobol for 5 trials, GPEI for subsequent trials]), "
-                "options=SchedulerOptions(trial_type=<class 'ax.core.trial.Trial'>, "
+                "options=SchedulerOptions(max_pending_trials=10, "
+                "trial_type=<class 'ax.core.trial.Trial'>, "
                 "total_trials=0, tolerated_trial_failure_rate=0.2, "
                 "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "
                 "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"
@@ -791,6 +792,7 @@ class TestAxScheduler(TestCase):
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
+                max_pending_trials=100,
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
@@ -817,9 +819,35 @@ class TestAxScheduler(TestCase):
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
+                max_pending_trials=100,
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
                 suppress_storage_errors_after_retries=True,
             ),
             db_settings=db_settings,
         )
         self.assertEqual(mock_save_exp.call_count, 3)
+
+    def test_max_pending_trials(self):
+        # With runners & metrics, `BareBonesTestScheduler.run_all_trials` should run.
+        scheduler = TestScheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.sobol_GPEI_GS,
+            options=SchedulerOptions(
+                max_pending_trials=1,
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+            ),
+        )
+        for idx, _ in enumerate(scheduler.run_trials_and_yield_results(max_trials=3)):
+            # Trials should be scheduled one-at-a-time w/ parallelism limit of 1.
+            self.assertEqual(
+                len(self.branin_experiment.trials), idx + 1 if idx < 3 else idx
+            )
+            # Trials also should be getting completed one-at-a-time.
+            self.assertEqual(
+                len(
+                    self.branin_experiment.trial_indices_by_status[
+                        TrialStatus.COMPLETED
+                    ]
+                ),
+                idx + 1 if idx < 3 else idx,
+            )

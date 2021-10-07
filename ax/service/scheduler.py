@@ -130,6 +130,12 @@ class SchedulerOptions:
     """Settings for a scheduler instance.
 
     Attributes:
+        max_pending_trials: Maximum number of pending trials the scheduler
+            can have ``STAGED`` or ``RUNNING`` at once, required. If looking
+            to use ``Runner.poll_available_capacity`` as a primary guide for
+            how many trials should be pending at a given time, set this limit
+            to a high number, as an upper bound on number of trials that
+            should not be exceeded.
         trial_type: Type of trials (1-arm ``Trial`` or multi-arm ``Batch
             Trial``) that will be deployed using the scheduler. Defaults
             to 1-arm `Trial`. NOTE: use ``BatchTrial`` only if need to
@@ -199,6 +205,7 @@ class SchedulerOptions:
             it's encountered while saving to DB or loading from it.
     """
 
+    max_pending_trials: int = 10
     trial_type: Type[BaseTrial] = Trial
     total_trials: Optional[int] = None
     tolerated_trial_failure_rate: float = 0.5
@@ -427,16 +434,6 @@ class Scheduler(WithDBSettingsBase):
         return self.experiment.trials_by_status[TrialStatus.CANDIDATE]
 
     @property
-    def has_trials_in_flight(self) -> bool:
-        """Whether the experiment on this scheduler currently has running or staged
-        trials.
-        """
-        return (
-            len(self.running_trials) > 0
-            or len(self.experiment.trial_indices_by_status[TrialStatus.STAGED]) > 0
-        )
-
-    @property
     def runner(self) -> Runner:
         """``Runner`` specified on the experiment associated with this ``Scheduler``
         instance.
@@ -481,12 +478,11 @@ class Scheduler(WithDBSettingsBase):
         to schedule trial evaluations.
 
         Returns:
-            An optional integer, representing how many trials there is
-            available capacity for, if available. If the given system
-            does not support polling capacity, returns ``None``.
+            An integer, representing how many trials there is available capacity
+            for. By default, returns -1, indicating unlimited capacity.
         """
         # TODO[drfreund]: Move to `Runner`
-        return 1 if self.has_capacity() else 0
+        return -1 if self.has_capacity() else 0
 
     def completion_criterion(self) -> bool:
         """Optional stopping criterion for optimization, defaults to a check
@@ -613,7 +609,7 @@ class Scheduler(WithDBSettingsBase):
                 "option."
             )
         seconds_between_polls = not_none(self.options.init_seconds_between_polls)
-        while self.has_trials_in_flight and not self.poll_and_process_results():
+        while len(self.pending_trials) > 0 and not self.poll_and_process_results():
             if seconds_between_polls > MAX_SECONDS_BETWEEN_POLLS:
                 break  # If maximum wait time reached, check the stopping
                 # criterion again and and re-attempt scheduling more trials.
@@ -721,19 +717,25 @@ class Scheduler(WithDBSettingsBase):
 
         Args:
             max_trials: Maximum number of trials to run in this generator. The
-                generator will run trials
+                generator will run trials until a completion criterion is reached,
+                a completion signal is received from the generation strategy, or
+                ``max_trials`` trials have been run (whichever happens first).
             timeout_hours: Maximum number of hours, for which
                 to run the optimization. This function will abort after running
                 for `timeout_hours` even if stopping criterion has not been reached.
                 If set to `None`, no optimization timeout will be applied.
         """
-        self._latest_optimization_start_timestamp = current_timestamp_in_millis()
+        if max_trials < 0:
+            raise ValueError(f"Expected `max_trials` >= 0, got {max_trials}.")
+
         if timeout_hours is not None:
             if timeout_hours < 0:  # pragma: no cover
                 raise UserInputError(
                     f"Expected `timeout_hours` >= 0, got {timeout_hours}."
                 )
             self._timeout_hours = timeout_hours
+
+        self._latest_optimization_start_timestamp = current_timestamp_in_millis()
 
         n_initial_candidate_trials = len(self.candidate_trials)
         if n_initial_candidate_trials == 0 and max_trials < 0:
@@ -745,10 +747,9 @@ class Scheduler(WithDBSettingsBase):
                 f"{max_trials}`. Increase `max_trials` or reduce the number of "
                 "pre-attached candidate trials."
             )
-        trials = self.experiment.trials
 
         # trials are pre-existing only if they do not still require running
-        n_existing = len(trials) - n_initial_candidate_trials
+        n_existing = len(self.experiment.trials) - n_initial_candidate_trials
 
         self._record_run_trials_status(
             num_preexisting_trials=None, status=RunTrialsStatus.STARTED
@@ -774,7 +775,9 @@ class Scheduler(WithDBSettingsBase):
                 # Not checking `should_abort_optimization` on every iteration for perf.
                 # reasons.
                 n_already_run_by_scheduler = (
-                    len(trials) - n_existing - len(self.candidate_trials)
+                    len(self.experiment.trials)
+                    - n_existing
+                    - len(self.candidate_trials)
                 )
                 n_remaining_to_run = max_trials - n_already_run_by_scheduler
                 n_remaining_to_generate = n_remaining_to_run - len(
@@ -886,7 +889,7 @@ class Scheduler(WithDBSettingsBase):
             if self._optimization_complete:
                 return False
 
-            if not self.has_trials_in_flight:
+            if len(self.pending_trials) < 1:
                 raise SchedulerInternalError(  # pragma: no cover
                     "No trials are running but model requires more data. This is an "
                     "invalid state of the scheduler, as no more trials can be produced "
@@ -1146,27 +1149,35 @@ class Scheduler(WithDBSettingsBase):
             - list of new candidate trials that were created in the course of
               this function (empty if no new trials were generated).
         """
-        n = self.poll_available_capacity()
-        if self.options.run_trials_in_batches:
-            if n is None:
-                raise UnsupportedError(
-                    "Running trials in batches is supported only if "
-                    "`poll_available_capacity` returns a non-null value."
-                )
-            if self.options.total_trials:
-                n = min(
-                    n,
-                    not_none(self.options.total_trials)
-                    - len(self.experiment.trials_expecting_data),
-                )
-        else:  # Running 1 trial at a time, sequentially.
-            n = 1 if self.has_capacity() else 0
-        if n < 1:
+        # 1. Determine available capacity for running trials.
+        capacity = self.poll_available_capacity()
+        if capacity != -1 and capacity < 1:  # -1 indicates unlimited capacity.
             self.logger.debug("There is no capacity to run any trials.")
-        existing = self.candidate_trials[:n]
-        n_new = min(n - len(existing), max_new_trials)
-        new = self._get_next_trials(num_trials=n_new) if n_new > 0 else []
-        return existing, new
+            return [], []
+
+        # 2. Determine actual number of trials to run based on capacity,
+        # limit on pending trials and limit on total trials.
+        n = capacity if self.options.run_trials_in_batches else 1
+        total_trials = self.options.total_trials
+        max_pending_trials = self.options.max_pending_trials
+
+        max_pending_upper_bound = max_pending_trials - len(self.pending_trials)
+        if max_pending_upper_bound < 1:
+            self.logger.debug(
+                f"`max_pending_trials={max_pending_trials}` trials are currently "
+                "pending."
+            )
+            return [], []
+        n = max_pending_upper_bound if n == -1 else min(max_pending_upper_bound, n)
+
+        if total_trials is not None:
+            left_in_total = total_trials - len(self.experiment.trials_expecting_data)
+            n = min(n, left_in_total)
+
+        existing_candidate_trials = self.candidate_trials[:n]
+        n_new = min(n - len(existing_candidate_trials), max_new_trials)
+        new_trials = self._get_next_trials(num_trials=n_new) if n_new > 0 else []
+        return existing_candidate_trials, new_trials
 
     def _get_next_trials(self, num_trials: int = 1) -> List[BaseTrial]:
         """Produce up to `num_trials` new generator runs from the underlying
