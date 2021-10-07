@@ -74,6 +74,26 @@ class Runner(Base, ABC):
         """
         return {trial.index: self.run(trial=trial) for trial in trials}
 
+    def poll_available_capacity(self) -> int:
+        """Checks how much available capacity there is to schedule trial evaluations.
+        Required for runners used with Ax ``Scheduler``.
+
+        NOTE: This method might be difficult to implement in some systems. Returns -1
+        if capacity of the system is "unlimited" or "unknown"
+        (meaning that the ``Scheduler`` should be trying to schedule as many trials
+        as is possible without violating scheduler settings). There is no need to
+        artificially force this method to limit capacity; ``Scheduler`` has other
+        limitations in place to limit number of trials running at once,
+        like the ``SchedulerOptions.max_pending_trials`` setting, or
+        more granular control in the form of the `max_parallelism`
+        setting in each of the `GenerationStep`s of a `GenerationStrategy`).
+
+        Returns:
+            An integer, representing how many trials there is available capacity for;
+            -1 if capacity is "unlimited" or not possible to know in advance.
+        """
+        return -1
+
     def poll_trial_status(
         self, trials: Iterable[core.base_trial.BaseTrial]
     ) -> Dict[core.base_trial.TrialStatus, Set[int]]:
