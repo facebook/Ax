@@ -44,8 +44,6 @@ MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
 
-TENSORBOARD_REQUIRES = ["tensorboard"]
-
 
 def local_version(version):
     """
@@ -86,7 +84,6 @@ def setup_package() -> None:
             "dev": DEV_REQUIRES,
             "mysql": MYSQL_REQUIRES,
             "notebook": NOTEBOOK_REQUIRES,
-            "tensorboard": TENSORBOARD_REQUIRES,
         },
         use_scm_version={
             "write_to": "ax/version.py",
