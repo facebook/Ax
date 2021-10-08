@@ -28,7 +28,7 @@ jobs:
     - name: Install dependencies (full requirements, stable Botorch)
       run: |
         # will install the version of Botorch that is pinned in setup.py
-        pip install -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook,tensorboard]
       if: matrix.botorch == 'pinned' && matrix.requirements == 'full'
     - name: Install dependencies (minimal requirements, stable Botorch)
       run: |
@@ -40,7 +40,7 @@ jobs:
       run: |
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook,tensorboard]
       if: matrix.botorch == 'latest' && matrix.requirements == 'full'
     - name: Install dependencies (minimal requirements, Botorch main)
       env:
@@ -72,7 +72,7 @@ jobs:
     - name: Install dependencies
       run: |
         # will install the version of Botorch that is pinned in setup.py
-        pip install -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook,tensorboard]
         pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
         pip install torchvision  # required for tutorials
         pip install ray  # Required for building RayTune tutorial notebook.
@@ -101,7 +101,7 @@ jobs:
         # use latest BoTorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook,tensorboard]
         pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
         pip install torchvision  # required for tutorials
         pip install ray  # Required for building RayTune tutorial notebook.
@@ -134,7 +134,7 @@ jobs:
         # use latest BoTorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook,tensorboard]
         pip install wheel
     - name: Build wheel
       run: |

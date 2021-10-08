@@ -28,7 +28,7 @@ jobs:
         # use latest Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook,tensorboard]
     - name: Tests and coverage
       run: |
         pytest -ra --cov=ax
@@ -77,7 +77,7 @@ jobs:
         # use latest Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .[dev,mysql,notebook]
+        pip install -e .[dev,mysql,notebook,tensorboard]
     - name: Validate Sphinx
       run: |
         python scripts/validate_sphinx.py -p "${pwd}"
