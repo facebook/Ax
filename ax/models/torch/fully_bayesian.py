@@ -291,7 +291,7 @@ def matern_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor, nu: float = 2.5) ->
     if nu == 0.5:
         constant_component = 1
     elif nu == 1.5:
-        constant_component = (math.sqrt(3) * dist).add(1)  # pyre-ignore [16]
+        constant_component = (math.sqrt(3) * dist).add(1)
     elif nu == 2.5:
         constant_component = (math.sqrt(5) * dist).add(1).add(5.0 / 3.0 * (dist ** 2))
     else:
