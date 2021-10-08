@@ -29,6 +29,7 @@ jobs:
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
+        pip install tensorboard  # For tensorboard unit tests
     - name: Tests and coverage
       run: |
         pytest -ra --cov=ax
@@ -78,6 +79,7 @@ jobs:
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
+        pip install tensorboard  # For generating Sphinx docs for TensorboardCurveMetric
     - name: Validate Sphinx
       run: |
         python scripts/validate_sphinx.py -p "${pwd}"

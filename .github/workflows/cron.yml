@@ -29,10 +29,12 @@ jobs:
       run: |
         # will install the version of Botorch that is pinned in setup.py
         pip install -e .[dev,mysql,notebook]
+        pip install tensorboard  # For tensorboard unit tests
       if: matrix.botorch == 'pinned' && matrix.requirements == 'full'
     - name: Install dependencies (minimal requirements, stable Botorch)
       run: |
         pip install -e .
+        pip install tensorboard  # For tensorboard unit tests
       if: matrix.botorch == 'pinned' && matrix.requirements == 'minimal'
     - name: Install dependencies (full requirements, Botorch main)
       env:
@@ -41,6 +43,7 @@ jobs:
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
+        pip install tensorboard  # For tensorboard unit tests
       if: matrix.botorch == 'latest' && matrix.requirements == 'full'
     - name: Install dependencies (minimal requirements, Botorch main)
       env:
@@ -49,6 +52,7 @@ jobs:
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .
+        pip install tensorboard  # For tensorboard unit tests
       if: matrix.botorch == 'latest' && matrix.requirements == 'minimal'
     - name: Import Ax
       run: |
@@ -109,6 +113,7 @@ jobs:
         pip install tensorboardX  # Required for building RayTune tutorial notebook.
         pip install matplotlib  # Required for building Multi-objective tutorial notebook.
         pip install pyro-ppl  # Required for to call run_inference
+        pip install tensorboard  # For generating Sphinx docs for TensorboardCurveMetric
     - name: Publish latest website
       env:
         DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
