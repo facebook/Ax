@@ -620,7 +620,10 @@ class Encoder:
         )
 
     def generator_run_to_sqa(
-        self, generator_run: GeneratorRun, weight: Optional[float] = None
+        self,
+        generator_run: GeneratorRun,
+        weight: Optional[float] = None,
+        reduced_state: bool = False,
     ) -> SQAGeneratorRun:
         """Convert Ax GeneratorRun to SQLAlchemy.
 
@@ -628,6 +631,7 @@ class Encoder:
         create and store copies of the Arms, Metrics, Parameters, and
         ParameterConstraints owned by this GeneratorRun.
         """
+
         arms = []
         for arm, arm_weight in generator_run.arm_weights.items():
             arms.append(self.arm_to_sqa(arm=arm, weight=arm_weight))
@@ -678,10 +682,18 @@ class Encoder:
             best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
             model_key=generator_run._model_key,
-            model_kwargs=object_to_json(generator_run._model_kwargs),
-            bridge_kwargs=object_to_json(generator_run._bridge_kwargs),
-            gen_metadata=object_to_json(generator_run._gen_metadata),
-            model_state_after_gen=object_to_json(generator_run._model_state_after_gen),
+            model_kwargs=object_to_json(generator_run._model_kwargs)
+            if not reduced_state
+            else None,
+            bridge_kwargs=object_to_json(generator_run._bridge_kwargs)
+            if not reduced_state
+            else None,
+            gen_metadata=object_to_json(generator_run._gen_metadata)
+            if not reduced_state
+            else None,
+            model_state_after_gen=object_to_json(generator_run._model_state_after_gen)
+            if not reduced_state
+            else None,
             generation_step_index=generator_run._generation_step_index,
             candidate_metadata_by_arm_signature=object_to_json(
                 generator_run._candidate_metadata_by_arm_signature
@@ -690,7 +702,10 @@ class Encoder:
         return gr_sqa
 
     def generation_strategy_to_sqa(
-        self, generation_strategy: GenerationStrategy, experiment_id: Optional[int]
+        self,
+        generation_strategy: GenerationStrategy,
+        experiment_id: Optional[int],
+        generator_run_reduced_state: bool = False,
     ) -> SQAGenerationStrategy:
         """Convert an Ax `GenerationStrategy` to SQLAlchemy, preserving its state,
         so that the restored generation strategy can be resumed from the point
@@ -701,8 +716,13 @@ class Encoder:
             cast(Type[Base], GenerationStrategy)
         ]
         generator_runs_sqa = []
-        for gr in generation_strategy._generator_runs:
-            gr_sqa = self.generator_run_to_sqa(gr)
+        for idx, gr in enumerate(generation_strategy._generator_runs):
+            # Never reduce the state of the last generator run because that
+            # generator run is needed to recreate the model when reloading the
+            # generation strategy.
+            is_last_gr = idx == len(generation_strategy._generator_runs) - 1
+            reduced_state = generator_run_reduced_state and not is_last_gr
+            gr_sqa = self.generator_run_to_sqa(gr, reduced_state=reduced_state)
             generator_runs_sqa.append(gr_sqa)
 
         # pyre-fixme[29]: `SQAGenerationStrategy` is not a function.
@@ -741,12 +761,15 @@ class Encoder:
             trial_type=trial_type,
         )
 
-    def trial_to_sqa(self, trial: BaseTrial) -> SQATrial:
+    def trial_to_sqa(
+        self, trial: BaseTrial, generator_run_reduced_state: bool = False
+    ) -> SQATrial:
         """Convert Ax Trial to SQLAlchemy.
 
         In addition to creating and storing a new Trial object, we need to
         create and store the GeneratorRuns and Runner that it owns.
         """
+
         runner = None
         if trial.runner:
             runner = self.runner_to_sqa(runner=not_none(trial.runner))
@@ -758,7 +781,8 @@ class Encoder:
 
         if isinstance(trial, Trial) and trial.generator_run:
             gr_sqa = self.generator_run_to_sqa(
-                generator_run=not_none(trial.generator_run)
+                generator_run=not_none(trial.generator_run),
+                reduced_state=generator_run_reduced_state,
             )
             generator_runs.append(gr_sqa)
 

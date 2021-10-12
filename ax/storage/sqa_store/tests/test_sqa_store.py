@@ -388,7 +388,7 @@ class SQAStoreTest(TestCase):
 
             if class_ in ["OrderConstraint", "ParameterConstraint", "SumConstraint"]:
                 converted_object = decode_func(sqa_object, self.dummy_parameters)
-            elif class_ == "GeneratorRun":
+            elif class_ == "GeneratorRun" or class_ == "GeneratorRunReducedState":
                 # Need to pass in reduced_state and immutable_oc_and_ss
                 converted_object = decode_func(sqa_object, False, False)
             else:
@@ -413,6 +413,29 @@ class SQAStoreTest(TestCase):
                 converted_object,
                 msg=f"Error encoding/decoding {class_}.",
             )
+
+    def testEncodeGeneratorRunReducedState(self):
+        exp = get_branin_experiment()
+        gs = get_generation_strategy(with_callable_model_kwarg=False)
+        gr = gs.gen(exp)
+
+        for key in [attr.key for attr in GR_LARGE_MODEL_ATTRS]:
+            self.assertIsNotNone(getattr(gr, f"_{key}"))
+
+        gr_sqa_reduced_state = self.encoder.generator_run_to_sqa(
+            generator_run=gr, weight=None, reduced_state=True
+        )
+
+        gr_decoded_reduced_state = self.decoder.generator_run_from_sqa(
+            gr_sqa_reduced_state,
+            reduced_state=False,
+            immutable_search_space_and_opt_config=False,
+        )
+
+        for key in [attr.key for attr in GR_LARGE_MODEL_ATTRS]:
+            setattr(gr, f"_{key}", None)
+
+        self.assertEqual(gr, gr_decoded_reduced_state)
 
     def testExperimentUpdates(self):
         experiment = get_experiment_with_batch_trial()
