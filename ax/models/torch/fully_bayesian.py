@@ -43,173 +43,41 @@ from ax.models.torch.botorch import (
     TBestPointRecommender,
 )
 from ax.models.torch.botorch_defaults import (
-    _get_model,
     get_NEI,
-    MIN_OBSERVED_NOISE_LEVEL,
     recommend_best_observed_point,
     scipy_optimizer,
+    MIN_OBSERVED_NOISE_LEVEL,
 )
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import get_NEHVI
 from ax.models.torch.botorch_moo_defaults import pareto_frontier_evaluator
 from ax.models.torch.frontier_utils import TFrontierEvaluator
+from ax.models.torch.fully_bayesian_model_utils import (
+    pyro_sample_outputscale,
+    _get_single_task_gpytorch_model,
+    pyro_sample_mean,
+    pyro_sample_noise,
+    pyro_sample_saas_lengthscales,
+    pyro_sample_input_warping,
+    load_mcmc_samples_to_model,
+)
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.acquisition import AcquisitionFunction
-from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
-from gpytorch.kernels import RBFKernel, ScaleKernel
 from torch import Tensor
 
 
 logger = get_logger(__name__)
+
 
 SAAS_DEPRECATION_MSG = (
     "Passing `use_saas` is no longer supported and has no effect. "
     "SAAS priors are used by default. "
     "This will become an error in the future."
 )
-
-
-def _get_rbf_kernel(num_samples: int, dim: int) -> ScaleKernel:
-    return ScaleKernel(
-        base_kernel=RBFKernel(ard_num_dims=dim, batch_shape=torch.Size([num_samples])),
-        batch_shape=torch.Size([num_samples]),
-    )
-
-
-def get_and_fit_model_mcmc(
-    Xs: List[Tensor],
-    Ys: List[Tensor],
-    Yvars: List[Tensor],
-    task_features: List[int],
-    fidelity_features: List[int],
-    metric_names: List[str],
-    state_dict: Optional[Dict[str, Tensor]] = None,
-    refit_model: bool = True,
-    use_input_warping: bool = False,
-    use_loocv_pseudo_likelihood: bool = False,
-    num_samples: int = 512,
-    warmup_steps: int = 1024,
-    thinning: int = 16,
-    max_tree_depth: int = 6,
-    disable_progbar: bool = False,
-    gp_kernel: str = "matern",
-    verbose: bool = False,
-    **kwargs: Any,
-) -> GPyTorchModel:
-    if len(task_features) > 0:
-        raise NotImplementedError("Currently do not support MT-GP models with MCMC!")
-    if len(fidelity_features) > 0:
-        raise NotImplementedError(
-            "Fidelity MF-GP models are not currently supported with MCMC!"
-        )
-    model = None
-    # TODO: Better logic for deciding when to use a ModelListGP. Currently the
-    # logic is unclear. The two cases in which ModelListGP is used are
-    # (i) the training inputs (Xs) are not the same for the different outcomes, and
-    # (ii) a multi-task model is used
-
-    num_mcmc_samples = num_samples // thinning
-    covar_modules = [
-        _get_rbf_kernel(num_samples=num_mcmc_samples, dim=Xs[0].shape[-1])
-        if gp_kernel == "rbf"
-        else None
-        for _ in range(len(Xs))
-    ]
-
-    if len(Xs) == 1:
-        # Use single output, single task GP
-        model = _get_model(
-            X=Xs[0].unsqueeze(0).expand(num_mcmc_samples, Xs[0].shape[0], -1),
-            Y=Ys[0].unsqueeze(0).expand(num_mcmc_samples, Xs[0].shape[0], -1),
-            Yvar=Yvars[0].unsqueeze(0).expand(num_mcmc_samples, Xs[0].shape[0], -1),
-            fidelity_features=fidelity_features,
-            use_input_warping=use_input_warping,
-            covar_module=covar_modules[0],
-            **kwargs,
-        )
-    else:
-        models = [
-            _get_model(
-                X=X.unsqueeze(0).expand(num_mcmc_samples, X.shape[0], -1).clone(),
-                Y=Y.unsqueeze(0).expand(num_mcmc_samples, Y.shape[0], -1).clone(),
-                Yvar=Yvar.unsqueeze(0)
-                .expand(num_mcmc_samples, Yvar.shape[0], -1)
-                .clone(),
-                use_input_warping=use_input_warping,
-                covar_module=covar_module,
-                **kwargs,
-            )
-            for X, Y, Yvar, covar_module in zip(Xs, Ys, Yvars, covar_modules)
-        ]
-        model = ModelListGP(*models)
-    model.to(Xs[0])
-    if isinstance(model, ModelListGP):
-        models = model.models
-    else:
-        models = [model]
-    if state_dict is not None:
-        # pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st param
-        # but got `Dict[str, Tensor]`.
-        model.load_state_dict(state_dict)
-    if state_dict is None or refit_model:
-        for X, Y, Yvar, m in zip(Xs, Ys, Yvars, models):
-            samples = run_inference(
-                pyro_model=pyro_model,  # pyre-ignore [6]
-                X=X,
-                Y=Y,
-                Yvar=Yvar,
-                num_samples=num_samples,
-                warmup_steps=warmup_steps,
-                thinning=thinning,
-                use_input_warping=use_input_warping,
-                max_tree_depth=max_tree_depth,
-                disable_progbar=disable_progbar,
-                gp_kernel=gp_kernel,
-                verbose=verbose,
-            )
-            if "noise" in samples:
-                m.likelihood.noise_covar.noise = (
-                    samples["noise"]
-                    .detach()
-                    .clone()
-                    .view(m.likelihood.noise_covar.noise.shape)
-                    .clamp_min(MIN_INFERRED_NOISE_LEVEL)
-                )
-            m.covar_module.base_kernel.lengthscale = (
-                samples["lengthscale"]
-                .detach()
-                .clone()
-                .view(m.covar_module.base_kernel.lengthscale.shape)
-            )
-            m.covar_module.outputscale = (
-                samples["outputscale"]
-                .detach()
-                .clone()
-                .view(m.covar_module.outputscale.shape)
-            )
-            m.mean_module.constant.data = (
-                samples["mean"].detach().clone().view(m.mean_module.constant.shape)
-            )
-            if "c0" in samples:
-                m.input_transform._set_concentration(
-                    i=0,
-                    value=samples["c0"]
-                    .detach()
-                    .clone()
-                    .view(m.input_transform.concentration0.shape),
-                )
-                m.input_transform._set_concentration(
-                    i=1,
-                    value=samples["c1"]
-                    .detach()
-                    .clone()
-                    .view(m.input_transform.concentration1.shape),
-                )
-    return model
 
 
 def predict_from_model_mcmc(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
@@ -305,14 +173,28 @@ def rbf_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor) -> Tensor:
     return torch.exp(-0.5 * (dist ** 2))
 
 
-def pyro_model(
+def single_task_pyro_model(
     X: Tensor,
     Y: Tensor,
     Yvar: Tensor,
     use_input_warping: bool = False,
     eps: float = 1e-7,
     gp_kernel: str = "matern",
+    task_feature: Optional[int] = None,
+    rank: Optional[int] = None,
 ) -> None:
+    r"""Instantiates a single task pyro model for running fully bayesian inference.
+
+    Args:
+        X: A `n x d` tensor of input parameters.
+        Y: A `n x 1` tensor of output.
+        Yvar: A `n x 1` tensor of observed noise.
+        use_input_warping: A boolean indicating whether to use input warping
+        task_feature: Column index of task feature in X.
+        gp_kernel: kernel name. Currently only two kernels are supported: "matern" for
+            Matern Kernel and "rbf" for RBFKernel.
+        rank: num of latent task features to learn for task covariance.
+    """
     try:
         import pyro
     except ImportError:  # pragma: no cover
@@ -322,63 +204,19 @@ def pyro_model(
     tkwargs = {"dtype": X.dtype, "device": X.device}
     dim = X.shape[-1]
     # TODO: test alternative outputscale priors
-    outputscale = pyro.sample(
-        "outputscale",
-        pyro.distributions.Gamma(  # pyre-ignore [16]
-            torch.tensor(2.0, **tkwargs),
-            torch.tensor(0.15, **tkwargs),
-        ),
-    )
-    mean = pyro.sample(
-        "mean",
-        pyro.distributions.Normal(  # pyre-ignore [16]
-            torch.tensor(0.0, **tkwargs),
-            torch.tensor(1.0, **tkwargs),
-        ),
-    )
+    outputscale = pyro_sample_outputscale(concentration=2.0, rate=0.15, **tkwargs)
+    mean = pyro_sample_mean(**tkwargs)
     if torch.isnan(Yvar).all():
         # infer noise level
-        noise = pyro.sample(
-            "noise",
-            pyro.distributions.Gamma(  # pyre-ignore [16]
-                torch.tensor(0.9, **tkwargs),
-                torch.tensor(10.0, **tkwargs),
-            ),
-        )
+        noise = pyro_sample_noise(**tkwargs)
     else:
         # pyre-ignore [16]
         noise = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)
-    # use SAAS priors
-    tausq = pyro.sample(
-        "kernel_tausq",
-        pyro.distributions.HalfCauchy(torch.tensor(0.1, **tkwargs)),  # pyre-ignore [16]
-    )
-    inv_length_sq = pyro.sample(
-        "_kernel_inv_length_sq",
-        pyro.distributions.HalfCauchy(torch.ones(dim, **tkwargs)),  # pyre-ignore [16]
-    )
-    inv_length_sq = pyro.deterministic("kernel_inv_length_sq", tausq * inv_length_sq)
-    lengthscale = pyro.deterministic(
-        "lengthscale",
-        (1.0 / inv_length_sq).sqrt(),  # pyre-ignore [16]
-    )
+    lengthscale = pyro_sample_saas_lengthscales(dim=dim, **tkwargs)
 
     # transform inputs through kumaraswamy cdf
     if use_input_warping:
-        c0 = pyro.sample(
-            "c0",
-            pyro.distributions.LogNormal(  # pyre-ignore [16]
-                torch.tensor([0.0] * dim, **tkwargs),
-                torch.tensor([0.75 ** 0.5] * dim, **tkwargs),
-            ),
-        )
-        c1 = pyro.sample(
-            "c1",
-            pyro.distributions.LogNormal(  # pyre-ignore [16]
-                torch.tensor([0.0] * dim, **tkwargs),
-                torch.tensor([0.75 ** 0.5] * dim, **tkwargs),
-            ),
-        )
+        c0, c1 = pyro_sample_input_warping(dim=dim, **tkwargs)
         # unnormalize X from [0, 1] to [eps, 1-eps]
         X = (X * (1 - 2 * eps) + eps).clamp(eps, 1 - eps)
         X_tf = 1 - torch.pow((1 - torch.pow(X, c1)), c0)
@@ -405,8 +243,134 @@ def pyro_model(
     )
 
 
+def _get_model_mcmc_samples(
+    Xs: List[Tensor],
+    Ys: List[Tensor],
+    Yvars: List[Tensor],
+    task_features: List[int],
+    fidelity_features: List[int],
+    metric_names: List[str],
+    state_dict: Optional[Dict[str, Tensor]] = None,
+    refit_model: bool = True,
+    use_input_warping: bool = False,
+    use_loocv_pseudo_likelihood: bool = False,
+    num_samples: int = 512,
+    warmup_steps: int = 1024,
+    thinning: int = 16,
+    max_tree_depth: int = 6,
+    disable_progbar: bool = False,
+    gp_kernel: str = "matern",
+    verbose: bool = False,
+    pyro_model: Callable = single_task_pyro_model,
+    get_gpytorch_model: Callable = _get_single_task_gpytorch_model,
+    rank: Optional[int] = 1,
+    **kwargs: Any,
+) -> Tuple[ModelListGP, List[Dict]]:
+    r"""Instantiates a batched GPyTorchModel(ModelListGP) based on the given data and
+    fit the model based on MCMC in pyro.
+
+    Args:
+        pyro_model: callable to instantiate a pyro model for running MCMC
+        get_gpytorch_model: callable to instantiate a coupled GPyTorchModel to load the
+        returned MCMC samples.
+    """
+    model = get_gpytorch_model(
+        Xs=Xs,
+        Ys=Ys,
+        Yvars=Yvars,
+        task_features=task_features,
+        fidelity_features=fidelity_features,
+        state_dict=state_dict,
+        num_samples=num_samples,
+        thinning=thinning,
+        use_input_warping=use_input_warping,
+        gp_kernel=gp_kernel,
+        **kwargs,
+    )
+    if state_dict is not None:
+        # Expected `OrderedDict[typing.Any, typing.Any]` for 1st
+        #  param but got `Dict[str, Tensor]`.
+        model.load_state_dict(state_dict)
+
+    mcmc_samples_list = []
+    if len(task_features) > 0:
+        task_feature = task_features[0]
+    else:
+        task_feature = None
+    if state_dict is None or refit_model:
+        for X, Y, Yvar in zip(Xs, Ys, Yvars):
+            mcmc_samples = run_inference(
+                pyro_model=pyro_model,
+                X=X,
+                Y=Y,
+                Yvar=Yvar,
+                num_samples=num_samples,
+                warmup_steps=warmup_steps,
+                thinning=thinning,
+                use_input_warping=use_input_warping,
+                max_tree_depth=max_tree_depth,
+                disable_progbar=disable_progbar,
+                gp_kernel=gp_kernel,
+                verbose=verbose,
+                task_feature=task_feature,
+                rank=rank,
+            )
+            mcmc_samples_list.append(mcmc_samples)
+    return model, mcmc_samples_list
+
+
+def get_and_fit_model_mcmc(
+    Xs: List[Tensor],
+    Ys: List[Tensor],
+    Yvars: List[Tensor],
+    task_features: List[int],
+    fidelity_features: List[int],
+    metric_names: List[str],
+    state_dict: Optional[Dict[str, Tensor]] = None,
+    refit_model: bool = True,
+    use_input_warping: bool = False,
+    use_loocv_pseudo_likelihood: bool = False,
+    num_samples: int = 512,
+    warmup_steps: int = 1024,
+    thinning: int = 16,
+    max_tree_depth: int = 6,
+    disable_progbar: bool = False,
+    gp_kernel: str = "matern",
+    verbose: bool = False,
+    **kwargs: Any,
+) -> GPyTorchModel:
+    r"""Instantiates a batched GPyTorchModel(ModelListGP) based on the given data and
+    fit the model based on MCMC in pyro. The batch dimension corresponds to sampled
+    hyperparameters from MCMC.
+    """
+    model, mcmc_samples_list = _get_model_mcmc_samples(
+        Xs=Xs,
+        Ys=Ys,
+        Yvars=Yvars,
+        task_features=task_features,
+        fidelity_features=fidelity_features,
+        metric_names=metric_names,
+        state_dict=state_dict,
+        refit_model=refit_model,
+        use_input_warping=use_input_warping,
+        use_loocv_pseudo_likelihood=use_loocv_pseudo_likelihood,
+        num_samples=num_samples,
+        warmup_steps=warmup_steps,
+        thinning=thinning,
+        max_tree_depth=max_tree_depth,
+        disable_progbar=disable_progbar,
+        gp_kernel=gp_kernel,
+        verbose=verbose,
+        pyro_model=single_task_pyro_model,
+        get_gpytorch_model=_get_single_task_gpytorch_model,
+    )
+    for i, mcmc_samples in enumerate(mcmc_samples_list):
+        load_mcmc_samples_to_model(model=model.models[i], mcmc_samples=mcmc_samples)
+    return model
+
+
 def run_inference(
-    pyro_model: Callable[[Tensor, Tensor, Tensor, bool, str, float, str], None],
+    pyro_model: Callable,
     X: Tensor,
     Y: Tensor,
     Yvar: Tensor,
@@ -418,7 +382,9 @@ def run_inference(
     disable_progbar: bool = False,
     gp_kernel: str = "matern",
     verbose: bool = False,
-) -> Tensor:
+    task_feature: Optional[int] = None,
+    rank: Optional[int] = None,
+) -> Dict[str, Tensor]:
     start = time.time()
     try:
         from pyro.infer.mcmc import NUTS, MCMC
@@ -444,6 +410,8 @@ def run_inference(
         Yvar,
         use_input_warping=use_input_warping,
         gp_kernel=gp_kernel,
+        task_feature=task_feature,
+        rank=rank,
     )
 
     # compute the true lengthscales and get rid of the temporary variables
@@ -453,7 +421,6 @@ def run_inference(
     )
     samples["lengthscale"] = (1.0 / inv_length_sq).sqrt()  # pyre-ignore [16]
     del samples["kernel_tausq"], samples["_kernel_inv_length_sq"]
-
     # this prints the summary
     if verbose:
         orig_std_out = sys.stdout.write
@@ -461,7 +428,7 @@ def run_inference(
         print_summary(samples, prob=0.9, group_by_chain=False)
         sys.stdout.write = orig_std_out
         logger.info(f"MCMC elapsed time: {time.time() - start}")
-
+    # thin
     for k, v in samples.items():
         samples[k] = v[::thinning]  # apply thinning
     return samples

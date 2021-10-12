@@ -18,8 +18,7 @@ from ax.exceptions.core import AxError
 from ax.models.torch.fully_bayesian import (
     FullyBayesianBotorchModel,
     FullyBayesianMOOBotorchModel,
-    get_and_fit_model_mcmc,
-    pyro_model,
+    single_task_pyro_model,
     matern_kernel,
     rbf_kernel,
 )
@@ -35,8 +34,7 @@ from botorch.optim.optimize import optimize_acqf
 from botorch.utils import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 
-BASE_PATH = f"{get_and_fit_model_mcmc.__module__}"
-RUN_INFERENCE_PATH = f"{get_and_fit_model_mcmc.__module__}.run_inference"
+RUN_INFERENCE_PATH = "ax.models.torch.fully_bayesian.run_inference"
 NUTS_PATH = "pyro.infer.mcmc.NUTS"
 MCMC_PATH = "pyro.infer.mcmc.MCMC"
 
@@ -162,7 +160,7 @@ try:
                         X = Xs[i]
                         Y = Ys[i]
                         Yvar = Yvars[i]
-                        self.assertIs(ckwargs["pyro_model"], pyro_model)
+                        self.assertIs(ckwargs["pyro_model"], single_task_pyro_model)
 
                         self.assertTrue(torch.equal(ckwargs["X"], X))
                         self.assertTrue(torch.equal(ckwargs["Y"], Y))
@@ -553,7 +551,7 @@ try:
                     X = torch.randn(3, 2)
                     Y = torch.randn(3, 1)
                     Yvar = torch.randn(3, 1)
-                    kernel = NUTS(pyro_model, max_tree_depth=1)
+                    kernel = NUTS(single_task_pyro_model, max_tree_depth=1)
                     mcmc = MCMC(kernel, warmup_steps=0, num_samples=1)
                     mcmc.run(
                         X,
@@ -578,7 +576,7 @@ try:
             X = torch.randn(3, 2)
             Y = torch.randn(3, 1)
             Yvar = torch.randn(3, 1)
-            kernel = NUTS(pyro_model, max_tree_depth=1)
+            kernel = NUTS(single_task_pyro_model, max_tree_depth=1)
             with self.assertRaises(ValueError):
                 mcmc = MCMC(kernel, warmup_steps=0, num_samples=1)
                 mcmc.run(
@@ -692,7 +690,7 @@ try:
                         # check run_inference arguments
                         self.assertEqual(_mock_fit_model.call_count, 2)
                         _, ckwargs = _mock_fit_model.call_args
-                        self.assertIs(ckwargs["pyro_model"], pyro_model)
+                        self.assertIs(ckwargs["pyro_model"], single_task_pyro_model)
 
                         self.assertTrue(torch.equal(ckwargs["X"], Xs1[0]))
                         self.assertTrue(torch.equal(ckwargs["Y"], Ys1[0]))
@@ -733,7 +731,7 @@ try:
                         self.assertTrue(ckwargs["disable_progbar"])
                         # check NUTS.__init__ arguments
                         _mock_nuts.assert_called_with(
-                            pyro_model,
+                            single_task_pyro_model,
                             jit_compile=True,
                             full_mass=True,
                             ignore_jit_warnings=True,
@@ -857,11 +855,13 @@ try:
                 f_mean, f_cov = model.predict(X)
                 self.assertTrue(f_mean.shape == torch.Size([2, 1]))
                 self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
+                model_list = model.model.models
+                self.assertTrue(len(model_list) == 1)
                 if use_input_warping:
-                    self.assertTrue(hasattr(model.model, "input_transform"))
-                    self.assertIsInstance(model.model.input_transform, Warp)
+                    self.assertTrue(hasattr(model_list[0], "input_transform"))
+                    self.assertIsInstance(model_list[0].input_transform, Warp)
                 else:
-                    self.assertFalse(hasattr(model.model, "input_transform"))
+                    self.assertFalse(hasattr(model_list[0], "input_transform"))
 
     class FullyBayesianMOOBotorchModelTest(TestCase, BaseFullyBayesianBotorchModelTest):
         model_cls = FullyBayesianMOOBotorchModel
