@@ -1259,6 +1259,7 @@ class Scheduler(WithDBSettingsBase):
         existing_trials: List[BaseTrial],
         new_trials: List[BaseTrial],
         metadata: Dict[int, Dict[str, Any]],
+        reduce_state_generator_runs: bool = False,
     ) -> None:
         """Updates trials with new run metadata and status; saves updates to DB.
 
@@ -1275,6 +1276,10 @@ class Scheduler(WithDBSettingsBase):
                 the metadata dict will be considered `RUNNING`, and the rest of
                 trials in `existing_trials` or `new_trials` (that are not present
                 in `metadata`) will be left as `CANDIDATE`.
+            reduce_state_generator_runs: Flag to determine
+                whether to save model state for every generator run (default)
+                or to only save model state on the final generator run of each
+                batch.
         """
 
         def _process_trial(trial):
@@ -1298,6 +1303,7 @@ class Scheduler(WithDBSettingsBase):
             trials=[*existing_trials, *new_trials],
             generation_strategy=self.generation_strategy,
             new_generator_runs=new_generator_runs,
+            reduce_state_generator_runs=reduce_state_generator_runs,
         )
 
     def _sleep_if_too_early_to_poll(self) -> None:

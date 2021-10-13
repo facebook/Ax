@@ -18,6 +18,7 @@ from ax.storage.sqa_store.load import (
     _load_experiment,
     _load_generation_strategy_by_experiment_name,
 )
+from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS
 from ax.storage.sqa_store.save import (
     _save_experiment,
     _save_generation_strategy,
@@ -66,7 +67,7 @@ class TestWithDBSettingsBase(TestCase):
     def get_random_generation_strategy(self) -> GenerationStrategy:
         """Get an GenerationStrategy instance with random name."""
 
-        generation_strategy = get_generation_strategy()
+        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         gs_name = "".join(random.choice(string.ascii_letters) for i in range(8))
         generation_strategy._name = gs_name
         return generation_strategy
@@ -297,6 +298,50 @@ class TestWithDBSettingsBase(TestCase):
                 self.assertEqual(t.status, TrialStatus.CANDIDATE)
             else:
                 self.assertEqual(t.status, TrialStatus.RUNNING)
+
+    def test_update_reduced_state_generator_runs(self):
+        experiment, generation_strategy = self.init_experiment_and_generation_strategy(
+            save_generation_strategy=True
+        )
+
+        trials = [experiment.new_trial() for _ in range(5)]
+        grs = []
+        for t in trials:
+            gr = generation_strategy.gen(experiment)
+            grs.append(gr)
+            t.add_generator_run(gr)
+
+        self.with_db_settings._save_or_update_trials_and_generation_strategy_if_possible(  # noqa E501
+            experiment=experiment,
+            trials=trials,
+            generation_strategy=generation_strategy,
+            new_generator_runs=grs,
+            reduce_state_generator_runs=True,
+        )
+
+        loaded_experiment = _load_experiment(
+            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+        )
+
+        # Only the last trial's generator run should have large model attributes
+        for idx, trial in loaded_experiment.trials.items():
+            for key in [f"_{attr.key}" for attr in GR_LARGE_MODEL_ATTRS]:
+                if idx < len(loaded_experiment.trials) - 1:
+                    self.assertIsNone(getattr(trial.generator_run, key))
+                else:
+                    self.assertIsNotNone(getattr(trial.generator_run, key))
+
+        loaded_generation_strategy = _load_generation_strategy_by_experiment_name(
+            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+        )
+
+        # Only the last generator run should have large model attributes
+        for idx, gr in enumerate(loaded_generation_strategy._generator_runs):
+            for key in [f"_{attr.key}" for attr in GR_LARGE_MODEL_ATTRS]:
+                if idx < len(loaded_generation_strategy._generator_runs) - 1:
+                    self.assertIsNone(getattr(gr, key))
+                else:
+                    self.assertIsNotNone(getattr(gr, key))
 
     def test_update_experiment_properties_in_db(self):
         experiment, _ = self.init_experiment_and_generation_strategy(

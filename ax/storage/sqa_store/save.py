@@ -150,11 +150,19 @@ def save_or_update_trial(
 
 
 def _save_or_update_trial(
-    experiment: Experiment, trial: BaseTrial, encoder: Encoder, decoder: Decoder
+    experiment: Experiment,
+    trial: BaseTrial,
+    encoder: Encoder,
+    decoder: Decoder,
+    reduce_state_generator_runs: bool = False,
 ) -> None:
     """Add new trial to the experiment, or update if already exists."""
     _save_or_update_trials(
-        experiment=experiment, trials=[trial], encoder=encoder, decoder=decoder
+        experiment=experiment,
+        trials=[trial],
+        encoder=encoder,
+        decoder=decoder,
+        reduce_state_generator_runs=reduce_state_generator_runs,
     )
 
 
@@ -163,6 +171,7 @@ def save_or_update_trials(
     trials: List[BaseTrial],
     config: Optional[SQAConfig] = None,
     batch_size: Optional[int] = None,
+    reduce_state_generator_runs: bool = False,
 ) -> None:
     """Add new trials to the experiment, or update if already exists
     (using default SQAConfig).
@@ -180,6 +189,7 @@ def save_or_update_trials(
         encoder=encoder,
         decoder=decoder,
         batch_size=batch_size,
+        reduce_state_generator_runs=reduce_state_generator_runs,
     )
 
 
@@ -189,6 +199,7 @@ def _save_or_update_trials(
     encoder: Encoder,
     decoder: Decoder,
     batch_size: Optional[int] = None,
+    reduce_state_generator_runs: bool = False,
 ) -> None:
     """Add new trials to the experiment, or update if they already exist.
 
@@ -203,14 +214,39 @@ def _save_or_update_trials(
     def add_experiment_id(sqa: Union[SQATrial, SQAData]):
         sqa.experiment_id = experiment_id
 
-    _bulk_merge_into_session(
-        objs=trials,
-        encode_func=encoder.trial_to_sqa,
-        decode_func=decoder.trial_from_sqa,
-        decode_args_list=[{"experiment": experiment} for _ in range(len(trials))],
-        modify_sqa=add_experiment_id,
-        batch_size=batch_size,
-    )
+    if reduce_state_generator_runs:
+        latest_trial = trials[-1]
+        trials_to_reduce_state = trials[0:-1]
+
+        def trial_to_reduced_state_sqa_encoder(t: BaseTrial):
+            return encoder.trial_to_sqa(t, generator_run_reduced_state=True)
+
+        _bulk_merge_into_session(
+            objs=trials_to_reduce_state,
+            encode_func=trial_to_reduced_state_sqa_encoder,
+            decode_func=decoder.trial_from_sqa,
+            decode_args_list=[{"experiment": experiment} for _ in range(len(trials))],
+            modify_sqa=add_experiment_id,
+            batch_size=batch_size,
+        )
+
+        _bulk_merge_into_session(
+            objs=[latest_trial],
+            encode_func=encoder.trial_to_sqa,
+            decode_func=decoder.trial_from_sqa,
+            decode_args_list=[{"experiment": experiment} for _ in range(len(trials))],
+            modify_sqa=add_experiment_id,
+            batch_size=batch_size,
+        )
+    else:
+        _bulk_merge_into_session(
+            objs=trials,
+            encode_func=encoder.trial_to_sqa,
+            decode_func=decoder.trial_from_sqa,
+            decode_args_list=[{"experiment": experiment} for _ in range(len(trials))],
+            modify_sqa=add_experiment_id,
+            batch_size=batch_size,
+        )
 
     datas = []
     data_encode_args = []
@@ -242,6 +278,7 @@ def update_generation_strategy(
     generator_runs: List[GeneratorRun],
     config: Optional[SQAConfig] = None,
     batch_size: Optional[int] = None,
+    reduce_state_generator_runs: bool = False,
 ) -> None:
     """Update generation strategy's current step and attach generator runs
     (using default SQAConfig)."""
@@ -254,6 +291,7 @@ def update_generation_strategy(
         encoder=encoder,
         decoder=decoder,
         batch_size=batch_size,
+        reduce_state_generator_runs=reduce_state_generator_runs,
     )
 
 
@@ -263,6 +301,7 @@ def _update_generation_strategy(
     encoder: Encoder,
     decoder: Decoder,
     batch_size: Optional[int] = None,
+    reduce_state_generator_runs: bool = False,
 ) -> None:
     """Update generation strategy's current step and attach generator runs."""
     gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
@@ -289,9 +328,16 @@ def _update_generation_strategy(
     def add_generation_strategy_id(sqa: SQAGeneratorRun):
         sqa.generation_strategy_id = gs_id
 
+    def generator_run_to_sqa_encoder(gr: GeneratorRun, weight: Optional[float] = None):
+        return encoder.generator_run_to_sqa(
+            gr,
+            weight=weight,
+            reduced_state=reduce_state_generator_runs,
+        )
+
     _bulk_merge_into_session(
         objs=generator_runs,
-        encode_func=encoder.generator_run_to_sqa,
+        encode_func=generator_run_to_sqa_encoder,
         decode_func=decoder.generator_run_from_sqa,
         decode_args_list=[
             {

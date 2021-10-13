@@ -264,6 +264,7 @@ class WithDBSettingsBase:
         trials: List[BaseTrial],
         generation_strategy: GenerationStrategy,
         new_generator_runs: List[GeneratorRun],
+        reduce_state_generator_runs: bool = False,
     ) -> None:
         """Saves new trials (and updates existing ones) on given experiment
         and updates the given generation strategy, if DB settings are set on
@@ -277,7 +278,9 @@ class WithDBSettingsBase:
         """
         logger.debug(f"Saving or updating {len(trials)} trials in DB.")
         self._save_or_update_trials_in_db_if_possible(
-            experiment=experiment, trials=trials
+            experiment=experiment,
+            trials=trials,
+            reduce_state_generator_runs=reduce_state_generator_runs,
         )
         logger.debug(
             "Updating generation strategy in DB with "
@@ -286,6 +289,7 @@ class WithDBSettingsBase:
         self._update_generation_strategy_in_db_if_possible(
             generation_strategy=generation_strategy,
             new_generator_runs=new_generator_runs,
+            reduce_state_generator_runs=reduce_state_generator_runs,
         )
         return
 
@@ -314,6 +318,7 @@ class WithDBSettingsBase:
         self,
         experiment: Experiment,
         trials: List[BaseTrial],
+        reduce_state_generator_runs: bool = False,
     ) -> bool:
         """Saves new trials or update existing trials on given experiment if DB
         settings are set on this `WithDBSettingsBase` instance.
@@ -332,6 +337,7 @@ class WithDBSettingsBase:
                 encoder=self.db_settings.encoder,
                 decoder=self.db_settings.decoder,
                 suppress_all_errors=self._suppress_all_errors,
+                reduce_state_generator_runs=reduce_state_generator_runs,
             )
             return True
         return False
@@ -362,6 +368,7 @@ class WithDBSettingsBase:
         self,
         generation_strategy: GenerationStrategy,
         new_generator_runs: List[GeneratorRun],
+        reduce_state_generator_runs: bool = False,
     ) -> bool:
         """Updates the given generation strategy with new generator runs (and with
         new current generation step if applicable) if DB settings are set
@@ -382,6 +389,7 @@ class WithDBSettingsBase:
                 encoder=self.db_settings.encoder,
                 decoder=self.db_settings.decoder,
                 suppress_all_errors=self._suppress_all_errors,
+                reduce_state_generator_runs=reduce_state_generator_runs,
             )
             return True
         return False
@@ -438,6 +446,7 @@ def _save_or_update_trials_in_db_if_possible(
     encoder: Encoder,
     decoder: Decoder,
     suppress_all_errors: bool,
+    reduce_state_generator_runs: bool = False,
 ) -> None:
     start_time = time.time()
     _save_or_update_trials(
@@ -446,6 +455,7 @@ def _save_or_update_trials_in_db_if_possible(
         encoder=encoder,
         decoder=decoder,
         batch_size=STORAGE_MINI_BATCH_SIZE,
+        reduce_state_generator_runs=reduce_state_generator_runs,
     )
     logger.debug(
         f"Saved or updated trials {[trial.index for trial in trials]} in "
@@ -488,6 +498,7 @@ def _update_generation_strategy_in_db_if_possible(
     encoder: Encoder,
     decoder: Decoder,
     suppress_all_errors: bool,
+    reduce_state_generator_runs: bool = False,
 ) -> None:
     start_time = time.time()
     _update_generation_strategy(
@@ -496,6 +507,7 @@ def _update_generation_strategy_in_db_if_possible(
         encoder=encoder,
         decoder=decoder,
         batch_size=STORAGE_MINI_BATCH_SIZE,
+        reduce_state_generator_runs=reduce_state_generator_runs,
     )
     logger.debug(
         f"Updated generation strategy {generation_strategy.name} in "
