@@ -37,7 +37,6 @@ class InverseGaussianCdfY(Transform):
         observation_data: List[ObservationData],
         config: Optional[TConfig] = None,
     ) -> None:
-        # pyre-fixme[29]: `scipy.stats.norm_gen` is not a function.
         self.dist = norm(loc=0, scale=1)
 
     def transform_observation_data(

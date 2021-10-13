@@ -335,7 +335,6 @@ def _mean_prediction_ci(
 def _log_likelihood(
     y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
 ) -> float:
-    # pyre-ignore [16]
     return float(np.sum(norm.logpdf(y_obs, loc=y_pred, scale=se_pred)))
 
 

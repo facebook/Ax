@@ -86,9 +86,5 @@ class PercentileY(Transform):
 
     def _map(self, val: float, metric_name: str) -> float:
         vals = self.percentiles[metric_name]
-        mapped_val = (
-            # pyre-fixme[16]: `scipy.stats` has no attr `percentileofscore`.
-            stats.percentileofscore(vals, val, kind="weak")
-            / 100.0
-        )
+        mapped_val = stats.percentileofscore(vals, val, kind="weak") / 100.0
         return mapped_val

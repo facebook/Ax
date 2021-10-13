@@ -8,8 +8,6 @@ from typing import Optional
 
 import numpy as np
 from ax.models.random.base import RandomModel
-
-# pyre-fixme[21]: Could not find name `uniform` in `scipy.stats`.
 from scipy.stats import uniform
 
 
