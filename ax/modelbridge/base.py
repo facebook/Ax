@@ -652,7 +652,7 @@ class ModelBridge(ABC):
             model_gen_options: A config dictionary that is passed along to the
                 model.
         """
-        t_gen_start = time.time()
+        t_gen_start = time.monotonic()
         # Get modifiable versions
         if search_space is None:
             search_space = self._model_space

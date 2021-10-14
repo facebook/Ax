@@ -283,6 +283,7 @@ class TestGenerationStrategy(TestCase):
                         "init_position": i,
                         "scramble": True,
                         "generated_points": None,
+                        "fallback_to_sample_polytope": False,
                     },
                 )
                 self.assertEqual(

@@ -241,9 +241,10 @@ class SQAStoreTest(TestCase):
         # 3. Try case with model state and search space + opt.config on a
         # generator run in the experiment.
         gr = Models.SOBOL(experiment=exp).gen(1)
-        # Expecting model kwargs to have 5 fields (deduplicate, init_position, etc.)
+        # Expecting model kwargs to have 6 fields (seed, deduplicate, init_position,
+        # scramble, generated_points, fallback_to_sample_polytope)
         # and the rest of model-state info on generator run to have values too.
-        self.assertEqual(len(gr._model_kwargs), 5)
+        self.assertEqual(len(gr._model_kwargs), 6)
         self.assertEqual(len(gr._bridge_kwargs), 7)
         self.assertEqual(len(gr._model_state_after_gen), 1)
         self.assertEqual(len(gr._gen_metadata), 0)

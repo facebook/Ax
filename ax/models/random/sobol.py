@@ -43,6 +43,7 @@ class SobolGenerator(RandomModel):
         init_position: int = 0,
         scramble: bool = True,
         generated_points: Optional[np.ndarray] = None,
+        fallback_to_sample_polytope: bool = False,
     ) -> None:
         super().__init__(
             deduplicate=deduplicate, seed=seed, generated_points=generated_points
@@ -51,6 +52,7 @@ class SobolGenerator(RandomModel):
         self.scramble = scramble
         # Initialize engine on gen.
         self._engine = None
+        self.fallback_to_sample_polytope = fallback_to_sample_polytope
 
     def init_engine(self, n_tunable_features: int) -> SobolEngine:
         """Initialize singleton SobolEngine, only on gen.

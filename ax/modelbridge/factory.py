@@ -199,6 +199,7 @@ def get_sobol(
     deduplicate: bool = False,
     init_position: int = 0,
     scramble: bool = True,
+    fallback_to_sample_polytope: bool = False,
 ) -> RandomModelBridge:
     """Instantiates a Sobol sequence quasi-random generator.
 
@@ -217,6 +218,7 @@ def get_sobol(
             deduplicate=deduplicate,
             init_position=init_position,
             scramble=scramble,
+            fallback_to_sample_polytope=fallback_to_sample_polytope,
         ),
     )
 

@@ -121,6 +121,46 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.alltrue(generated_points[..., -1] == 1))
         self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
 
+    def testSobolGeneratorFallbackToPolytopeSampler(self):
+        # Ten parameters with sum less than 1. In this example, the rejection
+        # sampler gives a search space exhausted error.  Testing fallback to
+        # polytope sampler when encountering this error.
+        generator = SobolGenerator(seed=0, fallback_to_sample_polytope=True)
+        bounds = self._create_bounds(n_tunable=10, n_fixed=0)
+        A = np.ones((1, 10))
+        b = np.array([1]).reshape((1, 1))
+        generated_points, weights = generator.gen(
+            n=3,
+            bounds=bounds,
+            linear_constraints=(
+                A,
+                b,
+            ),
+        )
+        self.assertTrue(np.shape(generated_points) == (3, 10))
+        self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
+
+    def testSobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self):
+        # Ten parameters with sum less than 1. In this example, the rejection
+        # sampler gives a search space exhausted error.  Testing fallback to
+        # polytope sampler when encountering this error.
+        generator = SobolGenerator(seed=0, fallback_to_sample_polytope=True)
+        bounds = self._create_bounds(n_tunable=10, n_fixed=1)
+        A = np.insert(np.ones((1, 10)), 10, 0, axis=1)
+        b = np.array([1]).reshape((1, 1))
+        generated_points, weights = generator.gen(
+            n=3,
+            bounds=bounds,
+            linear_constraints=(
+                A,
+                b,
+            ),
+            fixed_features={10: 1},
+        )
+        self.assertTrue(np.shape(generated_points) == (3, 11))
+        self.assertTrue(np.alltrue(generated_points[..., -1] == 1))
+        self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
+
     def testSobolGeneratorOnlineRestart(self):
         # Ensure a single batch generation can also equivalently done by
         # a partial generation, re-initialization of a new SobolGenerator,

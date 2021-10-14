@@ -7,7 +7,9 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+import torch
 from ax.core.types import TConfig
+from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.base import Model
 from ax.models.model_utils import (
     add_fixed_features,
@@ -16,6 +18,12 @@ from ax.models.model_utils import (
     validate_bounds,
 )
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.logger import get_logger
+from botorch.utils.sampling import HitAndRunPolytopeSampler
+from torch import Tensor
+
+
+logger = get_logger(__name__)
 
 
 class RandomModel(Model):
@@ -45,12 +53,14 @@ class RandomModel(Model):
         deduplicate: bool = True,
         seed: Optional[int] = None,
         generated_points: Optional[np.ndarray] = None,
+        fallback_to_sample_polytope: bool = False,
     ) -> None:
         super().__init__()
         self.deduplicate = deduplicate
         self.seed = seed
         # Used for deduplication.
         self.generated_points = generated_points
+        self.fallback_to_sample_polytope = fallback_to_sample_polytope
 
     def gen(
         self,
@@ -104,20 +114,43 @@ class RandomModel(Model):
                 #  int, str]`.
                 # pyre-fixme[35]: Target cannot be annotated.
                 max_draws: int = int(max_draws)
-        # Always rejection sample, but this only rejects if there are
-        # constraints or actual duplicates and deduplicate is specified.
-        points, attempted_draws = rejection_sample(
-            gen_unconstrained=self._gen_unconstrained,
-            n=n,
-            d=len(bounds),
-            tunable_feature_indices=tf_indices,
-            linear_constraints=linear_constraints,
-            deduplicate=self.deduplicate,
-            max_draws=max_draws,
-            fixed_features=fixed_features,
-            rounding_func=rounding_func,
-            existing_points=self.generated_points,
-        )
+        try:
+            # Always rejection sample, but this only rejects if there are
+            # constraints or actual duplicates and deduplicate is specified.
+            # If rejection sampling fails, fall back to polytope sampling
+            points, attempted_draws = rejection_sample(
+                gen_unconstrained=self._gen_unconstrained,
+                n=n,
+                d=len(bounds),
+                tunable_feature_indices=tf_indices,
+                linear_constraints=linear_constraints,
+                deduplicate=self.deduplicate,
+                max_draws=max_draws,
+                fixed_features=fixed_features,
+                rounding_func=rounding_func,
+                existing_points=self.generated_points,
+            )
+        except SearchSpaceExhausted as e:
+            if self.fallback_to_sample_polytope:
+                logger.info(
+                    "Rejection sampling exceeded specified maximum draws."
+                    "Falling back on polytope sampler"
+                )
+                # If rejection sampling fails, try polytope sampler.
+                polytope_sampler = HitAndRunPolytopeSampler(
+                    inequality_constraints=self._convert_inequality_constraints(
+                        linear_constraints
+                    ),
+                    equality_constraints=self._convert_equality_constraints(
+                        len(bounds), fixed_features
+                    ),
+                    interior_point=self._get_last_point(),
+                    bounds=self._convert_bounds(bounds),
+                )
+                points = polytope_sampler.draw(n).numpy()
+            else:
+                raise e
+
         # pyre-fixme[16]: `RandomModel` has no attribute `attempted_draws`.
         self.attempted_draws = attempted_draws
         if self.deduplicate:
@@ -125,7 +158,7 @@ class RandomModel(Model):
                 self.generated_points = points
             else:
                 self.generated_points = np.vstack([self.generated_points, points])
-        return (points, np.ones(len(points)))
+        return points, np.ones(len(points))
 
     @copy_doc(Model._get_state)
     def _get_state(self) -> Dict[str, Any]:
@@ -175,3 +208,77 @@ class RandomModel(Model):
 
         """
         raise NotImplementedError("Base RandomModel can't generate samples.")
+
+    def _convert_inequality_constraints(
+        self, linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]]
+    ) -> Optional[Tuple[Tensor, Tensor]]:
+        """Helper method to convert inequality constraints used by the rejection
+        sampler to the format required for the polytope sampler.
+
+            Args:
+                linear_constraints: A tuple of (A, b). For k linear constraints on
+                    d-dimensional x, A is (k x d) and b is (k x 1) such that
+                    A x <= b.
+
+            Returns:
+                Optional 2-element tuple containing A and b as tensors
+        """
+        if linear_constraints is None:
+            return None
+        else:
+            A = torch.tensor(linear_constraints[0], dtype=torch.double)
+            b = torch.tensor(linear_constraints[1], dtype=torch.double)
+            return A, b
+
+    def _convert_equality_constraints(
+        self, d: int, fixed_features: Optional[Dict[int, float]]
+    ) -> Optional[Tuple[Tensor, Tensor]]:
+        """Helper method to convert the fixed feature dictionary used by the rejection
+        sampler to the corresponding matrix representation required for the polytope
+        sampler.
+
+            Args:
+                d: dimension of samples
+                fixed_features: A map {feature_index: value} for features that
+                    should be fixed to a particular value during generation.
+
+            Returns:
+                Optional 2-element tuple containing C and c such that the equality
+                constraints are defined by Cx = c
+        """
+        if fixed_features is None:
+            return None
+        else:
+            n = len(fixed_features)
+            fixed_indices = sorted(fixed_features.keys())
+            fixed_vals = torch.tensor(
+                [fixed_features[i] for i in fixed_indices], dtype=torch.double
+            )
+            constraint_matrix = torch.zeros((n, d), dtype=torch.double)
+            for index in range(0, len(fixed_vals)):
+                constraint_matrix[index, fixed_indices[index]] = 1.0
+            return constraint_matrix, fixed_vals
+
+    def _convert_bounds(self, bounds: List[Tuple[float, float]]) -> Optional[Tensor]:
+        """Helper method to convert bounds list used by the rejectionsampler to the
+        tensor format required for the polytope sampler.
+
+            Args:
+                bounds: A list of (lower, upper) tuples for each column of X.
+                    Defined on [0, 1]^d.
+
+            Returns:
+                Optional 2 x d tensor representing the bounds
+        """
+        if bounds is None:
+            return None
+        else:
+            return torch.tensor(bounds, dtype=torch.double).transpose(-1, -2)
+
+    def _get_last_point(self) -> Optional[Tensor]:
+        # Return the last sampled point when points have been sampled
+        if self.generated_points is None:
+            return None
+        else:
+            last_point = self.generated_points[-1, :].reshape((-1, 1))
+            return torch.from_numpy(last_point).double()

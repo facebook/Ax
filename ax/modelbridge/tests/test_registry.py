@@ -199,6 +199,7 @@ class ModelRegistryTest(TestCase):
                     "init_position": 0,
                     "scramble": True,
                     "generated_points": None,
+                    "fallback_to_sample_polytope": False,
                 },
                 {
                     "optimization_config": None,
