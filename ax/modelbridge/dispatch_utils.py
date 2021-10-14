@@ -29,7 +29,7 @@ DEFAULT_BAYESIAN_PARALLELISM = 3
 # method grows with the number of combinations, and so it is only used when the
 # number of enumerated discrete combinations is below some maximum value.
 MAX_DISCRETE_ENUMERATIONS_MIXED = 65
-MAX_DISCRETE_ENUMERATIONS_CHOICE_ONLY = 1e4
+MAX_DISCRETE_ENUMERATIONS_NO_CONTINUOUS_OPTIMIZATION = 1e4
 SAASBO_INCOMPATIBLE_MESSAGE = (
     "SAASBO is incompatible with {} generation strategy. "
     "Disregarding user input `use_saasbo = True`."
@@ -132,30 +132,42 @@ def _suggest_gp_model(
     5. If none of the above and ``use_saasbo is False``, we use ``GPEI``.
     6. If none of the above and ``use_saasbo is True``, we use ``FULLYBAYESIAN``.
     """
-    num_ordered_parameters, num_unordered_choices = 0, 0
-    num_choice_combinations, num_unordered_combinations, num_possible_points = 1, 1, 1
-    all_range_parameters_are_int = True
+    num_ordered_parameters = num_unordered_choices = 0
+    num_enumerated_combinations = num_possible_points = 1
+    all_range_parameters_are_discrete = True
+    all_parameters_are_enumerated = True
     for parameter in search_space.tunable_parameters.values():
+        should_enumerate_param = None
+        num_param_discrete_values = None
         if isinstance(parameter, ChoiceParameter):
-            num_possible_points *= len(parameter.values)
-            num_choice_combinations *= len(parameter.values)
+            num_param_discrete_values = len(parameter.values)
+            num_possible_points *= num_param_discrete_values
             if parameter.is_ordered is False:
-                num_unordered_choices += len(parameter.values)
-                num_unordered_combinations *= len(parameter.values)
+                num_unordered_choices += num_param_discrete_values
+                should_enumerate_param = True
             else:
                 num_ordered_parameters += 1
+                should_enumerate_param = True
         elif isinstance(parameter, RangeParameter):
             num_ordered_parameters += 1
-            if parameter.parameter_type != ParameterType.INT:
-                all_range_parameters_are_int = False
+            if parameter.parameter_type == ParameterType.FLOAT:
+                all_range_parameters_are_discrete = False
+                should_enumerate_param = False
             else:
-                num_possible_points *= int(parameter.upper - parameter.lower) + 1
+                num_param_discrete_values = int(parameter.upper - parameter.lower) + 1
+                num_possible_points *= num_param_discrete_values
+                should_enumerate_param = False
+
+        if not_none(should_enumerate_param):
+            num_enumerated_combinations *= not_none(num_param_discrete_values)
+        else:
+            all_parameters_are_enumerated = False
 
     # If number of trials is known and sufficient to try all possible points,
     # we should use Sobol and not BO
     if (
         num_trials is not None
-        and all_range_parameters_are_int
+        and all_range_parameters_are_discrete
         and num_possible_points <= num_trials
     ):
         logger.info("Using Sobol since we can enumerate the search space.")
@@ -164,7 +176,6 @@ def _suggest_gp_model(
         return None
 
     is_moo_problem = optimization_config and optimization_config.is_moo_problem
-    all_discrete_parameters_are_choice = num_choice_combinations == num_possible_points
     if num_ordered_parameters > num_unordered_choices:
         logger.info(
             "Using Bayesian optimization since there are more ordered "
@@ -181,10 +192,11 @@ def _suggest_gp_model(
     # The latter condition below is tied to the logic in `BO_MIXED`, which currently
     # enumerates all combinations of choice parameters.
     if not is_moo_problem and (
-        num_choice_combinations <= MAX_DISCRETE_ENUMERATIONS_MIXED
+        num_enumerated_combinations <= MAX_DISCRETE_ENUMERATIONS_MIXED
         or (
-            all_discrete_parameters_are_choice
-            and num_choice_combinations < MAX_DISCRETE_ENUMERATIONS_CHOICE_ONLY
+            all_parameters_are_enumerated
+            and num_enumerated_combinations
+            < MAX_DISCRETE_ENUMERATIONS_NO_CONTINUOUS_OPTIMIZATION
         )
     ):
         logger.info(
@@ -196,10 +208,10 @@ def _suggest_gp_model(
         return Models.BO_MIXED
     logger.info(
         f"Using Sobol since there are more than {MAX_DISCRETE_ENUMERATIONS_MIXED} "
-        "combinations of `ChoiceParameter`s. Consider removing a few "
-        "`c`s for improved performance. Make sure that all ordered choices "
-        "are encoded as such (`is_ordered=True`). If possible, turn "
-        "all ordered `ChoiceParameter`s into `RangeParameter`s."
+        "combinations of enumerated parameters. For improved performance, make sure "
+        "that all ordered `ChoiceParameter`s are encoded as such (`is_ordered=True`), "
+        "and use `RangeParameter`s in place of ordered `ChoiceParameter`s where "
+        "possible. Also, consider removing some or all unordered `ChoiceParameter`s."
     )
     if use_saasbo:
         logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
