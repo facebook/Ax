@@ -33,10 +33,10 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
+    get_best_from_model_predictions_with_trial_index,
     get_pareto_optimal_parameters,
     predicted_pareto,
     observed_pareto,
-    get_best_from_model_predictions,
 )
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
@@ -932,20 +932,24 @@ class TestAxClient(TestCase):
             )
 
     @patch(
-        f"{get_best_from_model_predictions.__module__}.get_best_from_model_predictions",
-        wraps=get_best_from_model_predictions,
+        f"{get_best_from_model_predictions_with_trial_index.__module__}"
+        + ".get_best_from_model_predictions_with_trial_index",
+        wraps=get_best_from_model_predictions_with_trial_index,
     )
     def test_get_best_point_no_model_predictions(
-        self, mock_get_best_from_model_predictions
+        self, mock_get_best_from_model_predictions_with_trial_index
     ):
         ax_client = get_branin_optimization()
         params, idx = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
+        best_idx, best_params, _ = ax_client.get_best_trial()
+        self.assertEqual(best_idx, idx)
+        self.assertEqual(best_params, params)
         self.assertEqual(ax_client.get_best_parameters()[0], params)
-        mock_get_best_from_model_predictions.assert_called()
-        mock_get_best_from_model_predictions.reset_mock()
+        mock_get_best_from_model_predictions_with_trial_index.assert_called()
+        mock_get_best_from_model_predictions_with_trial_index.reset_mock()
         ax_client.get_best_parameters(use_model_predictions=False)
-        mock_get_best_from_model_predictions.assert_not_called()
+        mock_get_best_from_model_predictions_with_trial_index.assert_not_called()
 
     def test_trial_completion(self):
         ax_client = get_branin_optimization()
@@ -1551,6 +1555,17 @@ class TestAxClient(TestCase):
         ax_client.generation_strategy._maybe_move_to_next_step()
         ax_client.generation_strategy._set_current_model(data=None)
         self.assertEqual(ax_client.generation_strategy._curr.model_name, "MOO")
+
+        # Check calling get_best_parameters fails (user must call
+        # get_pareto_optimal_parameters).
+        with self.assertRaisesRegex(
+            NotImplementedError, "Please use `get_pareto_optimal_parameters`"
+        ):
+            ax_client.get_best_parameters()
+        with self.assertRaisesRegex(
+            NotImplementedError, "Please use `get_pareto_optimal_parameters`"
+        ):
+            ax_client.get_best_trial()
 
         # Check model-predicted Pareto frontier using model on GS.
         predicted_pareto = ax_client.get_pareto_optimal_parameters()

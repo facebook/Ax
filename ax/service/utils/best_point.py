@@ -32,9 +32,9 @@ from ax.utils.common.typeutils import not_none, checked_cast
 logger = get_logger(__name__)
 
 
-def get_best_raw_objective_point(
+def get_best_raw_objective_point_with_trial_index(
     experiment: Experiment, optimization_config: Optional[OptimizationConfig] = None
-) -> Tuple[TParameterization, Dict[str, Tuple[float, float]]]:
+) -> Tuple[int, TParameterization, Dict[str, Tuple[float, float]]]:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
@@ -78,12 +78,23 @@ def get_best_raw_objective_point(
         row["metric_name"]: (row["mean"], row["sem"])
         for _, row in objective_rows.iterrows()
     }
-    return not_none(best_arm).parameters, vals
+
+    # pyre-fixme[7]: Expected `int` for 1st param but got `Series`.
+    return best_trial_index, not_none(best_arm).parameters, vals
 
 
-def get_best_from_model_predictions(
+def get_best_raw_objective_point(
+    experiment: Experiment, optimization_config: Optional[OptimizationConfig] = None
+) -> Tuple[TParameterization, Dict[str, Tuple[float, float]]]:
+    _, parameterization, vals = get_best_raw_objective_point_with_trial_index(
+        experiment=experiment, optimization_config=optimization_config
+    )
+    return parameterization, vals
+
+
+def get_best_from_model_predictions_with_trial_index(
     experiment: Experiment,
-) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, returns the best predicted parameterization and corresponding
     prediction based on the most recent Trial with predictions. If no trials have
     predictions returns None.
@@ -106,7 +117,9 @@ def get_best_from_model_predictions(
             "optimization configs. This method will return an arbitrary point on "
             "the pareto frontier."
         )
-    for _, trial in sorted(experiment.trials.items(), key=lambda x: x[0], reverse=True):
+    for idx, trial in sorted(
+        experiment.trials.items(), key=lambda x: x[0], reverse=True
+    ):
         gr = None
         if isinstance(trial, Trial):
             gr = trial.generator_run
@@ -117,14 +130,27 @@ def get_best_from_model_predictions(
 
         if gr is not None and gr.best_arm_predictions is not None:  # pragma: no cover
             best_arm, best_arm_predictions = not_none(gr.best_arm_predictions)
-            return not_none(best_arm).parameters, best_arm_predictions
+            return idx, not_none(best_arm).parameters, best_arm_predictions
     return None
 
 
-def get_best_parameters(
+def get_best_from_model_predictions(
+    experiment: Experiment,
+) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+    res = get_best_from_model_predictions_with_trial_index(experiment=experiment)
+
+    if res is None:
+        return None
+
+    _, parameterization, vals = res
+
+    return parameterization, vals
+
+
+def get_best_parameters_with_trial_index(
     experiment: Experiment,
     use_model_predictions: bool = True,
-) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the best arm.
 
     First attempts according to do so with models used in optimization and
@@ -153,7 +179,9 @@ def get_best_parameters(
         )
     # Find latest trial which has a generator_run attached and get its predictions
     if use_model_predictions:
-        model_predictions = get_best_from_model_predictions(experiment=experiment)
+        model_predictions = get_best_from_model_predictions_with_trial_index(
+            experiment=experiment
+        )
         if model_predictions is not None:  # pragma: no cover
             return model_predictions
         logger.info(
@@ -163,16 +191,36 @@ def get_best_parameters(
 
     # Could not find through model, default to using raw objective.
     try:
-        parameterization, values = get_best_raw_objective_point(experiment=experiment)
+        (
+            trial_index,
+            parameterization,
+            values,
+        ) = get_best_raw_objective_point_with_trial_index(experiment=experiment)
     except ValueError:
         return None
     return (
+        trial_index,
         parameterization,
         (
             {k: v[0] for k, v in values.items()},  # v[0] is mean
             {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
         ),
     )
+
+
+def get_best_parameters(
+    experiment: Experiment,
+    use_model_predictions: bool = True,
+) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+    res = get_best_parameters_with_trial_index(
+        experiment=experiment, use_model_predictions=use_model_predictions
+    )
+
+    if res is None:
+        return None
+
+    _, parameterization, vals = res
+    return parameterization, vals
 
 
 def get_pareto_optimal_parameters(

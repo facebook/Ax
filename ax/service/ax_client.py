@@ -638,6 +638,39 @@ class AxClient(WithDBSettingsBase):
         """Retrieve the parameterization of the trial by the given index."""
         return not_none(self._get_trial(trial_index).arm).parameters
 
+    def get_best_trial(
+        self, use_model_predictions: bool = True
+    ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+        """Identifies the best parameterization tried in the experiment so far.
+
+        First attempts to do so with the model used in optimization and
+        its corresponding predictions if available. Falls back to the best raw
+        objective based on the data fetched from the experiment.
+
+        NOTE: ``TModelPredictArm`` is of the form:
+            ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
+
+        Args:
+            use_model_predictions: Whether to extract the best point using
+                model predictions or directly observed values. If ``True``,
+                the metric means and covariances in this method's output will
+                also be based on model predictions and may differ from the
+                observed values.
+
+        Returns:
+            Tuple of trial index, parameterization and model predictions for it.
+        """
+        if not_none(self.experiment.optimization_config).is_moo_problem:
+            raise NotImplementedError(  # pragma: no cover
+                "Please use `get_pareto_optimal_parameters` for multi-objective "
+                "problems."
+            )
+        # TODO[drfreund]: Find a way to include data for last trial in the
+        # calculation of best parameters.
+        return best_point_utils.get_best_parameters_with_trial_index(
+            experiment=self.experiment, use_model_predictions=use_model_predictions
+        )
+
     def get_best_parameters(
         self, use_model_predictions: bool = True
     ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
@@ -660,13 +693,13 @@ class AxClient(WithDBSettingsBase):
         Returns:
             Tuple of parameterization and model predictions for it.
         """
+
         if not_none(self.experiment.optimization_config).is_moo_problem:
             raise NotImplementedError(  # pragma: no cover
                 "Please use `get_pareto_optimal_parameters` for multi-objective "
                 "problems."
             )
-        # TODO[drfreund]: Find a way to include data for last trial in the
-        # calculation of best parameters.
+
         return best_point_utils.get_best_parameters(
             experiment=self.experiment, use_model_predictions=use_model_predictions
         )
