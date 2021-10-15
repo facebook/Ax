@@ -19,7 +19,11 @@ from ax.service.utils.report_utils import (
     Experiment,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment, get_multi_type_experiment
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_multi_objective,
+    get_branin_experiment,
+    get_multi_type_experiment,
+)
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from plotly import graph_objects as go
 
@@ -221,10 +225,15 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment(with_batch=True, minimize=True)
         exp.trials[0].run()
         gs = choose_generation_strategy(search_space=exp.search_space)
-        gs._model = Models.BOTORCH(
-            experiment=exp,
-            data=exp.fetch_data(),
-        )
+        gs._model = Models.BOTORCH(experiment=exp, data=exp.fetch_data())
         plots = get_standard_plots(experiment=exp, model=gs.model)
         self.assertEqual(len(plots), 3)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
+        exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        exp.trials[0].run()
+        gs = choose_generation_strategy(
+            search_space=exp.search_space, optimization_config=exp.optimization_config
+        )
+        gs._model = Models.BOTORCH(experiment=exp, data=exp.fetch_data())
+        plots = get_standard_plots(experiment=exp, model=gs.model)
+        self.assertEqual(len(plots), 3)

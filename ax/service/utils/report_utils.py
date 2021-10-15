@@ -17,7 +17,6 @@ from ax.core.generator_run import GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
-from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
@@ -32,61 +31,90 @@ from ax.utils.common.typeutils import checked_cast, not_none
 logger: Logger = get_logger(__name__)
 
 
+def _get_hypervolume_trace() -> None:
+    logger.warning(
+        "Objective trace plots not yet implemented for multi-objective optimization. "
+        "Returning `None`."
+    )
+
+
 # pyre-ignore[11]: Annotation `go.Figure` is not defined as a type.
-def _get_cross_validation_plot(model: ModelBridge) -> go.Figure:
+def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
     cv = cross_validate(model)
-    return interact_cross_validation_plotly(cv)
+    return [interact_cross_validation_plotly(cv)]
 
 
 def _get_objective_trace_plot(
     experiment: Experiment,
-    metric_name: str,
     model_transitions: List[int],
-    optimization_direction: Optional[str] = None,
 ) -> Optional[go.Figure]:
+    if experiment.is_moo_problem:
+        return _get_hypervolume_trace()
     best_objectives = np.array([experiment.fetch_data().df["mean"]])
     return optimization_trace_single_method_plotly(
         y=best_objectives,
         title="Best objective found vs. # of iterations",
-        ylabel=metric_name,
+        ylabel=not_none(experiment.optimization_config).objective.metric.name,
         model_transitions=model_transitions,
-        optimization_direction=optimization_direction,
+        optimization_direction=(
+            "minimize"
+            if not_none(experiment.optimization_config).objective.minimize
+            else "maximize"
+        ),
         plot_trial_points=True,
     )
 
 
-def _get_objective_v_param_plot(
-    search_space: SearchSpace,
+def _get_objective_v_param_plots(
+    experiment: Experiment,
     model: ModelBridge,
-    metric_name: str,
-    trials: Dict[int, BaseTrial],
-) -> Optional[go.Figure]:
+) -> List[go.Figure]:
+    search_space = experiment.search_space
+    metric_names = (
+        [
+            objective.metric.name
+            # pyre-fixme[16]: Objective has no attribute objectives
+            for objective in not_none(
+                experiment.optimization_config
+            ).objective.objectives
+        ]
+        if experiment.is_moo_problem
+        else [not_none(experiment.optimization_config).objective.metric.name]
+    )
+    trials = experiment.trials
+
     range_params = list(search_space.range_parameters.keys())
     if len(range_params) == 1:
         # individual parameter slice plot
-        output_slice_plot = plot_slice_plotly(
-            model=not_none(model),
-            param_name=range_params[0],
-            metric_name=metric_name,
-            generator_runs_dict={
-                str(t.index): not_none(checked_cast(Trial, t).generator_run)
-                for t in trials.values()
-            },
-        )
-        return output_slice_plot
+        output_slice_plots = [
+            plot_slice_plotly(
+                model=not_none(model),
+                param_name=range_params[0],
+                metric_name=metric_name,
+                generator_runs_dict={
+                    str(t.index): not_none(checked_cast(Trial, t).generator_run)
+                    for t in trials.values()
+                },
+            )
+            for metric_name in metric_names
+        ]
+        return output_slice_plots
     if len(range_params) > 1:
         # contour plot
-        output_contour_plot = interact_contour_plotly(
-            model=not_none(model),
-            metric_name=metric_name,
-        )
-        return output_contour_plot
+        output_contour_plots = [
+            interact_contour_plotly(
+                model=not_none(model),
+                metric_name=metric_name,
+            )
+            for metric_name in metric_names
+        ]
+        return output_contour_plots
     # if search space contains no range params
     logger.warning(
-        "_get_objective_v_param_plot requires a search space with at least one "
-        "RangeParameter. Returning None."
+        "`_get_objective_v_param_plot` requires a search space with at least one "
+        "`RangeParameter`. Returning an empty list."
     )
-    return None
+    return []
 
 
 def _get_suffix(input_str: str, delim: str = ".", n_chunks: int = 1) -> str:
@@ -186,12 +214,6 @@ def get_standard_plots(
     """
 
     objective = not_none(experiment.optimization_config).objective
-    if isinstance(objective, MultiObjective):
-        logger.warning(
-            "get_standard_plots does not currently support MultiObjective "
-            "optimization experiments. Returning an empty list."
-        )
-        return []
     if isinstance(objective, ScalarizedObjective):
         logger.warning(
             "get_standard_plots does not currently support ScalarizedObjective "
@@ -207,15 +229,7 @@ def get_standard_plots(
     output_plot_list.append(
         _get_objective_trace_plot(
             experiment=experiment,
-            metric_name=not_none(experiment.optimization_config).objective.metric.name,
-            model_transitions=model_transitions
-            if model_transitions is not None
-            else [],
-            optimization_direction=(
-                "minimize"
-                if not_none(experiment.optimization_config).objective.minimize
-                else "maximize"
-            ),
+            model_transitions=model_transitions or [],
         )
     )
 
@@ -225,17 +239,13 @@ def get_standard_plots(
     if model:
         # TODO: Check if model can predict in favor of try/catch.
         try:
-            output_plot_list.append(
-                _get_objective_v_param_plot(
-                    search_space=experiment.search_space,
+            output_plot_list.extend(
+                _get_objective_v_param_plots(
+                    experiment=experiment,
                     model=model,
-                    metric_name=not_none(
-                        experiment.optimization_config
-                    ).objective.metric.name,
-                    trials=experiment.trials,
                 )
             )
-            output_plot_list.append(_get_cross_validation_plot(model))
+            output_plot_list.extend(_get_cross_validation_plots(model))
         except NotImplementedError:
             # Model does not implement `predict` method.
             pass
