@@ -25,6 +25,7 @@ from ax.service.ax_client import AxClient
 from ax.utils.common.constants import Keys, EXPERIMENT_IS_TEST_WARNING
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_multi_objective,
     get_arm,
     get_branin_arms,
     get_branin_optimization_config,
@@ -952,3 +953,11 @@ class ExperimentWithMapDataTest(TestCase):
         self.assertEqual(len(exp.data_by_trial[0]), 1)
         looked_up_data = exp.lookup_data(keep_latest_map_values_only=False)
         self.assertEqual(set(looked_up_data.df["timestamp"].values), {0, 1})
+
+    def test_is_moo_problem(self):
+        exp = get_branin_experiment()
+        self.assertFalse(exp.is_moo_problem)
+        exp = get_branin_experiment_with_multi_objective()
+        self.assertTrue(exp.is_moo_problem)
+        exp._optimization_config = None
+        self.assertFalse(exp.is_moo_problem)
