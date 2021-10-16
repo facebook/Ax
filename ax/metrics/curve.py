@@ -100,9 +100,8 @@ class AbstractCurveMetric(MapMetric, ABC):
         if len(ids_filtered) == 0:
             logger.info("Could not get ids from trials. Returning empty data.")
             return MapData(map_keys=[cls.MAP_KEY])
-
         all_curve_series = cls.get_curves_from_ids(ids=ids)  # pyre-ignore [6]
-        if all(id_ not in all_curve_series for id_ in ids):
+        if all(id_ not in all_curve_series for id_ in ids_filtered):
             logger.info("Could not get curves from ids. Returning empty data.")
             return MapData(map_keys=[cls.MAP_KEY])
 
