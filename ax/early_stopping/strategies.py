@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.early_stopping.utils import align_partial_results
@@ -57,6 +58,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         percentile_threshold: float = 50.0,
         min_progression: float = 0.1,
         min_curves: float = 5,
+        trial_indices_to_ignore: Optional[Set[int]] = None,
     ) -> None:
         """Construct a PercentileEarlyStoppingStrategy instance.
 
@@ -70,12 +72,16 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             min_progression: Only stop trials if the latest progression value
                 (e.g. timestamp) is greater than this threshold. Prevents stopping
                 prematurely before enough data is gathered to make a decision.
-            min_curves: Minimum number of trial curves that need to be available to
-                make a stopping decision.
+            min_curves: There must be `min_curves` number of completed trials and
+                `min_curves` number of trials with curve data to make a stopping
+                decision (i.e., even if there are enough completed trials but not all
+                of them are correctly returning data, then do not apply early stopping).
+            trial_indices_to_ignore: Trial indices that should not be early stopped.
         """
         self.percentile_threshold = percentile_threshold
         self.min_progression = min_progression
         self.min_curves = min_curves
+        self.trial_indices_to_ignore = trial_indices_to_ignore
 
     def should_stop_trials_early(
         self,
@@ -184,6 +190,13 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             information on why the trial should or should not be stopped.
         """
         logger.debug(f"Considering trial {trial_index} for early stopping.")
+        if self.trial_indices_to_ignore is not None:
+            if trial_index in self.trial_indices_to_ignore:
+                logger.info(
+                    f"Trial {trial_index} should be ignored and not considered "
+                    "for early stopping."
+                )
+                return False, "Specified as a trial to be ignored for early stopping."
         if trial_index not in df or len(not_none(df[trial_index].dropna())) == 0:
             logger.info(
                 f"There is not yet any data associated with trial {trial_index}. "
@@ -211,6 +224,20 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         # can't be included in the comparison
         data_at_last_progression = df.loc[trial_last_progression].dropna()
         logger.info(f"Data at last progression is:\n{data_at_last_progression}.")
+
+        num_completed = len(experiment.trial_indices_by_status[TrialStatus.COMPLETED])
+        if num_completed < self.min_curves:
+            logger.info(
+                f"The number of completed trials ({num_completed}) is less than "
+                "the minimum number of curves needed for early stopping "
+                f"({self.min_curves}). Not early stopping this trial."
+            )
+            reason = (
+                f"Need {self.min_curves} completed trials, but only {num_completed} "
+                "completed trials so far."
+            )
+            return False, reason
+
         if len(data_at_last_progression) < self.min_curves:
             logger.info(
                 f"The number of trials with data ({len(data_at_last_progression)}) "

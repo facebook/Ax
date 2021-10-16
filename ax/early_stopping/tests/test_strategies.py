@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from ax.core.base_trial import TrialStatus
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
@@ -28,6 +29,7 @@ class TestEarlyStoppingStrategy(TestCase):
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
             trial.run()
+            trial.mark_as(status=TrialStatus.COMPLETED)
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy()
         idcs = set(exp.trials.keys())
@@ -75,6 +77,9 @@ class TestEarlyStoppingStrategy(TestCase):
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
             trial.run()
+            # only mark the first 4 complete
+            if i < 4:
+                trial.mark_as(status=TrialStatus.COMPLETED)
 
         exp.attach_data(data=exp.fetch_data())
 
@@ -108,15 +113,24 @@ class TestEarlyStoppingStrategy(TestCase):
         idcs = set(exp.trials.keys())
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            percentile_threshold=25,
+            percentile_threshold=25, min_curves=4
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(set(should_stop), {0})
 
+        # test ignore trial indices
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            percentile_threshold=50,
+            percentile_threshold=25, min_curves=4, trial_indices_to_ignore={0}
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
+
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=50, min_curves=4
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -130,12 +144,21 @@ class TestEarlyStoppingStrategy(TestCase):
         self.assertEqual(set(should_stop), {0})
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            percentile_threshold=75,
+            percentile_threshold=75, min_curves=4
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(set(should_stop), {0, 3, 1})
+
+        # not enough completed trials
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=75, min_curves=5
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
 
     def test_early_stopping_with_unaligned_results(self):
         # test case 1
@@ -143,6 +166,7 @@ class TestEarlyStoppingStrategy(TestCase):
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
             trial.run()
+            trial.mark_as(status=TrialStatus.COMPLETED)
 
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
@@ -184,6 +208,7 @@ class TestEarlyStoppingStrategy(TestCase):
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
             trial.run()
+            trial.mark_as(status=TrialStatus.COMPLETED)
 
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
