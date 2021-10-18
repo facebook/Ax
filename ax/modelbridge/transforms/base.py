@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, List, Optional
 
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -80,7 +82,7 @@ class Transform:
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"],
+        modelbridge: Optional[modelbridge_module.base.ModelBridge],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         """Transform optimization config.
