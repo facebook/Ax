@@ -731,7 +731,7 @@ class ModelBridge(ABC):
             if best_arm is None
             else (best_arm, best_point_predictions),
             fit_time=self.fit_time_since_gen,
-            gen_time=time.time() - t_gen_start,
+            gen_time=time.monotonic() - t_gen_start,
             model_key=self._model_key,
             model_kwargs=self._model_kwargs,
             bridge_kwargs=self._bridge_kwargs,
