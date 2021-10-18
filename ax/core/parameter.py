@@ -15,6 +15,7 @@ from ax.core.types import TParamValue
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -95,6 +96,10 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         return self._is_fidelity
 
     @property
+    def is_hierarchical(self) -> bool:
+        return isinstance(self, ChoiceParameter) and self._dependents is not None
+
+    @property
     def target_value(self) -> Optional[TParamValue]:
         return self._target_value
 
@@ -105,6 +110,12 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def dependents(self) -> Dict[TParamValue, List[str]]:
+        raise NotImplementedError(
+            "Only choice hierarchical parameters are currently supported."
+        )
 
     def clone(self) -> Parameter:
         pass  # pragma: no cover
@@ -345,7 +356,25 @@ class RangeParameter(Parameter):
 
 
 class ChoiceParameter(Parameter):
-    """Parameter object that specifies a discrete set of values."""
+    """Parameter object that specifies a discrete set of values.
+
+    Args:
+        name: Name of the parameter.
+        parameter_type: Enum indicating the type of parameter
+            value (e.g. string, int).
+        values: List of allowed values for the parameter.
+        is_ordered: If False, the parameter is a categorical variable.
+            Defaults to False if parameter_type is STRING and ``values``
+            is longer than 2, else True.
+        is_task: Treat the parameter as a task parameter for modeling.
+        is_fidelity: Whether this parameter is a fidelity parameter.
+        target_value: Target value of this parameter if it's fidelity.
+        sort_values: Whether to sort ``values`` before encoding.
+            Defaults to False if ``parameter_type`` is STRING, else
+            True.
+        dependents: Optional mapping for parameters in hierarchical search
+            spaces; format is { value -> list of dependent parameter names }.
+    """
 
     def __init__(
         self,
@@ -357,24 +386,8 @@ class ChoiceParameter(Parameter):
         is_fidelity: bool = False,
         target_value: Optional[TParamValue] = None,
         sort_values: Optional[bool] = None,
+        dependents: Optional[Dict[TParamValue, List[str]]] = None,
     ) -> None:
-        """Initialize ChoiceParameter.
-
-        Args:
-            name: Name of the parameter.
-            parameter_type: Enum indicating the type of parameter
-                value (e.g. string, int).
-            values: List of allowed values for the parameter.
-            is_ordered: If False, the parameter is a categorical variable.
-                Defaults to False if parameter_type is STRING and ``values``
-                is longer than 2, else True.
-            is_task: Treat the parameter as a task parameter for modeling.
-            is_fidelity: Whether this parameter is a fidelity parameter.
-            target_value: Target value of this parameter if it's fidelity.
-            sort_values: Whether to sort ``values`` before encoding.
-                Defaults to False if ``parameter_type`` is STRING, else
-                True.
-        """
         if is_fidelity and (target_value is None):
             raise UserInputError(
                 "`target_value` should not be None for the fidelity parameter: "
@@ -407,6 +420,16 @@ class ChoiceParameter(Parameter):
             # List[Variable[_typeshed.SupportsLessThanT (bound to
             # _typeshed.SupportsLessThan)]]
             self._values = self._cast_values(sorted(values))
+        if dependents:
+            for value in dependents:
+                if value not in self.values:
+                    raise UserInputError(
+                        f"Value {value} in `dependents` "
+                        f"argument is not among the parameter values: {self.values}."
+                    )
+        # NOTE: We don't need to check that dependent parameters actually exist as
+        # that is done in `HierarchicalSearchSpace` constructor.
+        self._dependents = dependents
 
     def _get_default_bool_and_warn(self, param_string: str) -> bool:
         default_bool = self._parameter_type != ParameterType.STRING
@@ -471,6 +494,14 @@ class ChoiceParameter(Parameter):
         """
         return value in self._values
 
+    @property
+    def dependents(self) -> Dict[TParamValue, List[str]]:
+        if not self.is_hierarchical:
+            raise NotImplementedError(
+                "Only hierarchical parameters support the `dependents` property."
+            )
+        return not_none(self._dependents)
+
     def _cast_values(self, values: List[TParamValue]) -> List[TParamValue]:
         return [self.cast(value) for value in values]
 
@@ -484,6 +515,7 @@ class ChoiceParameter(Parameter):
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
             sort_values=self._sort_values,
+            dependents=self._dependents,
         )
 
     def __repr__(self) -> str:
@@ -500,6 +532,9 @@ class ChoiceParameter(Parameter):
             if self.parameter_type == ParameterType.STRING:
                 tval_rep = f"'{tval_rep}'"
             ret_val += f", is_fidelity={self.is_fidelity}, target_value={tval_rep}"
+
+        if self._dependents:
+            ret_val += f", dependents={self._dependents}"
 
         return ret_val + ")"
 

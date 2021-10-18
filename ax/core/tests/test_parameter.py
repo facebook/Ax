@@ -155,6 +155,11 @@ class RangeParameterTest(TestCase):
         )
         self.assertTrue(self.param1 < param2)
 
+    def testHierarchicalValidation(self):
+        self.assertFalse(self.param1.is_hierarchical)
+        with self.assertRaises(NotImplementedError):
+            self.param1.dependents
+
 
 class ChoiceParameterTest(TestCase):
     def setUp(self):
@@ -279,6 +284,41 @@ class ChoiceParameterTest(TestCase):
         param_clone._values.append("boo")
         self.assertNotEqual(len(self.param1.values), len(param_clone.values))
 
+    def testHierarchicalValidation(self):
+        self.assertFalse(self.param1.is_hierarchical)
+        with self.assertRaises(NotImplementedError):
+            self.param1.dependents
+        with self.assertRaises(UserInputError):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.BOOL,
+                values=[True, False],
+                dependents={"not_a_value": "other_param"},
+            )
+
+    def testHierarchical(self):
+        # Test case where only some of the values entail dependents.
+        hierarchical_param = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.BOOL,
+            values=[True, False],
+            dependents={True: "other_param"},
+        )
+        self.assertTrue(hierarchical_param.is_hierarchical)
+        self.assertEqual(hierarchical_param.dependents, {True: "other_param"})
+
+        # Test case where all of the values entail dependents.
+        hierarchical_param_2 = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.STRING,
+            values=["a", "b"],
+            dependents={"a": "other_param", "b": "third_param"},
+        )
+        self.assertTrue(hierarchical_param_2.is_hierarchical)
+        self.assertEqual(
+            hierarchical_param_2.dependents, {"a": "other_param", "b": "third_param"}
+        )
+
 
 class FixedParameterTest(TestCase):
     def setUp(self):
@@ -337,6 +377,11 @@ class FixedParameterTest(TestCase):
         self.assertEqual(self.param1.cast(1), True)
         self.assertEqual(self.param1.cast(False), False)
         self.assertEqual(self.param1.cast(None), None)
+
+    def testHierarchicalValidation(self):
+        self.assertFalse(self.param1.is_hierarchical)
+        with self.assertRaises(NotImplementedError):
+            self.param1.dependents
 
 
 class ParameterEqualityTest(TestCase):
