@@ -54,6 +54,19 @@ class ObservationsTest(TestCase):
         self.assertNotEqual(obsf, obsf3)
         self.assertFalse(obsf == 1)
 
+    def testClone(self):
+        # Test simple cloning.
+        arm = Arm({"x": 0, "y": "a"})
+        obsf = ObservationFeatures.from_arm(arm, trial_index=3)
+        self.assertIsNot(obsf, obsf.clone())
+        self.assertEqual(obsf, obsf.clone())
+
+        # Test cloning with swapping parameters.
+        clone_with_new_params = obsf.clone(replace_parameters={"x": 1, "y": "b"})
+        self.assertNotEqual(obsf, clone_with_new_params)
+        obsf.parameters = {"x": 1, "y": "b"}
+        self.assertEqual(obsf, clone_with_new_params)
+
     def testObservationFeaturesFromArm(self):
         arm = Arm({"x": 0, "y": "a"})
         obsf = ObservationFeatures.from_arm(arm, trial_index=3)

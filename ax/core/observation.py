@@ -105,6 +105,30 @@ class ObservationFeatures(Base):
             self.random_split = new_features.random_split
         return self
 
+    def clone(
+        self, replace_parameters: Optional[TParameterization] = None
+    ) -> ObservationFeatures:
+        """Make a copy of these ``ObservationFeatures``.
+
+        Args:
+            replace_parameters: An optimal parameterization, to which to set the
+                parameters of the cloned ``ObservationFeatures``. Useful when
+                transforming observation features in a way that requires a
+                change to parameterization –– for example, while casting it to
+                a hierarchical search space.
+        """
+        parameters = (
+            self.parameters if replace_parameters is None else replace_parameters
+        )
+        return ObservationFeatures(
+            parameters=parameters.copy(),
+            trial_index=self.trial_index,
+            start_time=self.start_time,
+            end_time=self.end_time,
+            random_split=self.random_split,
+            metadata=deepcopy(self.metadata),
+        )
+
     def __repr__(self) -> str:
         strs = []
         for attr in ["trial_index", "start_time", "end_time", "random_split"]:
