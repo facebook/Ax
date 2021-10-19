@@ -68,6 +68,7 @@ class TaskEncode(OrderedChoiceEncode):
                     values=list(range(len(p.values))),  # pyre-ignore [6]
                     is_ordered=p.is_ordered,
                     is_task=True,
+                    sort_values=True,
                 )
             else:
                 transformed_parameters[p.name] = p
