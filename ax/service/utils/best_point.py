@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from functools import reduce
 from typing import Dict, Optional, Tuple
 
 import pandas as pd
@@ -15,7 +16,9 @@ from ax.core.optimization_config import (
     OptimizationConfig,
     MultiObjectiveOptimizationConfig,
 )
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
+from ax.core.types import ComparisonOp
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -66,7 +69,7 @@ def get_best_raw_objective_point_with_trial_index(
     if isinstance(objective, ScalarizedObjective):
         best_row = _get_best_row_for_scalarized_objective(dat.df, objective)
     else:
-        best_row = _get_best_row_for_single_objective(dat.df, objective)
+        best_row = _get_best_feasible_row_for_single_objective(dat.df, opt_config)
     # pyre-fixme[6]: Expected `str` for 1st param but got `Series`.
     best_arm = experiment.arms_by_name[best_row["arm_name"]]
     best_trial_index = best_row["trial_index"]
@@ -363,4 +366,73 @@ def _get_best_row_for_single_objective(
         objective_rows.loc[objective_rows["mean"].idxmin()]
         if objective.minimize
         else objective_rows.loc[objective_rows["mean"].idxmax()]
+    )
+
+
+def _filter_feasible_rows(
+    df: pd.DataFrame,
+    optimization_config: OptimizationConfig,
+) -> pd.DataFrame:
+    """Filter out arms that do not satisfy outcome constraints
+
+    Looks at all arm data collected and removes rows corresponding to arms in
+    which one or more of their associated metrics' 95% confidence interval
+    falls outside of any outcome constraint's bounds (i.e. we are 95% sure the
+    bound is not satisfied).
+    """
+    if len(optimization_config.outcome_constraints) < 1:
+        return df
+
+    name = df["metric_name"]
+
+    # When SEM is NaN we should treat it as if it were 0
+    sems = not_none(df["sem"].fillna(0))
+
+    # Bounds computed for 95% confidence interval on Normal distribution
+    lower_bound = df["mean"] - sems * 1.96
+    upper_bound = df["mean"] + sems * 1.96
+
+    def oc_mask(oc: OutcomeConstraint) -> pd.Series:
+        # Relative constraints not currently supported yet, disregard them
+        # TODO(T103492399)
+        if oc.relative:
+            logger.warn(
+                "Filtering out infeasible arms based on relative outcome "
+                + "constraints is not yet supported. Please inspect arms to "
+                + "verify they meet feasibility requirements."
+            )
+            return pd.Series(True, index=df.index)
+
+        name_match_mask = name == oc.metric.name
+
+        # Return True if metrics are different, or whether the confidence
+        # interval is entirely not within the bound
+        if oc.op == ComparisonOp.GEQ:
+            return ~name_match_mask | upper_bound > oc.bound
+        else:
+            return ~name_match_mask | lower_bound < oc.bound
+
+    mask = reduce(
+        lambda left, right: left & right,
+        map(oc_mask, optimization_config.outcome_constraints),
+    )
+    bad_arm_names = df[~mask]["arm_name"].tolist()
+    feasible = df.loc[df["arm_name"].apply(lambda x: x not in bad_arm_names)]
+
+    if feasible.empty:
+        raise ValueError(
+            "No points satisfied all outcome constraints within 95 percent"
+            + "confidence interval"
+        )
+
+    return feasible
+
+
+def _get_best_feasible_row_for_single_objective(
+    df: pd.DataFrame,
+    optimization_config: OptimizationConfig,
+) -> pd.DataFrame:
+    return _get_best_row_for_single_objective(
+        df=_filter_feasible_rows(df=df, optimization_config=optimization_config),
+        objective=optimization_config.objective,
     )
