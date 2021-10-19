@@ -116,6 +116,7 @@ class TrialAsTask(Transform):
                 values=level_values,
                 is_ordered=False,
                 is_task=True,
+                sort_values=True,
             )
             search_space.add_parameter(trial_param)
         return search_space
