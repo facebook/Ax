@@ -18,7 +18,8 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.search_space import SearchSpace, SearchSpaceDigest
+from ax.core.search_space import SearchSpace, SearchSpaceDigest, HierarchicalSearchSpace
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
 
@@ -362,4 +363,138 @@ class SearchSpaceDigestTest(TestCase):
                 continue
             ssd = SearchSpaceDigest(
                 **{k: v for k, v in self.kwargs.items() if k != arg}
+            )
+
+
+class HierarchicalSearchSpaceTest(TestCase):
+    def setUp(self):
+        self.model_parameter = ChoiceParameter(
+            name="model",
+            parameter_type=ParameterType.STRING,
+            values=["Linear", "XGBoost"],
+            dependents={
+                "Linear": ["learning_rate", "l2_reg_weight"],
+                "XGBoost": ["num_boost_rounds"],
+            },
+        )
+        self.lr_parameter = RangeParameter(
+            name="learning_rate",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.001,
+            upper=0.1,
+        )
+        self.l2_reg_weight_parameter = RangeParameter(
+            name="l2_reg_weight",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.00001,
+            upper=0.001,
+        )
+        self.num_boost_rounds_parameter = RangeParameter(
+            name="num_boost_rounds",
+            parameter_type=ParameterType.INT,
+            lower=10,
+            upper=20,
+        )
+        self.hss_1 = HierarchicalSearchSpace(
+            parameters=[
+                self.model_parameter,
+                self.lr_parameter,
+                self.l2_reg_weight_parameter,
+                self.num_boost_rounds_parameter,
+            ]
+        )
+        self.use_linear_parameter = ChoiceParameter(
+            name="use_linear",  # Contrived!
+            parameter_type=ParameterType.BOOL,
+            values=[True, False],
+            dependents={
+                True: ["model"],
+            },
+        )
+        self.hss_2 = HierarchicalSearchSpace(
+            parameters=[
+                self.use_linear_parameter,
+                self.model_parameter,
+                self.lr_parameter,
+                self.l2_reg_weight_parameter,
+                self.num_boost_rounds_parameter,
+            ]
+        )
+        self.model_2_parameter = ChoiceParameter(
+            name="model_2",
+            parameter_type=ParameterType.STRING,
+            values=["Linear", "XGBoost"],
+            dependents={
+                "Linear": ["learning_rate", "l2_reg_weight"],
+                "XGBoost": ["num_boost_rounds"],
+            },
+        )
+
+    def test_init(self):
+        self.assertEqual(self.hss_1._root, self.model_parameter)
+        self.assertEqual(
+            self.hss_1._all_parameter_names,
+            {"l2_reg_weight", "learning_rate", "num_boost_rounds", "model"},
+        )
+        self.assertEqual(self.hss_2._root, self.use_linear_parameter)
+        self.assertEqual(
+            self.hss_2._all_parameter_names,
+            {
+                "l2_reg_weight",
+                "learning_rate",
+                "num_boost_rounds",
+                "model",
+                "use_linear",
+            },
+        )
+
+    def test_validation(self):
+        # Case where dependent parameter is not in the search space.
+        with self.assertRaisesRegex(ValueError, ".* 'l2_reg_weight' is not part"):
+            HierarchicalSearchSpace(
+                parameters=[
+                    ChoiceParameter(
+                        name="model",
+                        parameter_type=ParameterType.STRING,
+                        values=["Linear", "XGBoost"],
+                        dependents={
+                            "Linear": ["learning_rate", "l2_reg_weight"],
+                            "XGBoost": ["num_boost_rounds"],
+                        },
+                    ),
+                    self.lr_parameter,
+                    self.num_boost_rounds_parameter,
+                ]
+            )
+
+        # Case where there are two root-parameter candidates.
+        with self.assertRaisesRegex(NotImplementedError, "Could not find the root"):
+            HierarchicalSearchSpace(
+                parameters=[
+                    self.model_parameter,
+                    self.model_2_parameter,
+                    self.lr_parameter,
+                    self.l2_reg_weight_parameter,
+                    self.num_boost_rounds_parameter,
+                ]
+            )
+
+        # TODO: Test case where subtrees are not independent.
+        with self.assertRaisesRegex(UserInputError, ".* contain the same parameters"):
+            HierarchicalSearchSpace(
+                parameters=[
+                    ChoiceParameter(
+                        name="root",
+                        parameter_type=ParameterType.BOOL,
+                        values=[True, False],
+                        dependents={
+                            True: ["model", "model_2"],
+                        },
+                    ),
+                    self.model_parameter,
+                    self.model_2_parameter,
+                    self.lr_parameter,
+                    self.l2_reg_weight_parameter,
+                    self.num_boost_rounds_parameter,
+                ]
             )

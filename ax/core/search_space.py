@@ -9,7 +9,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
+from functools import reduce
+from logging import Logger
+from typing import Dict, List, Optional, Tuple, Union, Set
 
 from ax.core.arm import Arm
 from ax.core.parameter import FixedParameter, Parameter, RangeParameter
@@ -19,8 +21,13 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.types import TParameterization
+from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+
+
+logger: Logger = get_logger(__name__)
 
 
 class SearchSpace(Base):
@@ -43,7 +50,6 @@ class SearchSpace(Base):
             parameters: List of parameter objects for the search space.
             parameter_constraints: List of parameter constraints.
         """
-
         if len({p.name for p in parameters}) < len(parameters):
             raise ValueError("Parameter names must be unique.")
 
@@ -73,6 +79,14 @@ class SearchSpace(Base):
             for name, parameter in self._parameters.items()
             if not isinstance(parameter, FixedParameter)
         }
+
+    def __getitem__(self, parameter_name: str) -> Parameter:
+        """Retrieves the parameter"""
+        if parameter_name in self.parameters:
+            return self.parameters[parameter_name]
+        raise ValueError(
+            f"Parameter '{parameter_name}' is not part of the search space."
+        )
 
     def add_parameter_constraints(
         self, parameter_constraints: List[ParameterConstraint]
@@ -329,6 +343,92 @@ class SearchSpace(Base):
         )
 
 
+class HierarchicalSearchSpace(SearchSpace):
+    def __init__(
+        self,
+        parameters: List[Parameter],
+        parameter_constraints: Optional[List[ParameterConstraint]] = None,
+    ) -> None:
+        super().__init__(
+            parameters=parameters, parameter_constraints=parameter_constraints
+        )
+        self._all_parameter_names: Set[str] = set(self.parameters.keys())
+        self._root: Parameter = self._find_root()
+        self._validate_hierarchical_structure()
+        logger.debug(f"Found root: {self._root}.")
+
+    def flatten(self) -> SearchSpace:
+        raise NotImplementedError  # TODO[drfreund]
+
+    def cast_arm(self, arm: Arm) -> Arm:
+        raise NotImplementedError  # TODO[drfreund]
+
+    def _find_root(self) -> Parameter:
+        """Find the root of hierarchical search space: a parameter that does not depend on
+        other parameters.
+        """
+        dependent_parameter_names = set()
+        for parameter in self.parameters.values():
+            if parameter.is_hierarchical:
+                for deps in parameter.dependents.values():
+                    dependent_parameter_names.update(param_name for param_name in deps)
+
+        root_parameters = self._all_parameter_names - dependent_parameter_names
+        if len(root_parameters) != 1:
+            num_parameters = len(self.parameters)
+            # TODO: In the future, do not need to fail here; can add a "unifying" root
+            # fixed parameter, on which all independent parameters in the HSS can
+            # depend.
+            raise NotImplementedError(
+                "Could not find the root parameter; found dependent parameters "
+                f"{dependent_parameter_names}, with {num_parameters} total parameters."
+                f" Root parameter candidates: {root_parameters}. Having multiple "
+                "independent parameters is not yet supported."
+            )
+
+        return self.parameters[root_parameters.pop()]
+
+    def _validate_hierarchical_structure(self) -> None:
+        """Validate the structure of this hierarchical search space, ensuring that all
+        subtrees are independent (not sharing any parameters) and that all parameters
+        are reachable and part of the tree.
+        """
+
+        def _check_subtree(root: Parameter) -> Set[str]:
+            logger.debug(f"Verifying subtree with root {root}...")
+            visited = {root.name}
+            # Base case: validate leaf node.
+            if not root.is_hierarchical:
+                return visited  # TODO: Should there be other validation?
+
+            # Recursive case: validate each subtree.
+            visited_in_subtrees = (  # Generator of sets of visited parameter names.
+                _check_subtree(root=self[param_name])
+                for deps in root.dependents.values()
+                for param_name in deps
+            )
+            # Check that subtrees are disjoint and return names of visited params.
+            visited.update(
+                reduce(
+                    lambda set1, set2: _disjoint_union(set1=set1, set2=set2),
+                    visited_in_subtrees,
+                    next(visited_in_subtrees),
+                )
+            )
+            logger.debug(f"Visited parameters {visited} in subtree.")
+            return visited
+
+        # Verify that all nodes have been reached.
+        visited = _check_subtree(root=self._root)
+        if len(self._all_parameter_names - visited) != 0:
+            raise UserInputError(
+                f"Parameters {self._all_parameter_names - visited} are not reachable "
+                "from the root. Please check that the hierachical search space provided"
+                " is represented as a valid tree with a single root."
+            )
+        logger.debug(f"Visited all parameters in the tree: {visited}.")
+
+
 @dataclass
 class SearchSpaceDigest:
     """Container for lightweight representation of search space properties.
@@ -368,3 +468,13 @@ class SearchSpaceDigest:
     task_features: List[int] = field(default_factory=list)
     fidelity_features: List[int] = field(default_factory=list)
     target_fidelities: Dict[int, Union[int, float]] = field(default_factory=dict)
+
+
+def _disjoint_union(set1: Set[str], set2: Set[str]) -> Set[str]:
+    if not set1.isdisjoint(set2):
+        raise UserInputError(
+            "Two subtrees in the search space contain the same parameters: "
+            f"{set1.intersection(set2)}."
+        )
+    logger.debug(f"Subtrees {set1} and {set2} are disjoint.")
+    return set1.union(set2)
