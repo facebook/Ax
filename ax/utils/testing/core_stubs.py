@@ -793,8 +793,10 @@ def get_order_constraint() -> OrderConstraint:
     return OrderConstraint(lower_parameter=x, upper_parameter=w)
 
 
-def get_parameter_constraint() -> ParameterConstraint:
-    return ParameterConstraint(constraint_dict={"x": 1.0, "w": -1.0}, bound=1.0)
+def get_parameter_constraint(
+    param_x: str = "x", param_y: str = "w"
+) -> ParameterConstraint:
+    return ParameterConstraint(constraint_dict={param_x: 1.0, param_y: -1.0}, bound=1.0)
 
 
 def get_sum_constraint1() -> SumConstraint:

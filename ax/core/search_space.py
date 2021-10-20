@@ -8,11 +8,13 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from functools import reduce
 from logging import Logger
 from typing import Dict, List, Optional, Tuple, Union, Set
 
+from ax import core
 from ax.core.arm import Arm
 from ax.core.parameter import FixedParameter, Parameter, RangeParameter
 from ax.core.parameter_constraint import (
@@ -23,6 +25,7 @@ from ax.core.parameter_constraint import (
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
@@ -55,6 +58,10 @@ class SearchSpace(Base):
 
         self._parameters: Dict[str, Parameter] = {p.name: p for p in parameters}
         self.set_parameter_constraints(parameter_constraints or [])
+
+    @property
+    def is_hierarchical(self) -> bool:
+        return isinstance(self, HierarchicalSearchSpace)
 
     @property
     def parameters(self) -> Dict[str, Parameter]:
@@ -306,7 +313,7 @@ class SearchSpace(Base):
         return Arm(parameters=final_parameters, name=name)
 
     def clone(self) -> SearchSpace:
-        return SearchSpace(
+        return self.__class__(
             parameters=[p.clone() for p in self._parameters.values()],
             parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
         )
@@ -365,10 +372,110 @@ class HierarchicalSearchSpace(SearchSpace):
         return self._root
 
     def flatten(self) -> SearchSpace:
-        raise NotImplementedError  # TODO[drfreund]
+        """Returns a flattened ``SearchSpace`` with all the parameters in the
+        given ``HierarchicalSearchSpace``; ignores their hierarchical structure.
+        """
+        return SearchSpace(
+            parameters=list(self.parameters.values()),
+            parameter_constraints=self.parameter_constraints,
+        )
 
-    def cast_arm(self, arm: Arm) -> Arm:
-        raise NotImplementedError  # TODO[drfreund]
+    def cast_observation_features(
+        self, observation_features: core.observation.ObservationFeatures
+    ) -> core.observation.ObservationFeatures:
+        """Cast parameterization of given observation features to the hierarchical
+        structure of the given search space; return the newly cast observation features
+        with the full parameterization stored in ``metadata`` under
+        ``Keys.FULL_PARAMETERIZATION``.
+
+        For each parameter in given parameterization, cast it to the proper type
+        specified in this search space and remove it from the parameterization if that
+        parameter should not be in the arm within the search space due to its
+        hierarchical structure.
+        """
+        full_parameterization_md = {
+            Keys.FULL_PARAMETERIZATION: observation_features.parameters.copy()
+        }
+        obs_feats = observation_features.clone(
+            replace_parameters=self._cast_parameterization(
+                parameters=observation_features.parameters
+            )
+        )
+        if not obs_feats.metadata:
+            obs_feats.metadata = full_parameterization_md  # pyre-ignore[8]
+        else:
+            obs_feats.metadata.update(full_parameterization_md)  # pyre-ignore[6]
+
+        return obs_feats
+
+    def flatten_observation_features(
+        self, observation_features: core.observation.ObservationFeatures
+    ) -> core.observation.ObservationFeatures:
+        """Flatten observation features that were previously cast to the hierarchical
+        structure of the given search space; return the newly flattened observation
+        features. This method re-injects parameter values that were removed from
+        observation features during casting (as they are saved in observation features
+        metadata).
+        """
+        obs_feats = observation_features
+        if (
+            not obs_feats.metadata
+            or Keys.FULL_PARAMETERIZATION not in obs_feats.metadata
+        ):
+            warnings.warn(
+                f"Cannot flatten observation features {obs_feats} as full "
+                "parameterization is not recorded in metadata."
+            )
+            return obs_feats
+
+        # NOTE: Instead, could just use the full parameterization as stored;
+        # opting for a safer option of only injecting parameters that were
+        # removed, but not altering those that are present if they have different
+        # values in full parameterization as stored in metadata.
+        full_parameterization = not_none(obs_feats.metadata)[Keys.FULL_PARAMETERIZATION]
+        full_parameterization.update(obs_feats.parameters)
+        obs_feats.parameters = full_parameterization
+
+        return obs_feats
+
+    def check_types(
+        self,
+        parameterization: TParameterization,
+        allow_none: bool = True,
+        raise_error: bool = False,
+    ) -> bool:
+        """Checks that the given parameterization's types match the search space.
+
+        Checks that the names of the parameterization match those specified in
+        the search space, and the given values are of the correct type.
+
+        Args:
+            parameterization: Dict from parameter name to value to validate.
+            allow_none: Whether None is a valid parameter value.
+            raise_error: If true and parameterization does not belong, raises an error
+                with detailed explanation of why.
+
+        Returns:
+            Whether the parameterization has valid types.
+        """
+        for name, value in parameterization.items():
+            if name not in self._parameters:
+                if raise_error:
+                    raise ValueError(f"Parameter {name} not defined in search space.")
+                return False
+
+            if value is None and allow_none:
+                continue
+
+            if not self._parameters[name].is_valid_type(value):
+                if raise_error:
+                    raise ValueError(
+                        f"{value} is not a valid value for "
+                        f"parameter {self._parameters[name]}"
+                    )
+                return False
+
+        return True
 
     def hierarchical_structure_str(self, parameter_names_only: bool = False) -> str:
         """String representation of the hierarchical structure.
@@ -402,6 +509,48 @@ class HierarchicalSearchSpace(SearchSpace):
             return ret
 
         return _hrepr(param=self.root, value=None, level=0)
+
+    def _cast_arm(self, arm: Arm) -> Arm:
+        """Cast parameterization of given arm to the types in this search space and to
+        its hierarchical structure; return the newly cast arm.
+
+        For each parameter in given arm, cast it to the proper type specified
+        in this search space and remove it from the arm if that parameter should not be
+        in the arm within the search space due to its hierarchical structure.
+        """
+        # Validate parameter values in flat search space.
+        arm = super().cast_arm(arm=arm)
+
+        # TODO: What to do about arm name? Enforce that we only cast unnamed arms?
+        return Arm(parameters=self._cast_parameterization(parameters=arm.parameters))
+
+    def _cast_parameterization(
+        self, parameters: TParameterization
+    ) -> TParameterization:
+        def _find_applicable_parameters(root: Parameter) -> Set[str]:
+            applicable = {root.name}
+            if root.name not in parameters:
+                raise RuntimeError(  # TODO[drfreund]: Consider improving
+                    f"Parameter '{root.name}' not in parameterization of arm to cast."
+                )
+
+            if not root.is_hierarchical:
+                return applicable
+
+            for val, deps in root.dependents.items():
+                if parameters[root.name] == val:
+                    for dep in deps:
+                        applicable.update(_find_applicable_parameters(root=self[dep]))
+
+            return applicable
+
+        applicable_paramers = _find_applicable_parameters(root=self.root)
+        if not all(k in parameters for k in applicable_paramers):
+            raise RuntimeError(
+                f"Parameters {applicable_paramers- set(parameters.keys())} "
+                "missing from the arm."
+            )
+        return {k: v for k, v in parameters.items() if k in applicable_paramers}
 
     def _find_root(self) -> Parameter:
         """Find the root of hierarchical search space: a parameter that does not depend on

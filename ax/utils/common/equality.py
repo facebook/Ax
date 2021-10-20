@@ -155,9 +155,11 @@ def object_attribute_dicts_find_unequal_fields(
                 # bridge is the same.
                 equal = isinstance(one_val.model, type(other_val.model))
         elif isinstance(one_val, list):
-            equal = same_elements(one_val, other_val)
+            equal = isinstance(other_val, list) and same_elements(one_val, other_val)
         elif isinstance(one_val, dict):
-            equal = sorted(one_val.keys()) == sorted(other_val.keys())
+            equal = isinstance(other_val, dict) and sorted(one_val.keys()) == sorted(
+                other_val.keys()
+            )
             equal = equal and same_elements(
                 list(one_val.values()), list(other_val.values())
             )

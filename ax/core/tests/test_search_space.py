@@ -7,6 +7,7 @@
 import dataclasses
 
 from ax.core.arm import Arm
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -20,7 +21,9 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace, SearchSpaceDigest, HierarchicalSearchSpace
 from ax.exceptions.core import UserInputError
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_parameter_constraint
 
 
 TOTAL_PARAMS = 6
@@ -429,6 +432,56 @@ class HierarchicalSearchSpaceTest(TestCase):
                 "XGBoost": ["num_boost_rounds"],
             },
         )
+        self.hss_with_constraints = HierarchicalSearchSpace(
+            parameters=[
+                self.model_parameter,
+                self.lr_parameter,
+                self.l2_reg_weight_parameter,
+                self.num_boost_rounds_parameter,
+            ],
+            parameter_constraints=[
+                get_parameter_constraint(
+                    param_x=self.lr_parameter.name,
+                    param_y=self.l2_reg_weight_parameter.name,
+                ),
+            ],
+        )
+        self.hss_1_arm_1_flat = Arm(
+            parameters={
+                "model": "Linear",
+                "learning_rate": 0.01,
+                "l2_reg_weight": 0.0001,
+                "num_boost_rounds": 12,
+            }
+        )
+        self.hss_1_arm_2_flat = Arm(
+            parameters={
+                "model": "XGBoost",
+                "learning_rate": 0.01,
+                "l2_reg_weight": 0.0001,
+                "num_boost_rounds": 12,
+            }
+        )
+        self.hss_1_arm_missing_param = Arm(
+            parameters={
+                "model": "Linear",
+                "l2_reg_weight": 0.0001,
+                "num_boost_rounds": 12,
+            }
+        )
+        self.hss_1_arm_1_cast = Arm(
+            parameters={
+                "model": "Linear",
+                "learning_rate": 0.01,
+                "l2_reg_weight": 0.0001,
+            }
+        )
+        self.hss_1_arm_2_cast = Arm(
+            parameters={
+                "model": "XGBoost",
+                "num_boost_rounds": 12,
+            }
+        )
 
     def test_init(self):
         self.assertEqual(self.hss_1._root, self.model_parameter)
@@ -511,4 +564,105 @@ class HierarchicalSearchSpaceTest(TestCase):
             f"{self.hss_1.root.name}\n\t(Linear)\n\t\t{self.lr_parameter.name}"
             f"\n\t\t{self.l2_reg_weight_parameter.name}\n\t(XGBoost)\n\t\t"
             f"{self.num_boost_rounds_parameter.name}\n",
+        )
+
+    def test_flatten(self):
+        # Test on basic HSS.
+        flattened_hss_1 = self.hss_1.flatten()
+        self.assertIsNot(flattened_hss_1, self.hss_1)
+        self.assertEqual(type(flattened_hss_1), SearchSpace)
+        self.assertFalse(isinstance(flattened_hss_1, HierarchicalSearchSpace))
+        self.assertEqual(flattened_hss_1.parameters, self.hss_1.parameters)
+        self.assertEqual(
+            flattened_hss_1.parameter_constraints, self.hss_1.parameter_constraints
+        )
+        self.assertTrue(str(self.hss_1).startswith("HierarchicalSearchSpace"))
+        self.assertTrue(str(flattened_hss_1).startswith("SearchSpace"))
+
+        # Test on HSS with constraints.
+        flattened_hss_with_constraints = self.hss_with_constraints.flatten()
+        self.assertIsNot(flattened_hss_with_constraints, self.hss_with_constraints)
+        self.assertEqual(type(flattened_hss_with_constraints), SearchSpace)
+        self.assertFalse(
+            isinstance(flattened_hss_with_constraints, HierarchicalSearchSpace)
+        )
+        self.assertEqual(
+            flattened_hss_with_constraints.parameters,
+            self.hss_with_constraints.parameters,
+        )
+        self.assertEqual(
+            flattened_hss_with_constraints.parameter_constraints,
+            self.hss_with_constraints.parameter_constraints,
+        )
+        self.assertTrue(
+            str(self.hss_with_constraints).startswith("HierarchicalSearchSpace")
+        )
+        self.assertTrue(str(flattened_hss_with_constraints).startswith("SearchSpace"))
+
+    def test_cast_arm(self):
+        self.assertEqual(  # Check one subtree.
+            self.hss_1._cast_arm(arm=self.hss_1_arm_1_flat),
+            self.hss_1_arm_1_cast,
+        )
+        self.assertEqual(  # Check other subtree.
+            self.hss_1._cast_arm(arm=self.hss_1_arm_2_flat),
+            self.hss_1_arm_2_cast,
+        )
+        self.assertEqual(  # Check already-cast case.
+            self.hss_1._cast_arm(arm=self.hss_1_arm_1_cast),
+            self.hss_1_arm_1_cast,
+        )
+        with self.assertRaises(RuntimeError):
+            self.hss_1._cast_arm(arm=self.hss_1_arm_missing_param)
+
+    def test_cast_observation_features(self):
+        # Ensure that during casting, full parameterization is saved
+        # in metadata and actual parameterization is cast to HSS.
+        hss_1_obs_feats_1 = ObservationFeatures.from_arm(arm=self.hss_1_arm_1_flat)
+        hss_1_obs_feats_1_cast = self.hss_1.cast_observation_features(
+            observation_features=hss_1_obs_feats_1
+        )
+        self.assertEqual(  # Check one subtree.
+            hss_1_obs_feats_1_cast.parameters,
+            ObservationFeatures.from_arm(arm=self.hss_1_arm_1_cast).parameters,
+        )
+        self.assertEqual(  # Check one subtree.
+            hss_1_obs_feats_1_cast.metadata.get(Keys.FULL_PARAMETERIZATION),
+            hss_1_obs_feats_1.parameters,
+        )
+        # Check that difference with observation features made from cast arm
+        # is only in metadata (to ensure only parameters and metadata are
+        # manipulated during casting).
+        hss_1_obs_feats_1_cast.metadata = None
+        self.assertEqual(
+            hss_1_obs_feats_1_cast,
+            ObservationFeatures.from_arm(arm=self.hss_1_arm_1_cast),
+        )
+
+    def test_flatten_observation_features(self):
+        # Ensure that during casting, full parameterization is saved
+        # in metadata and actual parameterization is cast to HSS; during
+        # flattening, parameterization in metadata is used ot inject back
+        # the parameters removed during casting.
+        hss_1_obs_feats_1 = ObservationFeatures.from_arm(arm=self.hss_1_arm_1_flat)
+        hss_1_obs_feats_1_cast = self.hss_1.cast_observation_features(
+            observation_features=hss_1_obs_feats_1
+        )
+        hss_1_obs_feats_1_flattened = self.hss_1.flatten_observation_features(
+            observation_features=hss_1_obs_feats_1_cast
+        )
+        self.assertEqual(  # Cast-flatten roundtrip.
+            hss_1_obs_feats_1.parameters,
+            hss_1_obs_feats_1_flattened.parameters,
+        )
+        self.assertEqual(  # Check that both cast and flattened have full params.
+            hss_1_obs_feats_1_cast.metadata.get(Keys.FULL_PARAMETERIZATION),
+            hss_1_obs_feats_1_flattened.metadata.get(Keys.FULL_PARAMETERIZATION),
+        )
+        # Check that flattening observation features without metadata does nothing.
+        self.assertEqual(
+            self.hss_1.flatten_observation_features(
+                observation_features=hss_1_obs_feats_1
+            ),
+            hss_1_obs_feats_1,
         )

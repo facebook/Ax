@@ -50,6 +50,7 @@ class Keys(str, Enum):
     FIDELITY_FEATURES = "fidelity_features"
     FIDELITY_WEIGHTS = "fidelity_weights"
     FRAC_RANDOM = "frac_random"
+    FULL_PARAMETERIZATION = "full_parameterization"
     IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF = "immutable_search_space_and_opt_config"
     MAXIMIZE = "maximize"
     METADATA = "metadata"
