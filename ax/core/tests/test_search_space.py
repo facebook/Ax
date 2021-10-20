@@ -498,3 +498,17 @@ class HierarchicalSearchSpaceTest(TestCase):
                     self.num_boost_rounds_parameter,
                 ]
             )
+
+    def test_hierarchical_structure_str(self):
+        self.assertEqual(
+            self.hss_1.hierarchical_structure_str(),
+            f"{self.hss_1.root}\n\t(Linear)\n\t\t{self.lr_parameter}\n\t\t"
+            f"{self.l2_reg_weight_parameter}\n\t(XGBoost)\n\t\t"
+            f"{self.num_boost_rounds_parameter}\n",
+        )
+        self.assertEqual(
+            self.hss_1.hierarchical_structure_str(parameter_names_only=True),
+            f"{self.hss_1.root.name}\n\t(Linear)\n\t\t{self.lr_parameter.name}"
+            f"\n\t\t{self.l2_reg_weight_parameter.name}\n\t(XGBoost)\n\t\t"
+            f"{self.num_boost_rounds_parameter.name}\n",
+        )

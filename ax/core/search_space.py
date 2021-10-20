@@ -337,7 +337,7 @@ class SearchSpace(Base):
 
     def __repr__(self) -> str:
         return (
-            "SearchSpace("
+            f"{self.__class__.__name__}("
             "parameters=" + repr(list(self._parameters.values())) + ", "
             "parameter_constraints=" + repr(self._parameter_constraints) + ")"
         )
@@ -355,13 +355,53 @@ class HierarchicalSearchSpace(SearchSpace):
         self._all_parameter_names: Set[str] = set(self.parameters.keys())
         self._root: Parameter = self._find_root()
         self._validate_hierarchical_structure()
-        logger.debug(f"Found root: {self._root}.")
+        logger.debug(f"Found root: {self.root}.")
+
+    @property
+    def root(self) -> Parameter:
+        """Root of the hierarchical search space tree, as identified during
+        ``HierarchicalSearchSpace`` construction.
+        """
+        return self._root
 
     def flatten(self) -> SearchSpace:
         raise NotImplementedError  # TODO[drfreund]
 
     def cast_arm(self, arm: Arm) -> Arm:
         raise NotImplementedError  # TODO[drfreund]
+
+    def hierarchical_structure_str(self, parameter_names_only: bool = False) -> str:
+        """String representation of the hierarchical structure.
+
+        Args:
+            parameter_names_only: Whether parameter should show up just as names
+                (instead of full parameter strings), useful for a more concise
+                representation.
+        """
+
+        def _hrepr(param: Optional[Parameter], value: Optional[str], level: int) -> str:
+            is_level_param = param and not value
+            if is_level_param:
+                param = not_none(param)
+                node_name = f"{param.name if parameter_names_only else param}"
+                ret = "\t" * level + node_name + "\n"
+                if param.is_hierarchical:
+                    for val, deps in param.dependents.items():
+                        ret += _hrepr(param=None, value=str(val), level=level + 1)
+                        for param_name in deps:
+                            ret += _hrepr(
+                                param=self[param_name],
+                                value=None,
+                                level=level + 2,
+                            )
+            else:
+                value = not_none(value)
+                node_name = f"({value})"
+                ret = "\t" * level + node_name + "\n"
+
+            return ret
+
+        return _hrepr(param=self.root, value=None, level=0)
 
     def _find_root(self) -> Parameter:
         """Find the root of hierarchical search space: a parameter that does not depend on
