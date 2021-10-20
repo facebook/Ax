@@ -11,6 +11,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
 
+import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -26,7 +27,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import (
     TCandidateMetadata,
     TConfig,
@@ -815,7 +816,16 @@ class ModelBridge(ABC):
         raise NotImplementedError  # pragma: no cover
 
     def evaluate_acquisition_function(
-        self, observation_features: List[ObservationFeatures]
+        self,
+        observation_features: List[ObservationFeatures],
+        search_space_digest: SearchSpaceDigest,
+        objective_weights: np.ndarray,
+        objective_thresholds: Optional[np.ndarray] = None,
+        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        fixed_features: Optional[Dict[int, float]] = None,
+        pending_observations: Optional[List[np.ndarray]] = None,
+        acq_options: Optional[Dict[str, Any]] = None,
     ) -> List[float]:
         """Evaluate the acquisition function for given set of observation
         features.
@@ -823,6 +833,21 @@ class ModelBridge(ABC):
         Args:
             observation_features: A list of observation features, representing
                 parameterizations, for which to evaluate the acquisition function.
+            search_space_digest: A dataclass used to compactly represent a search space.
+            objective_weights: The objective is to maximize a weighted sum of the
+                columns of f(x). These are the weights.
+            objective_thresholds:  The `m`-dim tensor of objective thresholds. There is
+                one for each modeled metric.
+            outcome_constraints: A tuple of (A, b). For k outcome constraints and m
+                outputs at f(x), A is (k x m) and b is (k x 1) such that A f(x) <= b.
+                (Not used by single task models)
+            linear_constraints: A tuple of (A, b). For k linear constraints on
+                d-dimensional x, A is (k x d) and b is (k x 1) such that A x <= b.
+            fixed_features: A map {feature_index: value} for features that should be
+                held fixed during the evaluation.
+            pending_observations:  A list of m (k_i x d) feature tensors X for m
+                outcomes and k_i pending observations for outcome i.
+            acq_options: Keyword arguments used to contruct the acquisition function.
 
         Returns:
             A list of acquisition function values, in the same order as the
@@ -831,10 +856,29 @@ class ModelBridge(ABC):
         obs_feats = deepcopy(observation_features)
         for t in self.transforms.values():
             obs_feats = t.transform_observation_features(obs_feats)
-        return self._evaluate_acquisition_function(observation_features=obs_feats)
+        return self._evaluate_acquisition_function(
+            observation_features=obs_feats,
+            search_space_digest=search_space_digest,
+            objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
+            pending_observations=pending_observations,
+            acq_options=acq_options,
+        )
 
     def _evaluate_acquisition_function(
-        self, observation_features: List[ObservationFeatures]
+        self,
+        observation_features: List[ObservationFeatures],
+        search_space_digest: SearchSpaceDigest,
+        objective_weights: np.ndarray,
+        objective_thresholds: Optional[np.ndarray] = None,
+        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        fixed_features: Optional[Dict[int, float]] = None,
+        pending_observations: Optional[List[np.ndarray]] = None,
+        acq_options: Optional[Dict[str, Any]] = None,
     ) -> List[float]:
         raise NotImplementedError  # pragma: no cover
 

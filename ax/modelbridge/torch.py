@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -105,14 +105,44 @@ class TorchModelBridge(ArrayModelBridge):
             observation_data=observation_data,
         )
 
-    def _model_evaluate_acquisition_function(self, X: np.ndarray) -> np.ndarray:
+    def _model_evaluate_acquisition_function(
+        self,
+        X: np.ndarray,
+        search_space_digest: SearchSpaceDigest,
+        objective_weights: np.ndarray,
+        objective_thresholds: Optional[np.ndarray] = None,
+        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        fixed_features: Optional[Dict[int, float]] = None,
+        pending_observations: Optional[List[np.ndarray]] = None,
+        acq_options: Optional[Dict[str, Any]] = None,
+    ) -> np.ndarray:
         if not self.model:  # pragma: no cover
             raise ValueError(
                 FIT_MODEL_ERROR.format(action="_model_evaluate_acquisition_function")
             )
-        evals = not_none(self.model).evaluate_acquisition_function(
-            X=self._array_to_tensor(X)
+
+        obj_w, oc_c, l_c, pend_obs, obj_thresh = validate_and_apply_final_transform(
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=linear_constraints,
+            pending_observations=pending_observations,
+            objective_thresholds=objective_thresholds,
+            final_transform=self._array_to_tensor,
         )
+
+        evals = not_none(self.model).evaluate_acquisition_function(
+            X=self._array_to_tensor(X),
+            search_space_digest=search_space_digest,
+            objective_weights=obj_w,
+            objective_thresholds=obj_thresh,
+            outcome_constraints=oc_c,
+            linear_constraints=l_c,
+            fixed_features=fixed_features,
+            pending_observations=pend_obs,
+            acq_options=acq_options,
+        )
+
         return evals.detach().cpu().clone().numpy()
 
     def _model_fit(

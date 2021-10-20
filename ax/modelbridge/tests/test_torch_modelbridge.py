@@ -250,9 +250,18 @@ class TorchModelBridgeTest(TestCase):
         ma.parameters = ["x", "y"]
         model_eval_acqf = mock_torch_model.return_value.evaluate_acquisition_function
         model_eval_acqf.return_value = torch.tensor([5.0], dtype=torch.float64)
+
         acqf_vals = ma.evaluate_acquisition_function(
-            observation_features=[ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
+            observation_features=[ObservationFeatures(parameters={"x": 1.0, "y": 2.0})],
+            search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+            objective_weights=np.array([1.0]),
+            objective_thresholds=None,
+            outcome_constraints=None,
+            linear_constraints=None,
+            fixed_features=None,
+            pending_observations=None,
         )
+
         self.assertEqual(acqf_vals, [5.0])
         t.transform_observation_features.assert_called_with(
             [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]

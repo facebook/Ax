@@ -416,12 +416,41 @@ class ArrayModelBridge(ModelBridge):
         )
 
     def _evaluate_acquisition_function(
-        self, observation_features: List[ObservationFeatures]
+        self,
+        observation_features: List[ObservationFeatures],
+        search_space_digest: SearchSpaceDigest,
+        objective_weights: np.ndarray,
+        objective_thresholds: Optional[np.ndarray] = None,
+        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        fixed_features: Optional[Dict[int, float]] = None,
+        pending_observations: Optional[List[np.ndarray]] = None,
+        acq_options: Optional[Dict[str, Any]] = None,
     ) -> List[float]:
-        X = observation_features_to_array(self.parameters, observation_features)
-        return self._model_evaluate_acquisition_function(X=X).tolist()
+        return self._model_evaluate_acquisition_function(
+            X=observation_features_to_array(self.parameters, observation_features),
+            search_space_digest=search_space_digest,
+            objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
+            pending_observations=pending_observations,
+            acq_options=acq_options,
+        ).tolist()
 
-    def _model_evaluate_acquisition_function(self, X: np.ndarray) -> np.ndarray:
+    def _model_evaluate_acquisition_function(
+        self,
+        X: np.ndarray,
+        search_space_digest: SearchSpaceDigest,
+        objective_weights: np.ndarray,
+        objective_thresholds: Optional[np.ndarray] = None,
+        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        fixed_features: Optional[Dict[int, float]] = None,
+        pending_observations: Optional[List[np.ndarray]] = None,
+        acq_options: Optional[Dict[str, Any]] = None,
+    ) -> np.ndarray:
         raise NotImplementedError  # pragma: no cover
 
     def _transform_callback(self, x: np.ndarray) -> np.ndarray:  # pragma: no cover

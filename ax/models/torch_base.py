@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -217,12 +217,38 @@ class TorchModel(BaseModel):
         """
         raise NotImplementedError
 
-    def evaluate_acquisition_function(self, X: Tensor) -> Tensor:
+    def evaluate_acquisition_function(
+        self,
+        X: Tensor,
+        search_space_digest: SearchSpaceDigest,
+        objective_weights: Tensor,
+        objective_thresholds: Optional[Tensor] = None,
+        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        fixed_features: Optional[Dict[int, float]] = None,
+        pending_observations: Optional[List[Tensor]] = None,
+        acq_options: Optional[Dict[str, Any]] = None,
+    ) -> Tensor:
         """Evaluate the acquisition function on the candidate set `X`.
 
         Args:
             X: (j x d) tensor of the j points at which to evaluate the acquisition
                 function.
+            search_space_digest: A dataclass used to compactly represent a search space.
+            objective_weights: The objective is to maximize a weighted sum of the
+                columns of f(x). These are the weights.
+            objective_thresholds:  The `m`-dim tensor of objective thresholds. There is
+                one for each modeled metric.
+            outcome_constraints: A tuple of (A, b). For k outcome constraints and m
+                outputs at f(x), A is (k x m) and b is (k x 1) such that A f(x) <= b.
+                (Not used by single task models)
+            linear_constraints: A tuple of (A, b). For k linear constraints on
+                d-dimensional x, A is (k x d) and b is (k x 1) such that A x <= b.
+            fixed_features: A map {feature_index: value} for features that should be
+                held fixed during the evaluation.
+            pending_observations:  A list of m (k_i x d) feature tensors X for m
+                outcomes and k_i pending observations for outcome i.
+            acq_options: Keyword arguments used to contruct the acquisition function.
 
         Returns:
             A single-element tensor with the acquisition value for these points.
