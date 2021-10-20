@@ -148,8 +148,38 @@ class SearchSpace(Base):
 
         self._parameters[parameter.name] = parameter
 
+    def check_all_parameters_present(
+        self,
+        parameterization: TParameterization,
+        raise_error: bool = False,
+    ) -> bool:
+        """Whether a given parameterization contains all the parameters in the
+        search space.
+
+        Args:
+            parameterization: Dict from parameter name to value to validate.
+            raise_error: If true parameterization does not belong, raises an error
+                with detailed explanation of why.
+
+        Returns:
+            Whether the parameterization is contained in the search space.
+        """
+        parameterization_params = set(parameterization.keys())
+        ss_params = set(self._parameters.keys())
+        if parameterization_params != ss_params:
+            if raise_error:
+                raise ValueError(
+                    f"Parameterization has parameters: {parameterization_params}, "
+                    f"but search space has parameters: {ss_params}."
+                )
+            return False
+        return True
+
     def check_membership(
-        self, parameterization: TParameterization, raise_error: bool = False
+        self,
+        parameterization: TParameterization,
+        raise_error: bool = False,
+        check_all_parameters_present: bool = True,
     ) -> bool:
         """Whether the given parameterization belongs in the search space.
 
@@ -161,27 +191,19 @@ class SearchSpace(Base):
             parameterization: Dict from parameter name to value to validate.
             raise_error: If true parameterization does not belong, raises an error
                 with detailed explanation of why.
+            check_all_parameters_present: Ensure that parameterization specifies
+                values for all parameters as expected by the search space.
 
         Returns:
             Whether the parameterization is contained in the search space.
         """
-        if len(parameterization) != len(self._parameters):
-            if raise_error:
-                raise ValueError(
-                    f"Parameterization has {len(parameterization)} parameters "
-                    f"but search space has {len(self._parameters)}."
-                )
-            return False
-
-        for name, value in parameterization.items():
-            if name not in self._parameters:
-                if raise_error:
-                    raise ValueError(
-                        f"Parameter {name} not defined in search space"
-                        f"with parameters {self._parameters}"
-                    )
+        if check_all_parameters_present:
+            if not self.check_all_parameters_present(
+                parameterization=parameterization, raise_error=raise_error
+            ):
                 return False
 
+        for name, value in parameterization.items():
             if not self._parameters[name].validate(value):
                 if raise_error:
                     raise ValueError(
@@ -214,9 +236,6 @@ class SearchSpace(Base):
     ) -> bool:
         """Checks that the given parameterization's types match the search space.
 
-        Checks that the names of the parameterization match those specified in
-        the search space, and the given values are of the correct type.
-
         Args:
             parameterization: Dict from parameter name to value to validate.
             allow_none: Whether None is a valid parameter value.
@@ -226,16 +245,6 @@ class SearchSpace(Base):
         Returns:
             Whether the parameterization has valid types.
         """
-        if len(parameterization) != len(self._parameters):
-            if raise_error:
-                raise ValueError(
-                    f"Parameterization has {len(parameterization)} parameters "
-                    f"but search space has {len(self._parameters)}.\n"
-                    f"Parameterization: {parameterization}.\n"
-                    f"Search Space: {self._parameters}."
-                )
-            return False
-
         for name, value in parameterization.items():
             if name not in self._parameters:
                 if raise_error:
@@ -438,42 +447,55 @@ class HierarchicalSearchSpace(SearchSpace):
 
         return obs_feats
 
-    def check_types(
+    def check_membership(
         self,
         parameterization: TParameterization,
-        allow_none: bool = True,
         raise_error: bool = False,
+        check_all_parameters_present: bool = True,
     ) -> bool:
-        """Checks that the given parameterization's types match the search space.
+        """Whether the given parameterization belongs in the search space.
 
-        Checks that the names of the parameterization match those specified in
-        the search space, and the given values are of the correct type.
+        Checks that the given parameter values have the same name/type as
+        search space parameters, are contained in the search space domain,
+        and satisfy the parameter constraints.
 
         Args:
             parameterization: Dict from parameter name to value to validate.
-            allow_none: Whether None is a valid parameter value.
-            raise_error: If true and parameterization does not belong, raises an error
+            raise_error: If true parameterization does not belong, raises an error
                 with detailed explanation of why.
+            check_all_parameters_present: Ensure that parameterization specifies
+                values for all parameters as expected by the search space and its
+                hierarchical structure.
 
         Returns:
-            Whether the parameterization has valid types.
+            Whether the parameterization is contained in the search space.
         """
-        for name, value in parameterization.items():
-            if name not in self._parameters:
-                if raise_error:
-                    raise ValueError(f"Parameter {name} not defined in search space.")
-                return False
+        super().check_membership(
+            parameterization=parameterization,
+            raise_error=raise_error,
+            check_all_parameters_present=False,
+        )
 
-            if value is None and allow_none:
-                continue
+        # Check that each arm "belongs" in the hierarchical
+        # search space; ensure that it only has the parameters that make sense
+        # with each other (and does not contain dependent parameters if the
+        # parameter they depend on does not have the correct value).
+        cast_to_hss_params = set(
+            self._cast_parameterization(
+                parameters=parameterization,
+                check_all_parameters_present=check_all_parameters_present,
+            ).keys()
+        )
+        parameterization_params = set(parameterization.keys())
+        if cast_to_hss_params != parameterization_params:
+            if raise_error:
+                raise ValueError(
+                    "Parameterization violates the hierarchical structure of the search"
+                    f"space; cast version would have parameters: {cast_to_hss_params},"
+                    f" but full version contains parameters: {parameterization_params}."
+                )
 
-            if not self._parameters[name].is_valid_type(value):
-                if raise_error:
-                    raise ValueError(
-                        f"{value} is not a valid value for "
-                        f"parameter {self._parameters[name]}"
-                    )
-                return False
+            return False
 
         return True
 
@@ -525,13 +547,26 @@ class HierarchicalSearchSpace(SearchSpace):
         return Arm(parameters=self._cast_parameterization(parameters=arm.parameters))
 
     def _cast_parameterization(
-        self, parameters: TParameterization
+        self,
+        parameters: TParameterization,
+        check_all_parameters_present: bool = True,
     ) -> TParameterization:
+        """Cast parameterization (of an arm, observation features, etc.) to the
+        hierarchical structure of this search space.
+
+        Args:
+            parameters: Parameterization to cast to hierarchical structure.
+            check_all_parameters_present: Whether to raise an error if a paramete
+                 that is expected to be present (according to values of other
+                 parameters and the hierarchical structure of the search space)
+                 is not specified.
+        """
+
         def _find_applicable_parameters(root: Parameter) -> Set[str]:
             applicable = {root.name}
-            if root.name not in parameters:
-                raise RuntimeError(  # TODO[drfreund]: Consider improving
-                    f"Parameter '{root.name}' not in parameterization of arm to cast."
+            if check_all_parameters_present and root.name not in parameters:
+                raise RuntimeError(
+                    f"Parameter '{root.name}' not in parameterization to cast."
                 )
 
             if not root.is_hierarchical:
@@ -550,6 +585,7 @@ class HierarchicalSearchSpace(SearchSpace):
                 f"Parameters {applicable_paramers- set(parameters.keys())} "
                 "missing from the arm."
             )
+
         return {k: v for k, v in parameters.items() if k in applicable_paramers}
 
     def _find_root(self) -> Parameter:

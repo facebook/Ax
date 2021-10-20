@@ -252,7 +252,7 @@ class SearchSpaceTest(TestCase):
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
         # Valid
-        self.assertTrue(self.ss2.check_membership(p_dict))
+        self.assertTrue(self.ss2.check_types(p_dict))
 
         # Invalid type
         p_dict["b"] = 5.2
@@ -260,12 +260,6 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             self.ss2.check_types(p_dict, raise_error=True)
         p_dict["b"] = 5
-
-        # Incomplete param dict
-        p_dict.pop("a")
-        self.assertFalse(self.ss2.check_types(p_dict))
-        with self.assertRaises(ValueError):
-            self.ss2.check_types(p_dict, raise_error=True)
 
         # Unknown parameter
         p_dict["q"] = 40
