@@ -44,7 +44,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, HierarchicalSearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types import (
@@ -441,6 +441,13 @@ def get_experiment_with_scalarized_objective_and_outcome_constraint() -> Experim
     )
 
 
+def get_hierarchical_search_space_experiment() -> Experiment:
+    return Experiment(
+        search_space=get_hierarchical_search_space(),
+        optimization_config=get_optimization_config(),
+    )
+
+
 ##############################
 # Search Spaces
 ##############################
@@ -615,6 +622,17 @@ def get_discrete_search_space() -> SearchSpace:
     )
 
 
+def get_hierarchical_search_space() -> HierarchicalSearchSpace:
+    return HierarchicalSearchSpace(
+        parameters=[
+            get_model_parameter(),
+            get_lr_parameter(),
+            get_l2_reg_weight_parameter(),
+            get_num_boost_rounds_parameter(),
+        ]
+    )
+
+
 ##############################
 # Trials
 ##############################
@@ -780,6 +798,45 @@ def get_task_choice_parameter() -> ChoiceParameter:
 
 def get_fixed_parameter() -> FixedParameter:
     return FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
+
+
+def get_model_parameter() -> ChoiceParameter:
+    return ChoiceParameter(
+        name="model",
+        parameter_type=ParameterType.STRING,
+        values=["Linear", "XGBoost"],
+        dependents={
+            "Linear": ["learning_rate", "l2_reg_weight"],
+            "XGBoost": ["num_boost_rounds"],
+        },
+    )
+
+
+def get_lr_parameter() -> RangeParameter:
+    return RangeParameter(
+        name="learning_rate",
+        parameter_type=ParameterType.FLOAT,
+        lower=0.001,
+        upper=0.1,
+    )
+
+
+def get_l2_reg_weight_parameter() -> RangeParameter:
+    return RangeParameter(
+        name="l2_reg_weight",
+        parameter_type=ParameterType.FLOAT,
+        lower=0.00001,
+        upper=0.001,
+    )
+
+
+def get_num_boost_rounds_parameter() -> RangeParameter:
+    return RangeParameter(
+        name="num_boost_rounds",
+        parameter_type=ParameterType.INT,
+        lower=10,
+        upper=20,
+    )
 
 
 ##############################

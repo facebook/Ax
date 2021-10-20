@@ -38,6 +38,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_choice_parameter,
     get_data,
+    get_hierarchical_search_space_experiment,
 )
 
 
@@ -82,6 +83,29 @@ class TestGenerationStrategy(TestCase):
         # ensures that the mocks have correct signatures, but in earlier
         # versions kwarg validation on mocks does not really work.
         self.step_model_kwargs = {"silently_filter_kwargs": True}
+        self.hss_experiment = get_hierarchical_search_space_experiment()
+        self.sobol_GPEI_GS = GenerationStrategy(
+            name="Sobol+GPEI",
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=5,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.GPEI, num_trials=2, model_kwargs=self.step_model_kwargs
+                ),
+            ],
+        )
+        self.sobol_GS = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    Models.SOBOL,
+                    num_trials=-1,
+                    should_deduplicate=True,
+                )
+            ]
+        )
 
     def tearDown(self):
         self.torch_model_bridge_patcher.stop()
@@ -251,26 +275,12 @@ class TestGenerationStrategy(TestCase):
 
     def test_sobol_GPEI_strategy(self):
         exp = get_branin_experiment()
-        sobol_GPEI = GenerationStrategy(
-            name="Sobol+GPEI",
-            steps=[
-                GenerationStep(
-                    model=Models.SOBOL,
-                    num_trials=5,
-                    model_kwargs=self.step_model_kwargs,
-                ),
-                GenerationStep(
-                    model=Models.GPEI, num_trials=2, model_kwargs=self.step_model_kwargs
-                ),
-            ],
-        )
-        self.assertEqual(sobol_GPEI.name, "Sobol+GPEI")
-        self.assertEqual(sobol_GPEI.model_transitions, [5])
-        # exp.new_trial(generator_run=sobol_GPEI.gen(exp)).run()
+        self.assertEqual(self.sobol_GPEI_GS.name, "Sobol+GPEI")
+        self.assertEqual(self.sobol_GPEI_GS.model_transitions, [5])
         for i in range(7):
-            g = sobol_GPEI.gen(exp)
+            g = self.sobol_GPEI_GS.gen(exp)
             exp.new_trial(generator_run=g).run()
-            self.assertEqual(len(sobol_GPEI._generator_runs), i + 1)
+            self.assertEqual(len(self.sobol_GPEI_GS._generator_runs), i + 1)
             if i > 4:
                 self.mock_torch_model_bridge.assert_called()
             else:
@@ -301,7 +311,7 @@ class TestGenerationStrategy(TestCase):
                 self.assertEqual(g._model_state_after_gen, {"init_position": i + 1})
         # Check completeness error message when GS should be done.
         with self.assertRaises(GenerationStrategyCompleted):
-            g = sobol_GPEI.gen(exp)
+            g = self.sobol_GPEI_GS.gen(exp)
 
     def test_sobol_GPEI_strategy_keep_generating(self):
         exp = get_branin_experiment()
@@ -646,3 +656,51 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             could_gen, [NUM_INIT_TRIALS] + [SECOND_STEP_PARALLELISM] * (NUM_ROUNDS - 1)
         )
+
+    def test_hierarchical_search_space(self):
+        experiment = get_hierarchical_search_space_experiment()
+        self.assertTrue(experiment.search_space.is_hierarchical)
+        self.sobol_GS.gen(experiment=experiment)
+        for _ in range(10):
+            # During each iteration, check that all transformed observation features
+            # contain all parameters of the flat search space.
+            with patch.object(
+                RandomModelBridge, "_fit"
+            ) as mock_model_fit, patch.object(RandomModelBridge, "gen"):
+                self.sobol_GS.gen(experiment=experiment)
+                mock_model_fit.assert_called_once()
+                obs_feats = mock_model_fit.call_args[1].get("observation_features")
+                all_parameter_names = (
+                    experiment.search_space._all_parameter_names.copy()
+                )
+                # One of the parameter names is modified by transforms (because it's
+                # one-hot encoded).
+                all_parameter_names.remove("model")
+                all_parameter_names.add("model_OH_PARAM_")
+                for obsf in obs_feats:
+                    for p_name in all_parameter_names:
+                        self.assertIn(p_name, obsf.parameters)
+
+            trial = (
+                experiment.new_trial(
+                    generator_run=self.sobol_GS.gen(experiment=experiment)
+                )
+                .mark_running(no_runner_required=True)
+                .mark_completed()
+            )
+            experiment.attach_data(
+                get_data(
+                    metric_name="m1",
+                    trial_index=trial.index,
+                    num_non_sq_arms=1,
+                    include_sq=False,
+                )
+            )
+            experiment.attach_data(
+                get_data(
+                    metric_name="m2",
+                    trial_index=trial.index,
+                    num_non_sq_arms=1,
+                    include_sq=False,
+                )
+            )

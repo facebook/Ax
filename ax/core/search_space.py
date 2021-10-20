@@ -543,8 +543,10 @@ class HierarchicalSearchSpace(SearchSpace):
         # Validate parameter values in flat search space.
         arm = super().cast_arm(arm=arm)
 
-        # TODO: What to do about arm name? Enforce that we only cast unnamed arms?
-        return Arm(parameters=self._cast_parameterization(parameters=arm.parameters))
+        return Arm(
+            parameters=self._cast_parameterization(parameters=arm.parameters),
+            name=arm._name,
+        )
 
     def _cast_parameterization(
         self,

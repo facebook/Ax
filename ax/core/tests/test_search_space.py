@@ -23,8 +23,14 @@ from ax.core.search_space import SearchSpace, SearchSpaceDigest, HierarchicalSea
 from ax.exceptions.core import UserInputError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import (
+    get_model_parameter,
+    get_lr_parameter,
+    get_l2_reg_weight_parameter,
+    get_num_boost_rounds_parameter,
+    get_hierarchical_search_space,
+)
 from ax.utils.testing.core_stubs import get_parameter_constraint
-
 
 TOTAL_PARAMS = 6
 TUNABLE_PARAMS = 4
@@ -365,41 +371,11 @@ class SearchSpaceDigestTest(TestCase):
 
 class HierarchicalSearchSpaceTest(TestCase):
     def setUp(self):
-        self.model_parameter = ChoiceParameter(
-            name="model",
-            parameter_type=ParameterType.STRING,
-            values=["Linear", "XGBoost"],
-            dependents={
-                "Linear": ["learning_rate", "l2_reg_weight"],
-                "XGBoost": ["num_boost_rounds"],
-            },
-        )
-        self.lr_parameter = RangeParameter(
-            name="learning_rate",
-            parameter_type=ParameterType.FLOAT,
-            lower=0.001,
-            upper=0.1,
-        )
-        self.l2_reg_weight_parameter = RangeParameter(
-            name="l2_reg_weight",
-            parameter_type=ParameterType.FLOAT,
-            lower=0.00001,
-            upper=0.001,
-        )
-        self.num_boost_rounds_parameter = RangeParameter(
-            name="num_boost_rounds",
-            parameter_type=ParameterType.INT,
-            lower=10,
-            upper=20,
-        )
-        self.hss_1 = HierarchicalSearchSpace(
-            parameters=[
-                self.model_parameter,
-                self.lr_parameter,
-                self.l2_reg_weight_parameter,
-                self.num_boost_rounds_parameter,
-            ]
-        )
+        self.model_parameter = get_model_parameter()
+        self.lr_parameter = get_lr_parameter()
+        self.l2_reg_weight_parameter = get_l2_reg_weight_parameter()
+        self.num_boost_rounds_parameter = get_num_boost_rounds_parameter()
+        self.hss_1 = get_hierarchical_search_space()
         self.use_linear_parameter = ChoiceParameter(
             name="use_linear",  # Contrived!
             parameter_type=ParameterType.BOOL,
