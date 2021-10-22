@@ -23,6 +23,11 @@ from ax.core.types import ComparisonOp
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.array import ArrayModelBridge
+from ax.modelbridge.cross_validation import (
+    assess_model_fit,
+    compute_diagnostics,
+    cross_validate,
+)
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     predicted_pareto_frontier as predicted_pareto,
@@ -32,6 +37,7 @@ from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.registry import get_model_from_generator_run, Models
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none, checked_cast
+from numpy import NaN
 
 
 logger = get_logger(__name__)
@@ -111,6 +117,15 @@ def _gr_to_prediction_with_trial_index(
     return idx, best_arm.parameters, best_arm_predictions
 
 
+def _raw_values_to_model_predict_arm(
+    values: Dict[str, Tuple[float, float]]
+) -> TModelPredictArm:
+    return (
+        {k: v[0] for k, v in values.items()},  # v[0] is mean
+        {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
+    )
+
+
 def get_best_from_model_predictions_with_trial_index(
     experiment: Experiment,
 ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
@@ -156,19 +171,42 @@ def get_best_from_model_predictions_with_trial_index(
                 generator_run=gr, experiment=experiment, data=data
             )
 
-            if isinstance(model, ArrayModelBridge):
-                res = model.model_best_point()
-                if res is None:
-                    return _gr_to_prediction_with_trial_index(idx, gr)
-
-                best_arm, best_arm_predictions = res
-
-                return idx, not_none(best_arm).parameters, best_arm_predictions
-
             # If model is not ArrayModelBridge, just use the best arm frmo the
             # last good generator run
-            else:
+            if not isinstance(model, ArrayModelBridge):
                 return _gr_to_prediction_with_trial_index(idx, gr)
+
+            # Check to see if the model is worth using
+            cv_results = cross_validate(model=model)
+            diagnostics = compute_diagnostics(result=cv_results)
+            assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
+            objective_name = experiment.optimization_config.objective.metric.name
+
+            # If model fit is bad use raw results
+            if (
+                objective_name
+                in assess_model_fit_results.bad_fit_metrics_to_fisher_score
+            ):
+                logger.warn(
+                    "Model fit is poor; falling back on raw data for best point."
+                )
+
+                if not _is_all_noiseless(df=data.df, metric_name=objective_name):
+                    logger.warn(
+                        "Model fit is poor and data on objective metric "
+                        + f"{objective_name} is noisy; interpret best points "
+                        + "results carefully."
+                    )
+
+                return _get_best_poor_model_fit(experiment=experiment)
+
+            res = model.model_best_point()
+            if res is None:
+                return _gr_to_prediction_with_trial_index(idx, gr)
+
+            best_arm, best_arm_predictions = res
+
+            return idx, not_none(best_arm).parameters, best_arm_predictions
 
     return None
 
@@ -240,10 +278,7 @@ def get_best_parameters_with_trial_index(
     return (
         trial_index,
         parameterization,
-        (
-            {k: v[0] for k, v in values.items()},  # v[0] is mean
-            {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
-        ),
+        _raw_values_to_model_predict_arm(values),
     )
 
 
@@ -471,4 +506,36 @@ def _get_best_feasible_row_for_single_objective(
     return _get_best_row_for_single_objective(
         df=_filter_feasible_rows(df=df, optimization_config=optimization_config),
         objective=optimization_config.objective,
+    )
+
+
+def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:
+    """Noiseless is defined as SEM = 0 or SEM = NaN on a given metric (usually
+    the objective).
+    """
+
+    name_mask = df["metric_name"] == metric_name
+    df_metric_arms_sems = df[name_mask]["sem"]
+
+    return ((df_metric_arms_sems == 0) | df_metric_arms_sems == NaN).all()
+
+
+def _get_best_poor_model_fit(
+    experiment: Experiment,
+) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    try:
+        (
+            trial_index,
+            parameterization,
+            values,
+        ) = get_best_raw_objective_point_with_trial_index(experiment=experiment)
+    except ValueError as err:
+        logger.error(
+            f"Encountered error while trying to identify the best point: {err}"
+        )
+        return None
+    return (
+        trial_index,
+        parameterization,
+        _raw_values_to_model_predict_arm(values),
     )

@@ -15,6 +15,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.array import ArrayModelBridge
+from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
     get_best_parameters,
@@ -118,7 +119,9 @@ class TestBestPointUtils(TestCase):
                     ),
                 )
             ),
-        ) as mock_model_best_point:
+        ) as mock_model_best_point, self.assertLogs(
+            logger="ax.service.utils.best_point", level="WARN"
+        ) as lg:
             # Because refitting after final run is only supported for
             # ArrayModelBridge we do not expect model_best_point to be called here
             self.assertIsNotNone(ax_client.get_best_parameters())
@@ -129,8 +132,36 @@ class TestBestPointUtils(TestCase):
                 trial_index=trial_index, raw_data=evaluate(parameters)
             )
 
-            self.assertIsNotNone(ax_client.get_best_parameters())
-            mock_model_best_point.assert_called()
+            # Test bad model fit causes function to resort back to raw data
+            with patch(
+                "ax.service.utils.best_point.assess_model_fit",
+                return_value=AssessModelFitResult(
+                    good_fit_metrics_to_fisher_score={},
+                    bad_fit_metrics_to_fisher_score={
+                        "hartmann6": 0,
+                        "l2norm": 0,
+                    },
+                ),
+            ):
+                self.assertIsNotNone(ax_client.get_best_parameters())
+                self.assertTrue(
+                    any("Model fit is poor" in warning for warning in lg.output),
+                    msg=lg.output,
+                )
+
+            # Test model best point is used when fit is good
+            with patch(
+                "ax.service.utils.best_point.assess_model_fit",
+                return_value=AssessModelFitResult(
+                    good_fit_metrics_to_fisher_score={
+                        "hartmann6": 0,
+                        "l2norm": 0,
+                    },
+                    bad_fit_metrics_to_fisher_score={},
+                ),
+            ):
+                self.assertIsNotNone(ax_client.get_best_parameters())
+                mock_model_best_point.assert_called()
 
         # Assert the non-mocked method works correctly as well
         self.assertIsNotNone(ax_client.get_best_parameters())
