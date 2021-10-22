@@ -11,6 +11,7 @@ import pandas as pd
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     OptimizationConfig,
@@ -21,13 +22,14 @@ from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError
+from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     predicted_pareto_frontier as predicted_pareto,
     observed_pareto_frontier as observed_pareto,
 )
 from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import get_model_from_generator_run, Models
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none, checked_cast
 
@@ -95,6 +97,20 @@ def get_best_raw_objective_point(
     return parameterization, vals
 
 
+def _gr_to_prediction_with_trial_index(
+    idx: int, gr: GeneratorRun
+) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    if gr.best_arm_predictions is None:
+        return None
+
+    best_arm, best_arm_predictions = gr.best_arm_predictions
+
+    if best_arm is None:
+        return None
+
+    return idx, best_arm.parameters, best_arm_predictions
+
+
 def get_best_from_model_predictions_with_trial_index(
     experiment: Experiment,
 ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
@@ -132,8 +148,28 @@ def get_best_from_model_predictions_with_trial_index(
                 gr = trial.generator_run_structs[0].generator_run
 
         if gr is not None and gr.best_arm_predictions is not None:  # pragma: no cover
-            best_arm, best_arm_predictions = not_none(gr.best_arm_predictions)
-            return idx, not_none(best_arm).parameters, best_arm_predictions
+            data = experiment.lookup_data()
+            if not isinstance(data, Data):
+                return _gr_to_prediction_with_trial_index(idx, gr)
+
+            model = get_model_from_generator_run(
+                generator_run=gr, experiment=experiment, data=data
+            )
+
+            if isinstance(model, ArrayModelBridge):
+                res = model.model_best_point()
+                if res is None:
+                    return _gr_to_prediction_with_trial_index(idx, gr)
+
+                best_arm, best_arm_predictions = res
+
+                return idx, not_none(best_arm).parameters, best_arm_predictions
+
+            # If model is not ArrayModelBridge, just use the best arm frmo the
+            # last good generator run
+            else:
+                return _gr_to_prediction_with_trial_index(idx, gr)
+
     return None
 
 

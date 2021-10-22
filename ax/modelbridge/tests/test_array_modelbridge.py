@@ -148,30 +148,40 @@ class ArrayModelBridgeTest(TestCase):
         _mock_obs_from_data,
     ):
         exp = Experiment(search_space=get_search_space_for_range_value(), name="test")
+        oc = OptimizationConfig(
+            objective=Objective(metric=Metric("a"), minimize=False),
+            outcome_constraints=[],
+        )
         modelbridge = ArrayModelBridge(
             search_space=get_search_space_for_range_value(),
             model=NumpyModel(),
             transforms=[t1, t2],
             experiment=exp,
             data=Data(),
+            optimization_config=oc,
         )
+
         self.assertEqual(list(modelbridge.transforms.keys()), ["Cast", "t1", "t2"])
+
+        # test check that optimization config is required
+        with self.assertRaises(ValueError):
+            run = modelbridge.gen(n=1, optimization_config=None)
+
         # _fit is mocked, which typically sets this.
         modelbridge.outcomes = ["a"]
         run = modelbridge.gen(
             n=1,
-            optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric("a"), minimize=False),
-                outcome_constraints=[],
-            ),
+            optimization_config=oc,
         )
+
         arm, predictions = run.best_arm_predictions
         self.assertEqual(arm.parameters, {})
         self.assertEqual(predictions[0], {"m": 1.0})
         self.assertEqual(predictions[1], {"m": {"m": 2.0}})
-        # test check that optimization config is required
-        with self.assertRaises(ValueError):
-            run = modelbridge.gen(n=1, optimization_config=None)
+
+        model_arm, model_predictions = modelbridge.model_best_point()
+        self.assertEqual(model_predictions[0], {"m": 1.0})
+        self.assertEqual(model_predictions[1], {"m": {"m": 2.0}})
 
         # test optimization config validation - raise error when
         # ScalarizedOutcomeConstraint contains a metric that is not in the outcomes

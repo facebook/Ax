@@ -8,14 +8,16 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import numpy as np
+from ax.core.arm import Arm
+from ax.core.generator_run import extract_arm_predictions
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
-from ax.modelbridge.base import ModelBridge
+from ax.core.types import TModelPredictArm, TCandidateMetadata, TConfig, TGenMetadata
+from ax.modelbridge.base import gen_arms, ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
     extract_objective_weights,
@@ -336,6 +338,68 @@ class ArrayModelBridge(ModelBridge):
             model_gen_options=model_gen_options,
             rounding_func=rounding_func,
         )
+
+    def model_best_point(
+        self,
+        search_space: Optional[SearchSpace] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
+        model_gen_options: Optional[TConfig] = None,
+    ) -> Optional[Tuple[Arm, Optional[TModelPredictArm]]]:
+        # Get modifiable versions
+        if search_space is None:
+            search_space = self._model_space
+        search_space = search_space.clone()
+
+        base_gen_args = self._get_transformed_gen_args(
+            search_space=search_space,
+            optimization_config=optimization_config,
+            pending_observations=pending_observations,
+            fixed_features=fixed_features,
+        )
+
+        array_model_gen_args = self._get_transformed_model_gen_args(
+            search_space=base_gen_args.search_space,
+            pending_observations=base_gen_args.pending_observations,
+            fixed_features=base_gen_args.fixed_features,
+            model_gen_options=None,
+            optimization_config=base_gen_args.optimization_config,
+        )
+
+        search_space_digest = array_model_gen_args.search_space_digest
+
+        xbest = self._model_best_point(
+            bounds=search_space_digest.bounds,
+            objective_weights=array_model_gen_args.objective_weights,
+            outcome_constraints=array_model_gen_args.outcome_constraints,
+            linear_constraints=array_model_gen_args.linear_constraints,
+            fixed_features=array_model_gen_args.fixed_features,
+            model_gen_options=model_gen_options,
+            target_fidelities=search_space_digest.target_fidelities,
+        )
+
+        if xbest is None:
+            return None
+
+        best_obsf = ObservationFeatures(
+            parameters={p: float(xbest[i]) for i, p in enumerate(self.parameters)}
+        )
+
+        for t in reversed(self.transforms.values()):  # noqa T484
+            best_obsf = t.untransform_observation_features([best_obsf])[0]
+
+        best_point_predictions = extract_arm_predictions(
+            model_predictions=self.predict([best_obsf]), arm_idx=0
+        )
+
+        best_arms, _ = gen_arms(
+            observation_features=[best_obsf],
+            arms_by_signature=self._arms_by_signature,
+        )
+        best_arm = best_arms[0]
+
+        return best_arm, best_point_predictions
 
     def _model_best_point(
         self,

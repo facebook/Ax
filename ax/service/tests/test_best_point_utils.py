@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from unittest.mock import patch
+
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
@@ -12,6 +14,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.modelbridge.array import ArrayModelBridge
 from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
     get_best_parameters,
@@ -25,6 +28,112 @@ from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_metric
 class TestBestPointUtils(TestCase):
     """Testing the best point utilities functionality that is not tested in
     main `AxClient` testing suite (`TestSErviceAPI`)."""
+
+    def test_best_from_model_predictions(self):
+        ax_client = AxClient()
+
+        ax_client.create_experiment(
+            name="hartmann_test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "value_type": "float",
+                    "log_scale": False,
+                },
+                {
+                    "name": "x2",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                },
+                {
+                    "name": "x3",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                },
+                {
+                    "name": "x4",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                },
+                {
+                    "name": "x5",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                },
+                {
+                    "name": "x6",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                },
+            ],
+            objective_name="hartmann6",
+            parameter_constraints=["x1 + x2 <= 2.0"],
+        )
+
+        def evaluate(parameters):
+            x = np.array([parameters.get(f"x{i+1}") for i in range(6)])
+            return {
+                "hartmann6": (hartmann6(x), 0.0),
+                "l2norm": (np.sqrt((x ** 2).sum()), 0.0),
+            }
+
+        for _ in range(12):  # These will all be SOBOL runs
+            parameters, trial_index = ax_client.get_next_trial()
+            ax_client.complete_trial(
+                trial_index=trial_index, raw_data=evaluate(parameters)
+            )
+        with patch.object(
+            ArrayModelBridge,
+            "model_best_point",
+            return_value=(
+                (
+                    Arm(
+                        name="6_0",
+                        parameters={
+                            "x1": 0.96247882489115,
+                            "x2": 0.051644640043377876,
+                            "x3": 0.6749767670407891,
+                            "x4": 0.6150536900386214,
+                            "x5": 0.059872522950172424,
+                            "x6": 0.013009095564484596,
+                        },
+                    ),
+                    (
+                        {
+                            "l2norm": 1.329161904140509,
+                            "hartmann6": -0.0021285272846029435,
+                        },
+                        {
+                            "l2norm": {
+                                "l2norm": 8.021127869460997e-08,
+                                "hartmann6": 0.0,
+                            },
+                            "hartmann6": {
+                                "l2norm": 0.0,
+                                "hartmann6": 1.6449112385323933e-07,
+                            },
+                        },
+                    ),
+                )
+            ),
+        ) as mock_model_best_point:
+            # Because refitting after final run is only supported for
+            # ArrayModelBridge we do not expect model_best_point to be called here
+            self.assertIsNotNone(ax_client.get_best_parameters())
+            mock_model_best_point.assert_not_called()
+
+            parameters, trial_index = ax_client.get_next_trial()
+            ax_client.complete_trial(
+                trial_index=trial_index, raw_data=evaluate(parameters)
+            )
+
+            self.assertIsNotNone(ax_client.get_best_parameters())
+            mock_model_best_point.assert_called()
+
+        # Assert the non-mocked method works correctly as well
+        self.assertIsNotNone(ax_client.get_best_parameters())
 
     def test_best_raw_objective_point(self):
         exp = get_branin_experiment()
