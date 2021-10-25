@@ -33,7 +33,7 @@ from ax.core.parameter import (
     TParameterType,
 )
 from ax.core.parameter_constraint import OrderConstraint, ParameterConstraint
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, HierarchicalSearchSpace
 from ax.core.simple_experiment import DEFAULT_OBJECTIVE_NAME
 from ax.core.types import (
     ComparisonOp,
@@ -49,6 +49,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
     checked_cast_to_tuple,
+    checked_cast_optional,
     not_none,
     numpy_type_to_python_type,
 )
@@ -76,6 +77,7 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
     "is_ordered",
     "is_task",
     "digits",
+    "dependents",
 }
 
 
@@ -156,6 +158,7 @@ def _make_choice_param(
         is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
         is_task=checked_cast(bool, representation.get("is_task", False)),
         target_value=representation.get("target_value", None),  # pyre-ignore[6]
+        dependents=checked_cast_optional(dict, representation.get("dependents", None)),
     )
 
 
@@ -219,6 +222,10 @@ def parameter_from_json(
         assert "values" in representation, "Values are required for choice parameters."
         values = representation["values"]
         if isinstance(values, list) and len(values) == 1:
+            if representation.get("dependents"):
+                raise NotImplementedError(
+                    "Support for hierarchical fixed parameters coming soon."
+                )
             logger.info(
                 f"Choice parameter {name} contains only one value, converting to a"
                 + " fixed parameter instead."
@@ -473,8 +480,10 @@ def make_search_space(
     parameters: List[TParameterRepresentation],
     parameter_constraints: List[str],
 ) -> SearchSpace:
-
     typed_parameters = [parameter_from_json(p) for p in parameters]
+    is_hss = any(p.is_hierarchical for p in typed_parameters)
+    search_space_cls = HierarchicalSearchSpace if is_hss else SearchSpace
+
     parameter_map = {p.name: p for p in typed_parameters}
 
     typed_parameter_constraints = [
@@ -505,7 +514,20 @@ def make_search_space(
             "this constraint into the associated range parameter's bounds."
         )
 
-    return SearchSpace(
+    ss = search_space_cls(
+        parameters=typed_parameters,
+        parameter_constraints=typed_parameter_constraints,
+    )
+
+    logger.info(f"Created search space: {ss}.")
+    if is_hss:
+        hss = checked_cast(HierarchicalSearchSpace, ss)
+        logger.info(
+            "Hieararchical structure of the search space: \n"
+            f"{hss.hierarchical_structure_str(parameter_names_only=True)}"
+        )
+
+    return search_space_cls(
         parameters=typed_parameters,
         parameter_constraints=typed_parameter_constraints,
     )

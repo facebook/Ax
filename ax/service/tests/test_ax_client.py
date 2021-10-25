@@ -1645,3 +1645,42 @@ class TestAxClient(TestCase):
         )
         mock_predicted_pareto.assert_not_called()
         self.assertGreater(len(observed_pareto), 0)
+
+    def test_with_hss(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {
+                    "name": "model",
+                    "type": "choice",
+                    "values": ["Linear", "XGBoost"],
+                    "dependents": {
+                        "Linear": ["learning_rate", "l2_reg_weight"],
+                        "XGBoost": ["num_boost_rounds"],
+                    },
+                },
+                {
+                    "name": "learning_rate",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                },
+                {
+                    "name": "l2_reg_weight",
+                    "type": "range",
+                    "bounds": [0.00001, 0.001],
+                },
+                {
+                    "name": "num_boost_rounds",
+                    "type": "range",
+                    "bounds": [0, 15],
+                },
+            ],
+            objectives={"objective": ObjectiveProperties(minimize=True)},
+            choose_generation_strategy_kwargs={"no_bayesian_optimization": True},
+        )
+        self.assertTrue(ax_client.experiment.search_space.root.is_hierarchical)
+
+        for _ in range(10):
+            params, trial_index = ax_client.get_next_trial()
+            ax_client.complete_trial(trial_index=trial_index, raw_data=trial_index)
+        self.assertEqual(len(ax_client.experiment.trials), 10)
