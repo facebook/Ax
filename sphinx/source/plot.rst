@@ -111,6 +111,14 @@ Trace Plots
     :undoc-members:
     :show-inheritance:
 
+Parallel Coordinates
+~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.plot.parallel_coordinates
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Plotting Utilities
 -------------------
