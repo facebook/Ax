@@ -16,6 +16,7 @@ from ax.core.types import ComparisonOp
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.cross_validation import AssessModelFitResult
+from ax.modelbridge.registry import Models
 from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
     get_best_parameters,
@@ -28,143 +29,75 @@ from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_metric
 
 class TestBestPointUtils(TestCase):
     """Testing the best point utilities functionality that is not tested in
-    main `AxClient` testing suite (`TestSErviceAPI`)."""
+    main `AxClient` testing suite (`TestServiceAPI`)."""
 
-    def test_best_from_model_predictions(self):
-        ax_client = AxClient()
+    def test_best_from_model_prediction(self):
+        exp = get_branin_experiment()
 
-        ax_client.create_experiment(
-            name="hartmann_test_experiment",
-            parameters=[
-                {
-                    "name": "x1",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                    "value_type": "float",
-                    "log_scale": False,
-                },
-                {
-                    "name": "x2",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                },
-                {
-                    "name": "x3",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                },
-                {
-                    "name": "x4",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                },
-                {
-                    "name": "x5",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                },
-                {
-                    "name": "x6",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                },
-            ],
-            objective_name="hartmann6",
-            parameter_constraints=["x1 + x2 <= 2.0"],
-        )
+        for _ in range(3):
+            sobol = Models.SOBOL(search_space=exp.search_space)
+            generator_run = sobol.gen(n=1)
+            trial = exp.new_trial(generator_run=generator_run)
+            trial.run()
+            trial.mark_completed()
+            exp.attach_data(exp.fetch_data())
 
-        def evaluate(parameters):
-            x = np.array([parameters.get(f"x{i+1}") for i in range(6)])
-            return {
-                "hartmann6": (hartmann6(x), 0.0),
-                "l2norm": (np.sqrt((x ** 2).sum()), 0.0),
-            }
+        gpei = Models.BOTORCH(experiment=exp, data=exp.lookup_data())
+        generator_run = gpei.gen(n=1)
+        trial = exp.new_trial(generator_run=generator_run)
+        trial.run()
+        trial.mark_completed()
 
-        for _ in range(12):  # These will all be SOBOL runs
-            parameters, trial_index = ax_client.get_next_trial()
-            ax_client.complete_trial(
-                trial_index=trial_index, raw_data=evaluate(parameters)
-            )
         with patch.object(
             ArrayModelBridge,
             "model_best_point",
             return_value=(
                 (
                     Arm(
-                        name="6_0",
-                        parameters={
-                            "x1": 0.96247882489115,
-                            "x2": 0.051644640043377876,
-                            "x3": 0.6749767670407891,
-                            "x4": 0.6150536900386214,
-                            "x5": 0.059872522950172424,
-                            "x6": 0.013009095564484596,
-                        },
+                        name="0_0",
+                        parameters={"x1": -4.842811906710267, "x2": 11.887089014053345},
                     ),
                     (
-                        {
-                            "l2norm": 1.329161904140509,
-                            "hartmann6": -0.0021285272846029435,
-                        },
-                        {
-                            "l2norm": {
-                                "l2norm": 8.021127869460997e-08,
-                                "hartmann6": 0.0,
-                            },
-                            "hartmann6": {
-                                "l2norm": 0.0,
-                                "hartmann6": 1.6449112385323933e-07,
-                            },
-                        },
+                        {"branin": 34.76260622783635},
+                        {"branin": {"branin": 0.00028306433439807734}},
                     ),
                 )
             ),
         ) as mock_model_best_point, self.assertLogs(
             logger="ax.service.utils.best_point", level="WARN"
         ) as lg:
-            # Because refitting after final run is only supported for
-            # ArrayModelBridge we do not expect model_best_point to be called here
-            self.assertIsNotNone(ax_client.get_best_parameters())
-            mock_model_best_point.assert_not_called()
-
-            parameters, trial_index = ax_client.get_next_trial()
-            ax_client.complete_trial(
-                trial_index=trial_index, raw_data=evaluate(parameters)
-            )
-
             # Test bad model fit causes function to resort back to raw data
             with patch(
                 "ax.service.utils.best_point.assess_model_fit",
                 return_value=AssessModelFitResult(
                     good_fit_metrics_to_fisher_score={},
                     bad_fit_metrics_to_fisher_score={
-                        "hartmann6": 0,
-                        "l2norm": 0,
+                        "branin": 0,
                     },
                 ),
             ):
-                self.assertIsNotNone(ax_client.get_best_parameters())
+                self.assertIsNotNone(get_best_parameters(exp))
                 self.assertTrue(
                     any("Model fit is poor" in warning for warning in lg.output),
                     msg=lg.output,
                 )
+                mock_model_best_point.assert_not_called()
 
             # Test model best point is used when fit is good
             with patch(
                 "ax.service.utils.best_point.assess_model_fit",
                 return_value=AssessModelFitResult(
                     good_fit_metrics_to_fisher_score={
-                        "hartmann6": 0,
-                        "l2norm": 0,
+                        "branin": 0,
                     },
                     bad_fit_metrics_to_fisher_score={},
                 ),
             ):
-                self.assertIsNotNone(ax_client.get_best_parameters())
+                self.assertIsNotNone(get_best_parameters(exp))
                 mock_model_best_point.assert_called()
 
         # Assert the non-mocked method works correctly as well
-        self.assertIsNotNone(ax_client.get_best_parameters())
+        self.assertIsNotNone(get_best_parameters(exp))
 
     def test_best_raw_objective_point(self):
         exp = get_branin_experiment()
