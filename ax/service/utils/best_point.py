@@ -8,6 +8,7 @@ from functools import reduce
 from typing import Dict, Optional, Tuple
 
 import pandas as pd
+from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -37,6 +38,7 @@ from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.registry import get_model_from_generator_run, Models
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none, checked_cast
+from ax.utils.stats.statstools import relativize_data
 from numpy import NaN
 
 
@@ -75,9 +77,15 @@ def get_best_raw_objective_point_with_trial_index(
         raise ValueError("Cannot identify best point if experiment contains no data.")
     objective = opt_config.objective
     if isinstance(objective, ScalarizedObjective):
-        best_row = _get_best_row_for_scalarized_objective(dat.df, objective)
+        best_row = _get_best_row_for_scalarized_objective(
+            df=dat.df, objective=objective
+        )
     else:
-        best_row = _get_best_feasible_row_for_single_objective(dat.df, opt_config)
+        best_row = _get_best_feasible_row_for_single_objective(
+            df=dat.df,
+            optimization_config=opt_config,
+            status_quo=experiment.status_quo,
+        )
     # pyre-fixme[6]: Expected `str` for 1st param but got `Series`.
     best_arm = experiment.arms_by_name[best_row["arm_name"]]
     best_trial_index = best_row["trial_index"]
@@ -443,6 +451,7 @@ def _get_best_row_for_single_objective(
 def _filter_feasible_rows(
     df: pd.DataFrame,
     optimization_config: OptimizationConfig,
+    status_quo: Optional[Arm],
 ) -> pd.DataFrame:
     """Filter out arms that do not satisfy outcome constraints
 
@@ -463,31 +472,68 @@ def _filter_feasible_rows(
     lower_bound = df["mean"] - sems * 1.96
     upper_bound = df["mean"] + sems * 1.96
 
-    def oc_mask(oc: OutcomeConstraint) -> pd.Series:
-        # Relative constraints not currently supported yet, disregard them
-        # TODO(T103492399)
-        if oc.relative:
-            logger.warn(
-                "Filtering out infeasible arms based on relative outcome "
-                + "constraints is not yet supported. Please inspect arms to "
-                + "verify they meet feasibility requirements."
-            )
-            return pd.Series(True, index=df.index)
+    # Only compute relativization if some constraints are relative
+    rel_df = None
+    rel_lower_bound = None
+    rel_upper_bound = None
+    if status_quo is not None and any(
+        oc.relative for oc in optimization_config.outcome_constraints
+    ):
+        # relativize_data expects all arms to come from the same trial, we need to
+        # format the data as if it was.
+        to_relativize = df.copy()
+        to_relativize["trial_index"] = 0
 
+        rel_df = relativize_data(
+            data=Data(to_relativize), status_quo_name=status_quo.name
+        ).df.append(
+            {
+                "arm_name": "status_quo",
+                "metric_name": status_quo.name,
+                "mean": 0,
+                "sem": 0,
+            },
+            ignore_index=True,
+        )
+        rel_sems = not_none(rel_df["sem"].fillna(0))
+        rel_lower_bound = rel_df["mean"] - rel_sems * 1.96
+        rel_upper_bound = rel_df["mean"] + rel_sems * 1.96
+
+    # Nested function from OC -> Mask for consumption in later map/reduce from
+    # [OC] -> Mask. Constraint relativity is handled inside so long as relative bounds
+    # are set in surrounding closure (which will occur in proper experiment setup).
+    def oc_mask(oc: OutcomeConstraint) -> pd.Series:
         name_match_mask = name == oc.metric.name
+
+        if oc.relative:
+            if rel_lower_bound is None or rel_upper_bound is None:
+                logger.warn(
+                    f"No status quo provided; relative constraint {oc} ignored."
+                )
+                return pd.Series(True, index=df.index)
+
+            observed_lower_bound = rel_lower_bound
+            observed_upper_bound = rel_upper_bound
+        else:
+            observed_lower_bound = lower_bound
+            observed_upper_bound = upper_bound
 
         # Return True if metrics are different, or whether the confidence
         # interval is entirely not within the bound
         if oc.op == ComparisonOp.GEQ:
-            return ~name_match_mask | upper_bound > oc.bound
+            return ~name_match_mask | observed_upper_bound > oc.bound
         else:
-            return ~name_match_mask | lower_bound < oc.bound
+            return ~name_match_mask | observed_lower_bound < oc.bound
 
     mask = reduce(
         lambda left, right: left & right,
         map(oc_mask, optimization_config.outcome_constraints),
     )
-    bad_arm_names = df[~mask]["arm_name"].tolist()
+    bad_arm_names = (
+        df[~mask]["arm_name"].tolist()
+        if rel_df is None
+        else rel_df[~mask]["arm_name"].tolist()
+    )
     feasible = df.loc[df["arm_name"].apply(lambda x: x not in bad_arm_names)]
 
     if feasible.empty:
@@ -502,9 +548,12 @@ def _filter_feasible_rows(
 def _get_best_feasible_row_for_single_objective(
     df: pd.DataFrame,
     optimization_config: OptimizationConfig,
+    status_quo: Optional[Arm],
 ) -> pd.DataFrame:
     return _get_best_row_for_single_objective(
-        df=_filter_feasible_rows(df=df, optimization_config=optimization_config),
+        df=_filter_feasible_rows(
+            df=df, optimization_config=optimization_config, status_quo=status_quo
+        ),
         objective=optimization_config.objective,
     )
 

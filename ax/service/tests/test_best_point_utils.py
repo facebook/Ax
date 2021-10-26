@@ -6,24 +6,20 @@
 
 from unittest.mock import patch
 
-import numpy as np
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
-from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Models
-from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
     get_best_parameters,
     get_best_raw_objective_point,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.measurement.synthetic_functions import hartmann6
 from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_metric
 
 
@@ -113,90 +109,56 @@ class TestBestPointUtils(TestCase):
             get_best_raw_objective_point(exp, opt_conf)
 
     def test_best_raw_objective_point_unsatisfiable(self):
-        ax_client = AxClient()
+        exp = get_branin_experiment()
+        trial = exp.new_trial(
+            generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
+        ).run()
+        trial.mark_completed()
 
-        ax_client.create_experiment(
-            name="hartmann_test_experiment",
-            parameters=[
-                {
-                    "name": "x1",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                    "value_type": "float",
-                    "log_scale": False,
-                },
-                {
-                    "name": "x2",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                },
-                {
-                    "name": "x3",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                },
-                {
-                    "name": "x4",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                },
-                {
-                    "name": "x5",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                },
-                {
-                    "name": "x6",
-                    "type": "range",
-                    "bounds": [0.0, 1.0],
-                },
-            ],
-            objective_name="hartmann6",
-            parameter_constraints=["x1 + x2 <= 2.0"],
-            outcome_constraints=["l2norm <= -99999"],  # unsatisfiable
+        opt_conf = exp.optimization_config.clone()
+        opt_conf.outcome_constraints.append(
+            OutcomeConstraint(
+                metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0, relative=False
+            )
         )
 
-        ax_client.experiment.optimization_config.outcome_constraints.append(
+        with self.assertRaisesRegex(ValueError, "No points satisfied"):
+            get_best_raw_objective_point(exp, opt_conf)
+
+    def test_best_raw_objective_point_unsatisfiable_relative(self):
+        exp = get_branin_experiment()
+
+        # Optimization config with unsatisfiable constraint
+        opt_conf = exp.optimization_config.clone()
+        opt_conf.outcome_constraints.append(
             OutcomeConstraint(
-                metric=Hartmann6Metric(
-                    name="relative",
-                    param_names=ax_client.experiment.parameters.keys(),
-                    lower_is_better=False,
-                ),
-                op=ComparisonOp.LEQ,
-                bound=0,
+                metric=get_branin_metric(),
+                op=ComparisonOp.GEQ,
+                bound=9999,
                 relative=True,
             )
         )
 
-        def evaluate(parameters):
-            x = np.array([parameters.get(f"x{i+1}") for i in range(6)])
-            return {
-                "hartmann6": (hartmann6(x), 0.0),
-                "l2norm": (np.sqrt((x ** 2).sum()), 0.0),
-            }
+        trial = exp.new_trial(
+            generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
+        ).run()
+        trial.mark_completed()
 
-        for _ in range(10):
-            parameters, trial_index = ax_client.get_next_trial()
-
-            ax_client.complete_trial(
-                trial_index=trial_index, raw_data=evaluate(parameters)
-            )
-
-        with self.assertLogs(
-            logger="ax.service.utils.best_point",
-            level="WARN",
-        ) as lg:
-            self.assertIsNone(ax_client.get_best_parameters())
+        with self.assertLogs(logger="ax.service.utils.best_point", level="WARN") as lg:
+            get_best_raw_objective_point(exp, opt_conf)
             self.assertTrue(
-                any(
-                    "Filtering out infeasible arms based on relative outcome "
-                    + "constraints is not yet supported."
-                    in warning
-                    for warning in lg.output
-                ),
+                any("No status quo provided" in warning for warning in lg.output),
                 msg=lg.output,
             )
+
+        exp.status_quo = Arm(parameters={"x1": 0, "x2": 0}, name="status_quo")
+        sq_trial = exp.new_trial(
+            generator_run=GeneratorRun(arms=[exp.status_quo])
+        ).run()
+        sq_trial.mark_completed()
+
+        with self.assertRaisesRegex(ValueError, "No points satisfied"):
+            get_best_raw_objective_point(exp, opt_conf)
 
     def test_best_raw_objective_point_scalarized(self):
         exp = get_branin_experiment()
