@@ -6,14 +6,16 @@
 
 from collections import defaultdict
 from logging import Logger
-from typing import Any, Dict, List, Optional
+from typing import Union, Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from ax.core.abstract_data import AbstractDataFrameData
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
@@ -46,11 +48,13 @@ def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
 
 def _get_objective_trace_plot(
     experiment: Experiment,
+    data: Union[Data, MapData],
     model_transitions: List[int],
 ) -> Optional[go.Figure]:
     if experiment.is_moo_problem:
         return _get_hypervolume_trace()
-    best_objectives = np.array([experiment.fetch_data().df["mean"]])
+    metric_name = not_none(experiment.optimization_config).objective.metric.name
+    best_objectives = np.array([data.df[data.df["metric_name"] == metric_name]["mean"]])
     return optimization_trace_single_method_plotly(
         y=best_objectives,
         title="Best objective found vs. # of iterations",
@@ -185,6 +189,7 @@ def _get_shortest_unique_suffix_dict(
 def get_standard_plots(
     experiment: Experiment,
     model: Optional[ModelBridge],
+    data: Optional[Union[Data, MapData]] = None,
     model_transitions: Optional[List[int]] = None,
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
@@ -212,7 +217,6 @@ def get_standard_plots(
               range parameters
 
     """
-
     objective = not_none(experiment.optimization_config).objective
     if isinstance(objective, ScalarizedObjective):
         logger.warning(
@@ -221,7 +225,12 @@ def get_standard_plots(
         )
         return []
 
-    if experiment.fetch_data().df.empty:
+    if data is None:
+        data = experiment.lookup_data()
+        if isinstance(data, MapData):
+            data = data.deduplicate_data()
+
+    if data.df.empty:
         logger.info(f"Experiment {experiment} does not yet have data, nothing to plot.")
         return []
 
@@ -229,7 +238,12 @@ def get_standard_plots(
     output_plot_list.append(
         _get_objective_trace_plot(
             experiment=experiment,
-            model_transitions=model_transitions or [],
+            data=checked_cast(Data, data)
+            if isinstance(data, Data)
+            else checked_cast(MapData, data),
+            model_transitions=model_transitions
+            if model_transitions is not None
+            else [],
         )
     )
 
