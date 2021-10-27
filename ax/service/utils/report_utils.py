@@ -24,6 +24,7 @@ from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
+from ax.plot.feature_importances import plot_feature_importance_by_feature_plotly
 from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.common.logger import get_logger
@@ -31,6 +32,12 @@ from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger: Logger = get_logger(__name__)
+
+feature_importance_caption = (
+    "<b>NOTE:</b> This plot is intended for advanced users. Specifically, it is "
+    "a measure of sensitivity/<br>smoothness, so parameters with relatively low "
+    "importance may still be important to tune."
+)
 
 
 def _get_hypervolume_trace() -> None:
@@ -42,8 +49,8 @@ def _get_hypervolume_trace() -> None:
 
 # pyre-ignore[11]: Annotation `go.Figure` is not defined as a type.
 def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
-    cv = cross_validate(model)
-    return [interact_cross_validation_plotly(cv)]
+    cv = cross_validate(model=model)
+    return [interact_cross_validation_plotly(cv_results=cv)]
 
 
 def _get_objective_trace_plot(
@@ -251,7 +258,15 @@ def get_standard_plots(
                     model=model,
                 )
             )
-            output_plot_list.extend(_get_cross_validation_plots(model))
+            output_plot_list.extend(_get_cross_validation_plots(model=model))
+            feature_importance_plot = plot_feature_importance_by_feature_plotly(
+                model=model, relative=False, caption=feature_importance_caption
+            )
+            feature_importance_plot.layout.title = "[ADVANCED] " + str(
+                # pyre-fixme[16]: go.Figure has no attribute `layout`
+                feature_importance_plot.layout.title.text
+            )
+            output_plot_list.append(feature_importance_plot)
         except NotImplementedError:
             # Model does not implement `predict` method.
             pass
