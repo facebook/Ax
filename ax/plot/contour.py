@@ -362,6 +362,12 @@ def interact_contour_plotly(
     Returns:
         go.Figure: interactive plot of objective vs. parameters
     """
+
+    # NOTE: This implements a hack to allow Plotly to specify two parameters
+    # simultaneously. It is not possible within Plotly to specify a third,
+    # so `metric_name` must be specified and cannot be selected via dropdown
+    # by the user.
+
     if trial_index is not None:
         if slice_values is None:
             slice_values = {}
@@ -381,6 +387,10 @@ def interact_contour_plotly(
         is_log_dict[parameter.name] = parameter.log_scale
         grid_dict[parameter.name] = get_grid_for_parameter(parameter, density)
 
+    # Populate `f_dict` (the predicted expectation value of `metric_name`) and
+    # `sd_dict` (the predicted SEM), each of which represents a 2D array of plots
+    # where each parameter can be assigned to each of the x or y axes.
+
     # pyre-fixme[9]: f_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
     #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
     f_dict: Dict[str, Dict[str, np.ndarray]] = {
@@ -391,6 +401,7 @@ def interact_contour_plotly(
     sd_dict: Dict[str, Dict[str, np.ndarray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }
+
     for param1 in param_names:
         for param2 in param_names:
             _, f_plt, sd_plt, _, _, _ = _get_contour_predictions(
@@ -405,6 +416,8 @@ def interact_contour_plotly(
             )
             f_dict[param1][param2] = f_plt
             sd_dict[param1][param2] = sd_plt
+
+    # Set plotting defaults for all subplots
 
     config = {
         "arm_data": plot_data,
@@ -494,6 +507,8 @@ def interact_contour_plotly(
     #  str]]`.
     sd_contour_trace_base.update(CONTOUR_CONFIG)
 
+    # Format and add hovertext to contour plots.
+
     insample_param_values = {}
     for param_name in param_names:
         insample_param_values[param_name] = []
@@ -502,7 +517,6 @@ def interact_contour_plotly(
                 arm_data["in_sample"][arm_name]["parameters"][param_name]
             )
 
-    # format and add hovertext to contour plots
     insample_arm_text = []
     for arm_name in arm_data["in_sample"].keys():
         atext = f"Arm {arm_name}"
@@ -537,6 +551,9 @@ def interact_contour_plotly(
             "<em>Candidate " + arm_name + "</em>"
             for arm_name in arm_data["out_of_sample"][generator_run_name].keys()
         ]
+
+    # Populate `xbuttons`, which allows the user to select 1D slices of `f_dict` and
+    # `sd_dict`, corresponding to all plots that have a certain parameter on the x-axis.
 
     # Number of traces for each pair of parameters
     trace_cnt = 4 + (len(arm_data["out_of_sample"]) * 2)
@@ -573,7 +590,7 @@ def interact_contour_plotly(
                 insample_param_values[yvar],
                 insample_param_values[yvar],
             ]
-            xbutton_data_args["z"] = xbutton_data_args["z"] + [f_plt, sd_plt, [], []]
+            xbutton_data_args["z"] += [f_plt, sd_plt, [], []]
 
             for generator_run_name in out_of_sample_param_values[xvar]:
                 generator_run_x_vals = out_of_sample_param_values[xvar][
@@ -599,6 +616,10 @@ def interact_contour_plotly(
             },
         ]
         xbuttons.append({"args": xbutton_args, "label": xvar, "method": "update"})
+
+    # Populate `ybuttons`, which uses the `visible` arg to mask the 1D slice of plots
+    # produced by `xbuttons`, down to a single plot, so that only one element `f_dict`
+    # and `sd_dict` remain.
 
     # No y button for first param so initial value is sane
     for y_idx in range(1, len(param_names)):

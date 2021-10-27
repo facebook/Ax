@@ -31,13 +31,9 @@ class SlicesTest(TestCase):
             model, model.parameters[0], list(model.metric_names)[0]
         )
         self.assertIsInstance(plot, go.Figure)
-        plot = interact_slice_plotly(
-            model, model.parameters[0], list(model.metric_names)[0]
-        )
+        plot = interact_slice_plotly(model)
         self.assertIsInstance(plot, go.Figure)
-        plot = plot = plot_slice(
-            model, model.parameters[0], list(model.metric_names)[0]
-        )
+        plot = plot_slice(model, model.parameters[0], list(model.metric_names)[0])
         self.assertIsInstance(plot, AxPlotConfig)
-        plot = interact_slice(model, model.parameters[0], list(model.metric_names)[0])
+        plot = interact_slice(model)
         self.assertIsInstance(plot, AxPlotConfig)
