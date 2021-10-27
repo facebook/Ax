@@ -93,9 +93,17 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
 
 
 def plot_feature_importance_by_feature_plotly(
-    model: ModelBridge, relative: bool = True
+    model: ModelBridge, relative: bool = True, caption: str = ""
 ) -> go.Figure:
-    """One plot per metric, showing importances by feature."""
+    """One plot per metric, showing importances by feature.
+
+    Args:
+        model: A model with a ``feature_importances`` method.
+        relative: whether to normalize feature importances so that they add to 1.
+        caption: an HTML-formatted string to place at the bottom of the plot.
+
+    Returns a go.Figure of feature importances.
+    """
     traces = []
     dropdown = []
     for i, metric_name in enumerate(sorted(model.metric_names)):
@@ -161,6 +169,21 @@ def plot_feature_importance_by_feature_plotly(
         showlegend=False,
         title=title,
         updatemenus=updatemenus,
+        annotations=[
+            {
+                "showarrow": False,
+                "text": caption,
+                "x": 0,
+                "xanchor": "left",
+                "xref": "paper",
+                "y": -0.15,
+                "yanchor": "top",
+                "yref": "paper",
+                "align": "left",
+            },
+        ]
+        if caption != ""
+        else [],
     )
 
     if relative:
@@ -170,12 +193,12 @@ def plot_feature_importance_by_feature_plotly(
 
 
 def plot_feature_importance_by_feature(
-    model: ModelBridge, relative: bool = True
+    model: ModelBridge, relative: bool = True, caption: str = ""
 ) -> AxPlotConfig:
     """Wrapper method to convert plot_feature_importance_by_feature_plotly to
     AxPlotConfig"""
     return AxPlotConfig(
-        data=plot_feature_importance_by_feature_plotly(model, relative),
+        data=plot_feature_importance_by_feature_plotly(model, relative, caption),
         plot_type=AxPlotTypes.GENERIC,
     )
 

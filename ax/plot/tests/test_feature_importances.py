@@ -19,6 +19,8 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from plotly import graph_objects as go
 
+DUMMY_CAPTION = "test_caption"
+
 
 def get_modelbridge() -> ModelBridge:
     exp = get_branin_experiment(with_batch=True)
@@ -34,15 +36,21 @@ class FeatureImportancesTest(TestCase):
     def testFeatureImportances(self):
         model = get_modelbridge()
         # Assert that each type of plot can be constructed successfully
-        plot = plot_feature_importance_by_feature_plotly(model)
+        plot = plot_feature_importance_by_feature_plotly(model=model)
         self.assertIsInstance(plot, go.Figure)
-        plot = plot_feature_importance_by_feature(model)
+        plot = plot_feature_importance_by_feature_plotly(
+            model=model, caption=DUMMY_CAPTION
+        )
+        self.assertIsInstance(plot, go.Figure)
+        self.assertEqual(len(plot.layout.annotations), 1)
+        self.assertEqual(plot.layout.annotations[0].text, DUMMY_CAPTION)
+        plot = plot_feature_importance_by_feature(model=model)
         self.assertIsInstance(plot, AxPlotConfig)
-        plot = plot_feature_importance_by_metric_plotly(model)
+        plot = plot_feature_importance_by_metric_plotly(model=model)
         self.assertIsInstance(plot, go.Figure)
-        plot = plot_feature_importance_by_metric(model)
+        plot = plot_feature_importance_by_metric(model=model)
         self.assertIsInstance(plot, AxPlotConfig)
-        plot = plot_relative_feature_importance_plotly(model)
+        plot = plot_relative_feature_importance_plotly(model=model)
         self.assertIsInstance(plot, go.Figure)
-        plot = plot_relative_feature_importance(model)
+        plot = plot_relative_feature_importance(model=model)
         self.assertIsInstance(plot, AxPlotConfig)
