@@ -62,7 +62,7 @@ def get_best_raw_objective_point_with_trial_index(
     """
     # pyre-ignore [16]
     if isinstance(experiment.optimization_config.objective, MultiObjective):
-        logger.warn(
+        logger.warning(
             "get_best_raw_objective_point is deprecated for multi-objective "
             "optimization. This method will return an arbitrary point on the "
             "pareto frontier."
@@ -154,7 +154,7 @@ def get_best_from_model_predictions_with_trial_index(
     """
     # pyre-ignore [16]
     if isinstance(experiment.optimization_config.objective, MultiObjective):
-        logger.warn(
+        logger.warning(
             "get_best_from_model_predictions is deprecated for multi-objective "
             "optimization configs. This method will return an arbitrary point on "
             "the pareto frontier."
@@ -189,18 +189,17 @@ def get_best_from_model_predictions_with_trial_index(
             diagnostics = compute_diagnostics(result=cv_results)
             assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
             objective_name = experiment.optimization_config.objective.metric.name
-
             # If model fit is bad use raw results
             if (
                 objective_name
                 in assess_model_fit_results.bad_fit_metrics_to_fisher_score
             ):
-                logger.warn(
+                logger.warning(
                     "Model fit is poor; falling back on raw data for best point."
                 )
 
                 if not _is_all_noiseless(df=data.df, metric_name=objective_name):
-                    logger.warn(
+                    logger.warning(
                         "Model fit is poor and data on objective metric "
                         + f"{objective_name} is noisy; interpret best points "
                         + "results carefully."
@@ -258,7 +257,7 @@ def get_best_parameters_with_trial_index(
     """
     # pyre-ignore [16]
     if isinstance(experiment.optimization_config.objective, MultiObjective):
-        logger.warn(
+        logger.warning(
             "get_best_parameters is deprecated for multi-objective optimization. "
             "This method will return an arbitrary point on the pareto frontier."
         )
@@ -507,7 +506,7 @@ def _filter_feasible_rows(
 
         if oc.relative:
             if rel_lower_bound is None or rel_upper_bound is None:
-                logger.warn(
+                logger.warning(
                     f"No status quo provided; relative constraint {oc} ignored."
                 )
                 return pd.Series(True, index=df.index)

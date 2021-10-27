@@ -19,12 +19,12 @@ from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
-from ax.core.trial import BaseTrial, Trial
+from ax.core.trial import BaseTrial
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
-from ax.plot.slice import plot_slice_plotly
+from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -85,40 +85,32 @@ def _get_objective_v_param_plots(
         if experiment.is_moo_problem
         else [not_none(experiment.optimization_config).objective.metric.name]
     )
-    trials = experiment.trials
 
     range_params = list(search_space.range_parameters.keys())
-    if len(range_params) == 1:
-        # individual parameter slice plot
-        output_slice_plots = [
-            plot_slice_plotly(
-                model=not_none(model),
-                param_name=range_params[0],
-                metric_name=metric_name,
-                generator_runs_dict={
-                    str(t.index): not_none(checked_cast(Trial, t).generator_run)
-                    for t in trials.values()
-                },
-            )
-            for metric_name in metric_names
-        ]
-        return output_slice_plots
+    if len(range_params) < 1:
+        # if search space contains no range params
+        logger.warning(
+            "`_get_objective_v_param_plot` requires a search space with at least one "
+            "`RangeParameter`. Returning an empty list."
+        )
+        return []
+    # parameter slice plot
+    output_plots = [
+        interact_slice_plotly(
+            model=not_none(model),
+        )
+        for metric_name in metric_names
+    ]
     if len(range_params) > 1:
-        # contour plot
-        output_contour_plots = [
+        # contour plots
+        output_plots += [
             interact_contour_plotly(
                 model=not_none(model),
                 metric_name=metric_name,
             )
             for metric_name in metric_names
         ]
-        return output_contour_plots
-    # if search space contains no range params
-    logger.warning(
-        "`_get_objective_v_param_plot` requires a search space with at least one "
-        "`RangeParameter`. Returning an empty list."
-    )
-    return []
+    return output_plots
 
 
 def _get_suffix(input_str: str, delim: str = ".", n_chunks: int = 1) -> str:
