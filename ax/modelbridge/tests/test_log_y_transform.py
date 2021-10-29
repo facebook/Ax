@@ -4,14 +4,18 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import math
 from copy import deepcopy
 
 import numpy as np
 from ax.core.metric import Metric
-from ax.core.objective import Objective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationData
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.modelbridge.transforms.log_y import (
     LogY,
@@ -41,6 +45,13 @@ class LogYTransformTest(TestCase):
                 ]
             ),
         )
+
+    def get_constraint(self, metric, bound, relative):
+        return [
+            OutcomeConstraint(
+                metric=metric, op=ComparisonOp.GEQ, bound=bound, relative=relative
+            )
+        ]
 
     def testInit(self):
         shared_init_args = {
@@ -109,37 +120,104 @@ class LogYTransformTest(TestCase):
     def testTransformOptimizationConfig(self):
         # basic test
         m1 = Metric(name="m1")
-        objective = Objective(metric=m1, minimize=False)
-        oc = OptimizationConfig(objective=objective, outcome_constraints=[])
+        objective_m1 = Objective(metric=m1, minimize=False)
+        oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
         tf = LogY(
             search_space=None,
             observation_features=None,
             observation_data=[self.obsd1, self.obsd2],
             config={"metrics": ["m1"]},
         )
-        oc_tf = tf.transform_optimization_config(oc, None, None)
-        self.assertTrue(oc_tf == oc)
-        # test error if transformed metric appears in outcome constraints
+        oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
+        self.assertEqual(oc_tf, oc)
+        # output constraint on a different metric should work
         m2 = Metric(name="m2")
-        cons = [
-            OutcomeConstraint(metric=m2, op=ComparisonOp.GEQ, bound=0.0, relative=False)
+        oc = OptimizationConfig(
+            objective=objective_m1,
+            outcome_constraints=self.get_constraint(
+                metric=m2, bound=-1, relative=False
+            ),
+        )
+        oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
+        self.assertEqual(oc_tf, oc)
+        # output constraint with a negative bound should fail
+        objective_m2 = Objective(metric=m2, minimize=False)
+        oc = OptimizationConfig(
+            objective=objective_m2,
+            outcome_constraints=self.get_constraint(
+                metric=m1, bound=-1.234, relative=False
+            ),
+        )
+        with self.assertRaises(ValueError) as cm:
+            tf.transform_optimization_config(oc, None, None)
+        self.assertEqual(
+            "LogY transform cannot be applied to metric m1 since the "
+            "bound isn't positive, got: -1.234.",
+            str(cm.exception),
+        )
+        # output constraint with a zero bound should also fail
+        oc = OptimizationConfig(
+            objective=objective_m2,
+            outcome_constraints=self.get_constraint(metric=m1, bound=0, relative=False),
+        )
+        with self.assertRaises(ValueError) as cm:
+            tf.transform_optimization_config(oc, None, None)
+        self.assertEqual(
+            "LogY transform cannot be applied to metric m1 since the "
+            "bound isn't positive, got: 0.",
+            str(cm.exception),
+        )
+        # output constraint with a positive bound should work
+        oc = OptimizationConfig(
+            objective=objective_m2,
+            outcome_constraints=self.get_constraint(
+                metric=m1, bound=2.345, relative=False
+            ),
+        )
+        oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
+        oc.outcome_constraints[0].bound = math.log(2.345)
+        self.assertEqual(oc_tf, oc)
+        # output constraint with a relative bound should fail
+        oc = OptimizationConfig(
+            objective=objective_m2,
+            outcome_constraints=self.get_constraint(
+                metric=m1, bound=2.345, relative=True
+            ),
+        )
+        with self.assertRaises(ValueError) as cm:
+            tf.transform_optimization_config(oc, None, None)
+        self.assertEqual(
+            "LogY transform cannot be applied to metric m1 since it is "
+            "subject to a relative constraint.",
+            str(cm.exception),
+        )
+
+    def testTransformOptimizationConfigMOO(self):
+        m1 = Metric(name="m1", lower_is_better=False)
+        m2 = Metric(name="m2", lower_is_better=True)
+        mo = MultiObjective(
+            objectives=[
+                Objective(metric=m1, minimize=False),
+                Objective(metric=m2, minimize=True),
+            ],
+        )
+        objective_thresholds = [
+            ObjectiveThreshold(metric=m1, bound=1.234, relative=False),
+            ObjectiveThreshold(metric=m2, bound=3.456, relative=False),
         ]
-        oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
-        oc_tf = tf.transform_optimization_config(oc, None, None)
-        self.assertTrue(oc_tf == oc)
-        m2 = Metric(name="m2")
-        cons = [
-            OutcomeConstraint(metric=m2, op=ComparisonOp.GEQ, bound=0.0, relative=False)
-        ]
-        oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
-        tf2 = LogY(
+        oc = MultiObjectiveOptimizationConfig(
+            objective=mo,
+            objective_thresholds=objective_thresholds,
+        )
+        tf = LogY(
             search_space=None,
             observation_features=None,
             observation_data=[self.obsd1, self.obsd2],
-            config={"metrics": ["m2"]},
+            config={"metrics": ["m1"]},
         )
-        with self.assertRaises(ValueError):
-            tf2.transform_optimization_config(oc, None, None)
+        oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
+        oc.objective_thresholds[0].bound = math.log(1.234)
+        self.assertEqual(oc_tf, oc)
 
 
 class LogNormTest(TestCase):

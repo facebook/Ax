@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
 
 import numpy as np
@@ -70,15 +72,22 @@ class LogY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["base_modelbridge.ModelBridge"],
+        modelbridge: Optional[base_modelbridge.ModelBridge],
         fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
             if c.metric.name in self.metric_names:
-                raise ValueError(
-                    f"LogY transform cannot be applied to metric {c.metric.name} "
-                    " since it is subject to an outcome constraint"
-                )
+                base_str = f"LogY transform cannot be applied to metric {c.metric.name}"
+                if c.relative:
+                    raise ValueError(
+                        f"{base_str} since it is subject to a relative constraint."
+                    )
+                elif c.bound <= 0:
+                    raise ValueError(
+                        f"{base_str} since the bound isn't positive, got: {c.bound}."
+                    )
+                else:
+                    c.bound = np.log(c.bound)
         return optimization_config
 
     def _tf_obs_data(
