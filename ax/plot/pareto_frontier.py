@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, Tuple
+from typing import Union, Dict, List, Optional, Tuple
 
 import numpy as np
 import plotly.graph_objs as go
@@ -44,7 +44,7 @@ def scatter_plot_with_pareto_frontier_plotly(
     metric_x: str,
     metric_y: str,
     reference_point: Tuple[float, float],
-    minimize: bool = True,
+    minimize: Union[bool, Tuple[bool, bool]] = True,
 ) -> go.Figure:
     """Plots a scatter of all points in ``Y`` for ``metric_x`` and ``metric_y``
     with a reference point and Pareto frontier from ``Y_pareto``.
@@ -65,6 +65,8 @@ def scatter_plot_with_pareto_frontier_plotly(
         reference_point: Reference point for ``metric_x`` and ``metric_y``.
         minimize: Whether the two metrics in the plot are being minimized or maximized.
     """
+    if isinstance(minimize, bool):
+        minimize = (minimize, minimize)
     Xs = Y[:, 0]
     Ys = Y[:, 1]
 
@@ -92,14 +94,14 @@ def scatter_plot_with_pareto_frontier_plotly(
         mode="markers",
         marker={"color": rgba(COLORS.STEELBLUE.value), "size": 25, "symbol": "star"},
     )
-    extra_point_x = min(Y_pareto[:, 0]) if minimize else max(Y_pareto[:, 0])
+    extra_point_x = min(Y_pareto[:, 0]) if minimize[0] else max(Y_pareto[:, 0])
     reference_point_line_1 = go.Scatter(
         x=[extra_point_x, reference_point[0]],
         y=[reference_point[1], reference_point[1]],
         mode="lines",
         marker={"color": rgba(COLORS.STEELBLUE.value)},
     )
-    extra_point_y = min(Y_pareto[:, 1]) if minimize else max(Y_pareto[:, 1])
+    extra_point_y = min(Y_pareto[:, 1]) if minimize[1] else max(Y_pareto[:, 1])
     reference_point_line_2 = go.Scatter(
         x=[reference_point[0], reference_point[0]],
         y=[extra_point_y, reference_point[1]],
@@ -124,12 +126,12 @@ def scatter_plot_with_pareto_frontier_plotly(
     Y_no_outliers = _filter_outliers(Y=Y)
     range_x = (
         extend_range(lower=min(Y_no_outliers[:, 0]), upper=reference_point[0])
-        if minimize
+        if minimize[0]
         else extend_range(lower=reference_point[0], upper=max(Y_no_outliers[:, 0]))
     )
     range_y = (
         extend_range(lower=min(Y_no_outliers[:, 1]), upper=reference_point[1])
-        if minimize
+        if minimize[1]
         else extend_range(lower=reference_point[1], upper=max(Y_no_outliers[:, 1]))
     )
     layout = go.Layout(
