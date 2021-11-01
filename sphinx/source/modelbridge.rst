@@ -32,6 +32,12 @@ Factory
     :undoc-members:
     :show-inheritance:
 
+ModelSpec
+~~~~~~~~~
+.. automodule:: ax.modelbridge.model_spec
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Model Bridges
 --------------
