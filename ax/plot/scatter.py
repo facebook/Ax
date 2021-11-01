@@ -1420,7 +1420,7 @@ def tile_fitted(
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
-def interact_fitted(
+def interact_fitted_plotly(
     model: ModelBridge,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
@@ -1430,7 +1430,7 @@ def interact_fitted(
     metrics: Optional[List[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
-) -> AxPlotConfig:
+) -> go.Figure:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
     Choose the outcome to plot using a dropdown.
@@ -1541,8 +1541,51 @@ def interact_fitted(
             },
         )
 
+    return go.Figure(data=traces, layout=layout)
+
+
+def interact_fitted(
+    model: ModelBridge,
+    generator_runs_dict: TNullableGeneratorRunsDict = None,
+    rel: bool = True,
+    show_arm_details_on_hover: bool = True,
+    show_CI: bool = True,
+    arm_noun: str = "arm",
+    metrics: Optional[List[str]] = None,
+    fixed_features: Optional[ObservationFeatures] = None,
+    data_selector: Optional[Callable[[Observation], bool]] = None,
+) -> AxPlotConfig:
+    """Interactive fitted outcome plots for each arm used in fitting the model.
+
+    Choose the outcome to plot using a dropdown.
+
+    Args:
+        model: model to use for predictions.
+        generator_runs_dict: a mapping from
+            generator run name to generator run.
+        rel: if True, use relative effects. Default is True.
+        show_arm_details_on_hover: if True, display
+            parameterizations of arms on hover. Default is True.
+        show_CI: if True, render confidence intervals.
+        arm_noun: noun to use instead of "arm" (e.g. group)
+        metrics: List of metric names to restrict to when plotting.
+        fixed_features: Fixed features to use when making model predictions.
+        data_selector: Function for selecting observations for plotting.
+    """
+
     return AxPlotConfig(
-        data=go.Figure(data=traces, layout=layout), plot_type=AxPlotTypes.GENERIC
+        data=interact_fitted_plotly(
+            model=model,
+            generator_runs_dict=generator_runs_dict,
+            rel=rel,
+            show_arm_details_on_hover=show_arm_details_on_hover,
+            show_CI=show_CI,
+            arm_noun=arm_noun,
+            metrics=metrics,
+            fixed_features=fixed_features,
+            data_selector=data_selector,
+        ),
+        plot_type=AxPlotTypes.GENERIC,
     )
 
 
