@@ -17,6 +17,7 @@ from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.modelbridge.registry import Models
 from ax.plot.pareto_frontier import interact_multiple_pareto_frontier
 from ax.plot.pareto_utils import (
+    _extract_observed_pareto_2d,
     compute_posterior_pareto_frontier,
     get_observed_pareto_frontiers,
 )
@@ -160,3 +161,21 @@ class ParetoUtilsTest(TestCase):
         pfrs2 = copy.deepcopy(pfrs)
         pfr_lists = {"pfrs 1": pfrs, "pfrs 2": pfrs2}
         self.assertIsNotNone(interact_multiple_pareto_frontier(pfr_lists))
+
+    def test_extract_observed_pareto_2d(self):
+        Y = np.array([[1.0, 2.0], [2.1, 1.0], [1.0, 1.0], [2.0, 2.0], [3.0, 0.0]])
+        reference_point = (1.5, 0.5)
+        minimize = False
+        pareto = _extract_observed_pareto_2d(
+            Y=Y, reference_point=reference_point, minimize=minimize
+        )
+
+        # first and last points are beyond reference point, third point is dominated
+        self.assertTrue(np.array_equal(pareto, np.array([[2.1, 1.0], [2.0, 2.0]])))
+
+        # different `minimize` in each direction
+        minimize = (True, False)
+        pareto = _extract_observed_pareto_2d(
+            Y=Y, reference_point=reference_point, minimize=minimize
+        )
+        self.assertTrue(np.array_equal(pareto, np.array([[1.0, 2.0]])))
