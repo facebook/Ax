@@ -9,7 +9,6 @@ from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
-from inspect import signature
 from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, Tuple
 
 import pandas as pd
@@ -32,7 +31,11 @@ from ax.modelbridge.registry import (
     get_model_from_generator_run,
 )
 from ax.utils.common.base import Base, SortableBase
-from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
+from ax.utils.common.kwargs import (
+    consolidate_kwargs,
+    get_function_argument_names,
+    filter_kwargs,
+)
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -48,12 +51,6 @@ MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
     "generate a unique parameterization. This indicates that the search space has "
     "likely been fully explored, or that the sweep has converged."
 )
-
-
-def _filter_kwargs(function: Callable, **kwargs: Any) -> Any:
-    """Filter out kwargs that are not applicable for a given function.
-    Return a copy of given kwargs dict with only the required kwargs."""
-    return {k: v for k, v in kwargs.items() if k in signature(function).parameters}
 
 
 @dataclass
@@ -859,7 +856,7 @@ class GenerationStrategy(Base):
         model = self._curr.model
         assert not isinstance(model, ModelRegistryBase) and callable(model)
         self._model = self._curr.model(
-            **_filter_kwargs(
+            **filter_kwargs(
                 self._curr.model,
                 experiment=self.experiment,
                 data=data,
