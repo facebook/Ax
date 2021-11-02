@@ -250,7 +250,7 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
     ),
     "ST_MTGP_NEHVI": ModelSetup(
         bridge_class=MultiObjectiveTorchModelBridge,
-        model_class=ModularBoTorchModel,
+        model_class=MultiObjectiveBotorchModel,
         transforms=ST_MTGP_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),

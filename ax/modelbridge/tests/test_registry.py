@@ -30,6 +30,7 @@ from ax.models.torch.alebo import ALEBO
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -400,7 +401,7 @@ class ModelRegistryTest(TestCase):
             objective_thresholds=multi_objective_thresholds,
         )
         self.assertIsInstance(mtgp, TorchModelBridge)
-        self.assertIsInstance(mtgp.model, BoTorchModel)
+        self.assertIsInstance(mtgp.model, MultiObjectiveBotorchModel)
 
         # test it can generate
         mtgp_run = mtgp.gen(
