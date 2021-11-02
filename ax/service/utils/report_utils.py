@@ -6,7 +6,7 @@
 
 from collections import defaultdict
 from logging import Logger
-from typing import Union, Any, Dict, List, Optional
+from typing import Tuple, Union, Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,11 @@ from ax.modelbridge.cross_validation import cross_validate
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
 from ax.plot.feature_importances import plot_feature_importance_by_feature_plotly
+from ax.plot.pareto_frontier import (
+    scatter_plot_with_pareto_frontier_plotly,
+    _pareto_frontier_plot_input_processing,
+)
+from ax.plot.pareto_utils import _extract_observed_pareto_2d
 from ax.plot.scatter import interact_fitted_plotly
 from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
@@ -598,3 +603,34 @@ def get_best_trial(
         trials_df[metric_name].min() if minimize else trials_df[metric_name].max()
     )
     return pd.DataFrame(trials_df[trials_df[metric_name] == metric_optimum].head(1))
+
+
+def _pareto_frontier_scatter_2d_plotly(
+    experiment: Experiment,
+    metric_names: Optional[Tuple[str, str]] = None,
+    reference_point: Optional[Tuple[float, float]] = None,
+    minimize: Optional[Union[bool, Tuple[bool, bool]]] = None,
+) -> go.Figure:
+
+    # Determine defaults for unspecified inputs using `optimization_config`
+    metric_names, reference_point, minimize = _pareto_frontier_plot_input_processing(
+        experiment=experiment,
+        metric_names=metric_names,
+        reference_point=reference_point,
+        minimize=minimize,
+    )
+
+    df = exp_to_df(experiment)
+    Y = df[list(metric_names)].to_numpy()
+    Y_pareto = _extract_observed_pareto_2d(
+        Y=Y, reference_point=reference_point, minimize=minimize
+    )
+
+    return scatter_plot_with_pareto_frontier_plotly(
+        Y=Y,
+        Y_pareto=Y_pareto,
+        metric_x=metric_names[0],
+        metric_y=metric_names[1],
+        reference_point=reference_point,
+        minimize=minimize,
+    )

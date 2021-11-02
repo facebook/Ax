@@ -8,14 +8,23 @@ from typing import Union, Dict, List, Optional, Tuple
 
 import numpy as np
 import plotly.graph_objs as go
+from ax.core.experiment import Experiment
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import ObjectiveThreshold
+from ax.exceptions.core import UserInputError
 from ax.plot.base import CI_OPACITY, DECIMALS, AxPlotConfig, AxPlotTypes
 from ax.plot.color import COLORS, rgba, DISCRETE_COLOR_SCALE
 from ax.plot.helper import extend_range, _format_CI, _format_dict
 from ax.plot.pareto_utils import ParetoFrontierResults
+from ax.utils.common.typeutils import checked_cast, not_none
 from scipy.stats import norm
 
 
 DEFAULT_CI_LEVEL: float = 0.9
+VALID_CONSTRAINT_OP_NAMES = {"GEQ", "LEQ"}
 
 
 def _make_label(
@@ -120,19 +129,19 @@ def scatter_plot_with_pareto_frontier_plotly(
         x=Y_pareto_with_extra[:, 0],
         y=Y_pareto_with_extra[:, 1],
         mode="lines",
+        line_shape="hv",
         marker={"color": rgba(COLORS.STEELBLUE.value)},
     )
 
-    Y_no_outliers = _filter_outliers(Y=Y)
     range_x = (
-        extend_range(lower=min(Y_no_outliers[:, 0]), upper=reference_point[0])
+        extend_range(lower=min(Y_pareto[:, 0]), upper=reference_point[0])
         if minimize[0]
-        else extend_range(lower=reference_point[0], upper=max(Y_no_outliers[:, 0]))
+        else extend_range(lower=reference_point[0], upper=max(Y_pareto[:, 0]))
     )
     range_y = (
-        extend_range(lower=min(Y_no_outliers[:, 1]), upper=reference_point[1])
+        extend_range(lower=min(Y_pareto[:, 1]), upper=reference_point[1])
         if minimize[1]
-        else extend_range(lower=reference_point[1], upper=max(Y_no_outliers[:, 1]))
+        else extend_range(lower=reference_point[1], upper=max(Y_pareto[:, 1]))
     )
     layout = go.Layout(
         title="Observed points with Pareto frontier",
@@ -671,3 +680,195 @@ def interact_multiple_pareto_frontier(
 
     fig = go.Figure(data=traces, layout=layout)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+
+
+def _pareto_frontier_plot_input_processing(
+    experiment: Experiment,
+    metric_names: Optional[Tuple[str, str]] = None,
+    reference_point: Optional[Tuple[float, float]] = None,
+    minimize: Optional[Union[bool, Tuple[bool, bool]]] = None,
+) -> Tuple[Tuple[str, str], Tuple[float, float], Tuple[bool, bool]]:
+    """Processes inputs for Pareto frontier + scatterplot.
+
+    Args:
+        experiment: An Ax experiment.
+        metric_names: The names of two metrics to be plotted. Defaults to the metrics
+            in the optimization_config.
+        reference_point: The 2-dimensional reference point to use when plotting the
+            Pareto frontier. Defaults to the value of the objective thresholds of each
+            variable.
+        minimize: Whether each metric is being minimized. Defaults to the direction
+            specified for each variable in the optimization config.
+
+    Returns:
+        metric_names: The names of two metrics to be plotted.
+        reference_point: The 2-dimensional reference point to use when plotting the
+            Pareto frontier.
+        minimize: Whether each metric is being minimized.
+
+    """
+    optimization_config = _validate_experiment_and_get_optimization_config(
+        experiment=experiment,
+        metric_names=metric_names,
+        reference_point=reference_point,
+        minimize=minimize,
+    )
+    metric_names = _validate_and_maybe_get_default_metric_names(
+        metric_names=metric_names, optimization_config=optimization_config
+    )
+    objective_thresholds = _validate_experiment_and_maybe_get_objective_thresholds(
+        optimization_config=optimization_config,
+        metric_names=metric_names,
+        reference_point=reference_point,
+        minimize=minimize,
+    )
+    reference_point = _validate_and_maybe_get_default_reference_point(
+        reference_point=reference_point,
+        objective_thresholds=objective_thresholds,
+        metric_names=metric_names,
+    )
+    minimize = _validate_and_maybe_get_default_minimize(
+        minimize=minimize,
+        objective_thresholds=objective_thresholds,
+        metric_names=metric_names,
+    )
+    return metric_names, reference_point, minimize
+
+
+def _validate_experiment_and_get_optimization_config(
+    experiment: Experiment,
+    metric_names: Optional[Tuple[str, str]] = None,
+    reference_point: Optional[Tuple[float, float]] = None,
+    minimize: Optional[Union[bool, Tuple[bool, bool]]] = None,
+) -> Optional[OptimizationConfig]:
+    optimization_config = None
+    # If any inputs are missing, check that `optimization_config` is specified
+    if metric_names is None or reference_point is None or minimize is None:
+        if experiment.optimization_config is None:
+            raise UserInputError(
+                "Inference of defaults failed. Please either specify all args to this "
+                "function or provide an experiment with an `optimization_config`."
+            )
+        optimization_config = not_none(experiment.optimization_config)
+    return optimization_config
+
+
+def _validate_and_maybe_get_default_metric_names(
+    metric_names: Optional[Tuple[str, str]],
+    optimization_config: Optional[OptimizationConfig],
+) -> Tuple[str, str]:
+    # Default metric_names is all metrics, producing an error if more than 2
+    if metric_names is None:
+        metric_names = tuple(not_none(optimization_config).metrics.keys())
+    if len(metric_names) != 2:
+        raise UserInputError(
+            f"Expected 2 metrics but got {len(metric_names)}: {metric_names}. Please "
+            "specify `metric_names` of length 2 or provide an experiment whose "
+            "`optimization_config` has 2 metrics."
+        )
+    return metric_names
+
+
+def _validate_experiment_and_maybe_get_objective_thresholds(
+    optimization_config: Optional[OptimizationConfig],
+    metric_names: Tuple[str, str],
+    reference_point: Optional[Tuple[float, float]],
+    minimize: Optional[Union[bool, Tuple[bool, bool]]],
+) -> List[ObjectiveThreshold]:
+    objective_thresholds = []
+    # Validate `objective_thresholds` if either `reference_point` or `minimize` are
+    # unspecified
+    # `method_str` is non-empty if either `reference_point` or `minimize` are `None`
+    method_str = " and ".join(
+        {
+            "`reference_point`" if reference_point is None else "",
+            "`minimize`" if minimize is None else "",
+        }
+        - {""}
+    )
+    if method_str:
+        objective_thresholds = checked_cast(
+            MultiObjectiveOptimizationConfig, optimization_config
+        ).objective_thresholds
+        if len(objective_thresholds) != len(metric_names):
+            raise UserInputError(
+                f"For automatic determination of {method_str}, expecting one "
+                "`objective_threshold` for each metric. Got "
+                f"{len(objective_thresholds)}: {objective_thresholds}. Please specify "
+                f"{method_str} or provide an experiment whose `optimization_config` "
+                "contains one `objective_threshold` for each metric."
+            )
+        constraint_metrics = {
+            objective_threshold.metric.name
+            for objective_threshold in objective_thresholds
+        }
+        missing_metrics = set(metric_names) - set(constraint_metrics)
+        if missing_metrics:
+            raise UserInputError(
+                f"For automatic determination of {method_str}, expecting one "
+                "`objective_threshold` for each metric. Missing `objective_thresholds` "
+                f"for {missing_metrics}. Please specify {method_str} or provide an "
+                "experiment whose `optimization_config` contains one "
+                "`objective_threshold` for each metric."
+            )
+
+    return objective_thresholds
+
+
+def _validate_and_maybe_get_default_reference_point(
+    reference_point: Optional[Tuple[float, float]],
+    objective_thresholds: List[ObjectiveThreshold],
+    metric_names: Tuple[str, str],
+) -> Tuple[float, float]:
+    if reference_point is None:
+        reference_point = {
+            objective_threshold.metric.name: objective_threshold.bound
+            for objective_threshold in objective_thresholds
+        }
+        reference_point = tuple(
+            reference_point[metric_name] for metric_name in metric_names
+        )
+    if len(reference_point) != 2:
+        raise UserInputError(
+            f"Expected 2-dimensional `reference_point` but got {len(reference_point)} "
+            f"dimensions: {reference_point}. Please specify `reference_point` of "
+            "length 2 or provide an experiment whose optimization_config has one "
+            "constraint for each of two metrics."
+        )
+    return reference_point
+
+
+def _validate_and_maybe_get_default_minimize(
+    minimize: Optional[Union[bool, Tuple[bool, bool]]],
+    objective_thresholds: List[ObjectiveThreshold],
+    metric_names: Tuple[str, str],
+) -> Tuple[bool, bool]:
+    if minimize is None:
+        # Determine `minimize` from constraints since metrics are not always objectives
+        objective_thresholds = not_none(objective_thresholds)
+        constraint_op_names = {
+            objective_threshold.op.name for objective_threshold in objective_thresholds
+        }
+        invalid_constraint_op_names = constraint_op_names - VALID_CONSTRAINT_OP_NAMES
+        if invalid_constraint_op_names:
+            raise ValueError(
+                f"Operators of all constraints must be in {VALID_CONSTRAINT_OP_NAMES}. "
+                f"Got {invalid_constraint_op_names}.)"
+            )
+        minimize = {
+            objective_threshold.metric.name: objective_threshold.op.name == "LEQ"
+            for objective_threshold in objective_thresholds
+        }
+        minimize = tuple(minimize[metric_name] for metric_name in metric_names)
+    # If only one bool provided, use for both dimensions
+    elif isinstance(minimize, bool):
+        minimize = (minimize, minimize)
+    if len(minimize) != 2:
+        raise UserInputError(
+            f"Expected 2-dimensional `minimize` but got {len(minimize)} dimensions: "
+            f"{minimize}. Please specify `minimize` of length 2 or provide an "
+            "experiment whose optimization_config has one constraint for each of two "
+            "metrics."
+        )
+
+    return minimize
