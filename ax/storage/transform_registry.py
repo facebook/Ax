@@ -15,6 +15,7 @@ from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
+from ax.modelbridge.transforms.logit import Logit
 from ax.modelbridge.transforms.one_hot import OneHot
 from ax.modelbridge.transforms.power_transform_y import PowerTransformY
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
@@ -63,6 +64,7 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     CapParameter: 17,
     PowerTransformY: 18,
     ChoiceEncode: 19,
+    Logit: 20,
 }
 
 

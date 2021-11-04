@@ -232,6 +232,14 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
+`ax.modelbridge.transforms.logit`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.logit
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `ax.modelbridge.transforms.one\_hot`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

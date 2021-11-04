@@ -142,6 +142,7 @@ class RangeParameter(Parameter):
         lower: float,
         upper: float,
         log_scale: bool = False,
+        logit_scale: bool = False,
         digits: Optional[int] = None,
         is_fidelity: bool = False,
         target_value: Optional[TParamValue] = None,
@@ -155,6 +156,8 @@ class RangeParameter(Parameter):
             lower: Lower bound of the parameter range (inclusive).
             upper: Upper bound of the parameter range (inclusive).
             log_scale: Whether to sample in the log space when drawing
+                random values of the parameter.
+            logit_scale: Whether to sample in logit space when drawing
                 random values of the parameter.
             digits: Number of digits to round values to for float type.
             is_fidelity: Whether this parameter is a fidelity parameter.
@@ -172,11 +175,16 @@ class RangeParameter(Parameter):
         self._lower = self.cast(lower)
         self._upper = self.cast(upper)
         self._log_scale = log_scale
+        self._logit_scale = logit_scale
         self._is_fidelity = is_fidelity
         self._target_value = self.cast(target_value)
 
         self._validate_range_param(
-            parameter_type=parameter_type, lower=lower, upper=upper, log_scale=log_scale
+            parameter_type=parameter_type,
+            lower=lower,
+            upper=upper,
+            log_scale=log_scale,
+            logit_scale=logit_scale,
         )
 
     def _validate_range_param(
@@ -184,6 +192,7 @@ class RangeParameter(Parameter):
         lower: TParamValue,
         upper: TParamValue,
         log_scale: bool,
+        logit_scale: bool,
         parameter_type: Optional[ParameterType] = None,
     ) -> None:
         if parameter_type and parameter_type not in (
@@ -198,10 +207,16 @@ class RangeParameter(Parameter):
                 f"Upper bound of {self.name} must be strictly larger than lower."
                 f"Got: ({lower}, {upper})."
             )
+        if log_scale and logit_scale:
+            raise UserInputError("Can't use both log and logit.")
         # pyre-fixme[58]: `<=` is not supported for operand types `Union[None, bool,
         #  float, int, str]` and `int`.
         if log_scale and lower <= 0:
             raise UserInputError("Cannot take log when min <= 0.")
+        # pyre-fixme[58]: `<=` is not supported for operand types `Union[None, bool,
+        #  float, int, str]` and `int`.
+        if logit_scale and (lower <= 0 or upper >= 1):
+            raise UserInputError("Logit requires lower > 0 and upper < 1")
         if not (self.is_valid_type(lower)) or not (self.is_valid_type(upper)):
             raise UserInputError(
                 f"[{lower}, {upper}] is an invalid range for this parameter."
@@ -238,6 +253,11 @@ class RangeParameter(Parameter):
         """Whether the parameter's random values should be sampled from log space."""
         return self._log_scale
 
+    @property
+    def logit_scale(self) -> bool:
+        """Whether the parameter's random values should be sampled from logit space."""
+        return self._logit_scale
+
     def update_range(
         self, lower: Optional[float] = None, upper: Optional[float] = None
     ) -> RangeParameter:
@@ -257,7 +277,10 @@ class RangeParameter(Parameter):
         cast_lower = self.cast(lower)
         cast_upper = self.cast(upper)
         self._validate_range_param(
-            lower=cast_lower, upper=cast_upper, log_scale=self.log_scale
+            lower=cast_lower,
+            upper=cast_upper,
+            log_scale=self.log_scale,
+            logit_scale=self.logit_scale,
         )
         self._lower = cast_lower
         self._upper = cast_upper
@@ -282,6 +305,10 @@ class RangeParameter(Parameter):
 
     def set_log_scale(self, log_scale: bool) -> RangeParameter:
         self._log_scale = log_scale
+        return self
+
+    def set_logit_scale(self, logit_scale: bool) -> RangeParameter:
+        self._logit_scale = logit_scale
         return self
 
     def validate(self, value: TParamValue) -> bool:
@@ -324,6 +351,7 @@ class RangeParameter(Parameter):
             lower=self._lower,
             upper=self._upper,
             log_scale=self._log_scale,
+            logit_scale=self._logit_scale,
             digits=self._digits,
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
@@ -343,6 +371,9 @@ class RangeParameter(Parameter):
 
         if self._log_scale:
             ret_val += f", log_scale={self._log_scale}"
+
+        if self._logit_scale:
+            ret_val += f", logit_scale={self._logit_scale}"
 
         if self._digits:
             ret_val += f", digits={self._digits}"

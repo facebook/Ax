@@ -143,6 +143,7 @@ def range_parameter_to_dict(parameter: RangeParameter) -> Dict[str, Any]:
         "lower": parameter.lower,
         "upper": parameter.upper,
         "log_scale": parameter.log_scale,
+        "logit_scale": parameter.logit_scale,
         "digits": parameter.digits,
         "is_fidelity": parameter.is_fidelity,
         "target_value": parameter.target_value,

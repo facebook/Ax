@@ -29,6 +29,7 @@ from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
+from ax.modelbridge.transforms.logit import Logit
 from ax.modelbridge.transforms.one_hot import OneHot
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
@@ -83,6 +84,7 @@ Cont_X_trans: List[Type[Transform]] = [
     OneHot,
     IntToFloat,
     Log,
+    Logit,
     UnitX,
 ]
 
@@ -93,6 +95,7 @@ Mixed_transforms: List[Type[Transform]] = [
     ChoiceEncode,
     IntToFloat,
     Log,
+    Logit,
     UnitX,
 ]
 
