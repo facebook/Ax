@@ -118,6 +118,12 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 "Not stopping any trials."
             )
             return {}
+        if objective_name not in set(data.df["metric_name"]):
+            logger.info(
+                "PercentileEarlyStoppingStrategy did not receive data "
+                "from the objective metric. Not stopping any trials."
+            )
+            return {}
 
         if not isinstance(data, MapData):
             raise ValueError(

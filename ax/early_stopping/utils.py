@@ -18,6 +18,7 @@ def align_partial_results(
     progr_key: str,  # progression key
     metrics: List[str],
     interpolation: str = "slinear",
+    do_forward_fill: bool = False,
     # TODO: Allow normalizing progr_key (e.g. subtract min time stamp)
 ) -> Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]:
     """Helper function to align partial results with heterogeneous index
@@ -29,7 +30,13 @@ def align_partial_results(
         metrics: The names of the metrics to consider.
         interpolation: The interpolation method used to fill missing values
             (if applicable). See `pandas.DataFrame.interpolate` for
-            available options.
+            available options. Limit area is `inside`.
+        forward_fill: If True, performs a forward fill after interpolation.
+            This is useful for scalarizing learning curves when some data
+            is missing. For instance, suppose we obtain a curve for task_1
+            for progression in [a, b] and task_2 for progression in [c, d]
+            where b < c. Performing the forward fill on task_1 is a possible
+            solution.
 
     Returns:
         A two-tuple containing a dict mapping the provided metric names to the
@@ -40,6 +47,16 @@ def align_partial_results(
         raise ValueError(f"Metrics {missing_metrics} not found in input dataframe")
     # select relevant metrics
     df = df[df["metric_name"].isin(metrics)]
+    # log some information about raw data
+    for m in metrics:
+        df_m = df[df["metric_name"] == m]
+        if len(df_m) > 0:
+            logger.info(
+                f"Metric {m} raw data has observations from "
+                f"{df_m[progr_key].min()} to {df_m[progr_key].max()}."
+            )
+        else:
+            logger.info(f"No data from metric {m} yet.")
     # drop arm names (assumes 1:1 map between trial indices and arm names)
     df = df.drop("arm_name", axis=1)
     # set multi-index over trial, metric, and progression key
@@ -59,14 +76,17 @@ def align_partial_results(
         for metric in df.index.levels[1]:
             # grab trial+metric sub-df and reindex to common index
             df_ridx = df.loc[(tidx, metric)].reindex(index_union)
-            # interpolate / fill missing results (only fills in between points,
-            # does not extrapolate)
+            # interpolate / fill missing results
             # TODO: Allow passing of additional kwargs to `interpolate`
             # TODO: Allow using an arbitrary prediction model for this instead
             try:
                 df_interp = df_ridx.interpolate(
                     method=interpolation, limit_area="inside"
                 )
+                if do_forward_fill:
+                    # do forward fill (with valid observations) to handle instances
+                    # where one task only has data for early progressions
+                    df_interp = df_interp.fillna(method="pad")
             except ValueError as e:
                 df_interp = df_ridx
                 logger.info(
