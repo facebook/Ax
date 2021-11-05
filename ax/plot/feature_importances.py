@@ -114,25 +114,26 @@ def plot_feature_importance_by_feature_plotly(
                 f"Model for {metric_name} does not support feature importances."
             )
             continue
-
+        factor_col = "Factor"
+        importance_col = "Importance"
         df = pd.DataFrame(
             [
-                {"Factor": factor, "Importance": importance}
+                {factor_col: factor, importance_col: importance}
                 for factor, importance in importances.items()
             ]
         )
 
         if relative:
-            df["Importance"] = df["Importance"].div(df["Importance"].sum())
+            df[importance_col] = df[importance_col].div(df[importance_col].sum())
 
-        df = df.sort_values("Importance")
+        df = df.sort_values(importance_col)
         traces.append(
             go.Bar(
-                name="Importance",
+                name=importance_col,
                 orientation="h",
                 visible=i == 0,
-                x=df["Importance"],
-                y=df["Factor"],
+                x=df[importance_col],
+                y=df[factor_col],
             )
         )
 
@@ -160,6 +161,8 @@ def plot_feature_importance_by_feature_plotly(
     title = (
         "Relative Feature Importances" if relative else "Absolute Feature Importances"
     )
+    # Nudge caption left 1% of plot width per x-axis label character
+    caption_xpos = -0.01 * df[factor_col].astype(str).str.len().max()
     layout = go.Layout(
         height=200 + len(features) * 20,
         hovermode="closest",
@@ -173,7 +176,7 @@ def plot_feature_importance_by_feature_plotly(
             {
                 "showarrow": False,
                 "text": caption,
-                "x": 0,
+                "x": caption_xpos,
                 "xanchor": "left",
                 "xref": "paper",
                 "y": -0.15,

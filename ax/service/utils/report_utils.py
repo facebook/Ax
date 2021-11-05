@@ -40,9 +40,9 @@ from ax.utils.common.typeutils import checked_cast, not_none
 logger: Logger = get_logger(__name__)
 
 feature_importance_caption = (
-    "<b>NOTE:</b> This plot is intended for advanced users. Specifically, it is "
-    "a measure of sensitivity/<br>smoothness, so parameters with relatively low "
-    "importance may still be important to tune."
+    "<b>NOTE:</b> This plot is intended for advanced users. Specifically,<br>"
+    "it is a measure of sensitivity/smoothness, so parameters of<br>"
+    "relatively low importance may still be important to tune."
 )
 
 
