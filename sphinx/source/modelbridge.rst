@@ -18,6 +18,13 @@ Generation Strategy
     :undoc-members:
     :show-inheritance:
 
+Generation Node
+~~~~~~~~~~~~~~~
+.. automodule:: ax.modelbridge.generation_node
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Registry
 ~~~~~~~~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.registry
