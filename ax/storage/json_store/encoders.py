@@ -499,4 +499,5 @@ def percentile_early_stopping_strategy_to_dict(
         "percentile_threshold": strategy.percentile_threshold,
         "min_progression": strategy.min_progression,
         "min_curves": strategy.min_curves,
+        "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
     }

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import List, Any, Dict, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -58,7 +58,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         percentile_threshold: float = 50.0,
         min_progression: float = 0.1,
         min_curves: float = 5,
-        trial_indices_to_ignore: Optional[Set[int]] = None,
+        trial_indices_to_ignore: Optional[List[int]] = None,
     ) -> None:
         """Construct a PercentileEarlyStoppingStrategy instance.
 
@@ -197,7 +197,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """
         logger.debug(f"Considering trial {trial_index} for early stopping.")
         if self.trial_indices_to_ignore is not None:
-            if trial_index in self.trial_indices_to_ignore:
+            if trial_index in set(self.trial_indices_to_ignore):
                 logger.info(
                     f"Trial {trial_index} should be ignored and not considered "
                     "for early stopping."
