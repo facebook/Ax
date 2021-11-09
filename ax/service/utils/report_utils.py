@@ -38,11 +38,15 @@ from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger: Logger = get_logger(__name__)
-
-feature_importance_caption = (
+FEATURE_IMPORTANCE_CAPTION = (
     "<b>NOTE:</b> This plot is intended for advanced users. Specifically,<br>"
     "it is a measure of sensitivity/smoothness, so parameters of<br>"
     "relatively low importance may still be important to tune."
+)
+CROSS_VALIDATION_CAPTION = (
+    '<b>NOTE:</b> Models that <a href="https://en.wikipedia.org/wiki/Winsorizing">'
+    "winsorize</a> may appear to plateau<br>far from the optimum. Remove outliers "
+    "using the<br>zoom tool before judging the fit."
 )
 
 
@@ -56,7 +60,11 @@ def _get_hypervolume_trace() -> None:
 # pyre-ignore[11]: Annotation `go.Figure` is not defined as a type.
 def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
     cv = cross_validate(model=model)
-    return [interact_cross_validation_plotly(cv_results=cv)]
+    return [
+        interact_cross_validation_plotly(
+            cv_results=cv, caption=CROSS_VALIDATION_CAPTION
+        )
+    ]
 
 
 def _get_objective_trace_plot(
@@ -266,7 +274,7 @@ def get_standard_plots(
             )
             output_plot_list.extend(_get_cross_validation_plots(model=model))
             feature_importance_plot = plot_feature_importance_by_feature_plotly(
-                model=model, relative=False, caption=feature_importance_caption
+                model=model, relative=False, caption=FEATURE_IMPORTANCE_CAPTION
             )
             feature_importance_plot.layout.title = "[ADVANCED] " + str(
                 # pyre-fixme[16]: go.Figure has no attribute `layout`

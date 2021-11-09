@@ -888,3 +888,23 @@ def build_filter_trial(keep_trial_indices: List[int]) -> Callable[[Observation],
         return obs.features.trial_index in keep_trial_indices
 
     return trial_filter
+
+
+def compose_annotation(
+    caption: str, x: float = 0.0, y: float = -0.15
+) -> List[Dict[str, Any]]:
+    if not caption:
+        return []
+    return [
+        {
+            "showarrow": False,
+            "text": caption,
+            "x": x,
+            "xanchor": "left",
+            "xref": "paper",
+            "y": y,
+            "yanchor": "top",
+            "yref": "paper",
+            "align": "left",
+        },
+    ]

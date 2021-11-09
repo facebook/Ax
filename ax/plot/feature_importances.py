@@ -11,6 +11,7 @@ import plotly.graph_objs as go
 from ax.exceptions.core import NoDataError
 from ax.modelbridge import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes
+from ax.plot.helper import compose_annotation
 from ax.utils.common.logger import get_logger
 from plotly import subplots
 
@@ -161,8 +162,6 @@ def plot_feature_importance_by_feature_plotly(
     title = (
         "Relative Feature Importances" if relative else "Absolute Feature Importances"
     )
-    # Nudge caption left 1% of plot width per x-axis label character
-    caption_xpos = -0.01 * df[factor_col].astype(str).str.len().max()
     layout = go.Layout(
         height=200 + len(features) * 20,
         hovermode="closest",
@@ -172,21 +171,7 @@ def plot_feature_importance_by_feature_plotly(
         showlegend=False,
         title=title,
         updatemenus=updatemenus,
-        annotations=[
-            {
-                "showarrow": False,
-                "text": caption,
-                "x": caption_xpos,
-                "xanchor": "left",
-                "xref": "paper",
-                "y": -0.15,
-                "yanchor": "top",
-                "yref": "paper",
-                "align": "left",
-            },
-        ]
-        if caption != ""
-        else [],
+        annotations=compose_annotation(caption=caption),
     )
 
     if relative:

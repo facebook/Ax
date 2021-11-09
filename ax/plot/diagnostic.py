@@ -23,6 +23,7 @@ from ax.plot.base import (
     PlotMetric,
     Z,
 )
+from ax.plot.helper import compose_annotation
 from ax.plot.scatter import _error_scatter_data, _error_scatter_trace
 from ax.utils.common.typeutils import not_none
 from plotly import subplots
@@ -409,7 +410,7 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
 
 
 def interact_cross_validation_plotly(
-    cv_results: List[CVResult], show_context: bool = True
+    cv_results: List[CVResult], show_context: bool = True, caption: str = ""
 ) -> go.Figure:
     """Interactive cross-validation (CV) plotting; select metric via dropdown.
 
@@ -424,6 +425,11 @@ def interact_cross_validation_plotly(
     """
     data = _get_cv_plot_data(cv_results)
     fig = _obs_vs_pred_dropdown_plot(data=data, rel=False, show_context=show_context)
+    current_bmargin = fig["layout"]["margin"].b or 90
+    caption_height = 100 * (len(caption) > 0)
+    fig["layout"]["margin"].b = current_bmargin + caption_height
+    fig["layout"]["height"] += caption_height
+    fig["layout"]["annotations"] += tuple(compose_annotation(caption))
     fig["layout"]["title"] = "Cross-validation"
     return fig
 
