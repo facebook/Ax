@@ -112,11 +112,6 @@ def _obs_vs_pred_dropdown_plot(
 
     for i, metric in enumerate(data.metrics):
         y_raw, se_raw, y_hat, se_hat = _error_scatter_data(
-            # Expected `List[typing.Union[PlotInSampleArm,
-            # ax.plot.base.PlotOutOfSampleArm]]` for 1st anonymous
-            # parameter to call `ax.plot.scatter._error_scatter_data` but got
-            # `List[PlotInSampleArm]`.
-            # pyre-fixme[6]:
             list(data.in_sample.values()),
             y_axis_var=PlotMetric(metric, pred=True, rel=rel),
             x_axis_var=PlotMetric(metric, pred=False, rel=rel),
@@ -131,11 +126,6 @@ def _obs_vs_pred_dropdown_plot(
         traces.append(_diagonal_trace(min_, max_, visible=(i == 0)))
         traces.append(
             _error_scatter_trace(
-                # Expected `List[typing.Union[PlotInSampleArm,
-                # ax.plot.base.PlotOutOfSampleArm]]` for 1st parameter
-                # `arms` to call `ax.plot.scatter._error_scatter_trace`
-                # but got `List[PlotInSampleArm]`.
-                # pyre-fixme[6]:
                 arms=list(data.in_sample.values()),
                 hoverinfo="text",
                 show_arm_details_on_hover=True,
@@ -508,11 +498,6 @@ def tile_cross_validation(
         )
         fig.append_trace(
             _error_scatter_trace(
-                # Expected `List[typing.Union[PlotInSampleArm,
-                # ax.plot.base.PlotOutOfSampleArm]]` for 1st anonymous
-                # parameter to call `ax.plot.scatter._error_scatter_trace` but
-                # got `List[PlotInSampleArm]`.
-                # pyre-fixme[6]:
                 list(data.in_sample.values()),
                 y_axis_var=PlotMetric(metric, pred=True, rel=False),
                 x_axis_var=PlotMetric(metric, pred=False, rel=False),

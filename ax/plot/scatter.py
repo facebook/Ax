@@ -7,7 +7,7 @@
 import numbers
 import warnings
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import plotly.graph_objs as go
@@ -52,7 +52,7 @@ Traces = List[Dict[str, Any]]
 
 
 def _error_scatter_data(
-    arms: List[Union[PlotInSampleArm, PlotOutOfSampleArm]],
+    arms: Iterable[Union[PlotInSampleArm, PlotOutOfSampleArm]],
     y_axis_var: PlotMetric,
     x_axis_var: Optional[PlotMetric] = None,
     status_quo_arm: Optional[PlotInSampleArm] = None,
@@ -103,7 +103,7 @@ def _error_scatter_data(
 
 
 def _error_scatter_trace(
-    arms: List[Union[PlotInSampleArm, PlotOutOfSampleArm]],
+    arms: Sequence[Union[PlotInSampleArm, PlotOutOfSampleArm]],
     y_axis_var: PlotMetric,
     x_axis_var: Optional[PlotMetric] = None,
     y_axis_label: Optional[str] = None,
@@ -343,11 +343,6 @@ def _multiple_metric_traces(
 
     traces = [
         _error_scatter_trace(
-            # Expected `List[Union[PlotInSampleArm, PlotOutOfSampleArm]]`
-            # for 1st anonymous parameter to call
-            # `ax.plot.scatter._error_scatter_trace` but got
-            # `List[PlotInSampleArm]`.
-            # pyre-fixme[6]:
             list(plot_data.in_sample.values()),
             x_axis_var=PlotMetric(metric_x, pred=False, rel=rel_x),
             y_axis_var=PlotMetric(metric_y, pred=False, rel=rel_y),
@@ -357,11 +352,6 @@ def _multiple_metric_traces(
             color_metric=color_metric,
         ),
         _error_scatter_trace(
-            # Expected `List[Union[PlotInSampleArm, PlotOutOfSampleArm]]`
-            # for 1st anonymous parameter to call
-            # `ax.plot.scatter._error_scatter_trace` but got
-            # `List[PlotInSampleArm]`.
-            # pyre-fixme[6]:
             list(plot_data.in_sample.values()),
             x_axis_var=PlotMetric(metric_x, pred=True, rel=rel_x),
             y_axis_var=PlotMetric(metric_y, pred=True, rel=rel_y),
@@ -813,11 +803,6 @@ def lattice_multiple_metrics(
             if o1 != o2:
                 # in-sample observed and predicted
                 obs_insample_trace = _error_scatter_trace(
-                    # Expected `List[Union[PlotInSampleArm,
-                    # PlotOutOfSampleArm]]` for 1st anonymous parameter to call
-                    # `ax.plot.scatter._error_scatter_trace` but got
-                    # `List[PlotInSampleArm]`.
-                    # pyre-fixme[6]:
                     list(plot_data.in_sample.values()),
                     x_axis_var=PlotMetric(o1, pred=False, rel=rel),
                     y_axis_var=PlotMetric(o2, pred=False, rel=rel),
@@ -828,11 +813,6 @@ def lattice_multiple_metrics(
                     show_arm_details_on_hover=show_arm_details_on_hover,
                 )
                 predicted_insample_trace = _error_scatter_trace(
-                    # Expected `List[Union[PlotInSampleArm,
-                    # PlotOutOfSampleArm]]` for 1st anonymous parameter to call
-                    # `ax.plot.scatter._error_scatter_trace` but got
-                    # `List[PlotInSampleArm]`.
-                    # pyre-fixme[6]:
                     list(plot_data.in_sample.values()),
                     x_axis_var=PlotMetric(o1, pred=True, rel=rel),
                     y_axis_var=PlotMetric(o2, pred=True, rel=rel),
@@ -1093,11 +1073,6 @@ def _single_metric_traces(
 
     traces = [
         _error_scatter_trace(
-            # Expected `List[Union[PlotInSampleArm, PlotOutOfSampleArm]]`
-            # for 1st anonymous parameter to call
-            # `ax.plot.scatter._error_scatter_trace` but got
-            # `List[PlotInSampleArm]`.
-            # pyre-fixme[6]:
             list(plot_data.in_sample.values()),
             x_axis_var=None,
             y_axis_var=PlotMetric(metric, pred=True, rel=rel),

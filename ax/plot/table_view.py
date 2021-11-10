@@ -98,10 +98,6 @@ def table_view_plot(
     records_with_ci = []
     for metric_name in metric_names:
         arm_names, _, ys, ys_se = _error_scatter_data(
-            # pyre-fixme[6]: Expected
-            #  `List[typing.Union[ax.plot.base.PlotInSampleArm,
-            #  ax.plot.base.PlotOutOfSampleArm]]` for 1st param but got
-            #  `List[ax.plot.base.PlotInSampleArm]`.
             arms=list(plot_data.in_sample.values()),
             y_axis_var=PlotMetric(metric_name, pred=True, rel=rel),
             x_axis_var=None,
