@@ -317,7 +317,6 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         fixed_features: Optional[Dict[int, float]],
     ) -> List[ObjectiveThreshold]:
         objective_thresholds_np = objective_thresholds.cpu().numpy()
-        # pyre-ignore [16]
         objective_indices = objective_weights.nonzero().view(-1).tolist()
         objective_names = [self.outcomes[i] for i in objective_indices]
         # create an ObservationData object for untransforming the objective thresholds

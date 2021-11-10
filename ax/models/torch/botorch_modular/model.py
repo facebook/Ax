@@ -293,7 +293,7 @@ class BoTorchModel(TorchModel, Base):
         gen_metadata: TGenMetadata = {
             Keys.EXPECTED_ACQF_VAL: expected_acquisition_value.tolist()
         }
-        if objective_weights.nonzero().numel() > 1:  # pyre-ignore [16]
+        if objective_weights.nonzero().numel() > 1:
             gen_metadata["objective_thresholds"] = acqf.objective_thresholds
         return (
             candidates.detach().cpu(),
@@ -445,6 +445,7 @@ class BoTorchModel(TorchModel, Base):
                 linear_constraints=linear_constraints,
                 fixed_features=fixed_features,
                 pending_observations=pending_observations,
+                objective_weights=objective_weights,
             )
         return self.acquisition_class(
             surrogate=self.surrogate,

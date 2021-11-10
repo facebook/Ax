@@ -895,7 +895,6 @@ def hypervolume(
         objective_weights=obj_w, objective_thresholds=not_none(obj_t)
     )
     f_t = obj(f)
-    # pyre-ignore [16]
     obj_mask = obj_w.nonzero().view(-1)
     selected_metrics_mask = selected_metrics_mask[obj_mask]
     f_t = f_t[:, selected_metrics_mask]

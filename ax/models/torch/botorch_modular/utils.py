@@ -130,9 +130,16 @@ def choose_botorch_acqf_class(
     linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
     objective_thresholds: Optional[Tensor] = None,
+    objective_weights: Optional[Tensor] = None,
 ) -> Type[AcquisitionFunction]:
     """Chooses a BoTorch `AcquisitionFunction` class."""
-    if objective_thresholds is not None:
+    if objective_thresholds is not None or (
+        # using objective_weights is a less-than-ideal fix given its ambiguity,
+        # the real fix would be to revisit the infomration passed down via
+        # the modelbridge (and be explicit about whether we scalarize or perform MOO)
+        objective_weights is not None
+        and objective_weights.nonzero().numel() > 1
+    ):
         acqf_class = qNoisyExpectedHypervolumeImprovement
     else:
         acqf_class = qNoisyExpectedImprovement

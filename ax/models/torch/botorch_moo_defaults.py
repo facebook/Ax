@@ -90,7 +90,6 @@ def get_weighted_mc_objective_and_objective_thresholds(
             - The objective thresholds
 
     """
-    # pyre-ignore [16]
     nonzero_idcs = objective_weights.nonzero(as_tuple=False).view(-1)
     objective_weights = objective_weights[nonzero_idcs]
     objective_thresholds = objective_thresholds[nonzero_idcs]
@@ -472,7 +471,7 @@ def infer_objective_thresholds(
         if outcome_constraints is not None:
             A, _ = outcome_constraints
             nonzero = nonzero | torch.any(A != 0, dim=0)
-        expected_subset_idcs = nonzero.nonzero().view(-1)  # pyre-ignore [16]
+        expected_subset_idcs = nonzero.nonzero().view(-1)
         if model.num_outputs > expected_subset_idcs.numel():
             # subset the model so that we only compute the posterior
             # over the relevant outcomes

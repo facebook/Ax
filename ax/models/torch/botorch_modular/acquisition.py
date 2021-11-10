@@ -129,7 +129,7 @@ class Acquisition(Base):
         # has already been subset to avoid re-subsetting it within
         # `inter_objective_thresholds`.
         if (
-            objective_weights.nonzero().numel() > 1  # pyre-ignore [16]
+            objective_weights.nonzero().numel() > 1
             and self._objective_thresholds is None
         ):
             self._objective_thresholds = infer_objective_thresholds(

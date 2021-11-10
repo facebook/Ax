@@ -173,6 +173,14 @@ class BoTorchModelUtilsTest(TestCase):
             qNoisyExpectedHypervolumeImprovement,
             choose_botorch_acqf_class(objective_thresholds=self.objective_thresholds),
         )
+        self.assertEqual(
+            qNoisyExpectedHypervolumeImprovement,
+            choose_botorch_acqf_class(objective_weights=torch.tensor([0.5, 0.5])),
+        )
+        self.assertEqual(
+            qNoisyExpectedImprovement,
+            choose_botorch_acqf_class(objective_weights=torch.tensor([1.0, 0.0])),
+        )
 
     def test_construct_acquisition_and_optimizer_options(self):
         # Two dicts for `Acquisition` should be concatenated
