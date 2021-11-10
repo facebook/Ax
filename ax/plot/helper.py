@@ -111,6 +111,21 @@ def arm_name_to_tuple(arm_name: str) -> Union[Tuple[int, int], Tuple[int]]:
     return (0,)
 
 
+def arm_name_to_sort_key(arm_name: str) -> Tuple[str, int, int]:
+    """Parses arm name into tuple suitable for reverse sorting by key
+
+    Example:
+        arm_names = ["0_0", "1_10", "1_2", "10_0", "control"]
+        sorted(arm_names, key=arm_name_to_sort_key, reverse=True)
+        ["control", "0_0", "1_2", "1_10", "10_0"]
+    """
+    try:
+        trial_index, arm_index = arm_name.split("_")
+        return ("", -int(trial_index), -int(arm_index))
+    except (ValueError, IndexError):
+        return (arm_name, 0, 0)
+
+
 def resize_subtitles(figure: Dict[str, Any], size: int):
     for ant in figure["layout"]["annotations"]:
         ant["font"].update(size=size)

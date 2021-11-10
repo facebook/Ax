@@ -37,6 +37,7 @@ from ax.plot.helper import (
     _format_CI,
     _format_dict,
     _wrap_metric,
+    arm_name_to_sort_key,
     arm_name_to_tuple,
     get_plot_data,
     infer_is_relative,
@@ -168,6 +169,9 @@ def _error_scatter_trace(
         isinstance(arm, PlotInSampleArm) for arm in arms
     ):
         raise RuntimeError("Color coding currently only works with in-sample arms!")
+
+    # Opportunistically sort if arm names are in {trial}_{arm} format
+    arms = sorted(arms, key=lambda a: arm_name_to_sort_key(a.name), reverse=True)
 
     x, x_se, y, y_se = _error_scatter_data(
         arms=arms,
