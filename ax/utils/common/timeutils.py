@@ -26,13 +26,12 @@ def to_ts(ds: str) -> datetime:
 
 def _ts_to_pandas(ts: int) -> pd.Timestamp:
     """Convert int timestamp into pandas timestamp."""
-    # pyre-fixme[6]: Expected `Optional[str]` for 1st param but got `datetime`.
     return pd.Timestamp(datetime.fromtimestamp(ts))
 
 
 def _pandas_ts_to_int(ts: pd.Timestamp) -> int:
     """Convert int timestamp into pandas timestamp."""
-    # pyre-fixme[16]: `Timestamp` has no attribute `to_pydatetime`.
+    # pyre-fixme[7]: Expected `int` but got `float`.
     return ts.to_pydatetime().timestamp()
 
 
