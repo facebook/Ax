@@ -18,19 +18,20 @@ X = TypeVar("X")
 Y = TypeVar("Y")
 
 
-def not_none(val: Optional[T]) -> T:
+def not_none(val: Optional[T], message: Optional[str] = None) -> T:
     """
     Unbox an optional type.
 
     Args:
       val: the value to cast to a non ``None`` type
+      message: optional override of the default error message
     Returns:
       V:  ``val`` when ``val`` is not ``None``
     Throws:
       ValueError if ``val`` is ``None``
     """
     if val is None:
-        raise ValueError("Argument to `not_none` was None.")
+        raise ValueError(message or "Argument to `not_none` was None.")
     return val
 
 
