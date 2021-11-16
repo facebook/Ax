@@ -35,9 +35,7 @@ def _make_label(
     ci = (
         ""
         if (Z is None or np.isnan(sem))
-        else _format_CI(
-            estimate=mean, sd=sem, relative=is_relative, zval=Z  # pyre-ignore
-        )
+        else _format_CI(estimate=mean, sd=sem, relative=is_relative, zval=Z)
     )
     return f"{name}: {estimate}{perc} {ci}<br>"
 
