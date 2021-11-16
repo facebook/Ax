@@ -173,8 +173,17 @@ def _get_in_sample_arms(
         - Map from arm name to parameters
     """
     observations = model.get_training_data()
+    training_in_design = model.training_in_design
     if data_selector is not None:
         observations = [obs for obs in observations if data_selector(obs)]
+        training_in_design = [
+            model.training_in_design[i]
+            for i, obs in enumerate(observations)
+            if data_selector(obs)
+        ]
+    trial_selector = None
+    if fixed_features is not None:
+        trial_selector = fixed_features.trial_index
     # Calculate raw data
     raw_data = []
     arm_name_to_parameters = {}
@@ -193,8 +202,9 @@ def _get_in_sample_arms(
 
     # Check that we have one ObservationFeatures per arm name since we
     # key by arm name and the model is not Multi-task.
-    # If "TrialAsTask" is present, one of the arms is also chosen.
-    if ("TrialAsTask" not in model.transforms.keys()) and (
+    # If "TrialAsTask" is present, one of the arms is chosen based on the selected
+    # trial index in the fixed_features.
+    if ("TrialAsTask" not in model.transforms.keys() or trial_selector is None) and (
         len(arm_name_to_parameters) != len(observations)
     ):
         logger.error(
@@ -220,14 +230,20 @@ def _get_in_sample_arms(
             if metric_name in metric_names:
                 obs_y[metric_name] = obs_data[i].means[j]
                 obs_se[metric_name] = np.sqrt(obs_data[i].covariance[j, j])
-        # Make a prediction.
-        features = obs.features
-        if fixed_features is not None:
-            features.update_features(fixed_features)
-        if model.training_in_design[i]:
+        if training_in_design[i]:
+            # Update with the input fixed features
+            features = obs.features
+            if fixed_features is not None:
+                features.update_features(fixed_features)
+            # Make a prediction.
             pred_y, pred_se = _predict_at_point(model, features, metric_names)
+        elif (trial_selector is not None) and (
+            obs.features.trial_index != trial_selector
+        ):
+            # check whether the observation is from the right trial
+            # need to use raw data in the selected trial for out-of-design points
+            continue
         else:
-            # Use raw data for out-of-design points
             pred_y = obs_y
             pred_se = obs_se
         in_sample_plot[not_none(obs.arm_name)] = PlotInSampleArm(
