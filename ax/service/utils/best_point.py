@@ -51,7 +51,7 @@ def get_best_raw_objective_point_with_trial_index(
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
-    Args:
+    Args
         experiment: Experiment, on which to identify best raw objective arm.
         optimization_config: Optimization config to use in absence or in place of
             the one stored on the experiment.
@@ -86,9 +86,8 @@ def get_best_raw_objective_point_with_trial_index(
             optimization_config=opt_config,
             status_quo=experiment.status_quo,
         )
-    # pyre-fixme[6]: Expected `str` for 1st param but got `Series`.
     best_arm = experiment.arms_by_name[best_row["arm_name"]]
-    best_trial_index = best_row["trial_index"]
+    best_trial_index = int(best_row["trial_index"])
     objective_rows = dat.df.loc[
         (dat.df["arm_name"] == best_arm.name)
         & (dat.df["trial_index"] == best_trial_index)
@@ -98,7 +97,6 @@ def get_best_raw_objective_point_with_trial_index(
         for _, row in objective_rows.iterrows()
     }
 
-    # pyre-fixme[7]: Expected `int` for 1st param but got `Series`.
     return best_trial_index, not_none(best_arm).parameters, vals
 
 
@@ -435,7 +433,7 @@ def _get_best_row_for_scalarized_objective(
 
 def _get_best_row_for_single_objective(
     df: pd.DataFrame, objective: Objective
-) -> pd.DataFrame:
+) -> pd.Series:
     objective_name = objective.metric.name
     objective_rows = df.loc[df["metric_name"] == objective_name]
     if objective_rows.empty:
@@ -548,7 +546,7 @@ def _get_best_feasible_row_for_single_objective(
     df: pd.DataFrame,
     optimization_config: OptimizationConfig,
     status_quo: Optional[Arm],
-) -> pd.DataFrame:
+) -> pd.Series:
     return _get_best_row_for_single_objective(
         df=_filter_feasible_rows(
             df=df, optimization_config=optimization_config, status_quo=status_quo
