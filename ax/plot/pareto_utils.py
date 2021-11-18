@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from copy import deepcopy
 from itertools import combinations
 from typing import Union, Dict, List, NamedTuple, Optional, Tuple
 
@@ -43,7 +44,7 @@ logger = get_logger(__name__)
 
 def _extract_observed_pareto_2d(
     Y: np.ndarray,
-    reference_point: Tuple[float, float],
+    reference_point: Optional[Tuple[float, float]],
     minimize: Union[bool, Tuple[bool, bool]] = True,
 ) -> np.ndarray:
     if Y.shape[1] != 2:
@@ -51,15 +52,17 @@ def _extract_observed_pareto_2d(
     # If `minimize` is a bool, apply to both dimensions
     if isinstance(minimize, bool):
         minimize = (minimize, minimize)
-    Y_copy = torch.from_numpy(Y).to()
-    ref_point = torch.tensor(reference_point, dtype=Y_copy.dtype)
+    Y_copy = deepcopy(torch.from_numpy(Y).to())
+    if reference_point:
+        ref_point = torch.tensor(reference_point, dtype=Y_copy.dtype)
+        for i in range(2):
+            # Filter based on reference point
+            Y_copy = (
+                Y_copy[Y_copy[:, i] < ref_point[i]]
+                if minimize[i]
+                else Y_copy[Y_copy[:, i] > ref_point[i]]
+            )
     for i in range(2):
-        # Filter based on reference point
-        Y_copy = (
-            Y_copy[Y_copy[:, i] < ref_point[i]]
-            if minimize[i]
-            else Y_copy[Y_copy[:, i] > ref_point[i]]
-        )
         # Flip sign in each dimension based on minimize
         Y_copy[:, i] *= (-1) ** minimize[i]
     Y_pareto = Y_copy[is_non_dominated(Y_copy)]

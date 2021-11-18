@@ -630,8 +630,12 @@ def _pareto_frontier_scatter_2d_plotly(
 
     df = exp_to_df(experiment)
     Y = df[list(metric_names)].to_numpy()
-    Y_pareto = _extract_observed_pareto_2d(
-        Y=Y, reference_point=reference_point, minimize=minimize
+    Y_pareto = (
+        _extract_observed_pareto_2d(
+            Y=Y, reference_point=reference_point, minimize=minimize
+        )
+        if minimize is not None
+        else None
     )
 
     return scatter_plot_with_pareto_frontier_plotly(

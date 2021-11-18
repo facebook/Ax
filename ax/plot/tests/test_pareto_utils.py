@@ -179,3 +179,12 @@ class ParetoUtilsTest(TestCase):
             Y=Y, reference_point=reference_point, minimize=minimize
         )
         self.assertTrue(np.array_equal(pareto, np.array([[1.0, 2.0]])))
+
+        # no `reference_point` provided
+        minimize = False
+        pareto = _extract_observed_pareto_2d(
+            Y=Y, reference_point=None, minimize=minimize
+        )
+        self.assertTrue(
+            np.array_equal(pareto, np.array([[3.0, 0.0], [2.1, 1.0], [2.0, 2.0]]))
+        )
