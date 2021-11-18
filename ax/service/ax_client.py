@@ -7,6 +7,7 @@
 import json
 import logging
 import warnings
+from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, Type
 
 import ax.service.utils.best_point as best_point_utils
@@ -69,6 +70,13 @@ logger = get_logger(__name__)
 
 
 AxClientSubclass = TypeVar("AxClientSubclass", bound="AxClient")
+
+ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
+
+round_floats_for_logging = partial(
+    _round_floats_for_logging,
+    decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
+)
 
 
 class AxClient(WithDBSettingsBase):
@@ -152,7 +160,8 @@ class AxClient(WithDBSettingsBase):
             logger.info(
                 "Starting optimization with verbose logging. To disable logging, "
                 "set the `verbose_logging` argument to `False`. Note that float "
-                "values in the logs are rounded to 2 decimal points."
+                "values in the logs are rounded to "
+                f"{ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES} decimal points."
             )
         self._generation_strategy = generation_strategy
         self._experiment: Optional[Experiment] = None
@@ -331,10 +340,9 @@ class AxClient(WithDBSettingsBase):
         trial = self.experiment.new_trial(
             generator_run=self._gen_new_generator_run(), ttl_seconds=ttl_seconds
         )
-
         logger.info(
             f"Generated new trial {trial.index} with parameters "
-            f"{_round_floats_for_logging(item=not_none(trial.arm).parameters)}."
+            f"{round_floats_for_logging(item=not_none(trial.arm).parameters)}."
         )
         trial.mark_running(no_runner_required=True)
         self._save_or_update_trial_in_db_if_possible(
@@ -626,7 +634,7 @@ class AxClient(WithDBSettingsBase):
         trial.mark_running(no_runner_required=True)
         logger.info(
             "Attached custom parameterization "
-            f"{_round_floats_for_logging(item=parameters)} as trial {trial.index}."
+            f"{round_floats_for_logging(item=parameters)} as trial {trial.index}."
         )
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
@@ -1166,7 +1174,7 @@ class AxClient(WithDBSettingsBase):
             trial=trial,
         )
         return str(
-            _round_floats_for_logging(item=evaluations[next(iter(evaluations.keys()))])
+            round_floats_for_logging(item=evaluations[next(iter(evaluations.keys()))])
         )
 
     def _set_experiment(

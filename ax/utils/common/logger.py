@@ -109,7 +109,7 @@ def _round_floats_for_logging(item: Any, decimal_places: int = 2) -> Any:
     If item or values in dictionary is not a number, returns it as it.
     """
     if isinstance(item, float):
-        return round(item, 2)
+        return round(item, decimal_places)
     elif isinstance(item, dict):
         return {
             k: _round_floats_for_logging(item=v, decimal_places=decimal_places)
