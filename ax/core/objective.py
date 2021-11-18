@@ -176,10 +176,6 @@ class MultiObjective(Objective):
     def __repr__(self) -> str:
         return f"MultiObjective(objectives={self.objectives})"
 
-    def get_unconstrainable_metrics(self) -> List[Metric]:
-        """Return a list of metrics that are incompatible with OutcomeConstraints."""
-        return []
-
 
 class ScalarizedObjective(Objective):
     """Class for an objective composed of a linear scalarization of metrics.
@@ -244,7 +240,3 @@ class ScalarizedObjective(Objective):
         return "ScalarizedObjective(metric_names={}, weights={}, minimize={})".format(
             [metric.name for metric in self.metrics], self.weights, self.minimize
         )
-
-    def get_unconstrainable_metrics(self) -> List[Metric]:
-        """Return a list of metrics that are incompatible with OutcomeConstraints."""
-        return []

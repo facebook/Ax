@@ -22,9 +22,9 @@ from ax.utils.common.testutils import TestCase
 
 OC_STR = (
     'OptimizationConfig(objective=Objective(metric_name="m1", minimize=False), '
-    "outcome_constraints=[OutcomeConstraint(m2 >= -0.25%), "
-    "OutcomeConstraint(m2 <= 0.25%), "
-    "ScalarizedOutcomeConstraint(metric_names=['m1', 'm2'], "
+    "outcome_constraints=[OutcomeConstraint(m3 >= -0.25%), "
+    "OutcomeConstraint(m4 <= 0.25%), "
+    "ScalarizedOutcomeConstraint(metric_names=['m3', 'm4'], "
     "weights=[0.5, 0.5], >= -0.25%)])"
 )
 
@@ -32,16 +32,21 @@ MOOC_STR = (
     "OptimizationConfig(objective=MultiObjective(objectives="
     '[Objective(metric_name="m1", minimize=True), '
     'Objective(metric_name="m2", minimize=False)]), '
-    "outcome_constraints=[OutcomeConstraint(m2 >= -0.25%), "
-    "OutcomeConstraint(m2 <= 0.25%)], objective_thresholds=[])"
+    "outcome_constraints=[OutcomeConstraint(m3 >= -0.25%), "
+    "OutcomeConstraint(m3 <= 0.25%)], objective_thresholds=[])"
 )
 
 
 class OptimizationConfigTest(TestCase):
     def setUp(self):
-        self.metrics = {"m1": Metric(name="m1"), "m2": Metric(name="m2")}
+        self.metrics = {
+            "m1": Metric(name="m1"),
+            "m2": Metric(name="m2"),
+            "m3": Metric(name="m3"),
+            "m4": Metric(name="m4"),
+        }
         self.objective = Objective(metric=self.metrics["m1"], minimize=False)
-        self.alt_objective = Objective(metric=self.metrics["m2"], minimize=False)
+        self.alt_objective = Objective(metric=self.metrics["m3"], minimize=False)
         self.multi_objective = MultiObjective(
             objectives=[self.objective, self.alt_objective],
         )
@@ -49,13 +54,13 @@ class OptimizationConfigTest(TestCase):
             metrics=[self.metrics["m1"], self.metrics["m2"]]
         )
         self.outcome_constraint = OutcomeConstraint(
-            metric=self.metrics["m2"], op=ComparisonOp.GEQ, bound=-0.25
+            metric=self.metrics["m3"], op=ComparisonOp.GEQ, bound=-0.25
         )
         self.additional_outcome_constraint = OutcomeConstraint(
-            metric=self.metrics["m2"], op=ComparisonOp.LEQ, bound=0.25
+            metric=self.metrics["m4"], op=ComparisonOp.LEQ, bound=0.25
         )
         self.scalarized_outcome_constraint = ScalarizedOutcomeConstraint(
-            metrics=[self.metrics["m1"], self.metrics["m2"]],
+            metrics=[self.metrics["m3"], self.metrics["m4"]],
             weights=[0.5, 0.5],
             op=ComparisonOp.GEQ,
             bound=-0.25,
@@ -119,7 +124,14 @@ class OptimizationConfigTest(TestCase):
             OptimizationConfig(
                 objective=self.objective, outcome_constraints=[objective_constraint]
             )
-
+        # Using an outcome constraint for ScalarizedObjective should also raise
+        with self.assertRaisesRegex(
+            ValueError, "Cannot constrain on objective metric."
+        ):
+            OptimizationConfig(
+                objective=self.m2_objective,
+                outcome_constraints=[objective_constraint],
+            )
         # Two outcome_constraints on the same metric with the same op
         # should raise.
         duplicate_constraint = OutcomeConstraint(
@@ -201,10 +213,10 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             objectives=[self.objectives["o2"]]
         )
         self.outcome_constraint = OutcomeConstraint(
-            metric=self.metrics["m2"], op=ComparisonOp.GEQ, bound=-0.25
+            metric=self.metrics["m3"], op=ComparisonOp.GEQ, bound=-0.25
         )
         self.additional_outcome_constraint = OutcomeConstraint(
-            metric=self.metrics["m2"], op=ComparisonOp.LEQ, bound=0.25
+            metric=self.metrics["m3"], op=ComparisonOp.LEQ, bound=0.25
         )
         self.outcome_constraints = [
             self.outcome_constraint,
@@ -239,7 +251,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             config1.objective = self.objective  # Wrong objective type
         # updating constraints is fine.
         config1.outcome_constraints = [self.outcome_constraint]
-        self.assertEqual(len(config1.metrics), 2)
+        self.assertEqual(len(config1.metrics), 3)
 
         # objective without outcome_constraints is also supported
         config2 = MultiObjectiveOptimizationConfig(objective=self.multi_objective)
@@ -296,7 +308,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         self.assertEqual(config1, config2)
 
         new_outcome_constraint = OutcomeConstraint(
-            metric=self.metrics["m2"], op=ComparisonOp.LEQ, bound=0.5
+            metric=self.metrics["m3"], op=ComparisonOp.LEQ, bound=0.5
         )
         config3 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective,
@@ -309,6 +321,17 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         with self.assertRaises(TypeError):
             MultiObjectiveOptimizationConfig(objective=self.objective)
 
+        # Using an outcome constraint for an objective should raise
+        outcome_constraint_m1 = OutcomeConstraint(
+            metric=self.metrics["m1"], op=ComparisonOp.LEQ, bound=1234, relative=False
+        )
+        with self.assertRaisesRegex(
+            ValueError, "Cannot constrain on objective metric."
+        ):
+            MultiObjectiveOptimizationConfig(
+                objective=self.multi_objective,
+                outcome_constraints=[outcome_constraint_m1],
+            )
         # Two outcome_constraints on the same metric with the same op
         # should raise.
         duplicate_constraint = OutcomeConstraint(
@@ -372,7 +395,6 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         config2 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective,
             objective_thresholds=self.objective_thresholds,
-            outcome_constraints=[self.m1_constraint],
         )
         self.assertEqual(config2, config2.clone())
 
