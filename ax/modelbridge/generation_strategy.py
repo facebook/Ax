@@ -456,7 +456,7 @@ class GenerationStrategy(Base):
         """
         self.experiment = experiment
         self._maybe_move_to_next_step()
-        self._set_or_update_current_model(data=data)
+        self._fit_or_update_current_model(data=data)
         self._save_seen_trial_indices()
 
         # Make sure to not make too many generator runs and
@@ -505,11 +505,13 @@ class GenerationStrategy(Base):
 
     # ------------------------- Model selection logic helpers. -------------------------
 
-    def _set_or_update_current_model(self, data: Optional[Data]) -> None:
+    def _fit_or_update_current_model(self, data: Optional[Data]) -> None:
         if self._model is not None and self._curr.use_update:
-            self._update_current_model(data=data)
+            new_data = self._get_data_for_update(passed_in_data=data)
+            if new_data is not None:
+                self._update_current_model(new_data=new_data)
         else:
-            self._set_current_model(data=data)
+            self._fit_current_model(data=self._get_data_for_fit(passed_in_data=data))
 
     def _num_trials_to_gen_and_complete_in_curr_step(self) -> Tuple[int, int]:
         """Returns how many generator runs (to be made into a trial each) are left to
@@ -621,11 +623,11 @@ class GenerationStrategy(Base):
         # new step's model will be initialized for the first time, so we don't
         # try to `update` it but rather initialize with all the data even if
         # `use_update` is true for the new generation step; this is done in
-        # `self._set_or_update_current_model).
+        # `self._fit_or_update_current_model).
         self._model = None
         return True
 
-    def _set_current_model(self, data: Optional[Data]) -> None:
+    def _fit_current_model(self, data: Data) -> None:
         """Instantiate the current model with all available data."""
         model_kwargs = self._curr.model_kwargs or {}
 
@@ -633,18 +635,37 @@ class GenerationStrategy(Base):
         # model state from last generator run and pass it to the model
         # being instantiated in this function.
         lgr = self.last_generator_run
+        # NOTE: This will not be easily compatible with `GenerationNode`;
+        # will likely need to find last generator run per model. Not a problem
+        # for now though as GS only allows `GenerationStep`-s for now.
+        # Potential solution: store generator runs on `GenerationStep`-s and
+        # split them per-model there.
         if (
             lgr is not None
             and lgr._generation_step_index == self._curr.index
             and lgr._model_state_after_gen
         ):
+            # TODO[drfreund]: Consider moving this to `GenerationStep` or
+            # `GenerationNode`.
             model_kwargs = _combine_model_kwargs_and_state(
                 model_kwargs=model_kwargs,
                 generator_run=lgr,
                 model_class=not_none(not_none(self.model).model.__class__),
             )
 
-        if data is None:
+        if not data.df.empty:
+            trial_indices_in_data = sorted(data.df["trial_index"].unique())
+            logger.debug(f"Fitting model with data for trials: {trial_indices_in_data}")
+
+        if isinstance(self._curr.model, ModelRegistryBase):
+            self._fit_current_model_from_models_enum(data=data, **model_kwargs)
+        else:
+            # If model was not specified as Models member, it was specified as a
+            # factory function.
+            self._fit_current_model_from_factory_function(data=data, **model_kwargs)
+
+    def _get_data_for_fit(self, passed_in_data: Optional[Data]) -> Data:
+        if passed_in_data is None:
             if self._curr.use_update:
                 # If the new step is using `update`, it's important to instantiate
                 # the model with data for completed trials only, so later we can
@@ -673,8 +694,10 @@ class GenerationStrategy(Base):
                 )
             else:
                 data = self.experiment.lookup_data()
+        else:
+            data = passed_in_data
         # By the time we get here, we will have already transitioned
-        # to a new step, but if previou step required observed data,
+        # to a new step, but if previous step required observed data,
         # we should raise an error even if enough trials were completed.
         # Such an empty data case does indicate an invalid state; this
         # check is to improve the experience of detecting and debugging
@@ -691,25 +714,22 @@ class GenerationStrategy(Base):
                 "implement fetching logic (check your metrics) or no data was "
                 "attached to experiment for completed trials."
             )
-        if not data.df.empty:
-            trial_indices_in_data = sorted(data.df["trial_index"].unique())
-            logger.debug(f"Setting model with data for trials: {trial_indices_in_data}")
-        # TODO(jej)[T87591836] Support non-`Data` data types.
-        if isinstance(self._curr.model, ModelRegistryBase):
-            # pyre-fixme [6]: Incompat param: Expect `Data` got `AbstractDataFrameData`
-            self._set_current_model_from_models_enum(data=data, **model_kwargs)
-        else:
-            # If model was not specified as Models member, it was specified as a
-            # factory function.
-            # pyre-fixme [6]: Incompat param: Expect `Data` got `AbstractDataFrameData`
-            self._set_current_model_from_factory_function(data=data, **model_kwargs)
+        # pyre-ignore[7]: [7]: Expected `Data` but got
+        # `ax.core.abstract_data.AbstractDataFrameData`
+        return data
 
-    def _update_current_model(self, data: Optional[Data]) -> None:
+    def _update_current_model(self, new_data: Data) -> None:
         """Update the current model with new data (data for trials that have been
         completed since the last call to `GenerationStrategy.gen`).
         """
-        if self._model is None:
+        if self._model is None:  # Should not be reachable.
             raise ValueError("Cannot update if no model instantiated.")
+        trial_indices_in_new_data = sorted(new_data.df["trial_index"].unique())
+        logger.info(f"Updating model with data for trials: {trial_indices_in_new_data}")
+        # TODO[drfreund]: Switch to `self._curr.update` once `GenerationNode` supports
+        not_none(self._model).update(experiment=self.experiment, new_data=new_data)
+
+    def _get_data_for_update(self, passed_in_data: Optional[Data]) -> Optional[Data]:
         # Should only pass data that is new since last call to `gen`, to the
         # underlying model's `update`.
         newly_completed_trials = self._find_trials_completed_since_last_gen()
@@ -717,49 +737,29 @@ class GenerationStrategy(Base):
             logger.debug(
                 "There were no newly completed trials since last model update."
             )
-            return
-        if data is None:
+            return None
+
+        if passed_in_data is None:
             new_data = self.experiment.lookup_data(trial_indices=newly_completed_trials)
             if new_data.df.empty:
-                logger.info("Skipping model update as there is no new data.")
-                return
-        elif data.df.empty:
-            logger.info("Skipping model update as data supplied to `gen` is empty.")
-            return
-        else:
-            new_data = Data(
-                # pyre-fixme[6]: Expected `Optional[pd.core.frame.DataFrame]` for
-                #  1st param but got `Series`.
-                df=data.df[data.df.trial_index.isin(newly_completed_trials)]
-            )
-        # We definitely have non-empty new data by now.
-        trial_indices_in_new_data = sorted(new_data.df["trial_index"].unique())
-        logger.info(f"Updating model with data for trials: {trial_indices_in_new_data}")
-        # pyre-fixme [6]: Incompat param: Expected `Data` got `AbstractDataFrameData`
-        not_none(self._model).update(experiment=self.experiment, new_data=new_data)
+                logger.info(
+                    "No new data is attached to experiment; no need for model update."
+                )
+                return None
+            # pyre-ignore[7]: [7]: Expected `Data` but got
+            # `ax.core.abstract_data.AbstractDataFrameData`
+            return new_data
 
-    def _set_current_model_from_models_enum(self, data: Data, **kwargs: Any) -> None:
-        """Instantiate the current model, provided through a Models enum member
-        function, with the provided data and kwargs."""
-        self._model = self._curr.model(experiment=self.experiment, data=data, **kwargs)
+        elif passed_in_data.df.empty:
+            logger.info("Manually supplied data is empty; no need for model update.")
+            return None
 
-    def _set_current_model_from_factory_function(
-        self, data: Data, **kwargs: Any
-    ) -> None:
-        """Instantiate the current model, provided through a callable factory
-        function, with the provided data and kwargs."""
-        model = self._curr.model
-        assert not isinstance(model, ModelRegistryBase) and callable(model)
-        self._model = self._curr.model(
-            **filter_kwargs(
-                self._curr.model,
-                experiment=self.experiment,
-                data=data,
-                # Some factory functions (like `get_sobol`) require search space
-                # instead of experiment.
-                search_space=self.experiment.search_space,
-                **kwargs,
-            )
+        return Data(
+            # pyre-ignore[6]: Expected `Optional[pd.core.frame.DataFrame]`
+            # for 1st param. `df` to `Data.__init__` but got `pd.core.series.Series`
+            df=passed_in_data.df[
+                passed_in_data.df.trial_index.isin(newly_completed_trials)
+            ]
         )
 
     def _restore_model_from_generator_run(
@@ -780,11 +780,36 @@ class GenerationStrategy(Base):
         self._model = get_model_from_generator_run(
             generator_run=generator_run,
             experiment=self.experiment,
-            # pyre-fixme [6]: Incompat param: Expect `Data` got `AbstractDataFrameData`
+            # pyre-ignore[6]: [7]: Expected `Data` but got
+            # `ax.core.abstract_data.AbstractDataFrameData`
             data=data,
             models_enum=models_enum,
         )
         self._save_seen_trial_indices()
+
+    def _fit_current_model_from_models_enum(self, data: Data, **kwargs: Any) -> None:
+        """Instantiate the current model, provided through a Models enum member
+        function, with the provided data and kwargs."""
+        self._model = self._curr.model(experiment=self.experiment, data=data, **kwargs)
+
+    def _fit_current_model_from_factory_function(
+        self, data: Data, **kwargs: Any
+    ) -> None:
+        """Instantiate the current model, provided through a callable factory
+        function, with the provided data and kwargs."""
+        model = self._curr.model
+        assert not isinstance(model, ModelRegistryBase) and callable(model)
+        self._model = self._curr.model(
+            **filter_kwargs(
+                self._curr.model,
+                experiment=self.experiment,
+                data=data,
+                # Some factory functions (like `get_sobol`) require search space
+                # instead of experiment.
+                search_space=self.experiment.search_space,
+                **kwargs,
+            )
+        )
 
     # ------------------------- State-tracking helpers. -------------------------
 

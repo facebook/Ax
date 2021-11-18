@@ -367,7 +367,7 @@ def get_pareto_optimal_parameters(
         )
     else:
         # Make sure the model is up-to-date with the most recent data.
-        generation_strategy._set_or_update_current_model(data=None)
+        generation_strategy._fit_or_update_current_model(data=None)
 
     # If objective thresholds are not specified in optimization config, extract
     # the inferred ones if possible or infer them anew if not.
