@@ -47,11 +47,11 @@ def _filter_outliers(Y: np.ndarray, m: float = 2.0) -> np.ndarray:
 
 def scatter_plot_with_pareto_frontier_plotly(
     Y: np.ndarray,
-    Y_pareto: np.ndarray,
-    metric_x: str,
-    metric_y: str,
-    reference_point: Tuple[float, float],
-    minimize: Union[bool, Tuple[bool, bool]] = True,
+    Y_pareto: Optional[np.ndarray],
+    metric_x: Optional[str],
+    metric_y: Optional[str],
+    reference_point: Optional[Tuple[float, float]],
+    minimize: Optional[Union[bool, Tuple[bool, bool]]] = True,
 ) -> go.Figure:
     """Plots a scatter of all points in ``Y`` for ``metric_x`` and ``metric_y``
     with a reference point and Pareto frontier from ``Y_pareto``.
@@ -72,90 +72,124 @@ def scatter_plot_with_pareto_frontier_plotly(
         reference_point: Reference point for ``metric_x`` and ``metric_y``.
         minimize: Whether the two metrics in the plot are being minimized or maximized.
     """
+    title = "Observed metric values"
     if isinstance(minimize, bool):
         minimize = (minimize, minimize)
     Xs = Y[:, 0]
     Ys = Y[:, 1]
 
-    experimental_points_scatter = go.Scatter(
-        x=Xs,
-        y=Ys,
-        mode="markers",
-        marker={
-            "color": np.linspace(0, 100, int(len(Xs) * 1.05)),
-            "colorscale": "magma",
-            "colorbar": {
-                "tickvals": [0, 50, 100],
-                "ticktext": [
-                    1,
-                    "iteration",
-                    len(Xs),
-                ],
+    experimental_points_scatter = [
+        go.Scatter(
+            x=Xs,
+            y=Ys,
+            mode="markers",
+            marker={
+                "color": np.linspace(0, 100, int(len(Xs) * 1.05)),
+                "colorscale": "magma",
+                "colorbar": {
+                    "tickvals": [0, 50, 100],
+                    "ticktext": [
+                        1,
+                        "iteration",
+                        len(Xs),
+                    ],
+                },
             },
-        },
-        name="Experimental points",
-    )
-    reference_point_star = go.Scatter(
-        x=[reference_point[0]],
-        y=[reference_point[1]],
-        mode="markers",
-        marker={"color": rgba(COLORS.STEELBLUE.value), "size": 25, "symbol": "star"},
-    )
-    extra_point_x = min(Y_pareto[:, 0]) if minimize[0] else max(Y_pareto[:, 0])
-    reference_point_line_1 = go.Scatter(
-        x=[extra_point_x, reference_point[0]],
-        y=[reference_point[1], reference_point[1]],
-        mode="lines",
-        marker={"color": rgba(COLORS.STEELBLUE.value)},
-    )
-    extra_point_y = min(Y_pareto[:, 1]) if minimize[1] else max(Y_pareto[:, 1])
-    reference_point_line_2 = go.Scatter(
-        x=[reference_point[0], reference_point[0]],
-        y=[extra_point_y, reference_point[1]],
-        mode="lines",
-        marker={"color": rgba(COLORS.STEELBLUE.value)},
-    )
-    Y_pareto_with_extra = np.concatenate(
-        (
-            [[extra_point_x, reference_point[1]]],
-            Y_pareto,
-            [[reference_point[0], extra_point_y]],
-        ),
-        axis=0,
-    )
-    pareto_step = go.Scatter(
-        x=Y_pareto_with_extra[:, 0],
-        y=Y_pareto_with_extra[:, 1],
-        mode="lines",
-        line_shape="hv",
-        marker={"color": rgba(COLORS.STEELBLUE.value)},
-    )
+            name="Experimental points",
+        )
+    ]
+    if Y_pareto is not None:
+        title += " with Pareto frontier"
+        if reference_point:
+            if minimize is None:
+                minimize = tuple(
+                    reference_point[i] >= max(Y_pareto[:, i]) for i in range(2)
+                )
+            reference_point_star = [
+                go.Scatter(
+                    x=[reference_point[0]],
+                    y=[reference_point[1]],
+                    mode="markers",
+                    marker={
+                        "color": rgba(COLORS.STEELBLUE.value),
+                        "size": 25,
+                        "symbol": "star",
+                    },
+                )
+            ]
+            extra_point_x = min(Y_pareto[:, 0]) if minimize[0] else max(Y_pareto[:, 0])
+            reference_point_line_1 = go.Scatter(
+                x=[extra_point_x, reference_point[0]],
+                y=[reference_point[1], reference_point[1]],
+                mode="lines",
+                marker={"color": rgba(COLORS.STEELBLUE.value)},
+            )
+            extra_point_y = min(Y_pareto[:, 1]) if minimize[1] else max(Y_pareto[:, 1])
+            reference_point_line_2 = go.Scatter(
+                x=[reference_point[0], reference_point[0]],
+                y=[extra_point_y, reference_point[1]],
+                mode="lines",
+                marker={"color": rgba(COLORS.STEELBLUE.value)},
+            )
+            reference_point_lines = [reference_point_line_1, reference_point_line_2]
+            Y_pareto_with_extra = np.concatenate(
+                (
+                    [[extra_point_x, reference_point[1]]],
+                    Y_pareto,
+                    [[reference_point[0], extra_point_y]],
+                ),
+                axis=0,
+            )
+            pareto_step = [
+                go.Scatter(
+                    x=Y_pareto_with_extra[:, 0],
+                    y=Y_pareto_with_extra[:, 1],
+                    mode="lines",
+                    line_shape="hv",
+                    marker={"color": rgba(COLORS.STEELBLUE.value)},
+                )
+            ]
 
-    range_x = (
-        extend_range(lower=min(Y_pareto[:, 0]), upper=reference_point[0])
-        if minimize[0]
-        else extend_range(lower=reference_point[0], upper=max(Y_pareto[:, 0]))
-    )
-    range_y = (
-        extend_range(lower=min(Y_pareto[:, 1]), upper=reference_point[1])
-        if minimize[1]
-        else extend_range(lower=reference_point[1], upper=max(Y_pareto[:, 1]))
-    )
+            range_x = (
+                extend_range(lower=min(Y_pareto[:, 0]), upper=reference_point[0])
+                if minimize[0]
+                else extend_range(lower=reference_point[0], upper=max(Y_pareto[:, 0]))
+            )
+            range_y = (
+                extend_range(lower=min(Y_pareto[:, 1]), upper=reference_point[1])
+                if minimize[1]
+                else extend_range(lower=reference_point[1], upper=max(Y_pareto[:, 1]))
+            )
+        else:  # Reference point was not specified
+            pareto_step = [
+                go.Scatter(
+                    x=Y_pareto[:, 0],
+                    y=Y_pareto[:, 1],
+                    mode="lines",
+                    line_shape="hv",
+                    marker={"color": rgba(COLORS.STEELBLUE.value)},
+                )
+            ]
+            reference_point_lines = reference_point_star = []
+
+            range_x = extend_range(lower=min(Y_pareto[:, 0]), upper=max(Y_pareto[:, 0]))
+            range_y = extend_range(lower=min(Y_pareto[:, 1]), upper=max(Y_pareto[:, 1]))
+    else:  # `Y_pareto` input was not specified
+        range_x = extend_range(lower=min(Y[:, 0]), upper=max(Y[:, 0]))
+        range_y = extend_range(lower=min(Y[:, 1]), upper=max(Y[:, 1]))
+        pareto_step = reference_point_lines = reference_point_star = []
     layout = go.Layout(
-        title="Observed points with Pareto frontier",
+        title=title,
         showlegend=False,
-        xaxis={"title": metric_x, "range": range_x},
-        yaxis={"title": metric_y, "range": range_y},
+        xaxis={"title": metric_x or "", "range": range_x},
+        yaxis={"title": metric_y or "", "range": range_y},
     )
     return go.Figure(
         layout=layout,
-        data=[
-            pareto_step,
-            reference_point_line_1,
-            reference_point_line_2,
-            experimental_points_scatter,
-            reference_point_star,
-        ],
+        data=pareto_step
+        + reference_point_lines
+        + experimental_points_scatter
+        + reference_point_star,
     )
 
 
