@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+import warnings
 from math import ceil
 from typing import cast, Optional, Tuple, Type, Union
 
@@ -12,10 +13,11 @@ from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.core.types import TConfig
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Cont_X_trans, Models, Y_trans
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.winsorize import Winsorize
+from ax.modelbridge.transforms.winsorize import WinsorizationConfig, Winsorize
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
@@ -76,20 +78,22 @@ def _make_botorch_step(
             "To apply winsorization, specify `winsorize=True` and provide the "
             "winsorization limits."
         )
+
+    winsorization_transform_config = _get_winsorization_transform_config(
+        winsorization_limits=winsorization_limits,
+        optimization_config=None,
+        no_winsorization=not winsorize,
+    )
+
     model_kwargs = {}
     if winsorize:
-        assert winsorization_limits is not None
+        assert winsorization_transform_config is not None
         model_kwargs.update(
             {
                 "transforms": [cast(Type[Transform], Winsorize)]
                 + Cont_X_trans
                 + Y_trans,
-                "transform_configs": {
-                    "Winsorize": {
-                        "winsorization_lower": winsorization_limits[0],
-                        "winsorization_upper": winsorization_limits[1],
-                    }
-                },
+                "transform_configs": {"Winsorize": winsorization_transform_config},
             }
         )
     if verbose is not None:
@@ -404,3 +408,26 @@ def choose_generation_strategy(
     if experiment:
         gs.experiment = experiment
     return gs
+
+
+def _get_winsorization_transform_config(
+    winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]],
+    optimization_config: Optional[OptimizationConfig],
+    no_winsorization: bool,
+) -> Optional[TConfig]:
+    if no_winsorization or not (winsorization_limits or optimization_config):
+        if winsorization_limits is not None:
+            warnings.warn(
+                "`no_winsorization = True` but `winsorization_limits` have been set. "
+                "Not winsorizing."
+            )
+        return None
+    transform_config = {}
+    if winsorization_limits:
+        transform_config["winsorization_config"] = WinsorizationConfig(
+            lower_quantile_margin=winsorization_limits[0] or 0.0,
+            upper_quantile_margin=winsorization_limits[1] or 0.0,
+        )
+    if optimization_config:
+        transform_config["optimization_config"] = optimization_config
+    return transform_config

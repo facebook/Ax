@@ -53,6 +53,7 @@ from ax.metrics.sklearn import SklearnMetric, SklearnDataset, SklearnModelType
 from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.winsorize import WinsorizationConfig
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
@@ -93,6 +94,7 @@ from ax.storage.json_store.encoders import (
     surrogate_to_dict,
     transform_type_to_dict,
     trial_to_dict,
+    winsorization_config_to_dict,
 )
 from ax.storage.utils import DomainType, ParameterConstraintType
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -146,6 +148,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     SyntheticRunner: runner_to_dict,
     Trial: trial_to_dict,
     ObservationFeatures: observation_features_to_dict,
+    WinsorizationConfig: winsorization_config_to_dict,
 }
 
 # Registry for class types, not instances.
@@ -219,6 +222,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "Trial": Trial,
     "TrialStatus": TrialStatus,
     "ObservationFeatures": ObservationFeatures,
+    "WinsorizationConfig": WinsorizationConfig,
 }
 
 

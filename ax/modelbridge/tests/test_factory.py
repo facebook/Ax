@@ -37,6 +37,7 @@ from ax.modelbridge.factory import (
 from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.transforms.winsorize import WinsorizationConfig
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
@@ -116,7 +117,12 @@ class ModelBridgeFactoryTest(TestCase):
 
         # test transform_configs with winsorization
         configs = {
-            "Winsorize": {"winsorization_lower": 0.1, "winsorization_upper": 0.1}
+            "Winsorize": {
+                "winsorization_config": WinsorizationConfig(
+                    lower_quantile_margin=0.1,
+                    upper_quantile_margin=0.1,
+                )
+            }
         }
         gpkg_win = get_GPKG(
             experiment=exp, data=exp.fetch_data(), transform_configs=configs
@@ -147,7 +153,12 @@ class ModelBridgeFactoryTest(TestCase):
 
         # test transform_configs with winsorization
         configs = {
-            "Winsorize": {"winsorization_lower": 0.1, "winsorization_upper": 0.1}
+            "Winsorize": {
+                "winsorization_config": WinsorizationConfig(
+                    lower_quantile_margin=0.1,
+                    upper_quantile_margin=0.1,
+                )
+            }
         }
         gpmes_win = get_GPMES(
             experiment=exp, data=exp.fetch_data(), transform_configs=configs

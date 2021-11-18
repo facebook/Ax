@@ -52,7 +52,7 @@ TEvaluationOutcome = Union[
     TMapTrialEvaluation,
 ]
 
-TConfig = Dict[str, Union[int, float, str, AcquisitionFunction, Dict[str, Any]]]
+TConfig = Dict[str, Union[int, float, str, AcquisitionFunction, Dict[str, Any], None]]
 TBucket = List[Dict[str, List[str]]]
 
 TGenMetadata = Dict[str, Any]

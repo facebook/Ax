@@ -38,6 +38,7 @@ from ax.early_stopping.strategies import (
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.winsorize import WinsorizationConfig
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
@@ -500,4 +501,15 @@ def percentile_early_stopping_strategy_to_dict(
         "min_progression": strategy.min_progression,
         "min_curves": strategy.min_curves,
         "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
+    }
+
+
+def winsorization_config_to_dict(config: WinsorizationConfig) -> Dict[str, Any]:
+    """Convert Ax winsorization config to a dictionary."""
+    return {
+        "__type": config.__class__.__name__,
+        "lower_quantile_margin": config.lower_quantile_margin,
+        "upper_quantile_margin": config.upper_quantile_margin,
+        "lower_boundary": config.lower_boundary,
+        "upper_boundary": config.upper_boundary,
     }

@@ -82,6 +82,7 @@ from ax.utils.testing.core_stubs import (
     get_surrogate,
     get_synthetic_runner,
     get_trial,
+    get_winsorization_config,
 )
 from ax.utils.testing.modeling_stubs import (
     get_generation_strategy,
@@ -142,6 +143,7 @@ TEST_CASES = [
     ("Type[MarginalLogLikelihood]", get_mll_type),
     ("Type[Transform]", get_transform_type),
     ("Trial", get_trial),
+    ("WinsorizationConfig", get_winsorization_config),
 ]
 
 

@@ -66,6 +66,7 @@ from ax.metrics.branin_map import (
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
+from ax.modelbridge.transforms.winsorize import WinsorizationConfig
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
@@ -1490,3 +1491,12 @@ def get_mll_type() -> Type[MarginalLogLikelihood]:
 
 def get_acquisition_function_type() -> Type[AcquisitionFunction]:
     return qExpectedImprovement
+
+
+def get_winsorization_config() -> WinsorizationConfig:
+    return WinsorizationConfig(
+        lower_quantile_margin=0.2,
+        upper_quantile_margin=0.3,
+        lower_boundary=20,
+        upper_boundary=50,
+    )

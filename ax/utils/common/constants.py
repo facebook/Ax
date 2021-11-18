@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from enum import Enum, unique
+from typing import Tuple
 
 
 # -------------------------- Warnings --------------------------
@@ -77,3 +78,7 @@ class Keys(str, Enum):
     TASK_FEATURES = "task_features"
     WARM_START_REFITTING = "warm_start_refitting"
     X_BASELINE = "X_baseline"
+
+
+DEFAULT_WINSORIZATION_LIMITS_MINIMIZATION: Tuple[float, float] = (0.0, 0.2)
+DEFAULT_WINSORIZATION_LIMITS_MAXIMIZATION: Tuple[float, float] = (0.2, 0.0)
