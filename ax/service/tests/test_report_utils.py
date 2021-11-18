@@ -9,6 +9,8 @@ from unittest.mock import patch
 
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.outcome_constraint import ObjectiveThreshold
+from ax.core.types import ComparisonOp
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
 from ax.service.utils.report_utils import (
@@ -230,10 +232,25 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(len(plots), 6)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        exp.optimization_config.objective.objectives[0].minimize = False
+        exp.optimization_config.objective.objectives[1].minimize = True
+        exp.optimization_config._objective_thresholds = [
+            ObjectiveThreshold(
+                metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0
+            ),
+            ObjectiveThreshold(
+                metric=exp.metrics["branin_b"], op=ComparisonOp.LEQ, bound=100.0
+            ),
+        ]
         exp.trials[0].run()
         gs = choose_generation_strategy(
             search_space=exp.search_space, optimization_config=exp.optimization_config
         )
         gs._model = Models.BOTORCH(experiment=exp, data=exp.fetch_data())
         plots = get_standard_plots(experiment=exp, model=gs.model)
-        self.assertEqual(len(plots), 7)
+        self.assertEqual(len(plots), 8)
+
+        # All plots are successfully created when objective thresholds are absent
+        exp.optimization_config._objective_thresholds = []
+        plots = get_standard_plots(experiment=exp, model=gs.model)
+        self.assertEqual(len(plots), 8)

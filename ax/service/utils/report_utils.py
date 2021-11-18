@@ -73,7 +73,8 @@ def _get_objective_trace_plot(
     model_transitions: List[int],
 ) -> Optional[go.Figure]:
     if experiment.is_moo_problem:
-        return _get_hypervolume_trace()
+        # TODO: implement `_get_hypervolume_trace()`
+        return _pareto_frontier_scatter_2d_plotly(experiment=experiment)
     metric_name = not_none(experiment.optimization_config).objective.metric.name
     best_objectives = np.array([data.df[data.df["metric_name"] == metric_name]["mean"]])
     return optimization_trace_single_method_plotly(
