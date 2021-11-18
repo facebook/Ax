@@ -6,20 +6,28 @@
 
 import warnings
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import (
+    ComparisonOp,
+    ObjectiveThreshold,
+    OutcomeConstraint,
+    ScalarizedOutcomeConstraint,
+)
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import get_data
-from ax.utils.common import constants
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
-
 
 logger = get_logger(__name__)
 
@@ -49,14 +57,9 @@ class WinsorizationConfig:
     upper_boundary: Optional[float] = None
 
 
-DEFAULT_WINSORIZATION_CONFIG_MINIMIZATION = WinsorizationConfig(
-    lower_quantile_margin=constants.DEFAULT_WINSORIZATION_LIMITS_MINIMIZATION[0],
-    upper_quantile_margin=constants.DEFAULT_WINSORIZATION_LIMITS_MINIMIZATION[1],
-)
-DEFAULT_WINSORIZATION_CONFIG_MAXIMIZATION = WinsorizationConfig(
-    lower_quantile_margin=constants.DEFAULT_WINSORIZATION_LIMITS_MAXIMIZATION[0],
-    upper_quantile_margin=constants.DEFAULT_WINSORIZATION_LIMITS_MAXIMIZATION[1],
-)
+OLD_KEYS = ["winsorization_lower", "winsorization_upper", "percentile_bounds"]
+AUTO_WINS_QUANTILE = -1  # This shouldn't be in the [0, 1] range
+DEFAULT_CUTOFFS = (-float("inf"), float("inf"))
 
 
 class Winsorize(Transform):
@@ -84,9 +87,18 @@ class Winsorize(Transform):
     will winsorize 20% from below for metric_1 and 10% from above from metric_2.
     Additional metrics won't be winsorized.
 
+    You can also determine the winsorization cutoffs automatically without having an
+    ``OptimizationConfig`` by passing in AUTO_WINS_QUANTILE for the quantile you want
+    to winsorize. For example, to automatically winsorize large values:
+        ``"m1": WinsorizationConfig(upper_quantile_margin=AUTO_WINS_QUANTILE)``.
+    This may be useful when fitting models in a notebook where there is no corresponding
+    ``OptimizationConfig``.
+
     Additionally, you can pass in winsorization boundaries ``lower_boundary`` and
     ``upper_boundary``that specify a maximum allowable amount of winsorization. This
-    can be used to ensure winsorization doesn't move values across the reference point.
+    is discouraged and will eventually be deprecated as we strongly encourage
+    that users allow ``Winsorize`` to automatically infer these boundaries from
+    the optimization config.
     """
 
     def __init__(
@@ -98,36 +110,52 @@ class Winsorize(Transform):
     ) -> None:
         if len(observation_data) == 0:
             raise ValueError("Winsorize transform requires non-empty observation data.")
-        metric_values = get_data(observation_data=observation_data)
-
-        self.percentiles = {}
-        for metric_name, vals in metric_values.items():
-            metric_config = _maybe_get_winsorization_config_from_transform_config(
-                transform_config=config,
-                metric_name=metric_name,
+        if config is None:
+            raise ValueError(
+                "Transform config for `Winsorize` transform must be specified and "
+                "non-empty when using winsorization."
             )
+        all_metric_values = get_data(observation_data=observation_data)
 
-            if metric_config is None:
-                self.percentiles[metric_name] = (-float("inf"), float("inf"))
+        # Check for legacy config
+        use_legacy = False
+        old_present = set(OLD_KEYS).intersection(config.keys())
+        if old_present:
+            warnings.warn(
+                "Winsorization received an out-of-date `transform_config`, containing "
+                f"the following deprecated keys: {old_present}. Please update the "
+                "config according to the docs of "
+                "`ax.modelbridge.transforms.winsorize.Winsorize`.",
+                DeprecationWarning,
+            )
+            use_legacy = True
+
+        # Get winsorization and optimization configs
+        winsorization_config = config.get("winsorization_config", {})
+        opt_config = config.get("optimization_config", {})
+        if "optimization_config" in config:
+            if not isinstance(opt_config, OptimizationConfig):
+                raise UserInputError(
+                    "Expected `optimization_config` of type `OptimizationConfig` but "
+                    f"got type `{type(opt_config)}."
+                )
+            opt_config = checked_cast(OptimizationConfig, opt_config)
+
+        self.cutoffs = {}
+        for metric_name, metric_values in all_metric_values.items():
+            if use_legacy:
+                self.cutoffs[metric_name] = _get_cutoffs_from_legacy_transform_config(
+                    metric_name=metric_name,
+                    metric_values=metric_values,
+                    transform_config=config,
+                )
             else:
-                lower = metric_config.lower_quantile_margin
-                upper = metric_config.upper_quantile_margin
-                bnd_l = metric_config.lower_boundary
-                bnd_u = metric_config.upper_boundary
-
-                if lower >= 1 - upper:
-                    raise ValueError(  # pragma: no cover
-                        f"Lower bound: {lower} was greater than the inverse of the "
-                        f"upper bound: {1 - upper} for metric {metric_name}. Decrease "
-                        f"one or both of `lower_quantile_margin` and "
-                        "`upper_quantile_margin`."
-                    )
-
-                pct_l = np.percentile(vals, lower * 100, interpolation="lower")
-                pct_u = np.percentile(vals, (1 - upper) * 100, interpolation="higher")
-                pct_l = min(pct_l, bnd_l if bnd_l is not None else float("inf"))
-                pct_u = max(pct_u, bnd_u if bnd_u is not None else -float("inf"))
-                self.percentiles[metric_name] = (pct_l, pct_u)
+                self.cutoffs[metric_name] = _get_cutoffs_from_transform_config(
+                    metric_name=metric_name,
+                    metric_values=metric_values,
+                    winsorization_config=winsorization_config,  # pyre-ignore[6]
+                    optimization_config=opt_config,  # pyre-ignore[6]
+                )
 
     def transform_observation_data(
         self,
@@ -137,80 +165,247 @@ class Winsorize(Transform):
         """Winsorize observation data in place."""
         for obsd in observation_data:
             for idx, metric_name in enumerate(obsd.metric_names):
-                if metric_name not in self.percentiles:  # pragma: no cover
+                if metric_name not in self.cutoffs:  # pragma: no cover
                     raise ValueError(f"Cannot winsorize unknown metric {metric_name}")
                 # Clip on the winsorization bounds.
-                obsd.means[idx] = max(obsd.means[idx], self.percentiles[metric_name][0])
-                obsd.means[idx] = min(obsd.means[idx], self.percentiles[metric_name][1])
+                obsd.means[idx] = max(obsd.means[idx], self.cutoffs[metric_name][0])
+                obsd.means[idx] = min(obsd.means[idx], self.cutoffs[metric_name][1])
         return observation_data
 
 
-def _maybe_get_winsorization_config_from_transform_config(
+def _get_cutoffs_from_transform_config(
     metric_name: str,
-    transform_config: Optional[TConfig] = None,
-) -> Optional[WinsorizationConfig]:
-    # Don't winsorize if `transform_config is None`.
-    if transform_config is None:
-        return None
-    # Return `winsorization_config` if specified.
-    if "winsorization_config" in transform_config:
-        wconfig = transform_config["winsorization_config"]
-        # If `winsorization_config` is a single `WinsorizationConfig`, use
-        # it for all metrics.
-        if isinstance(wconfig, WinsorizationConfig):
-            return wconfig
-        # If `winsorization_config` is a dict, use if metric_name is in keys,
-        # and the corresponding value is a WinsorizationConfig.
-        if isinstance(wconfig, dict) and metric_name in wconfig:
-            metric_config = wconfig[metric_name]
-            if not isinstance(metric_config, WinsorizationConfig):
-                raise UserInputError(
-                    "Expected winsorization config of type "
-                    f"`WinsorizationConfig` but got {metric_config} of type "
-                    f"{type(metric_config)} for metric {metric_name}."
-                )
-            return metric_config
-    # If a WinsorizationConfig has not been specified for `metric_name` and
-    # optimization_config is specified, use it to determine defaults.
-    if "optimization_config" in transform_config:
-        oconfig = transform_config["optimization_config"]
-        if not isinstance(oconfig, OptimizationConfig):
-            raise UserInputError(
-                "Expected `optimization_config` of type `OptimizationConfig` but "
-                f"got type `{type(oconfig)}."
-            )
-            return None
-        oconfig = checked_cast(OptimizationConfig, oconfig)
-        if oconfig.is_moo_problem:
-            warnings.warn(
-                "Winsorization defaults are currently not available for "
-                f"multi-objective optimization problems. Not winsorizing {metric_name}."
-            )
-            return None
-        return (
-            DEFAULT_WINSORIZATION_CONFIG_MINIMIZATION
-            if oconfig.objective.minimize
-            else DEFAULT_WINSORIZATION_CONFIG_MAXIMIZATION
-        )
-    old_keys = ["winsorization_lower", "winsorization_upper", "percentile_bounds"]
-    if any(old_key in transform_config for old_key in old_keys):
-        DeprecationWarning(
-            "Winsorization received an out-of-date `transform_config`, containing at "
-            f"least one of the keys {old_keys}. Please update the config according to "
-            "the docs of `ax.modelbridge.transforms.winsorize.Winsorize`."
-        )
-        return _get_winsorization_config_from_legacy_transform_config(
+    metric_values: List[float],
+    winsorization_config: Union[WinsorizationConfig, Dict[str, WinsorizationConfig]],
+    optimization_config: Optional[OptimizationConfig],
+) -> Tuple[float, float]:
+    # (1) Use the same config for all metrics if one WinsorizationConfig was specified
+    if isinstance(winsorization_config, WinsorizationConfig):
+        return _quantiles_to_cutoffs(
             metric_name=metric_name,
-            transform_config=transform_config,
+            metric_values=metric_values,
+            metric_config=winsorization_config,
         )
-    # If none of the above, don't winsorize.
-    return None
+
+    # (2) If `winsorization_config` is a dict, use it if `metric_name` is a key,
+    # and the corresponding value is a WinsorizationConfig.
+    if isinstance(winsorization_config, dict) and metric_name in winsorization_config:
+        metric_config = winsorization_config[metric_name]
+        if not isinstance(metric_config, WinsorizationConfig):
+            raise UserInputError(
+                "Expected winsorization config of type "
+                f"`WinsorizationConfig` but got {metric_config} of type "
+                f"{type(metric_config)} for metric {metric_name}."
+            )
+        return _quantiles_to_cutoffs(
+            metric_name=metric_name,
+            metric_values=metric_values,
+            metric_config=metric_config,
+        )
+
+    # (3) For constraints and objectives that don't have a pre-specified config we
+    # choose the cutoffs automatically using the optimization config (if supplied).
+    # We ignore ScalarizedOutcomeConstraint and ScalarizedObjective for now. An
+    # exception is raised if we encounter relative constraints.
+    if optimization_config:
+        if metric_name in optimization_config.objective.metric_names:
+            if isinstance(optimization_config.objective, ScalarizedObjective):
+                warnings.warn(
+                    "Automatic winsorization isn't supported for ScalarizedObjective. "
+                    "Specify the winsorization settings manually if you want to "
+                    f"winsorize metric {metric_name}."
+                )
+                return DEFAULT_CUTOFFS  # Don't winsorize a ScalarizedObjective
+            elif optimization_config.is_moo_problem:
+                # We deal with a multi-objective function the same way as we deal
+                # with an output constraint. It may be worth investigating setting
+                # the winsorization cutoffs based on the Pareto frontier in the future.
+                optimization_config = checked_cast(
+                    MultiObjectiveOptimizationConfig, optimization_config
+                )
+                objective_threshold = _get_objective_threshold_from_moo_config(
+                    optimization_config=optimization_config, metric_name=metric_name
+                )
+                if objective_threshold:
+                    return _get_auto_winsorization_cutoffs_outcome_constraint(
+                        metric_values=metric_values,
+                        outcome_constraints=objective_threshold,
+                    )
+                warnings.warn(
+                    "Automatic winsorization isn't supported for an objective in "
+                    "`MultiObjective` without objective thresholds. Specify the "
+                    "winsorization settings manually if you want to winsorize "
+                    f"metric {metric_name}."
+                )
+                return DEFAULT_CUTOFFS  # Don't winsorize if there is no threshold
+            else:  # Single objective
+                return _get_auto_winsorization_cutoffs_single_objective(
+                    metric_values=metric_values,
+                    minimize=optimization_config.objective.minimize,
+                )
+        # Get all outcome constraints for metric_name that aren't relative or scalarized
+        outcome_constraints = _get_outcome_constraints_from_config(
+            optimization_config=optimization_config, metric_name=metric_name
+        )
+        if outcome_constraints:
+            return _get_auto_winsorization_cutoffs_outcome_constraint(
+                metric_values=metric_values,
+                outcome_constraints=outcome_constraints,
+            )
+
+    # If none of the above, we don't winsorize.
+    return DEFAULT_CUTOFFS
 
 
-def _get_winsorization_config_from_legacy_transform_config(
+def _get_outcome_constraints_from_config(
+    optimization_config: OptimizationConfig, metric_name: str
+) -> List[OutcomeConstraint]:
+    """Get all outcome constraints (non-scalarized) for a given metric."""
+    # Check for scalarized outcome constraints for the given metric
+    if any(
+        isinstance(oc, ScalarizedOutcomeConstraint)
+        and metric_name in [metric.name for metric in oc.metrics]
+        for oc in optimization_config.outcome_constraints
+    ):
+        warnings.warn(
+            "Automatic winsorization isn't supported for a "
+            "`ScalarizedOutcomeConstraint`. Specify the winsorization settings "
+            f"manually if you want to winsorize metric {metric_name}."
+        )
+    # Filter scalarized outcome constraints
+    outcome_constraints = [
+        oc
+        for oc in optimization_config.outcome_constraints
+        if not isinstance(oc, ScalarizedOutcomeConstraint)
+        and oc.metric.name == metric_name
+    ]
+    # Raise an error if there are relative constraints
+    if any(oc.relative for oc in outcome_constraints):
+        raise UnsupportedError(
+            "Automatic winsorization doesn't support relative outcome constraints. "
+            "Make sure a `Derelativize` transform is applied first."
+        )
+    return outcome_constraints
+
+
+def _get_objective_threshold_from_moo_config(
+    optimization_config: MultiObjectiveOptimizationConfig, metric_name: str
+) -> List[ObjectiveThreshold]:
+    """Get the non-relative objective threshold for a given metric."""
+    objective_thresholds = [
+        ot
+        for ot in optimization_config.objective_thresholds
+        if ot.metric.name == metric_name
+    ]
+    if any(oc.relative for oc in objective_thresholds):
+        raise UnsupportedError(
+            "Automatic winsorization doesn't support relative objective thresholds. "
+            "Make sure a `Derelevatize` transform is applied first."
+        )
+    return objective_thresholds
+
+
+def _get_tukey_cutoffs(Y: np.ndarray, lower: bool) -> float:
+    """Compute winsorization cutoffs similarly to Tukey boxplots.
+
+    See https://mathworld.wolfram.com/Box-and-WhiskerPlot.html for more details.
+    """
+    q1 = np.percentile(Y, q=25, interpolation="lower")
+    q3 = np.percentile(Y, q=75, interpolation="higher")
+    iqr = q3 - q1
+    return q1 - 1.5 * iqr if lower else q3 + 1.5 * iqr
+
+
+def _get_auto_winsorization_cutoffs_single_objective(
+    metric_values: List[float], minimize: bool
+) -> Tuple[float, float]:
+    """Automatic winsorization for a single objective.
+
+    We use a heuristic similar to what is used for Tukey box-plots in order to determine
+    what is an outlier. If we are minimizing we make sure that we winsorize large values
+    and if we maximize we winsorize small values.
+    """
+    Y = np.array(metric_values)
+    if minimize:
+        return (DEFAULT_CUTOFFS[0], _get_tukey_cutoffs(Y, lower=False))
+    else:
+        return (_get_tukey_cutoffs(Y, lower=True), DEFAULT_CUTOFFS[1])
+
+
+def _get_auto_winsorization_cutoffs_outcome_constraint(
+    metric_values: List[float],
+    outcome_constraints: Union[List[ObjectiveThreshold], List[OutcomeConstraint]],
+) -> Tuple[float, float]:
+    """Automatic winsorization to an outcome constraint.
+
+    We need to be careful here so we don't make infeasible points feasible.
+    While it is possible to winsorize from both ends, we only winsorize from the
+    infeasible direction for now so the same method can be used for MOO. We rely on
+    a heuristic similar to `_get_tukey_cutoffs`, but instead take the max of
+    q3 and the bound when we have a LEQ constraint and the min of q1 and the bound
+    with a GEQ constraint.
+    """
+    Y = np.array(metric_values)
+    q1 = np.percentile(Y, q=25, interpolation="lower")
+    q3 = np.percentile(Y, q=75, interpolation="higher")
+    lower_cutoff, upper_cutoff = DEFAULT_CUTOFFS
+    for oc in outcome_constraints:
+        bnd = oc.bound
+        if oc.op == ComparisonOp.LEQ:
+            upper_cutoff = max(q3, bnd) + 1.5 * (max(q3, bnd) - q1)
+        elif oc.op == ComparisonOp.GEQ:
+            lower_cutoff = min(q1, bnd) - 1.5 * (q3 - min(q1, bnd))
+        else:
+            raise ValueError("Exected outcome_constraint to use operator LEQ or GEQ")
+    return lower_cutoff, upper_cutoff
+
+
+def _quantiles_to_cutoffs(
     metric_name: str,
+    metric_values: List[float],
+    metric_config: WinsorizationConfig,
+) -> Tuple[float, float]:
+    """Compute winsorization cutoffs from a config and values."""
+    Y = np.array(metric_values)
+    lower = metric_config.lower_quantile_margin or 0.0
+    upper = metric_config.upper_quantile_margin or 0.0
+    bnd_l = metric_config.lower_boundary
+    bnd_u = metric_config.upper_boundary
+    if (
+        lower != AUTO_WINS_QUANTILE
+        and upper != AUTO_WINS_QUANTILE
+        and lower >= 1 - upper
+    ):
+        raise ValueError(  # pragma: no cover
+            f"Lower bound: {lower} was greater than the inverse of the "
+            f"upper bound: {1 - upper} for metric {metric_name}. Decrease "
+            f"one or both of `lower_quantile_margin` and "
+            "`upper_quantile_margin`."
+        )
+    if lower == AUTO_WINS_QUANTILE:
+        cutoff_l = _get_tukey_cutoffs(Y=Y, lower=True)
+    elif lower == 0.0:  # Use the default cutoff if there is no winsorization
+        cutoff_l = DEFAULT_CUTOFFS[0]
+    else:
+        cutoff_l = np.percentile(Y, lower * 100, interpolation="lower")
+
+    if upper == AUTO_WINS_QUANTILE:
+        cutoff_u = _get_tukey_cutoffs(Y=Y, lower=False)
+    elif upper == 0.0:  # Use the default cutoff if there is no winsorization
+        cutoff_u = DEFAULT_CUTOFFS[1]
+    else:
+        cutoff_u = np.percentile(Y, (1 - upper) * 100, interpolation="higher")
+
+    cutoff_l = min(cutoff_l, bnd_l) if bnd_l is not None else cutoff_l
+    cutoff_u = max(cutoff_u, bnd_u) if bnd_u is not None else cutoff_u
+    return (cutoff_l, cutoff_u)
+
+
+def _get_cutoffs_from_legacy_transform_config(
+    metric_name: str,
+    metric_values: List[float],
     transform_config: TConfig,
-) -> WinsorizationConfig:
+) -> Tuple[float, float]:
     winsorization_config = WinsorizationConfig()
     if "winsorization_lower" in transform_config:
         winsorization_lower = transform_config["winsorization_lower"]
@@ -248,4 +443,8 @@ def _get_winsorization_config_from_legacy_transform_config(
             )
         winsorization_config.lower_boundary = output_percentile_bounds[0]
         winsorization_config.upper_boundary = output_percentile_bounds[1]
-    return winsorization_config
+    return _quantiles_to_cutoffs(
+        metric_name=metric_name,
+        metric_values=metric_values,
+        metric_config=winsorization_config,
+    )

@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
 from copy import deepcopy
 
 import numpy as np
@@ -106,13 +107,31 @@ class WinsorizeTransformTestLegacy(TestCase):
             },
         )
 
+    def testPrintDeprectationWarning(self):
+        warnings.simplefilter("always", append=True)
+        with warnings.catch_warnings(record=True) as ws:
+            Winsorize(
+                search_space=None,
+                observation_features=None,
+                observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
+                config={"winsorization_upper": 0.2},
+            )
+            self.assertEqual(len(ws), 1)
+            self.assertEqual(
+                "Winsorization received an out-of-date `transform_config`, containing "
+                "the following deprecated keys: {'winsorization_upper'}. Please "
+                "update the config according to the docs of "
+                "`ax.modelbridge.transforms.winsorize.Winsorize`.",
+                str(ws[0].message),
+            )
+
     def testInit(self):
-        self.assertEqual(self.t.percentiles["m1"], (0.0, 2.0))
-        self.assertEqual(self.t.percentiles["m2"], (0.0, 2.0))
-        self.assertEqual(self.t1.percentiles["m1"], (0.0, 1.0))
-        self.assertEqual(self.t1.percentiles["m2"], (0.0, 1.0))
-        self.assertEqual(self.t2.percentiles["m1"], (0.0, 2.0))
-        self.assertEqual(self.t2.percentiles["m2"], (0.0, 2.0))
+        self.assertEqual(self.t.cutoffs["m1"], (-float("inf"), 2.0))
+        self.assertEqual(self.t.cutoffs["m2"], (-float("inf"), 2.0))
+        self.assertEqual(self.t1.cutoffs["m1"], (-float("inf"), 1.0))
+        self.assertEqual(self.t1.cutoffs["m2"], (-float("inf"), 1.0))
+        self.assertEqual(self.t2.cutoffs["m1"], (0.0, float("inf")))
+        self.assertEqual(self.t2.cutoffs["m2"], (0.0, float("inf")))
         with self.assertRaises(ValueError):
             Winsorize(search_space=None, observation_features=[], observation_data=[])
 
@@ -135,10 +154,10 @@ class WinsorizeTransformTestLegacy(TestCase):
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
     def testInitPercentileBounds(self):
-        self.assertEqual(self.t3.percentiles["m1"], (0.0, 1.0))
-        self.assertEqual(self.t3.percentiles["m2"], (0.0, 1.9))
-        self.assertEqual(self.t4.percentiles["m1"], (1.0, 2.0))
-        self.assertEqual(self.t4.percentiles["m2"], (0.3, 2.0))
+        self.assertEqual(self.t3.cutoffs["m1"], (-float("inf"), 1.0))
+        self.assertEqual(self.t3.cutoffs["m2"], (-float("inf"), 1.9))
+        self.assertEqual(self.t4.cutoffs["m1"], (1.0, float("inf")))
+        self.assertEqual(self.t4.cutoffs["m2"], (0.3, float("inf")))
 
     def testValueError(self):
         with self.assertRaises(ValueError):
@@ -174,9 +193,9 @@ class WinsorizeTransformTestLegacy(TestCase):
         observation_data = self.t5.transform_observation_data(
             [deepcopy(self.obsd2)], []
         )[0]
-        self.assertEqual(self.t5.percentiles["m1"], (0.0, 1.0))
-        self.assertEqual(self.t5.percentiles["m2"], (1.0, 2.0))
-        self.assertEqual(self.t5.percentiles["m3"], (0.0, 5.0))
+        self.assertEqual(self.t5.cutoffs["m1"], (-float("inf"), 1.0))
+        self.assertEqual(self.t5.cutoffs["m2"], (1.0, float("inf")))
+        self.assertEqual(self.t5.cutoffs["m3"], (-float("inf"), float("inf")))
         self.assertListEqual(list(observation_data.means), [1.0, 1.0, 2.0, 1.0])
         # Nothing should happen to m3
         observation_data = self.t5.transform_observation_data(
@@ -187,6 +206,6 @@ class WinsorizeTransformTestLegacy(TestCase):
         observation_data = self.t6.transform_observation_data(
             [deepcopy(self.obsd2)], []
         )[0]
-        self.assertEqual(self.t6.percentiles["m1"], (0.0, 1.0))
-        self.assertEqual(self.t6.percentiles["m2"], (0.0, 2.0))
+        self.assertEqual(self.t6.cutoffs["m1"], (-float("inf"), 1.0))
+        self.assertEqual(self.t6.cutoffs["m2"], (0.0, float("inf")))
         self.assertListEqual(list(observation_data.means), [1.0, 1.0, 2.0, 1.0])
