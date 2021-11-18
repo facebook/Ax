@@ -10,6 +10,7 @@ from ax.modelbridge.dispatch_utils import (
     DEFAULT_BAYESIAN_PARALLELISM,
     choose_generation_strategy,
 )
+from ax.modelbridge.transforms.winsorize import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_search_space,
@@ -38,16 +39,25 @@ class TestDispatchUtils(TestCase):
             )
             self.assertIsNone(sobol_gpei._steps[1].model_kwargs)
         with self.subTest("MOO"):
+            optimization_config = MultiObjectiveOptimizationConfig(
+                objective=MultiObjective(objectives=[])
+            )
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),
-                optimization_config=MultiObjectiveOptimizationConfig(
-                    objective=MultiObjective(objectives=[])
-                ),
+                optimization_config=optimization_config,
             )
             self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
             self.assertEqual(sobol_gpei._steps[1].model.value, "MOO")
-            self.assertIsNone(sobol_gpei._steps[1].model_kwargs)
+            model_kwargs = sobol_gpei._steps[1].model_kwargs
+            self.assertEqual(
+                list(model_kwargs.keys()), ["transforms", "transform_configs"]
+            )
+            self.assertGreater(len(model_kwargs["transforms"]), 0)
+            transform_config_dict = {
+                "Winsorize": {"optimization_config": optimization_config}
+            }
+            self.assertEqual(model_kwargs["transform_configs"], transform_config_dict)
         with self.subTest("Sobol (we can try every option)"):
             sobol = choose_generation_strategy(
                 search_space=get_factorial_search_space(), num_trials=1000
@@ -177,8 +187,7 @@ class TestDispatchUtils(TestCase):
     def test_winsorization(self):
         winsorized = choose_generation_strategy(
             search_space=get_branin_search_space(),
-            winsorize_botorch_model=True,
-            winsorization_limits=(None, 0, 2),
+            winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
         )
         self.assertIn(
             "Winsorize", winsorized._steps[1].model_kwargs.get("transform_configs")

@@ -1285,6 +1285,8 @@ class TestAxClient(TestCase):
         # up-to-date experiment data. Do adding trial #4 to the seen completed
         # trials of pre-storage GS to check their equality otherwise.
         gs._seen_trial_indices_by_status[TrialStatus.COMPLETED].add(4)
+        # Resolves _db_id field between these classes
+        _resolve_db_id(ax_client.generation_strategy, gs)
         self.assertEqual(gs, ax_client.generation_strategy)
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.
@@ -1688,3 +1690,13 @@ class TestAxClient(TestCase):
             params, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(trial_index=trial_index, raw_data=trial_index)
         self.assertEqual(len(ax_client.experiment.trials), 10)
+
+
+def _resolve_db_id(gs_to_resolve, source_gs):
+    gs_to_resolve._steps[1].model_kwargs["transform_configs"]["Winsorize"][
+        "optimization_config"
+    ].objective.metric._db_id = (
+        source_gs._steps[1]
+        .model_kwargs["transform_configs"]["Winsorize"]["optimization_config"]
+        .objective.metric._db_id
+    )

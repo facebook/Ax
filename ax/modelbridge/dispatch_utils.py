@@ -7,7 +7,7 @@
 import logging
 import warnings
 from math import ceil
-from typing import cast, Optional, Tuple, Type, Union
+from typing import Dict, cast, Optional, Type, Union
 
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
@@ -61,33 +61,28 @@ def _make_sobol_step(
 
 def _make_botorch_step(
     num_trials: int = -1,
+    optimization_config: Optional[OptimizationConfig] = None,
     min_trials_observed: Optional[int] = None,
     enforce_num_trials: bool = True,
     max_parallelism: Optional[int] = None,
     model: Models = Models.GPEI,
-    winsorize: bool = False,
-    winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
+    winsorization_config: Optional[
+        Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
+    ] = None,
+    no_winsorization: bool = False,
     should_deduplicate: bool = False,
     verbose: Optional[bool] = None,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
-    if (winsorize and winsorization_limits is None) or (
-        winsorization_limits is not None and not winsorize
-    ):
-        raise ValueError(  # pragma: no cover
-            "To apply winsorization, specify `winsorize=True` and provide the "
-            "winsorization limits."
-        )
 
     winsorization_transform_config = _get_winsorization_transform_config(
-        winsorization_limits=winsorization_limits,
-        optimization_config=None,
-        no_winsorization=not winsorize,
+        winsorization_config=winsorization_config,
+        optimization_config=optimization_config,
+        no_winsorization=no_winsorization,
     )
 
     model_kwargs = {}
-    if winsorize:
-        assert winsorization_transform_config is not None
+    if winsorization_transform_config is not None:
         model_kwargs.update(
             {
                 "transforms": [cast(Type[Transform], Winsorize)]
@@ -228,8 +223,10 @@ def choose_generation_strategy(
     use_batch_trials: bool = False,
     enforce_sequential_optimization: bool = True,
     random_seed: Optional[int] = None,
-    winsorize_botorch_model: bool = False,
-    winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
+    winsorization_config: Optional[
+        Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
+    ] = None,
+    no_winsorization: bool = False,
     no_bayesian_optimization: bool = False,
     num_trials: Optional[int] = None,
     num_initialization_trials: Optional[int] = None,
@@ -262,9 +259,9 @@ def choose_generation_strategy(
         random_seed: Fixed random seed for the Sobol generator.
         winsorize_botorch_model: Whether to apply the winsorization transform
             prior to applying other transforms for fitting the BoTorch model.
-        winsorization_limits: Bounds for winsorization, if winsorizing, expressed
-            as percentile. Usually only the upper winsorization trim is used when
-            minimizing, and only the lower when maximizing.
+        winsorization_config: Explicit winsorization settings, if winsorizing. Usually
+            only `upper_quantile_margin` is set when minimizing, and only
+            `lower_quantile_margin` when maximizing.
         no_bayesian_optimization: If True, Bayesian optimization generation
             strategy will not be suggested and quasi-random strategy will be used.
         num_trials: Total number of trials in the optimization, if
@@ -378,8 +375,9 @@ def choose_generation_strategy(
                 ),
                 _make_botorch_step(
                     model=suggested_model,
-                    winsorize=winsorize_botorch_model,
-                    winsorization_limits=winsorization_limits,
+                    optimization_config=optimization_config,
+                    winsorization_config=winsorization_config,
+                    no_winsorization=no_winsorization,
                     max_parallelism=bo_parallelism,
                     should_deduplicate=should_deduplicate,
                     verbose=verbose,
@@ -411,23 +409,22 @@ def choose_generation_strategy(
 
 
 def _get_winsorization_transform_config(
-    winsorization_limits: Optional[Tuple[Optional[float], Optional[float]]],
+    winsorization_config: Optional[
+        Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
+    ],
     optimization_config: Optional[OptimizationConfig],
     no_winsorization: bool,
 ) -> Optional[TConfig]:
-    if no_winsorization or not (winsorization_limits or optimization_config):
-        if winsorization_limits is not None:
+    if no_winsorization or not (winsorization_config or optimization_config):
+        if winsorization_config is not None:
             warnings.warn(
-                "`no_winsorization = True` but `winsorization_limits` have been set. "
+                "`no_winsorization = True` but `winsorization_config` has been set. "
                 "Not winsorizing."
             )
         return None
     transform_config = {}
-    if winsorization_limits:
-        transform_config["winsorization_config"] = WinsorizationConfig(
-            lower_quantile_margin=winsorization_limits[0] or 0.0,
-            upper_quantile_margin=winsorization_limits[1] or 0.0,
-        )
+    if winsorization_config:
+        transform_config["winsorization_config"] = winsorization_config
     if optimization_config:
         transform_config["optimization_config"] = optimization_config
     return transform_config
