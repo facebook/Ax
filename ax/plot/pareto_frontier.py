@@ -4,11 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
 from typing import Union, Dict, List, Optional, Tuple
 
 import numpy as np
 import plotly.graph_objs as go
 from ax.core.experiment import Experiment
+from ax.core.objective import MultiObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -719,7 +721,7 @@ def _pareto_frontier_plot_input_processing(
     metric_names: Optional[Tuple[str, str]] = None,
     reference_point: Optional[Tuple[float, float]] = None,
     minimize: Optional[Union[bool, Tuple[bool, bool]]] = None,
-) -> Tuple[Tuple[str, str], Tuple[float, float], Tuple[bool, bool]]:
+) -> Tuple[Tuple[str, str], Optional[Tuple[float, float]], Optional[Tuple[bool, bool]]]:
     """Processes inputs for Pareto frontier + scatterplot.
 
     Args:
@@ -743,7 +745,6 @@ def _pareto_frontier_plot_input_processing(
         experiment=experiment,
         metric_names=metric_names,
         reference_point=reference_point,
-        minimize=minimize,
     )
     metric_names = _validate_and_maybe_get_default_metric_names(
         metric_names=metric_names, optimization_config=optimization_config
@@ -752,19 +753,19 @@ def _pareto_frontier_plot_input_processing(
         optimization_config=optimization_config,
         metric_names=metric_names,
         reference_point=reference_point,
-        minimize=minimize,
     )
     reference_point = _validate_and_maybe_get_default_reference_point(
         reference_point=reference_point,
         objective_thresholds=objective_thresholds,
         metric_names=metric_names,
     )
-    minimize = _validate_and_maybe_get_default_minimize(
+    minimize_output = _validate_and_maybe_get_default_minimize(
         minimize=minimize,
         objective_thresholds=objective_thresholds,
         metric_names=metric_names,
+        optimization_config=optimization_config,
     )
-    return metric_names, reference_point, minimize
+    return metric_names, reference_point, minimize_output
 
 
 def _validate_experiment_and_get_optimization_config(
@@ -773,16 +774,25 @@ def _validate_experiment_and_get_optimization_config(
     reference_point: Optional[Tuple[float, float]] = None,
     minimize: Optional[Union[bool, Tuple[bool, bool]]] = None,
 ) -> Optional[OptimizationConfig]:
-    optimization_config = None
-    # If any inputs are missing, check that `optimization_config` is specified
-    if metric_names is None or reference_point is None or minimize is None:
-        if experiment.optimization_config is None:
+    # If `optimization_config` is unspecified, check what inputs are missing and
+    # error/warn accordingly
+    if experiment.optimization_config is None:
+        if metric_names is None:
             raise UserInputError(
-                "Inference of defaults failed. Please either specify all args to this "
-                "function or provide an experiment with an `optimization_config`."
+                "Inference of defaults failed. Please either specify `metric_names` "
+                "(and optionally `minimize` and `reference_point`) or provide an "
+                "experiment with an `optimization_config`."
             )
-        optimization_config = not_none(experiment.optimization_config)
-    return optimization_config
+        if reference_point is None or minimize is None:
+            warnings.warn(
+                "Inference of defaults failed. Please specify `minimize` and "
+                "`reference_point` if available, or provide an experiment with an "
+                "`optimization_config` that contains an `objective` and "
+                "`objective_threshold` corresponding to each of `metric_names`: "
+                f"{metric_names}."
+            )
+        return None
+    return not_none(experiment.optimization_config)
 
 
 def _validate_and_maybe_get_default_metric_names(
@@ -791,57 +801,51 @@ def _validate_and_maybe_get_default_metric_names(
 ) -> Tuple[str, str]:
     # Default metric_names is all metrics, producing an error if more than 2
     if metric_names is None:
-        metric_names = tuple(not_none(optimization_config).metrics.keys())
-    if len(metric_names) != 2:
-        raise UserInputError(
-            f"Expected 2 metrics but got {len(metric_names)}: {metric_names}. Please "
-            "specify `metric_names` of length 2 or provide an experiment whose "
-            "`optimization_config` has 2 metrics."
-        )
-    return metric_names
+        if not_none(optimization_config).is_moo_problem:
+            multi_objective = checked_cast(
+                MultiObjective, not_none(optimization_config).objective
+            )
+            metric_names = tuple(obj.metric.name for obj in multi_objective.objectives)
+        else:
+            raise UserInputError(
+                "Inference of `metric_names` failed. Expected `MultiObjective` but "
+                f"got {not_none(optimization_config).objective}. Please specify "
+                "`metric_names` of length 2 or provide an experiment whose "
+                "`optimization_config` has 2 objective metrics."
+            )
+    if metric_names is not None and len(metric_names) == 2:
+        return metric_names
+    raise UserInputError(
+        f"Expected 2 metrics but got {len(metric_names or [])}: {metric_names}. "
+        "Please specify `metric_names` of length 2 or provide an experiment whose "
+        "`optimization_config` has 2 objective metrics."
+    )
 
 
 def _validate_experiment_and_maybe_get_objective_thresholds(
     optimization_config: Optional[OptimizationConfig],
     metric_names: Tuple[str, str],
     reference_point: Optional[Tuple[float, float]],
-    minimize: Optional[Union[bool, Tuple[bool, bool]]],
 ) -> List[ObjectiveThreshold]:
     objective_thresholds = []
-    # Validate `objective_thresholds` if either `reference_point` or `minimize` are
-    # unspecified
-    # `method_str` is non-empty if either `reference_point` or `minimize` are `None`
-    method_str = " and ".join(
-        {
-            "`reference_point`" if reference_point is None else "",
-            "`minimize`" if minimize is None else "",
-        }
-        - {""}
-    )
-    if method_str:
+    # Validate `objective_thresholds` if `reference_point` is unspecified.
+    if reference_point is None:
         objective_thresholds = checked_cast(
             MultiObjectiveOptimizationConfig, optimization_config
         ).objective_thresholds
-        if len(objective_thresholds) != len(metric_names):
-            raise UserInputError(
-                f"For automatic determination of {method_str}, expecting one "
-                "`objective_threshold` for each metric. Got "
-                f"{len(objective_thresholds)}: {objective_thresholds}. Please specify "
-                f"{method_str} or provide an experiment whose `optimization_config` "
-                "contains one `objective_threshold` for each metric."
-            )
-        constraint_metrics = {
+        constraint_metric_names = {
             objective_threshold.metric.name
             for objective_threshold in objective_thresholds
         }
-        missing_metrics = set(metric_names) - set(constraint_metrics)
-        if missing_metrics:
-            raise UserInputError(
-                f"For automatic determination of {method_str}, expecting one "
-                "`objective_threshold` for each metric. Missing `objective_thresholds` "
-                f"for {missing_metrics}. Please specify {method_str} or provide an "
-                "experiment whose `optimization_config` contains one "
-                "`objective_threshold` for each metric."
+        missing_metric_names = set(metric_names) - set(constraint_metric_names)
+        if len(objective_thresholds) != len(metric_names) or missing_metric_names:
+            warnings.warn(
+                "For automatic inference of reference point, expected one "
+                "`objective_threshold` for each metric in `metric_names`: "
+                f"{metric_names}. Got {len(objective_thresholds)}: "
+                f"{objective_thresholds}. Please specify `reference_point` or provide "
+                "an experiment whose `optimization_config` contains one "
+                "objective threshold for each metric. Returning an empty list."
             )
 
     return objective_thresholds
@@ -851,22 +855,32 @@ def _validate_and_maybe_get_default_reference_point(
     reference_point: Optional[Tuple[float, float]],
     objective_thresholds: List[ObjectiveThreshold],
     metric_names: Tuple[str, str],
-) -> Tuple[float, float]:
+) -> Optional[Tuple[float, float]]:
     if reference_point is None:
         reference_point = {
             objective_threshold.metric.name: objective_threshold.bound
             for objective_threshold in objective_thresholds
         }
+        missing_metric_names = set(metric_names) - set(reference_point)
+        if missing_metric_names:
+            warnings.warn(
+                "Automated determination of `reference_point` failed: missing metrics "
+                f"{missing_metric_names}. Please specify `reference_point` or provide "
+                "an experiment whose `optimization_config` has one "
+                "`objective_threshold` for each of two metrics. Returning `None`."
+            )
+            return None
         reference_point = tuple(
             reference_point[metric_name] for metric_name in metric_names
         )
     if len(reference_point) != 2:
-        raise UserInputError(
+        warnings.warn(
             f"Expected 2-dimensional `reference_point` but got {len(reference_point)} "
             f"dimensions: {reference_point}. Please specify `reference_point` of "
-            "length 2 or provide an experiment whose optimization_config has one "
-            "constraint for each of two metrics."
+            "length 2 or provide an experiment whose optimization config has one "
+            "`objective_threshold` for each of two metrics. Returning `None`."
         )
+        return None
     return reference_point
 
 
@@ -874,33 +888,83 @@ def _validate_and_maybe_get_default_minimize(
     minimize: Optional[Union[bool, Tuple[bool, bool]]],
     objective_thresholds: List[ObjectiveThreshold],
     metric_names: Tuple[str, str],
-) -> Tuple[bool, bool]:
+    optimization_config: Optional[OptimizationConfig] = None,
+) -> Optional[Tuple[bool, bool]]:
     if minimize is None:
-        # Determine `minimize` from constraints since metrics are not always objectives
-        objective_thresholds = not_none(objective_thresholds)
+        # Determine `minimize` defaults
+        minimize = tuple(
+            _maybe_get_default_minimize_single_metric(
+                metric_name=metric_name,
+                optimization_config=optimization_config,
+                objective_thresholds=objective_thresholds,
+            )
+            for metric_name in metric_names
+        )
+        # If either value of minimize is missing, return `None`
+        if any(i_min is None for i_min in minimize):
+            warnings.warn(
+                "Extraction of default `minimize` failed. Please specify `minimize` "
+                "of length 2 or provide an experiment whose `optimization_config` "
+                "includes 2 objectives. Returning None."
+            )
+            return None
+        minimize = tuple(not_none(i_min) for i_min in minimize)
+    # If only one bool provided, use for both dimensions
+    elif isinstance(minimize, bool):
+        minimize = (minimize, minimize)
+    if len(minimize) != 2:
+        warnings.warn(
+            f"Expected 2-dimensional `minimize` but got {len(minimize)} dimensions: "
+            f"{minimize}. Please specify `minimize` of length 2 or provide an "
+            "experiment whose `optimization_config` includes 2 objectives. Returning "
+            "None."
+        )
+        return None
+
+    return minimize
+
+
+def _maybe_get_default_minimize_single_metric(
+    metric_name: str,
+    objective_thresholds: List[ObjectiveThreshold],
+    optimization_config: Optional[OptimizationConfig] = None,
+) -> Optional[bool]:
+    minimize = None
+    # First try to get metric_name from optimization_config
+    if (
+        optimization_config is not None
+        and metric_name in optimization_config.objective.metric_names
+    ):
+        if optimization_config.is_moo_problem:
+            multi_objective = checked_cast(
+                MultiObjective, optimization_config.objective
+            )
+            for objective in multi_objective.objectives:
+                if objective.metric.name == metric_name:
+                    return objective.minimize
+        else:
+            return optimization_config.objective.minimize
+
+    # Next try to get minimize from objective_thresholds
+    if objective_thresholds is not None:
         constraint_op_names = {
             objective_threshold.op.name for objective_threshold in objective_thresholds
         }
         invalid_constraint_op_names = constraint_op_names - VALID_CONSTRAINT_OP_NAMES
         if invalid_constraint_op_names:
             raise ValueError(
-                f"Operators of all constraints must be in {VALID_CONSTRAINT_OP_NAMES}. "
-                f"Got {invalid_constraint_op_names}.)"
+                "Operators of all constraints must be in "
+                f"{VALID_CONSTRAINT_OP_NAMES}. Got {invalid_constraint_op_names}.)"
             )
         minimize = {
             objective_threshold.metric.name: objective_threshold.op.name == "LEQ"
             for objective_threshold in objective_thresholds
         }
-        minimize = tuple(minimize[metric_name] for metric_name in metric_names)
-    # If only one bool provided, use for both dimensions
-    elif isinstance(minimize, bool):
-        minimize = (minimize, minimize)
-    if len(minimize) != 2:
-        raise UserInputError(
-            f"Expected 2-dimensional `minimize` but got {len(minimize)} dimensions: "
-            f"{minimize}. Please specify `minimize` of length 2 or provide an "
-            "experiment whose optimization_config has one constraint for each of two "
-            "metrics."
+        minimize = minimize.get(metric_name)
+    if minimize is None:
+        warnings.warn(
+            f"Extraction of default `minimize` failed for metric {metric_name}. "
+            f"Ensure {metric_name} is an objective of the provided experiment. "
+            "Setting `minimize` to `None`."
         )
-
     return minimize
