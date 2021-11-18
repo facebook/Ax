@@ -127,7 +127,7 @@ def _suggest_gp_model(
     3. We use ``MOO`` if ``optimization_config`` has multiple objectives and
     ``use_saasbo is False``.
     4. We use ``FULLYBAYESIANMOO`` if ``optimization_config`` has multiple objectives
-    and `use_saasbo is True`.
+    and ``use_saasbo is True``.
     5. If none of the above and ``use_saasbo is False``, we use ``GPEI``.
     6. If none of the above and ``use_saasbo is True``, we use ``FULLYBAYESIAN``.
     """
@@ -249,13 +249,13 @@ def choose_generation_strategy(
         use_batch_trials: Whether this generation strategy will be used to generate
             batched trials instead of 1-arm trials.
         enforce_sequential_optimization: Whether to enforce that 1) the generation
-            strategy needs to be updated with `min_trials_observed` observations for
+            strategy needs to be updated with ``min_trials_observed`` observations for
             a given generation step before proceeding to the next one and 2) maximum
             number of trials running at once (max_parallelism) if enforced for the
-            BayesOpt step. NOTE: `max_parallelism_override` and `max_parallelism_cap`
-            settings will still take their effect on max parallelism even if
-            `enforce_sequential_optimization=False`, so if those settings are specified,
-            max parallelism will be enforced.
+            BayesOpt step. NOTE: ``max_parallelism_override`` and
+            ``max_parallelism_cap`` settings will still take their effect on max
+            parallelism even if ``enforce_sequential_optimization=False``, so if those
+            settings are specified, max parallelism will be enforced.
         random_seed: Fixed random seed for the Sobol generator.
         winsorize_botorch_model: Whether to apply the winsorization transform
             prior to applying other transforms for fitting the BoTorch model.
@@ -270,19 +270,32 @@ def choose_generation_strategy(
             Typically, initialization trials are generated quasi-randomly.
         max_parallelism_override: Integer, with which to override the default max
             parallelism setting for all steps in the generation strategy returned from
-            this function. Each generation step has a `max_parallelism` value, which
+            this function. Each generation step has a ``max_parallelism`` value, which
             restricts how many trials can run simultaneously during a given generation
             step. By default, the parallelism setting is chosen as appropriate for the
-            model in a given generation step. If `max_parallelism_override` is -1,
-            no max parallelism will be enforced for any step of the generation strategy.
-            Be aware that parallelism is limited to improve performance of Bayesian
-            optimization, so only disable its limiting if necessary.
+            model in a given generation step. If ``max_parallelism_override`` is -1,
+            no max parallelism will be enforced for any step of the generation
+            strategy. Be aware that parallelism is limited to improve performance of
+            Bayesian optimization, so only disable its limiting if necessary.
         max_parallelism_cap: Integer cap on parallelism in this generation strategy.
-            If specified, `max_parallelism` setting in each generation step will be set
-            to the minimum of the default setting for that step and the value of this
-            cap. `max_parallelism_cap` is meant to just be a hard limit on parallelism
-            (e.g. to avoid overloading machine(s) that evaluate the experiment trials).
-            Specify only if not specifying `max_parallelism_override`.
+            If specified, ``max_parallelism`` setting in each generation step will be
+            set to the minimum of the default setting for that step and the value of
+            this cap. ``max_parallelism_cap`` is meant to just be a hard limit on
+            parallelism (e.g. to avoid overloading machine(s) that evaluate the
+            experiment trials). Specify only if not specifying
+            ``max_parallelism_override``.
+        optimization_config: used to infer whether to use MOO and will be passed in to
+            ``Winsorize`` via its ``transform_config`` in order to determine default
+            winsorization behavior when necessary.
+        should_deduplicate: Whether to deduplicate the parameters of proposed arms
+            against those of previous arms via rejection sampling. If this is True,
+            the generation strategy will discard generator runs produced from the
+            generation step that has `should_deduplicate=True` if they contain arms
+            already present on the experiment and replace them with new generator runs.
+            If no generator run with entirely unique arms could be produced in 5
+            attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we
+            assume that the optimization converged when the model can no longer suggest
+            unique arms.
         use_saasbo: Whether to use SAAS prior for any GPEI generation steps.
         verbose: Whether GP model should produce verbose logs. If not ``None``, its
             value gets added to ``model_kwargs`` during ``generation_strategy``
@@ -290,7 +303,7 @@ def choose_generation_strategy(
             outputs are currently only available for SAASBO, so if ``verbose is not
             None`` for a different model type, it will be overridden to ``None`` with
             a warning.
-        experiment: If specified, `_experiment` attribute of the generation strategy
+        experiment: If specified, ``_experiment`` attribute of the generation strategy
             will be set to this experiment (useful for associating a generation
             strategy with a given experiment before it's first used to ``gen`` with
             that experiment).
