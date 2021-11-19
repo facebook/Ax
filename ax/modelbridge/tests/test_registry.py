@@ -26,6 +26,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
+from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.alebo import ALEBO
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel
@@ -367,6 +368,21 @@ class ModelRegistryTest(TestCase):
         self.assertIsInstance(m, TorchModelBridge)
         self.assertIsInstance(m.model, ALEBO)
         self.assertTrue(np.array_equal(m.model.B.numpy(), B))
+
+    def test_ALEBO_Initializer(self):
+        """Tests Alebo Initializer generations"""
+        experiment = get_branin_experiment(with_batch=True)
+        B = np.array([[1.0, 2.0]])
+        m = Models.ALEBO_INITIALIZER(
+            experiment=experiment,
+            search_space=None,
+            B=B,
+        )
+        self.assertIsInstance(m, RandomModelBridge)
+        self.assertIsInstance(m.model, ALEBOInitializer)
+
+        gr = m.gen(n=2)
+        self.assertEqual(len(gr.arms), 2)
 
     def test_ST_MTGP_NEHVI(self):
         """Tests single type MTGP NEHVI instantiation."""

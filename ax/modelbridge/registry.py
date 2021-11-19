@@ -42,6 +42,7 @@ from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
+from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.alebo import ALEBO
@@ -232,6 +233,11 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         model_class=ALEBO,
         transforms=ALEBO_X_trans + ALEBO_Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
+    "ALEBO_Initializer": ModelSetup(
+        bridge_class=RandomModelBridge,
+        model_class=ALEBOInitializer,
+        transforms=ALEBO_X_trans,
     ),
     "BO_MIXED": ModelSetup(
         bridge_class=TorchModelBridge,
@@ -429,6 +435,7 @@ class Models(ModelRegistryBase):
     ALEBO = "ALEBO"
     BO_MIXED = "BO_MIXED"
     ST_MTGP_NEHVI = "ST_MTGP_NEHVI"
+    ALEBO_INITIALIZER = "ALEBO_Initializer"
 
 
 def get_model_from_generator_run(
