@@ -120,7 +120,10 @@ class ModelSpec(Base):
         optimization_config: Optional[OptimizationConfig] = None,
         **model_kwargs: Any,
     ) -> Dict[str, Any]:
-        """TODO"""
+        """Consolidate keyword arguments to ``Model`` and ``ModelBridge``
+        constructors, plugging in search space and optimization config
+        from the ``Experiment`` object if those are not explicitly specified.
+        """
         return {
             "search_space": search_space or experiment.search_space,
             "optimization_config": optimization_config
