@@ -13,7 +13,6 @@ from ax.core.observation import ObservationFeatures, ObservationData
 from ax.core.outcome_constraint import (
     ComparisonOp,
     ObjectiveThreshold,
-    OutcomeConstraint,
 )
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.modelbridge.factory import get_sobol
@@ -423,16 +422,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         param_constraints = [
             ParameterConstraint(constraint_dict={"x1": 1.0}, bound=10.0)
         ]
-        outcome_constraints = [
-            OutcomeConstraint(
-                metric=exp.metrics["branin_a"],
-                op=ComparisonOp.GEQ,
-                bound=-40.0,
-                relative=False,
-            )
-        ]
         search_space.add_parameter_constraints(param_constraints)
-        exp.optimization_config.outcome_constraints = outcome_constraints
         oc = exp.optimization_config.clone()
         oc.objective._objectives[0].minimize = True
         expected_base_gen_args = modelbridge._get_transformed_gen_args(
@@ -480,9 +470,6 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             )
             # check that transforms have been applied (at least UnitX)
             self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
-            oc = ckwargs["outcome_constraints"]
-            self.assertTrue(torch.equal(oc[0], torch.tensor([[-1.0, 0.0]])))
-            self.assertTrue(torch.equal(oc[1], torch.tensor([[45.0]])))
             lc = ckwargs["linear_constraints"]
             self.assertTrue(torch.equal(lc[0], torch.tensor([[15.0, 0.0]])))
             self.assertTrue(torch.equal(lc[1], torch.tensor([[15.0]])))
@@ -549,14 +536,6 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             optimization_config=exp.optimization_config,
             fixed_features=fixed_features,
         )
-        with self.assertRaises(ValueError):
-            # Check that a ValueError is raised when MTGP is being used
-            # and trial_index is not specified as a fixed features.
-            # Note: this error is raised by StratifiedStandardizeY
-            modelbridge.infer_objective_thresholds(
-                search_space=search_space,
-                optimization_config=exp.optimization_config,
-            )
         with ExitStack() as es:
             mock_model_infer_obj_t = es.enter_context(
                 patch(

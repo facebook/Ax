@@ -84,7 +84,10 @@ class ObjectiveTest(TestCase):
                 'Objective(metric_name="m3", minimize=False)])'
             ),
         )
-        self.assertEqual(self.multi_objective.get_unconstrainable_metrics(), [])
+        self.assertEqual(
+            self.multi_objective.get_unconstrainable_metrics(),
+            [self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]],
+        )
 
     def testMultiObjectiveBackwardsCompatibility(self):
         multi_objective = MultiObjective(
@@ -118,4 +121,7 @@ class ObjectiveTest(TestCase):
                 "minimize=False)"
             ),
         )
-        self.assertEqual(self.scalarized_objective.get_unconstrainable_metrics(), [])
+        self.assertEqual(
+            self.scalarized_objective.get_unconstrainable_metrics(),
+            [self.metrics["m1"], self.metrics["m2"]],
+        )
