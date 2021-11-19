@@ -151,11 +151,21 @@ class AbstractDataFrameData(AbstractData, Base):
 
     @classmethod
     def column_data_types(
-        cls, extra_column_types: Optional[Dict[str, Type]] = None
+        cls,
+        extra_column_types: Optional[Dict[str, Type]] = None,
+        excluded_columns: Optional[Iterable[str]] = None,
     ) -> Dict[str, Type]:
         """Type specification for all supported columns."""
         extra_column_types = extra_column_types or {}
-        return {**cls.COLUMN_DATA_TYPES, **extra_column_types}
+        excluded_columns = excluded_columns or []
+
+        columns = {**cls.COLUMN_DATA_TYPES, **extra_column_types}
+
+        for column in excluded_columns:
+            if column in columns:
+                del columns[column]
+
+        return columns
 
     @property
     def df(self) -> pd.DataFrame:
