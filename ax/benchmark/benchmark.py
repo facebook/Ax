@@ -503,7 +503,7 @@ def _benchmark_replication_Dev_API(
         optimization_config=problem.optimization_config,
         runner=SyntheticRunner(),
     )
-    for _ in range(num_trials):
+    for i in range(num_trials):
         try:
             gr = method.gen(experiment=experiment, n=batch_size)
             if batch_size == 1:
@@ -512,6 +512,7 @@ def _benchmark_replication_Dev_API(
                 assert batch_size > 1
                 trial = experiment.new_batch_trial(generator_run=gr)
             trial.run()
+            benchmark_trial(experiment=experiment, trial_index=i)
         except Exception as err:  # TODO[T53975770]: test
             if raise_all_exceptions:
                 raise
