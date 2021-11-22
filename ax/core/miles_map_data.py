@@ -29,6 +29,9 @@ class MapKeyInfo(Generic[T]):
         self._key = key
         self._default_value = default_value
 
+    def __str__(self) -> str:
+        return f"MapKeyInfo({self.key}, {self.default_value})"
+
     @property
     def key(self) -> str:
         return self._key
@@ -126,10 +129,16 @@ class MilesMapData(Data):
     ) -> MilesMapData:
         unique_map_key_infos = []
         for mki in (mki for datum in data for mki in datum.map_key_infos):
-            if mki.key in (mki.key for mki in unique_map_key_infos):
+            if any(
+                mki.key == unique.key and mki.default_value != unique.default_value
+                for unique in unique_map_key_infos
+            ):
                 logger.warning(f"MapKeyInfo conflict for {mki.key}, eliding {mki}.")
             else:
-                unique_map_key_infos.append(mki)
+                if not any(mki.key == unique.key for unique in unique_map_key_infos):
+                    # If there is a key conflict but the mkis are equal, silently do
+                    # not add the duplicate.
+                    unique_map_key_infos.append(mki)
 
         df = pd.concat(
             [pd.DataFrame(columns=[mki.key for mki in unique_map_key_infos])]
